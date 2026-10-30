@@ -19,6 +19,38 @@
   control was in force on a date; draft mode writes an OWL or SKOS file from tables, metrics or
   documents, checks it with the import preview, and hands it to a person to save in Ontology
   Studio. It never saves or publishes. `atlan-analytics ontology` and ask route to it.
+- In 0.1.6's notes below, `atlan-analytics-connect` is now `atlan-analytics connect`.
+
+## atlan-analytics 0.1.6
+
+- Metrics mode and build phase 3 no longer clone or run atlanhq/metrics-agent. That repository
+  is private, and the flags the skill passed it were retired, so outside Atlan the step always
+  fell back to definitions by hand. The add-on now carries the workflow itself in
+  `references/metrics.md`: the assistant authors the metrics (describe, propose, merge, write
+  the bodies, relate) under rules adapted from metrics-agent's authored gates. A
+  standard-library script, `scripts/metrics_mine.py`, does the deterministic work:
+  - `shapes` groups a cleaned query log into ranked query shapes;
+  - `check` holds every body to the registry's metric and saved-query contracts, refuses
+    duplicates, and matches each metric to a live one that measures the same thing;
+  - `import-run` reads a finished metrics-agent run's registry payloads.
+  Metrics are published through the registry's MCP tools, like saved queries and links.
+- Definitions come from every source in reach, highest first:
+  - declared semantic models: dbt MetricFlow, LookML, Cube, Snowflake semantic views and
+    Databricks metric views;
+  - Tableau and Power BI files;
+  - a finished metrics-agent run;
+  - query history;
+  - definitions written by hand.
+
+  The conventions' source-of-truth list names declared models beside BI models.
+- `atlan-analytics-connect` checks, in order, the tool state already holds, Atlan, the
+  harness's own connectors, and a vendor CLI (`snow`, `databricks`) where there is a shell and
+  a read-only connection. It asks for a server to be added only after that. It records a
+  separate bulk path, so a query-history pull can go straight to a file through the CLI.
+- Query history has fallbacks when the grant is missing:
+  - Snowflake: a one-time query-shape view an admin can create, `SNOWFLAKE.GOVERNANCE_VIEWER`
+    instead of imported privileges, and `INFORMATION_SCHEMA.QUERY_HISTORY` with no grant;
+  - Databricks: the shape view, system tables, or the Query History API through the CLI.
 
 ## atlan-analytics 0.1.5
 
