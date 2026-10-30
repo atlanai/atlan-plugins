@@ -1,5 +1,26 @@
 # Changelog
 
+## atlan-analytics 0.2.0
+
+- One `atlan-analytics` skill with modes replaces the separate build, connect, eval and improve
+  skills, in the layout Metrics Studio (an internal repository) published on 2026-10-30
+  (metric service #143 and #145). Run them as `atlan-analytics build`, `eval`, `improve`, `connect`,
+  `metrics` and `propose`. Each mode's procedure is under `skills/atlan-analytics/references/`,
+  and the helper and its locked publishing environment are under `skills/atlan-analytics/scripts/`.
+- The text is metric service's latest, which adds the version-append write for a reviewed metric
+  change (`registry__append_artifact_version`) and moves the warehouse procedure to
+  `references/connect.md`. `atlan-analytics-ask` and the source-of-truth ranking stay.
+- `/atlan-analytics:atlan-analytics metrics`, the prompt Metrics Studio sends, resolves to the
+  skill. The `atlan-analytics` command is gone: a command and a skill with one name shadow each
+  other, and the registry retired the same wrapper.
+- This repository is now the source of these files. metric service will serve a pinned copy of them.
+- `atlan-ontology` brings the business ontology into the analytics workload. Context mode explains
+  objects, links and the tables a binding maps them to; records mode answers which policy or
+  control was in force on a date; draft mode writes an OWL or SKOS file from tables, metrics or
+  documents, checks it with the import preview, and hands it to a person to save in Ontology
+  Studio. It never saves or publishes. `atlan-analytics ontology` and ask route to it.
+- In 0.1.6's notes below, `atlan-analytics-connect` is now `atlan-analytics connect`.
+
 ## 0.2.0
 
 - The core re-syncs to the upstream skill consolidation. `atlan-content` replaces
