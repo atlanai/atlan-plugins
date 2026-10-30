@@ -9,31 +9,31 @@ SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --fro
 .PHONY: check build sync sync-adopt lint test site validate
 
 check:
-	$(PYTHON) scripts/build.py --check
-	$(PYTHON) scripts/sync_upstream.py --check
-	$(PYTHON) scripts/lint.py
-	$(PYTHON) -m unittest discover -s tests -q
+	$(PYTHON) tools/build.py --check
+	$(PYTHON) tools/sync_upstream.py --check
+	$(PYTHON) tools/lint.py
+	$(PYTHON) -m unittest discover -s tools/tests -q
 
 build:
-	$(PYTHON) scripts/build.py
+	$(PYTHON) tools/build.py
 
 # Re-copy the vendored recipes at their pinned revisions.
 sync:
-	$(PYTHON) scripts/sync_upstream.py $(SOURCES)
+	$(PYTHON) tools/sync_upstream.py $(SOURCES)
 
 # Move every pin to its checkout's HEAD, then copy.
 sync-adopt:
-	$(PYTHON) scripts/sync_upstream.py $(SOURCES) --adopt-head
+	$(PYTHON) tools/sync_upstream.py $(SOURCES) --adopt-head
 
 lint:
-	$(PYTHON) scripts/lint.py
+	$(PYTHON) tools/lint.py
 
 test:
-	$(PYTHON) -m unittest discover -s tests -q
+	$(PYTHON) -m unittest discover -s tools/tests -q
 
 # The skills as an Agent Skills discovery index, for a website to serve at /.well-known/agent-skills/.
 site:
-	$(PYTHON) scripts/skill_index.py dist/site
+	$(PYTHON) tools/skill_index.py dist/site
 
 # The marketplace, then each plugin's manifest and components: validating a manifest does not
 # check skills or commands. The directory profile adds the checks a directory submission must pass.

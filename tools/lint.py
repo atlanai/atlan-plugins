@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static checks for the plugin's content. Standard library only; exits 1 on any error.
 
-    python3 scripts/lint.py
+    python3 tools/lint.py
 
 Every plugin is a folder under plugins/; the core is plugins/<[plugin] name>.
 

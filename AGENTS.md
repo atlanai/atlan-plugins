@@ -26,9 +26,8 @@ plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugi
                                   outside its folder
 upstream.json                     pinned sources and sha256 of every vendored file
 assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
-scripts/                          build, sync, lint and the skill index, standard library Python 3.11+
-tests/                            unit tests for the scripts
-docs/GAPS.md                      what the registry is missing for an easy start
+tools/                            build, sync, lint and the skill index, standard library Python 3.11+
+tools/tests/                      unit tests for the tools
 ```
 
 ## Rules
@@ -80,7 +79,7 @@ CI runs `check` and `validate` on every pull request.
 
 The Atlan dashboard's Open in Claude buttons send `/atlan:continue out_…` and
 `/atlan:use-skill skill_…` to Claude Code, and a sentence naming the skill to Claude chat
-(*Use the Atlan continue skill on artifact out_…*). `tests/test_scripts.py`
+(*Use the Atlan continue skill on artifact out_…*). `tools/tests/test_tools.py`
 (`DashboardPromptTest`) holds those forms. Renaming the plugin, a command or one of those skills
 breaks the buttons: change the dashboard's prompt builders in the same release.
 
@@ -94,7 +93,7 @@ for example Atlan's internal plugins for an environment outside production. Its 
 `variant.toml` and runs
 
 ```
-python3 <this repo>/scripts/build.py --variant variant.toml --out .
+python3 <this repo>/tools/build.py --variant variant.toml --out .
 ```
 
 which writes the marketplace files and every plugin folder under `plugins/`, named after the

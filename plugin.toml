@@ -1,8 +1,8 @@
 # The one source for every manifest in this repository.
 #
-# `python3 scripts/build.py` writes the three marketplace files at the root and each plugin's
+# `python3 tools/build.py` writes the three marketplace files at the root and each plugin's
 # manifests under plugins/<name>/ from this file. Edit here, never in the generated files:
-# `python3 scripts/build.py --check` fails on drift.
+# `python3 tools/build.py --check` fails on drift.
 
 [plugin]
 # Immutable once published. Every manifest and every marketplace uses this exact name, so the

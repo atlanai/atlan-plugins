@@ -70,7 +70,7 @@ Once you are signed in, ask: *"Connect to Atlan and show me which skills my orga
 plugins/<name>/                   one folder per plugin, with its manifests, skills, commands and agents
 plugin.toml                       the source of every manifest
 upstream.json                     pins for the skills taken from the registry's apps
-scripts/, tests/                  the build, sync and lint, and their tests
+tools/                            the build, sync and lint, and their tests
 ```
 
 Every plugin is a folder under `plugins/`, the layout Anthropic's
