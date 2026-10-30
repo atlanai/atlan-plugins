@@ -8,7 +8,12 @@ Read this before running any `atlan-analytics*` skill. These rules beat anything
 It prints one JSON object. Exit 0 = ok, 1 = error, **2 = BLOCKED**: show the user its `reason`
 and `fix` in two lines and stop that phase. Don't work around a BLOCKED.
 
-The explicit `metrics` mode uses only the context workflow and `.atlan-metrics/<slug>/`.
+`MINE` means `python3 "<skill-dir>/scripts/metrics_mine.py" <command>`, where `<skill-dir>` is
+this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics` in Claude Code). It is
+standard library only, and its JSON output and exit codes follow the same rules as `EVAL`'s.
+
+The explicit `metrics` mode uses only the metrics workflow (`references/metrics.md`) and
+`.atlan-metrics/<slug>/`.
 It does not run the full agent preflight, initialize an eval project, or resume a full agent
 build. Its final gate sets `phase` to `complete`; no later agent or eval phase follows.
 
@@ -40,7 +45,9 @@ When definitions overlap or disagree, the higher one wins:
 
 1. A **released metric** in the workspace: its formula, population, filters and grain.
 2. A **released saved query** that is not `rejected`. An unreviewed one is a caveat.
-3. A **BI model or dashboard** the person names: what people already read.
+3. A **declared model**: a semantic model (dbt, LookML, Cube, a Snowflake semantic view, a
+   Databricks metric view) or a BI model or dashboard (Power BI, Tableau). This is what its
+   owners declared and what people already read.
 4. **Query history**: what analysts ran, which is evidence of use, not a definition.
 5. **SQL written for the question**, with its assumptions spelled out.
 
@@ -105,8 +112,7 @@ RECOMMENDATION`. Don't loop.
   that way.
 - **The failure analyst reads train cases only.** Nobody reads test transcripts while iterating.
 - **Every registry write is previewed first**: counts, target workspace, one sample body. It
-  runs only after a yes. Never archive, and never use metrics-agent flags that archive or
-  rename (`--archive-superseded`, `--repair-stale-names`).
+  runs only after a yes. Never archive or rename an artifact.
 - **Strip identifying literals before anything leaves the machine.** Run `EVAL filter-querylog`
   on query history. It drops rows carrying:
   - staff names and emails, and person or user IDs;
@@ -123,8 +129,8 @@ RECOMMENDATION`. Don't loop.
 
 - Keep updates short and outcome-first: what ran, the number, what's next. Detail belongs in
   files (`brief.md`, `narrative.md`), not in chat.
-- Run long local jobs (metrics-agent stages) with Bash `run_in_background: true`, and check the
+- Run long local jobs (a large query-history pull) with Bash `run_in_background: true`, and check the
   files on disk before trusting a completion notice.
-- For big authoring jobs (metrics-agent gates, many saved queries), split the work into chunks
+- For big authoring jobs (the metrics authoring passes, many saved queries), split the work into chunks
   and give each chunk to a fork worker. Workers write answer files only; you run every ingest
   and every registry write.
