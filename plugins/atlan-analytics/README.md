@@ -20,6 +20,11 @@ codex plugin add atlan@atlan-plugins
 codex plugin add atlan-analytics@atlan-plugins
 ```
 
+## Privacy
+
+It stores nothing and runs nothing on your machine: it has no hooks and no binaries. See Atlan's
+[privacy notice](https://atlan.com/privacy-policy/).
+
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
