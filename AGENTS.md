@@ -66,6 +66,23 @@ breaks the buttons: change the dashboard's prompt builders in the same release.
 `make site` output is what atlan.com serves at `/.well-known/agent-skills/` for
 `npx skills add https://atlan.com --skill atlan-get-started`. Republish it with each release.
 
+## Variants
+
+A variant is this plugin under another name and endpoint, published from its own repository: for
+example Atlan's internal plugin for an environment outside production. Its repository keeps a
+`variant.toml` and runs
+
+```
+python3 <this repo>/scripts/build.py --variant variant.toml --out .
+```
+
+which writes the manifests, a one-plugin marketplace, and a copy of `skills/` and `commands/`
+with the variant's URLs, plugin name and repository rewritten. Add `--check` in its CI. The file
+can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketplace]` names and
+`[mcp] url`, plus `[rewrite]` pairs and a top-level `keep` list of strings never to rewrite. Keep
+the skills here free of any one environment's URLs beyond production's, so every variant reads
+correctly after the rewrite. This repository holds no variant of its own.
+
 ## Releasing
 
 1. Bump `version` in `plugin.toml` (SemVer; Claude Code keeps users on the version they
