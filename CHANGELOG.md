@@ -1,5 +1,17 @@
 # Changelog
 
+## atlan-analytics 0.1.5
+
+- `atlan-analytics-ask` answers a data question in the conversation: it looks up the workspace's
+  released metrics and saved queries first, runs the SQL through the warehouse query tool, and
+  says which definition it used. An answer no published metric covers is labelled, and the skill
+  offers propose mode for it. Without a warehouse it answers from a pasted result or a CSV, or
+  writes the SQL for the person to run. `/atlan-analytics ask` and a plain data question route
+  there.
+- The shared conventions rank sources of truth: a released metric, then a released saved query,
+  a BI model, query history, and SQL written for the question. Conflicts stay visible.
+- The add-on's starter prompts lead with a data question.
+
 ## 0.1.6 and atlan-analytics 0.1.4
 
 - `.claude-plugin/plugin.json` no longer carries `privacyPolicyUrl`. claude.ai's organization
