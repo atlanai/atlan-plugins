@@ -28,7 +28,7 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    released saved queries with their receipts; otherwise `registry__search_artifacts` with kind
    `metric`, then `sql_query`.
 4. Read the one or two most relevant results exactly as step 1 and the **Rules** of
-   [the agent template](../atlan-analytics-eval/references/agent-template.md) say: only a
+   [the agent template](../atlan-analytics/references/eval/agent-template.md) say: only a
    released revision counts, a rejected query is skipped, an unreviewed one is a caveat, and a
    usage note or rule skill is followed. Keep each returned `version_id`, `release_id` and
    `channel`.
@@ -38,7 +38,7 @@ then continue with your own SQL and its assumptions spelled out (step 5 labels i
 
 ## 3. Reach the data
 
-Find the warehouse query tool with the `atlan-analytics-connect` skill. With no project, hold
+Find the warehouse query tool with [warehouse discovery](../atlan-analytics/references/connect.md) (`atlan-analytics connect`). With no project, hold
 its record in this conversation instead of a state file.
 
 No warehouse is a fallback, not a stop. Ask for the smallest thing that answers the question:

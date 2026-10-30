@@ -1,8 +1,3 @@
----
-name: atlan-analytics-connect
-description: "Find, check and record the read-only SQL tool a talk-to-data run reads the warehouse with: Snowflake, Databricks or another warehouse, reached through the Atlan MCP server or the harness's own connector. Asks the person to connect it when it is registered but not signed in, and says how to add it when it is missing. The atlan-analytics skills run it before any warehouse read."
----
-
 # Find the warehouse query tool
 
 Every `atlan-analytics*` skill reads the warehouse through one read-only SQL tool. This skill
@@ -11,7 +6,7 @@ re-check it.
 
 Connecting is always the person's own sign-in. Never ask for, print or store a warehouse
 password, key or token. The statements for each warehouse are in
-[warehouses](references/warehouses.md).
+[warehouses](warehouses.md).
 
 ## 0. Reuse what state holds
 
@@ -56,7 +51,7 @@ Ask:
   reaches it through Atlan with their own sign-in. Stop with NEEDS_CONTEXT until it is added.
 - **Use a connector this tool already has**: step 3.
 - **Add one to this tool myself**: give the steps for this harness from
-  [warehouses](references/warehouses.md) ("Adding a server here"), then stop with
+  [warehouses](warehouses.md) ("Adding a server here"), then stop with
   NEEDS_CONTEXT and ask the person to run the skill again once it is connected.
 
 In metrics mode, add **No warehouse: use an export file or BI model** and return without a
@@ -89,6 +84,6 @@ in: ask the person to sign in, then search again.
 3. Show `warehouse ok (<kind> via <via>)`.
 
 From here on, the skills call it "the warehouse query tool recorded in state". Write SQL in the
-recorded dialect, using the statements in [warehouses](references/warehouses.md).
+recorded dialect, using the statements in [warehouses](warehouses.md).
 
 End with one status line.

@@ -22,4 +22,4 @@ remaining M failures aren't context gaps", and what each cluster needs.
 **breadth pass** can cover more than ten serial rounds. Draft a minimal metric or saved query
 for every uncovered concept and apply them together. This deliberately breaks the
 one-change-per-round rule. Say so, and label the round as a breadth pass. A metric the person
-running it may not create is proposed instead, as a new metric in `references/03-loop.md`.
+running it may not create is proposed instead, as a new metric in `skills/atlan-analytics/references/improve/03-loop.md`.
