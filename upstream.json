@@ -22,7 +22,7 @@
     {
       "name": "analytics",
       "repository": "https://github.com/atlanai/app-metric",
-      "rev": "3e0c0f94f597b4a64394c3ac2e1397223151c52e",
+      "rev": "2976de2366d63a9445ee4b8bc1e4ccc8f1165fa3",
       "path": "backend/defaults",
       "into": "plugins/atlan-analytics",
       "exclude": [
