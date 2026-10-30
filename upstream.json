@@ -1,5 +1,5 @@
 {
-  "$comment": "Managed by scripts/sync_upstream.py. Edit a source's rev only through --adopt-head.",
+  "$comment": "Managed by tools/sync_upstream.py. Edit a source's rev only through --adopt-head.",
   "sources": [
     {
       "name": "registry-files",

@@ -22,6 +22,6 @@ codex plugin add atlan-analytics@atlan-plugins
 
 ## Source
 
-`scripts/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
+`tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
 The skills, commands and agents in this folder are the source of truth. The Atlan app behind the
 workload pins a commit of this repository and serves the same files over Atlan's MCP server.

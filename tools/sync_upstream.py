@@ -6,15 +6,15 @@ tools they describe (the registry's files module, the skill app, the agent app).
 the same files as MCP prompts and resources and in the registry's Claude Code umbrella plugin.
 This plugin carries them so a host that loads skills but not MCP prompts gets them too.
 
-    python3 scripts/sync_upstream.py --check
+    python3 tools/sync_upstream.py --check
         Hermetic. Every vendored file exists and matches the sha256 upstream.json records, and
         no file this repository owns collides with one. CI runs this.
 
-    python3 scripts/sync_upstream.py --from skill=../app-skill --from agent=../app-agent ...
+    python3 tools/sync_upstream.py --from skill=../app-skill --from agent=../app-agent ...
         Re-copy each named source at its pinned revision. The checkout needs that commit; it is
         read with `git show`, so the working tree can be on any branch.
 
-    python3 scripts/sync_upstream.py --from skill=../app-skill --adopt-head
+    python3 tools/sync_upstream.py --from skill=../app-skill --adopt-head
         Move the named sources' pins to their checkouts' HEAD, then copy. This is how a pin moves.
 
 A source may set `into`, a folder of this repository to copy into (an add-on's plugins/<name>),
