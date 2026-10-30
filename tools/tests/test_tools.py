@@ -133,7 +133,9 @@ class VariantTest(unittest.TestCase):
             if path.endswith(".md"):
                 self.assertNotIn(f"/{main}:", text, path)
                 self.assertNotIn(f"plugin:{main}:", text, path)
+                self.assertNotIn(f"`{main}:", text, path)
                 self.assertNotIn(self.source["mcp"]["url"], text, path)
+        self.assertIn("`atlan-staging:atlan-continue`", self.files["plugins/atlan-staging/commands/continue.md"])
         install = self.files["plugins/atlan-staging/skills/atlan-get-started/references/install-and-sign-in.md"]
         self.assertIn("/plugin install atlan-staging@atlan-staging-plugins", install)
         self.assertIn("/plugin marketplace add example/atlan-staging\n", install)
@@ -390,6 +392,7 @@ class DashboardPromptTest(unittest.TestCase):
     COMMANDS = {"continue": "atlan-continue", "use-skill": "atlan-use-skill", "get-started": "atlan-get-started"}
     CHAT = {
         "Use the Atlan continue skill on artifact out_123": ("atlan-continue", "out_"),
+        "Use the Atlan continue skill on artifact output_01abc": ("atlan-continue", "output_"),
         "Use the Atlan use-skill skill to load skill_abc and run it": ("atlan-use-skill", "skill_"),
     }
 
@@ -400,7 +403,8 @@ class DashboardPromptTest(unittest.TestCase):
         for command, skill in self.COMMANDS.items():
             with self.subTest(command=command):
                 text = (CORE / "commands" / f"{command}.md").read_text(encoding="utf-8")
-                self.assertIn(f"`skills/{skill}/SKILL.md`", text)
+                self.assertIn(f"`atlan:{skill}`", text)
+                self.assertNotIn("skills/", text, "a command must name its skill, not a path: hosts resolve paths against the project")
                 self.assertTrue((CORE / "skills" / skill / "SKILL.md").is_file())
 
     def test_each_chat_sentence_names_a_skill_whose_description_matches_it(self) -> None:

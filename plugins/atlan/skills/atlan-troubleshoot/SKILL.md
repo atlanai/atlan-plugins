@@ -17,17 +17,20 @@ write to see whether it works again is how duplicates get made.
 | `401`, "authentication required", "needs login" | The user has not signed in, or the sign-in expired. They re-authenticate from their tool (`/mcp` in Claude Code, `codex mcp login` in Codex, Tools & MCP in Cursor). Never ask for a token. |
 | Signed in but no organization, or sign-in refused | The account has no Atlan organization to join. They need an invitation from their organization's Atlan admin, or support@atlan.com. |
 | Every Atlan tool appears twice | Both this plugin and Atlan's own `atlanai` Claude Code plugin are installed. Keep one. |
-| Artifacts the user expects are missing | They may be signed in to a different Atlan environment from the one that holds it: the server's URL says which. Or the artifact is in a workspace they cannot read, which looks the same as not existing. |
+| Artifacts the user expects are missing | They may be signed in to a different Atlan environment from the one that holds it: an artifact's `uri` (`api.atlan.com` or `api.atlan.dev`) says which one answered. Or the artifact is in a workspace they cannot read, which looks the same as not existing. |
 
 ## Calling tools
 
 | Symptom | Cause and fix |
 |---|---|
-| `tool is unavailable; refresh tools/list` | The name is wrong for this connection's mode. In search mode run every tool through `mcp__call_tool`; on a `?tools=full` URL the four `mcp__*_tools` meta-tools do not exist. |
+| `tool is unavailable; refresh tools/list` | The name is wrong for this connection's mode. In search mode run every tool through `mcp__call_tool`; on a `?tools=full` URL the three `mcp__*_tools` meta-tools do not exist. |
 | A call is refused for a missing session | Send `objective` on the first `mcp__search_tools` or `mcp__call_tool`, then pass the returned `session_id` on every call. An id you did not receive in this conversation is refused. |
 | A call is refused for a missing rationale | Add `rationale`, a first-person sentence on why you are making this call, beside `name`. |
 | A recipe names `extension__file__request_upload`, `extension__file__get_content` or `request_upload` | Older names. The registry's tools are `registry__request_file_upload` and `registry__get_file_content`. |
 | A recipe starts with `mcp__initialise` and search mode does not list it | Skip it: your first search already opened the session. |
+| `mcp__search_tools` finds nothing, or not the registry tool you expected | Search ranks every connected server. Call a tool you know by name (`registry__…`) directly, or pass `servers: ["registry"]`. An empty search does not mean the tool is missing. |
+| `mcp__connect_server` is not a tool | It runs through `mcp__call_tool` with `name: "mcp__connect_server"` and `arguments: { "server": … }`. |
+| `403` "Only a project's Claw … can use the Claw session tools" | `extension__agent__session_read` and `session_list` serve a project's Claw, not a person's agent. Read a session through its traces instead (`atlan-continue`, step 2). |
 | JSON-RPC `-32003`, `rate_limited` | The organization's call budget is spent for the moment. Wait, then retry reads. Retry a write only by reusing its `idempotency_key` with identical arguments. |
 
 ## Writes
@@ -50,6 +53,8 @@ write to see whether it works again is how duplicates get made.
 | `PUT` returns `403` or the URL expired | Upload URLs expire (`expires_in_seconds`). Reserve a new one with `registry__request_file_upload`. |
 | `registry__get_file_content` refuses over the byte ceiling or as not UTF-8 | The tool returns text up to 256 KiB only. Say which file you could not read; do not guess its content. |
 | A skill has no `metadata.files` | Its `artifact_status` is `blocked`: it failed a security scan and its content is withdrawn. |
+| A skill's `SKILL.md` answers `not found`, or lists `size_bytes: 0` | Its `artifact_status` is `pending_review`: that version waits for a reviewer and cannot be read until it is approved. |
+| A handle such as `out_…` answers `not found` | Outputs are `output_…`. Ask for the handle as the dashboard shows it rather than guessing another. |
 | `not found` on a file you just saw listed | The file is withdrawn, or the version you asked for is not readable. Pass the `file_version_ordinal` the manifest gave you. |
 
 ## MCP servers behind the gateway

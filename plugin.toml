@@ -10,7 +10,7 @@
 name = "atlan"
 display_name = "Atlan"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.1.6"
+version = "0.2.0"
 description = "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
 short_description = "Skills, agents and MCP from the Atlan registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -110,35 +110,30 @@ display_name = "Troubleshoot Atlan"
 short_description = "Diagnose failing or refused Atlan tool calls"
 prompt = "Use $atlan-troubleshoot to find out why my last Atlan call failed."
 
-[skills.atlan-upload-content]
-display_name = "Upload to Atlan"
-short_description = "Upload a bundle, document or dataset as a file"
-prompt = "Use $atlan-upload-content to upload this file to Atlan."
+[skills.atlan-content]
+display_name = "Atlan Files"
+short_description = "Upload, read or version a file in Atlan"
+prompt = "Use $atlan-content to upload this file to Atlan, or read an Atlan skill's files."
 
-[skills.atlan-read-content]
-display_name = "Read Atlan Content"
-short_description = "Read a skill's or a file's contents in Atlan"
-prompt = "Use $atlan-read-content to read an Atlan skill's SKILL.md and references."
+[skills.atlan-author-knowledge]
+display_name = "Author Knowledge"
+short_description = "Create or edit a knowledge bundle in Atlan"
+prompt = "Use $atlan-author-knowledge to publish these Markdown notes as an Atlan knowledge bundle."
+
+[skills.atlan-connect-repo]
+display_name = "Connect a Repository"
+short_description = "Sync a repository's skills and agents to Atlan"
+prompt = "Use $atlan-connect-repo to publish this repository's skills and agents to Atlan from GitHub."
 
 [skills.atlan-author-skills]
 display_name = "Publish a Skill"
 short_description = "Create a skill in Atlan or publish a new version"
 prompt = "Use $atlan-author-skills to publish the skill in this folder to Atlan."
 
-[skills.atlan-link-skill]
-display_name = "Sync Skills from GitHub"
-short_description = "Set up GitHub-to-Atlan sync for a repository"
-prompt = "Use $atlan-link-skill to sync this repository's skills to Atlan from GitHub."
-
 [skills.atlan-author-agents]
 display_name = "Register an Agent"
 short_description = "Catalogue an agent or harness in Atlan"
 prompt = "Use $atlan-author-agents to register the agent in this repository in Atlan."
-
-[skills.atlan-link-agent]
-display_name = "Link a Repository's Agent"
-short_description = "Link a repository's skills and agents to Atlan"
-prompt = "Use $atlan-link-agent to link this repository's agent and skills to Atlan."
 
 [skills.atlan-record-outputs]
 display_name = "Record an Output"

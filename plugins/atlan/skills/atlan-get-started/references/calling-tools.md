@@ -14,7 +14,7 @@ connection and one sign-in:
 | | Search mode (default) | Full mode |
 |---|---|---|
 | URL | `https://api.atlan.com/mcp` | `https://api.atlan.com/mcp?tools=full` |
-| `tools/list` | Four fixed tools | Every tool you can call, possibly hundreds |
+| `tools/list` | Three fixed tools | Every tool you can call, possibly hundreds |
 | Open a session | `objective` on the first `mcp__search_tools` or `mcp__call_tool` | `mcp__initialise { "objective", "client", "rationale" }` |
 | Call a tool | `mcp__call_tool { "name", "arguments", "session_id", "rationale" }` | `registry__x { …arguments, "session_id", "rationale" }` |
 
@@ -39,13 +39,16 @@ permission checks run on every call either way.
    }
 ```
 
-- Skip the search when you already know a tool's exact name and schema. If you know only its
-  name, `mcp__describe_tools { "names": ["registry__get_artifact"], "session_id": "…" }` returns
-  the schema.
+- Skip the search when you already know a tool's exact name and schema: every `registry__…`
+  tool these skills name is one. If you know only its name,
+  `mcp__describe_tools { "names": ["registry__get_artifact"], "session_id": "…" }` returns the
+  schema. A search that comes back empty does not mean the tool is missing: call or describe it
+  by name before concluding it does not exist.
 - `servers` narrows a search or describe to some servers, named as their tool names start:
   `["registry"]`, `["slack", "linear"]`.
 - A server you have not connected yet comes back under `connect`, not as tools. Ask the user,
-  then call `mcp__connect_server { "server": "<as listed>" }`. See `atlan-use-mcp-servers`.
+  then run `mcp__call_tool { "name": "mcp__connect_server", "arguments": { "server": "<as listed>" }, … }`.
+  It is not a tool of its own in `tools/list`. See `atlan-use-mcp-servers`.
 - A first `mcp__call_tool` with an `objective` and no `session_id` opens a session too; its
   result carries `mcp_session_id`. Reuse that as `session_id`. Do not repeat a side-effecting
   call just to get a receipt.
@@ -53,7 +56,8 @@ permission checks run on every call either way.
 ## Translating a recipe written in full mode
 
 The registry's authoring skills (`atlan-author-skills`, `atlan-author-agents`,
-`atlan-upload-content`, `atlan-read-content`, `atlan-record-outputs`) show calls like this:
+`atlan-author-knowledge`, `atlan-content`, `atlan-record-outputs`, `atlan-connect-repo`) write
+calls in full mode, most of them after an opening `mcp__initialise`, like this:
 
 ```
 registry__get_kind_schema {
@@ -84,6 +88,6 @@ search already returned a `session_id`.
   with `rate_limited`. Wait before retrying a read; never retry a write blindly.
 - **Payloads.** `registry__create_artifact` takes at most 64 KiB of inline `content`. Anything
   larger, and every binary such as a skill `.zip`, goes through `registry__request_file_upload`
-  (see `atlan-upload-content`). `registry__get_file_content` returns at most 256 KiB of UTF-8.
+  (see `atlan-content`). `registry__get_file_content` returns at most 256 KiB of UTF-8.
 - **Batches.** `registry__create_artifacts` takes up to 100 items and reports each in its own
   slot. Read the slots, retry only the failed ones.

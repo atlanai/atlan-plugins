@@ -1,0 +1,57 @@
+schema_version: "1.1"
+name: continue-command
+tags: [continue,dashboard]
+execution:
+  prompt: |
+    /atlan:continue output_01evalchurn
+  max_turns: 25
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-continue
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-continue"'
+  - name: reads-output
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"registry__get_artifact"[\s\S]*output_01evalchurn'
+    min: 1
+  - name: reads-file
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"registry__get_file_content"[\s\S]*file_01evalchurnmd'
+    min: 1
+  - name: skips-claw-only-reader
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__agent__session_(?:read|list)"'
+    min: 0
+    max: 0
+  - name: finds-runs
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__agent__list_session_traces"'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: catches-up
+    type: llm
+    criteria: |
+      PASS if the reply summarises the churn analysis (2.9% logo churn, EMEA mid-market onboarding drop-off), says from the source session that the plan-tier split was blocked by a permissions error on plan_tiers, and asks what to do next or offers fitting next steps.
+      FAIL if it invents content, misses the plan-tier gap, or reports the session history as unreadable.
