@@ -7,14 +7,28 @@
     {
       "name": "atlan",
       "source": {
-        "source": "url",
-        "url": "an internal repository"
+        "source": "git-subdir",
+        "url": "https://github.com/atlanai/atlan-plugins.git",
+        "path": "./plugins/atlan"
       },
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
       },
       "category": "Developer Tools"
+    },
+    {
+      "name": "atlan-analytics",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/atlanai/atlan-plugins.git",
+        "path": "./plugins/atlan-analytics"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Data"
     }
   ]
 }

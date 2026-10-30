@@ -1,8 +1,8 @@
 # The one source for every manifest in this repository.
 #
-# `python3 scripts/build.py` writes plugin.json, mcp.json, .mcp.json and the files under
-# .claude-plugin/, .codex-plugin/, .cursor-plugin/ and .agents/plugins/ from this file.
-# Edit here, never in the generated files: `python3 scripts/build.py --check` fails on drift.
+# `python3 tools/build.py` writes the three marketplace files at the root and each plugin's
+# manifests under plugins/<name>/ from this file. Edit here, never in the generated files:
+# `python3 tools/build.py --check` fails on drift.
 
 [plugin]
 # Immutable once published. Every manifest and every marketplace uses this exact name, so the
@@ -10,16 +10,17 @@
 name = "atlan"
 display_name = "Atlan"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.1.2"
+version = "0.1.4"
 description = "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
 short_description = "Skills, agents and MCP from the Atlan registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
 license = "Apache-2.0"
-homepage = "an internal repository"
-repository = "an internal repository"
+homepage = "https://github.com/atlanai/atlan-plugins"
+repository = "https://github.com/atlanai/atlan-plugins"
 keywords = ["atlan", "registry", "skills", "agents", "mcp", "knowledge", "catalog", "governance"]
 category = "Developer Tools"
 brand_color = "#2026D2"
+# Plugin-relative. The build copies assets/logo.svg into every plugin folder.
 logo = "./assets/logo.svg"
 privacy_policy_url = "https://atlan.com/privacy-policy/"
 # terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
@@ -33,14 +34,14 @@ url = "https://atlan.com"
 # after its org handle, and an org handled `atlan` would collide with it on one machine.
 name = "atlan-plugins"
 display_name = "Atlan"
-description = "The Atlan plugin for coding agents: the Atlan registry's MCP server and the skills to use it."
+description = "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
 
 [mcp]
 # The server key every Atlan plugin uses, the registry's own umbrella plugin included.
 server = "atlan"
 # The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
 # URL is search mode: four tools that reach the whole catalogue (see
-# skills/atlan-get-started/references/calling-tools.md).
+# plugins/atlan/skills/atlan-get-started/references/calling-tools.md).
 url = "https://api.atlan.com/mcp"
 # Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
 # a session came from; a server added by hand sends none (MCP service decision
@@ -53,4 +54,23 @@ default_prompts = [
   "Connect to Atlan and show me which skills and agents my organization has",
   "Find a skill in Atlan for this task and install it in this project",
   "Publish the skill in this folder to Atlan",
+]
+
+# Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
+# marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through
+# this plugin's connection. Its skills, commands and agents are written in its folder; the app
+# behind the workload pins this repository. Bump an add-on's version on every release of it.
+[[addons]]
+name = "atlan-analytics"
+display_name = "Atlan Analytics"
+version = "0.1.2"
+description = "Bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
+short_description = "Metrics and talk-to-data agents on Atlan"
+long_description = "The analytics workload on the Atlan registry. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
+keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "evals"]
+category = "Data"
+default_prompts = [
+  "Build metrics and saved queries for our support tables from the warehouse's query history",
+  "Build a talk-to-data agent for our revenue questions",
+  "Propose a fix for the metric we just found was wrong",
 ]
