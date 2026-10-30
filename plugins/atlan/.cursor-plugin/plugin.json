@@ -1,6 +1,6 @@
 {
   "name": "atlan",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills.",
   "author": {
     "name": "Atlan",
