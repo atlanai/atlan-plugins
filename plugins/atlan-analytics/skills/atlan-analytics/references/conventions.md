@@ -34,6 +34,22 @@ Warehouse calls go through the read-only query tool recorded in state as `wareho
 the dialect recorded as `warehouse.dialect`. The `atlan-analytics-connect` skill finds and
 records it.
 
+## Source of truth
+
+When definitions overlap or disagree, the higher one wins:
+
+1. A **released metric** in the workspace: its formula, population, filters and grain.
+2. A **released saved query** that is not `rejected`. An unreviewed one is a caveat.
+3. A **BI model or dashboard** the person names: what people already read.
+4. **Query history**: what analysts ran, which is evidence of use, not a definition.
+5. **SQL written for the question**, with its assumptions spelled out.
+
+An unreleased head, a draft or a search result is a discovery hint, never a published
+definition. Look up 1 and 2 before writing SQL. When two sources disagree in a way that changes
+the answer, keep both visible: say which one answered and why, and offer a proposal (propose
+mode) to the metric's owners rather than choosing silently. Context building (phase 3) reuses
+published definitions in the same order before adding new ones.
+
 ## Asking questions
 
 - **One decision per `AskUserQuestion` call** (a plain chat question where the harness has no
