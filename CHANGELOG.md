@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6 and atlan-analytics 0.1.4
+
+- `.claude-plugin/plugin.json` no longer carries `privacyPolicyUrl`. claude.ai's organization
+  sync stripped it as an unrecognized key and warned on every sync. Codex and Agent Plugins hosts
+  keep `privacyPolicyURL` in their `interface`, and Claude's plugin directory reads the link from
+  each plugin's README, which the add-on's README now has too.
+
 ## 0.1.5 and atlan-analytics 0.1.3
 
 - Every skill carries `agents/openai.yaml`, Codex's card for it: a display name, a short
