@@ -26,6 +26,7 @@ plugins/atlan-<workload>/         add-ons: skills, commands and agents written h
 plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugin cannot point
                                   outside its folder
 upstream.json                     pinned sources and sha256 of every vendored file
+assets/hero.png                   the README's banner and the repository's social preview (written by hand)
 assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
 tools/                            build, sync, lint and the skill index, standard library Python 3.11+
 tools/tests/                      unit tests for the tools

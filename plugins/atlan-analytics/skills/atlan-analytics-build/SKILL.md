@@ -27,10 +27,10 @@ you enter a phase.
   for the prompt.
 - **The eval set is not context.** Questions and gold SQL written in phase 4 never feed phase
   3 or the prompt. If the user offers a benchmark file during phase 3, park it for phase 4.
-- **The metrics-agent comes from GitHub.** Phase 3 uses `an internal repository`:
-  an existing checkout if there is one, otherwise a clone into `~/metrics-agent`. If it can't
-  be cloned, `references/03-context.md` has the hand-authored fallback, so the phase is never
-  blocked.
+- **Phase 3 needs nothing installed.** It runs the metrics workflow, which uses this assistant
+  and a standard-library script, and reads declared models, BI files or query history,
+  whichever are in reach. With none of them, it drafts definitions with the user, so the phase
+  is never blocked.
 - **Registering an agent and writing the subagent file are outward-facing.** Preview both,
   then ask.
 
