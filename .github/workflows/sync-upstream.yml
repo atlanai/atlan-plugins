@@ -79,11 +79,10 @@ jobs:
           commit-message: 'chore(upstream): adopt the registry apps'' latest recipes'
           add-paths: |
             upstream.json
-            skills
-            commands
+            plugins/atlan
           body: |
             Moves the pins in `upstream.json` to `main` of agent-gateway, app-skill and app-agent and
             re-copies the recipes they contribute. `make check` passed in the workflow.
 
-            Review the recipe diffs, bump `version` in `plugin.toml` if this ships to users, then
+            Review the recipe diffs, bump `[plugin] version` in `plugin.toml` if this ships to users, then
             re-run CI from the Actions tab before merging.
