@@ -22,6 +22,8 @@ import lint  # noqa: E402
 import skill_index  # noqa: E402
 import sync_upstream  # noqa: E402
 
+CORE = ROOT / build.core_dir(build.load())
+
 
 class BuildTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -31,6 +33,7 @@ class BuildTest(unittest.TestCase):
         name, version = self.source["plugin"]["name"], self.source["plugin"]["version"]
         documents = build.outputs(self.source)
         for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
+            path = f"plugins/{name}/{path}"
             self.assertEqual(documents[path]["name"], name, path)
             self.assertEqual(documents[path]["version"], version, path)
         addons = [addon["name"] for addon in self.source.get("addons", [])]
@@ -41,14 +44,32 @@ class BuildTest(unittest.TestCase):
         documents = build.outputs(self.source)
         server, url = self.source["mcp"]["server"], self.source["mcp"]["url"]
         headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
-        self.assertEqual(documents["mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
-        self.assertEqual(documents[".mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
+        self.assertEqual(documents["plugins/atlan/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
+        self.assertEqual(documents["plugins/atlan/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
 
-    def test_root_manifests_keep_to_the_closed_agent_plugins_schema(self) -> None:
+    def test_agent_plugins_manifests_keep_to_the_closed_schema(self) -> None:
         documents = build.outputs(self.source)
         allowed = {"$schema", "name", "version", "description", "author", "homepage", "repository", "license", "keywords", "extensions"}
-        self.assertLessEqual(set(documents["plugin.json"]), allowed)
-        self.assertEqual(set(documents["mcp.json"]), {"$schema", "mcpServers"})
+        self.assertLessEqual(set(documents["plugins/atlan/plugin.json"]), allowed)
+        self.assertEqual(set(documents["plugins/atlan/mcp.json"]), {"$schema", "mcpServers"})
+
+    def test_the_root_is_the_marketplace_and_every_plugin_is_a_folder_under_plugins(self) -> None:
+        documents = build.outputs(self.source)
+        roots = {path for path in documents if not path.startswith("plugins/")}
+        self.assertEqual(roots, {".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"})
+        names = [self.source["plugin"]["name"], *(addon["name"] for addon in self.source["addons"])]
+        claude = documents[".claude-plugin/marketplace.json"]["plugins"]
+        cursor = documents[".cursor-plugin/marketplace.json"]["plugins"]
+        codex = documents[".agents/plugins/marketplace.json"]["plugins"]
+        for index, name in enumerate(names):
+            self.assertEqual(claude[index]["source"], f"./plugins/{name}")
+            self.assertEqual(cursor[index]["source"], f"./plugins/{name}")
+            self.assertEqual(codex[index]["source"], {"source": "git-subdir", "url": f"{self.source['plugin']['repository']}.git", "path": f"./plugins/{name}"})
+
+    def test_every_plugin_folder_carries_the_logo_license_and_a_readme(self) -> None:
+        for name in [self.source["plugin"]["name"], *(addon["name"] for addon in self.source["addons"])]:
+            for relative in ("assets/logo.svg", "LICENSE", "README.md"):
+                self.assertTrue((ROOT / "plugins" / name / relative).is_file(), f"{name}/{relative}")
 
     def test_render_is_deterministic(self) -> None:
         first = {k: build.render(v) for k, v in build.outputs(self.source).items()}
@@ -89,52 +110,63 @@ class VariantTest(unittest.TestCase):
 
     def test_its_manifests_and_marketplaces_carry_its_names_and_url(self) -> None:
         for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
+            path = f"plugins/atlan-staging/{path}"
             self.assertEqual(json.loads(self.files[path])["name"], "atlan-staging", path)
         for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
             document = json.loads(self.files[path])
             self.assertEqual(document["name"], "atlan-staging-plugins", path)
             self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging", "atlan-staging-analytics"], path)
         server, version = self.source["mcp"]["server"], self.source["plugin"]["version"]
-        for path in ("mcp.json", ".mcp.json"):
+        for path in ("plugins/atlan-staging/mcp.json", "plugins/atlan-staging/.mcp.json"):
             entry = json.loads(self.files[path])["mcpServers"][server]
             self.assertEqual(entry["url"], "https://api.staging.example/mcp", path)
             self.assertEqual(entry["headers"], {"X-Atlan-Client": f"atlan-plugin-staging/{version}"}, path)
 
     def test_it_copies_every_skill_and_command_and_rewrites_their_names(self) -> None:
         main = self.source["plugin"]["name"]
-        for top in build.COPIED:
-            for path in (ROOT / top).rglob("*"):
+        for top in build.TREES:
+            for path in (CORE / top).rglob("*"):
                 if path.is_file():
-                    self.assertIn(path.relative_to(ROOT).as_posix(), self.files)
+                    self.assertIn(f"plugins/atlan-staging/{path.relative_to(CORE).as_posix()}", self.files)
+        self.assertFalse(any(path.startswith(("plugins/atlan/", "skills/", "commands/")) for path in self.files))
         for path, text in self.files.items():
             if path.endswith(".md"):
                 self.assertNotIn(f"/{main}:", text, path)
                 self.assertNotIn(f"plugin:{main}:", text, path)
                 self.assertNotIn(self.source["mcp"]["url"], text, path)
-        install = self.files["skills/atlan-get-started/references/install-and-sign-in.md"]
+        install = self.files["plugins/atlan-staging/skills/atlan-get-started/references/install-and-sign-in.md"]
         self.assertIn("/plugin install atlan-staging@atlan-staging-plugins", install)
         self.assertIn("/plugin marketplace add example/atlan-staging\n", install)
 
     def test_pairs_apply_once_longest_first_and_kept_strings_stay(self) -> None:
         pairs = build.rewrites(self.source, self.variant)
-        text = "See an internal repository, run https://app.atlan.com/brain/cli/install.sh, open https://app.atlan.com."
+        text = "See https://github.com/atlanai/atlan-plugins, run https://app.atlan.com/brain/cli/install.sh, open https://app.atlan.com."
         self.assertEqual(
             build.rewrite(text, pairs),
             "See https://github.com/example/atlan-staging, run https://app.atlan.com/brain/cli/install.sh, open https://app.staging.example.",
         )
 
-    def test_writes_into_another_folder_and_removes_stale_copies(self) -> None:
+    def test_writes_into_another_folder_and_removes_stale_copies_and_the_old_root_layout(self) -> None:
+        owned = (build.PLUGINS, *build.LEGACY)
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp)
-            (out / "skills/atlan-gone").mkdir(parents=True)
-            (out / "skills/atlan-gone/SKILL.md").write_text("old\n")
+            (out / "plugins/atlan-staging/skills/atlan-gone").mkdir(parents=True)
+            (out / "plugins/atlan-staging/skills/atlan-gone/SKILL.md").write_text("old\n")
+            (out / "skills/atlan-get-started").mkdir(parents=True)
+            (out / "skills/atlan-get-started/SKILL.md").write_text("old root layout\n")
+            (out / ".claude-plugin").mkdir()
+            (out / ".claude-plugin/plugin.json").write_text("{}\n")
+            (out / "mcp.json").write_text("{}\n")
             (out / "variant.toml").write_text("kept\n")
             with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(build.sync(self.files, out, check=False, owned=build.COPIED), [])
-                self.assertEqual(build.sync(self.files, out, check=True, owned=build.COPIED), [])
-            self.assertFalse((out / "skills/atlan-gone/SKILL.md").exists())
+                self.assertEqual(build.sync(self.files, out, check=False, owned=owned), [])
+                self.assertEqual(build.sync(self.files, out, check=True, owned=owned), [])
+            for gone in ("plugins/atlan-staging/skills/atlan-gone/SKILL.md", "skills/atlan-get-started/SKILL.md", ".claude-plugin/plugin.json", "mcp.json"):
+                self.assertFalse((out / gone).exists(), gone)
             self.assertEqual((out / "variant.toml").read_text(), "kept\n")
             self.assertTrue((out / "README.md").is_file())
+            self.assertTrue((out / ".claude-plugin/marketplace.json").is_file())
+            self.assertTrue((out / "plugins/atlan-staging/README.md").is_file())
 
     def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
         for table, field, value in (
@@ -156,7 +188,7 @@ class AddonTest(unittest.TestCase):
         self.source = build.load()
         self.addon = self.source["addons"][0]
         self.documents = build.outputs(self.source)
-        self.base = f"{build.ADDONS}/{self.addon['name']}"
+        self.base = build.addon_dir(self.addon)
 
     def test_each_addon_depends_on_the_core_and_declares_no_mcp_server(self) -> None:
         claude = self.documents[f"{self.base}/.claude-plugin/plugin.json"]
@@ -195,7 +227,7 @@ class AddonTest(unittest.TestCase):
     def test_a_variant_renames_each_addon_and_its_dependency_and_copies_its_files(self) -> None:
         variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
         files = build.variant_files(self.source, variant, "variant.toml")
-        base = f"{build.ADDONS}/atlan-staging-analytics"
+        base = "plugins/atlan-staging-analytics"
         claude = json.loads(files[f"{base}/.claude-plugin/plugin.json"])
         self.assertEqual(claude["dependencies"], ["atlan-staging"])
         self.assertTrue(json.loads(files[f"{base}/plugin.json"])["extensions"]["com.openai"]["interface"]["displayName"].startswith("Atlan (staging)"))
@@ -274,6 +306,23 @@ class SkillLintTest(unittest.TestCase):
                 lint.ROOT = saved
         self.assertEqual(len(errors), 2)
 
+    def test_the_root_may_not_hold_plugin_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "plugin.toml").write_text('[plugin]\nname = "atlan"\n')
+            (root / "plugins/atlan").mkdir(parents=True)
+            (root / "skills/atlan-x").mkdir(parents=True)
+            (root / ".claude-plugin").mkdir()
+            (root / ".claude-plugin/plugin.json").write_text("{}")
+            (root / ".claude-plugin/marketplace.json").write_text("{}")
+            saved = lint.ROOT, lint.PLUGINS
+            lint.ROOT, lint.PLUGINS = root, root / "plugins"
+            try:
+                errors = lint.lint_repository([])
+            finally:
+                lint.ROOT, lint.PLUGINS = saved
+        self.assertEqual(sorted(e.split(":")[0] for e in errors), [".claude-plugin/plugin.json", "skills"])
+
     def test_secret_patterns_match_real_shapes(self) -> None:
         samples = {
             "GitHub token": "ghp_" + "a" * 36,
@@ -305,15 +354,15 @@ class DashboardPromptTest(unittest.TestCase):
     def test_each_command_follows_its_skill(self) -> None:
         for command, skill in self.COMMANDS.items():
             with self.subTest(command=command):
-                text = (ROOT / "commands" / f"{command}.md").read_text(encoding="utf-8")
+                text = (CORE / "commands" / f"{command}.md").read_text(encoding="utf-8")
                 self.assertIn(f"`skills/{skill}/SKILL.md`", text)
-                self.assertTrue((ROOT / "skills" / skill / "SKILL.md").is_file())
+                self.assertTrue((CORE / "skills" / skill / "SKILL.md").is_file())
 
     def test_each_chat_sentence_names_a_skill_whose_description_matches_it(self) -> None:
         for sentence, (skill, handle) in self.CHAT.items():
             with self.subTest(sentence=sentence):
                 self.assertIn(skill.removeprefix("atlan-"), sentence)
-                parsed = lint.frontmatter((ROOT / "skills" / skill / "SKILL.md").read_text(encoding="utf-8"))
+                parsed = lint.frontmatter((CORE / "skills" / skill / "SKILL.md").read_text(encoding="utf-8"))
                 self.assertIsNotNone(parsed)
                 self.assertIn(handle, parsed[0]["description"])
 
@@ -325,7 +374,7 @@ class SkillIndexTest(unittest.TestCase):
     def test_lists_every_skill_under_the_v0_2_schema(self) -> None:
         self.assertEqual(self.index["$schema"], skill_index.SCHEMA)
         names = [entry["name"] for entry in self.index["skills"]]
-        self.assertEqual(names, sorted(p.name for p in (ROOT / "skills").iterdir() if p.is_dir()))
+        self.assertEqual(names, sorted(p.name for p in (CORE / "skills").iterdir() if p.is_dir()))
 
     def test_every_digest_is_the_sha256_of_what_is_served(self) -> None:
         for entry in self.index["skills"]:
@@ -339,7 +388,7 @@ class SkillIndexTest(unittest.TestCase):
             with tarfile.open(fileobj=io.BytesIO(self.served[entry["url"]])) as tar:
                 names = tar.getnames()
             self.assertIn("SKILL.md", names, entry["name"])
-            files = sorted(p.as_posix() for p in skill_index.skill_files(ROOT / "skills" / entry["name"]))
+            files = sorted(p.as_posix() for p in skill_index.skill_files(CORE / "skills" / entry["name"]))
             self.assertEqual(sorted(names), files, entry["name"])
 
     def test_output_is_byte_for_byte_reproducible(self) -> None:

@@ -7,8 +7,9 @@
     {
       "name": "atlan",
       "source": {
-        "source": "url",
-        "url": "an internal repository"
+        "source": "git-subdir",
+        "url": "https://github.com/atlanai/atlan-plugins.git",
+        "path": "./plugins/atlan"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -20,7 +21,7 @@
       "name": "atlan-analytics",
       "source": {
         "source": "git-subdir",
-        "url": "an internal repository",
+        "url": "https://github.com/atlanai/atlan-plugins.git",
         "path": "./plugins/atlan-analytics"
       },
       "policy": {
