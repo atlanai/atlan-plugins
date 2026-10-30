@@ -1,0 +1,52 @@
+# The one source for every manifest in this repository.
+#
+# `python3 scripts/build.py` writes plugin.json, mcp.json, .mcp.json and the files under
+# .claude-plugin/, .codex-plugin/, .cursor-plugin/ and .agents/plugins/ from this file.
+# Edit here, never in the generated files: `python3 scripts/build.py --check` fails on drift.
+
+[plugin]
+# Immutable once published. Every manifest and every marketplace uses this exact name, so the
+# skill prefix is the same in every tool (`atlan:atlan-get-started` in Claude Code).
+name = "atlan"
+display_name = "Atlan"
+# Bump on every release: Claude Code holds users on the version they installed.
+version = "0.1.0"
+description = "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
+short_description = "Skills, agents and MCP from the Atlan registry"
+long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
+license = "Apache-2.0"
+homepage = "https://github.com/atlanai/atlan-plugin"
+repository = "https://github.com/atlanai/atlan-plugin"
+keywords = ["atlan", "registry", "skills", "agents", "mcp", "knowledge", "catalog", "governance"]
+category = "Developer Tools"
+brand_color = "#2026D2"
+logo = "./assets/logo.svg"
+privacy_policy_url = "https://atlan.com/privacy-policy/"
+# terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
+
+[author]
+name = "Atlan"
+url = "https://atlan.com"
+
+[marketplace]
+# Not `atlan`: the registry names each organization's authenticated Claude Code marketplace
+# after its org handle, and an org handled `atlan` would collide with it on one machine.
+name = "atlan-plugins"
+display_name = "Atlan"
+description = "The Atlan plugin for coding agents: the Atlan registry's MCP server and the skills to use it."
+
+[mcp]
+# The server key every Atlan plugin uses, the registry's own umbrella plugin included.
+server = "atlan"
+# The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
+# URL is search mode: four tools that reach the whole catalogue (see
+# skills/atlan-get-started/references/calling-tools.md).
+url = "https://api.atlan.com/mcp"
+
+[codex]
+capabilities = ["Interactive", "Write"]
+default_prompts = [
+  "Connect to Atlan and show me which skills and agents my organization has",
+  "Find a skill in Atlan for this task and install it in this project",
+  "Publish the skill in this folder to Atlan",
+]
