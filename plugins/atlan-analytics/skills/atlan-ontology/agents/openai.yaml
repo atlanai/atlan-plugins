@@ -1,0 +1,11 @@
+interface:
+  display_name: "Business Ontology"
+  short_description: "Business objects, joins, policies and model drafts"
+  default_prompt: "Use $atlan-ontology to explain how Customer relates to Order in our ontology."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

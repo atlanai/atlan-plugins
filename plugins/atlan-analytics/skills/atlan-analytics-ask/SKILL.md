@@ -33,6 +33,11 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    usage note or rule skill is followed. Keep each returned `version_id`, `release_id` and
    `channel`.
 
+5. When the question's business terms need resolving (which table holds a customer, how orders
+   join to accounts) and the Ontology app is installed, use the `atlan-ontology` skill's
+   context mode for entity names and join paths. A released metric still decides the formula,
+   population and filters.
+
 Nothing found is an answer too: say the workspace has no published definition for the measure,
 then continue with your own SQL and its assumptions spelled out (step 5 labels it).
 
