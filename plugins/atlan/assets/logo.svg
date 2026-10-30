@@ -1,67 +1,30 @@
+<!-- The stable and prod app icon: the Atlan "a" (Paper, Brand file, "atlan-a · black metallic") on the macOS 824px icon tile. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fffffe"/>
-      <stop offset="1" stop-color="#f6f6f3"/>
+      <stop offset="0" stop-color="#2C2C30"/>
+      <stop offset="0.5" stop-color="#161618"/>
+      <stop offset="1" stop-color="#0B0B0C"/>
     </linearGradient>
-    <linearGradient id="pod" x1="0.25" y1="0" x2="0.7" y2="1">
-      <stop offset="0" stop-color="#4358f0"/>
-      <stop offset="0.5" stop-color="#1a2cc8"/>
-      <stop offset="1" stop-color="#0f1a8c"/>
+    <linearGradient id="metal" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#DCDDE2"/>
+      <stop offset="0.7" stop-color="#F0F1F4"/>
+      <stop offset="1" stop-color="#ADB0B8"/>
     </linearGradient>
-    <radialGradient id="podHi" cx="36%" cy="14%" r="60%">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
-      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="podAo" cx="54%" cy="96%" r="56%">
-      <stop offset="0.48" stop-color="#080d4a" stop-opacity="0"/>
-      <stop offset="1" stop-color="#080d4a" stop-opacity="0.38"/>
-    </radialGradient>
-    <linearGradient id="eye" x1="0.3" y1="0" x2="0.6" y2="1">
-      <stop offset="0" stop-color="#c4f6ff"/>
-      <stop offset="0.55" stop-color="#6fe0ff"/>
-      <stop offset="1" stop-color="#34c4f6"/>
-    </linearGradient>
-    <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0" stop-color="#5ae0ff" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#5ae0ff" stop-opacity="0"/>
+    <radialGradient id="dot" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#A9F2FF"/>
+      <stop offset="0.6" stop-color="#62E1FC"/>
+      <stop offset="1" stop-color="#45CDEF"/>
     </radialGradient>
     <filter id="tileShadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#262624" flood-opacity="0.18"/>
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.28"/>
     </filter>
-    <filter id="blur3" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3"/>
-    </filter>
-    <filter id="blur2" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="1.6"/>
-    </filter>
-    <clipPath id="bodyClip"><path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z"/></clipPath>
   </defs>
-
-  <g filter="url(#tileShadow)">
-    <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="url(#tile)"/>
-  </g>
-  <g clip-path="url(#bodyClip)">
-    <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="url(#tile)"/>
-
-    <g transform="translate(512 512) scale(5.6) translate(-100 -104)">
-      <g transform="rotate(-10 100 104)">
-        <rect x="40" y="68" width="120" height="72" rx="36" fill="url(#pod)"/>
-        <rect x="40" y="68" width="120" height="72" rx="36" fill="url(#podAo)"/>
-        <rect x="40" y="68" width="120" height="72" rx="36" fill="url(#podHi)"/>
-        <path d="M64 71 q36 -7 72 0" fill="none" stroke="#c4d6ff" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round" filter="url(#blur3)"/>
-      </g>
-      <g>
-        <ellipse cx="78.9" cy="109.9" rx="12" ry="5" fill="#070d4a" opacity="0.5" filter="url(#blur3)"/>
-        <circle cx="78.9" cy="103.9" r="19" fill="url(#eyeGlow)"/>
-        <circle cx="78.9" cy="103.9" r="13.5" fill="url(#eye)"/>
-        <ellipse cx="75.9" cy="99.4" rx="6.2" ry="3.2" fill="#f8feff" opacity="0.85" filter="url(#blur2)"/>
-        <ellipse cx="113.9" cy="104.9" rx="12" ry="5" fill="#070d4a" opacity="0.5" filter="url(#blur3)"/>
-        <circle cx="113.9" cy="98.9" r="19" fill="url(#eyeGlow)"/>
-        <circle cx="113.9" cy="98.9" r="13.5" fill="url(#eye)"/>
-        <ellipse cx="110.9" cy="94.4" rx="6.2" ry="3.2" fill="#f8feff" opacity="0.85" filter="url(#blur2)"/>
-      </g>
-    </g>
-    <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="none" stroke="#e5e5e0" stroke-width="4"/>
+  <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="#000000" filter="url(#tileShadow)"/>
+  <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="url(#tile)"/>
+  <g transform="translate(100 100) scale(2.746667)">
+      <path transform="translate(61.5 61.5)" d="M177.000 4.583C177.000 4.583 177.000 169.051 177.000 169.051C177.000 169.051 127.660 169.051 127.660 169.051C127.660 169.051 127.660 153.591 127.660 153.591C116.805 166.090 100.698 173.634 78.626 173.634C35.525 173.634 0.000 135.839 0.000 86.817C0.000 37.795 35.525 0.000 78.626 0.000C100.665 0.000 116.816 7.544 127.660 20.043C127.660 20.043 127.660 4.583 127.660 4.583C127.660 4.583 177.000 4.583 177.000 4.583ZM127.649 86.598C127.649 61.917 111.202 46.610 88.473 46.610C65.743 46.610 49.296 61.917 49.296 86.598C49.296 111.279 65.787 126.750 88.473 126.750C111.158 126.750 127.649 111.268 127.649 86.598Z" fill="url(#metal)"/>
+      <circle cx="149.97" cy="148.105" r="20.23" fill="url(#dot)"/>
   </g>
 </svg>

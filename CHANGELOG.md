@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 and atlan-analytics 0.1.2
+
+- The listing icon is the Atlan desktop app's: the metallic Atlan "a" on a black tile.
+- The repository's build, sync, lint and their tests moved from `scripts/` and `tests/` into
+  `tools/`, and `docs/` is gone. Nothing a plugin installs changed.
+
 ## 0.1.3 and atlan-analytics 0.1.1
 
 - The repository is now `atlanai/atlan-plugins`, a marketplace with one folder per plugin. The

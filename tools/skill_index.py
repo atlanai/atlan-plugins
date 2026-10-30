@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write the core plugin's skills as an Agent Skills discovery index for a website to serve.
 
-    python3 scripts/skill_index.py dist/site   # writes dist/site/.well-known/agent-skills/
+    python3 tools/skill_index.py dist/site   # writes dist/site/.well-known/agent-skills/
 
 `npx skills add https://<site> --skill <name>` reads the index, downloads the skill, and checks
 its sha256 digest before writing anything. A skill that is one SKILL.md is served as that file;
