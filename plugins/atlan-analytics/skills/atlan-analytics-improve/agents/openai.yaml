@@ -1,0 +1,11 @@
+interface:
+  display_name: "Improve a Talk-to-Data Agent"
+  short_description: "Iterate on an agent against a fixed eval"
+  default_prompt: "Use $atlan-analytics-improve to improve our talk-to-data agent against its evals."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

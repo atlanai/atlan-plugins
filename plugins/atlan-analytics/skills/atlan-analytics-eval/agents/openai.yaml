@@ -1,0 +1,11 @@
+interface:
+  display_name: "Evaluate a Talk-to-Data Agent"
+  short_description: "Score an agent against its eval set"
+  default_prompt: "Use $atlan-analytics-eval to score our talk-to-data agent against its eval set."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

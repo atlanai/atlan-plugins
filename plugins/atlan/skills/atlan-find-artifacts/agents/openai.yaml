@@ -1,0 +1,11 @@
+interface:
+  display_name: "Find in Atlan"
+  short_description: "Search skills, agents, knowledge and MCP servers"
+  default_prompt: "Use $atlan-find-artifacts to find what my organization already has for this task."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

@@ -1,0 +1,11 @@
+interface:
+  display_name: "Use an Atlan Skill"
+  short_description: "Load or install a skill from the Atlan registry"
+  default_prompt: "Use $atlan-use-skill to find an Atlan skill for this task and use it here."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
