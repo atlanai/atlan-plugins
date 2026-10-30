@@ -252,6 +252,14 @@ class SkillLintTest(unittest.TestCase):
         self.assertTrue(any("cites unknown skill atlan-missing" in e for e in errors), errors)
         self.assertEqual(self.lint("a", text, owned=False), [])
 
+    def test_a_skill_may_cite_a_subagent_its_plugin_ships(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            addon = Path(temp) / "atlan-x"
+            self.write_skill(addon, "atlan-x-run", "")
+            (addon / "agents").mkdir()
+            (addon / "agents/atlan-x-grader.md").write_text("---\nname: atlan-x-grader\n---\n")
+            self.assertEqual(lint.citable([addon]), {"atlan-x-run", "atlan-x-grader"})
+
     def test_an_addon_may_not_carry_its_own_server_or_hooks(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             addon = Path(temp) / "atlan-x"

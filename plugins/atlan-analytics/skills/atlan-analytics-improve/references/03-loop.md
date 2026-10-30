@@ -85,9 +85,8 @@ the change landed or test the unchanged definition as the new variant.
 
 ### Proposing a metric fix
 
-A proposal is what Metric Studio shows its owner as suggestions to apply or dismiss
-(docs/metrics.md#agent-proposals in metric service); nothing about the metric changes until a person
-applies it. Create it with `registry__create_artifact`, kind `file`:
+A proposal is what Metric Studio shows its owner as suggestions to apply or dismiss; nothing
+about the metric changes until a person applies it. Create it with `registry__create_artifact`, kind `file`:
 
 - `metadata`: `name` (unique in the workspace, for example `improve-<metric>-v<N>`),
   `workspace_id`, `path` `improvements/metric/<metric>-v<N>.json`, `media_type`
