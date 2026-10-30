@@ -42,3 +42,9 @@ validate:
 	claude plugin validate .claude-plugin/marketplace.json --strict
 	claude plugin validate skills --strict
 	claude plugin validate commands --strict
+	for addon in plugins/*/; do \
+		claude plugin validate $${addon}.claude-plugin/plugin.json --strict --profile directory || exit 1; \
+		for tree in skills commands agents; do \
+			if [ -d $${addon}$$tree ]; then claude plugin validate $${addon}$$tree --strict || exit 1; fi; \
+		done; \
+	done

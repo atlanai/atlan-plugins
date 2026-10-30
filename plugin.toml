@@ -54,3 +54,22 @@ default_prompts = [
   "Find a skill in Atlan for this task and install it in this project",
   "Publish the skill in this folder to Atlan",
 ]
+
+# Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
+# marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through
+# this plugin's connection. Its skills, commands and agents come from the app that owns the
+# workload, through upstream.json. Bump an add-on's version on every release of it.
+[[addons]]
+name = "atlan-analytics"
+display_name = "Atlan Analytics"
+version = "0.1.0"
+description = "Bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
+short_description = "Metrics and talk-to-data agents on Atlan"
+long_description = "The analytics workload on the Atlan registry. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
+keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "evals"]
+category = "Data"
+default_prompts = [
+  "Build metrics and saved queries for our support tables from the warehouse's query history",
+  "Build a talk-to-data agent for our revenue questions",
+  "Propose a fix for the metric we just found was wrong",
+]
