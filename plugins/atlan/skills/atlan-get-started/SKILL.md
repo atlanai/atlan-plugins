@@ -17,9 +17,10 @@ tools rather than answering from memory or from these files.
 
 ## 1. Check the connection
 
-Look for the `atlan` server's tools. In the default search mode there are four:
-`mcp__search_tools`, `mcp__describe_tools`, `mcp__call_tool` and `mcp__connect_server` (your
-host may prefix them, for example `mcp__plugin_atlan_atlan__mcp__search_tools` in Claude Code).
+Look for the `atlan` server's tools. In the default search mode there are three:
+`mcp__search_tools`, `mcp__describe_tools` and `mcp__call_tool` (your host may prefix them, for
+example `mcp__plugin_atlan_atlan__mcp__call_tool` in Claude Code). Connecting a downstream
+server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp__connect_server`.
 
 - **No `atlan` tools at all**, or a sign-in error: the server is not connected or not signed
   in. Give the user the one step for where they are, from `references/install-and-sign-in.md`,
@@ -29,35 +30,47 @@ host may prefix them, for example `mcp__plugin_atlan_atlan__mcp__search_tools` i
     the organization; say so, and give the user the note for their Owner from the reference.
   - Claude Code: run `/mcp`, choose `plugin:atlan:atlan`, then **Authenticate**.
   - Codex, Cursor, VS Code and the rest: the reference has each one.
-- **Tools are there**: open a session and prove it works with one read:
+- **Tools are there**: prove it works with one read. You know this tool's name and arguments,
+  so call it directly; the call opens the session:
 
   ```
-  mcp__search_tools {
-    "query": "list the workspaces I can reach in the Atlan registry",
-    "objective": "<one sentence on what this whole session is for, for a human auditor>"
-  }
-  → { "session_id": "mcp_session_…", "tools": [ … registry__list_workspaces … ] }
-
   mcp__call_tool {
     "name": "registry__list_workspaces",
     "arguments": {},
-    "session_id": "mcp_session_…",
+    "objective": "<one sentence on what this whole session is for, for a human auditor>",
     "rationale": "Checking the Atlan connection and which workspaces this user can write to."
   }
+  → { "mcp_session_id": "mcp_session_…", … "items": [ … ] }
   ```
 
-  Tell the user which organization and workspaces you can see. If there is more than one
-  workspace, ask which one to use before any write. Then offer a first task, such as finding
-  the skills their organization already has (`atlan-find-artifacts`), and mention that the Atlan
-  dashboard at https://app.atlan.com shows the same registry in the browser.
+  Reuse the returned `mcp_session_id` as `session_id` on every later call.
+
+  Report what the user can use, not the raw list. An organization can return dozens of
+  workspaces, many of them test or `archived` ones:
+
+  - Keep only `workspace_status: "active"` workspaces. Never offer an archived one.
+  - Lead with the user's own (`kind: "user_default"`) and the organization's
+    (`kind: "org_default"`); name a handful of the others and say how many more there are.
+  - Ask which workspace to use only when a write is coming, and then name the candidates.
+
+  Then offer a first task, such as finding the skills their organization already has
+  (`atlan-find-artifacts`), and mention that the Atlan dashboard at https://app.atlan.com shows
+  the same registry in the browser.
 
 ## 2. How every call works
 
 Read `references/calling-tools.md` once. In short:
 
-- **One session per conversation.** The first `mcp__search_tools` (or first `mcp__call_tool`)
-  carries `objective` and returns a `session_id`. Pass that `session_id` on every later call.
-  Never invent one.
+- **One session per conversation.** The first `mcp__search_tools` or `mcp__call_tool` carries
+  `objective` and returns the session's id (`session_id` from a search, `mcp_session_id` from a
+  call). Pass it as `session_id` on every later call. Never invent one, and never send
+  `objective` again: that opens a second session.
+- **Call a tool you know by name; search only for what you do not.** The registry's own tools
+  (`registry__list_workspaces`, `registry__search_artifacts`, `registry__get_artifact`,
+  `registry__get_file_content`, `registry__get_kind_schema` and the rest named in these skills)
+  need no search. When you do search for one, pass `servers: ["registry"]`: tool search ranks
+  every connected server, and an unfiltered query can miss a registry tool or return a
+  lookalike from another app.
 - **Every call carries a `rationale`**: one first-person sentence on why you are making this
   call, written for the person who audits it later. Not a restatement of the arguments.
 - **`session_id`, `objective` and `rationale` go beside `name` and `arguments`**, never inside
@@ -71,19 +84,19 @@ Read `references/calling-tools.md` once. In short:
 | The user wants to… | Use |
 |---|---|
 | Find what exists: skills, agents, knowledge, MCP servers, files, runs | `atlan-find-artifacts` |
-| Read what a registry skill or file actually says | `atlan-read-content` |
+| Read what a registry skill or file actually says, or upload a file | `atlan-content` |
 | Use a registry skill in this task, or install it locally | `atlan-use-skill` |
 | Catch up on an artifact handed over from the Atlan dashboard (`out_…` and other handles) | `atlan-continue` |
 | Call tools of Slack, Linear, GitHub or another server registered in Atlan, or register a new MCP server | `atlan-use-mcp-servers` |
 | Publish a skill, or a new version of one | `atlan-author-skills` |
-| Register an agent or harness, or record which skills it uses | `atlan-author-agents` |
+| Register an agent or harness, link a repository's agent, or record which skills it uses | `atlan-author-agents` |
+| Create or edit a knowledge bundle (glossary, table docs, metric definitions) | `atlan-author-knowledge` |
 | Record a deliverable an agent produced | `atlan-record-outputs` |
-| Upload a file, bundle or dataset | `atlan-upload-content` |
-| Keep a Git repository's skills and agents in sync with Atlan from CI | `atlan-link-skill`, then `atlan-link-agent` |
+| Register a repository, or publish its skills and agents to Atlan from GitHub CI | `atlan-connect-repo` |
 | Anything refused, slow, missing or confusing | `atlan-troubleshoot` |
 
-The registry also serves its authoring recipes as MCP prompts (`prompts/list`), for knowledge
-bundles, metrics and analytics agents among others. When a task is about a kind no skill above
+The registry also serves its authoring recipes as MCP prompts (`prompts/list`), for metrics and
+analytics agents among others. When a task is about a kind no skill above
 covers, list the prompts before guessing. If a skill named above is missing, this one was
 installed on its own: the registry's recipes are still there as prompts, and the rest come
 with the Atlan plugin (`references/install-and-sign-in.md`).

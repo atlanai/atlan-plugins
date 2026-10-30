@@ -1,0 +1,11 @@
+interface:
+  display_name: "Connect a Repository"
+  short_description: "Sync a repository's skills and agents to Atlan"
+  default_prompt: "Use $atlan-connect-repo to publish this repository's skills and agents to Atlan from GitHub."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
