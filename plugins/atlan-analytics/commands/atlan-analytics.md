@@ -1,6 +1,6 @@
 ---
-description: Bootstrap metrics and saved queries, build, evaluate and improve a talk-to-data agent, or propose a metric from this conversation, on the Atlan registry.
-argument-hint: "[metrics | build | improve | eval | propose] [scope or project]"
+description: Answer a data question from published metrics, bootstrap metrics and saved queries, build, evaluate and improve a talk-to-data agent, or propose a metric from this conversation, on the Atlan registry.
+argument-hint: "[ask | metrics | build | improve | eval | propose] [question, scope or project]"
 ---
 
 Use the included instructions and follow the router with these arguments: $ARGUMENTS
@@ -20,6 +20,10 @@ the command and skill share that name, so it can load this wrapper again.
 Resolve the router's `references/` paths from
 `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics/` and its `skills/` paths from
 `${CLAUDE_PLUGIN_ROOT}/`.
+
+With `ask`, or a data question and no mode, answer it in this conversation from the workspace's
+published metrics and saved queries, run against the warehouse. It says which definition it used,
+and offers `propose` when none covered the question. It builds no agent and runs no eval.
 
 With `metrics`, run only the metrics-agent workflow: choose the source and table scope,
 reuse existing definitions, and review metrics and saved queries before publishing. Stop
