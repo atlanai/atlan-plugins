@@ -9,13 +9,18 @@ APP_REPO ?= ../app-repo
 SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --from agent=$(APP_AGENT) \
 	--from knowledge=$(APP_KNOWLEDGE) --from repo=$(APP_REPO)
 
-.PHONY: check build sync sync-adopt lint test site validate eval
+# The analytics helpers' offline selftests run in `check`.
+ANALYTICS_SCRIPTS = plugins/atlan-analytics/skills/atlan-analytics/scripts
+
+.PHONY: check build sync sync-adopt lint test site validate eval eval-analytics
 
 check:
 	$(PYTHON) tools/build.py --check
 	$(PYTHON) tools/sync_upstream.py --check
 	$(PYTHON) tools/lint.py
 	$(PYTHON) -m unittest discover -s tools/tests -q
+	$(PYTHON) $(ANALYTICS_SCRIPTS)/analytics_eval.py selftest
+	$(PYTHON) $(ANALYTICS_SCRIPTS)/metrics_mine.py selftest
 
 build:
 	$(PYTHON) tools/build.py
@@ -54,3 +59,7 @@ validate:
 EVAL_ARGS ?= --runs 2 -j 4
 eval:
 	$(PYTHON) evals/atlan/run.py -- $(EVAL_ARGS)
+
+# The same for the atlan-analytics plugin: routing, isolation, publishing and propose behaviour.
+eval-analytics:
+	$(PYTHON) evals/atlan-analytics/run.py -- $(EVAL_ARGS)

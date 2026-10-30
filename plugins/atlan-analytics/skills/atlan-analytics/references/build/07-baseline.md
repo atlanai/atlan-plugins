@@ -22,11 +22,11 @@ experiment in the registry.
 
    Triage every zero before quoting a number. A harness error (tool failure, timeout) is not an
    agent failure, and it leaves the denominator.
-4. **Publish**: `EVAL push --variant baseline`. It creates the experiment on the agent, with
-   one result per case, a trace and a session each, and marks it completed. The user can open
-   the agent's Evals tab to see it.
+4. **Publish** variant `baseline` as [Publish in the eval procedure](../eval.md#publish)
+   describes. It creates the experiment on the agent, with one result and one session per case,
+   and marks it completed. The user can open the agent's Evals tab to see it.
 5. **Freeze the harness**: tell the user to run `EVAL approve-harness` themselves. That records
    the grader's digest, so a later edit to the scoring is caught.
 
-**STOP gate.** "Baseline: test P% (±B), train Q%. Top failure classes: … Experiment pushed to
+**STOP gate.** "Baseline: test P% (±B), train Q%. Top failure classes: … Experiment published to
 the registry." Set `phase` to `improve` and offer `atlan-analytics improve`.

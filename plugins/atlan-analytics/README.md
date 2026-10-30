@@ -22,11 +22,13 @@ codex plugin add atlan-analytics@atlan-plugins
 
 ## Privacy
 
-It stores nothing and runs nothing on your machine: it has no hooks and no binaries. See Atlan's
+It has no hooks and no binaries. Its skills may run the standard-library Python scripts bundled
+with them and keep working files in your project, and they reach Atlan only through the `atlan`
+plugin's connection, signed in as you. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).
 
 ## Source
 
 `tools/build.py` generates this README and the manifests from `[[addons]]` in `plugin.toml`.
-The skills, commands and agents in this folder are the source of truth. The Atlan app behind the
-workload pins a commit of this repository and serves the same files over Atlan's MCP server.
+The skills, commands, agents and scripts in this folder are the only source: nothing else serves
+or copies them.
