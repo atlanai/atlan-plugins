@@ -1,8 +1,9 @@
 # Contributing to the Atlan plugin
 
 This repository is one plugin, `atlan`, packaged for Claude Code, OpenAI Codex, Cursor and
-Agent Plugins hosts (GitHub Copilot, VS Code and others). It holds no service code: the
-plugin is a remote MCP server URL plus skills and commands. Contributor guidance lives here
+Agent Plugins hosts (GitHub Copilot, VS Code and others), plus its add-ons. It holds no service
+code: the plugin is a remote MCP server URL plus skills and commands, and each add-on is skills,
+commands and agents that use that server. Contributor guidance lives here
 because no host loads a plugin's own `CLAUDE.md`, and `claude plugin validate` warns on one.
 
 ## Layout
@@ -17,6 +18,8 @@ plugin.json, mcp.json             Agent Plugins 1.0: Codex, Cursor, Copilot, VS 
 .cursor-plugin/                   Cursor manifest and marketplace                      (generated)
 skills/<name>/SKILL.md            skills; owned here unless upstream.json lists them
 commands/*.md                     Claude Code and Cursor commands
+plugins/<add-on>/                 add-on plugins: vendored skills, commands and agents; manifests,
+                                  README and logo generated
 upstream.json                     pinned sources and sha256 of every vendored file
 assets/logo.svg                   the listing icon (the brand package's mascot app icon)
 scripts/                          build, sync, lint and the skill index, standard library Python 3.11+
@@ -44,6 +47,15 @@ docs/GAPS.md                      what the registry is missing for an easy start
   directory.
 - **One name everywhere.** The plugin `name` (`atlan`) and the MCP server key (`atlan`) are
   immutable once published. Relabel with `display_name`.
+- **A workload is an add-on, not a core skill.** A workload built on the registry (analytics,
+  later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlan-<workload>`.
+  Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
+  is their source of truth: the app behind the workload pins a commit of this repository to serve
+  the same files over MCP (metric service does, for `atlan-analytics`). A change here reaches that
+  app at its next pin bump, where its own tests run against the new text. An add-on depends on `atlan` and declares no MCP server, hooks or
+  `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
+  `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
+  skills check for the Atlan tools and say what to install.
 
 ## Checks
 
@@ -86,10 +98,13 @@ correctly after the rewrite. This repository holds no variant of its own.
 ## Releasing
 
 1. Bump `version` in `plugin.toml` (SemVer; Claude Code keeps users on the version they
-   installed until it changes) and run `make build`.
+   installed until it changes) and run `make build`. An add-on has its own `version` under
+   `[[addons]]`; bump it when its content or manifest changes.
 2. Add the release notes under a new heading in `CHANGELOG.md`.
-3. Merge to `main`. The repository is its own marketplace for every tool, so users get the new
-   version on their tool's next marketplace refresh. Directory listings (Claude, Codex, Cursor)
+3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlan--v0.1.2`,
+   `atlan-analytics--v0.1.0`), so a dependency with a version range resolves in Claude Code.
+   The repository is its own marketplace for every tool, so users get the new version on their
+   tool's next marketplace refresh. Directory listings (Claude, Codex, Cursor)
    are pinned to a commit and move only when the listing is updated.
 
 Before a release that changes install or sign-in, install from a clean profile in each tool

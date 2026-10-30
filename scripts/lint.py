@@ -13,7 +13,10 @@ Skills this repository owns (not vendored, see upstream.json) are also held to:
   * at most 500 lines in SKILL.md (longer material goes in references/);
   * every `references/...` and `skills/...` path they cite exists;
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
-Commands (commands/*.md): frontmatter with a `description`.
+Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`.
+Add-ons (plugins/<name>/): the same checks on their skills, commands and agents, skill names unique
+across the core and every add-on, and no MCP server, hooks or bin/ of their own (an add-on uses the
+core's one `atlan` connection).
 Repository: no symlinks, no root CLAUDE.md (plugins do not load it), no top-level bin/ (claude.ai
 and organization sync refuse it), no hooks (out of scope for this plugin, see AGENTS.md), and no
 credential-shaped strings in any tracked text file.
@@ -79,7 +82,7 @@ def vendored() -> set[str]:
     return set(json.loads((ROOT / "upstream.json").read_text(encoding="utf-8"))["files"])
 
 
-def lint_skill(directory: Path, owned: bool, skills: set[str]) -> list[str]:
+def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT) -> list[str]:
     relative = directory.relative_to(ROOT)
     skill_md = directory / "SKILL.md"
     if not skill_md.is_file():
@@ -115,7 +118,7 @@ def lint_skill(directory: Path, owned: bool, skills: set[str]) -> list[str]:
         for path in directory.rglob("*.md"):
             content = path.read_text(encoding="utf-8")
             for cited in CITED_PATH.findall(content):
-                base = directory if cited.startswith("references/") else ROOT
+                base = directory if cited.startswith("references/") else root
                 if not (base / cited).is_file():
                     errors.append(f"{path.relative_to(ROOT)}: cites missing {cited}")
             for cited in CITED_SKILL.findall(content):
@@ -129,6 +132,24 @@ def lint_command(path: Path) -> list[str]:
     if parsed is None or not parsed[0].get("description"):
         return [f"{path.relative_to(ROOT)}: needs frontmatter with a description"]
     return []
+
+
+def plugin_roots() -> list[Path]:
+    """The core at the repository root, then each add-on under plugins/."""
+    addons = ROOT / "plugins"
+    return [ROOT, *sorted(p for p in addons.iterdir() if p.is_dir())] if addons.is_dir() else [ROOT]
+
+
+def lint_addon(root: Path) -> list[str]:
+    relative = root.relative_to(ROOT)
+    errors = []
+    for name in (".mcp.json", "mcp.json", "hooks", "bin"):
+        if (root / name).exists():
+            errors.append(f"{relative}/{name}: an add-on reaches Atlan through the core plugin's server and runs no hooks")
+    manifest = root / ".claude-plugin" / "plugin.json"
+    if manifest.is_file() and "mcpServers" in json.loads(manifest.read_text(encoding="utf-8")):
+        errors.append(f"{relative}/.claude-plugin/plugin.json: an add-on declares no mcpServers")
+    return errors
 
 
 def lint_repository(files: list[Path]) -> list[str]:
@@ -155,23 +176,40 @@ def lint_repository(files: list[Path]) -> list[str]:
     return errors
 
 
+def citable(roots: list[Path]) -> set[str]:
+    """The names a skill may cite: every skill, and every subagent a plugin ships."""
+    return {p.name for root in roots for p in (root / "skills").glob("*") if p.is_dir()} | {
+        p.stem for root in roots for p in (root / "agents").glob("*.md")
+    }
+
+
 def main() -> int:
     owned_paths = vendored()
-    skill_dirs = sorted(p for p in (ROOT / "skills").iterdir() if p.is_dir())
-    skills = {p.name for p in skill_dirs}
+    roots = plugin_roots()
+    skill_dirs = [
+        (root, p) for root in roots if (root / "skills").is_dir() for p in sorted((root / "skills").iterdir()) if p.is_dir()
+    ]
+    skills = citable(roots)
 
     errors = []
-    for directory in skill_dirs:
-        owned = f"skills/{directory.name}/SKILL.md" not in owned_paths
-        errors += lint_skill(directory, owned, skills)
-    for path in sorted((ROOT / "commands").glob("*.md")):
+    seen: dict[str, Path] = {}
+    for root, directory in skill_dirs:
+        if directory.name in seen:
+            errors.append(f"{directory.relative_to(ROOT)}: skill name also used by {seen[directory.name].relative_to(ROOT)}")
+        seen[directory.name] = directory
+        owned = f"{directory.relative_to(ROOT).as_posix()}/SKILL.md" not in owned_paths
+        errors += lint_skill(directory, owned, skills, root)
+    commands = [path for root in roots for top in ("commands", "agents") for path in sorted((root / top).glob("*.md"))]
+    for path in commands:
         errors += lint_command(path)
+    for root in roots[1:]:
+        errors += lint_addon(root)
     errors += lint_repository(tracked_files())
 
     for error in errors:
         print(error, file=sys.stderr)
     if not errors:
-        print(f"ok: {len(skill_dirs)} skills, {len(list((ROOT / 'commands').glob('*.md')))} commands")
+        print(f"ok: {len(skill_dirs)} skills, {len(commands)} commands and agents, {len(roots) - 1} add-ons")
     return 1 if errors else 0
 
 
