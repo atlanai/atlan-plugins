@@ -1,6 +1,6 @@
 {
   "name": "atlan",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills.",
   "author": {
     "name": "Atlan",
@@ -33,8 +33,8 @@
     ],
     "websiteURL": "https://atlan.com",
     "defaultPrompt": [
-      "Connect to Atlan and show me which skills and agents my organization has",
-      "Find a skill in Atlan for this task and install it in this project",
+      "Show my organization's skills and agents in Atlan",
+      "Find an Atlan skill for this task and install it",
       "Publish the skill in this folder to Atlan"
     ],
     "brandColor": "#2026D2",

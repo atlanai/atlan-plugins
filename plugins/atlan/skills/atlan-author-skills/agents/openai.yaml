@@ -1,0 +1,11 @@
+interface:
+  display_name: "Publish a Skill"
+  short_description: "Create a skill in Atlan or publish a new version"
+  default_prompt: "Use $atlan-author-skills to publish the skill in this folder to Atlan."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

@@ -1,0 +1,11 @@
+interface:
+  display_name: "Troubleshoot Atlan"
+  short_description: "Diagnose failing or refused Atlan tool calls"
+  default_prompt: "Use $atlan-troubleshoot to find out why my last Atlan call failed."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

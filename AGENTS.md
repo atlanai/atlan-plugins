@@ -18,6 +18,7 @@ plugins/atlan/                    the core plugin
   .mcp.json, .claude-plugin/      Claude Code's MCP file and manifest                 (generated)
   .codex-plugin/, .cursor-plugin/ Codex overlay and Cursor manifest                   (generated)
   skills/<name>/SKILL.md          skills; owned here unless upstream.json lists them
+  skills/<name>/agents/openai.yaml  Codex's card for the skill, from [skills] in plugin.toml (generated)
   commands/*.md                   Claude Code and Cursor commands
   README.md                       written by hand
 plugins/atlan-<workload>/         add-ons: skills, commands and agents written here; manifests and
@@ -40,6 +41,10 @@ tools/tests/                      unit tests for the tools
   registry's apps (gateway's files module, skill service, agent service), which serve the same files
   as MCP prompts and in the registry's own `atlanai` plugin. Fix them upstream, then move the pin:
   `make sync-adopt` with sibling checkouts, or the **Sync upstream recipes** workflow.
+- **Every skill, vendored or owned, in every plugin has a `[skills.<name>]` entry** in
+  `plugin.toml`: a display name, a short description and a starter prompt that invokes it as
+  `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
+  `agents/openai.yaml`, and fails on a skill without one.
 - **Skills this repository owns** are named `atlan-<task>`, one task each, with a description
   that says when to use the skill rather than what it is. Keep `SKILL.md` under 500 lines and put
   detail in `references/`. Teach decisions and point at live tools; do not paste reference data
