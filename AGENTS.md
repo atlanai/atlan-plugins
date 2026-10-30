@@ -25,7 +25,7 @@ plugins/atlan-<workload>/         add-ons: skills, commands and agents written h
 plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugin cannot point
                                   outside its folder
 upstream.json                     pinned sources and sha256 of every vendored file
-assets/logo.svg                   the listing icon (the brand package's mascot app icon)
+assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
 scripts/                          build, sync, lint and the skill index, standard library Python 3.11+
 tests/                            unit tests for the scripts
 docs/GAPS.md                      what the registry is missing for an easy start
