@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: routing-metrics-natural
+tags: [analytics, routing]
+execution:
+  prompt: |
+    Build metrics and saved queries for our support tables from the warehouse's query history
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-(analytics|ontology)'
+  - name: reads-expected
+    type: tool_used
+    tool: Read
+    input_match: 'references/metrics\.md'
+    min: 1
+  - name: avoids-wrong-branch
+    type: tool_used
+    tool: Read
+    input_match: 'references/full-agent\.md'
+    min: 0
+    max: 0

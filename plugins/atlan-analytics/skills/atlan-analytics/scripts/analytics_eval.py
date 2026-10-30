@@ -3,13 +3,14 @@
 
 Everything a model should not do by judgment lives here: filtering identifying literals out of a
 query log, the train/test split, result-set grading, the eval-hillclimb results layout, the
-harness-integrity gate, and publishing a run to the Atlan registry (dataset, experiment, results,
-and one trace + one session per case as the agent). Python 3.10+. Local grading uses the standard library; publishing uses the pinned Atlan SDK.
+harness-integrity gate, and planning how a run is published to the Atlan registry (dataset,
+experiment, results, and one session per case). Python 3.10+, standard library only. It never
+touches the network: the assistant sends each registry write through the Atlan MCP server.
 
     python3 analytics_eval.py <command> [options]        # every command prints one JSON object
 
 Exit 0 ok, 1 error, 2 BLOCKED ({"status":"BLOCKED","reason","fix"}: something the user must fix).
-Tokens and agent keys are held in memory only and never printed.
+It reads no credentials.
 
 Project directory (--dir), written by the skills:
   state.json                   ids: workspace_id, agent_id, agent_name, eval_dataset_id, scorer_id, experiments{}
@@ -18,6 +19,7 @@ Project directory (--dir), written by the skills:
   eval/split.json              {train_ids, test_ids, seed}
   hillclimb/_state.json        harness_sha (+ the loop's own keys)
   hillclimb/<variant>/results.jsonl, summary.json, traces/<id>_rep<k>.json, results/<id>_rep<k>.{gold,agent}.json
+  hillclimb/<variant>/publish.json  session, message and result ids already in the registry, and the pending step
 """
 from __future__ import annotations
 
@@ -31,18 +33,13 @@ import os
 import pathlib
 import random
 import re
-import secrets
-import shutil
 import statistics
-import subprocess
 import sys
 import tempfile
-import time
 from collections import Counter
 
 VERSION = "0.1.0"
 SCORER_NAME = "result-match"
-UA = f"atlan-analytics-eval/{VERSION}"
 
 
 class Blocked(Exception):
@@ -661,92 +658,14 @@ def cmd_compare(a) -> dict:
             "test": paired(sp["test_ids"]), "train": paired(sp["train_ids"])}
 
 
-# ====================================================================== registry (REST)
-def _base_url() -> str:
-    if os.environ.get("ATLAN_GATEWAY_URL"):
-        return os.environ["ATLAN_GATEWAY_URL"].rstrip("/")
-    root = os.environ.get("CLAUDE_PLUGIN_ROOT")
-    if root:
-        pj = load_json(pathlib.Path(root) / ".claude-plugin" / "plugin.json", {}) or {}
-        url = ((pj.get("mcpServers") or {}).get("atlan") or {}).get("url") or ""
-        if url:
-            return re.sub(r"/mcp/?$", "", url).rstrip("/")
-    return "https://api.dev.example"
-
-
-def _token() -> str:
-    tok = os.environ.get("ATLAN_GATEWAY_TOKEN", "").strip()
-    if tok:
-        return tok
-    for name in ("atlanai-dev", "atlanai"):
-        exe = shutil.which(name) or os.path.expanduser(f"~/.local/bin/{name}")
-        if not os.path.exists(exe):
-            continue
-        try:
-            out = subprocess.run([exe, "auth", "token"], capture_output=True, text=True, timeout=60)
-        except (OSError, subprocess.TimeoutExpired):
-            continue
-        lines = out.stdout.strip().splitlines() if out.returncode == 0 else []
-        if lines and lines[-1].strip():
-            return lines[-1].strip()
-    raise Blocked("No Atlan sign-in found for publishing the eval run.",
-                  "Run `atlanai auth login` (dev: `atlanai-dev auth login`), or set ATLAN_GATEWAY_TOKEN.")
-
-
-def Gateway(token: str, base: str):
-    """The pinned management SDK owns authentication, transport and publishing mechanics."""
-    try:
-        from atlanai import AtlanClient
-        from atlanai.recorded import RecordedEvaluationPublisher
-    except ImportError:
-        raise Blocked("The publishing SDK is not installed.",
-                      "Run push with `uv run --project <skill>/scripts analytics_eval.py push ...`.") from None
-    key = os.environ.get("ATLAN_EVAL_AGENT_API_KEY", "").strip()
-    return RecordedEvaluationPublisher(
-        AtlanClient(base, bearer_token=token),
-        AtlanClient(base, bearer_token=key) if key else None,
-    )
-
-
-def _target(tool: str) -> str:
-    t = (tool or "").lower()
-    if "registry" in t or "metric" in t or "ontology" in t:
-        return "Atlan registry"
-    if "snowflake" in t or "databricks" in t or "sql" in t or "query" in t:
-        return "warehouse"
-    return tool or "tool"
-
-
-def trace_payload(row: dict, turns: list, *, agent_name: str, conversation_id: str, trace_id: str,
-                  extra: dict) -> dict:
-    """Root invoke_agent span + one execute_tool span per tool call, timed across the case's latency."""
-    try:
-        end = dt.datetime.fromisoformat(row["ts"]).timestamp()
-    except (KeyError, ValueError):
-        end = time.time()
-    lat = float(row.get("latency_s") or 30.0)
-    s_ns, e_ns = int((end - lat) * 1e9), int(end * 1e9)
-    from atlanai.recorded import recorded_trace
-    u = row.get("usage") or {}
-    calls = [t for t in turns if t.get("role") == "tool_call"]
-    results = [t for t in turns if t.get("role") == "tool_result"]
-    tools = [{"name": call.get("name"), "target": _target(call.get("name")),
-              "arguments": call.get("content", "")[:8000],
-              "result": (results[i].get("content") or "")[:8000] if i < len(results) else ""}
-             for i, call in enumerate(calls)]
-    return recorded_trace(trace_id=trace_id, session_id=conversation_id, service_name=agent_name,
-                          start_ns=s_ns, end_ns=e_ns, title=("[eval] " + row["prompt"])[:200], tools=tools,
-                          success=bool(row.get("answer")), attributes={
-        **extra, "gen_ai.request.model": row.get("model"),
-        "gen_ai.input.messages": [{"role": "user", "content": [{"type": "text", "text": row["prompt"]}]}],
-        "gen_ai.output.messages": [{"role": "assistant", "content": [{"type": "text", "text": row.get("answer") or ""}]}],
-        "gen_ai.usage.input_tokens": int(u.get("input_tokens") or 0),
-        "gen_ai.usage.output_tokens": int(u.get("output_tokens") or 0),
-        "db.statement": row.get("sql") or None, "atlan.eval.class": row.get("class"),
-        "atlan.eval.score": float((row.get("grade") or {}).get("pass", 0)),
-        "atlan.context.used": row.get("used_context_ids") or None,
-        "atlan.context.refs": json.dumps(row["used_context_refs"]) if row.get("used_context_refs") else None,
-    })
+# ====================================================================== publishing (registry MCP)
+# The assistant makes every registry write through the Atlan MCP server with the person's own
+# sign-in, as metrics mode does. This script never touches the network: `publish` names the next
+# batch of tool calls, and `publish-ack` reads back what the registry returned. Trace spans have no
+# MCP write, so each case is published as a session with its full message list instead.
+BATCH = 100        # create_artifacts takes at most 100 items
+SESSION_BATCH = 20  # session creates per step: each needs its own create_artifact call
+LIST_TOOLS = ("registry__list_artifacts", "registry__search_artifacts")
 
 
 def session_messages(row: dict, turns: list) -> list:
@@ -766,178 +685,394 @@ def session_messages(row: dict, turns: list) -> list:
     return msgs
 
 
-def _publisher_key() -> str:
-    """An operator-supplied agent credential; evidence publishing never changes identity."""
-    key = os.environ.get("ATLAN_EVAL_AGENT_API_KEY", "").strip()
-    if not key:
-        raise Blocked("Trace publishing requires an explicit agent credential.",
-                      "Set ATLAN_EVAL_AGENT_API_KEY to a credential for the evaluated agent. "
-                      "Publishing does not create or rotate credentials.")
-    return key
+def _idem_key(*parts) -> str:
+    """A deterministic idempotency key (registry: 1-128 of [A-Za-z0-9_-])."""
+    return "ae-" + hashlib.sha256("\0".join(str(p) for p in parts).encode()).hexdigest()[:40]
 
 
-def _ship_rows(pr, gw, vd, rows, variant, ws, agent_id, agent_name, slug, *, eid, records) -> dict:
-    """One OTLP trace + one session per row using an explicit agent credential. Resume via shipped.json."""
-    a = argparse.Namespace(variant=variant)
-    shipped_p = vd / "shipped.json"
-    shipped = load_json(shipped_p, {}) or {}
-    pending_p = vd / "publishing.json"
-    pending = load_json(pending_p, {}) or {}
-    todo = [r for r in rows if f"{r['prompt_id']}_rep{r['rep']}" not in shipped]
-    if todo:
-        for r in todo:
-            tag = f"{r['prompt_id']}_rep{r['rep']}"
-            turns = load_json(vd / "traces" / f"{tag}.json", []) or []
-            tid = secrets.token_hex(16)
-            conv = f"analytics-eval-{slug}-{a.variant}-{tag}-{tid[:8]}"
-            extra = {"atlan.eval.experiment_id": eid, "atlan.eval.dataset_record_id": records.get(r["prompt_id"]),
-                     "atlan.eval.attempt": int(r["rep"]) + 1, "atlan.eval.variant": a.variant}
-            trace = trace_payload(r, turns, agent_name=agent_name, conversation_id=conv, trace_id=tid, extra=extra)
-            msgs = session_messages(r, turns)
-            u = r.get("usage") or {}
-            # A transport failure may follow accepted evidence. Keep intent before any upload
-            # so a later push cannot blindly replay a trace or partially recorded session.
-            pending[tag] = {"trace_id": tid, "conversation_id": conv}
-            dump_json(pending_p, pending)
-            sess = gw.case(trace=trace, session={
-                "name": f"{agent_name} {conv[-14:]}", "workspace_id": ws, "subject_kind": "agent",
-                "subject_id": agent_id, "session_status": "completed" if r.get("answer") else "failed",
-                "external_session_id": conv, "model_id": r.get("model"), "title": ("[eval] " + r["prompt"])[:200],
-                "message_count": len(msgs), "stop_reason": "final_answer" if r.get("answer") else "no_answer",
-                "usage": {"input_tokens": int(u.get("input_tokens") or 0),
-                          "output_tokens": int(u.get("output_tokens") or 0)}}, messages=msgs)
-            shipped[tag] = {"trace_id": tid, "session_id": sess["id"], "conversation_id": conv}
-            dump_json(shipped_p, shipped)
-            pending.pop(tag)
-            dump_json(pending_p, pending)
-    return {"status": "ok", "shipped": len(todo), "variant": variant, "experiment_id": eid,
-            "sessions_only": eid is None, "receipts": shipped}
+def _create(kind: str, metadata: dict, key: str) -> dict:
+    return {"tool": "registry__create_artifact",
+            "arguments": {"kind": kind, "metadata": metadata, "idempotency_key": key}}
 
 
-def cmd_push(a) -> dict:
-    pr = Proj(a.dir)
+def _create_many(kind: str, items: list) -> dict:
+    return {"tool": "registry__create_artifacts", "arguments": {"kind": kind, "items": items}}
+
+
+def _find_id(obj, kind: str):
+    """The `<kind>_…` handle in one tool result, wherever the envelope puts it."""
+    if isinstance(obj, str):
+        return obj if obj.startswith(kind + "_") else None
+    if isinstance(obj, dict):
+        for k in ("id", "artifact_id"):
+            v = obj.get(k)
+            if isinstance(v, str) and v.startswith(kind + "_"):
+                return v
+        for k in ("artifact", "result", "data", "structuredContent", "item"):
+            if k in obj:
+                hit = _find_id(obj[k], kind)
+                if hit:
+                    return hit
+    return None
+
+
+def _failed(obj) -> str | None:
+    if isinstance(obj, dict):
+        if obj.get("error"):
+            return str(obj["error"])[:300]
+        status = obj.get("status")
+        if isinstance(status, int) and status >= 400:
+            return str(obj.get("message") or obj.get("detail") or status)[:300]
+        if obj.get("isError"):
+            return json.dumps(obj.get("content"))[:300]
+    return None
+
+
+def _slots(resp) -> list:
+    """The per-item slots of a create_artifacts result, in the order the items were sent."""
+    if isinstance(resp, list):
+        return resp
+    if isinstance(resp, dict):
+        for k in ("items", "results", "slots", "created"):
+            if isinstance(resp.get(k), list):
+                return resp[k]
+        for k in ("result", "data", "structuredContent"):
+            if k in resp:
+                return _slots(resp[k])
+    return []
+
+
+def _listed(resp, kind: str) -> dict:
+    """name -> id from a list or search result, for reconciling a step whose response was lost."""
+    out = {}
+    for row in _slots(resp):
+        if isinstance(row, dict):
+            meta = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+            name = row.get("name") or meta.get("name")
+            aid = _find_id(row, kind)
+            if name and aid:
+                out[name] = aid
+    return out
+
+
+class Publication:
+    """One variant's publishing state: `hillclimb/<variant>/publish.json`."""
+
+    def __init__(self, pr: Proj, variant: str):
+        self.pr, self.variant = pr, variant
+        self.path = pr.vdir(variant) / "publish.json"
+        self.s = load_json(self.path, {}) or {}
+        for k in ("sessions", "messages", "results"):
+            self.s.setdefault(k, {})
+
+    def save(self) -> None:
+        dump_json(self.path, self.s)
+
+
+def _context(pr: Proj, a) -> dict:
     st = pr.state()
     ids = st.get("ids") or {}
-    ws = a.workspace or ids.get("eval_workspace_id") or ids.get("workspace_id")
-    agent_id = a.agent_id or ids.get("agent_id")
-    agent_name = ids.get("agent_name") or st.get("slug") or "talk-to-data-agent"
+    ws = getattr(a, "workspace", None) or ids.get("eval_workspace_id") or ids.get("workspace_id")
+    agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
     if not ws or not agent_id:
         raise Blocked("state.json has no workspace_id / agent_id.", "Register the agent first (build phase 5).")
-    vd = pr.vdir(a.variant)
-    rows = read_jsonl(vd / "results.jsonl")
+    rows = read_jsonl(pr.vdir(a.variant) / "results.jsonl")
     if not rows:
         raise Blocked(f"No recorded results for {a.variant}.", "Record cases with `analytics_eval.py record` first.")
-    shipped = load_json(vd / "shipped.json", {}) or {}
-    pending = load_json(vd / "publishing.json", {}) or {}
-    unresolved = [tag for tag in pending if tag not in shipped]
-    if unresolved:
-        raise Blocked("A previous evidence publish has an unresolved outcome.",
-                      "Reconcile the trace and session using the IDs in publishing.json. "
-                      "Save confirmed complete receipts in shipped.json, or clear the pending "
-                      "entry only after confirming nothing was accepted, before retrying.",
-                      pending=unresolved)
-    if any(f"{r['prompt_id']}_rep{r['rep']}" not in shipped for r in rows):
-        _publisher_key()  # Fail before creating any experiment/dataset if traces cannot be sent.
-    gw = Gateway(_token(), _base_url())
-    try:
-        slug = st.get("slug") or pr.dir.name
-        if a.sessions_only:
-            shipping = _ship_rows(pr, gw, vd, rows, a.variant, ws, agent_id, agent_name, slug, eid=None, records={})
-            shipping.pop("receipts")
-            return shipping
-        # scorer
-        sid = ids.get("scorer_id")
-        if not sid:
-            hit = gw.find("scorer", SCORER_NAME, ws)
-            sid = hit["id"] if hit else gw.create("scorer", {
-                "name": SCORER_NAME, "workspace_id": ws, "display_name": "Result-set match", "scorer_kind": "code",
-                "scope": "result", "spec": {"type": "result_set_match", "source": "atlan-analytics-eval/analytics_eval.py",
-                                            "rules": "gold and agent SQL on the same warehouse; 4 significant figures; "
-                                                     "column order/names ignored; row order only for ORDER BY … LIMIT; "
-                                                     "extra columns allowed"},
-                "outputs": {"result_match": {"type": "number", "range": [0, 1]}}})["id"]
-            pr.set_id("scorer_id", sid)
-        # dataset: questions only; the gold SQL stays on disk, a hash proves which one graded
-        did = ids.get("eval_dataset_id")
-        if not did:
-            name = f"{slug}-eval"
-            hit = gw.find("dataset", name, ws)
-            did = hit["id"] if hit else gw.create("dataset", {
-                "name": name, "workspace_id": ws, "display_name": f"{slug} eval", "input_key": "question",
-                "description": "Talk-to-data questions. The trusted SQL is kept locally by the grader and is not "
-                               "stored here, so the agent cannot retrieve it."})["id"]
-            pr.set_id("eval_dataset_id", did)
-        rec_path = pr.p("eval", "records.json")
-        records = load_json(rec_path, {}) or {}
-        gold = pr.answers()
-        new = [c for c in pr.cases() if c["case_id"] not in records]
+    return {"ids": ids, "ws": ws, "agent_id": agent_id, "rows": rows, "slug": st.get("slug") or pr.dir.name,
+            "agent_name": ids.get("agent_name") or st.get("slug") or "talk-to-data-agent"}
+
+
+def _tag(r: dict) -> str:
+    return f"{r['prompt_id']}_rep{r['rep']}"
+
+
+def _case_id(r: dict) -> str:
+    return r["prompt_id"] if int(r["rep"]) == 0 else f"{r['prompt_id']}~rep{r['rep']}"
+
+
+def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
+    """(step, calls, items): the first unfinished step and the tool calls that finish it."""
+    ids, ws, slug, rows, V = c["ids"], c["ws"], c["slug"], c["rows"], a.variant
+    full = not a.sessions_only
+    if full and not ids.get("scorer_id"):
+        return "scorer", [_create("scorer", {
+            "name": SCORER_NAME, "workspace_id": ws, "display_name": "Result-set match", "scorer_kind": "code",
+            "scope": "result", "spec": {"type": "result_set_match", "source": "atlan-analytics/analytics_eval.py",
+                                        "rules": "gold and agent SQL on the same warehouse; 4 significant figures; "
+                                                 "column order/names ignored; row order only for ORDER BY … LIMIT; "
+                                                 "extra columns allowed"},
+            "outputs": {"result_match": {"type": "number", "range": [0, 1]}}}, _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
+    if full and not ids.get("eval_dataset_id"):
+        name = f"{slug}-eval"
+        return "dataset", [_create("dataset", {
+            "name": name, "workspace_id": ws, "display_name": f"{slug} eval", "input_key": "question",
+            "description": "Talk-to-data questions. The trusted SQL is kept locally by the grader and is not "
+                           "stored here, so the agent cannot retrieve it."}, _idem_key(ws, "dataset", name))], [name]
+    if full:
+        records = load_json(pr.p("eval", "records.json"), {}) or {}
+        new = [cs for cs in pr.cases() if cs["case_id"] not in records][:BATCH]
         if new:
-            items = [{"name": c["case_id"], "workspace_id": ws,
-                      "input": {"question": c["question"], "tags": c.get("tags") or []},
+            gold = pr.answers()
+            items = [{"name": cs["case_id"], "workspace_id": ws, "dataset_id": ids["eval_dataset_id"],
+                      "input": {"question": cs["question"], "tags": cs.get("tags") or []},
                       "expected": {"gold_sql_sha256": hashlib.sha256(
-                          ((gold.get(c["case_id"]) or {}).get("gold_sql") or "").strip().encode()).hexdigest(),
+                          ((gold.get(cs["case_id"]) or {}).get("gold_sql") or "").strip().encode()).hexdigest(),
                           "note": "gold SQL kept locally so the agent cannot retrieve it"},
-                      "label": (c.get("tags") or ["untagged"])[0], "categories": c.get("tags") or [],
-                      "source_kind": "manual"} for c in new]
-            landed, rejected = gw.dataset_records(did, items)
-            records.update({k: v for k, v in landed.items() if isinstance(v, str)})
-            dump_json(rec_path, records)
-            if rejected:
-                return {"status": "DONE_WITH_CONCERNS", "stage": "dataset", "rejected": rejected[:10],
-                        "fix": "re-run push to reconcile recorded rows; resolve conflicting dataset content before retrying"}
-        # experiment
-        exps = ids.get("experiments") or {}
-        eid = exps.get(a.variant)
-        if not eid:
-            name = f"{slug}-{a.variant}"
-            hit = gw.find("experiment", name, ws)
-            if hit:
-                eid = hit["id"]
-            else:
-                body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {a.variant}",
-                        "description": (load_json(vd / "summary.json", {}) or {}).get("description") or f"analytics eval {a.variant}",
-                        "dataset_id": did, "subject_kind": "agent", "subject_id": agent_id,
-                        "experiment_status": "running",
-                        "config": {"variant": a.variant, "runner": "atlan-analytics-eval", "grader": SCORER_NAME,
-                                   "harness_sha": harness_sha()}}
-                if a.baseline and exps.get(a.baseline):
-                    body["baseline_experiment_id"] = exps[a.baseline]
-                eid = gw.create("experiment", body)["id"]
-            pr.set_id(f"experiments.{a.variant}", eid)
-        shipping = _ship_rows(pr, gw, vd, rows, a.variant, ws, agent_id, agent_name, slug, eid=eid, records=records)
-        shipped = shipping["receipts"]
-        # results, then finalize (a completed experiment refuses results)
-        have = {(it.get("metadata") or it).get("case_id") or it.get("name") for it in gw.results(eid)}
+                      "label": (cs.get("tags") or ["untagged"])[0], "categories": cs.get("tags") or [],
+                      "source_kind": "manual"} for cs in new]
+            return "records", [_create_many("dataset_record", items)], [cs["case_id"] for cs in new]
+    exps = ids.get("experiments") or {}
+    if full and not exps.get(V):
+        name = f"{slug}-{V}"
+        body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {V}",
+                "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
+                "dataset_id": ids["eval_dataset_id"], "subject_kind": "agent", "subject_id": c["agent_id"],
+                "experiment_status": "running",
+                "config": {"variant": V, "runner": "atlan-analytics-eval", "grader": SCORER_NAME,
+                           "harness_sha": harness_sha(), "traces": "sessions only"}}
+        if a.baseline and exps.get(a.baseline):
+            body["baseline_experiment_id"] = exps[a.baseline]
+        return "experiment", [_create("experiment", body, _idem_key(ws, "experiment", name))], [name]
+    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:SESSION_BATCH]
+    if todo:
+        calls, names = [], []
+        for r in todo:
+            tag = _tag(r)
+            conv = f"analytics-eval-{slug}-{V}-{tag}"
+            turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
+            u = r.get("usage") or {}
+            calls.append(_create("session", {
+                "name": conv, "workspace_id": ws, "subject_kind": "agent", "subject_id": c["agent_id"],
+                "session_status": "completed" if r.get("answer") else "failed", "external_session_id": conv,
+                "model_id": r.get("model"), "title": ("[eval] " + r["prompt"])[:200],
+                "message_count": len(session_messages(r, turns)),
+                "stop_reason": "final_answer" if r.get("answer") else "no_answer",
+                "usage": {"input_tokens": int(u.get("input_tokens") or 0),
+                          "output_tokens": int(u.get("output_tokens") or 0)}}, _idem_key(ws, "session", conv)))
+            names.append(tag)
+        return "sessions", calls, names
+    for r in rows:
+        tag = _tag(r)
+        sent = set(pub.s["messages"].get(tag) or [])
+        turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
+        msgs = session_messages(r, turns)
+        if len(sent) < len(msgs):
+            sess = pub.s["sessions"][tag]
+            items = [{"name": f"{sess['conversation_id']}-msg-{i}", "workspace_id": ws, "session_id": sess["id"],
+                      "sequence_number": i, **m} for i, m in enumerate(msgs) if i not in sent][:BATCH]
+            return "messages", [_create_many("session_message", items)], [f"{tag}#{it['sequence_number']}" for it in items]
+    if not full:
+        return "done", [], []
+    eid = exps[V]
+    records = load_json(pr.p("eval", "records.json"), {}) or {}
+    todo = [r for r in rows if _case_id(r) not in pub.s["results"]][:BATCH]
+    if todo:
         items = []
-        for r in rows:
-            cid = r["prompt_id"] if int(r["rep"]) == 0 else f"{r['prompt_id']}~rep{r['rep']}"
-            if cid in have:
-                continue
-            tag = f"{r['prompt_id']}_rep{r['rep']}"
-            items.append({"name": f"{slug}-{a.variant}-{cid}", "workspace_id": ws, "case_id": cid,
+        for r in todo:
+            cid = _case_id(r)
+            items.append({"name": f"{slug}-{V}-{cid}", "workspace_id": ws, "experiment_id": eid, "case_id": cid,
                           **({"dataset_record_id": records[r["prompt_id"]]} if records.get(r["prompt_id"]) else {}),
+                          "session_id": pub.s["sessions"][_tag(r)]["id"],
                           "input": {"question": r["prompt"]},
                           "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class")},
                           "scores": {"result_match": float((r.get("grade") or {}).get("pass", 0))},
-                          "duration_ms": int(float(r.get("latency_s") or 0) * 1000),
-                          **({"trace_id": shipped[tag]["trace_id"]} if tag in shipped else {})})
-        landed, rejected = gw.publish_results(eid, items)
-        if rejected:
-            return {"status": "DONE_WITH_CONCERNS", "experiment_id": eid, "accepted": len(have) + len(landed),
-                    "rejected": rejected[:10], "note": "left running so a re-run can finish it"}
-        s = summarize(pr, a.variant)
-        gw.complete(eid, {
-            "cases": s["cases"], "rows": s["rows"], "accuracy": s["all"]["pass_rate"],
-            "train_accuracy": s["train"]["pass_rate"], "test_accuracy": s["test"]["pass_rate"],
-            "test_ci95": s["test"]["ci95"], "classes": s["classes"], "models": s["models"], "variant": a.variant,
-            "scorer_id": sid, "runner": "atlan-analytics-eval", "finished_at": now()})
-        return {"status": "ok", "experiment_id": eid, "dataset_id": did, "results": len(have) + len(landed),
-                "traces_shipped": shipping["shipped"], "summary": s}
+                          "duration_ms": int(float(r.get("latency_s") or 0) * 1000)})
+        return "results", [_create_many("experiment_result", items)], [it["case_id"] for it in items]
+    if not pub.s.get("completed"):
+        s = summarize(pr, V)
+        return "complete", [{"tool": "registry__patch_artifact", "arguments": {"artifact_id": eid, "patch": {
+            "experiment_status": "completed", "summary": {
+                "cases": s["cases"], "rows": s["rows"], "accuracy": s["all"]["pass_rate"],
+                "train_accuracy": s["train"]["pass_rate"], "test_accuracy": s["test"]["pass_rate"],
+                "test_ci95": s["test"]["ci95"], "classes": s["classes"], "models": s["models"], "variant": V,
+                "scorer_id": ids["scorer_id"], "runner": "atlan-analytics-eval", "finished_at": now()}}}}], [eid]
+    return "done", [], []
 
-    finally:
-        gw.close()
+
+# Single creates carry idempotency keys and the completion patch is idempotent, so these can be resent.
+RESENDABLE = ("scorer", "dataset", "experiment", "sessions", "complete")
+STEP_KIND = {"scorer": "scorer", "dataset": "dataset", "records": "dataset_record", "experiment": "experiment",
+             "sessions": "session", "messages": "session_message", "results": "experiment_result",
+             "complete": "experiment"}
+
+
+def cmd_publish(a) -> dict:
+    """The next registry writes for this variant, as MCP tool calls. Run it again after each ack."""
+    pr = Proj(a.dir)
+    c = _context(pr, a)
+    pub = Publication(pr, a.variant)
+    pending = pub.s.get("pending")
+    if pending and a.resend and pending["step"] in RESENDABLE:
+        step, calls, names = _next_step(pr, pub, c, a)
+        if step == pending["step"] and names == pending["names"]:
+            return {"status": "ok", "step": step, "workspace_id": c["ws"], "calls": calls, "resent": True,
+                    "next": f"Send each call again unchanged, then run "
+                            f"`publish-ack --variant {a.variant} --step {step} --responses <file>`."}
+    if pending:
+        kind = STEP_KIND[pending["step"]]
+        return {"status": "BLOCKED", "reason": f"The `{pending['step']}` step was sent but never acknowledged.",
+                "fix": "Pass that step's tool results to `publish-ack`. If they are lost and the step is "
+                       f"{', '.join(RESENDABLE)}, run `publish --resend`: its idempotency keys recover what "
+                       "landed within 24 hours. Otherwise list what landed with "
+                       f"`registry__list_artifacts` (kind `{kind}`, workspace `{c['ws']}`) and pass that result "
+                       "with `publish-ack --reconcile`. Never resend a batch blindly: it duplicates what worked.",
+                "pending": pending}
+    step, calls, names = _next_step(pr, pub, c, a)
+    if step == "done":
+        exp = ((c["ids"].get("experiments") or {}).get(a.variant))
+        return {"status": "ok", "step": "done", "experiment_id": exp, "sessions": len(pub.s["sessions"]),
+                "results": len(pub.s["results"]), "traces": "sessions only: trace spans have no MCP write"}
+    pub.s["pending"] = {"step": step, "names": names, "calls": len(calls), "at": now()}
+    pub.save()
+    return {"status": "ok", "step": step, "workspace_id": c["ws"], "calls": calls,
+            "next": f"Send each call in order, save the results as a JSON list, then run "
+                    f"`publish-ack --variant {a.variant} --step {step} --responses <file>`."}
+
+
+def cmd_publish_ack(a) -> dict:
+    """Record what the registry returned for the pending step; failed items are retried by the next `publish`."""
+    pr = Proj(a.dir)
+    pub = Publication(pr, a.variant)
+    pending = pub.s.get("pending")
+    if not pending or pending["step"] != a.step:
+        raise Blocked(f"No `{a.step}` step is waiting for results.", "Run `publish` to see the next step.")
+    raw = load_json(a.responses)
+    if raw is None:
+        raise Blocked("The responses file is missing or not JSON.", "Save the tool results as one JSON list.")
+    kind, names = STEP_KIND[a.step], pending["names"]
+    if a.reconcile:
+        listed = {}
+        for page in (raw if isinstance(raw, list) else [raw]):
+            listed.update(_listed(page, kind))
+        got = {n: listed.get(_reconcile_name(pr, a, a.step, n)) for n in names}
+        failed = {}
+    else:
+        resps = raw if isinstance(raw, list) else [raw]
+        if a.step in ("records", "messages", "results"):
+            slots = _slots(resps[0] if resps else {})
+            if len(slots) != len(names):
+                raise Blocked(f"Expected {len(names)} result slots, got {len(slots)}.",
+                              "Pass the create_artifacts result unchanged, or reconcile with --reconcile.")
+            got = {n: _find_id(sl, kind) for n, sl in zip(names, slots)}
+            failed = {n: _failed(sl) or "no id returned" for n, sl in zip(names, slots) if not got[n]}
+        else:
+            if len(resps) != len(names):
+                raise Blocked(f"Expected {len(names)} results, got {len(resps)}.", "Pass one result per call, in order.")
+            got = {n: _find_id(rp, kind) or (n if a.step == "complete" and not _failed(rp) else None)
+                   for n, rp in zip(names, resps)}
+            failed = {n: _failed(rp) or "no id returned" for n, rp in zip(names, resps) if not got[n]}
+    _apply(pr, pub, a.variant, a.step, got)
+    pub.s.pop("pending", None)
+    pub.save()
+    landed = sum(1 for v in got.values() if v)
+    out = {"status": "ok" if not failed else "DONE_WITH_CONCERNS", "step": a.step, "landed": landed,
+           "next": "Run `publish` again for the next step."}
+    if failed:
+        out["failed"] = dict(list(failed.items())[:10])
+        out["fix"] = "The next `publish` resends only the items that failed. Fix the named field first if one is named."
+    return out
+
+
+def _reconcile_name(pr: Proj, a, step: str, n: str) -> str:
+    """The artifact `name` a step gave item n, to match a listing against."""
+    slug = pr.state().get("slug") or pr.dir.name
+    if step == "sessions":
+        return f"analytics-eval-{slug}-{a.variant}-{n}"
+    if step == "messages":
+        tag, seq = n.rsplit("#", 1)
+        return f"analytics-eval-{slug}-{a.variant}-{tag}-msg-{seq}"
+    if step == "results":
+        return f"{slug}-{a.variant}-{n}"
+    return n
+
+
+def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
+    ok = {n: v for n, v in got.items() if v}
+    if not ok:
+        return
+    if step == "scorer":
+        pr.set_id("scorer_id", next(iter(ok.values())))
+    elif step == "dataset":
+        pr.set_id("eval_dataset_id", next(iter(ok.values())))
+    elif step == "experiment":
+        pr.set_id(f"experiments.{V}", next(iter(ok.values())))
+    elif step == "records":
+        path = pr.p("eval", "records.json")
+        rec = load_json(path, {}) or {}
+        rec.update(ok)
+        dump_json(path, rec)
+    elif step == "sessions":
+        slug = pr.state().get("slug") or pr.dir.name
+        for tag, sid in ok.items():
+            pub.s["sessions"][tag] = {"id": sid, "conversation_id": f"analytics-eval-{slug}-{V}-{tag}"}
+    elif step == "messages":
+        for n in ok:
+            tag, seq = n.rsplit("#", 1)
+            pub.s["messages"].setdefault(tag, [])
+            if int(seq) not in pub.s["messages"][tag]:
+                pub.s["messages"][tag].append(int(seq))
+    elif step == "results":
+        pub.s["results"].update(ok)
+    elif step == "complete":
+        pub.s["completed"] = True
+
 
 # ====================================================================== selftest
+
+def _selftest_publish(pr: pathlib.Path) -> bool:
+    """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot and one lost step."""
+    proj = Proj(str(pr))
+    proj.set_id("workspace_id", "workspace_t")
+    proj.set_id("agent_id", "agent_t")
+    dump_json(pr / "eval" / "split.json", {"train_ids": [], "test_ids": ["c1"], "seed": 1})
+    n = Counter()
+    resp_path = pr / "resp.json"
+
+    def made(kind):
+        n[kind] += 1
+        return {"artifact": {"id": f"{kind}_{n[kind]}", "name": "x"}}
+
+    def ns(**kw):
+        base = dict(dir=str(pr), variant="cited", baseline=None, agent_id=None, workspace=None,
+                    sessions_only=False, resend=False, reconcile=False)
+        return argparse.Namespace(**{**base, **kw})
+
+    calls_seen, failed_once, lost_once = [], False, False
+    for _ in range(40):
+        out = cmd_publish(ns())
+        if out.get("step") == "done":
+            break
+        if out.get("status") == "BLOCKED":
+            return False
+        step, resps = out["step"], []
+        for call in out["calls"]:
+            calls_seen.append(call["tool"])
+            kind = call["arguments"].get("kind") or "experiment"
+            if call["tool"] == "registry__create_artifacts":
+                slots = [{"status": 201, **made(kind)} for _ in call["arguments"]["items"]]
+                if step == "messages" and not failed_once:
+                    failed_once, slots[0] = True, {"status": 422, "error": "bad field"}
+                resps.append({"items": slots})
+            elif call["tool"] == "registry__create_artifact":
+                resps.append(made(kind))
+            else:
+                resps.append({"id": call["arguments"]["artifact_id"]})
+        if step == "sessions" and not lost_once:
+            lost_once = True
+            if cmd_publish(ns()).get("status") != "BLOCKED":
+                return False
+            if not cmd_publish(ns(resend=True)).get("resent"):
+                return False
+        dump_json(resp_path, resps)
+        cmd_publish_ack(ns(step=step, responses=str(resp_path)))
+    pub = load_json(pr / "hillclimb" / "cited" / "publish.json")
+    st = proj.state()["ids"]
+    return (out.get("step") == "done" and failed_once and lost_once and pub.get("completed")
+            and st.get("scorer_id") and st.get("eval_dataset_id") and st["experiments"]["cited"]
+            and len(pub["results"]) == 1 and len(pub["sessions"]) == 1
+            and all(t.startswith("registry__") for t in calls_seen))
+
 def selftest() -> dict:
     checks = []
 
@@ -1028,6 +1163,7 @@ def selftest() -> dict:
         cited = read_jsonl(pr / "hillclimb" / "cited" / "results.jsonl")[0]
         ok("record retains exact published and query revision citations", cited["used_context_refs"] == refs
            and cited["used_context_ids"] == [r["artifact_id"] for r in refs])
+        ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
         cmd_approve_harness(argparse.Namespace(dir=d))
         st = load_json(pr / "hillclimb" / "_state.json")
         st["harness_sha"] = "0" * 64
@@ -1105,15 +1241,26 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.set_defaults(func=cmd_approve_harness)
 
-    c = s.add_parser("push", help="publish a variant to the registry: dataset, experiment, results, traces, sessions")
+    c = s.add_parser("publish", help="the next registry writes for a variant, as MCP tool calls")
     c.add_argument("--dir", required=True)
     c.add_argument("--variant", required=True)
     c.add_argument("--baseline")
     c.add_argument("--agent-id")
     c.add_argument("--workspace")
     c.add_argument("--sessions-only", action="store_true",
-                   help="ship traces + sessions only (smoke runs): no dataset, experiment or results")
-    c.set_defaults(func=cmd_push)
+                   help="sessions only (smoke runs): no dataset, experiment or results")
+    c.add_argument("--resend", action="store_true",
+                   help="repeat an unacknowledged step whose calls carry idempotency keys")
+    c.set_defaults(func=cmd_publish)
+
+    c = s.add_parser("publish-ack", help="record the registry's results for the pending publish step")
+    c.add_argument("--dir", required=True)
+    c.add_argument("--variant", required=True)
+    c.add_argument("--step", required=True, choices=sorted(STEP_KIND))
+    c.add_argument("--responses", required=True, help="a JSON list of the step's tool results, in call order")
+    c.add_argument("--reconcile", action="store_true",
+                   help="the responses are registry__list_artifacts results for a step whose results were lost")
+    c.set_defaults(func=cmd_publish_ack)
 
     c = s.add_parser("session-run", help="this harness session's trace id, for a proposal's evidence")
     c.add_argument("--harness", choices=["claude-code", "codex"], default="claude-code")
