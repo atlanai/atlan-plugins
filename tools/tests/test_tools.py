@@ -1,4 +1,4 @@
-"""Unit tests for scripts/: run with `python3 -m unittest discover -s tests`."""
+"""Unit tests for tools/: run with `python3 -m unittest discover -s tools/tests`."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
 
 import build  # noqa: E402
 import lint  # noqa: E402
