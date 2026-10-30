@@ -32,6 +32,11 @@ graders:
     tool: mcp__plugin_atlan_atlan__mcp__call_tool
     input_match: '"name"\s*:\s*"extension__agent__list_session_traces"'
     min: 1
+  - name: opens-a-listed-run
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__agent__get_trace"'
+    min: 1
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlan_atlan__mcp__call_tool
@@ -53,5 +58,6 @@ graders:
   - name: catches-up
     type: llm
     criteria: |
-      PASS if the reply summarises the churn analysis (2.9% logo churn, EMEA mid-market onboarding drop-off), says from the source session that the plan-tier split was blocked by a permissions error on plan_tiers, and asks what to do next or offers fitting next steps.
-      FAIL if it invents content, misses the plan-tier gap, or reports the session history as unreadable.
+      PASS when the reply does all three: (1) says logo churn rose to 2.9% with onboarding drop-off in EMEA mid-market as the driver; (2) says the plan-tier split was not done and that a permissions error on plan_tiers is why (hedging over which step failed is fine); (3) asks the user what to do next or offers next steps.
+      FAIL only when one of the three is missing, or the reply states as fact something this record contradicts or lacks. The record, all true: output_01evalchurn "Q3 churn analysis", active, version 1; owner user_dana; workspace workspace_01evaldana; one file churn.md saying logo churn rose from 2.1% to 2.9%, driven by onboarding drop-off in EMEA mid-market, with the plan-tier split an open question; made by harness harness_01evalclaudecode; used skill skill_01evalsecrev02; session session_01evalchurnsrc; one run, trace_01evalchurn, on 2026-10-25, 154 spans, status ok; its request "Break Q3 churn down by region and driver, and by plan tier if you can."; one failed sql_query span, s003, "permission denied for table plan_tiers".
+      Reasoning from the record (the split needs plan_tiers access), saying what was not read or that traces are a reconstruction, and promising to ask before writing are not inventing.

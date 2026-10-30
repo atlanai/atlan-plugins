@@ -264,28 +264,36 @@ def dispatch(name: str, a: dict) -> dict:
     if name in ("extension__agent__list_session_traces",):
         return WORLD["traces"].get(a["session_id"], {"items": [], "page": {"limit": 50}})
     if name in ("extension__agent__get_trace", "registry__get_trace"):
-        run = WORLD["runs"].get(a["trace_id"])
-        if not run or (name.startswith("extension") and run["subject_id"] != a.get("subject_id")):
-            raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
-        out = {k: v for k, v in run.items() if k not in ("content", "spans")}
+        run = visible_run(name, a)
+        out = {k: v for k, v in run.items() if k not in ("content", "spans", "session_id")}
         if "content" in (a.get("include") or []):
             out |= run["content"]
         return out
     if name in ("extension__agent__get_trace_spans", "registry__get_trace_spans"):
-        run = WORLD["runs"].get(a["trace_id"])
-        if not run or (name.startswith("extension") and run["subject_id"] != a.get("subject_id")):
-            raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+        run = visible_run(name, a)
         spans = run["spans"]
         if a.get("names"):
             spans = [s for s in spans if any(n in s["name"] for n in a["names"])]
         if a.get("errors_only"):
             spans = [s for s in spans if s.get("span_status") == "error"]
-        if "content" not in (a.get("include") or []):
-            spans = [{k: v for k, v in s.items() if k != "content"} for s in spans]
+        include = a.get("include") or []
+        # As agent service: `content` adds input and output, `errors` adds the error message.
+        hidden = {"content", "error_message"} - {"content" if "content" in include else "", "error_message" if "errors" in include else ""}
+        spans = [{k: v for k, v in s.items() if k not in hidden} for s in spans]
         return {"items": spans[: a.get("limit", 20)], "page": {"limit": a.get("limit", 20), "total_spans": run["span_count"]}}
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
+
+
+def visible_run(name: str, a: dict) -> dict:
+    """The run `trace_id` names, scoped as agent service scopes it: by the agent or harness that ran
+    it, or by the `session_…` handle `list_session_traces` listed it under."""
+    run = WORLD["runs"].get(a["trace_id"])
+    scope = a.get("subject_id")
+    if not run or (name.startswith("extension") and scope not in (run["subject_id"], run.get("session_id"))):
+        raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+    return run
 
 
 def call_tool(args: dict) -> dict:
