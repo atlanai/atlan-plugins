@@ -1,5 +1,16 @@
 # Changelog
 
+## atlan-analytics 0.1.0
+
+- The first add-on: `atlan-analytics`, the analytics workload from Metric Studio, as its own
+  plugin under `plugins/atlan-analytics`. It bootstraps metrics and saved queries, builds,
+  evaluates and improves a talk-to-data agent, and proposes metric fixes. It finds Snowflake,
+  Databricks or another warehouse through Atlan or the host's connectors.
+- It depends on `atlan`, which Claude Code installs with it, and declares no MCP server.
+- `[[addons]]` in `plugin.toml` generates an add-on's manifests, README and marketplace entries;
+  an `upstream.json` source with `into` vendors its content. A variant renames each add-on after
+  itself (`atlan-dev-analytics`) and copies it.
+
 ## 0.1.2
 
 - The `atlan` MCP server is sent `X-Atlan-Client: atlan-plugin/<version>`, so Atlan can tell

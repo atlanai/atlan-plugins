@@ -17,6 +17,9 @@ This plugin carries them so a host that loads skills but not MCP prompts gets th
     python3 scripts/sync_upstream.py --from skill=../app-skill --adopt-head
         Move the named sources' pins to their checkouts' HEAD, then copy. This is how a pin moves.
 
+A source may set `into`, a folder of this repository to copy into (an add-on's plugins/<name>),
+and `exclude`, source-relative paths it leaves behind (a file the owning app renders before serving).
+
 Never edit a vendored file here: change it in the owning repository, then move the pin.
 """
 
@@ -95,6 +98,12 @@ def sync(manifest: dict, checkouts: dict[str, Path], adopt_head: bool) -> None:
         if adopt_head:
             source["rev"] = git(checkout, "rev-parse", "HEAD").decode().strip()
         files = upstream_files(checkout, source["rev"], source["path"])
+        excluded = set(source.get("exclude", []))
+        files = {
+            str(PurePosixPath(source["into"], path)) if source.get("into") else path: content
+            for path, content in files.items()
+            if path not in excluded
+        }
         if not files:
             raise SystemExit(f"{name}: nothing under {source['path']} at {source['rev']}")
 

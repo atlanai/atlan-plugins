@@ -8,11 +8,15 @@
 Each tool reads a different file, so the same facts are written several times. Keeping one source
 is what stops the name, version and MCP URL drifting apart between tools.
 
+An add-on (`[[addons]]` in plugin.toml) is a workload built on the registry, shipped as its own
+plugin under plugins/<name>/ in the same marketplace. It depends on this plugin and declares no MCP
+server, so it reaches Atlan through this plugin's one connection.
+
 A variant is this plugin under another name and endpoint, published from another repository: its
 TOML file overrides `[plugin]`, `[marketplace]` and `[mcp]` fields and lists `[rewrite]` pairs for
-the skills' text. `--variant` writes the whole plugin into DIR: its manifests, a one-plugin
-marketplace, and a copy of the skills and commands with the URLs, the plugin's name and its
-repository rewritten. This repository holds no variant of its own.
+the skills' text. `--variant` writes the whole plugin into DIR: its manifests, a marketplace of it
+and its add-ons, and a copy of the skills, commands and add-ons with the URLs, the plugins' names
+and the repository rewritten. This repository holds no variant of its own.
 """
 
 from __future__ import annotations
@@ -39,6 +43,9 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 # What a variant copies from this plugin: rewritten text, then files taken as they are.
 COPIED = ("skills", "commands")
 VERBATIM = ("assets/logo.svg", "LICENSE")
+# Where add-ons live, and the trees an add-on carries.
+ADDONS = "plugins"
+ADDON_TREES = ("skills", "commands", "agents")
 # What a variant file may set, by table.
 OVERRIDES = {
     "plugin": ("name", "display_name", "description", "short_description", "long_description", "homepage", "repository"),
@@ -76,6 +83,18 @@ def validate(source: dict) -> None:
     logo = ROOT / plugin["logo"]
     if not logo.is_file():
         raise SystemExit(f"plugin.logo {plugin['logo']} does not exist")
+    names = set()
+    for addon in source.get("addons", []):
+        check_name(addon["name"], "addons.name")
+        # The core's name as a prefix keeps an add-on beside its core in every plugin list, and
+        # is how a variant renames it.
+        if not addon["name"].startswith(f"{plugin['name']}-"):
+            raise SystemExit(f"add-on {addon['name']!r} must be named {plugin['name']}-<workload>")
+        if addon["name"] in names:
+            raise SystemExit(f"add-on {addon['name']!r} is declared twice")
+        names.add(addon["name"])
+        if not SEMVER.match(addon["version"]):
+            raise SystemExit(f"add-on {addon['name']} version {addon['version']!r} is not SemVer")
 
 
 def load_variant(path: Path, source: dict) -> dict:
@@ -94,6 +113,12 @@ def make_variant(source: dict, overrides: dict) -> dict:
         variant[table].update(overrides.get(table, {}))
     variant["rewrite"] = dict(overrides.get("rewrite", {}))
     variant["keep"] = list(overrides.get("keep", []))
+    # Each add-on follows its core: atlan-analytics becomes <variant>-analytics.
+    main, other = source["plugin"], variant["plugin"]
+    for addon in variant.get("addons", []):
+        addon["name"] = other["name"] + addon["name"].removeprefix(main["name"])
+        if addon["display_name"].startswith(main["display_name"]):
+            addon["display_name"] = other["display_name"] + addon["display_name"].removeprefix(main["display_name"])
     validate(variant)
     if variant["plugin"]["name"] == source["plugin"]["name"]:
         raise SystemExit("a variant needs its own plugin name, or its commands collide with this one's")
@@ -141,6 +166,112 @@ def codex_interface(source: dict) -> dict:
     return interface
 
 
+def addon_core(source: dict, addon: dict) -> dict:
+    plugin = source["plugin"]
+    return {
+        "name": addon["name"],
+        "version": addon["version"],
+        "description": addon["description"],
+        "author": dict(source["author"]),
+        "homepage": plugin["homepage"],
+        "repository": plugin["repository"],
+        "license": plugin["license"],
+        "keywords": list(addon["keywords"]),
+    }
+
+
+def addon_interface(source: dict, addon: dict) -> dict:
+    plugin = source["plugin"]
+    return {
+        "displayName": addon["display_name"],
+        "shortDescription": addon["short_description"],
+        "longDescription": addon["long_description"],
+        "developerName": source["author"]["name"],
+        "category": addon["category"],
+        "capabilities": list(source["codex"]["capabilities"]),
+        "websiteURL": source["author"]["url"],
+        "defaultPrompt": list(addon["default_prompts"]),
+        "brandColor": plugin["brand_color"],
+        "composerIcon": plugin["logo"],
+        "logo": plugin["logo"],
+        "privacyPolicyURL": plugin["privacy_policy_url"],
+    }
+
+
+def addon_outputs(source: dict, addon: dict) -> dict[str, dict]:
+    """An add-on's manifests, by path in this repository. None declares an MCP server."""
+    base = f"{ADDONS}/{addon['name']}"
+    interface = addon_interface(source, addon)
+    return {
+        f"{base}/plugin.json": {
+            "$schema": AGENT_PLUGINS_SCHEMA,
+            **addon_core(source, addon),
+            "extensions": {"com.openai": {"interface": interface}},
+        },
+        # Only Claude Code installs a dependency. Elsewhere the add-on's skills check for the
+        # Atlan tools and say which plugin to add.
+        f"{base}/.claude-plugin/plugin.json": {
+            **addon_core(source, addon),
+            "privacyPolicyUrl": source["plugin"]["privacy_policy_url"],
+            "dependencies": [source["plugin"]["name"]],
+        },
+        f"{base}/.codex-plugin/plugin.json": {
+            **addon_core(source, addon),
+            "skills": "./skills/",
+            "interface": interface,
+        },
+        f"{base}/.cursor-plugin/plugin.json": {
+            **addon_core(source, addon),
+            "logo": source["plugin"]["logo"].removeprefix("./"),
+        },
+    }
+
+
+def addon_readme(source: dict, addon: dict) -> str:
+    plugin, market = source["plugin"], source["marketplace"]["name"]
+    slug = github_slug(plugin["repository"])
+    return f"""# {addon['display_name']}
+
+{addon['long_description']}
+
+## Install
+
+It needs the `{plugin['name']}` plugin, which holds the Atlan MCP server it uses.
+
+Claude Code installs that dependency itself:
+
+```
+/plugin marketplace add {slug}
+/plugin install {addon['name']}@{market}
+```
+
+Codex and Cursor install plugins one at a time, so add both:
+
+```
+codex plugin marketplace add {slug}
+codex plugin add {plugin['name']}@{market}
+codex plugin add {addon['name']}@{market}
+```
+
+## Where this comes from
+
+Generated by `scripts/build.py` from `[[addons]]` in `plugin.toml`. The skills, commands and
+agents are copied from the app that owns the workload at the revision `upstream.json` pins;
+change them there.
+"""
+
+
+def addon_assets(source: dict) -> dict[str, str]:
+    """Each add-on's README, and the listing logo copied in: a plugin cannot point outside its root."""
+    logo = source["plugin"]["logo"].removeprefix("./")
+    text = (ROOT / logo).read_text(encoding="utf-8")
+    files = {}
+    for addon in source.get("addons", []):
+        files[f"{ADDONS}/{addon['name']}/{logo}"] = text
+        files[f"{ADDONS}/{addon['name']}/README.md"] = addon_readme(source, addon)
+    return files
+
+
 def client_headers(source: dict) -> dict[str, str]:
     """The header that names this install to the gateway, which records it on each session."""
     return {"X-Atlan-Client": f"{source['mcp']['client']}/{source['plugin']['version']}"}
@@ -165,8 +296,36 @@ def outputs(source: dict) -> dict[str, dict]:
         "keywords": list(plugin["keywords"]),
         "category": plugin["category"],
     }
+    addons = source.get("addons", [])
+    claude_addons = [
+        {
+            "name": addon["name"],
+            "source": f"./{ADDONS}/{addon['name']}",
+            "description": addon["description"],
+            "author": dict(source["author"]),
+            "homepage": plugin["homepage"],
+            "repository": plugin["repository"],
+            "license": plugin["license"],
+            "keywords": list(addon["keywords"]),
+            "category": addon["category"],
+        }
+        for addon in addons
+    ]
+    codex_addons = [
+        {
+            "name": addon["name"],
+            "source": {"source": "git-subdir", "url": f"{plugin['repository']}.git", "path": f"./{ADDONS}/{addon['name']}"},
+            "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+            "category": addon["category"],
+        }
+        for addon in addons
+    ]
+    cursor_addons = [
+        {"name": addon["name"], "source": f"./{ADDONS}/{addon['name']}", "description": addon["description"]}
+        for addon in addons
+    ]
 
-    return {
+    documents = {
         # Agent Plugins 1.0: Codex, Cursor, GitHub Copilot, VS Code and other conforming hosts.
         "plugin.json": agent_plugin,
         "mcp.json": {
@@ -186,7 +345,7 @@ def outputs(source: dict) -> dict[str, dict]:
             "description": market["description"],
             "owner": owner,
             "metadata": {"description": market["description"]},
-            "plugins": [entry],
+            "plugins": [entry, *claude_addons],
         },
         # Codex builds that predate the root manifest. Ignored when extensions.com.openai exists.
         ".codex-plugin/plugin.json": {
@@ -205,7 +364,8 @@ def outputs(source: dict) -> dict[str, dict]:
                     "source": {"source": "url", "url": f"{plugin['repository']}.git"},
                     "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                     "category": plugin["category"],
-                }
+                },
+                *codex_addons,
             ],
         },
         # Cursor: the full component set (skills, commands) and the listing logo.
@@ -215,10 +375,14 @@ def outputs(source: dict) -> dict[str, dict]:
             "owner": owner,
             "metadata": {"description": market["description"]},
             "plugins": [
-                {"name": plugin["name"], "source": "./", "description": plugin["description"]}
+                {"name": plugin["name"], "source": "./", "description": plugin["description"]},
+                *cursor_addons,
             ],
         },
     }
+    for addon in addons:
+        documents.update(addon_outputs(source, addon))
+    return documents
 
 
 def render(document: dict) -> str:
@@ -234,13 +398,20 @@ def rewrites(source: dict, variant: dict) -> dict[str, str]:
     main, other = source["plugin"], variant["plugin"]
     market, other_market = source["marketplace"]["name"], variant["marketplace"]["name"]
     pairs = dict(variant["rewrite"])
+    names = [(main["name"], other["name"])]
+    names += [(a["name"], b["name"]) for a, b in zip(source.get("addons", []), variant.get("addons", []))]
+    for old, new in names:
+        pairs.update(
+            {
+                f"plugin:{old}:": f"plugin:{new}:",
+                f"mcp__plugin_{old}_": f"mcp__plugin_{new}_",
+                f"{old}@{market}": f"{new}@{other_market}",
+                f"/plugin install {old} ": f"/plugin install {new} ",
+                f"/{old}:": f"/{new}:",
+            }
+        )
     pairs.update(
         {
-            f"plugin:{main['name']}:": f"plugin:{other['name']}:",
-            f"mcp__plugin_{main['name']}_": f"mcp__plugin_{other['name']}_",
-            f"{main['name']}@{market}": f"{other['name']}@{other_market}",
-            f"/plugin install {main['name']} ": f"/plugin install {other['name']} ",
-            f"/{main['name']}:": f"/{other['name']}:",
             main["repository"]: other["repository"],
             github_slug(main["repository"]): github_slug(other["repository"]),
         }
@@ -261,6 +432,11 @@ def rewrite(text: str, pairs: dict[str, str]) -> str:
 def variant_readme(source: dict, variant: dict, variant_file: str) -> str:
     plugin, mcp = variant["plugin"], variant["mcp"]
     slug, market = github_slug(plugin["repository"]), variant["marketplace"]["name"]
+    addons = variant.get("addons", [])
+    addon_lines = ""
+    if addons:
+        names = ", ".join(f"`{addon['name']}@{market}`" for addon in addons)
+        addon_lines = f"\nAdd-ons install the same way and use this plugin's connection: {names}.\n"
     return f"""# {plugin['display_name']}
 
 {plugin['long_description']}
@@ -283,7 +459,7 @@ codex plugin add {plugin['name']}@{market}
 
 Then sign in. In Claude Code, run `/mcp`, choose `plugin:{plugin['name']}:{mcp['server']}` and
 **Authenticate**. The server is `{mcp['url']}`.
-
+{addon_lines}
 ## Where this comes from
 
 The plugin's files are generated by `scripts/build.py --variant` from
@@ -295,11 +471,18 @@ plugin's name and endpoints in `{variant_file}`, the one plugin file written by 
 def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, str]:
     """Every file of a variant, by path inside its repository."""
     texts = {path: render(document) for path, document in outputs(variant).items()}
+    texts.update(addon_assets(variant))
     pairs = rewrites(source, variant)
     for top in COPIED:
         for path in sorted(p for p in (ROOT / top).rglob("*") if p.is_file()):
             relative = path.relative_to(ROOT).as_posix()
             texts[relative] = rewrite(path.read_text(encoding="utf-8"), pairs)
+    for ours, theirs in zip(source.get("addons", []), variant.get("addons", [])):
+        base = ROOT / ADDONS / ours["name"]
+        for top in ADDON_TREES:
+            for path in sorted(p for p in (base / top).rglob("*") if p.is_file()):
+                relative = path.relative_to(base).as_posix()
+                texts[f"{ADDONS}/{theirs['name']}/{relative}"] = rewrite(path.read_text(encoding="utf-8"), pairs)
     for relative in VERBATIM:
         texts[relative] = (ROOT / relative).read_text(encoding="utf-8")
     texts["README.md"] = variant_readme(source, variant, variant_file)
@@ -348,10 +531,11 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--out must be the variant's own repository, not this one")
         variant = load_variant(args.variant, source)
         texts = variant_files(source, variant, args.variant.name)
-        drift = sync(texts, args.out, args.check, owned=COPIED)
+        drift = sync(texts, args.out, args.check, owned=(*COPIED, ADDONS))
         target = f"python3 scripts/build.py --variant {args.variant} --out {args.out}"
     else:
         texts = {path: render(document) for path, document in outputs(source).items()}
+        texts.update(addon_assets(source))
         drift = sync(texts, ROOT, args.check)
         target = "python3 scripts/build.py"
 
