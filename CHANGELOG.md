@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- `build.py --variant FILE --out DIR` writes this plugin under another name and endpoint into
+  another repository, with its skills' URLs, name and repository rewritten.
+- The skills no longer describe any environment but production.
+
 ## 0.1.0
 
 First release.
