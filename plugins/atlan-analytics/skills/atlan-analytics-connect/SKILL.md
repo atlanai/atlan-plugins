@@ -29,9 +29,8 @@ person.
    listed tools.
 2. A candidate runs one SQL statement and returns rows. Recognise the warehouse from the tool's
    `_meta`:
-   - `com.atlan/server-host` ending in `snowflakecomputing.com` is Snowflake;
-   - one ending in `cloud.databricks.com`, `azuredatabricks.net` or `gcp.databricks.com` is
-     Databricks;
+   - `com.atlan/server-domain` `snowflakecomputing.com` is Snowflake;
+   - `databricks.com` or `azuredatabricks.net` is Databricks;
    - otherwise use the server and tool names, and ask the person when it is still unclear.
 3. Prefer a server whose `com.atlan/server-source` is `atlan_catalog` (installed from Atlan's
    catalog) over `custom`. When several warehouses match, ask which one the agent should read.

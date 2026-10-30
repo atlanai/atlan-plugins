@@ -22,7 +22,7 @@
     {
       "name": "analytics",
       "repository": "https://github.com/atlanai/app-metric",
-      "rev": "9d72e4c088e2e7341c9b8ad8e22825ffb482732b",
+      "rev": "3e0c0f94f597b4a64394c3ac2e1397223151c52e",
       "path": "backend/defaults",
       "into": "plugins/atlan-analytics",
       "exclude": [
@@ -105,7 +105,7 @@
     },
     "plugins/atlan-analytics/skills/atlan-analytics-connect/SKILL.md": {
       "source": "analytics",
-      "sha256": "3483e4f83654245e5db51970f75d5e36ec1fc00f21a0e4ff64efc7dda0d08598"
+      "sha256": "96a236798a31254be87e7e01ca9e4df5fdaf8d7e75976fc0e4364cdf0a9548dd"
     },
     "plugins/atlan-analytics/skills/atlan-analytics-connect/references/warehouses.md": {
       "source": "analytics",
