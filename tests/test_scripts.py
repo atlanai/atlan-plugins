@@ -39,8 +39,9 @@ class BuildTest(unittest.TestCase):
     def test_both_mcp_files_point_at_one_url_with_each_tools_transport_label(self) -> None:
         documents = build.outputs(self.source)
         server, url = self.source["mcp"]["server"], self.source["mcp"]["url"]
-        self.assertEqual(documents["mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url})
-        self.assertEqual(documents[".mcp.json"]["mcpServers"][server], {"type": "http", "url": url})
+        headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
+        self.assertEqual(documents["mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
+        self.assertEqual(documents[".mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
 
     def test_root_manifests_keep_to_the_closed_agent_plugins_schema(self) -> None:
         documents = build.outputs(self.source)
@@ -62,10 +63,11 @@ class BuildTest(unittest.TestCase):
             broken["plugin"][field] = value
             with self.subTest(field=field, value=value), self.assertRaises(SystemExit):
                 build.validate(broken)
-        broken = copy.deepcopy(self.source)
-        broken["mcp"]["url"] = "http://api.atlan.com/mcp"
-        with self.assertRaises(SystemExit):
-            build.validate(broken)
+        for field, value in (("url", "http://api.atlan.com/mcp"), ("client", "Atlan Plugin")):
+            broken = copy.deepcopy(self.source)
+            broken["mcp"][field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(SystemExit):
+                build.validate(broken)
 
 
 class VariantTest(unittest.TestCase):
@@ -74,7 +76,7 @@ class VariantTest(unittest.TestCase):
     OVERRIDES = {
         "plugin": {"name": "atlan-staging", "display_name": "Atlan (staging)", "repository": "https://github.com/example/atlan-staging"},
         "marketplace": {"name": "atlan-staging-plugins"},
-        "mcp": {"url": "https://api.staging.example/mcp"},
+        "mcp": {"url": "https://api.staging.example/mcp", "client": "atlan-plugin-staging"},
         "rewrite": {"https://api.atlan.com": "https://api.staging.example", "https://app.atlan.com": "https://app.staging.example"},
         "keep": ["https://app.atlan.com/brain/cli/install.sh"],
     }
@@ -91,8 +93,11 @@ class VariantTest(unittest.TestCase):
             document = json.loads(self.files[path])
             self.assertEqual(document["name"], "atlan-staging-plugins", path)
             self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging"], path)
-        server = self.source["mcp"]["server"]
-        self.assertEqual(json.loads(self.files[".mcp.json"])["mcpServers"][server]["url"], "https://api.staging.example/mcp")
+        server, version = self.source["mcp"]["server"], self.source["plugin"]["version"]
+        for path in ("mcp.json", ".mcp.json"):
+            entry = json.loads(self.files[path])["mcpServers"][server]
+            self.assertEqual(entry["url"], "https://api.staging.example/mcp", path)
+            self.assertEqual(entry["headers"], {"X-Atlan-Client": f"atlan-plugin-staging/{version}"}, path)
 
     def test_it_copies_every_skill_and_command_and_rewrites_their_names(self) -> None:
         main = self.source["plugin"]["name"]

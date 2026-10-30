@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- The `atlan` MCP server is sent `X-Atlan-Client: atlan-plugin/<version>`, so Atlan can tell
+  sessions opened through the plugin from servers added by hand. It names the plugin and its
+  version and nothing about the user or the machine. A variant sets its own name as
+  `[mcp] client`.
+
 ## 0.1.1
 
 - `build.py --variant FILE --out DIR` writes this plugin under another name and endpoint into
