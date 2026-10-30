@@ -1,5 +1,29 @@
 # Changelog
 
+## atlan-analytics 0.3.0
+
+- Eval results are published through the Atlan MCP server with your own sign-in, as metrics
+  already are. `EVAL push` becomes `EVAL publish`, which prints the next registry writes as tool
+  calls, and `EVAL publish-ack`, which records what the registry returned. The scorer, dataset,
+  dataset records, experiment, results and one session per case with its full message list are
+  ordinary registry artifacts. Publishing no longer needs the private `an internal repository`, `uv`, the
+  `atlanai` CLI sign-in or `ATLAN_EVAL_AGENT_API_KEY`, and `scripts/pyproject.toml` and
+  `scripts/uv.lock` are gone. The helper no longer touches the network or reads a credential.
+- Eval runs are published as sessions without trace spans, because the registry has no MCP write
+  for traces. Results link to their sessions; proposals from the improve loop cite
+  `session_id` instead of `trace_id`.
+- A step whose result was lost is recovered without duplicates: single creates are resent with
+  their idempotency keys (`publish --resend`), and batches are matched by name against a listing
+  (`publish-ack --reconcile`). A failed item is resent alone.
+- The helper's digest changed, so a project approved with `approve-harness` asks for approval again.
+- `eval`, the smoke test, the baseline and the improve loop share one publishing procedure;
+  before, they disagreed on how to run it.
+- The dispatcher hands off to `atlan-analytics-ask` and `atlan-ontology` by skill name instead of
+  a file path.
+- This repository is the only source of the analytics skills; nothing else serves or copies them.
+  The behaviour evals that lived in an internal repository are under `evals/atlan-analytics/`, with
+  routing cases, and run with `make eval-analytics`. `make check` runs both helpers' selftests.
+
 ## atlan-analytics 0.2.0
 
 - One `atlan-analytics` skill with modes replaces the separate build, connect, eval and improve

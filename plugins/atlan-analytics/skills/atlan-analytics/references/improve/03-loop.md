@@ -40,7 +40,7 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
      (`registry__get_kind_schema` for `metric`) and test its SQL with the
      warehouse query tool. When `metric_access.create` is true and the user approved this
      round, create it as metrics mode does by hand
-     (`skills/atlan-analytics/references/build/03-context.md`, section 5). Otherwise propose it for
+     ([publish](../metrics/publish.md)). Otherwise propose it for
      the workspace's metric owners (below) and leave the round pending until they create and
      release it.
    - **New saved query**: write the question, SQL and `usage_note`. Test the SQL with the
@@ -82,9 +82,8 @@ using the latest observed ETag and a valid metric semantic version. Never mutate
 
 ### Proposing a metric fix
 
-A proposal is what Metric Studio shows its owner as suggestions to apply or dismiss
-(docs/metrics.md#agent-proposals in metric service); nothing about the metric changes until a person
-applies it. Create it with `registry__create_artifact`, kind `file`:
+A proposal is what Metric Studio shows its owner as suggestions to apply or dismiss; nothing
+about the metric changes until a person applies it. Create it with `registry__create_artifact`, kind `file`:
 
 - `metadata`: `name` (unique in the workspace, for example `improve-<metric>-v<N>`),
   `workspace_id`, `path` `improvements/metric/<metric>-v<N>.json`, `media_type`
@@ -94,9 +93,11 @@ applies it. Create it with `registry__create_artifact`, kind `file`:
 The record names the metric (`subject_kind` `metric`, `subject_id`, `subject_name`), the head it
 was made on (`base_version_ordinal`, and `base_content_hash` set to the head's
 `definition_sha256`), `improvement_status` `ready`, `requested_by` `Atlan`, a one-line `summary`,
-`evidence.runs` (one `{trace_id, agent, question, at}` per train case behind the change), and `changes`:
+`evidence.runs` (one `{session_id, agent, question, at}` per train case behind the change, with
+`session_id` from `H/<prev>/publish.json`; eval runs are published as sessions without trace
+spans, so they carry no `trace_id`), and `changes`:
 one per field, each
-`{"id": "chg_1", "op": {"op": "replace_field", "path": "<definition field, dotted>", "value": <its new value>}, "rationale": "...", "improves": "<scorer name>", "evidence": {"run_count": <train cases showing it>, "trace_ids": [<their traces>]}}`.
+`{"id": "chg_1", "op": {"op": "replace_field", "path": "<definition field, dotted>", "value": <its new value>}, "rationale": "...", "improves": "<scorer name>", "evidence": {"run_count": <train cases showing it>, "session_ids": [<their sessions>]}}`.
 Never set `version` or `spec_version`; Studio raises the version when the person applies it.
 `improves` names what the change should raise: the plan's `goal.target`, or a grader the eval
 names.
@@ -145,9 +146,9 @@ as a hidden part of an edit or undo.
 
 ## Run
 
-Run variant `vN` over **all** cases at the baseline's rep count via `atlan-analytics eval`. Then run
-`EVAL push --variant vN --baseline baseline`, so the registry records the round as an
-experiment linked to the baseline.
+Run variant `vN` over **all** cases at the baseline's rep count via `atlan-analytics eval`. Then
+publish it with `--baseline baseline`, as [Publish in the eval procedure](../eval.md#publish)
+describes, so the registry records the round as an experiment linked to the baseline.
 
 ## Record and decide
 

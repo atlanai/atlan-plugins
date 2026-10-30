@@ -37,7 +37,7 @@ Show one line per check (`ok` or what failed).
   (kind `agent`) and name up to three in the option description.
 - On a new project, run `EVAL init --dir .atlan-analytics/<slug> --slug <slug>`, then set `phase` to
   `purpose` and record `warehouse` and `session_id` in its `state.json`. Registry ids go under `ids`:
-  `ids.workspace_id`, `ids.agent_id`. `EVAL push` reads them from there. Ask once whether to add `.atlan-analytics/` to
+  `ids.workspace_id`, `ids.agent_id`. `EVAL publish` reads them from there. Ask once whether to add `.atlan-analytics/` to
   `.gitignore`: it holds eval answers, and they shouldn't be committed next to the agent.
 
 ## 3. Route by phase
@@ -58,7 +58,7 @@ An explicit argument (`/atlan-analytics improve`) wins over the phase.
   agent. It can read only the registry and the warehouse. Running it, and so the eval and
   improve phases, needs Claude Code's subagents; metrics and propose modes work in any harness.
 - A **local eval set**: questions, plus gold SQL kept out of the agent's reach.
-- **Experiments in the registry**: every run's score, traces and sessions, visible in the
+- **Experiments in the registry**: every run's score and session, visible in the
   agent's Evals and Sessions tabs.
 
 End with one status line per [shared conventions](conventions.md).
