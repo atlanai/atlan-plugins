@@ -1,8 +1,9 @@
 # Run an eval
 
 Read [shared conventions](conventions.md) first. `EVAL` is the bundled script
-`../scripts/analytics_eval.py`, run as in the conventions. Local grading uses only the
-standard library; publishing uses the immutable SDK dependency in `../scripts/pyproject.toml`. A run is one
+`../scripts/analytics_eval.py`, run as in the conventions. It uses only the standard library
+and never touches the network: you make every registry write through the Atlan MCP server, as
+[Publish](#publish) describes. A run is one
 **variant**: `baseline`, `v1`, `v2`… Everything it writes goes under
 `.atlan-analytics/<slug>/hillclimb/<variant>/`.
 
@@ -47,29 +48,52 @@ standard library; publishing uses the immutable SDK dependency in `../scripts/py
       overwritten.
 3. **Check it's complete.** `EVAL summary --variant V` must show N×R rows. If rows are short,
    run `todo` again and finish the missing pairs. Never quote a partial run.
-4. **Publish.** Run the publishing command through its locked environment:
-   `uv run --frozen --project <skill>/scripts <skill>/scripts/analytics_eval.py push --variant V [--baseline baseline]`.
-   Here `<skill>` is the canonical `skills/atlan-analytics` directory, installed or fetched through MCP.
-   Keep the same working directory and `--dir` as the grading commands.
-   The pinned SDK source is private: this environment needs GitHub contents-read
-   access to `atlanai/sdk` through its normal Git credential helper. Keep credentials
-   out of the project and lockfile.
-
-   Supply `ATLAN_EVAL_AGENT_API_KEY` through the environment with a credential for the
-   evaluated agent. Obtain it through the normal credential workflow; never rotate an
-   operational identity just to publish evidence. Missing credentials block before writes.
-   - it creates the registry experiment on the agent, linked to its baseline;
-   - it uploads one result per case plus a trace and session as the agent;
-   - it marks the experiment completed.
-
-   If a publish fails with an unresolved outcome, use `publishing.json` to reconcile
-   the trace and session before retrying. A pending receipt blocks replay; do not
-   clear it until the accepted evidence is known.
-
-   Gold SQL never leaves the machine; the dataset record carries a digest only. Confirm with
-   `extension__agent__list_traces` that the traces landed.
+4. **Publish** the variant as [Publish](#publish) describes.
 5. **Compare** (for rounds): `EVAL compare --a baseline --b V` gives the paired per-case delta
    on test (the headline) with its band, and on train separately.
+
+## Publish
+
+Publishing writes, as the person and through the registry's MCP tools:
+- the `result-match` scorer and the eval dataset, once per project;
+- one dataset record per case: the question and a SHA-256 digest of its gold SQL, never the SQL;
+- an experiment on the agent, linked to `--baseline` when given;
+- one session per case, subject the agent, with every message and tool call from its
+  transcript, and one experiment result per case that names its session;
+- the experiment's summary, marking it completed.
+
+A smoke run (`--sessions-only`) writes only the sessions and their messages. Trace spans have
+no MCP write, so the runs show in the agent's Sessions tab and the experiment's results, and
+their span views stay empty.
+
+1. **Preview, then ask once.** Show the counts (records, sessions, results), the target
+   workspace and agent, and one sample session's first two messages. Ask:
+   - `<slug> · <variant> · publish to <workspace>`
+   - **Publish N results and N sessions (Recommended)**
+   - **Not yet**
+
+   A yes covers every step of this variant's publish.
+2. **Loop until done.** Run `EVAL publish --variant V [--baseline baseline] [--sessions-only]`.
+   It prints the next `step` and its `calls`, each a `{tool, arguments}` pair. Send each call
+   in order with that exact name and arguments (in search mode, through `mcp__call_tool`, with
+   the session id beside them). Save the tool results, in call order, as one JSON list, for
+   example `hillclimb/V/publish-<step>.json`, then run
+   `EVAL publish-ack --variant V --step <step> --responses <that file>`.
+   Repeat until `publish` prints `"step": "done"`.
+3. **A failed item** is reported by `publish-ack` under `failed`, with the registry's message.
+   The next `publish` resends only those items. Fix a named field before you resend; after
+   three failures of the same item, stop and report it.
+4. **A lost result.** If a call's result never came back, `publish` refuses to go on. For
+   `scorer`, `dataset`, `experiment`, `sessions` and `complete`, run `EVAL publish --resend`
+   and send the same calls again: their idempotency keys return what already landed. For
+   `records`, `messages` and `results`, list that kind in the workspace with
+   `registry__list_artifacts`, save the listing, and run `publish-ack --reconcile`. Never
+   resend a batch blindly: it duplicates every item that worked.
+5. **Check it landed.** Open one session with `registry__get_artifact` and confirm its
+   messages, and count the experiment's results.
+
+Gold SQL never leaves the machine. Publishing needs no SDK, token, API key or `uv`: only the
+person's Atlan sign-in.
 
 ## Grading, in one paragraph
 

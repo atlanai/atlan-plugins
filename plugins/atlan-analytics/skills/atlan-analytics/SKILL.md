@@ -30,14 +30,16 @@ If the first argument is exactly `propose`, read [the proposal workflow](referen
 preview a proposal for its owners, and return: no metric save, full-agent preflight or eval.
 
 If the first argument is exactly `ask`, or there is no mode and the request is a data question
-(a number, a trend, why something changed) rather than metrics or agent work, follow the
-`atlan-analytics-ask` skill (`skills/atlan-analytics-ask/SKILL.md`). It answers in the
+(a number, a trend, why something changed) rather than metrics or agent work, load and follow
+this plugin's `atlan-analytics-ask` skill by name (in Claude Code, the Skill tool's
+`atlan-analytics:atlan-analytics-ask`). It answers in the
 conversation from published definitions, then returns: no full-agent preflight, project, eval
 or agent.
 
 If the first argument is exactly `ontology`, or the request is about business objects, their
-relationships, governed policies or modelling the business, follow the `atlan-ontology` skill
-(`skills/atlan-ontology/SKILL.md`), then return.
+relationships, governed policies or modelling the business, load and follow this
+plugin's `atlan-ontology` skill by name (in Claude Code, `atlan-analytics:atlan-ontology`), then
+return.
 
 If it is `connect`, follow [warehouse discovery](references/connect.md), then return.
 Use the selected project’s state when one exists; never resume another project silently.
@@ -52,12 +54,12 @@ Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over i
 | Mode | Procedure |
 | --- | --- |
 | `build` | [Build](references/build.md), purpose through baseline |
-| `eval` | [Evaluate](references/eval.md), isolated cases and locked publishing |
+| `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
 | `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
 
-The single helper is `scripts/analytics_eval.py`. Local grading uses the standard library;
-publishing uses the locked `scripts/pyproject.toml` and `scripts/uv.lock` and requires private
-GitHub contents-read access to `atlanai/sdk` through normal credential helpers.
+The single helper is `scripts/analytics_eval.py`. It uses only the standard library and never
+touches the network: every registry write, eval results included, goes through the Atlan MCP
+server with the person's own sign-in.
 
 ## MCP resources
 
