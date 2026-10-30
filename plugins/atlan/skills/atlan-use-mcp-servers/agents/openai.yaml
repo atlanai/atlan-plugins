@@ -1,0 +1,11 @@
+interface:
+  display_name: "MCP Servers through Atlan"
+  short_description: "Call Slack, Linear and other servers through Atlan"
+  default_prompt: "Use $atlan-use-mcp-servers to list the MCP servers my organization registered in Atlan."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

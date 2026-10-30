@@ -1,0 +1,11 @@
+interface:
+  display_name: "Continue from Atlan"
+  short_description: "Pick up an artifact handed over from the dashboard"
+  default_prompt: "Use $atlan-continue to catch me up on this Atlan artifact and the session that made it."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
