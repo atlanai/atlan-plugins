@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the plugin's skills as an Agent Skills discovery index for a website to serve.
+"""Write the core plugin's skills as an Agent Skills discovery index for a website to serve.
 
     python3 scripts/skill_index.py dist/site   # writes dist/site/.well-known/agent-skills/
 
@@ -20,7 +20,7 @@ import sys
 import tarfile
 from pathlib import Path
 
-from build import ROOT, render
+from build import ROOT, core_dir, load, render
 from lint import frontmatter
 
 SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json"
@@ -43,10 +43,14 @@ def archive(directory: Path, files: list[Path]) -> bytes:
     return gzip.compress(buffer.getvalue(), compresslevel=9, mtime=0)
 
 
-def payloads(root: Path = ROOT) -> tuple[dict, dict[str, bytes]]:
+def skills_dir() -> Path:
+    return ROOT / core_dir(load()) / "skills"
+
+
+def payloads(skills: Path | None = None) -> tuple[dict, dict[str, bytes]]:
     """The index document, and every file it points at, keyed by its URL relative to the index."""
     entries, served = [], {}
-    for directory in sorted(p for p in (root / "skills").iterdir() if p.is_dir()):
+    for directory in sorted(p for p in (skills or skills_dir()).iterdir() if p.is_dir()):
         parsed = frontmatter((directory / "SKILL.md").read_text(encoding="utf-8"))
         if parsed is None:
             raise SystemExit(f"{directory.name}/SKILL.md has no frontmatter")

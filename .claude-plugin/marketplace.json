@@ -1,25 +1,25 @@
 {
   "$schema": "https://code.claude.com/schemas/marketplace.json",
   "name": "atlan-plugins",
-  "description": "The Atlan plugin for coding agents: the Atlan registry's MCP server and the skills to use it.",
+  "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it.",
   "owner": {
     "name": "Atlan",
     "url": "https://atlan.com"
   },
   "metadata": {
-    "description": "The Atlan plugin for coding agents: the Atlan registry's MCP server and the skills to use it."
+    "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
   },
   "plugins": [
     {
       "name": "atlan",
-      "source": "./",
+      "source": "./plugins/atlan",
       "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills.",
       "author": {
         "name": "Atlan",
         "url": "https://atlan.com"
       },
-      "homepage": "an internal repository",
-      "repository": "an internal repository",
+      "homepage": "https://github.com/atlanai/atlan-plugins",
+      "repository": "https://github.com/atlanai/atlan-plugins",
       "license": "Apache-2.0",
       "keywords": [
         "atlan",
@@ -41,8 +41,8 @@
         "name": "Atlan",
         "url": "https://atlan.com"
       },
-      "homepage": "an internal repository",
-      "repository": "an internal repository",
+      "homepage": "https://github.com/atlanai/atlan-plugins",
+      "repository": "https://github.com/atlanai/atlan-plugins",
       "license": "Apache-2.0",
       "keywords": [
         "atlan",

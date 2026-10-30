@@ -16,7 +16,7 @@ support@atlan.com. The web dashboard is https://app.atlan.com.
 **Claude chat and Cowork** (claude.ai, the Claude desktop and mobile apps)
 
 One install covers chat, Cowork and Claude Code on the same account. In Claude, open
-**Customize**, then **Plugins**, **Add**, **Add marketplace**; enter `an internal repository` and add
+**Customize**, then **Plugins**, **Add**, **Add marketplace**; enter `atlanai/atlan-plugins` and add
 **Atlan**. Adding the plugin does not sign anyone in: open the Atlan plugin's **Connectors** tab
 and click **Connect**, which opens Atlan's sign-in page.
 
@@ -30,13 +30,13 @@ be missing until they do. Give the user this note to send their Claude Owner:
 **Claude Code** (terminal, desktop, IDE extensions)
 
 ```
-/plugin install atlan --marketplace an internal repository
+/plugin install atlan --marketplace atlanai/atlan-plugins
 ```
 
 Claude Code before 2.1.275 needs the two-step form:
 
 ```
-/plugin marketplace add an internal repository
+/plugin marketplace add atlanai/atlan-plugins
 /plugin install atlan@atlan-plugins
 ```
 
@@ -46,7 +46,7 @@ opens on Atlan's sign-in page.
 **OpenAI Codex** (CLI and app)
 
 ```
-codex plugin marketplace add an internal repository
+codex plugin marketplace add atlanai/atlan-plugins
 codex plugin add atlan@atlan-plugins
 ```
 
@@ -56,22 +56,23 @@ The marketplace asks Codex to sign in at install time. If it did not, find the s
 **Cursor**
 
 Install **Atlan** from the Cursor Marketplace, or have a team admin import
-`an internal repository` as a team marketplace. Then open Cursor Settings, **Tools & MCP**, and
+`atlanai/atlan-plugins` as a team marketplace. Then open Cursor Settings, **Tools & MCP**, and
 connect the `atlan` server to start the browser sign-in.
 
 **VS Code with GitHub Copilot, and other Agent Plugins hosts**
 
-Run the host's **Install Plugin From Source** command with
-`an internal repository`. Start the `atlan` MCP server when prompted and sign
-in in the browser.
+Add `atlanai/atlan-plugins` to the `chat.plugins.marketplaces` setting, then install **Atlan**
+from the Chat Plugins section of the Extensions view. Start the `atlan` MCP server when
+prompted and sign in in the browser.
 
 **Skills only, any tool that reads Agent Skills**
 
 ```
-npx skills add an internal repository
+npx skills add atlanai/atlan-plugins --skill atlan-get-started
 ```
 
-This copies the skills but not the MCP server. Add the server as below.
+This copies skills but not the MCP server. Without `--skill` it offers every skill in the
+marketplace, add-ons included. Add the server as below.
 
 ## The MCP server on its own
 

@@ -3,7 +3,9 @@
 
     python3 scripts/lint.py
 
-Skills (every skills/<dir>/SKILL.md):
+Every plugin is a folder under plugins/; the core is plugins/<[plugin] name>.
+
+Skills (every plugins/<plugin>/skills/<dir>/SKILL.md):
   * a terminated `---` frontmatter block with `name` equal to its directory, lowercase
     letters, digits and single hyphens, at most 64 characters;
   * a non-empty `description` of at most 1024 characters with no XML tags (the line a model
@@ -11,15 +13,14 @@ Skills (every skills/<dir>/SKILL.md):
   * a non-empty body.
 Skills this repository owns (not vendored, see upstream.json) are also held to:
   * at most 500 lines in SKILL.md (longer material goes in references/);
-  * every `references/...` and `skills/...` path they cite exists;
+  * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
 Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`.
-Add-ons (plugins/<name>/): the same checks on their skills, commands and agents, skill names unique
-across the core and every add-on, and no MCP server, hooks or bin/ of their own (an add-on uses the
-core's one `atlan` connection).
-Repository: no symlinks, no root CLAUDE.md (plugins do not load it), no top-level bin/ (claude.ai
-and organization sync refuse it), no hooks (out of scope for this plugin, see AGENTS.md), and no
-credential-shaped strings in any tracked text file.
+Skill names are unique across every plugin. Add-ons (every plugin but the core) carry no MCP
+server, hooks or bin/ of their own: an add-on uses the core's one `atlan` connection.
+Repository: plugin content only under plugins/ (the root is the marketplace), no symlinks, no
+CLAUDE.md (plugins do not load it), no bin/ (claude.ai and organization sync refuse it), no hooks
+(out of scope, see AGENTS.md), and no credential-shaped strings in any tracked text file.
 """
 
 from __future__ import annotations
@@ -28,9 +29,14 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+PLUGINS = ROOT / "plugins"
+# What a plugin folder holds and the repository root must not: the root is the marketplace.
+PLUGIN_CONTENT = ("skills", "commands", "agents", "plugin.json", "mcp.json", ".mcp.json",
+                  ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json")
 
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 XML_TAG = re.compile(r"<[A-Za-z/][^>]*>")
@@ -135,9 +141,10 @@ def lint_command(path: Path) -> list[str]:
 
 
 def plugin_roots() -> list[Path]:
-    """The core at the repository root, then each add-on under plugins/."""
-    addons = ROOT / "plugins"
-    return [ROOT, *sorted(p for p in addons.iterdir() if p.is_dir())] if addons.is_dir() else [ROOT]
+    """The core's folder, then each add-on's, all under plugins/."""
+    with (ROOT / "plugin.toml").open("rb") as handle:
+        core = PLUGINS / tomllib.load(handle)["plugin"]["name"]
+    return [core, *sorted(p for p in PLUGINS.iterdir() if p.is_dir() and p != core)]
 
 
 def lint_addon(root: Path) -> list[str]:
@@ -153,13 +160,19 @@ def lint_addon(root: Path) -> list[str]:
 
 
 def lint_repository(files: list[Path]) -> list[str]:
-    errors = []
-    if (ROOT / "CLAUDE.md").exists():
-        errors.append("CLAUDE.md at the plugin root is not loaded by any host; use AGENTS.md")
-    if (ROOT / "bin").exists():
-        errors.append("bin/ at the plugin root is refused by claude.ai and organization sync")
-    if (ROOT / "hooks").exists():
-        errors.append("hooks/ is out of scope for this plugin; see AGENTS.md before adding one")
+    errors = [
+        f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
+        for name in PLUGIN_CONTENT
+        if (ROOT / name).exists()
+    ]
+    for root in (ROOT, *plugin_roots()):
+        relative = root.relative_to(ROOT).as_posix()
+        if (root / "CLAUDE.md").exists():
+            errors.append(f"{relative}/CLAUDE.md is not loaded by any host; use AGENTS.md at the root")
+        if (root / "bin").exists():
+            errors.append(f"{relative}/bin/ is refused by claude.ai and organization sync")
+        if (root / "hooks").exists():
+            errors.append(f"{relative}/hooks/ is out of scope for these plugins; see AGENTS.md before adding one")
     for path in files:
         if path.is_symlink():
             errors.append(f"{path.relative_to(ROOT)}: symlinks do not survive every host's install")
