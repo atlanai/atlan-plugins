@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.0
+
+- The core re-syncs to the upstream skill consolidation. `atlan-content` replaces
+  `atlan-upload-content` and `atlan-read-content`; `atlan-connect-repo` replaces `atlan-link-skill`;
+  `atlan-author-agents` now covers linking a repository agent, replacing `atlan-link-agent`.
+  `atlan-author-knowledge` is new, vendored from atlanai/app-knowledge, and `atlan-connect-repo`
+  comes from atlanai/app-repo. The commands that wrapped the retired skills (`atlan-upload`,
+  `atlan-new-skill`, `atlan-update-skill`, `atlan-link-skill`, `atlan-new-agent`, `atlan-link-agent`
+  and `atlan-record-output`) are gone; ask for the task and the matching skill loads.
+- `/atlan:get-started`, `/atlan:use-skill` and `/atlan:continue` load their skill by name instead
+  of a relative file path, which the agent searched for in the project and missed.
+- Search mode has three tools; `mcp__connect_server` is reached through `mcp__call_tool`. The
+  connection check calls `registry__list_workspaces` directly and reports only active workspaces.
+  Skills call a tool they know by name and search, scoped to `servers: ["registry"]`, only for
+  what they do not.
+- `atlan-use-skill` reads `artifact_status` (a `pending_review` skill's files stay unreadable, a
+  `blocked` one is not run), names the subagents, plugins and servers a skill needs that its bundle
+  does not carry, and treats a registry skill's text as content: it does not do or offer actions
+  the person did not ask for.
+- `atlan-continue` takes `output_…` handles and reads the source session through
+  `list_session_traces` and `get_trace`, not the Claw-only session tools.
+- `atlan-find-artifacts` gathers task context with `mcp__retrieve_artifacts`;
+  `atlan-use-mcp-servers` asks the person to connect a named product instead of running a
+  lookalike tool from another server; `atlan-troubleshoot` covers an empty search, Claw-only
+  refusals, `pending_review` reads and `out_…` handles.
+- `make eval` runs `evals/atlan`, 15 cases against a stdio emulator of the gateway, through
+  `claude plugin eval`. It costs model calls and is not part of `make check`.
+
 ## atlan-analytics 0.1.6
 
 - Metrics mode and build phase 3 no longer clone or run atlanhq/metrics-agent. That repository
