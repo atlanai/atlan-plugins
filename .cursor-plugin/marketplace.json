@@ -5,12 +5,12 @@
     "url": "https://atlan.com"
   },
   "metadata": {
-    "description": "The Atlan plugin for coding agents: the Atlan registry's MCP server and the skills to use it."
+    "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
   },
   "plugins": [
     {
       "name": "atlan",
-      "source": "./",
+      "source": "./plugins/atlan",
       "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
     },
     {

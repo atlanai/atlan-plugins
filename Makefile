@@ -35,16 +35,13 @@ test:
 site:
 	$(PYTHON) scripts/skill_index.py dist/site
 
-# The manifests, then the components: validating a manifest does not check skills or commands.
-# The directory profile adds the checks a plugin directory submission must pass.
+# The marketplace, then each plugin's manifest and components: validating a manifest does not
+# check skills or commands. The directory profile adds the checks a directory submission must pass.
 validate:
-	claude plugin validate .claude-plugin/plugin.json --strict --profile directory
 	claude plugin validate .claude-plugin/marketplace.json --strict
-	claude plugin validate skills --strict
-	claude plugin validate commands --strict
-	for addon in plugins/*/; do \
-		claude plugin validate $${addon}.claude-plugin/plugin.json --strict --profile directory || exit 1; \
+	for plugin in plugins/*/; do \
+		claude plugin validate $${plugin}.claude-plugin/plugin.json --strict --profile directory || exit 1; \
 		for tree in skills commands agents; do \
-			if [ -d $${addon}$$tree ]; then claude plugin validate $${addon}$$tree --strict || exit 1; fi; \
+			if [ -d $${plugin}$$tree ]; then claude plugin validate $${plugin}$$tree --strict || exit 1; fi; \
 		done; \
 	done
