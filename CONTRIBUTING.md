@@ -76,7 +76,7 @@ The rules that catch people out:
 2. Make the change and run `make check` (and `make validate` if you changed a manifest, a
    skill or a command).
 3. If the change reaches users, bump the plugin's `version` in `plugin.toml`, run
-   `make build`, and add a note under a new heading in [CHANGELOG.md](CHANGELOG.md).
+   `make build`, and say what changes for users in the pull request's description.
 4. Open the pull request and fill in the template. Say which hosts you tried it in.
 
 A maintainer reviews every pull request. By contributing, you agree that your contribution is

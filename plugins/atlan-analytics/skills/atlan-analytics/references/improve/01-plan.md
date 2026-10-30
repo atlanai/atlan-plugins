@@ -54,7 +54,7 @@ Add:
   governance team owns the definitions.
 - Two or three sentences of approach, for example: "Each round a fresh analyst reads the train
   failures and proposes one fix, usually a definition or saved query the agent missed. I apply
-  it as a new registry version, rerun every case, and push the round as an experiment you can
+  it as a new registry version, rerun every case, and publish the round as an experiment you can
   see in Evals."
 
 Get a clear yes, and record the plan and `approve_each_round` in `H/_state.json`.

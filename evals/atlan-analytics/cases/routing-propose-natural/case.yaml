@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: routing-propose-natural
+tags: [analytics, routing]
+execution:
+  prompt: |
+    The published churn_rate metric is wrong: it counts trial accounts, and it shouldn't. Propose a fix to its owners.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-(analytics|ontology)'
+  - name: reads-expected
+    type: tool_used
+    tool: Read
+    input_match: 'references/propose\.md'
+    min: 1
+  - name: avoids-wrong-branch
+    type: tool_used
+    tool: Read
+    input_match: 'references/full-agent\.md'
+    min: 0
+    max: 0

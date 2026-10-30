@@ -108,7 +108,7 @@ RECOMMENDATION`. Don't loop.
   - never put in a subagent prompt;
   - never written to the agent's workspace, a metric, a saved query, a rule or the agent's
     instructions;
-  - never uploaded to the registry. `EVAL push` sends only a digest.
+  - never uploaded to the registry. Publishing sends only a digest.
 
   The talk-to-data subagent has no file, shell or web tools, so it can't read them. Keep it
   that way.
