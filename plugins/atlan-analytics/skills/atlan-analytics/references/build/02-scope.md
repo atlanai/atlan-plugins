@@ -6,7 +6,7 @@ workspace the agent's context will live in.
 ## Tables
 
 1. Find candidates with the warehouse query tool recorded in state, using its dialect's
-   statements in `skills/atlan-analytics-connect/references/warehouses.md`. Read-only, with
+   statements in `skills/atlan-analytics/references/warehouses.md`. Read-only, with
    small limits:
    - list the tables in the likely schemas, or search `information_schema.tables` by name for
      the domain's nouns (ticket, rating, quality…);

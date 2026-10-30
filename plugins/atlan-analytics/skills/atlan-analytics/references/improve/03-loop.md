@@ -21,7 +21,7 @@ It returns:
 - the most the change could gain.
 
 Save that as `H/vN/change.md`. If the most it could gain is inside the noise floor, don't
-spend a round; go to `references/04-stall.md`.
+spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
 
 ## Apply
 
@@ -40,7 +40,7 @@ spend a round; go to `references/04-stall.md`.
      (`registry__get_kind_schema` for `metric`) and test its SQL with the
      warehouse query tool. When `metric_access.create` is true and the user approved this
      round, create it as metrics mode does by hand
-     (`atlan-analytics-build/references/03-context.md`, section 5). Otherwise propose it for
+     (`skills/atlan-analytics/references/build/03-context.md`, section 5). Otherwise propose it for
      the workspace's metric owners (below) and leave the round pending until they create and
      release it.
    - **New saved query**: write the question, SQL and `usage_note`. Test the SQL with the
@@ -60,33 +60,31 @@ spend a round; go to `references/04-stall.md`.
 ### Saving and undoing a definition change
 
 Metric and saved-query definitions are immutable within a revision. `registry__patch_artifact`
-cannot edit either definition. The current Registry MCP catalogue has no append-version tool;
-do not invent one or use a create to impersonate an update.
+cannot edit either definition. Use `registry__get_artifact` to read the current head and its
+`etag`, then `registry__append_artifact_version` with:
 
-Use Studio's edit/review/save flow, or an already configured, authenticated Registry HTTP/SDK
-client that supports this operation:
+- `artifact_id`: the existing metric or saved-query ID;
+- `if_match`: the exact head ETag reviewed;
+- `metadata`: the complete `definition`, preserved `source_version` and `source_metadata`,
+  and `auto_release: false`; omit line fields such as `name` and `workspace_id`;
+- `idempotency_key`: one unique key for this reviewed change, reused with identical arguments
+  only to recover an uncertain write.
 
-```text
-POST /registry/v1/artifacts/{kind}/{id}/versions
-If-Match: <the ETag of the current head you reviewed>
-```
+Do not copy server-owned hashes or validation receipts. Confirm the head still matches the
+proposal's base before appending. A metric's positive-integer `definition.version` must never
+decrease; execution-input changes require a higher value. A usage-note-only query change
+needs no metric semantic version. Read back the same artifact ID and new ordinal, and
+record before/after version IDs and ordinals in the receipt. A stale token refuses the write;
+re-read and reconcile instead of blindly retrying.
 
-The body carries the **complete** `definition`, the preserved `source_version` and
-`source_metadata`, and `auto_release: false`. Do not copy server-owned hashes or validation
-receipts into the request. Re-read the head through that client to obtain its ETag and confirm
-that its version id and definition still match the proposal's base before appending. A metric's
-positive-integer `definition.version` must never decrease; if any execution input changes,
-choose a value greater than the current head's. A usage-note-only query change needs no metric
-semantic version.
-
-If only the MCP tools are available, save the proposed full definition and its base version in
-`H/vN/`, propose it for the metric's owner (below), and pause this round before Run. Never claim
-the change landed or test the unchanged definition as the new variant.
+Undo follows the same procedure: restore the intended full definition into a new version,
+using the latest observed ETag and a valid metric semantic version. Never mutate history.
 
 ### Proposing a metric fix
 
-A proposal is what Metric Studio shows its owner as suggestions to apply or dismiss; nothing
-about the metric changes until a person applies it. Create it with `registry__create_artifact`, kind `file`:
+A proposal is what Metric Studio shows its owner as suggestions to apply or dismiss
+(docs/metrics.md#agent-proposals in metric service); nothing about the metric changes until a person
+applies it. Create it with `registry__create_artifact`, kind `file`:
 
 - `metadata`: `name` (unique in the workspace, for example `improve-<metric>-v<N>`),
   `workspace_id`, `path` `improvements/metric/<metric>-v<N>.json`, `media_type`
@@ -147,7 +145,7 @@ as a hidden part of an edit or undo.
 
 ## Run
 
-Run variant `vN` over **all** cases at the baseline's rep count via `atlan-analytics-eval`. Then run
+Run variant `vN` over **all** cases at the baseline's rep count via `atlan-analytics eval`. Then run
 `EVAL push --variant vN --baseline baseline`, so the registry records the round as an
 experiment linked to the baseline.
 
@@ -170,4 +168,4 @@ experiment linked to the baseline.
   - train down but test up: treat it as noise until a rerun confirms.
   - a tie: keep the later round.
 - Check the stopping condition. After 2–3 rounds flat within noise, go to
-  `references/04-stall.md`.
+  `skills/atlan-analytics/references/improve/04-stall.md`.

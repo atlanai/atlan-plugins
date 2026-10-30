@@ -416,6 +416,27 @@ class DashboardPromptTest(unittest.TestCase):
                 self.assertIn(handle, parsed[0]["description"])
 
 
+class MetricsStudioPromptTest(unittest.TestCase):
+    """Metrics Studio (metric service `studio/src/lib/metrics-setup.ts`) sends these to set up metrics."""
+
+    # `/<plugin>:atlan-analytics metrics` in Claude Code, `$<plugin>:atlan-analytics metrics` in
+    # Codex, and over MCP alone `atlan://defaults/skills/atlan-analytics/SKILL.md`, metrics mode.
+    SKILL = "atlan-analytics"
+
+    def setUp(self) -> None:
+        self.addon = ROOT / "plugins" / build.load()["addons"][0]["name"]
+
+    def test_the_skill_keeps_its_name_and_metrics_mode(self) -> None:
+        text = (self.addon / "skills" / self.SKILL / "SKILL.md").read_text(encoding="utf-8")
+        parsed = lint.frontmatter(text)
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed[0]["name"], self.SKILL)
+        self.assertIn("If the first argument is exactly `metrics`", text)
+
+    def test_no_command_shadows_the_skill(self) -> None:
+        self.assertFalse((self.addon / "commands" / f"{self.SKILL}.md").exists())
+
+
 class SkillIndexTest(unittest.TestCase):
     def setUp(self) -> None:
         self.index, self.served = skill_index.payloads()

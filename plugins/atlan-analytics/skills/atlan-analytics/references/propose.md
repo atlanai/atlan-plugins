@@ -27,7 +27,7 @@ Open a registry session as **Registry calls** in the conventions describes, then
   (`registry__search_artifacts`, kind `metric`). If a metric already covers it, write nothing
   and point the person to it: the agent missed it, the metric isn't missing.
 - **Both:** list the workspace's proposals and apply the duplicate rules in
-  `skills/atlan-analytics-improve/references/03-loop.md` ("Proposing a metric fix" and
+  `skills/atlan-analytics/references/improve/03-loop.md` ("Proposing a metric fix" and
   "Proposing a new metric"). If one already covers it, write nothing and tell the person; if
   it was dismissed, say that its owners decided against it.
 
@@ -43,7 +43,7 @@ Open a registry session as **Registry calls** in the conventions describes, then
 ## 4. Attach this conversation as the run
 
 Run `EVAL session-run`, that is
-`python3 "<eval-dir>/scripts/analytics_eval.py" session-run`, with `<eval-dir>` as the conventions say
+`python3 "<skill-dir>/scripts/analytics_eval.py" session-run`, with `<skill-dir>` as the conventions say
 (from Codex, add `--harness codex --session-id <its session id>`). Its `trace_id` names the
 trace this session becomes once the desktop app syncs it. Add one
 `evidence.runs` entry per question: `{trace_id, agent, question, asked_by, at}`, where `agent`
@@ -67,4 +67,4 @@ fix, the metric's owner (its `owner_id`); otherwise anyone who can edit the work
 
 Tell the person the proposal's id, and that the owners review it on Metric Studio's metrics
 list, where `suggestion=<file id>` opens it directly. End with the status line from
-`references/conventions.md`.
+`conventions.md`.

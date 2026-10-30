@@ -102,8 +102,8 @@ run, so it can't be imported.
 
 ## Query history
 
-Evidence of use, not a definition. The `atlan-analytics-connect` skill's
-[warehouses](../../../atlan-analytics-connect/references/warehouses.md) reference has the
+Evidence of use, not a definition. The
+[warehouses](../warehouses.md) reference has the
 **Query history** statements for each warehouse. It also has the fallbacks when access is
 denied, and the one-time view an admin can create so analysts need no extra grant. Section 2 of
 the workflow turns the rows into shapes.
