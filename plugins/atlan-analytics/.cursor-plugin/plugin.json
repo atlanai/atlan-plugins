@@ -1,6 +1,6 @@
 {
   "name": "atlan-analytics",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Answer data questions from governed metrics, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry.",
   "author": {
     "name": "Atlan",

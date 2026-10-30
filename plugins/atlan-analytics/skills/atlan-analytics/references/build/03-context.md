@@ -26,7 +26,7 @@ The outcome is metrics and saved queries in the selected workspace, not a new an
    and a bounded set of tables. Use supplied scope and BI lineage to propose a small table
    set; confirm it and write `tables.txt`. No agent name, audience interview or eval questions.
    For a direct warehouse read, find and verify the read-only warehouse query tool with the
-   `atlan-analytics-connect` skill when needed. An export file or BI model does not require a Snowflake connection
+   [warehouse discovery procedure](../connect.md) when needed. An export file or BI model does not require a Snowflake connection
    or any other warehouse connection.
 4. Read the workspace's existing `metric` and `sql_query` artifacts. Reuse matching definitions
    and source identities. Show proposed additions and changes separately; preserve unrelated
