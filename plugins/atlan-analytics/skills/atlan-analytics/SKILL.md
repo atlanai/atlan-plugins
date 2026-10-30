@@ -50,11 +50,14 @@ python3 "<eval-dir>/scripts/analytics_eval.py" <command> --dir .atlan-analytics/
    or the Atlan MCP server connected and signed in.
 2. Call `registry__list_workspaces`. If it fails or returns nothing, stop with BLOCKED: the
    user needs to sign in to Atlan and be added to a workspace.
-3. Find the **warehouse query tool** with the `atlan-analytics-connect` skill. It looks
+3. Call `registry__get_kind_schema` for `metric`. An unknown kind means Metric Studio is not
+   installed for this account: stop with BLOCKED, and ask an Atlan admin to install Metric
+   Studio from the Store.
+4. Find the **warehouse query tool** with the `atlan-analytics-connect` skill. It looks
    through Atlan first, then this harness's own connectors, asks the user to connect or add
    one when none works, and records `warehouse` in state. From then on every skill calls it
    "the warehouse query tool recorded in state".
-4. Run `EVAL selftest` to confirm `python3` works. It needs only the standard library.
+5. Run `EVAL selftest` to confirm `python3` works. It needs only the standard library.
 
 Show one line per check (`ok` or what failed).
 

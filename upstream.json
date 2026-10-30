@@ -22,7 +22,7 @@
     {
       "name": "analytics",
       "repository": "https://github.com/atlanai/app-metric",
-      "rev": "c198064863538d04307aa713c0816e0bc883a58b",
+      "rev": "9d72e4c088e2e7341c9b8ad8e22825ffb482732b",
       "path": "backend/defaults",
       "into": "plugins/atlan-analytics",
       "exclude": [
@@ -161,7 +161,7 @@
     },
     "plugins/atlan-analytics/skills/atlan-analytics/SKILL.md": {
       "source": "analytics",
-      "sha256": "f0334c7cd3e52ef7a35f53efbf8c532733068752c1d4e501e531f74c60564f3a"
+      "sha256": "592a9aa034644066e6b95d4c905152b2cdc2bec224a6340cefe7b475eaa5df81"
     },
     "plugins/atlan-analytics/skills/atlan-analytics/references/conventions.md": {
       "source": "analytics",
