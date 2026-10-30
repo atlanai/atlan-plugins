@@ -18,6 +18,8 @@
 - The helper's digest changed, so a project approved with `approve-harness` asks for approval again.
 - `eval`, the smoke test, the baseline and the improve loop share one publishing procedure;
   before, they disagreed on how to run it.
+- `propose` spells out the proposal file's media type, `source_metadata` and, for a new metric,
+  the record's shape, so it no longer depends on reading the improve loop.
 - The dispatcher hands off to `atlan-analytics-ask` and `atlan-ontology` by skill name instead of
   a file path.
 - This repository is the only source of the analytics skills; nothing else serves or copies them.
