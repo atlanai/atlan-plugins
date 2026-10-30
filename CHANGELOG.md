@@ -14,6 +14,11 @@
   skill. The `atlan-analytics` command is gone: a command and a skill with one name shadow each
   other, and the registry retired the same wrapper.
 - This repository is now the source of these files. app-metric will serve a pinned copy of them.
+- `atlan-ontology` brings the business ontology into the analytics workload. Context mode explains
+  objects, links and the tables a binding maps them to; records mode answers which policy or
+  control was in force on a date; draft mode writes an OWL or SKOS file from tables, metrics or
+  documents, checks it with the import preview, and hands it to a person to save in Ontology
+  Studio. It never saves or publishes. `atlan-analytics ontology` and ask route to it.
 
 ## atlan-analytics 0.1.5
 

@@ -28,6 +28,10 @@ If the first argument is exactly `ask`, or there is no mode and the request is a
 conversation from published definitions, then returns: no full-agent preflight, project, eval
 or agent.
 
+If the first argument is exactly `ontology`, or the request is about business objects, their
+relationships, governed policies or modelling the business, follow the `atlan-ontology` skill
+(`skills/atlan-ontology/SKILL.md`), then return.
+
 If it is `connect`, follow [warehouse discovery](references/connect.md), then return.
 Use the selected project’s state when one exists; never resume another project silently.
 
