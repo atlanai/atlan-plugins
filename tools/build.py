@@ -48,6 +48,10 @@ PLUGINS = "plugins"
 TREES = ("skills", "commands", "agents")
 # Files every plugin folder gets a copy of, from the repository root.
 SHARED = ("assets/logo.svg", "LICENSE")
+# Codex's per-skill metadata, inside each skill folder: written from [skills] in plugin.toml.
+SKILL_METADATA = "agents/openai.yaml"
+# The longest starter prompt Codex shows in full.
+PROMPT_LIMIT = 128
 # What a variant repository takes as it is, beside its plugins.
 VERBATIM = ("LICENSE",)
 # Where a variant repository held its core before plugins moved under plugins/. --variant removes
@@ -103,6 +107,11 @@ def validate(source: dict) -> None:
         names.add(addon["name"])
         if not SEMVER.match(addon["version"]):
             raise SystemExit(f"add-on {addon['name']} version {addon['version']!r} is not SemVer")
+    for name, entry in source.get("skills", {}).items():
+        if set(entry) != {"display_name", "short_description", "prompt"}:
+            raise SystemExit(f"[skills.{name}] needs exactly display_name, short_description and prompt")
+        if f"${name}" not in entry["prompt"] or len(entry["prompt"]) > PROMPT_LIMIT:
+            raise SystemExit(f"[skills.{name}] prompt must name ${name} in at most {PROMPT_LIMIT} characters")
 
 
 def load_variant(path: Path, source: dict) -> dict:
@@ -285,6 +294,41 @@ def plugin_assets(source: dict) -> dict[str, str]:
         files.update({f"{base}/{relative}": text for relative, text in shared.items()})
     for addon in source.get("addons", []):
         files[f"{addon_dir(addon)}/README.md"] = addon_readme(source, addon)
+    return files
+
+
+def skill_metadata(source: dict, name: str) -> str:
+    """Codex's card for one skill, and the MCP server it needs, so a skill installed without the
+    plugin can still ask for Atlan's server. JSON strings are YAML double-quoted scalars."""
+    entry, mcp = source["skills"][name], source["mcp"]
+    quote = lambda text: json.dumps(text, ensure_ascii=False)  # noqa: E731
+    return f"""interface:
+  display_name: {quote(entry['display_name'])}
+  short_description: {quote(entry['short_description'])}
+  default_prompt: {quote(entry['prompt'])}
+dependencies:
+  tools:
+    - type: "mcp"
+      value: {quote(mcp['server'])}
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: {quote(mcp['url'])}
+"""
+
+
+def skill_files(source: dict, target: dict) -> dict[str, str]:
+    """Every skill's Codex metadata for `target`, by path. The skills are the folders in this
+    repository's plugins; each needs a [skills.<name>] entry, and each entry a skill."""
+    files, listed = {}, set()
+    for ours, theirs in zip(plugin_dirs(source), plugin_dirs(target)):
+        for skill in sorted(path.parent.name for path in (ROOT / ours / "skills").glob("*/SKILL.md")):
+            if skill not in target.get("skills", {}):
+                raise SystemExit(f"plugin.toml has no [skills.{skill}] for {ours}/skills/{skill}")
+            listed.add(skill)
+            files[f"{theirs}/skills/{skill}/{SKILL_METADATA}"] = skill_metadata(target, skill)
+    unused = set(target.get("skills", {})) - listed
+    if unused:
+        raise SystemExit(f"plugin.toml lists skills no plugin has: {', '.join(sorted(unused))}")
     return files
 
 
@@ -507,6 +551,8 @@ def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, s
             if readme.startswith(title):
                 readme = f"# {variant['plugin']['display_name']}\n" + readme.removeprefix(title)
             texts[f"{theirs}/README.md"] = rewrite(readme, pairs)
+    # After the copies, so the variant's own server URL wins over the rewritten one.
+    texts.update(skill_files(source, variant))
     for relative in VERBATIM:
         texts[relative] = (ROOT / relative).read_text(encoding="utf-8")
     texts["README.md"] = variant_readme(source, variant, variant_file)
@@ -561,6 +607,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         texts = {path: render(document) for path, document in outputs(source).items()}
         texts.update(plugin_assets(source))
+        texts.update(skill_files(source, source))
         drift = sync(texts, ROOT, args.check)
         target = "python3 tools/build.py"
 

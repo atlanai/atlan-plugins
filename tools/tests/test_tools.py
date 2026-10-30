@@ -236,6 +236,51 @@ class AddonTest(unittest.TestCase):
         self.assertFalse(any(path.startswith(f"{self.base}/") for path in files))
 
 
+class SkillMetadataTest(unittest.TestCase):
+    """`[skills]`: Codex's card for each skill and the MCP server it needs."""
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.files = build.skill_files(self.source, self.source)
+
+    def test_every_skill_in_every_plugin_has_a_card_that_invokes_it_and_needs_the_atlan_server(self) -> None:
+        skills = [path.parent for base in build.plugin_dirs(self.source) for path in sorted((ROOT / base / "skills").glob("*/SKILL.md"))]
+        self.assertEqual(len(self.files), len(skills))
+        mcp = self.source["mcp"]
+        for skill in skills:
+            text = self.files[f"{skill.relative_to(ROOT).as_posix()}/{build.SKILL_METADATA}"]
+            self.assertIn(f'default_prompt: "Use ${skill.name} ', text, skill.name)
+            self.assertIn(f'      value: "{mcp["server"]}"\n', text, skill.name)
+            self.assertIn(f'      url: "{mcp["url"]}"\n', text, skill.name)
+
+    def test_values_are_quoted_so_any_text_stays_one_yaml_scalar(self) -> None:
+        source = copy.deepcopy(self.source)
+        source["skills"]["atlan-continue"]["short_description"] = 'Say "hi": #1'
+        self.assertIn('short_description: "Say \\"hi\\": #1"', build.skill_metadata(source, "atlan-continue"))
+
+    def test_refuses_a_skill_without_an_entry_an_entry_without_a_skill_or_a_prompt_that_does_not_invoke_it(self) -> None:
+        missing = copy.deepcopy(self.source)
+        del missing["skills"]["atlan-continue"]
+        unused = copy.deepcopy(self.source)
+        unused["skills"]["atlan-gone"] = dict(self.source["skills"]["atlan-continue"], prompt="Use $atlan-gone.")
+        for broken in (missing, unused):
+            with self.assertRaises(SystemExit):
+                build.skill_files(broken, broken)
+        for prompt in ("Catch me up.", "Use $atlan-continue " + "x" * build.PROMPT_LIMIT):
+            broken = copy.deepcopy(self.source)
+            broken["skills"]["atlan-continue"]["prompt"] = prompt
+            with self.subTest(prompt=prompt[:20]), self.assertRaises(SystemExit):
+                build.validate(broken)
+
+    def test_a_variant_card_names_the_variants_server_url(self) -> None:
+        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
+        files = build.variant_files(self.source, variant, "variant.toml")
+        text = files[f"plugins/atlan-staging/skills/atlan-continue/{build.SKILL_METADATA}"]
+        self.assertIn('url: "https://api.staging.example/mcp"', text)
+        self.assertIn("Use $atlan-continue ", text)
+        self.assertIn(f"plugins/atlan-staging-analytics/skills/atlan-analytics/{build.SKILL_METADATA}", files)
+
+
 class FrontmatterTest(unittest.TestCase):
     def test_parses_fields_and_body(self) -> None:
         fields, body = lint.frontmatter("---\nname: x\ndescription: Use when y.\n---\n\n# X\n")

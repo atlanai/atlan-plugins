@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5 and atlan-analytics 0.1.3
+
+- Every skill carries `agents/openai.yaml`, Codex's card for it: a display name, a short
+  description and a starter prompt that invokes it as `$<name>`. It also names the `atlan` MCP
+  server as a dependency, so a skill installed on its own, through `npx skills add` or the
+  website index, tells Codex which server it needs.
+- The core's starter prompts are shorter, near the 50 characters Codex shows best.
+
 ## 0.1.4 and atlan-analytics 0.1.2
 
 - The listing icon is the Atlan desktop app's: the metallic Atlan "a" on a black tile.

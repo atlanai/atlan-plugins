@@ -1,0 +1,11 @@
+interface:
+  display_name: "Atlan Analytics"
+  short_description: "Metrics and talk-to-data agents on Atlan"
+  default_prompt: "Use $atlan-analytics to build metrics or a talk-to-data agent on Atlan."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
