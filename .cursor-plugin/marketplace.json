@@ -16,7 +16,7 @@
     {
       "name": "atlan-analytics",
       "source": "./plugins/atlan-analytics",
-      "description": "Bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
+      "description": "Answer data questions from governed metrics, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
     }
   ]
 }

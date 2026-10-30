@@ -1,11 +1,12 @@
 ---
 name: atlan-analytics
-description: "Route metrics and talk-to-data agent work on the Atlan registry: bootstrap metrics and saved queries in metrics mode (no analytics agent or eval), build an agent, prepare context or eval questions, improve an existing agent, or measure its score. In propose mode, turn a gap this conversation found (an answer no published metric covered, or a person's correction to a metric) into a proposal for the metric's owners. Full-agent modes check registry and warehouse access (Snowflake, Databricks or another warehouse, connecting one when missing) and resume saved projects."
+description: "Route metrics and talk-to-data work on the Atlan registry: answer a data question now from published metrics in ask mode, bootstrap metrics and saved queries in metrics mode (no analytics agent or eval), build an agent, prepare context or eval questions, improve an existing agent, or measure its score. In propose mode, turn a gap this conversation found (an answer no published metric covered, or a person's correction to a metric) into a proposal for the metric's owners. Full-agent modes check registry and warehouse access (Snowflake, Databricks or another warehouse, connecting one when missing) and resume saved projects."
 ---
 
 # Metrics and talk-to-data agents: router
 
-You help someone bootstrap metrics, build a talk-to-data agent, or improve one.
+You help someone answer a data question, bootstrap metrics, build a talk-to-data agent, or
+improve one.
 Read [shared conventions](references/conventions.md) first; its questions,
 gates, status and safety rules take precedence.
 
@@ -28,6 +29,12 @@ If the first argument is exactly `propose`, enter **propose mode**: read
 `references/propose.md` and follow it. It turns a gap this conversation found into a proposal
 for the metric's owners and only proposes. **Return after that branch** too: no full-agent
 preflight, project, eval or agent.
+
+If the first argument is exactly `ask`, or there is no mode and the request is a data question
+(a number, a trend, why something changed) rather than metrics or agent work, enter **ask
+mode**: follow the `atlan-analytics-ask` skill (`skills/atlan-analytics-ask/SKILL.md`). It
+answers in the conversation from published definitions. **Return after that branch** too: no
+full-agent preflight, project, eval or agent.
 
 The remaining sections apply only to full-agent modes (`build`, `improve`, `eval`, or no mode).
 
