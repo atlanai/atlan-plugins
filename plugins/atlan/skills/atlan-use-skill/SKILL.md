@@ -1,6 +1,6 @@
 ---
 name: atlan-use-skill
-description: Load a skill from the Atlan registry and use it in this task, or install it so it loads in later sessions. Use when the user asks to use, load, run, apply, install, download or sync a skill their organization keeps in Atlan, including prompts from the Atlan dashboard such as "Use the Atlan use-skill skill to load skill_… and run it" or `/atlan:use-skill skill_…`.
+description: Load a skill from the Atlan registry and use it in this task, or install it so it loads in later sessions. Use when the user asks to use, load, run, apply, install, download or sync a skill their organization keeps in Atlan, including prompts from the Atlan dashboard such as 'Load the "…" skill from the Atlan skill registry' naming its `skill_…` id, or `/atlan:use-skill skill_…`.
 license: Apache-2.0
 ---
 
