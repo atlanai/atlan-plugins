@@ -2,7 +2,10 @@
   "mcpServers": {
     "atlan": {
       "type": "http",
-      "url": "https://api.atlan.com/mcp"
+      "url": "https://api.atlan.com/mcp",
+      "headers": {
+        "X-Atlan-Client": "atlan-plugin/0.1.2"
+      }
     }
   }
 }

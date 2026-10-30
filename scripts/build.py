@@ -43,7 +43,7 @@ VERBATIM = ("assets/logo.svg", "LICENSE")
 OVERRIDES = {
     "plugin": ("name", "display_name", "description", "short_description", "long_description", "homepage", "repository"),
     "marketplace": ("name", "display_name", "description"),
-    "mcp": ("url",),
+    "mcp": ("url", "client"),
 }
 
 
@@ -68,6 +68,8 @@ def validate(source: dict) -> None:
         raise SystemExit("marketplace.name is not a valid name")
     if not SEMVER.match(plugin["version"]):
         raise SystemExit(f"plugin.version {plugin['version']!r} is not SemVer")
+    if not NAME.match(source["mcp"]["client"]):
+        raise SystemExit("mcp.client is not a valid name")
     for url in (source["mcp"]["url"], plugin["homepage"], plugin["repository"]):
         if not url.startswith("https://"):
             raise SystemExit(f"{url} must be https")
@@ -139,8 +141,14 @@ def codex_interface(source: dict) -> dict:
     return interface
 
 
+def client_headers(source: dict) -> dict[str, str]:
+    """The header that names this install to the gateway, which records it on each session."""
+    return {"X-Atlan-Client": f"{source['mcp']['client']}/{source['plugin']['version']}"}
+
+
 def outputs(source: dict) -> dict[str, dict]:
     plugin, mcp, market = source["plugin"], source["mcp"], source["marketplace"]
+    headers = client_headers(source)
     owner = {"name": source["author"]["name"], "url": source["author"]["url"]}
 
     agent_plugin = {"$schema": AGENT_PLUGINS_SCHEMA, **core(source)}
@@ -163,10 +171,10 @@ def outputs(source: dict) -> dict[str, dict]:
         "plugin.json": agent_plugin,
         "mcp.json": {
             "$schema": AGENT_PLUGINS_MCP_SCHEMA,
-            "mcpServers": {mcp["server"]: {"type": "streamable-http", "url": mcp["url"]}},
+            "mcpServers": {mcp["server"]: {"type": "streamable-http", "url": mcp["url"], "headers": headers}},
         },
         # Claude Code (CLI, desktop, IDE extensions) reads only these two.
-        ".mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"]}}},
+        ".mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"], "headers": dict(headers)}}},
         ".claude-plugin/plugin.json": {
             **core(source),
             "privacyPolicyUrl": plugin["privacy_policy_url"],
