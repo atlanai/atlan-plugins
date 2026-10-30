@@ -1,0 +1,11 @@
+interface:
+  display_name: "Register an Agent"
+  short_description: "Catalogue an agent or harness in Atlan"
+  default_prompt: "Use $atlan-author-agents to register the agent in this repository in Atlan."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

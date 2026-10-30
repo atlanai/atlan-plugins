@@ -1,0 +1,11 @@
+interface:
+  display_name: "Record an Output"
+  short_description: "Record a deliverable as an Atlan output"
+  default_prompt: "Use $atlan-record-outputs to record this deliverable as an Atlan output."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

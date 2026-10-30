@@ -1,0 +1,11 @@
+interface:
+  display_name: "Read Atlan Content"
+  short_description: "Read a skill's or a file's contents in Atlan"
+  default_prompt: "Use $atlan-read-content to read an Atlan skill's SKILL.md and references."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
