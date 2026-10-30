@@ -176,13 +176,20 @@ def lint_repository(files: list[Path]) -> list[str]:
     return errors
 
 
+def citable(roots: list[Path]) -> set[str]:
+    """The names a skill may cite: every skill, and every subagent a plugin ships."""
+    return {p.name for root in roots for p in (root / "skills").glob("*") if p.is_dir()} | {
+        p.stem for root in roots for p in (root / "agents").glob("*.md")
+    }
+
+
 def main() -> int:
     owned_paths = vendored()
     roots = plugin_roots()
     skill_dirs = [
         (root, p) for root in roots if (root / "skills").is_dir() for p in sorted((root / "skills").iterdir()) if p.is_dir()
     ]
-    skills = {p.name for _, p in skill_dirs}
+    skills = citable(roots)
 
     errors = []
     seen: dict[str, Path] = {}

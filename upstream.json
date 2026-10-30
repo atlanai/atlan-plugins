@@ -18,16 +18,6 @@
       "repository": "https://github.com/atlanai/app-agent",
       "rev": "6bb08a4234a3d9b85f74578c3631d9dbcd70066c",
       "path": "agent/defaults"
-    },
-    {
-      "name": "analytics",
-      "repository": "https://github.com/atlanai/app-metric",
-      "rev": "2976de2366d63a9445ee4b8bc1e4ccc8f1165fa3",
-      "path": "backend/defaults",
-      "into": "plugins/atlan-analytics",
-      "exclude": [
-        "commands/atlan-metrics.md"
-      ]
     }
   ],
   "files": {
@@ -58,118 +48,6 @@
     "commands/atlan-upload.md": {
       "source": "registry-files",
       "sha256": "394ae695e4cd79d1047ecb5b16c7d7eeb4798fb95eb7fdabda94f7fa18b532d4"
-    },
-    "plugins/atlan-analytics/agents/atlan-analytics-failure-analyst.md": {
-      "source": "analytics",
-      "sha256": "975a292f9eae474afa246bb058a51edfef8807a84c9bf5fe266f2243b21e4ce6"
-    },
-    "plugins/atlan-analytics/agents/atlan-analytics-grader.md": {
-      "source": "analytics",
-      "sha256": "0ea80340dcf14b4a54130c039b261269918ca1feb2560985eb354ff20256402a"
-    },
-    "plugins/atlan-analytics/commands/atlan-analytics.md": {
-      "source": "analytics",
-      "sha256": "b6b7b04a0bc4d98271a674338daaf4c62758728f76720b92d902d4a6c64ea2f8"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/SKILL.md": {
-      "source": "analytics",
-      "sha256": "6c5081e3636e7b6555e6d1472512d6aa1a6ff07921eb25c57daf46f17e1deab0"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/01-purpose.md": {
-      "source": "analytics",
-      "sha256": "27d5130540f2fd3112abf9bf02d0fa919b6ce8ef31404f40afad2a46584b4c38"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/02-scope.md": {
-      "source": "analytics",
-      "sha256": "df115c56d319194327cac8b69b16bc47f1b3ed458335c3b6efd833d66632b259"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/03-context.md": {
-      "source": "analytics",
-      "sha256": "909a1599106f1c12c8cc3b88da62c557cb792e6d3dd4cf26bd97aaaeacaf5462"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/04-eval-set.md": {
-      "source": "analytics",
-      "sha256": "d0e98992dedaf7ffd36dd9669e8515f2d3b533f51d1f66c840d1e83022e18947"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/05-agent.md": {
-      "source": "analytics",
-      "sha256": "ccde263a83715762dfdc58da2890b9f91e2080f3f7ecc951592f14d1a5d17dd1"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/06-smoke.md": {
-      "source": "analytics",
-      "sha256": "cff7942df31d6dd8ace7de5e8fe7855fa220e7720565716b3fa086bf14302894"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-build/references/07-baseline.md": {
-      "source": "analytics",
-      "sha256": "989ac24391041e8e1c8851ad65e0843bc98fb88dbea08a4f0a7d7ee4043032b6"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-connect/SKILL.md": {
-      "source": "analytics",
-      "sha256": "96a236798a31254be87e7e01ca9e4df5fdaf8d7e75976fc0e4364cdf0a9548dd"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-connect/references/warehouses.md": {
-      "source": "analytics",
-      "sha256": "85191a52578ed0772e88ce71bd7f1b38c877fcf2648db1a73e55321645a8b208"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-eval/SKILL.md": {
-      "source": "analytics",
-      "sha256": "15d9397bf596a41e6b4435d9f28c969756fd6a6c38397d77f1bfafe26f479a11"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-eval/references/agent-template.md": {
-      "source": "analytics",
-      "sha256": "8631b4e36fea497ec765821b35c932266e942578b798eda7da02cf1191f555c5"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-eval/scripts/analytics_eval.py": {
-      "source": "analytics",
-      "sha256": "9e6edf6965af2f5ea4fe2054b4c6510d963bf957fc3fb5f807dd74cebe15ffac"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-eval/scripts/pyproject.toml": {
-      "source": "analytics",
-      "sha256": "607bf016987aa3b4a10657a34e7c955c93be0406736de4f58bb85cdbbd88a7cb"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-eval/scripts/uv.lock": {
-      "source": "analytics",
-      "sha256": "aa69506e78e571fdaec2f2ce382099ba5292ca04f65f00f04e4db9b2800898d1"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/SKILL.md": {
-      "source": "analytics",
-      "sha256": "36b941776bac3c1c0b828b3e70802c89dc654ed2a4c800891945620bc19a9e23"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/references/00-adopt.md": {
-      "source": "analytics",
-      "sha256": "6d0c39578d1f6d35e1e789d277bb5757a850baeedccabc4a96c20566e71dfcde"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/references/01-plan.md": {
-      "source": "analytics",
-      "sha256": "747c7c484074758e1062bda9197da0560d83dfa641ef6c31671a5322ab28b4de"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/references/02-baseline-check.md": {
-      "source": "analytics",
-      "sha256": "4eddce61caae6426e22d94c0807d961eb3891b522d2f37487fcb83f25279c3ec"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/references/03-loop.md": {
-      "source": "analytics",
-      "sha256": "ef0d66cbe22b6c3142f12426b0eb41a7751e3b5c399d171e667fa0202c5e8907"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/references/04-stall.md": {
-      "source": "analytics",
-      "sha256": "2bdb5118676da7368800fad69346426795cdd3991c89e28a61dfd828b2da0010"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics-improve/references/05-report.md": {
-      "source": "analytics",
-      "sha256": "2569e91207da109580719f898ed399fbb0939b325895fcad10e6d85dcdff60cd"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics/SKILL.md": {
-      "source": "analytics",
-      "sha256": "592a9aa034644066e6b95d4c905152b2cdc2bec224a6340cefe7b475eaa5df81"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics/references/conventions.md": {
-      "source": "analytics",
-      "sha256": "f2b38a82d0a92e679d3efba872a219e7aa2dfcc440fcb0a4d8b5b85326fbd978"
-    },
-    "plugins/atlan-analytics/skills/atlan-analytics/references/propose.md": {
-      "source": "analytics",
-      "sha256": "8667a73434996b5b993adbe42f84d3d1ed10508d6583574e14ce175ef45ca672"
     },
     "skills/atlan-author-agents/SKILL.md": {
       "source": "agent",

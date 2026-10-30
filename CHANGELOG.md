@@ -7,9 +7,12 @@
   evaluates and improves a talk-to-data agent, and proposes metric fixes. It finds Snowflake,
   Databricks or another warehouse through Atlan or the host's connectors.
 - It depends on `atlan`, which Claude Code installs with it, and declares no MCP server.
-- `[[addons]]` in `plugin.toml` generates an add-on's manifests, README and marketplace entries;
-  an `upstream.json` source with `into` vendors its content. A variant renames each add-on after
-  itself (`atlan-dev-analytics`) and copies it.
+- Its skills, commands and agents are authored here, in `plugins/atlan-analytics`. Metric
+  Studio (app-metric) pins this repository to serve the same files over MCP.
+- `[[addons]]` in `plugin.toml` generates an add-on's manifests, README and marketplace entries.
+  An `upstream.json` source with `into` can still vendor an add-on's content from another
+  repository. A variant renames each add-on after itself (`atlan-dev-analytics`) and copies it.
+- `scripts/lint.py` lets a skill cite a subagent its plugin ships.
 
 ## 0.1.2
 

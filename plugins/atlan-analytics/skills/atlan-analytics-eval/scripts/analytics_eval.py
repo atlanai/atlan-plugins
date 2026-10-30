@@ -662,6 +662,11 @@ def cmd_compare(a) -> dict:
 
 
 # ====================================================================== registry (REST)
+# Production unless told otherwise: the atlan-analytics add-on declares no MCP server of its own,
+# so its plugin.json names none, and a dev or self-hosted gateway sets ATLAN_GATEWAY_URL.
+DEFAULT_BASE_URL = "https://api.atlan.com"
+
+
 def _base_url() -> str:
     if os.environ.get("ATLAN_GATEWAY_URL"):
         return os.environ["ATLAN_GATEWAY_URL"].rstrip("/")
@@ -671,7 +676,7 @@ def _base_url() -> str:
         url = ((pj.get("mcpServers") or {}).get("atlan") or {}).get("url") or ""
         if url:
             return re.sub(r"/mcp/?$", "", url).rstrip("/")
-    return "https://api.atlan.dev"
+    return DEFAULT_BASE_URL
 
 
 def _token() -> str:
@@ -1037,6 +1042,15 @@ def selftest() -> dict:
             ok("changed harness blocks record", False)
         except Blocked:
             ok("changed harness blocks record", True)
+        addon = pathlib.Path(d) / "addon"
+        dump_json(addon / ".claude-plugin" / "plugin.json", {"name": "atlan-analytics", "dependencies": ["atlan"]})
+        saved = {k: os.environ.pop(k, None) for k in ("ATLAN_GATEWAY_URL", "CLAUDE_PLUGIN_ROOT")}
+        try:
+            os.environ["CLAUDE_PLUGIN_ROOT"] = str(addon)
+            ok("an add-on with no MCP server reaches production", _base_url() == DEFAULT_BASE_URL)
+        finally:
+            os.environ.pop("CLAUDE_PLUGIN_ROOT", None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
     failed = [c["check"] for c in checks if not c["ok"]]
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 

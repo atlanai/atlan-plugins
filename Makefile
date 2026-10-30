@@ -4,8 +4,7 @@ PYTHON ?= python3
 AGENT_GATEWAY ?= ../agent-gateway
 APP_SKILL ?= ../app-skill
 APP_AGENT ?= ../app-agent
-APP_METRIC ?= ../app-metric
-SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --from agent=$(APP_AGENT) --from analytics=$(APP_METRIC)
+SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --from agent=$(APP_AGENT)
 
 .PHONY: check build sync sync-adopt lint test site validate
 

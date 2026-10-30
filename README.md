@@ -78,8 +78,9 @@ the `atlan` plugin's connection.
 | [`atlan-analytics`](plugins/atlan-analytics) | Bootstraps metrics and saved SQL queries from your warehouse's query history, builds a talk-to-data agent on them, and evaluates and improves it. It finds Snowflake, Databricks or another warehouse through Atlan or your own connector, and asks you to connect one when none is there. Building and evaluating an agent need Claude Code. |
 
 Claude Code installs `atlan` with an add-on: `/plugin install atlan-analytics@atlan-plugins`. In
-Codex and Cursor, install `atlan` and the add-on separately. The skills come from the app that
-owns the workload (`atlan-analytics` from Metric Studio) at a pinned revision.
+Codex and Cursor, install `atlan` and the add-on separately. An add-on's skills are written in
+this repository; the app behind the workload (Metric Studio for `atlan-analytics`) pins them to
+serve the same files over Atlan's MCP server.
 
 ## How it relates to the registry's own Claude Code plugin
 

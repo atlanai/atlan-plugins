@@ -49,8 +49,10 @@ docs/GAPS.md                      what the registry is missing for an easy start
   immutable once published. Relabel with `display_name`.
 - **A workload is an add-on, not a core skill.** A workload built on the registry (analytics,
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlan-<workload>`.
-  Its content is vendored from the app that owns it through an `upstream.json` source with
-  `into: plugins/<name>`. An add-on depends on `atlan` and declares no MCP server, hooks or
+  Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
+  is their source of truth: the app behind the workload pins a commit of this repository to serve
+  the same files over MCP (app-metric does, for `atlan-analytics`). A change here reaches that
+  app at its next pin bump, where its own tests run against the new text. An add-on depends on `atlan` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
