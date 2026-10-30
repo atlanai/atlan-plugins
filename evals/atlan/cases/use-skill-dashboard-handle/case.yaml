@@ -1,0 +1,52 @@
+schema_version: "1.1"
+name: use-skill-dashboard-handle
+tags: [use-skill,dashboard]
+execution:
+  prompt: |
+    Use the Atlan use-skill skill to load skill_01evalsecrev01 and run it
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-use-skill
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-use-skill"'
+  - name: reads-exact-handle
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"registry__get_artifact"[\s\S]*skill_01evalsecrev01'
+    min: 1
+  - name: no-search-for-a-given-handle
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__search_artifacts"'
+    min: 0
+    max: 0
+  - name: reads-skill-md
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"registry__get_file_content"[\s\S]*file_01evalsecrevmd'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: follows-skill-and-flags-dependency
+    type: llm
+    criteria: |
+      PASS if the reply follows the loaded skill's first step (asks what to review: the diff, a file or a PR number) AND tells the user the skill relies on a `security-reviewer` subagent from an `acme-security` plugin that is not part of the bundle or not available here.
+      FAIL if it starts reviewing something it invented, or never mentions the missing subagent/plugin dependency.

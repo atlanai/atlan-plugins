@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: first-run
+tags: [connect,routing]
+execution:
+  prompt: |
+    I just installed the Atlan plugin. Am I connected, and what can I do with it?
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-get-started
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+  - name: lists-workspaces
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__list_workspaces"'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: reports-useful-workspaces
+    type: llm
+    criteria: |
+      PASS if the reply confirms the connection works, names the organization's active workspaces (Acme, Platform Engineering, Dana's Workspace, Marketing or a subset of them), and offers a concrete first task.
+      FAIL if it lists the archived "e2e-create-…" workspaces as places to work, dumps all ~18 workspaces, or says it is not connected.

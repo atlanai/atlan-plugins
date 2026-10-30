@@ -3,7 +3,9 @@ description: Use a skill from the Atlan registry in this task, or install it her
 argument-hint: "<skill handle or name> [install]"
 ---
 
-Follow the bundled skill at `skills/atlan-use-skill/SKILL.md` for:
+Load this plugin's `atlan-use-skill` skill and follow it (in Claude Code, the Skill tool's
+`atlan:atlan-use-skill`; elsewhere, the skill named `atlan-use-skill`). Do not look for its file in
+the working directory: it ships with the plugin, not the project. The request:
 
 > $ARGUMENTS
 
