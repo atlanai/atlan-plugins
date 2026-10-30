@@ -11,13 +11,20 @@ publication approval, privacy and status reporting.
 ## 0. Dispatch the requested mode first
 
 If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
-arguments as scope. Read [the context workflow](references/build/03-context.md) and start
-at **Metrics-only entry**. It checks Registry access, source and table scope before previewing
-publication. Use `.atlan-metrics/<slug>/`, never `.atlan-analytics/` state.
+arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from
+section 0. It checks registry access, asks only for the missing table scope and sources, then
+drafts metrics and saved queries from declared models, BI files or query history, whichever
+are in reach. Everything is previewed before it is published. Use `.atlan-metrics/<slug>/`,
+never `.atlan-analytics/` state.
 
-**Return after that branch. Do not continue below:** no full-agent preflight, `EVAL init`,
-agent, eval dataset, experiment, deployment, smoke test or baseline. A file source does
-not require a warehouse connection. Starting an agent build later needs an explicit new request.
+**Return after that branch. Do not continue below.** It runs none of these:
+- the full-agent preflight or the build/improve menu;
+- `EVAL init`, an eval set or an eval run;
+- agent registration, deployment, a smoke test or a baseline.
+
+A declared model or a BI file needs no warehouse connection. The query-log filter and
+`scripts/metrics_mine.py` are permitted. Starting an agent build later needs an explicit new
+request.
 
 If the first argument is exactly `propose`, read [the proposal workflow](references/propose.md),
 preview a proposal for its owners, and return: no metric save, full-agent preflight or eval.
