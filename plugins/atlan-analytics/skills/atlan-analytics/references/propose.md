@@ -56,9 +56,13 @@ asked and when show in Metric Studio either way.
 ## 5. Preview, then write
 
 Preview the write as the conventions require: the target workspace and the record. Write only
-after a yes. Create the file as `03-loop.md` describes, with `requested_by` `Atlan`, named for
-example `propose-<metric>-<YYYYMMDDHHMM>` at `improvements/metric/<metric>-<YYYYMMDDHHMM>.json`.
-For a new metric, put `new-` before `<metric>` in both.
+after a yes. Create it with `registry__create_artifact`, kind `file`, as `03-loop.md` describes:
+`media_type` `application/vnd.atlan.improvement+json`, the record in `source_metadata`
+`{"atlan_improvement": <record>}`, and `requested_by` `Atlan`. Name it for example
+`propose-<metric>-<YYYYMMDDHHMM>` at `improvements/metric/<metric>-<YYYYMMDDHHMM>.json`.
+For a new metric, put `new-` before `<metric>` in both. Its record leaves `subject_id` empty,
+sets `subject_name` to the new metric's name, has no base or `changes`, and carries `proposed`
+(`{name, display_name, description, definition}`) and a top-level `rationale`.
 
 If the registry refuses the write because the person can only view the workspace, write the
 proposal nowhere else: Metric Studio lists only the proposals in the metric's workspace. Give
