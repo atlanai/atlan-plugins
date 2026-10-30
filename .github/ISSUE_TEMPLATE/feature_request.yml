@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest a skill, a plugin or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: The task
+      description: What did you want your agent to do with Atlan?
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What happens today
+      description: How the plugin handles it now, or where it falls short.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: A new skill, a change to an existing one, or something else.
