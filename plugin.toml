@@ -10,7 +10,7 @@
 name = "atlan"
 display_name = "Atlan"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.1.1"
+version = "0.1.2"
 description = "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
 short_description = "Skills, agents and MCP from the Atlan registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -42,6 +42,10 @@ server = "atlan"
 # URL is search mode: four tools that reach the whole catalogue (see
 # skills/atlan-get-started/references/calling-tools.md).
 url = "https://api.atlan.com/mcp"
+# Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
+# a session came from; a server added by hand sends none (MCP service decision
+# mcp-2026-10-30-session-records-the-install-surface).
+client = "atlan-plugin"
 
 [codex]
 capabilities = ["Interactive", "Write"]
