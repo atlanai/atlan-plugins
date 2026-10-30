@@ -90,5 +90,5 @@ agents that use a skill, read the skill's incoming edges rather than its outgoin
 
 Lead with the answer. Show a short table of name, kind, workspace and a one-line description,
 with each handle, so the user can ask about one by name. Offer the next step that fits:
-read it (`atlan-read-content`), use it here (`atlan-use-skills`), or call its tools
+read it (`atlan-read-content`), use it here (`atlan-use-skill`), or call its tools
 (`atlan-use-mcp-servers`).

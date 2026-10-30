@@ -16,6 +16,7 @@ API keys to copy.
 
 | Tool | Install |
 |---|---|
+| Claude chat and Cowork | In Claude, **Customize**, **Plugins**, **Add**, **Add marketplace**, enter `atlanai/atlan-plugin`, add **Atlan**. Then **Connect** on the plugin's **Connectors** tab. On Team and Enterprise plans an Owner adds the connector (`https://api.atlan.com/mcp`) for the organization first. |
 | Claude Code | `/plugin install atlan --marketplace atlanai/atlan-plugin`, or `/plugin marketplace add atlanai/atlan-plugin` then `/plugin install atlan@atlan-plugins`. Then `/mcp`, select `plugin:atlan:atlan`, **Authenticate**. |
 | OpenAI Codex | `codex plugin marketplace add atlanai/atlan-plugin`, then `codex plugin add atlan@atlan-plugins`. |
 | Cursor | Install **Atlan** from the Cursor Marketplace, or import `atlanai/atlan-plugin` as a team marketplace. Connect `atlan` under Settings, Tools & MCP. |
@@ -42,9 +43,9 @@ registered, under one sign-in with every call permission-checked and audited.
 |---|---|
 | `atlan-get-started` | Check the connection, learn how calls work, and route to the right skill |
 | `atlan-find-artifacts` | Search and browse skills, agents, knowledge, MCP servers, files and outputs |
-| `atlan-use-skills` | Use a registry skill now, or install it into the project or your own skills folder |
+| `atlan-use-skill` | Use a registry skill now, or install it with aireg or into a skills folder, whichever the surface allows |
 | `atlan-use-mcp-servers` | Call Slack, Linear or any registered server through Atlan, or register a new one |
-| `atlan-continue` | Pick up an artifact handed over from the Atlan dashboard by its handle |
+| `atlan-continue` | Catch up on an artifact handed over from the Atlan dashboard: its files and the session that made it |
 | `atlan-troubleshoot` | Diagnose sign-in errors, refusals, conflicts, rate limits and failed uploads |
 
 **Skills from the registry's own apps**, carried verbatim at pinned revisions (see
@@ -54,10 +55,15 @@ registered, under one sign-in with every call permission-checked and audited.
 prompts.
 
 **Commands** (Claude Code and Cursor): `get-started`, `use-skill` and `continue`, the short
-forms the Atlan dashboard's Open in Claude buttons send (`/atlan:continue <handle>`), plus the
-registry's `atlan-new-skill`,
-`atlan-update-skill`, `atlan-link-skill`, `atlan-new-agent`, `atlan-link-agent`,
-`atlan-record-output` and `atlan-upload`. In Claude Code they run as `/atlan:<command>`.
+forms the Atlan dashboard's Open in Claude buttons send (`/atlan:continue out_…`,
+`/atlan:use-skill skill_…`), plus the registry's `atlan-new-skill`, `atlan-update-skill`,
+`atlan-link-skill`, `atlan-new-agent`, `atlan-link-agent`, `atlan-record-output` and
+`atlan-upload`. In Claude Code they run as `/atlan:<command>`. In Claude chat, the same buttons
+send a sentence that names the skill, such as *Use the Atlan continue skill on artifact out_…*.
+
+**A website skill index.** `make site` writes `/.well-known/agent-skills/index.json` and one
+archive per skill, so atlan.com can serve the skills to
+`npx skills add https://atlan.com --skill atlan-get-started`.
 
 No hooks, no local binaries, no telemetry. Everything runs through the MCP server you sign in to.
 

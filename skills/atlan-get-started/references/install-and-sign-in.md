@@ -13,6 +13,20 @@ support@atlan.com. The web dashboard is https://app.atlan.com.
 
 ## Install, per tool
 
+**Claude chat and Cowork** (claude.ai, the Claude desktop and mobile apps)
+
+One install covers chat, Cowork and Claude Code on the same account. In Claude, open
+**Customize**, then **Plugins**, **Add**, **Add marketplace**; enter `atlanai/atlan-plugin` and add
+**Atlan**. Adding the plugin does not sign anyone in: open the Atlan plugin's **Connectors** tab
+and click **Connect**, which opens Atlan's sign-in page.
+
+On a Team or Enterprise plan, an Owner adds connectors for the organization, so **Connect** may
+be missing until they do. Give the user this note to send their Claude Owner:
+
+> Please add Atlan as a connector for our Claude organization: Settings, Connectors, add a
+> custom connector with the URL `https://api.atlan.com/mcp`. Each of us then signs in with our
+> own Atlan account. Owners can also make the Atlan plugin installed by default.
+
 **Claude Code** (terminal, desktop, IDE extensions)
 
 ```
@@ -73,7 +87,10 @@ Streamable HTTP with OAuth can use it:
 | VS Code | In `.vscode/mcp.json`: `{ "servers": { "atlan": { "type": "http", "url": "https://api.atlan.com/mcp" } } }` |
 
 Append `?tools=full` to the URL to list every tool directly instead of the four search-mode
-tools (see `calling-tools.md`).
+tools (see `calling-tools.md`). Atlan's own setup guide is
+https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client, with pages for
+[Claude Code](https://platform.atlan.com/clients/claude/how-tos/claude-code) and
+[Codex](https://platform.atlan.com/clients/openai/how-tos/codex).
 
 ## Already using Atlan's own Claude Code plugin?
 

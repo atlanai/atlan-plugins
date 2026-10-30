@@ -16,7 +16,7 @@ change an architectural or product boundary and need sign-off before anyone buil
 | 8 | The CLI is `brain` in its installer and `aireg` in its adapter docs and in the repo-sync recipe | Agents setting up Git sync | registry-cli, app-skill | Small |
 | 9 | No record of which surface a session came from | Measuring the plugin's adoption | app-mcp | Small |
 | 10 | OAuth client registration needs checking for each directory's client | Every directory submission | control-plane | Verify |
-| 11 | Recipes present on `main` are missing from dev's MCP resources | Dev users | app-skill, app-agent | Verify |
+| 11 | The registry drops a skill that shares its name with a command | Anyone setting up Git sync | agent-gateway | Small |
 
 ## 1. The recipes teach full mode; every install uses search mode
 
@@ -53,7 +53,7 @@ The registry's marketplace (`/marketplace.git`) emits only `.claude-plugin/marke
 carry an organization's own skills are off unless `GATEWAY_REGISTRY_MARKETPLACE_CONTAINER_PLUGINS`
 is set (agent-gateway `docs/architecture/02-extension-platform/registry.md`, "What a clone
 contains"). Codex, Cursor and Copilot users get no organization skills at all, except by asking
-an agent to fetch them one at a time (this plugin's `atlan-use-skills`).
+an agent to fetch them one at a time (this plugin's `atlan-use-skill`).
 
 **Decision:** whether the registry serves organization skills to other hosts, and how. Options,
 smallest first: an `.agents/skills/` export a CLI or this plugin can sync from; Agent Plugins
@@ -119,9 +119,12 @@ Before each directory submission, sign in from a clean profile with that client 
 Claude Code, Codex, Cursor, VS Code) and confirm it either is on the CIMD allowlist or falls
 back to dynamic registration cleanly.
 
-## 11. Recipes missing from dev
+## 11. A skill and a command with one name: the registry keeps only one
 
-The dev gateway's MCP resources list the `atlan-link-skill` and `atlan-link-agent` commands but
-not the skills of the same names, which exist on `main` of app-skill and app-agent. Either dev
-runs older images, or the registry's projection dropped the two skills; the
-`gateway.registry.marketplace.defaults_total` counter and its rejection log say which.
+The `atlan-link-skill` and `atlan-link-agent` skills are missing from the registry's MCP
+resources and its marketplace, though both exist on `main` of app-skill and app-agent. Each
+ships a command of the same name, and agent-gateway's `core/registry-marketplace/src/defaults.rs`
+`resolve()` keys its collision check on the name alone, not on kind and name, so the command
+wins and the skill is dropped as a collision. **Fix:** key the check on `(kind, name)`, or
+rename one of each pair upstream. This plugin carries both pairs verbatim, so in Claude Code
+one `/atlan:atlan-link-skill` name stands for two files; a rename upstream fixes both places.

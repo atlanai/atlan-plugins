@@ -28,7 +28,7 @@ jobs:
       - run: make check
 
   validate:
-    name: validate (claude plugin validate --strict)
+    name: validate (claude plugin validate --strict, directory profile)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

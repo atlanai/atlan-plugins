@@ -19,7 +19,7 @@ skills/<name>/SKILL.md            skills; owned here unless upstream.json lists 
 commands/*.md                     Claude Code and Cursor commands
 upstream.json                     pinned sources and sha256 of every vendored file
 assets/logo.svg                   the listing icon (the brand package's mascot app icon)
-scripts/                          build, sync and lint, standard library Python 3.11+
+scripts/                          build, sync, lint and the skill index, standard library Python 3.11+
 tests/                            unit tests for the scripts
 docs/GAPS.md                      what the registry is missing for an easy start
 ```
@@ -49,11 +49,22 @@ docs/GAPS.md                      what the registry is missing for an easy start
 
 ```
 make check       # generated-file drift, vendored hashes, lint, unit tests
-make validate    # claude plugin validate --strict, when the claude CLI is installed
+make validate    # claude plugin validate --strict and the directory profile, needs the claude CLI
+make site        # dist/site/.well-known/agent-skills/: the skills as a discovery index
 ```
 
-CI runs both, plus `claude plugin validate --strict` against the Claude Code marketplace, on every
-pull request.
+CI runs `check` and `validate` on every pull request.
+
+## Prompts other products send
+
+The Atlan dashboard's Open in Claude buttons send `/atlan:continue out_…` and
+`/atlan:use-skill skill_…` to Claude Code, and a sentence naming the skill to Claude chat
+(*Use the Atlan continue skill on artifact out_…*). `tests/test_scripts.py`
+(`DashboardPromptTest`) holds those forms. Renaming the plugin, a command or one of those skills
+breaks the buttons: change the dashboard's prompt builders in the same release.
+
+`make site` output is what atlan.com serves at `/.well-known/agent-skills/` for
+`npx skills add https://atlan.com --skill atlan-get-started`. Republish it with each release.
 
 ## Releasing
 

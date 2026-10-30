@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import hashlib
 import io
 import json
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import build  # noqa: E402
 import lint  # noqa: E402
+import skill_index  # noqa: E402
 import sync_upstream  # noqa: E402
 
 
@@ -126,6 +129,65 @@ class SkillLintTest(unittest.TestCase):
     def test_repository_content_passes(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(lint.main(), 0)
+
+
+class DashboardPromptTest(unittest.TestCase):
+    """The Atlan dashboard's Open in Claude buttons send these; each must reach a skill."""
+
+    # Claude Code gets a command, `/<plugin>:<command> <handle>`; chat gets a sentence naming the skill.
+    COMMANDS = {"continue": "atlan-continue", "use-skill": "atlan-use-skill", "get-started": "atlan-get-started"}
+    CHAT = {
+        "Use the Atlan continue skill on artifact out_123": ("atlan-continue", "out_"),
+        "Use the Atlan use-skill skill to load skill_abc and run it": ("atlan-use-skill", "skill_"),
+    }
+
+    def test_the_command_prefix_is_the_plugin_name(self) -> None:
+        self.assertEqual(build.load()["plugin"]["name"], "atlan")
+
+    def test_each_command_follows_its_skill(self) -> None:
+        for command, skill in self.COMMANDS.items():
+            with self.subTest(command=command):
+                text = (ROOT / "commands" / f"{command}.md").read_text(encoding="utf-8")
+                self.assertIn(f"`skills/{skill}/SKILL.md`", text)
+                self.assertTrue((ROOT / "skills" / skill / "SKILL.md").is_file())
+
+    def test_each_chat_sentence_names_a_skill_whose_description_matches_it(self) -> None:
+        for sentence, (skill, handle) in self.CHAT.items():
+            with self.subTest(sentence=sentence):
+                self.assertIn(skill.removeprefix("atlan-"), sentence)
+                parsed = lint.frontmatter((ROOT / "skills" / skill / "SKILL.md").read_text(encoding="utf-8"))
+                self.assertIsNotNone(parsed)
+                self.assertIn(handle, parsed[0]["description"])
+
+
+class SkillIndexTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.index, self.served = skill_index.payloads()
+
+    def test_lists_every_skill_under_the_v0_2_schema(self) -> None:
+        self.assertEqual(self.index["$schema"], skill_index.SCHEMA)
+        names = [entry["name"] for entry in self.index["skills"]]
+        self.assertEqual(names, sorted(p.name for p in (ROOT / "skills").iterdir() if p.is_dir()))
+
+    def test_every_digest_is_the_sha256_of_what_is_served(self) -> None:
+        for entry in self.index["skills"]:
+            data = self.served[entry["url"]]
+            self.assertEqual(entry["digest"], "sha256:" + hashlib.sha256(data).hexdigest(), entry["name"])
+
+    def test_archives_hold_skill_md_at_their_root_and_nothing_outside_the_skill(self) -> None:
+        archives = [e for e in self.index["skills"] if e["type"] == "archive"]
+        self.assertTrue(archives)
+        for entry in archives:
+            with tarfile.open(fileobj=io.BytesIO(self.served[entry["url"]])) as tar:
+                names = tar.getnames()
+            self.assertIn("SKILL.md", names, entry["name"])
+            files = sorted(p.as_posix() for p in skill_index.skill_files(ROOT / "skills" / entry["name"]))
+            self.assertEqual(sorted(names), files, entry["name"])
+
+    def test_output_is_byte_for_byte_reproducible(self) -> None:
+        again_index, again_served = skill_index.payloads()
+        self.assertEqual(self.index, again_index)
+        self.assertEqual(self.served, again_served)
 
 
 class SyncTest(unittest.TestCase):

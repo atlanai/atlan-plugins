@@ -3,7 +3,7 @@ description: Use a skill from the Atlan registry in this task, or install it her
 argument-hint: "<skill handle or name> [install]"
 ---
 
-Follow the bundled skill at `skills/atlan-use-skills/SKILL.md` for:
+Follow the bundled skill at `skills/atlan-use-skill/SKILL.md` for:
 
 > $ARGUMENTS
 

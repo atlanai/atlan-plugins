@@ -22,8 +22,13 @@ Look for the `atlan` server's tools. In the default search mode there are four:
 host may prefix them, for example `mcp__plugin_atlan_atlan__mcp__search_tools` in Claude Code).
 
 - **No `atlan` tools at all**, or a sign-in error: the server is not connected or not signed
-  in. Walk the user through `references/install-and-sign-in.md` for their tool, then stop
-  until they confirm. Do not ask the user for a token or paste one anywhere.
+  in. Give the user the one step for where they are, from `references/install-and-sign-in.md`,
+  then stop until they confirm. Do not ask the user for a token or paste one anywhere.
+  - Claude chat or Cowork: open the Atlan plugin's **Connectors** tab and click **Connect**.
+    On a Team or Enterprise plan the connector may not be offered until an Owner adds it for
+    the organization; say so, and give the user the note for their Owner from the reference.
+  - Claude Code: run `/mcp`, choose `plugin:atlan:atlan`, then **Authenticate**.
+  - Codex, Cursor, VS Code and the rest: the reference has each one.
 - **Tools are there**: open a session and prove it works with one read:
 
   ```
@@ -67,7 +72,8 @@ Read `references/calling-tools.md` once. In short:
 |---|---|
 | Find what exists: skills, agents, knowledge, MCP servers, files, runs | `atlan-find-artifacts` |
 | Read what a registry skill or file actually says | `atlan-read-content` |
-| Use a registry skill in this project, or install it locally | `atlan-use-skills` |
+| Use a registry skill in this task, or install it locally | `atlan-use-skill` |
+| Catch up on an artifact handed over from the Atlan dashboard (`out_…` and other handles) | `atlan-continue` |
 | Call tools of Slack, Linear, GitHub or another server registered in Atlan, or register a new MCP server | `atlan-use-mcp-servers` |
 | Publish a skill, or a new version of one | `atlan-author-skills` |
 | Register an agent or harness, or record which skills it uses | `atlan-author-agents` |
@@ -78,7 +84,9 @@ Read `references/calling-tools.md` once. In short:
 
 The registry also serves its authoring recipes as MCP prompts (`prompts/list`), for knowledge
 bundles, metrics and analytics agents among others. When a task is about a kind no skill above
-covers, list the prompts before guessing.
+covers, list the prompts before guessing. If a skill named above is missing, this one was
+installed on its own: the registry's recipes are still there as prompts, and the rest come
+with the Atlan plugin (`references/install-and-sign-in.md`).
 
 ## Rules that always hold
 
