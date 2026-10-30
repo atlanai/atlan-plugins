@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.1
+
+- `atlan-continue` opens a run it listed with `list_session_traces` by passing the source
+  `session_…` handle as `subject_id`, falling back to the agent or harness handle on a gateway
+  that predates that scope (an internal repository#112). It reads a failed step with `errors_only: true`
+  and `include: ["errors"]`, so the error message comes back with the span.
+- `atlan-continue`'s description names the prompt the Atlan dashboard sends ("Catch me up on Atlan
+  artifact … (output_…)"), and drops the `out_…` handles no product sends.
+- The eval emulator now serves the error span its run counts and its message, and takes a
+  session handle on the one-trace reads. A new `dashboard-handoff-prompt` case sends the
+  dashboard's real hand-off prompt. The `catches-up` judge criteria list what the registry holds,
+  so a reply that repeats it is no longer failed as invented: `continue-command` and
+  `continue-chat-sentence` pass 5 of 5 runs.
+
 ## atlan-analytics 0.2.0
 
 - One `atlan-analytics` skill with modes replaces the separate build, connect, eval and improve

@@ -35,7 +35,7 @@ body:
     attributes:
       label: Plugin version
       description: In Claude Code, `/plugin` shows it. Otherwise, the version in the plugin's manifest.
-      placeholder: 0.2.0
+      placeholder: 0.2.1
   - type: textarea
     id: prompt
     attributes:

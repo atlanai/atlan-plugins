@@ -474,7 +474,7 @@
   },
   {
    "name": "extension__agent__list_session_traces",
-   "description": "Find the trace for an uploaded transcript: the runtime view of a session. A session is joined to its spans by `external_session_id`.",
+   "description": "Find the trace for an uploaded transcript: the runtime view of a session. A session is joined to its spans by `external_session_id`. Open a listed run with `get_trace` or `get_trace_spans`, passing this `session_…` handle as their `subject_id`.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -502,7 +502,7 @@
   },
   {
    "name": "extension__agent__get_trace",
-   "description": "Read one run of an agent or harness: timing, cost, status and shape. `include: [\"content\"]` adds its request and final reply. Scoped to the subject.",
+   "description": "Read one run of an agent or harness: timing, cost, status and shape. `include: [\"content\"]` adds its request and final reply. For a run `list_session_traces` listed, pass that `session_…` handle as `subject_id`. Scoped to the subject.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -514,7 +514,8 @@
     "additionalProperties": false,
     "properties": {
      "subject_id": {
-      "type": "string"
+      "type": "string",
+      "description": "`agent_…` or `harness_…`, or the `session_…` handle a `list_session_traces` run came from."
      },
      "trace_id": {
       "type": "string"
@@ -546,7 +547,8 @@
     "additionalProperties": false,
     "properties": {
      "subject_id": {
-      "type": "string"
+      "type": "string",
+      "description": "`agent_…` or `harness_…`, or the `session_…` handle a `list_session_traces` run came from."
      },
      "trace_id": {
       "type": "string"
@@ -1164,12 +1166,12 @@
    "items": [
     {
      "trace_id": "trace_01evalchurn",
-     "title": "claude-code \u00b7 2026-10-25 18:00",
+     "title": "claude-code · 2026-10-25 18:00",
      "run_status": "ok",
      "service_name": "claude-code",
      "summary": {
       "span_count": 154,
-      "error_count": 2
+      "error_count": 1
      }
     }
    ],
@@ -1211,7 +1213,8 @@
      "span_id": "s003",
      "name": "tool sql_query",
      "span_status": "error",
-     "content": "permission denied for table plan_tiers"
+     "content": "permission denied for table plan_tiers",
+     "error_message": "permission denied for table plan_tiers"
     },
     {
      "span_id": "s004",
@@ -1219,7 +1222,8 @@
      "span_status": "ok",
      "content": "Assistant: EMEA mid-market onboarding drop-off drives most of it; plan-tier split blocked by permissions."
     }
-   ]
+   ],
+   "session_id": "session_01evalchurnsrc"
   }
  },
  "edges": {
