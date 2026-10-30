@@ -1,0 +1,26 @@
+{
+  "name": "atlan-analytics",
+  "version": "0.1.0",
+  "description": "Bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry.",
+  "author": {
+    "name": "Atlan",
+    "url": "https://atlan.com"
+  },
+  "homepage": "an internal repository",
+  "repository": "an internal repository",
+  "license": "Apache-2.0",
+  "keywords": [
+    "atlan",
+    "analytics",
+    "metrics",
+    "text-to-sql",
+    "talk-to-data",
+    "snowflake",
+    "databricks",
+    "evals"
+  ],
+  "privacyPolicyUrl": "https://atlan.com/privacy-policy/",
+  "dependencies": [
+    "atlan"
+  ]
+}

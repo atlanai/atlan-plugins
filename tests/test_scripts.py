@@ -33,8 +33,9 @@ class BuildTest(unittest.TestCase):
         for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
             self.assertEqual(documents[path]["name"], name, path)
             self.assertEqual(documents[path]["version"], version, path)
+        addons = [addon["name"] for addon in self.source.get("addons", [])]
         for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
-            self.assertEqual([p["name"] for p in documents[path]["plugins"]], [name], path)
+            self.assertEqual([p["name"] for p in documents[path]["plugins"]], [name, *addons], path)
 
     def test_both_mcp_files_point_at_one_url_with_each_tools_transport_label(self) -> None:
         documents = build.outputs(self.source)
@@ -92,7 +93,7 @@ class VariantTest(unittest.TestCase):
         for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
             document = json.loads(self.files[path])
             self.assertEqual(document["name"], "atlan-staging-plugins", path)
-            self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging"], path)
+            self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging", "atlan-staging-analytics"], path)
         server, version = self.source["mcp"]["server"], self.source["plugin"]["version"]
         for path in ("mcp.json", ".mcp.json"):
             entry = json.loads(self.files[path])["mcpServers"][server]
@@ -148,6 +149,61 @@ class VariantTest(unittest.TestCase):
                 build.make_variant(self.source, overrides)
 
 
+class AddonTest(unittest.TestCase):
+    """`[[addons]]`: workloads shipped as their own plugins that use the core's connection."""
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.addon = self.source["addons"][0]
+        self.documents = build.outputs(self.source)
+        self.base = f"{build.ADDONS}/{self.addon['name']}"
+
+    def test_each_addon_depends_on_the_core_and_declares_no_mcp_server(self) -> None:
+        claude = self.documents[f"{self.base}/.claude-plugin/plugin.json"]
+        self.assertEqual(claude["dependencies"], [self.source["plugin"]["name"]])
+        for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
+            document = self.documents[f"{self.base}/{path}"]
+            self.assertEqual((document["name"], document["version"]), (self.addon["name"], self.addon["version"]), path)
+            self.assertNotIn("mcpServers", document, path)
+        self.assertNotIn(f"{self.base}/.mcp.json", self.documents)
+        self.assertNotIn(f"{self.base}/mcp.json", self.documents)
+
+    def test_its_agent_plugins_manifest_keeps_to_the_closed_schema(self) -> None:
+        allowed = {"$schema", "name", "version", "description", "author", "homepage", "repository", "license", "keywords", "extensions"}
+        self.assertLessEqual(set(self.documents[f"{self.base}/plugin.json"]), allowed)
+
+    def test_every_marketplace_entry_points_at_the_addon_folder(self) -> None:
+        claude = self.documents[".claude-plugin/marketplace.json"]["plugins"][1]
+        cursor = self.documents[".cursor-plugin/marketplace.json"]["plugins"][1]
+        codex = self.documents[".agents/plugins/marketplace.json"]["plugins"][1]
+        self.assertEqual(claude["source"], f"./{self.base}")
+        self.assertEqual(cursor["source"], f"./{self.base}")
+        self.assertEqual(codex["source"]["source"], "git-subdir")
+        self.assertEqual(codex["source"]["path"], f"./{self.base}")
+        self.assertTrue((ROOT / self.base / "skills").is_dir())
+
+    def test_refuses_an_addon_without_the_core_prefix_or_declared_twice(self) -> None:
+        broken = copy.deepcopy(self.source)
+        broken["addons"][0]["name"] = "analytics"
+        with self.assertRaises(SystemExit):
+            build.validate(broken)
+        broken = copy.deepcopy(self.source)
+        broken["addons"].append(copy.deepcopy(broken["addons"][0]))
+        with self.assertRaises(SystemExit):
+            build.validate(broken)
+
+    def test_a_variant_renames_each_addon_and_its_dependency_and_copies_its_files(self) -> None:
+        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
+        files = build.variant_files(self.source, variant, "variant.toml")
+        base = f"{build.ADDONS}/atlan-staging-analytics"
+        claude = json.loads(files[f"{base}/.claude-plugin/plugin.json"])
+        self.assertEqual(claude["dependencies"], ["atlan-staging"])
+        self.assertTrue(json.loads(files[f"{base}/plugin.json"])["extensions"]["com.openai"]["interface"]["displayName"].startswith("Atlan (staging)"))
+        self.assertIn(f"{base}/skills/atlan-analytics/SKILL.md", files)
+        self.assertIn(f"{base}/assets/logo.svg", files)
+        self.assertFalse(any(path.startswith(f"{self.base}/") for path in files))
+
+
 class FrontmatterTest(unittest.TestCase):
     def test_parses_fields_and_body(self) -> None:
         fields, body = lint.frontmatter("---\nname: x\ndescription: Use when y.\n---\n\n# X\n")
@@ -195,6 +251,28 @@ class SkillLintTest(unittest.TestCase):
         self.assertTrue(any("cites missing references/gone.md" in e for e in errors), errors)
         self.assertTrue(any("cites unknown skill atlan-missing" in e for e in errors), errors)
         self.assertEqual(self.lint("a", text, owned=False), [])
+
+    def test_a_skill_may_cite_a_subagent_its_plugin_ships(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            addon = Path(temp) / "atlan-x"
+            self.write_skill(addon, "atlan-x-run", "")
+            (addon / "agents").mkdir()
+            (addon / "agents/atlan-x-grader.md").write_text("---\nname: atlan-x-grader\n---\n")
+            self.assertEqual(lint.citable([addon]), {"atlan-x-run", "atlan-x-grader"})
+
+    def test_an_addon_may_not_carry_its_own_server_or_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            addon = Path(temp) / "atlan-x"
+            (addon / ".claude-plugin").mkdir(parents=True)
+            (addon / ".claude-plugin/plugin.json").write_text('{"name": "atlan-x", "mcpServers": "./.mcp.json"}')
+            (addon / ".mcp.json").write_text("{}")
+            saved = lint.ROOT
+            lint.ROOT = Path(temp)
+            try:
+                errors = lint.lint_addon(addon)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(len(errors), 2)
 
     def test_secret_patterns_match_real_shapes(self) -> None:
         samples = {
@@ -315,6 +393,36 @@ class SyncTest(unittest.TestCase):
             self.assertFalse((plugin / "other.md").exists())
             self.assertEqual(list(written["files"]), ["skills/atlan-z/SKILL.md"])
             self.assertRegex(written["sources"][0]["rev"], r"^[0-9a-f]{40}$")
+
+    def test_sync_copies_into_a_folder_and_leaves_excluded_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            temp_path = Path(temp)
+            upstream, plugin = temp_path / "upstream", temp_path / "plugin"
+            (upstream / "app/defaults/skills/atlan-y").mkdir(parents=True)
+            (upstream / "app/defaults/skills/atlan-y/SKILL.md").write_text("two\n")
+            (upstream / "app/defaults/commands").mkdir()
+            (upstream / "app/defaults/commands/rendered.md").write_text("partial\n")
+            git = ["git", "-C", str(upstream), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+            subprocess.run([*git, "init", "-q"], check=True)
+            subprocess.run([*git, "add", "."], check=True)
+            subprocess.run([*git, "commit", "-qm", "one"], check=True)
+            plugin.mkdir()
+            manifest = {
+                "sources": [{"name": "app", "repository": "x", "rev": "HEAD", "path": "app/defaults",
+                             "into": "plugins/atlan-y", "exclude": ["commands/rendered.md"]}],
+                "files": {},
+            }
+            saved = sync_upstream.ROOT, sync_upstream.MANIFEST
+            sync_upstream.ROOT, sync_upstream.MANIFEST = plugin, plugin / "upstream.json"
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    sync_upstream.sync(manifest, {"app": upstream}, adopt_head=False)
+                written = json.loads((plugin / "upstream.json").read_text())
+            finally:
+                sync_upstream.ROOT, sync_upstream.MANIFEST = saved
+
+            self.assertEqual(list(written["files"]), ["plugins/atlan-y/skills/atlan-y/SKILL.md"])
+            self.assertFalse((plugin / "plugins/atlan-y/commands/rendered.md").exists())
 
 
 if __name__ == "__main__":
