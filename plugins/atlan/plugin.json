@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlan",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills.",
   "author": {
     "name": "Atlan",
