@@ -1,9 +1,11 @@
 # Conventions every talk-to-data skill follows
 
-Read this before running any `atlan-analytics*` skill. These rules beat anything a phase file says.
+Read this before running any `atlan-analytics` mode. These rules beat anything a phase file says.
 
 `EVAL` means
-`python3 "<eval-dir>/scripts/analytics_eval.py" <command> --dir .atlan-analytics/<slug>`, where `<eval-dir>` is the `atlan-analytics-eval` skill's directory: `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics-eval` in Claude Code, and otherwise the `atlan-analytics-eval` directory beside this skill's own.
+`python3 "<skill-dir>/scripts/analytics_eval.py" <command> --dir .atlan-analytics/<slug>`,
+where `<skill-dir>` is `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics` in an installed plugin,
+or the canonical skill directory fetched with its supporting resources through MCP.
 `filter-querylog`, `grade`, `session-run` and `selftest` take no `--dir`.
 It prints one JSON object. Exit 0 = ok, 1 = error, **2 = BLOCKED**: show the user its `reason`
 and `fix` in two lines and stop that phase. Don't work around a BLOCKED.
@@ -36,7 +38,7 @@ prefix may differ from the names here.
 has. Record the session id in state as `session_id`.
 
 Warehouse calls go through the read-only query tool recorded in state as `warehouse.tool`, in
-the dialect recorded as `warehouse.dialect`. The `atlan-analytics-connect` skill finds and
+the dialect recorded as `warehouse.dialect`. The [warehouse discovery procedure](connect.md) finds and
 records it.
 
 ## Source of truth
@@ -54,8 +56,8 @@ When definitions overlap or disagree, the higher one wins:
 An unreleased head, a draft or a search result is a discovery hint, never a published
 definition. Look up 1 and 2 before writing SQL. When two sources disagree in a way that changes
 the answer, keep both visible: say which one answered and why, and offer a proposal (propose
-mode) to the metric's owners rather than choosing silently. Context building (phase 3) reuses
-published definitions in the same order before adding new ones.
+mode) to the metric's owners rather than choosing silently. Context building (build phase 3)
+reuses published definitions in the same order before adding new ones.
 
 ## Asking questions
 

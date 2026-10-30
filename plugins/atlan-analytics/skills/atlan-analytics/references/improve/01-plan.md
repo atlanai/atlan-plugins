@@ -39,7 +39,7 @@ State the cost of one pass from the baseline: "N cases × R reps ≈ X min, abou
 - **One round at a time**: propose, run, report, ask
 - **N rounds**: the user gives N
 
-Set δ above the noise floor from `references/02-baseline-check.md`. If there's a budget, show
+Set δ above the noise floor from `skills/atlan-analytics/references/improve/02-baseline-check.md`. If there's a budget, show
 `(rounds + 1) × R × $Y` and treat it as a guide, not a wall.
 
 ## Sign-off (required before any change)

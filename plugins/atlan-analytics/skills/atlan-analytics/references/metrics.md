@@ -70,8 +70,8 @@ build it is used in phase 4. Eval answers never become context.
 Skip this section when no history source was chosen.
 
 1. Pull 90 days of successful SELECTs that touch the scoped tables, grouped per distinct text
-   with run and user counts, at most 5,000 rows. The `atlan-analytics-connect` skill picks how:
-   its **Query history** section in [warehouses](../../atlan-analytics-connect/references/warehouses.md)
+   with run and user counts, at most 5,000 rows. [Warehouse discovery](connect.md) picks how:
+   its **Query history** section in [warehouses](warehouses.md)
    holds the statement for each warehouse, the fallbacks when access is denied, and the bulk
    path that writes rows straight to a file.
 2. Write the rows to `<context-dir>/querylog.jsonl`, one `{sql, exec, users}` per line, and

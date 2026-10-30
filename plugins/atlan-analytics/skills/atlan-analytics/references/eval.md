@@ -1,13 +1,8 @@
----
-name: atlan-analytics-eval
-description: "Measure a talk-to-data agent for a baseline, improvement round or score request. Run isolated cases, compare warehouse results deterministically and publish the experiment with per-case traces and sessions."
----
-
 # Run an eval
 
-Read [shared conventions](../atlan-analytics/references/conventions.md) first. `EVAL` is the bundled script
-`scripts/analytics_eval.py`, run as in the conventions. Local grading uses only the
-standard library; publishing uses the immutable SDK dependency in `scripts/pyproject.toml`. A run is one
+Read [shared conventions](conventions.md) first. `EVAL` is the bundled script
+`../scripts/analytics_eval.py`, run as in the conventions. Local grading uses only the
+standard library; publishing uses the immutable SDK dependency in `../scripts/pyproject.toml`. A run is one
 **variant**: `baseline`, `v1`, `v2`… Everything it writes goes under
 `.atlan-analytics/<slug>/hillclimb/<variant>/`.
 
@@ -24,7 +19,7 @@ standard library; publishing uses the immutable SDK dependency in `scripts/pypro
   `.atlan-analytics/`) is marked contaminated. It is recorded as `invalid_contaminated` and
   fails, whatever its SQL returned.
 - Don't read test-case transcripts while choosing changes. That's the analyst's train-only job
-  in `atlan-analytics-improve`.
+  in `atlan-analytics improve`.
 
 ## Procedure
 
@@ -54,6 +49,7 @@ standard library; publishing uses the immutable SDK dependency in `scripts/pypro
    run `todo` again and finish the missing pairs. Never quote a partial run.
 4. **Publish.** Run the publishing command through its locked environment:
    `uv run --frozen --project <skill>/scripts <skill>/scripts/analytics_eval.py push --variant V [--baseline baseline]`.
+   Here `<skill>` is the canonical `skills/atlan-analytics` directory, installed or fetched through MCP.
    Keep the same working directory and `--dir` as the grading commands.
    The pinned SDK source is private: this environment needs GitHub contents-read
    access to `atlanai/sdk` through its normal Git credential helper. Keep credentials
@@ -92,8 +88,8 @@ To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.jso
 
 ## Files
 
-- When creating or adopting an answering agent, use [the system prompt template](references/agent-template.md).
-- `scripts/analytics_eval.py`: the bundled script. `EVAL selftest` checks it; `EVAL --help` lists
+- When creating or adopting an answering agent, use [the system prompt template](eval/agent-template.md).
+- `../scripts/analytics_eval.py`: the bundled script. `EVAL selftest` checks it; `EVAL --help` lists
   commands.
 
 End with one status line.

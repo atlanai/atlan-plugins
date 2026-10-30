@@ -64,10 +64,10 @@ default_prompts = [
 [[addons]]
 name = "atlan-analytics"
 display_name = "Atlan Analytics"
-version = "0.1.6"
-description = "Answer data questions from governed metrics, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
+version = "0.2.0"
+description = "Answer data questions from governed metrics, use and draft your business ontology, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
 short_description = "Metrics and talk-to-data agents on Atlan"
-long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
+long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "evals"]
 category = "Data"
 default_prompts = [
@@ -142,30 +142,16 @@ prompt = "Use $atlan-record-outputs to record this deliverable as an Atlan outpu
 
 [skills.atlan-analytics]
 display_name = "Atlan Analytics"
-short_description = "Metrics and talk-to-data agents on Atlan"
+short_description = "Metrics, warehouse and talk-to-data agents on Atlan"
 prompt = "Use $atlan-analytics to build metrics or a talk-to-data agent on Atlan."
+
+[skills.atlan-ontology]
+display_name = "Business Ontology"
+short_description = "Business objects, joins, policies and model drafts"
+prompt = "Use $atlan-ontology to explain how Customer relates to Order in our ontology."
 
 [skills.atlan-analytics-ask]
 display_name = "Ask Your Data"
 short_description = "Answer a data question from published metrics"
 prompt = "Use $atlan-analytics-ask to answer: what was revenue last quarter, by region?"
 
-[skills.atlan-analytics-build]
-display_name = "Build a Talk-to-Data Agent"
-short_description = "Build and baseline a new talk-to-data agent"
-prompt = "Use $atlan-analytics-build to build a talk-to-data agent for our revenue questions."
-
-[skills.atlan-analytics-connect]
-display_name = "Connect a Warehouse"
-short_description = "Find and check the warehouse's read-only SQL tool"
-prompt = "Use $atlan-analytics-connect to connect our Snowflake or Databricks warehouse."
-
-[skills.atlan-analytics-eval]
-display_name = "Evaluate a Talk-to-Data Agent"
-short_description = "Score an agent against its eval set"
-prompt = "Use $atlan-analytics-eval to score our talk-to-data agent against its eval set."
-
-[skills.atlan-analytics-improve]
-display_name = "Improve a Talk-to-Data Agent"
-short_description = "Iterate on an agent against a fixed eval"
-prompt = "Use $atlan-analytics-improve to improve our talk-to-data agent against its evals."
