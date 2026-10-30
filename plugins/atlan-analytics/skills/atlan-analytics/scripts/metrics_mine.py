@@ -1,0 +1,802 @@
+#!/usr/bin/env python3
+"""metrics_mine: the deterministic half of building a metric layer.
+
+The skill's judgement (what a statement measures, which proposals are one metric, how a card
+reads) is the assistant's. Everything that must come out the same every time lives here:
+grouping a cleaned query log into ranked query shapes, checking authored metric and saved-query
+bodies against the registry's contracts before anything is previewed, matching them against
+what the workspace already holds, and reading a finished metrics-agent run so its output is
+published the same way. Standard library only, Python 3.10+.
+
+    python3 metrics_mine.py <command> [options]        # every command prints one JSON object
+
+Exit 0 ok, 1 error, 2 BLOCKED ({"status":"BLOCKED","reason","fix"}: something the user must fix).
+
+Run directory (<context-dir>), written by the skill:
+  querylog.clean.jsonl   {sql, exec, users}               <- after `analytics_eval.py filter-querylog`
+  shapes.jsonl           one ranked shape per line        <- `shapes`
+  metrics.json           [metric body]                    <- authored, or `import-run`
+  queries.json           [sql_query body]                 <- authored, or `import-run`
+  links.json             [{from, to, rel_type, attributes}]
+  existing.json          [{id, kind, name, source_id, definition}]  <- the workspace, read before checking
+  plan.json              what `check` decided: create, revise or reuse, per item, and every refusal
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import pathlib
+import re
+import sys
+
+VERSION = "0.1.0"
+METRIC_SPEC = "1.0-draft.4"
+QUERY_SPEC = "1.0-draft.1"
+
+
+class Blocked(Exception):
+    def __init__(self, reason: str, fix: str = ""):
+        super().__init__(reason)
+        self.reason, self.fix = reason, fix
+
+
+def read_jsonl(path) -> list:
+    p = pathlib.Path(path)
+    if not p.exists():
+        return []
+    return [json.loads(ln) for ln in p.read_text().splitlines() if ln.strip()]
+
+
+def load_json(path, default=None):
+    p = pathlib.Path(path) if path else None
+    return json.loads(p.read_text()) if p and p.exists() else default
+
+
+def dump_json(path, obj) -> None:
+    p = pathlib.Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(obj, indent=1, default=str))
+    tmp.replace(p)
+
+
+# ====================================================================== SQL scanning
+# Comments are removed by a scanner that knows where strings end, never by a line regex: a `--`
+# inside a string is text, and flattening a statement that still holds a `--` comments out the
+# rest of it.
+_STR_QUOTES = {"'": "'", '"': '"', "`": "`"}
+
+
+def scan(sql: str):
+    """Yield (kind, text): kind is code, str ('...'), ident ("..." or `...`), dollar ($$...$$) or comment."""
+    i, n, start = 0, len(sql), 0
+    while i < n:
+        c = sql[i]
+        two = sql[i:i + 2]
+        if two == "--":
+            if start < i:
+                yield "code", sql[start:i]
+            j = sql.find("\n", i)
+            j = n if j < 0 else j
+            yield "comment", sql[i:j]
+            i = start = j
+            continue
+        if two == "/*":
+            if start < i:
+                yield "code", sql[start:i]
+            j = sql.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            yield "comment", sql[i:j]
+            i = start = j
+            continue
+        if two == "$$":
+            if start < i:
+                yield "code", sql[start:i]
+            j = sql.find("$$", i + 2)
+            j = n if j < 0 else j + 2
+            yield "dollar", sql[i:j]
+            i = start = j
+            continue
+        if c in _STR_QUOTES:
+            if start < i:
+                yield "code", sql[start:i]
+            q, j = c, i + 1
+            while j < n:
+                if sql[j] == "\\" and q == "'":
+                    j += 2
+                    continue
+                if sql[j] == q:
+                    if j + 1 < n and sql[j + 1] == q:
+                        j += 2
+                        continue
+                    break
+                j += 1
+            j = min(j + 1, n)
+            yield ("str" if q == "'" else "ident"), sql[i:j]
+            i = start = j
+            continue
+        i += 1
+    if start < n:
+        yield "code", sql[start:n]
+
+
+def strip_comments(sql: str) -> str:
+    out = []
+    for kind, text in scan(sql or ""):
+        if kind == "comment":
+            out.append("\n" if text.startswith("--") else " ")
+        else:
+            out.append(text)
+    return "".join(out).strip().rstrip(";").strip()
+
+
+_NUM = re.compile(r"(?<![\w.$])[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?(?![\w$])", re.I)
+_INLIST = re.compile(r"\bin\s*\(\s*\?(?:\s*,\s*\?)*\s*\)", re.I)
+_WS = re.compile(r"\s+")
+
+
+def normalize(sql: str) -> str:
+    """The text a shape is keyed on: no comments, literals as ?, one space, lower case."""
+    parts = []
+    for kind, text in scan(sql or ""):
+        if kind == "comment":
+            parts.append(" ")
+        elif kind in ("str", "dollar"):
+            parts.append("?")
+        elif kind == "ident":
+            parts.append(text.lower())
+        else:
+            parts.append(_NUM.sub("?", text).lower())
+    out = _WS.sub(" ", "".join(parts)).strip().rstrip(";").strip()
+    return _INLIST.sub("in (?)", out)
+
+
+def _blank(kind: str, text: str) -> str:
+    if kind == "comment":
+        return re.sub(r"[^\n]", " ", text)
+    if kind in ("str", "dollar"):
+        return text[0] + "x" * max(len(text) - 2, 0) + text[-1] if len(text) > 1 else text
+    return text
+
+
+def _code_only(sql: str) -> str:
+    """Comments and string contents blanked at the same offsets, so keyword searches never match
+    inside a literal and a match's position is its position in the original text."""
+    return "".join(_blank(k, t) for k, t in scan(sql or ""))
+
+
+def _balanced(text: str, open_at: int) -> int:
+    """Index just past the parenthesis that closes the one at `open_at`."""
+    depth = 0
+    for k in range(open_at, len(text)):
+        if text[k] == "(":
+            depth += 1
+        elif text[k] == ")":
+            depth -= 1
+            if depth == 0:
+                return k + 1
+    return len(text)
+
+
+def _split_top(text: str, sep: re.Pattern) -> list:
+    """Split on `sep` only where no parenthesis is open."""
+    out, last, depth_at, d = [], 0, [], 0
+    for ch in text:
+        depth_at.append(d)
+        d += 1 if ch == "(" else -1 if ch == ")" else 0
+    for m in sep.finditer(text):
+        if depth_at[m.start()] == 0:
+            out.append(text[last:m.start()])
+            last = m.end()
+    out.append(text[last:])
+    return [p.strip() for p in out if p.strip()]
+
+
+AGG = re.compile(r"\b(sum|count|count_if|avg|min|max|median|mode|stddev|stddev_samp|stddev_pop|variance|var_samp"
+                 r"|approx_count_distinct|percentile_cont|percentile_disc|approx_percentile|listagg|array_agg"
+                 r"|string_agg|any_value|bool_or|bool_and|sumif|countif|avgif)\s*\(", re.I)
+_FROM = re.compile(r"\b(?:from|join)\s+(?!\()(?:lateral\s+)?([\w$\"`]+(?:\s*\.\s*[\w$\"`]+){0,3})", re.I)
+_CTE = re.compile(r"(?:\bwith\s+(?:recursive\s+)?|,\s*)([\w$\"`]+)\s+as\s*\(", re.I)
+_CLAUSE_END = r"(?=\bhaving\b|\border\s+by\b|\blimit\b|\bqualify\b|\bunion\b|\bwindow\b|\)|$)"
+_GROUP = re.compile(r"\bgroup\s+by\s+(.+?)" + _CLAUSE_END, re.I | re.S)
+_WHERE = re.compile(r"\bwhere\s+(.+?)(?=\bgroup\s+by\b|\bhaving\b|\border\s+by\b|\blimit\b|\bqualify\b|\bunion\b|\)\s*(?:select|$)|$)",
+                    re.I | re.S)
+_AND = re.compile(r"\band\b", re.I)
+_COMMA = re.compile(r",")
+_KEYWORDS = {"select", "lateral", "table", "unnest", "flatten", "values"}
+
+
+def _ident(name: str) -> str:
+    return re.sub(r"\s*\.\s*", ".", name).replace('"', "").replace("`", "").lower()
+
+
+def features(sql: str) -> dict:
+    """What a statement reads, computes, cuts by and restricts on. Hints for the author, not a parse."""
+    code = _code_only(sql)
+    ctes = {_ident(m.group(1)) for m in _CTE.finditer(code)}
+    tables = []
+    for m in _FROM.finditer(code):
+        t = _ident(m.group(1))
+        if t and t not in ctes and t.split(".")[-1] not in _KEYWORDS and t not in tables:
+            tables.append(t)
+    aggs = []
+    for m in AGG.finditer(code):
+        end = _balanced(code, m.end() - 1)
+        expr = _WS.sub(" ", strip_comments(sql[m.start():end]))
+        if expr not in aggs:
+            aggs.append(expr)
+    norm = normalize(sql)
+    group_by, filters = [], []
+    for m in _GROUP.finditer(norm):
+        for g in _split_top(m.group(1), _COMMA):
+            if g not in group_by:
+                group_by.append(g)
+    for m in _WHERE.finditer(norm):
+        for f in _split_top(m.group(1), _AND):
+            if f not in filters:
+                filters.append(f)
+    return {"tables": tables, "aggregates": aggs[:12], "group_by": group_by[:10], "filters": filters[:12],
+            "window": bool(re.search(r"\bover\s*\(", code, re.I))}
+
+
+def _in_scope(tables: list, scope: list) -> bool:
+    if not scope:
+        return True
+    for t in tables:
+        for s in scope:
+            if t == s or t.endswith("." + s) or s.endswith("." + t):
+                return True
+    return False
+
+
+def cmd_shapes(a) -> dict:
+    """Group a cleaned query log by normalized text and rank the shapes worth authoring from."""
+    rows = read_jsonl(a.src)
+    if not rows:
+        raise Blocked(f"{a.src} is empty or missing.", "Pull the query history first, then run filter-querylog on it.")
+    scope = []
+    if a.tables:
+        scope = [_ident(ln.split("#")[0]) for ln in pathlib.Path(a.tables).read_text().splitlines() if ln.split("#")[0].strip()]
+    groups: dict = {}
+    unreadable = 0
+    for r in rows:
+        sql = r.get("sql") or r.get("query_text") or r.get("statement_text") or ""
+        if not sql.strip():
+            unreadable += 1
+            continue
+        key = normalize(sql)
+        execs = int(r.get("exec") or r.get("count") or 1)
+        g = groups.get(key)
+        if g is None:
+            g = groups[key] = {"key": key, "rep": sql, "rep_exec": -1, "exec": 0, "users": 0, "texts": 0}
+        g["exec"] += execs
+        g["users"] = max(g["users"], int(r.get("users") or 0))
+        g["texts"] += 1
+        if execs > g["rep_exec"]:
+            g["rep"], g["rep_exec"] = sql, execs
+    shapes, out_of_scope = [], 0
+    for g in groups.values():
+        sql = strip_comments(g["rep"])
+        f = features(sql)
+        if not _in_scope(f["tables"], scope):
+            out_of_scope += 1
+            continue
+        shapes.append({"shape_id": "s-" + hashlib.sha1(g["key"].encode()).hexdigest()[:12],
+                       "sql": sql, "exec": g["exec"], "users": g["users"], "texts": g["texts"],
+                       "has_aggregate": bool(f["aggregates"]), **f})
+    shapes.sort(key=lambda s: (not s["has_aggregate"], -s["users"], -s["exec"], s["shape_id"]))
+    kept = shapes[: a.top]
+    out = pathlib.Path(a.dst)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("".join(json.dumps(s) + "\n" for s in kept))
+    return {"status": "ok", "rows": len(rows), "unreadable": unreadable, "distinct_shapes": len(groups),
+            "out_of_scope": out_of_scope, "in_scope": len(shapes),
+            "with_aggregates": sum(1 for s in shapes if s["has_aggregate"]), "written": len(kept), "out": str(out)}
+
+
+# ====================================================================== registry contracts
+METRIC_FIELDS = {"spec_version", "version", "dialect", "formula", "aggregation", "output", "source", "replaced_by",
+                 "population", "exclusions", "grain", "filters", "mandatory_filters", "depends_on", "joins",
+                 "dimensions", "examples", "provenance", "extensions"}
+RETIRED = {"status", "approved_by", "approved_at", "owner", "domain"}
+AGG_TYPES = {"sum", "count", "count_distinct", "min", "max", "ratio", "custom"}
+DATATYPES = {"integer", "decimal", "string", "boolean", "date", "timestamp"}
+STRUCT_FIELDS = {
+    "aggregation": ({"type"}, {"reaggregation", "null_handling", "zero_denominator"}),
+    "output": ({"alias", "datatype"}, {"unit"}),
+    "source": ({"entity", "alias"}, {"table", "sql", "timeframe_column", "parameters"}),
+    "parameters": ({"name", "datatype", "default"}, set()),
+    "joins": ({"name", "to", "sql", "cardinality", "origin"}, set()),
+    "dimensions": ({"name", "kind", "sql", "datatype"}, {"filter_form", "values", "values_truncated", "value_map",
+                                                         "required_join", "description"}),
+    "examples": ({"source", "sql"}, {"question", "group_by", "filters", "parameters", "result"}),
+    "result": ({"columns", "row_count", "hash", "executed_at", "rows"}, set()),
+}
+BODY_FIELDS = {"name", "display_name", "description", "search_text", "source_id", "source_type", "source_version",
+               "definition", "owner_id"}
+_DATE = re.compile(r"'\d{4}-\d{2}-\d{2}")
+_PARAM = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+_EMAIL = re.compile(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", re.I)
+_FULLNAME = re.compile(r"'%?[A-Z][a-z]+ [A-Z][a-z]+%?'")
+_SQL_IN_PROSE = re.compile(r"\bselect\b[\s\S]+\bfrom\b|\b(?:count|sum)\s*\(", re.I)
+_SLUG = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,127}$")
+
+
+def _struct(path: str, obj, kind: str, errs: list) -> None:
+    need, may = STRUCT_FIELDS[kind]
+    if not isinstance(obj, dict):
+        errs.append(f"{path} must be an object")
+        return
+    for k in need:
+        if obj.get(k) in (None, "") and not (kind == "parameters" and k == "default" and k in obj):
+            errs.append(f"{path}.{k} is required")
+    for k in obj:
+        if k not in need | may:
+            errs.append(f"{path}.{k} is not a field the registry declares")
+
+
+def outer_function(formula: str):
+    """The aggregate that wraps the whole formula, with DISTINCT folded in, or None."""
+    f = formula.strip()
+    m = re.match(r"(\w+)\s*\(", f)
+    if not m or _balanced(f, m.end() - 1) != len(f):
+        return None
+    fn = m.group(1).lower()
+    if fn == "count" and re.match(r"count\s*\(\s*distinct\b", f, re.I):
+        return "count_distinct"
+    return fn
+
+
+def _top_level_divide(formula: str) -> bool:
+    depth = 0
+    for kind, text in scan(formula):
+        if kind != "code":
+            continue
+        for ch in text:
+            depth += 1 if ch == "(" else -1 if ch == ")" else 0
+            if ch == "/" and depth == 0:
+                return True
+    return False
+
+
+def _sql_fields(d: dict) -> list:
+    src = d.get("source") or {}
+    out = [("formula", d.get("formula") or ""), ("source.sql", src.get("sql") or "")]
+    out += [(f"filters[{i}]", f) for i, f in enumerate(d.get("filters") or [])]
+    out += [(f"mandatory_filters[{i}]", f) for i, f in enumerate(d.get("mandatory_filters") or [])]
+    return out
+
+
+def _pii(text: str):
+    if _EMAIL.search(text or ""):
+        return "an email address"
+    m = _FULLNAME.search(text or "")
+    return f"a person's name ({m.group(0)})" if m else None
+
+
+def check_metric(body: dict) -> tuple:
+    errs, warns = [], []
+    for k in body:
+        if k not in BODY_FIELDS:
+            errs.append(f"{k} is not an artifact field")
+    for k in ("name", "display_name", "description", "definition"):
+        if not body.get(k):
+            errs.append(f"{k} is required")
+    d = body.get("definition") or {}
+    if not isinstance(d, dict):
+        return ["definition must be an object"], warns
+    for k in d:
+        if k in RETIRED:
+            errs.append(f"definition.{k} is retired and refused by the registry")
+        elif k not in METRIC_FIELDS:
+            errs.append(f"definition.{k} is not a field the registry declares")
+    if d.get("spec_version") != METRIC_SPEC:
+        errs.append(f"definition.spec_version must be {METRIC_SPEC}")
+    if not isinstance(d.get("version"), int) or d.get("version", 0) <= 0:
+        errs.append("definition.version must be an integer above 0")
+    for k in ("dialect", "formula"):
+        if not d.get(k):
+            errs.append(f"definition.{k} is required")
+    for k in ("aggregation", "output", "source"):
+        if k in d:
+            _struct(f"definition.{k}", d[k], k, errs)
+        else:
+            errs.append(f"definition.{k} is required")
+    src = d.get("source") or {}
+    if isinstance(src, dict):
+        if bool(src.get("table")) == bool(src.get("sql")):
+            errs.append("definition.source takes exactly one of table and sql")
+        if re.match(r"\s*(select|with)\b", src.get("sql") or "", re.I):
+            errs.append("definition.source.sql is the FROM clause, never a SELECT")
+        for i, p in enumerate(src.get("parameters") or []):
+            _struct(f"definition.source.parameters[{i}]", p, "parameters", errs)
+    names = {}
+    for kind in ("joins", "dimensions", "examples"):
+        seen = set()
+        for i, item in enumerate(d.get(kind) or []):
+            _struct(f"definition.{kind}[{i}]", item, kind, errs)
+            if kind != "examples" and isinstance(item, dict):
+                n = item.get("name")
+                if n in seen:
+                    errs.append(f"definition.{kind}: {n!r} appears twice")
+                seen.add(n)
+            if kind == "examples" and isinstance(item, dict) and item.get("result"):
+                _struct(f"definition.examples[{i}].result", item["result"], "result", errs)
+                res = item["result"]
+                if isinstance(res, dict) and any(len(r) != len(res.get("columns") or []) for r in res.get("rows") or []):
+                    errs.append(f"definition.examples[{i}].result rows and columns differ in width")
+        names[kind] = seen
+    for i, dim in enumerate(d.get("dimensions") or []):
+        rj = isinstance(dim, dict) and dim.get("required_join")
+        if rj and rj not in names["joins"]:
+            errs.append(f"definition.dimensions[{i}].required_join {rj!r} is not a declared join")
+        if isinstance(dim, dict) and dim.get("datatype") not in DATATYPES | {"unknown"}:
+            warns.append(f"definition.dimensions[{i}].datatype {dim.get('datatype')!r} is outside the vocabulary")
+    for i, ex in enumerate(d.get("examples") or []):
+        for g in (ex.get("group_by") or []) if isinstance(ex, dict) else []:
+            if g not in names["dimensions"]:
+                errs.append(f"definition.examples[{i}].group_by names {g!r}, which is not a declared dimension")
+    agg = (d.get("aggregation") or {}).get("type") if isinstance(d.get("aggregation"), dict) else None
+    formula = d.get("formula") or ""
+    if agg == "avg":
+        errs.append("aggregation.type has no avg: a mean is custom")
+    elif agg and agg not in AGG_TYPES:
+        warns.append(f"aggregation.type {agg!r} is outside the vocabulary and is stored with a permanent warning")
+    fn = outer_function(formula)
+    if agg and formula:
+        if _top_level_divide(formula):
+            if agg not in ("ratio", "custom"):
+                errs.append(f"aggregation.type {agg!r} disagrees with a formula that divides: use ratio")
+        elif fn in ("count", "count_distinct", "sum", "min", "max") and agg in AGG_TYPES and agg != fn and agg != "custom":
+            errs.append(f"aggregation.type {agg!r} disagrees with the formula's {fn.upper()}")
+    if agg == "ratio" and not (d.get("aggregation") or {}).get("zero_denominator"):
+        warns.append("a ratio with no aggregation.zero_denominator is stored with a permanent warning")
+    if not d.get("examples"):
+        warns.append("no examples: the registry stores a permanent warning")
+    out = d.get("output") or {}
+    if isinstance(out, dict) and out.get("datatype") and out["datatype"] not in DATATYPES:
+        warns.append(f"output.datatype {out['datatype']!r} is outside the vocabulary")
+    if _SQL_IN_PROSE.search(body.get("description") or ""):
+        errs.append("description holds SQL: describe the number in words")
+    dims = {str(x.get("name", "")).lower() for x in d.get("dimensions") or [] if isinstance(x, dict)}
+    m = re.search(r"\s(?:by|per)\s+(.+)$", body.get("display_name") or body.get("name") or "", re.I)
+    if m:
+        if m.group(1).strip().lower() in dims:
+            errs.append(f"the name carries its own cut ({m.group(0).strip()!r}): name the measure, keep the cut a dimension")
+        else:
+            warns.append(f"the name reads like a cut ({m.group(0).strip()!r}); keep it only if that is the measure")
+    declared = {p.get("name") for p in src.get("parameters") or [] if isinstance(p, dict)} if isinstance(src, dict) else set()
+    used = set()
+    for where, text in _sql_fields(d):
+        used |= set(_PARAM.findall(text))
+        if _DATE.search(text):
+            errs.append(f"{where} holds a fixed date: make it a parameter with that date as its default")
+        why = _pii(text)
+        if why:
+            errs.append(f"{where} holds {why}")
+    for p in sorted(used - declared):
+        errs.append(f"{{{{{p}}}}} is used but not declared in source.parameters")
+    for p in sorted(declared - used):
+        errs.append(f"parameter {p!r} is declared but nothing uses it")
+    ev = ((d.get("extensions") or {}).get("atlan_analytics") or {}) if isinstance(d.get("extensions"), dict) else {}
+    ma = ((d.get("extensions") or {}).get("metrics_agent") or {}) if isinstance(d.get("extensions"), dict) else {}
+    if not (ev.get("shapes") or ev.get("declared") or ev.get("by_hand") or ma.get("derived_from")):
+        errs.append("no evidence: extensions.atlan_analytics needs shapes, declared or by_hand")
+    return errs, warns
+
+
+def check_query(body: dict) -> tuple:
+    errs, warns = [], []
+    for k in ("name", "display_name", "definition"):
+        if not body.get(k):
+            errs.append(f"{k} is required")
+    if body.get("name") and not _SLUG.match(body["name"]):
+        errs.append("name must be a lower-case slug")
+    d = body.get("definition") or {}
+    if d.get("spec_version") != QUERY_SPEC:
+        errs.append(f"definition.spec_version must be {QUERY_SPEC}")
+    for k in ("sql", "question", "dialect"):
+        if not d.get(k):
+            errs.append(f"definition.{k} is required")
+    sql = strip_comments(d.get("sql") or "")
+    if sql and not re.match(r"(select|with)\b", sql, re.I):
+        errs.append("definition.sql must be one SELECT or WITH statement")
+    if ";" in _code_only(sql):
+        errs.append("definition.sql holds more than one statement")
+    why = _pii(d.get("sql") or "")
+    if why:
+        errs.append(f"definition.sql holds {why}")
+    if d.get("review_status") not in (None, "unreviewed", "reviewed", "verified", "rejected"):
+        warns.append(f"definition.review_status {d.get('review_status')!r} is unusual")
+    return errs, warns
+
+
+def _norm_pred(text: str) -> str:
+    return normalize(text or "").replace(" ", "")
+
+
+def identity(body: dict) -> str:
+    """What a metric measures: entity, FROM clause, formula and mandatory filters. Never its name."""
+    d = body.get("definition") or {}
+    src = d.get("source") or {}
+    parts = [_ident(src.get("entity") or ""), _norm_pred(src.get("sql") or src.get("table") or ""),
+             _norm_pred(d.get("formula") or ""),
+             "|".join(sorted(_norm_pred(f) for f in d.get("mandatory_filters") or []))]
+    return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:16]
+
+
+def _same(a: dict, b: dict) -> bool:
+    keep = lambda x: {k: v for k, v in x.items() if k not in ("version", "extensions")}
+    return keep(a.get("definition") or {}) == keep(b.get("definition") or {})
+
+
+def cmd_check(a) -> dict:
+    """Check every authored body, decide create, revise or reuse against the workspace, write plan.json."""
+    d = pathlib.Path(a.dir)
+    metrics = load_json(d / "metrics.json", []) or []
+    queries = load_json(d / "queries.json", []) or []
+    links = load_json(d / "links.json", []) or []
+    existing = load_json(d / "existing.json", []) or []
+    shapes = {s["shape_id"] for s in read_jsonl(d / "shapes.jsonl")}
+    if not metrics and not queries:
+        raise Blocked("Nothing to check: metrics.json and queries.json are both empty or missing.",
+                      "Author the metrics and saved queries first, or import a finished run.")
+    live_m = [e for e in existing if e.get("kind", "metric") == "metric"]
+    live_q = [e for e in existing if e.get("kind") == "sql_query"]
+    by_sid = {e.get("source_id"): e for e in existing if e.get("source_id")}
+    by_ident: dict = {}
+    for e in live_m:
+        by_ident.setdefault(identity(e), []).append(e)
+    live_names = {(e.get("kind", "metric"), e.get("name")): e for e in existing}
+
+    plan, refused, warnings = {"metrics": [], "queries": [], "links": []}, [], []
+    seen_names, seen_display, seen_ident = {}, {}, {}
+    for i, body in enumerate(metrics):
+        label = body.get("name") or f"metrics[{i}]"
+        errs, warns = check_metric(body)
+        ident = identity(body)
+        if not body.get("source_id"):
+            body["source_id"] = f"metric:{ident}"
+        for key, store, what in ((body.get("name"), seen_names, "name"),
+                                 (body.get("display_name"), seen_display, "display_name"),
+                                 (ident, seen_ident, "what it measures")):
+            if key in store:
+                errs.append(f"same {what} as {store[key]!r}: one metric, or two names that say how they differ")
+            store[key] = label
+        shp = (((body.get("definition") or {}).get("extensions") or {}).get("atlan_analytics") or {}).get("shapes") or []
+        missing = [s for s in shp if shapes and s not in shapes]
+        if missing:
+            errs.append(f"cites shapes that are not in shapes.jsonl: {', '.join(missing[:5])}")
+        action, match = "create", None
+        hit = by_sid.get(body["source_id"])
+        if hit is None and len(by_ident.get(ident, [])) == 1:
+            hit = by_ident[ident][0]
+            body["source_id"], body["name"] = hit.get("source_id") or body["source_id"], hit.get("name")
+            body["display_name"] = hit.get("display_name") or body.get("display_name")
+            warns.append(f"measures the same as live {hit.get('name')!r}: adopted its identity and frozen name")
+        elif hit is None and len(by_ident.get(ident, [])) > 1:
+            errs.append("two live metrics measure the same thing: a person picks which one this revises")
+        if hit is not None:
+            match = hit.get("id")
+            action = "reuse" if _same(body, hit) else "revise"
+            if hit.get("name") != body.get("name"):
+                errs.append(f"revises {hit.get('name')!r} under a new name: a name is frozen at create")
+        elif ("metric", body.get("name")) in live_names:
+            errs.append("a different live metric already holds this name")
+        for e in errs:
+            refused.append({"kind": "metric", "item": label, "error": e})
+        warnings += [{"kind": "metric", "item": label, "warning": w} for w in warns]
+        plan["metrics"].append({"name": body.get("name"), "action": action, "match_id": match,
+                                "source_id": body["source_id"], "ok": not errs})
+    q_names = set()
+    q_by_sid = {e.get("source_id"): e for e in live_q if e.get("source_id")}
+    for i, body in enumerate(queries):
+        label = body.get("name") or f"queries[{i}]"
+        errs, warns = check_query(body)
+        if not body.get("source_id"):
+            errs.append("source_id is required: <slug>/<shape or vq id>")
+        if body.get("name") in q_names:
+            errs.append("name appears twice")
+        q_names.add(body.get("name"))
+        hit = q_by_sid.get(body.get("source_id"))
+        action = ("reuse" if hit and _same(body, hit) else "revise") if hit else "create"
+        if not hit and ("sql_query", body.get("name")) in live_names:
+            errs.append("a different live saved query already holds this name")
+        for e in errs:
+            refused.append({"kind": "sql_query", "item": label, "error": e})
+        warnings += [{"kind": "sql_query", "item": label, "warning": w} for w in warns]
+        plan["queries"].append({"name": body.get("name"), "action": action, "match_id": hit.get("id") if hit else None,
+                                "source_id": body.get("source_id"), "ok": not errs})
+    m_names = {m.get("name") for m in metrics} | {e.get("name") for e in live_m}
+    all_q = q_names | {e.get("name") for e in live_q}
+    pairs = set()
+    for i, ln in enumerate(links):
+        frm, to, rel = ln.get("from") or {}, ln.get("to") or {}, ln.get("rel_type")
+        errs = []
+        for end, who in (("from", frm), ("to", to)):
+            pool = m_names if who.get("kind") == "metric" else all_q if who.get("kind") == "sql_query" else None
+            if pool is None or who.get("name") not in pool:
+                errs.append(f"{end} {who.get('kind')}:{who.get('name')} is not in this layer or the workspace")
+        if frm == to:
+            errs.append("a link from a metric to itself")
+        if rel not in ("depends_on", "alternative", "source_of"):
+            errs.append(f"rel_type {rel!r} is not one the metric and sql_query kinds declare")
+        if rel == "source_of" and not (frm.get("kind") == "sql_query" and to.get("kind") == "metric"):
+            errs.append("source_of runs from a saved query to a metric")
+        key = (frm.get("name"), to.get("name"), rel)
+        if rel == "alternative" and (to.get("name"), frm.get("name"), rel) in pairs or key in pairs:
+            errs.append("asserted twice (alternative is symmetric)")
+        pairs.add(key)
+        for e in errs:
+            refused.append({"kind": "link", "item": f"links[{i}]", "error": e})
+        plan["links"].append({**ln, "ok": not errs})
+    dump_json(d / "metrics.json", metrics)
+    counts = {k: {a_: sum(1 for x in plan[k] if x.get("action") == a_ and x["ok"]) for a_ in ("create", "revise", "reuse")}
+              for k in ("metrics", "queries")}
+    counts["links"] = sum(1 for x in plan["links"] if x["ok"])
+    plan.update({"counts": counts, "refused": refused, "warnings": warnings})
+    dump_json(d / "plan.json", plan)
+    return {"status": "ok" if not refused else "REFUSED", "counts": counts, "refused": len(refused),
+            "warnings": len(warnings), "first_refusals": refused[:10], "plan": str(d / "plan.json")}
+
+
+# ====================================================================== a finished metrics-agent run
+def _chunks(doc) -> list:
+    if isinstance(doc, list):
+        return doc
+    out = []
+    for c in (doc or {}).get("chunks") or []:
+        out += c
+    return out
+
+
+def cmd_import_run(a) -> dict:
+    """Read a finished metrics-agent run's registry payloads into metrics.json, queries.json and links.json."""
+    run, d = pathlib.Path(a.run), pathlib.Path(a.dir)
+    pay = run / "registry_payloads"
+    mp, qp = pay / "registry_metrics_v2.json", pay / "registry_sql_queries.json"
+    if not mp.exists() and not qp.exists():
+        raise Blocked(f"{run} has no registry_payloads/: the run did not reach its publish dry run.",
+                      "Finish the run with metrics-agent (or start from query history here instead).")
+    metrics = []
+    for b in _chunks(load_json(mp, {})):
+        b = {k: v for k, v in b.items() if k in BODY_FIELDS}
+        metrics.append(b)
+    queries = [{k: v for k, v in b.items() if k in BODY_FIELDS} for b in _chunks(load_json(qp, {}))]
+    cards = load_json(run / "metric_cards.json", {}) or {}
+    ref_to_name = {c.get("metric_ref"): c.get("name") for c in cards.get("metrics") or []}
+    vq_to_query = {((b.get("definition") or {}).get("extensions") or {}).get("metrics_agent", {}).get("vq_id"): b.get("name")
+                   for b in queries}
+    links = []
+    for vq, refs in (cards.get("metric_refs_by_vq") or {}).items():
+        for ref in refs:
+            if vq_to_query.get(vq) and ref_to_name.get(ref):
+                links.append({"from": {"kind": "sql_query", "name": vq_to_query[vq]},
+                              "to": {"kind": "metric", "name": ref_to_name[ref]}, "rel_type": "source_of",
+                              "attributes": {"origin": "metrics-agent"}})
+    for e in (load_json(run / "metric_relationships.json", {}) or {}).get("edges") or []:
+        links.append({"from": {"kind": "metric", "name": e.get("from")}, "to": {"kind": "metric", "name": e.get("to")},
+                      "rel_type": e.get("rel_type") or ("alternative" if e.get("relation") == "alternative" else "depends_on"),
+                      "attributes": {k: v for k, v in {**(e.get("attributes") or {}), "relation": e.get("relation"),
+                                                       "confidence": e.get("confidence")}.items() if v is not None}})
+    dump_json(d / "metrics.json", metrics)
+    dump_json(d / "queries.json", queries)
+    dump_json(d / "links.json", links)
+    return {"status": "ok", "metrics": len(metrics), "queries": len(queries), "links": len(links),
+            "dialect": (load_json(mp, {}) or {}).get("dialect"), "dir": str(d)}
+
+
+# ====================================================================== selftest
+def selftest() -> dict:
+    import tempfile
+    checks, failed = [], []
+
+    def ok(name, cond):
+        checks.append(name)
+        if not cond:
+            failed.append(name)
+
+    sql = "-- weekly: 'x'\nSELECT region, SUM(o.amount) AS rev /* gross */ FROM db.s.orders o WHERE o.status = 'paid' -- note\n AND o.dt >= '2026-01-01' GROUP BY region"
+    ok("comments go, strings stay", strip_comments(sql).count("'paid'") == 1 and "gross" not in strip_comments(sql)
+       and "note" not in strip_comments(sql))
+    ok("a -- inside a string is text", "--" in strip_comments("select '--x' as a from t"))
+    ok("literals normalize away", normalize(sql) == normalize(sql.replace("'paid'", "'open'").replace("2026", "2025")))
+    ok("in-lists collapse", normalize("select 1 from t where a in (1,2,3)") == normalize("select 1 from t where a in (4)"))
+    f = features(strip_comments(sql))
+    ok("features: table", f["tables"] == ["db.s.orders"])
+    ok("features: aggregate", f["aggregates"] == ["SUM(o.amount)"])
+    ok("aggregates keep their place after a literal", features(
+        "select sum(a) from t where b = 'long literal text' having sum(c) > 1")["aggregates"] == ["sum(a)", "sum(c)"])
+    ok("features: group by", f["group_by"] == ["region"])
+    ok("features: filters", len(f["filters"]) == 2)
+    ok("ctes are not tables", features("with x as (select count(*) c from a.b) select c from x")["tables"] == ["a.b"])
+    ok("outer function", outer_function("COUNT(DISTINCT t.id)") == "count_distinct" and outer_function("SUM(a)/SUM(b)") is None)
+    ok("top-level divide", _top_level_divide("SUM(a) / NULLIF(SUM(b), 0)") and not _top_level_divide("SUM(a/b)"))
+
+    good = {"name": "paid_revenue", "display_name": "Paid Revenue", "description": "Revenue from paid orders.",
+            "definition": {"spec_version": METRIC_SPEC, "version": 1, "dialect": "snowflake",
+                           "formula": "SUM(DB.S.ORDERS.AMOUNT)", "aggregation": {"type": "sum"},
+                           "output": {"alias": "paid_revenue", "datatype": "decimal"},
+                           "source": {"entity": "DB.S.ORDERS", "alias": "orders", "table": "DB.S.ORDERS"},
+                           "mandatory_filters": ["DB.S.ORDERS.STATUS = 'paid'"],
+                           "dimensions": [{"name": "Region", "kind": "categorical", "sql": "DB.S.ORDERS.REGION",
+                                           "datatype": "string"}],
+                           "examples": [{"source": "shape:s-1", "sql": "select 1", "group_by": ["Region"]}],
+                           "extensions": {"atlan_analytics": {"shapes": ["s-1"]}}}}
+    e, _ = check_metric(good)
+    ok("a good card passes", not e)
+    bad = json.loads(json.dumps(good))
+    bad["display_name"] = "Paid Revenue by Region"
+    bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
+    bad["definition"]["extensions"] = {}
+    e, _ = check_metric(bad)
+    for frag in ("retired", "disagrees", "its own cut", "fixed date", "no evidence"):
+        ok(f"a bad card is refused: {frag}", any(frag in x for x in e))
+    ok("identity ignores the name", identity(good) == identity({**good, "name": "other"}))
+
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        (t / "log.jsonl").write_text("".join(json.dumps(r) + "\n" for r in [
+            {"sql": sql, "exec": 5, "users": 2},
+            {"sql": sql.replace("'paid'", "'refunded'"), "exec": 3, "users": 3},
+            {"sql": "select * from other.t", "exec": 9, "users": 1}]))
+        (t / "tables.txt").write_text("DB.S.ORDERS\n")
+        r = cmd_shapes(argparse.Namespace(src=str(t / "log.jsonl"), dst=str(t / "run" / "shapes.jsonl"),
+                                          tables=str(t / "tables.txt"), top=50))
+        rows = read_jsonl(t / "run" / "shapes.jsonl")
+        ok("shapes: two texts, one shape, scope applied", r["distinct_shapes"] == 2 and r["written"] == 1
+           and rows[0]["exec"] == 8 and rows[0]["users"] == 3 and rows[0]["texts"] == 2)
+        good["definition"]["extensions"]["atlan_analytics"]["shapes"] = [rows[0]["shape_id"]]
+        dump_json(t / "run" / "metrics.json", [good])
+        dump_json(t / "run" / "existing.json", [{"id": "metric_1", "kind": "metric", "name": "paid_rev",
+                                                  "source_id": "x", "definition": good["definition"]}])
+        r = cmd_check(argparse.Namespace(dir=str(t / "run")))
+        plan = load_json(t / "run" / "plan.json")
+        ok("check adopts a live metric that measures the same", r["status"] == "ok"
+           and plan["metrics"][0]["action"] == "reuse" and plan["metrics"][0]["name"] == "paid_rev")
+    return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
+
+
+# ====================================================================== CLI
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="metrics_mine.py", description=__doc__.split("\n\n")[0])
+    s = p.add_subparsers(dest="cmd", required=True)
+
+    c = s.add_parser("shapes", help="group a cleaned query log into ranked query shapes")
+    c.add_argument("src", help="querylog.clean.jsonl: {sql, exec, users} per line")
+    c.add_argument("dst", help="shapes.jsonl")
+    c.add_argument("--tables", help="tables.txt: keep shapes that read one of these tables")
+    c.add_argument("--top", type=int, default=400)
+    c.set_defaults(func=cmd_shapes)
+
+    c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")
+    c.add_argument("--dir", required=True)
+    c.set_defaults(func=cmd_check)
+
+    c = s.add_parser("import-run", help="read a finished metrics-agent run's registry payloads")
+    c.add_argument("--run", required=True, help="the metrics-agent run directory")
+    c.add_argument("--dir", required=True, help="this skill's run directory")
+    c.set_defaults(func=cmd_import_run)
+
+    c = s.add_parser("selftest", help="offline checks of scanning, shapes and the contracts")
+    c.set_defaults(func=lambda a: selftest())
+    return p
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
+    try:
+        out = args.func(args)
+    except Blocked as e:
+        print(json.dumps({"status": "BLOCKED", "reason": e.reason, "fix": e.fix}, indent=1))
+        return 2
+    except Exception as e:  # noqa: BLE001
+        print(json.dumps({"status": "ERROR", "error": f"{type(e).__name__}: {e}"}, indent=1))
+        return 1
+    print(json.dumps(out, indent=1, default=str))
+    return {"ERROR": 1, "BLOCKED": 2, "REFUSED": 1}.get(out.get("status"), 0)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
