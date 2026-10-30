@@ -126,7 +126,7 @@ correctly after the rewrite. This repository holds no variant of its own.
 1. Bump `[plugin] version` in `plugin.toml` (SemVer; Claude Code keeps users on the version they
    installed until it changes) and run `make build`. An add-on has its own `version` under
    `[[addons]]`; bump it when its content or manifest changes.
-2. Add the release notes under a new heading in `CHANGELOG.md`.
+2. Say what changes for users in the pull request's description; there is no changelog file.
 3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlan--v0.1.2`,
    `atlan-analytics--v0.1.0`), so a dependency with a version range resolves in Claude Code.
    The repository is its own marketplace for every tool, so users get the new version on their

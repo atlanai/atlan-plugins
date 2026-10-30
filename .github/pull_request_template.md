@@ -9,4 +9,4 @@
 - [ ] `make check` passes
 - [ ] `make validate` passes, or the change touches no manifest, skill or command
 - [ ] Generated files come from `make build`, not hand edits
-- [ ] A user-facing change bumps the plugin's version and adds a `CHANGELOG.md` entry
+- [ ] A user-facing change bumps the plugin's version
