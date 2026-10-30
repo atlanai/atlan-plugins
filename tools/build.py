@@ -237,7 +237,6 @@ def addon_outputs(source: dict, addon: dict) -> dict[str, dict]:
         # Atlan tools and say which plugin to add.
         f"{base}/.claude-plugin/plugin.json": {
             **addon_core(source, addon),
-            "privacyPolicyUrl": source["plugin"]["privacy_policy_url"],
             "dependencies": [source["plugin"]["name"]],
         },
         f"{base}/.codex-plugin/plugin.json": {
@@ -276,6 +275,11 @@ codex plugin marketplace add {slug}
 codex plugin add {plugin['name']}@{market}
 codex plugin add {addon['name']}@{market}
 ```
+
+## Privacy
+
+It stores nothing and runs nothing on your machine: it has no hooks and no binaries. See Atlan's
+[privacy notice]({plugin['privacy_policy_url']}).
 
 ## Source
 
@@ -395,9 +399,10 @@ def outputs(source: dict) -> dict[str, dict]:
         },
         # Claude Code (CLI, desktop, IDE extensions) reads only these two.
         f"{base}/.mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"], "headers": dict(headers)}}},
+        # No privacyPolicyUrl: claude.ai's organization sync strips it as unknown. The plugin
+        # directory reads the privacy link from the README instead.
         f"{base}/.claude-plugin/plugin.json": {
             **core(source),
-            "privacyPolicyUrl": plugin["privacy_policy_url"],
             "mcpServers": "./.mcp.json",
         },
         ".claude-plugin/marketplace.json": {
