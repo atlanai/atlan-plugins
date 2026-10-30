@@ -1,0 +1,17 @@
+{
+  "name": "atlan-plugins",
+  "owner": {
+    "name": "Atlan",
+    "url": "https://atlan.com"
+  },
+  "metadata": {
+    "description": "The Atlan plugin for coding agents: the Atlan registry's MCP server and the skills to use it."
+  },
+  "plugins": [
+    {
+      "name": "atlan",
+      "source": "./",
+      "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
+    }
+  ]
+}
