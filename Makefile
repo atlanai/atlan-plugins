@@ -4,9 +4,12 @@ PYTHON ?= python3
 AGENT_GATEWAY ?= ../gateway
 APP_SKILL ?= ../skill service
 APP_AGENT ?= ../agent service
-SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --from agent=$(APP_AGENT)
+APP_KNOWLEDGE ?= ../knowledge service
+APP_REPO ?= ../repo service
+SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --from agent=$(APP_AGENT) \
+	--from knowledge=$(APP_KNOWLEDGE) --from repo=$(APP_REPO)
 
-.PHONY: check build sync sync-adopt lint test site validate
+.PHONY: check build sync sync-adopt lint test site validate eval
 
 check:
 	$(PYTHON) tools/build.py --check
@@ -45,3 +48,9 @@ validate:
 			if [ -d $${plugin}$$tree ]; then claude plugin validate $${plugin}$$tree --strict || exit 1; fi; \
 		done; \
 	done
+
+# The core plugin's behaviour evals against a local gateway emulator: claude CLI, costs money,
+# not in CI. Pass options through, for example EVAL_ARGS="--runs 1 --case 'use-skill-*'".
+EVAL_ARGS ?= --runs 2 -j 4
+eval:
+	$(PYTHON) evals/atlan/run.py -- $(EVAL_ARGS)

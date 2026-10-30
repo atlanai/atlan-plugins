@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: find-existing-skill
+tags: [find,routing]
+execution:
+  prompt: |
+    does my org already have a skill in atlan for security reviewing PRs?
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-find-artifacts
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
+  - name: searches-skills
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__search_artifacts"'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: reports-what-exists
+    type: llm
+    criteria: |
+      PASS if the reply says yes and names the `security-review` skill with its handle (skill_01evalsecrev01, in Platform Engineering), notes there is a second, personal `security-review` copy (skill_01evalsecrev02), and says `secure-pr-review` is pending review rather than offering it as ready to use.
+      FAIL if it says nothing exists, invents skills, or presents secure-pr-review as usable now.

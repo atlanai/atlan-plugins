@@ -3,3 +3,4 @@ __pycache__/
 .DS_Store
 /upstream/
 /dist/
+/evals/*/results/
