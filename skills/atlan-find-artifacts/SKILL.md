@@ -1,0 +1,94 @@
+---
+name: atlan-find-artifacts
+description: Search and browse the Atlan registry for skills, agents, knowledge, MCP servers, files, outputs, datasets and other artifacts, and explain what each one is and how they relate. Use when the user asks what exists in Atlan, whether their organization already has a skill or agent for something, who owns an artifact, or what depends on it.
+license: Apache-2.0
+---
+
+# Finding things in the Atlan registry
+
+Everything in the registry is an **artifact**: a versioned item of one **kind**, homed in one
+**workspace** and optionally one **project**, with a handle shaped `<kind>_<id>`
+(`skill_01j…`, `agent_01k…`). Reads are safe: nothing here writes.
+
+Calls below are written as `mcp__call_tool` in search mode. Open the session first as
+`atlan-get-started` shows, and pass `session_id` and a `rationale` on every call.
+
+## Pick the read
+
+| Question | Tool |
+|---|---|
+| "Is there a skill for X?" "Find the agent that does Y" | `registry__search_artifacts` |
+| "What do we have?" "What changed recently?" | `registry__list_artifacts` |
+| "Tell me about this one" | `registry__get_artifact` |
+| "What uses it, what does it use?" | `registry__get_related_artifacts` |
+| "What does this skill or file actually say?" | `atlan-read-content` |
+| "What can a kind hold?" | `registry__get_kind_schema` |
+| "Which workspaces can I see?" | `registry__list_workspaces` |
+
+## Search
+
+```
+mcp__call_tool {
+  "name": "registry__search_artifacts",
+  "arguments": { "query": "deploy a branch to a preview environment", "kind": "skill", "semantic": true, "limit": 10 },
+  "session_id": "mcp_session_…",
+  "rationale": "Checking whether the organization already has a preview-deploy skill before writing one."
+}
+```
+
+- **Write `query` as natural words** describing the thing, not a keyword list.
+- **Set `semantic: true`** when the user's wording may not match the artifact's (it fuses
+  meaning with keyword relevance). Leave it off for exact names.
+- **Narrow with `kind`** when you know the type. Omit it to search every discoverable kind.
+  `workspace_id` and `project_id` narrow further.
+- **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
+  `semantic: true`) before concluding nothing exists. An artifact in a workspace the user
+  cannot read is indistinguishable from one that does not exist, by design.
+
+## Kinds you will meet most
+
+| Kind | What it is |
+|---|---|
+| `skill` | An Agent Skill bundle (`SKILL.md` plus files), versioned and security-scanned |
+| `agent`, `harness` | An agent's catalogue entry, and the coding tool or runtime it runs in |
+| `output` | A deliverable an agent run produced, pinned to the file it published |
+| `knowledge` | A bundle of curated Markdown concepts (glossary, tables, metrics documentation) |
+| `mcp_server`, `mcp_tool` | A remote MCP server registered in the gateway, and each tool it serves |
+| `file` | Uploaded bytes: bundles, documents, datasets |
+| `repo` | A source repository that skills and agents are `sourced_from` |
+| `dataset`, `scorer`, `experiment` | Evaluation material and results |
+
+Other apps add kinds of their own (ontologies, objectives, models). When you meet an
+unfamiliar kind, `registry__get_kind_schema { "kind": "…" }` describes it.
+
+## Read one
+
+```
+mcp__call_tool {
+  "name": "registry__get_artifact",
+  "arguments": { "artifact_id": "skill_01j…" },
+  "session_id": "mcp_session_…",
+  "rationale": "Reading the preview-deploy skill's details to tell the user what it does and who owns it."
+}
+```
+
+The result carries the envelope (`name`, `description`, `workspace_id`, owner, version) and the
+kind's own properties. For a skill, `metadata.files` lists its bundle and `artifact_status`
+says whether it is usable: a `blocked` skill failed its security scan and its files are
+withheld. Pass `channel` (for example `latest`) or a `release_id` only when the user asks for
+a published release rather than the newest version.
+
+## Read the neighbourhood
+
+`registry__get_related_artifacts { "artifact_id": "…" }` returns typed edges in both
+directions: an agent's `uses_skill`, an output's `used_skill`, a skill's `sourced_from` repo.
+An end marked `is_readable: false` exists in a workspace the user cannot read; say that
+rather than guessing what it is. Edges are declared by their source kind, so to find the
+agents that use a skill, read the skill's incoming edges rather than its outgoing ones.
+
+## Present results
+
+Lead with the answer. Show a short table of name, kind, workspace and a one-line description,
+with each handle, so the user can ask about one by name. Offer the next step that fits:
+read it (`atlan-read-content`), use it here (`atlan-use-skill`), or call its tools
+(`atlan-use-mcp-servers`).
