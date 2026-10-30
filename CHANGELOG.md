@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.3 and atlan-analytics 0.1.1
+
+- The repository is now `atlanai/atlan-plugins`, a marketplace with one folder per plugin. The
+  core moved from the root to `plugins/atlan`, beside `plugins/atlan-analytics`; the root holds
+  only the marketplace files. Every marketplace entry points at the plugin's folder, and Codex
+  installs the core by `git-subdir`. The plugins' content and names are unchanged.
+- Every plugin folder carries its own `LICENSE` and listing logo, and the core has a README of
+  its own.
+- VS Code installs from the marketplace (`chat.plugins.marketplaces`) instead of
+  **Install Plugin From Source** on the repository, which no longer has a plugin at its root.
+- A variant writes its plugins under `plugins/` too, and removes what an older build wrote at
+  its root.
+
 ## atlan-analytics 0.1.0
 
 - The first add-on: `atlan-analytics`, the analytics workload from Metric Studio, as its own
