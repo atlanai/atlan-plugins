@@ -76,9 +76,12 @@ the one that also works in Codex, Cursor and Copilot, and the one listed in plug
 
 ## Privacy and security
 
-The plugin itself stores and sends nothing. Your agent talks to Atlan's MCP server under your
-own sign-in, and Atlan records each call in a session you can review. See Atlan's
-[privacy notice](https://atlan.com/privacy-policy/). Report a vulnerability through Atlan's
+The plugin itself stores nothing. Your agent talks to Atlan's MCP server under your own sign-in,
+and Atlan records each call in a session you can review. The plugin's server entry adds one
+header to those requests, `X-Atlan-Client: atlan-plugin/<version>`, which names the plugin and
+its version and nothing about you or your machine, so Atlan can tell sessions opened through the
+plugin from servers added by hand. See Atlan's [privacy notice](https://atlan.com/privacy-policy/).
+Report a vulnerability through Atlan's
 [responsible disclosure program](https://atlan.com/responsible-disclosure-program/).
 
 ## Contributing

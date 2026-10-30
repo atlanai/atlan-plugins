@@ -79,7 +79,7 @@ python3 <this repo>/scripts/build.py --variant variant.toml --out .
 which writes the manifests, a one-plugin marketplace, and a copy of `skills/` and `commands/`
 with the variant's URLs, plugin name and repository rewritten. Add `--check` in its CI. The file
 can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketplace]` names and
-`[mcp] url`, plus `[rewrite]` pairs and a top-level `keep` list of strings never to rewrite. Keep
+`[mcp] url` and `client` (the name its `X-Atlan-Client` header sends), plus `[rewrite]` pairs and a top-level `keep` list of strings never to rewrite. Keep
 the skills here free of any one environment's URLs beyond production's, so every variant reads
 correctly after the rewrite. This repository holds no variant of its own.
 
