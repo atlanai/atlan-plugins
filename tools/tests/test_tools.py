@@ -390,10 +390,11 @@ class DashboardPromptTest(unittest.TestCase):
 
     # Claude Code gets a command, `/<plugin>:<command> <handle>`; chat gets a sentence naming the skill.
     COMMANDS = {"continue": "atlan-continue", "use-skill": "atlan-use-skill", "get-started": "atlan-get-started"}
+    # The dashboard's prompt builders (atlanai/frontend): each opening routes on words the
+    # skill's description also carries, and names the handle it describes.
     CHAT = {
-        "Use the Atlan continue skill on artifact out_123": ("atlan-continue", "out_"),
-        "Use the Atlan continue skill on artifact output_01abc": ("atlan-continue", "output_"),
-        "Use the Atlan use-skill skill to load skill_abc and run it": ("atlan-use-skill", "skill_"),
+        'Catch me up on Atlan artifact "Q3 churn" (output_01abc), registry acme.': ("atlan-continue", "Catch me up on Atlan artifact", "output_"),
+        'Load the "security-review" skill from the Atlan skill registry and then use it.': ("atlan-use-skill", "skill from the Atlan skill registry", "skill_"),
     }
 
     def test_the_command_prefix_is_the_plugin_name(self) -> None:
@@ -408,11 +409,12 @@ class DashboardPromptTest(unittest.TestCase):
                 self.assertTrue((CORE / "skills" / skill / "SKILL.md").is_file())
 
     def test_each_chat_sentence_names_a_skill_whose_description_matches_it(self) -> None:
-        for sentence, (skill, handle) in self.CHAT.items():
+        for sentence, (skill, phrase, handle) in self.CHAT.items():
             with self.subTest(sentence=sentence):
-                self.assertIn(skill.removeprefix("atlan-"), sentence)
+                self.assertIn(phrase, sentence)
                 parsed = lint.frontmatter((CORE / "skills" / skill / "SKILL.md").read_text(encoding="utf-8"))
                 self.assertIsNotNone(parsed)
+                self.assertIn(phrase, parsed[0]["description"])
                 self.assertIn(handle, parsed[0]["description"])
 
 

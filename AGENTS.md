@@ -93,11 +93,14 @@ or a refusal the skills rely on, change the emulator to match.
 
 ## Prompts other products send
 
-The Atlan dashboard's Open in Claude buttons send `/atlan:continue out_…` and
-`/atlan:use-skill skill_…` to Claude Code, and a sentence naming the skill to Claude chat
-(*Use the Atlan continue skill on artifact out_…*). `tools/tests/test_tools.py`
-(`DashboardPromptTest`) holds those forms. Renaming the plugin, a command or one of those skills
-breaks the buttons: change the dashboard's prompt builders in the same release.
+The Atlan dashboard (atlanai/frontend) sends prompts, not commands. Continue in and Copy agent
+prompt send *Catch me up on Atlan artifact "…" (output_…)* with the source session
+(`apps/dashboard/src/lib/agents/artifact-handoff.ts`); a skill's Open in Claude sends *Load the
+"…" skill from the Atlan skill registry* with its `skill_…` id (`skill-chat-prompt.ts`).
+`tools/tests/test_tools.py` (`DashboardPromptTest`) holds those forms against the descriptions
+of `atlan-continue` and `atlan-use-skill`, and `evals/atlan/cases/dashboard-handoff-prompt` runs
+the first one whole. People also type `/atlan:continue output_…` and `/atlan:use-skill skill_…`.
+Change a description and the dashboard's prompt builders together.
 
 `make site` indexes the core's skills; its output is what atlan.com serves at `/.well-known/agent-skills/` for
 `npx skills add https://atlan.com --skill atlan-get-started`. Republish it with each release.

@@ -86,7 +86,7 @@ Read `references/calling-tools.md` once. In short:
 | Find what exists: skills, agents, knowledge, MCP servers, files, runs | `atlan-find-artifacts` |
 | Read what a registry skill or file actually says, or upload a file | `atlan-content` |
 | Use a registry skill in this task, or install it locally | `atlan-use-skill` |
-| Catch up on an artifact handed over from the Atlan dashboard (`out_…` and other handles) | `atlan-continue` |
+| Catch up on an artifact handed over from the Atlan dashboard (`output_…` and other handles) | `atlan-continue` |
 | Call tools of Slack, Linear, GitHub or another server registered in Atlan, or register a new MCP server | `atlan-use-mcp-servers` |
 | Publish a skill, or a new version of one | `atlan-author-skills` |
 | Register an agent or harness, link a repository's agent, or record which skills it uses | `atlan-author-agents` |
