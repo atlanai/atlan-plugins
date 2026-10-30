@@ -67,6 +67,20 @@ archive per skill, so atlan.com can serve the skills to
 
 No hooks, no local binaries, no telemetry. Everything runs through the MCP server you sign in to.
 
+## Add-ons
+
+An add-on is a workload built on the registry, shipped as its own plugin in this marketplace. It
+carries the workload's skills, commands and agents, declares no MCP server of its own, and uses
+the `atlan` plugin's connection.
+
+| Add-on | What it does |
+|---|---|
+| [`atlan-analytics`](plugins/atlan-analytics) | Bootstraps metrics and saved SQL queries from your warehouse's query history, builds a talk-to-data agent on them, and evaluates and improves it. It finds Snowflake, Databricks or another warehouse through Atlan or your own connector, and asks you to connect one when none is there. Building and evaluating an agent need Claude Code. |
+
+Claude Code installs `atlan` with an add-on: `/plugin install atlan-analytics@atlan-plugins`. In
+Codex and Cursor, install `atlan` and the add-on separately. The skills come from the app that
+owns the workload (`atlan-analytics` from Metric Studio) at a pinned revision.
+
 ## How it relates to the registry's own Claude Code plugin
 
 The registry also serves a Claude Code marketplace at `https://api.atlan.com/public/marketplace.git`

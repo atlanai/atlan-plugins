@@ -12,6 +12,11 @@
       "name": "atlan",
       "source": "./",
       "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
+    },
+    {
+      "name": "atlan-analytics",
+      "source": "./plugins/atlan-analytics",
+      "description": "Bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
     }
   ]
 }

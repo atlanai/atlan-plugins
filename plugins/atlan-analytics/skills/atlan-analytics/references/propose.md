@@ -1,0 +1,70 @@
+# Propose a metric from this conversation
+
+`/atlan-analytics propose` turns a gap this conversation found into a proposal that the
+metric's owners review in Metric Studio:
+- a **new metric** when an answer had no published metric for what was asked;
+- a **fix** when the person said a published metric's number was wrong, and why.
+
+It only proposes. It never creates or saves a metric, even for someone who could. It needs
+registry access; the warehouse query tool is used when one is recorded or connected.
+
+## 1. Name the gap
+
+From this conversation, write down:
+- the kind: **new metric** (an answer said nothing in the registry covered the measure) or
+  **fix** (the person corrected a published metric);
+- the measure in a few words, the workspace the answer read, and for a fix the metric's id;
+- each question as the person asked it, when, and who asked, by name (ask in the confirmation
+  below when the conversation does not show it).
+
+Confirm it with the person in one sentence. If the conversation shows neither kind, ask what
+to propose rather than guess.
+
+## 2. Check what exists
+
+Open a registry session as **Registry calls** in the conventions describes, then:
+- **New metric:** search the workspace for the measure under its likely names
+  (`registry__search_artifacts`, kind `metric`). If a metric already covers it, write nothing
+  and point the person to it: the agent missed it, the metric isn't missing.
+- **Both:** list the workspace's proposals and apply the duplicate rules in
+  `skills/atlan-analytics-improve/references/03-loop.md` ("Proposing a metric fix" and
+  "Proposing a new metric"). If one already covers it, write nothing and tell the person; if
+  it was dismissed, say that its owners decided against it.
+
+## 3. Draft
+
+- **New metric:** draft the complete definition (`registry__get_kind_schema` for `metric`),
+  reusing the population, filters and tables of related metrics in the workspace. Test its SQL
+  with the warehouse query tool when it is connected; otherwise say in the proposal's
+  `rationale` that it is untested, and name any table or column you assumed.
+- **Fix:** read the metric's head with `registry__get_artifact` (no release selector) and
+  change only the fields the correction needs.
+
+## 4. Attach this conversation as the run
+
+Run `EVAL session-run`, that is
+`python3 "<eval-dir>/scripts/analytics_eval.py" session-run`, with `<eval-dir>` as the conventions say
+(from Codex, add `--harness codex --session-id <its session id>`). Its `trace_id` names the
+trace this session becomes once the desktop app syncs it. Add one
+`evidence.runs` entry per question: `{trace_id, agent, question, asked_by, at}`, where `agent`
+is the talk-to-data agent that answered, or the harness when the person asked directly,
+`asked_by` is the person's name, and `at` is when they asked, in UTC, or the time of this
+propose run when the conversation does not show it. Tell
+the person that the trace opens in Atlan only after this session is synced; the question, who
+asked and when show in Metric Studio either way.
+
+## 5. Preview, then write
+
+Preview the write as the conventions require: the target workspace and the record. Write only
+after a yes. Create the file as `03-loop.md` describes, with `requested_by` `Atlan`, named for
+example `propose-<metric>-<YYYYMMDDHHMM>` at `improvements/metric/<metric>-<YYYYMMDDHHMM>.json`.
+For a new metric, put `new-` before `<metric>` in both.
+
+If the registry refuses the write because the person can only view the workspace, write the
+proposal nowhere else: Metric Studio lists only the proposals in the metric's workspace. Give
+the person the full record instead, so the draft is not lost, and say who can file it: for a
+fix, the metric's owner (its `owner_id`); otherwise anyone who can edit the workspace.
+
+Tell the person the proposal's id, and that the owners review it on Metric Studio's metrics
+list, where `suggestion=<file id>` opens it directly. End with the status line from
+`references/conventions.md`.
