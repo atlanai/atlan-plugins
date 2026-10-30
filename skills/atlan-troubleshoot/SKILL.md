@@ -17,7 +17,7 @@ write to see whether it works again is how duplicates get made.
 | `401`, "authentication required", "needs login" | The user has not signed in, or the sign-in expired. They re-authenticate from their tool (`/mcp` in Claude Code, `codex mcp login` in Codex, Tools & MCP in Cursor). Never ask for a token. |
 | Signed in but no organization, or sign-in refused | The account has no Atlan organization to join. They need an invitation from their organization's Atlan admin, or support@atlan.com. |
 | Every Atlan tool appears twice | Both this plugin and Atlan's own `atlanai` Claude Code plugin are installed. Keep one. |
-| Artifacts the user expects are missing | They may be signed in to the other environment: `api.atlan.com` is production, `api.atlan.dev` is dev. Or the artifact is in a workspace they cannot read, which looks the same as not existing. |
+| Artifacts the user expects are missing | They may be signed in to a different Atlan environment from the one that holds it: the server's URL says which. Or the artifact is in a workspace they cannot read, which looks the same as not existing. |
 
 ## Calling tools
 

@@ -38,8 +38,8 @@ mcp__call_tool {
 ```
 
 - **Not found** means it does not exist, the user cannot read it, or this connection is a
-  different Atlan environment (production against dev). Say which checks you made, do not
-  guess at its content, and stop.
+  different Atlan environment from the one the handle came from. Say which checks you made,
+  do not guess at its content, and stop.
 - **Access denied** stops the hand-off. Do not look for the content another way.
 
 Then read its files with `registry__get_file_content`: the manifest and the primary file

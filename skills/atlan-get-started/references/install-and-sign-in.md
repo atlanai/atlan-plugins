@@ -98,9 +98,3 @@ The Atlan desktop app and the registry's marketplace (`https://api.atlan.com/pub
 install a plugin named `atlanai` that registers the same `atlan` server. Keep one of the two:
 with both, every Atlan tool appears twice. This plugin is the one that also installs in Codex,
 Cursor and Copilot.
-
-## Atlan staff: the dev environment
-
-Use `https://api.atlan.dev/mcp` (VPN required) in place of `https://api.atlan.com/mcp`, under
-a different server name such as `atlan-dev`, so the two sign-ins stay apart. The plugin itself
-always points at production.
