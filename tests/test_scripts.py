@@ -68,6 +68,81 @@ class BuildTest(unittest.TestCase):
             build.validate(broken)
 
 
+class VariantTest(unittest.TestCase):
+    """`build.py --variant`: this plugin under another name and endpoint, for another repository."""
+
+    OVERRIDES = {
+        "plugin": {"name": "atlan-staging", "display_name": "Atlan (staging)", "repository": "https://github.com/example/atlan-staging"},
+        "marketplace": {"name": "atlan-staging-plugins"},
+        "mcp": {"url": "https://api.staging.example/mcp"},
+        "rewrite": {"https://api.atlan.com": "https://api.staging.example", "https://app.atlan.com": "https://app.staging.example"},
+        "keep": ["https://app.atlan.com/brain/cli/install.sh"],
+    }
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.variant = build.make_variant(self.source, copy.deepcopy(self.OVERRIDES))
+        self.files = build.variant_files(self.source, self.variant, "variant.toml")
+
+    def test_its_manifests_and_marketplaces_carry_its_names_and_url(self) -> None:
+        for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
+            self.assertEqual(json.loads(self.files[path])["name"], "atlan-staging", path)
+        for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
+            document = json.loads(self.files[path])
+            self.assertEqual(document["name"], "atlan-staging-plugins", path)
+            self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging"], path)
+        server = self.source["mcp"]["server"]
+        self.assertEqual(json.loads(self.files[".mcp.json"])["mcpServers"][server]["url"], "https://api.staging.example/mcp")
+
+    def test_it_copies_every_skill_and_command_and_rewrites_their_names(self) -> None:
+        main = self.source["plugin"]["name"]
+        for top in build.COPIED:
+            for path in (ROOT / top).rglob("*"):
+                if path.is_file():
+                    self.assertIn(path.relative_to(ROOT).as_posix(), self.files)
+        for path, text in self.files.items():
+            if path.endswith(".md"):
+                self.assertNotIn(f"/{main}:", text, path)
+                self.assertNotIn(f"plugin:{main}:", text, path)
+                self.assertNotIn(self.source["mcp"]["url"], text, path)
+        install = self.files["skills/atlan-get-started/references/install-and-sign-in.md"]
+        self.assertIn("/plugin install atlan-staging@atlan-staging-plugins", install)
+        self.assertIn("/plugin marketplace add example/atlan-staging\n", install)
+
+    def test_pairs_apply_once_longest_first_and_kept_strings_stay(self) -> None:
+        pairs = build.rewrites(self.source, self.variant)
+        text = "See an internal repository, run https://app.atlan.com/brain/cli/install.sh, open https://app.atlan.com."
+        self.assertEqual(
+            build.rewrite(text, pairs),
+            "See https://github.com/example/atlan-staging, run https://app.atlan.com/brain/cli/install.sh, open https://app.staging.example.",
+        )
+
+    def test_writes_into_another_folder_and_removes_stale_copies(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            out = Path(temp)
+            (out / "skills/atlan-gone").mkdir(parents=True)
+            (out / "skills/atlan-gone/SKILL.md").write_text("old\n")
+            (out / "variant.toml").write_text("kept\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(build.sync(self.files, out, check=False, owned=build.COPIED), [])
+                self.assertEqual(build.sync(self.files, out, check=True, owned=build.COPIED), [])
+            self.assertFalse((out / "skills/atlan-gone/SKILL.md").exists())
+            self.assertEqual((out / "variant.toml").read_text(), "kept\n")
+            self.assertTrue((out / "README.md").is_file())
+
+    def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
+        for table, field, value in (
+            ("plugin", "name", "atlan"),
+            ("marketplace", "name", "atlan-plugins"),
+            ("plugin", "version", "9.9.9"),
+            ("mcp", "url", "http://plain.example/mcp"),
+        ):
+            overrides = copy.deepcopy(self.OVERRIDES)
+            overrides[table][field] = value
+            with self.subTest(field=f"{table}.{field}"), self.assertRaises(SystemExit):
+                build.make_variant(self.source, overrides)
+
+
 class FrontmatterTest(unittest.TestCase):
     def test_parses_fields_and_body(self) -> None:
         fields, body = lint.frontmatter("---\nname: x\ndescription: Use when y.\n---\n\n# X\n")

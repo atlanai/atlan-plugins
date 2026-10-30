@@ -24,7 +24,7 @@ API keys to copy.
 | Skills only | `npx skills add an internal repository`, then add the MCP server below. |
 | MCP server only | `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). For example `claude mcp add --transport http atlan https://api.atlan.com/mcp`. |
 
-Per-tool details, the dev environment and sign-in help:
+Per-tool details and sign-in help:
 [`skills/atlan-get-started/references/install-and-sign-in.md`](skills/atlan-get-started/references/install-and-sign-in.md).
 
 Then ask your agent something like *"Connect to Atlan and show me which skills my organization

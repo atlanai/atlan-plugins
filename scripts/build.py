@@ -3,19 +3,28 @@
 
     python3 scripts/build.py           # write the generated files
     python3 scripts/build.py --check   # exit 1 if any generated file differs from plugin.toml
+    python3 scripts/build.py --variant variant.toml --out DIR [--check]
 
 Each tool reads a different file, so the same facts are written several times. Keeping one source
 is what stops the name, version and MCP URL drifting apart between tools.
+
+A variant is this plugin under another name and endpoint, published from another repository: its
+TOML file overrides `[plugin]`, `[marketplace]` and `[mcp]` fields and lists `[rewrite]` pairs for
+the skills' text. `--variant` writes the whole plugin into DIR: its manifests, a one-plugin
+marketplace, and a copy of the skills and commands with the URLs, the plugin's name and its
+repository rewritten. This repository holds no variant of its own.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import re
 import sys
 import tomllib
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -27,6 +36,16 @@ CLAUDE_MARKETPLACE_SCHEMA = "https://code.claude.com/schemas/marketplace.json"
 NAME = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 
+# What a variant copies from this plugin: rewritten text, then files taken as they are.
+COPIED = ("skills", "commands")
+VERBATIM = ("assets/logo.svg", "LICENSE")
+# What a variant file may set, by table.
+OVERRIDES = {
+    "plugin": ("name", "display_name", "description", "short_description", "long_description", "homepage", "repository"),
+    "marketplace": ("name", "display_name", "description"),
+    "mcp": ("url",),
+}
+
 
 def load(path: Path = ROOT / "plugin.toml") -> dict:
     with path.open("rb") as handle:
@@ -35,22 +54,52 @@ def load(path: Path = ROOT / "plugin.toml") -> dict:
     return source
 
 
+def check_name(name: str, label: str) -> None:
+    if not NAME.match(name) or "--" in name or ".." in name:
+        raise SystemExit(f"{label} {name!r} is not a valid plugin name")
+    if name.startswith(("claude-", "anthropic-")):
+        raise SystemExit("plugin names starting claude- or anthropic- are reserved")
+
+
 def validate(source: dict) -> None:
     plugin = source["plugin"]
-    for key in ("name",):
-        if not NAME.match(plugin[key]) or "--" in plugin[key] or ".." in plugin[key]:
-            raise SystemExit(f"plugin.{key} {plugin[key]!r} is not a valid plugin name")
+    check_name(plugin["name"], "plugin.name")
     if not NAME.match(source["marketplace"]["name"]):
         raise SystemExit("marketplace.name is not a valid name")
-    if plugin["name"].startswith(("claude-", "anthropic-")):
-        raise SystemExit("plugin names starting claude- or anthropic- are reserved")
     if not SEMVER.match(plugin["version"]):
         raise SystemExit(f"plugin.version {plugin['version']!r} is not SemVer")
-    if not source["mcp"]["url"].startswith("https://"):
-        raise SystemExit("mcp.url must be https")
+    for url in (source["mcp"]["url"], plugin["homepage"], plugin["repository"]):
+        if not url.startswith("https://"):
+            raise SystemExit(f"{url} must be https")
     logo = ROOT / plugin["logo"]
     if not logo.is_file():
         raise SystemExit(f"plugin.logo {plugin['logo']} does not exist")
+
+
+def load_variant(path: Path, source: dict) -> dict:
+    with path.open("rb") as handle:
+        overrides = tomllib.load(handle)
+    return make_variant(source, overrides)
+
+
+def make_variant(source: dict, overrides: dict) -> dict:
+    """The source with a variant file's overrides applied, checked against the source."""
+    variant = copy.deepcopy(source)
+    for table, fields in OVERRIDES.items():
+        unknown = set(overrides.get(table, {})) - set(fields)
+        if unknown:
+            raise SystemExit(f"variant [{table}] cannot set {', '.join(sorted(unknown))}")
+        variant[table].update(overrides.get(table, {}))
+    variant["rewrite"] = dict(overrides.get("rewrite", {}))
+    variant["keep"] = list(overrides.get("keep", []))
+    validate(variant)
+    if variant["plugin"]["name"] == source["plugin"]["name"]:
+        raise SystemExit("a variant needs its own plugin name, or its commands collide with this one's")
+    if variant["marketplace"]["name"] == source["marketplace"]["name"]:
+        raise SystemExit("a variant needs its own marketplace name, so both can be added on one machine")
+    if not all(url.startswith("https://") for pair in variant["rewrite"].items() for url in pair):
+        raise SystemExit("every variant [rewrite] URL must be https")
+    return variant
 
 
 def core(source: dict) -> dict:
@@ -168,27 +217,138 @@ def render(document: dict) -> str:
     return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--check", action="store_true", help="fail on drift instead of writing")
-    args = parser.parse_args(argv)
+def github_slug(url: str) -> str:
+    return urlparse(url).path.strip("/").removesuffix(".git")
 
+
+def rewrites(source: dict, variant: dict) -> dict[str, str]:
+    """What a variant's copy replaces: its own pairs, then every way a file names the plugin."""
+    main, other = source["plugin"], variant["plugin"]
+    market, other_market = source["marketplace"]["name"], variant["marketplace"]["name"]
+    pairs = dict(variant["rewrite"])
+    pairs.update(
+        {
+            f"plugin:{main['name']}:": f"plugin:{other['name']}:",
+            f"mcp__plugin_{main['name']}_": f"mcp__plugin_{other['name']}_",
+            f"{main['name']}@{market}": f"{other['name']}@{other_market}",
+            f"/plugin install {main['name']} ": f"/plugin install {other['name']} ",
+            f"/{main['name']}:": f"/{other['name']}:",
+            main["repository"]: other["repository"],
+            github_slug(main["repository"]): github_slug(other["repository"]),
+        }
+    )
+    # A kept string maps to itself, so the longer match protects it from a shorter pair.
+    pairs.update({kept: kept for kept in variant["keep"]})
+    return {old: new for old, new in pairs.items() if old}
+
+
+def rewrite(text: str, pairs: dict[str, str]) -> str:
+    """Every pair at once, longest match first, so no replacement is rewritten again."""
+    if not pairs:
+        return text
+    pattern = re.compile("|".join(re.escape(old) for old in sorted(pairs, key=len, reverse=True)))
+    return pattern.sub(lambda match: pairs[match.group(0)], text)
+
+
+def variant_readme(source: dict, variant: dict, variant_file: str) -> str:
+    plugin, mcp = variant["plugin"], variant["mcp"]
+    slug, market = github_slug(plugin["repository"]), variant["marketplace"]["name"]
+    return f"""# {plugin['display_name']}
+
+{plugin['long_description']}
+
+## Install
+
+Claude Code:
+
+```
+/plugin marketplace add {slug}
+/plugin install {plugin['name']}@{market}
+```
+
+Codex:
+
+```
+codex plugin marketplace add {slug}
+codex plugin add {plugin['name']}@{market}
+```
+
+Then sign in. In Claude Code, run `/mcp`, choose `plugin:{plugin['name']}:{mcp['server']}` and
+**Authenticate**. The server is `{mcp['url']}`.
+
+## Where this comes from
+
+The plugin's files are generated by `scripts/build.py --variant` from
+{source['plugin']['repository']}. Change the skills and commands there. Change this
+plugin's name and endpoints in `{variant_file}`, the one plugin file written by hand.
+"""
+
+
+def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, str]:
+    """Every file of a variant, by path inside its repository."""
+    texts = {path: render(document) for path, document in outputs(variant).items()}
+    pairs = rewrites(source, variant)
+    for top in COPIED:
+        for path in sorted(p for p in (ROOT / top).rglob("*") if p.is_file()):
+            relative = path.relative_to(ROOT).as_posix()
+            texts[relative] = rewrite(path.read_text(encoding="utf-8"), pairs)
+    for relative in VERBATIM:
+        texts[relative] = (ROOT / relative).read_text(encoding="utf-8")
+    texts["README.md"] = variant_readme(source, variant, variant_file)
+    return texts
+
+
+def sync(texts: dict[str, str], root: Path, check: bool, owned: tuple[str, ...] = ()) -> list[str]:
+    """Write `texts` under `root`, or list what differs. Files under `owned` not in `texts` are stale."""
     drift = []
-    for relative, document in outputs(load()).items():
-        path = ROOT / relative
-        text = render(document)
+    for relative, text in texts.items():
+        path = root / relative
         current = path.read_text(encoding="utf-8") if path.exists() else None
         if current == text:
             continue
-        if args.check:
+        if check:
             drift.append(relative)
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         print(f"wrote {relative}")
+    for top in owned:
+        for path in sorted(p for p in (root / top).rglob("*") if p.is_file()):
+            relative = path.relative_to(root).as_posix()
+            if relative in texts:
+                continue
+            if check:
+                drift.append(relative)
+                continue
+            path.unlink()
+            print(f"removed {relative}")
+    return drift
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--check", action="store_true", help="fail on drift instead of writing")
+    parser.add_argument("--variant", type=Path, help="a variant file: write that variant instead")
+    parser.add_argument("--out", type=Path, help="with --variant: the variant repository's root")
+    args = parser.parse_args(argv)
+
+    source = load()
+    if args.variant:
+        if not args.out:
+            parser.error("--variant needs --out")
+        if args.out.resolve() == ROOT:
+            parser.error("--out must be the variant's own repository, not this one")
+        variant = load_variant(args.variant, source)
+        texts = variant_files(source, variant, args.variant.name)
+        drift = sync(texts, args.out, args.check, owned=COPIED)
+        target = f"python3 scripts/build.py --variant {args.variant} --out {args.out}"
+    else:
+        texts = {path: render(document) for path, document in outputs(source).items()}
+        drift = sync(texts, ROOT, args.check)
+        target = "python3 scripts/build.py"
 
     if drift:
-        print("generated files differ from plugin.toml; run python3 scripts/build.py:", file=sys.stderr)
+        print(f"generated files differ from their source; run {target}:", file=sys.stderr)
         for relative in drift:
             print(f"  {relative}", file=sys.stderr)
         return 1
