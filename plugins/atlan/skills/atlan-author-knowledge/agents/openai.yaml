@@ -1,0 +1,11 @@
+interface:
+  display_name: "Author Knowledge"
+  short_description: "Create or edit a knowledge bundle in Atlan"
+  default_prompt: "Use $atlan-author-knowledge to publish these Markdown notes as an Atlan knowledge bundle."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

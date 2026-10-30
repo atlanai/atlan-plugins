@@ -1,9 +1,11 @@
 ---
 description: Catch up on and continue an Atlan artifact handed over from the Atlan dashboard.
-argument-hint: "<artifact handle, such as out_…> [source session session_…] [what to do next]"
+argument-hint: "<artifact handle, such as output_…> [source session session_…] [what to do next]"
 ---
 
-Follow the bundled skill at `skills/atlan-continue/SKILL.md` for this hand-off:
+Load this plugin's `atlan-continue` skill and follow it (in Claude Code, the Skill tool's
+`atlan:atlan-continue`; elsewhere, the skill named `atlan-continue`). Do not look for its file in
+the working directory: it ships with the plugin, not the project. The hand-off:
 
 > $ARGUMENTS
 

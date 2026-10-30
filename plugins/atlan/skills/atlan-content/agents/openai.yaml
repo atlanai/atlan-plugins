@@ -1,0 +1,11 @@
+interface:
+  display_name: "Atlan Files"
+  short_description: "Upload, read or version a file in Atlan"
+  default_prompt: "Use $atlan-content to upload this file to Atlan, or read an Atlan skill's files."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
