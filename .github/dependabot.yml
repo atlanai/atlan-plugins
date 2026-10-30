@@ -1,0 +1,11 @@
+# Keeps the SHA-pinned actions in .github/workflows current. The Claude Code CLI that CI
+# installs is pinned in ci.yml and bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
