@@ -29,6 +29,7 @@ upstream.json                     pinned sources and sha256 of every vendored fi
 assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
 tools/                            build, sync, lint and the skill index, standard library Python 3.11+
 tools/tests/                      unit tests for the tools
+evals/atlan/                      the core plugin's behaviour evals and the gateway emulator they run against
 ```
 
 ## Rules
@@ -38,7 +39,7 @@ tools/tests/                      unit tests for the tools
   This is the layout of Anthropic's own marketplace and of vendors that ship several plugins.
 - **Never hand-edit a generated file.** Change `plugin.toml`, run `make build`. CI fails on drift.
 - **Never edit a vendored file.** The core's skills and commands listed in `upstream.json` belong to the
-  registry's apps (agent-gateway's files module, app-skill, app-agent), which serve the same files
+  registry's apps (agent-gateway's files module, app-skill, app-agent, app-knowledge, app-repo), which serve the same files
   as MCP prompts and in the registry's own `atlanai` plugin. Fix them upstream, then move the pin:
   `make sync-adopt` with sibling checkouts, or the **Sync upstream recipes** workflow.
 - **Every skill, vendored or owned, in every plugin has a `[skills.<name>]` entry** in
@@ -79,6 +80,15 @@ make site        # dist/site/.well-known/agent-skills/: the skills as a discover
 ```
 
 CI runs `check` and `validate` on every pull request.
+
+`make eval` runs the core plugin's behaviour evals (`evals/atlan/`): realistic prompts, from a
+dashboard hand-off to a vague "do we have a skill for this?", each run by Claude Code with the
+plugin loaded and graded on the tool calls it made and the answer it gave. The `atlan` server is
+replaced by `evals/atlan/emulator/`, a stdio stand-in for the gateway's search mode over one
+fixed organization, because `claude plugin eval` mocks cannot name a tool with `__` in it. It
+needs the claude CLI and costs money, so it is not in CI: run it before a release that changes
+an owned skill, and add a case for each failure you fix. When the live gateway changes a tool
+or a refusal the skills rely on, change the emulator to match.
 
 ## Prompts other products send
 

@@ -13,7 +13,7 @@ line, runs the same materialization a first create runs, and the previous versio
 resolvable at its own ordinal.
 
 ```
-extension__file__request_upload → PUT → registry__create_artifact kind:file → extension__skill__create
+registry__request_file_upload → PUT → registry__create_artifact kind:file → extension__skill__create
 ```
 
 with the identity unchanged. Check `version_ordinal` in the returned slot to confirm it

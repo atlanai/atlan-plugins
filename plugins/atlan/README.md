@@ -19,8 +19,8 @@ The first thing to ask: *"Connect to Atlan and show me which skills my organizat
 ## MCP server
 
 `atlan`, at `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). This is Atlan's MCP gateway in
-search mode. Four tools (`mcp__search_tools`, `mcp__describe_tools`, `mcp__call_tool` and
-`mcp__connect_server`) reach the registry's own tools, every Atlan app's tools, and every MCP
+search mode. Three tools (`mcp__search_tools`, `mcp__describe_tools` and `mcp__call_tool`)
+reach the registry's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 
@@ -34,22 +34,21 @@ call in a session you can review.
 | `atlan-use-mcp-servers` | Call Slack, Linear or any other server registered in Atlan, or register a new one |
 | `atlan-continue` | Pick up an artifact handed over from the Atlan dashboard |
 | `atlan-troubleshoot` | Diagnose sign-in errors, refusals, conflicts, rate limits and failed uploads |
-| `atlan-upload-content`, `atlan-read-content` | Upload files to the registry and read them back |
-| `atlan-author-skills`, `atlan-link-skill` | Publish a skill, or sync a repository's skills to Atlan |
-| `atlan-author-agents`, `atlan-link-agent` | Register an agent, or sync a repository's agents to Atlan |
+| `atlan-content` | Upload, read and version files in the registry, including a skill's files |
+| `atlan-author-skills` | Publish a skill, or a new version of one |
+| `atlan-author-agents` | Register an agent or harness, or link a repository's agent and its skills |
+| `atlan-author-knowledge` | Create, read or edit a knowledge bundle |
+| `atlan-connect-repo` | Register a repository, or publish its skills and agents to Atlan from GitHub CI |
 | `atlan-record-outputs` | Record what a run produced as an Atlan output |
 
-The registry's own apps write the last seven. This plugin carries them unchanged, and the
-gateway also serves them as MCP prompts.
+The registry's own apps write the last six. This plugin carries them unchanged, and the
+gateway also serves them as MCP resources.
 
 ## Commands
 
-Claude Code and Cursor run these as `/atlan:<command>`.
-
-- `get-started`, `use-skill <skill_…>` and `continue <out_…>`: the Atlan dashboard's
-  **Open in Claude** buttons send these.
-- `atlan-new-skill`, `atlan-update-skill`, `atlan-link-skill`, `atlan-new-agent`,
-  `atlan-link-agent`, `atlan-record-output` and `atlan-upload`: the registry's authoring recipes.
+Claude Code and Cursor run these as `/atlan:<command>`. The Atlan dashboard's **Open in Claude**
+buttons send them: `get-started`, `use-skill <skill_…>` and `continue <output_…>`. The
+registry's authoring recipes are skills, invoked by name (`/atlan:atlan-author-skills`).
 
 ## Alongside Atlan's desktop app
 

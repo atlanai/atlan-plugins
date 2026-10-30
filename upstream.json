@@ -4,77 +4,99 @@
     {
       "name": "registry-files",
       "repository": "https://github.com/atlanai/agent-gateway",
-      "rev": "2fb83a7f8adf638f254a1d0253977644ed7364de",
+      "rev": "1245fba1543188872ccd16e6679af834a2b01762",
       "path": "core/registry-files/defaults",
       "into": "plugins/atlan"
     },
     {
       "name": "skill",
       "repository": "https://github.com/atlanai/app-skill",
-      "rev": "a45f3dba71d94823366419c5e6320df2abfd627f",
+      "rev": "fa221a44b6081d54841ef96d208c0359f9dc2c60",
       "path": "skill/defaults",
       "into": "plugins/atlan"
     },
     {
       "name": "agent",
       "repository": "https://github.com/atlanai/app-agent",
-      "rev": "6bb08a4234a3d9b85f74578c3631d9dbcd70066c",
+      "rev": "0c2231de0ebdd15310fa3e0d57e18a8dca835b7f",
       "path": "agent/defaults",
+      "into": "plugins/atlan"
+    },
+    {
+      "name": "knowledge",
+      "repository": "https://github.com/atlanai/app-knowledge",
+      "rev": "2f4c5d197b7af37b57ef7a8e196f1b25ecbd89ad",
+      "path": "knowledge/defaults",
+      "into": "plugins/atlan"
+    },
+    {
+      "name": "repo",
+      "repository": "https://github.com/atlanai/app-repo",
+      "rev": "e090f72e3d0c654379ebda5de8f7539b30ac9874",
+      "path": "repo/defaults",
       "into": "plugins/atlan"
     }
   ],
   "files": {
-    "plugins/atlan/commands/atlan-link-agent.md": {
-      "source": "agent",
-      "sha256": "f9e6c4ca745f3d3aac4db2372c453a67cde9f6abe70a2856020412071ab3588d"
-    },
-    "plugins/atlan/commands/atlan-link-skill.md": {
-      "source": "skill",
-      "sha256": "f816b8e502c61b12f852ab8ebe71dc5d530051f18dd3337ae13116ac3ce778d2"
-    },
-    "plugins/atlan/commands/atlan-new-agent.md": {
-      "source": "agent",
-      "sha256": "aeeb7a5ba5be7b74b116b1ab6b0d599bd779ab6060cbc8c8bcafd8ff5944353a"
-    },
-    "plugins/atlan/commands/atlan-new-skill.md": {
-      "source": "skill",
-      "sha256": "8b1ec2ab0ab7ea706d549a92da8656b49b38ca54dd2b355c277dc8a5e696e6b1"
-    },
-    "plugins/atlan/commands/atlan-record-output.md": {
-      "source": "agent",
-      "sha256": "4feb28a0fec33a0624486fc9ac1dcc34e2304d6a9738b88371076a4ebaa8a213"
-    },
-    "plugins/atlan/commands/atlan-update-skill.md": {
-      "source": "skill",
-      "sha256": "ceb57bdf16b183af092298696f31e607b13b52546d20103ec9b3101094c03753"
-    },
-    "plugins/atlan/commands/atlan-upload.md": {
-      "source": "registry-files",
-      "sha256": "394ae695e4cd79d1047ecb5b16c7d7eeb4798fb95eb7fdabda94f7fa18b532d4"
-    },
     "plugins/atlan/skills/atlan-author-agents/SKILL.md": {
       "source": "agent",
-      "sha256": "7b58353f98dd61f23833e0cec89771ef88d06a11b06c4ae7169d81f05b4cfd99"
+      "sha256": "ba7739211ac44fb6efd01bbceac7efb66b6f07664bd62608a72c94ff270a59d9"
     },
     "plugins/atlan/skills/atlan-author-agents/references/agent-edges.md": {
       "source": "agent",
       "sha256": "14000f30fafc223ff9019905803f4af234031eaa60a7e1bb7c54357d506ce3fd"
     },
+    "plugins/atlan/skills/atlan-author-agents/references/agent-manifest.md": {
+      "source": "agent",
+      "sha256": "014dcfdcf022e64fc749254210591aa22ea82aea8e6ad249e2f1a9100eff4c0f"
+    },
     "plugins/atlan/skills/atlan-author-agents/references/harness-and-session.md": {
       "source": "agent",
       "sha256": "617359c91de62fe43ec08d451d57b0477e54be156f7aa7baf9863e7a3d78f23f"
+    },
+    "plugins/atlan/skills/atlan-author-agents/references/link-repository-agent.md": {
+      "source": "agent",
+      "sha256": "a2bc1918c8bf59faf3a296350e63945993d3b12981c25c7911458aaa0d53891b"
+    },
+    "plugins/atlan/skills/atlan-author-agents/references/register.md": {
+      "source": "agent",
+      "sha256": "0b7a226178577cf506de3dcef962e11d127046958d25d01fe86135ff5bc63a5f"
     },
     "plugins/atlan/skills/atlan-author-agents/references/update-an-agent.md": {
       "source": "agent",
       "sha256": "9be66def181146a19396e6526cdeb243c8dd9f2853713349c5cec129b02d8ec9"
     },
+    "plugins/atlan/skills/atlan-author-knowledge/SKILL.md": {
+      "source": "knowledge",
+      "sha256": "e7a7ccdb56c3de5a81b40f4dcb81a8c8adf3c0d29802ef7235eba458a1b7415c"
+    },
+    "plugins/atlan/skills/atlan-author-knowledge/references/author.md": {
+      "source": "knowledge",
+      "sha256": "c5798f7f39da21dce855017b57cf01d396eaf0ae0895f7a58e107ede0135472c"
+    },
+    "plugins/atlan/skills/atlan-author-knowledge/references/bundle-format.md": {
+      "source": "knowledge",
+      "sha256": "2df20e2b6aea78b3b6ccd78affbffef79fa477460b6dcf94e0d84d7f94f80049"
+    },
+    "plugins/atlan/skills/atlan-author-knowledge/references/read-a-bundle.md": {
+      "source": "knowledge",
+      "sha256": "a5d5fa7a8fa1bc5a070aee6d30e51fc6341083559c4a7c6d6c81a10e553e1e1a"
+    },
+    "plugins/atlan/skills/atlan-author-knowledge/references/update-a-bundle.md": {
+      "source": "knowledge",
+      "sha256": "72841656f0b6fb90a8cc2775c5852a679edc0acc7a19564870b7e590ad4758af"
+    },
     "plugins/atlan/skills/atlan-author-skills/SKILL.md": {
       "source": "skill",
-      "sha256": "05a92716015240a2f90e20b1ab33b3708612f391deaf3e6270fb1c3327012b46"
+      "sha256": "9922ab1d89e8ddb5212340f5848c35d9503ad330a6dd175130edef0ba959d76b"
     },
     "plugins/atlan/skills/atlan-author-skills/references/bundle-format.md": {
       "source": "skill",
       "sha256": "3eb5fd517aedc23a1a55adb6c5b495d32d6eef5de09a885033efc9d559c1a7f3"
+    },
+    "plugins/atlan/skills/atlan-author-skills/references/publish.md": {
+      "source": "skill",
+      "sha256": "51442a5e711c3484f3a4b544ff9f810ef9f3fea1a53364cec638c70ac9a751ad"
     },
     "plugins/atlan/skills/atlan-author-skills/references/skill-edges.md": {
       "source": "skill",
@@ -82,47 +104,59 @@
     },
     "plugins/atlan/skills/atlan-author-skills/references/update-a-skill.md": {
       "source": "skill",
-      "sha256": "240e99d7a27f0833971f3aa1ee74a11d6e20fff0e846b8b60ae366aa39a74170"
+      "sha256": "9a5319775a368c0215fa993d7d84b78dee5ac498f27815162411881228897888"
     },
-    "plugins/atlan/skills/atlan-link-agent/SKILL.md": {
-      "source": "agent",
-      "sha256": "ce63fc784cac3ca41aafce927330a524292bca2f479780839679cce54adb0031"
+    "plugins/atlan/skills/atlan-connect-repo/SKILL.md": {
+      "source": "repo",
+      "sha256": "2effcb4104bd89e7b4eb4e80de2a3f9691dec0ac867bd36a438043ebf24177f3"
     },
-    "plugins/atlan/skills/atlan-link-agent/references/agent-manifest.md": {
-      "source": "agent",
-      "sha256": "d6c9f9905905c1eca6d775887dc151afa8a36bdfe0f3692c4df6953dfc220e5b"
+    "plugins/atlan/skills/atlan-connect-repo/references/github-sync.md": {
+      "source": "repo",
+      "sha256": "c4f31f3e6e63db8df9d2b9d0461c7bd8c8ee99723d6008f001f36df96b145943"
     },
-    "plugins/atlan/skills/atlan-link-skill/SKILL.md": {
-      "source": "skill",
-      "sha256": "b29f6190c7c6506c20686b9fb5acc830c745b2f36b9dd30159ab4e034a000d99"
+    "plugins/atlan/skills/atlan-connect-repo/references/register.md": {
+      "source": "repo",
+      "sha256": "3a32a2b33e623d1906dc94fa76814dcdac475961d02165540e245570f71f7dee"
     },
-    "plugins/atlan/skills/atlan-link-skill/references/workflows.md": {
-      "source": "skill",
+    "plugins/atlan/skills/atlan-connect-repo/references/workflows.md": {
+      "source": "repo",
       "sha256": "ec9ab21fe168eece2adc98639ed54ad9ff8ebebeabffabfc158ac71a76c82b1d"
     },
-    "plugins/atlan/skills/atlan-read-content/SKILL.md": {
+    "plugins/atlan/skills/atlan-content/SKILL.md": {
       "source": "registry-files",
-      "sha256": "8825af0998413add1b2cd6919e2d422439724b72579b9fe6aad576e8c4d45fb3"
+      "sha256": "3ce706ec0971ac915883d07ed8f568b539826777f753cdfbde1eff5496befa71"
     },
-    "plugins/atlan/skills/atlan-read-content/references/reading-a-skill.md": {
+    "plugins/atlan/skills/atlan-content/references/read.md": {
+      "source": "registry-files",
+      "sha256": "76d753608b1d78d2ec385372a60d901e2f149f7fb451669c5c30954212ba17d2"
+    },
+    "plugins/atlan/skills/atlan-content/references/reading-a-skill.md": {
       "source": "registry-files",
       "sha256": "776e83ac10755bd3912b9f57ddee9714ca704c0073b3a453c312c85e182eec24"
     },
+    "plugins/atlan/skills/atlan-content/references/upload-troubleshooting.md": {
+      "source": "registry-files",
+      "sha256": "478a7ffddf9f30368ede01d60b54ab52716b47a5fe8a7ccadc473edd800896aa"
+    },
+    "plugins/atlan/skills/atlan-content/references/upload.md": {
+      "source": "registry-files",
+      "sha256": "1c749c5ade1f76da2a0809893b93b5da2938ed410e0ce27972b7193e5c0b814b"
+    },
+    "plugins/atlan/skills/atlan-content/references/write-and-version.md": {
+      "source": "registry-files",
+      "sha256": "39e8db3ec3c732f3016c877908a344e1bddc7ccbcbb4e6e1579fbf7cbf3a46ca"
+    },
     "plugins/atlan/skills/atlan-record-outputs/SKILL.md": {
       "source": "agent",
-      "sha256": "4816ddbbeb0eddb39ffc026f91f277cb6cb1825737d285af666e72d77bd7e9c8"
+      "sha256": "7ba45492cb72fca4cbdb74429a44ffb47a0d90c80fb75a4c90df668b12cbcf6d"
     },
     "plugins/atlan/skills/atlan-record-outputs/references/output-modes.md": {
       "source": "agent",
       "sha256": "4c32bd26ddcb6231ec186fdc1b3619658297561a3e6d25ed30dec630440e38a2"
     },
-    "plugins/atlan/skills/atlan-upload-content/SKILL.md": {
-      "source": "registry-files",
-      "sha256": "6628fe13ed5b7873c0c7400f276653b9b8c4d36bdb75668a2226c1ce3b86da6c"
-    },
-    "plugins/atlan/skills/atlan-upload-content/references/upload-troubleshooting.md": {
-      "source": "registry-files",
-      "sha256": "478a7ffddf9f30368ede01d60b54ab52716b47a5fe8a7ccadc473edd800896aa"
+    "plugins/atlan/skills/atlan-record-outputs/references/record.md": {
+      "source": "agent",
+      "sha256": "40fe25c4d90606d2755a398c845dc684bd9612d0dee0b24d9b888b9033a39bbf"
     }
   }
 }

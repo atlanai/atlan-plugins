@@ -474,6 +474,8 @@ def rewrites(source: dict, variant: dict) -> dict[str, str]:
                 f"{old}@{market}": f"{new}@{other_market}",
                 f"/plugin install {old} ": f"/plugin install {new} ",
                 f"/{old}:": f"/{new}:",
+                # A skill named for the Skill tool, as the commands name theirs: `atlan:atlan-continue`.
+                f"`{old}:": f"`{new}:",
             }
         )
     pairs.update(
