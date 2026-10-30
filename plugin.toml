@@ -64,16 +64,16 @@ default_prompts = [
 [[addons]]
 name = "atlan-analytics"
 display_name = "Atlan Analytics"
-version = "0.1.4"
-description = "Bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
+version = "0.1.5"
+description = "Answer data questions from governed metrics, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
 short_description = "Metrics and talk-to-data agents on Atlan"
-long_description = "The analytics workload on the Atlan registry. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
+long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "evals"]
 category = "Data"
 default_prompts = [
+  "What was revenue last quarter, by region, from our published metrics?",
   "Build metrics and saved queries for our support tables from the warehouse's query history",
   "Build a talk-to-data agent for our revenue questions",
-  "Propose a fix for the metric we just found was wrong",
 ]
 
 # Codex's card for each skill in every plugin above, vendored recipes included: tools/build.py
@@ -149,6 +149,11 @@ prompt = "Use $atlan-record-outputs to record this deliverable as an Atlan outpu
 display_name = "Atlan Analytics"
 short_description = "Metrics and talk-to-data agents on Atlan"
 prompt = "Use $atlan-analytics to build metrics or a talk-to-data agent on Atlan."
+
+[skills.atlan-analytics-ask]
+display_name = "Ask Your Data"
+short_description = "Answer a data question from published metrics"
+prompt = "Use $atlan-analytics-ask to answer: what was revenue last quarter, by region?"
 
 [skills.atlan-analytics-build]
 display_name = "Build a Talk-to-Data Agent"

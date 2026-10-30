@@ -1,0 +1,11 @@
+interface:
+  display_name: "Ask Your Data"
+  short_description: "Answer a data question from published metrics"
+  default_prompt: "Use $atlan-analytics-ask to answer: what was revenue last quarter, by region?"
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
