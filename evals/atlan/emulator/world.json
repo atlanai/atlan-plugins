@@ -448,7 +448,7 @@
   },
   {
    "name": "extension__skill__create",
-   "description": "Publish a skill bundle (a staged ZIP) as a new skill or a new version of one.",
+   "description": "Create skills from exactly one of a bounded inline text files map or a registered ZIP bundle_file_id per skill. Creation does not publish; existing validation and scan gates still apply.",
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": false,
@@ -459,22 +459,61 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-     "workspace_id": {
-      "type": "string"
-     },
-     "upload_key": {
-      "type": "string"
-     },
-     "source_type": {
-      "type": "string"
-     },
-     "source_id": {
-      "type": "string"
+     "skills": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "name": {
+         "type": "string"
+        },
+        "workspace_id": {
+         "type": "string"
+        },
+        "bundle_file_id": {
+         "type": "string"
+        },
+        "files": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string"
+         },
+         "description": "Text files, including root SKILL.md; batch maximum 256 KiB and 128 files."
+        }
+       },
+       "required": [
+        "name",
+        "workspace_id"
+       ],
+       "oneOf": [
+        {
+         "required": [
+          "files"
+         ],
+         "not": {
+          "required": [
+           "bundle_file_id"
+          ]
+         }
+        },
+        {
+         "required": [
+          "bundle_file_id"
+         ],
+         "not": {
+          "required": [
+           "files"
+          ]
+         }
+        }
+       ]
+      }
      }
     },
     "required": [
-     "workspace_id",
-     "upload_key"
+     "skills"
     ]
    },
    "writes": "skill"
