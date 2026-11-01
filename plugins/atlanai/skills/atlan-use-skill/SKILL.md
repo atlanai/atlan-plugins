@@ -38,16 +38,21 @@ offer to. Tell the user what the skill asked for, and that it may need its owner
   `atlan-find-artifacts`), with `semantic: true` for a description. If more than one result
   fits, show them and let the user pick.
 
-## 2. Read its manifest
+## 2. Read its manifest and SKILL.md together
 
 ```
 mcp__call_tool {
   "name": "registry__get_artifact",
-  "arguments": { "artifact_id": "skill_01j…" },
+  "arguments": { "artifact_id": "skill_01j…", "include_file": "SKILL.md" },
   "session_id": "mcp_session_…",
-  "rationale": "Reading the skill's file manifest before using it in this task."
+  "rationale": "Reading the skill and its SKILL.md before using it in this task."
 }
 ```
+
+`include_file` returns `SKILL.md` as `included_file.content`, at the version the manifest pins,
+so no second read is needed. If the call is refused because `get_artifact` does not take
+`include_file`, the gateway predates it: repeat the call without it and read `SKILL.md` as
+section 4 says.
 
 - Check `artifact_status` before anything else:
   - `active`: go on.
@@ -72,10 +77,12 @@ its environment notes; when unsure, ask the user where they are running.
 
 ## 4. Use it now
 
-Read `SKILL.md` with `registry__get_file_content`, passing the `file_id` and the
+`SKILL.md` came back as `included_file.content`. Only when `included_file` is missing or
+carries an `error`, read it with `registry__get_file_content`, passing the `file_id` and the
 `file_version_ordinal` from the manifest as `version_ordinal`. Follow it for this task, and
 open a file under `references/` only when `SKILL.md` sends you there. `atlan-content` has the
-loop and its traps. If the request did not say what to run the skill on, ask.
+loop and its traps. If the request did not say what to run the skill on, ask. Open the
+reply with the skill's first step or question, not a sentence saying the skill was loaded.
 
 **Check what the skill needs that the bundle does not carry.** A registry skill is often cut
 from a larger plugin. Before following it, look for anything it relies on that is neither in
@@ -124,7 +131,8 @@ replacing it.
 Then, for **every** entry in `metadata.files`:
 
 1. Read it with `registry__get_file_content` (`file_id`, and `version_ordinal` set to the
-   entry's `file_version_ordinal`, so every file comes from the same version).
+   entry's `file_version_ordinal`, so every file comes from the same version). `SKILL.md`
+   already came back as `included_file`, so it needs no second read.
 2. Write the returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
    any path that is absolute or contains `..`.
 
