@@ -2,20 +2,14 @@
 
 ## A `401` on the `PUT`
 
-Almost always `is_presigned` read the wrong way.
-
-- `is_presigned: true` and you sent `Authorization`: some object stores refuse a signed
-  request carrying a second credential. Send it without.
-- `is_presigned: false` and you did not send `Authorization`: the URL is the gateway's own
-  ingest route and it authenticates like every other route. Send your bearer.
-
-The reason this is worth a section: a `401` from an object store looks like an expired or
-malformed URL, so the instinct is to re-mint. Re-minting produces the same URL shape and
-the same `401`, which reads as the gateway being broken.
+The gateway PUT requires your bearer in the Authorization header. `is_presigned` is always
+false. Authenticate the request; re-minting cannot fix missing credentials. For small text
+skills, inline `files` avoids the separate upload request when the connector's bearer is
+unavailable to your shell.
 
 ## A `404` on the `PUT`
 
-With `is_presigned: false` the URL is **root-relative** - `/file/v1/...`. If you sent it as
+The URL is **root-relative** - `/file/v1/...`. If you sent it as
 given to whatever host your HTTP client defaults to, that host has no such route. Resolve
 it against the origin you called `registry__request_file_upload` on.
 
@@ -31,19 +25,19 @@ to it.
 
 ## The create is refused after a successful `PUT`
 
-`max_bytes` is checked when the artifact is created, not while uploading. A reserved URL
-binds a destination and a deadline and nothing else - there is no size gate on the
-transfer itself. So an over-size object goes across, is discarded, and the create is
-refused.
+`max_bytes` is enforced during streaming and again at create. An oversized staged object is
+deleted and create is refused.
 
 Send `size_bytes` on `registry__request_file_upload` when you know it. It is checked against the
 ceiling immediately, which turns this into a refusal before the transfer.
 
 ## `upload_url` has expired
 
-`expires_in_seconds` says when. There is no renewal - call `registry__request_file_upload` again for
-a fresh destination, and send promptly. Reserving a URL while still assembling the content
-is what makes this happen.
+A PUT started at or after the 900-second deadline returns `400 invalid_request` with
+"Upload ticket is invalid or expired. Request a new upload ticket." Unissued keys and old
+tickets without an issuance record receive the same refusal. Request a fresh destination and
+upload there. A transfer admitted before expiry may finish afterward, and completed bytes
+can still be registered afterward.
 
 ## A parented file
 
@@ -55,3 +49,9 @@ You almost certainly do not want to write one by hand. It is how a skill bundle'
 files are pinned to their skill, and the skill extension's own hook writes them. Uploading
 a standalone file and parenting it manually is a way to create a child nothing will clean
 up.
+
+## Storage or service unavailable
+
+`customer_store_unavailable` means the organisation’s selected storage could not be reached: ask an administrator to check its role, KMS key and endpoint, then retry. There is no fallback to managed storage. `object_store_unavailable` means managed storage is temporarily unavailable; retry later. A stale tool/server listing needs `tools/list` refreshed; reconnect the Atlan connection if the client continues using a stale listing. A missing artifact still returns `not_found`.
+
+All upload URLs use the API host. For small text skills, inline `files` avoids that separate authenticated upload.
