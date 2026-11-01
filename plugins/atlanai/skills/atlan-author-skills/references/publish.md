@@ -1,27 +1,33 @@
 # Authoring skills in Atlan
 
-A skill **is** its `.zip`. Every property the registry shows you - the summary, the
+A skill is a bundle of files. Small text bundles can be sent inline; the server builds the `.zip`. Every property the registry shows you - the summary, the
 license, the file manifest, the structural counts - is derived from the bundle by the
-create hook. None of it is yours to send. So authoring a skill is: write the bundle,
-upload it, then name it.
+create hook. None of it is yours to send. For larger or binary bundles, upload the ZIP and pass its file handle.
 
 ## Before your first call
 
-1. Open a session once, and keep the id:
+1. Open a session once, and keep the id. How depends on the mode your client connected in:
 
-   ```
-   mcp__initialise {
-     "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "claude-code",
-     "rationale": "<why you are opening it>"
-   }
-   → { "session_id": "mcp_session_01J..." }
-   ```
+   - **Search mode**, the default, lists `mcp__search_tools`, `mcp__describe_tools` and
+     `mcp__call_tool`. Send `objective`, one sentence for a human auditor reading this later,
+     on your first search or call; it returns the id (`session_id` from a search,
+     `mcp_session_id` from a call). Run each tool this procedure names with `mcp__call_tool`:
+     its `name` and `arguments`, with `session_id` and `rationale` at the top level beside
+     `arguments`, never inside it. Search mode does not list `mcp__initialise`.
+   - **Full mode** lists every tool by name. Open the session with `mcp__initialise`:
 
-   Pass that as `session_id` on every later call - it is **required**, and a call that omits
-   it is refused with a message telling you to open one. `mcp__initialise` is the only
-   tool that does not take it, which is what makes this first call possible. Do not invent a
-   value - an id that names no session of yours is refused, not ignored.
+     ```
+     mcp__initialise {
+       "objective": "<one sentence, for a human auditor reading this later>",
+       "client": "claude-code",
+       "rationale": "<why you are opening it>"
+     }
+     → { "session_id": "mcp_session_01J..." }
+     ```
+
+   Pass that id as `session_id` on every later call. Full mode refuses a call without it;
+   search mode opens a second session, splitting the audit trail. Do not invent a value - an
+   id that names no session of yours is refused, not ignored.
 
 2. **`rationale` is required on every tool call.** It is a first-person sentence about why
    you are making *this* call, written for a human reading the audit trail. Not a
@@ -47,6 +53,37 @@ registry__get_kind_schema {
 Worth doing here for the opposite of the usual reason: it tells you what **not** to send.
 Almost every `skill` property is hook-derived, and sending one is either ignored or a
 refusal.
+
+## Small text skills: send files inline
+
+When the create tool's schema includes `files`, prefer:
+
+```json
+{
+  "skills": [{
+    "name": "deploy-preview",
+    "workspace_id": "workspace_...",
+    "files": {
+      "SKILL.md": "---\nname: deploy-preview\ndescription: Deploy a preview.\n---\nFollow references/deploy.md.\n",
+      "references/deploy.md": "Build, deploy, and report the preview URL."
+    }
+  }]
+}
+```
+
+Pass these arguments to `extension__skill__create` using your client's session and
+rationale rails. Supply exactly one of `files` or `bundle_file_id` for each item.
+The entire batch allows 256 KiB of UTF-8 content and 128 inline files. Root
+`SKILL.md` is required. Use relative slash-separated paths (up to eight components,
+1024 bytes); traversal, empty components, backslashes, colons and control characters
+are refused. Inline files are regular text files, mode 0644. Use the ZIP flow below
+for binaries, executable files, larger content, or a server whose schema lacks `files`.
+Do not include secrets: MCP arguments may be retained in audit records.
+
+Inline creation uses the same workspace permissions, bundle validation, scan and
+publication gate as ZIP creation. Read every result slot; creation does not mean
+publication or a passed scan. Match workspace, source_type and source_id when
+appending a version.
 
 ## 1. Write the bundle
 
@@ -89,12 +126,19 @@ The same three steps as any upload - reserve, `PUT`, register:
 
 ```
 registry__request_file_upload { "size_bytes": <zip size>, "session_id": "...", "rationale": "..." }
-→ { "upload_url": ..., "upload_key": ..., "is_presigned": true|false, ... }
+→ { "upload_url": ..., "upload_key": ..., "is_presigned": false, ... }
 ```
 
-`PUT` the whole zip to `upload_url`. **`is_presigned: true` means send no `Authorization`
-header**; `false` means send it, and the URL is root-relative so resolve it against the
-origin you called the tool on.
+`PUT` the whole zip to the authenticated API-host `upload_url` with your Authorization
+header. The URL is root-relative: resolve it against the API origin you called the tool on.
+Start the PUT within `expires_in_seconds` (900 seconds); an expired or unissued ticket returns
+400 with instructions to reserve a fresh destination. A transfer started in time may finish
+and its completed bytes may be registered afterward.
+
+During rollout an older server may still return `is_presigned: true`. Such a storage URL
+carries its own authorization: never send your API bearer to it. Current servers return false.
+If your connector keeps its bearer private, use inline `files` for small text skills instead
+of trying to extract its credentials into a shell.
 
 ```
 registry__create_artifact {

@@ -39,6 +39,10 @@ For binary content or text above the inline ceiling, content arrives out of band
    `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
    as a generic 400 that does **not** name the field.
 
+Uploads use the authenticated API host. Storage placement remains registry-owned. If your
+connector does not expose a bearer for shell HTTP requests, use the skill create tool's inline
+`files` input for small text skills. Do not copy connector credentials into tool arguments.
+
 ## The three steps
 
 ### 1. Reserve a destination
@@ -52,7 +56,7 @@ registry__request_file_upload {
 → {
     "upload_url": "...",
     "upload_key": "...",
-    "is_presigned": true,
+    "is_presigned": false,
     "expires_in_seconds": 900,
     "max_bytes": 104857600
   }
@@ -63,20 +67,13 @@ over-size upload is refused before the transfer rather than after it.
 
 ### 2. `PUT` the bytes
 
-Send the whole body, unencoded. **Read `is_presigned` before you send** - it decides
-whether your bearer token goes with the request:
+Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is always
+`false`; `upload_url` is root-relative (`/file/v1/...`). Resolve it against the API origin you
+called `registry__request_file_upload` on. A missing bearer returns 401.
 
-| `is_presigned` | Where the URL points | `Authorization` header |
-|---|---|---|
-| `true` | Straight at object storage, carrying its own authorization | **Do not send it.** The bytes never touch the gateway |
-| `false` | The gateway's own ingest route, and the URL is **root-relative** (`/file/v1/...`) | **Send it.** Omitting it is a `401`, which reads like a bad URL |
-
-A `false` URL being root-relative is not an oversight: behind an ingress the gateway cannot
-know its own public origin, so it does not guess one. Resolve the path against the origin
-you called `registry__request_file_upload` on.
-
-Treat `upload_url` as a password. Anyone holding it can write to that destination until it
-expires. Do not log it, echo it into a message, or hand it to another tool.
+Start the PUT within `expires_in_seconds` (900 seconds). Expired or unissued tickets return
+400 with instructions to request a fresh ticket. A transfer started in time may finish after
+the deadline. You can register its completed bytes afterward. Keep your bearer private.
 
 ### 3. Create the `file` artifact
 
@@ -106,19 +103,15 @@ place it is handed to you without a second read.
 - **`path` is the file's identity in its workspace.** A second file at the same `path` is a
   409 naming it. Give each upload a distinct path - `bundles/deploy-preview-2026-09-04.zip`
   rather than `bundle.zip`.
-- **`max_bytes` is enforced at step 3, not step 2.** A reserved URL binds a destination and
-  a deadline and nothing else, so an over-size object is transferred, discarded, and the
-  create refused. Check the size before you send.
-- **The URL expires.** Ask for it when you are ready to send, not while you are still
-  assembling the content.
+- **`max_bytes` is enforced during streaming and at step 3.** Check the size before sending.
+- **Upload tickets expire.** Reserve when ready to send; request a fresh ticket after expiry.
 - `media_type` and `size_bytes` on the artifact are derived from the bytes. Do not send
   them.
 
 ## When the `PUT` fails with a network error despite a valid URL
 
-The sandbox running the request probably cannot reach the host. The gateway's domain has to
-be allowed for network access. That is a configuration problem, not a bad `upload_url` -
-re-minting one will not fix it.
+The sandbox must allow the API host. All reserved uploads use that host, including uploads
+stored in a customer bucket. Re-minting does not fix a blocked host or missing authentication.
 
 More on the failure modes: `skills/atlan-content/references/upload-troubleshooting.md`.
 
@@ -148,3 +141,5 @@ how to read a skill's `SKILL.md` from its manifest.
 
 - Publishing a skill: `skills/atlan-author-skills/references/publish.md`
 - Recording a deliverable a run produced: `skills/atlan-record-outputs/references/record.md`
+
+Uploads enforce `max_bytes` during streaming and again at adoption. The gateway enforces `expires_in_seconds` when the PUT starts; reserve just before sending.
