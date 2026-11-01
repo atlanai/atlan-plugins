@@ -116,7 +116,9 @@ recorded without content or that its runs are not yours to read; say which you k
 
 In a few lines: what the artifact is, who owns it and in which workspace, its version, and
 from the session, the original request, the decisions made and the work that remains. State
-any gaps in what you could read. If the prompt already says what to do next, do that.
+any gaps in what you could read, in one line. Keep the whole catch-up under seven lines of
+plain sentences, with no headings: the user can ask for more. If the prompt already says what
+to do next, do that.
 Otherwise ask what they want next, offering the steps that fit the kind:
 
 - an `output`: revise it and record the result as a new output (`atlan-record-outputs`);

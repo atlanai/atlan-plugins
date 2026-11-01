@@ -10,6 +10,9 @@ Atlan's MCP gateway puts every MCP server the organization registered behind the
 `atlan` connection. The user signs in to Atlan once; each downstream server is reached with
 the user's own connected account or a credential an admin linked, never with a key in chat.
 Every call is permission-checked and recorded in the session the user can audit later.
+Replies lead with the result: the first sentence is the answer or the step, counts rather
+than lists, handles only when asked, one next step rather than a menu, and no greeting,
+apology or closing offer.
 
 ## Call a registered server's tools
 
