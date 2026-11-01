@@ -10,3 +10,4 @@
 - [ ] `make validate` passes, or the change touches no manifest, skill or command
 - [ ] Generated files come from `make build`, not hand edits
 - [ ] A user-facing change bumps the plugin's version
+- [ ] User-facing text follows the Voice section of AGENTS.md

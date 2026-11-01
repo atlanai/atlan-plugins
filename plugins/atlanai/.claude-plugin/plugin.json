@@ -1,7 +1,7 @@
 {
   "name": "atlanai",
-  "version": "0.3.0",
-  "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills.",
+  "version": "0.3.1",
+  "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"

@@ -1,22 +1,12 @@
 # Every target is standard library Python except `validate`, which needs the claude CLI.
 PYTHON ?= python3
-# Sibling checkouts of the repositories upstream.json pins, for `sync` and `sync-adopt`.
-AGENT_GATEWAY ?= ../agent-gateway
-APP_SKILL ?= ../app-skill
-APP_AGENT ?= ../app-agent
-APP_KNOWLEDGE ?= ../app-knowledge
-APP_REPO ?= ../app-repo
-SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --from agent=$(APP_AGENT) \
-	--from knowledge=$(APP_KNOWLEDGE) --from repo=$(APP_REPO)
-
 # The analytics helpers' offline selftests run in `check`.
 ANALYTICS_SCRIPTS = plugins/atlanai-analytics/skills/atlan-analytics/scripts
 
-.PHONY: check build sync sync-adopt lint test site validate eval eval-analytics
+.PHONY: check build lint test site validate eval eval-analytics
 
 check:
 	$(PYTHON) tools/build.py --check
-	$(PYTHON) tools/sync_upstream.py --check
 	$(PYTHON) tools/lint.py
 	$(PYTHON) -m unittest discover -s tools/tests -q
 	$(PYTHON) $(ANALYTICS_SCRIPTS)/analytics_eval.py selftest
@@ -24,14 +14,6 @@ check:
 
 build:
 	$(PYTHON) tools/build.py
-
-# Re-copy the vendored recipes at their pinned revisions.
-sync:
-	$(PYTHON) tools/sync_upstream.py $(SOURCES)
-
-# Move every pin to its checkout's HEAD, then copy.
-sync-adopt:
-	$(PYTHON) tools/sync_upstream.py $(SOURCES) --adopt-head
 
 lint:
 	$(PYTHON) tools/lint.py

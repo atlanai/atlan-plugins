@@ -59,12 +59,32 @@ server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp_
     (`kind: "org_default"`); name a handful of the others and say how many more there are.
   - Ask which workspace to use only when a write is coming, and then name the candidates.
 
-  Then offer one first task that fits what the organization has. Check with
-  `registry__list_artifacts { "kind": "skill", "limit": 1 }`: when skills come back, offer to
+  Then offer one first task that fits what the organization has. Check with one more call,
+  carrying the session id and, like every call, a `rationale`:
+
+  ```
+  mcp__call_tool {
+    "name": "registry__list_artifacts",
+    "arguments": { "kind": "skill", "limit": 1 },
+    "session_id": "mcp_session_…",
+    "rationale": "Checking whether the organization has published any skills yet, to suggest a first task."
+  }
+  ```
+
+  When skills come back, offer to
   find the ones that fit their work (`atlan-find-artifacts`); when none do, a search would find
   nothing, so offer to publish a skill from this project (`atlan-author-skills`) or sync a
   repository's skills from GitHub (`atlan-connect-repo`). Mention that the Atlan dashboard at
   https://app.atlan.com shows the same registry in the browser.
+
+  The whole reply is a few lines, in this shape:
+
+  > Connected to Atlan. You can write to **Dana's Workspace** (yours) and **Acme** (the
+  > organization), and read Platform Engineering and Marketing; 14 archived test workspaces
+  > are hidden.
+  >
+  > Acme has 23 skills and 4 agents. Tell me what you are working on and I will find the ones
+  > that fit, or say "publish this skill" to put the one in this folder into Atlan.
 
 ## 2. How every call works
 
@@ -105,13 +125,18 @@ Read `references/calling-tools.md` once. In short:
 | Anything refused, slow, missing or confusing | `atlan-troubleshoot` |
 
 The registry also serves its authoring recipes as MCP prompts (`prompts/list`), for metrics and
-analytics agents among others. When a task is about a kind no skill above
-covers, list the prompts before guessing. If a skill named above is missing, this one was
+analytics agents among others. The list is filtered to the apps the organization has
+installed: a recipe that is missing means the app is not installed, not that the recipe was
+removed. When a task is about a kind no skill above covers, list the prompts before guessing. If a skill named above is missing, this one was
 installed on its own: the registry's recipes are still there as prompts, and the rest come
 with the Atlan plugin (`references/install-and-sign-in.md`).
 
 ## Rules that always hold
 
+- **Replies lead with the result.** The first sentence is the answer or the step. Counts
+  rather than lists, handles only when asked, one next step rather than a menu. No greeting,
+  apology or closing offer, and no announcement of which skill you loaded unless it changes
+  what the user should expect. A first reply or a catch-up stays under seven lines.
 - **Ask before you write.** Searching and reading are free. Before any create, patch, version,
   relationship or upload, say what you will write and where, and get a yes. Archiving is
   admin-only and destructive: only on an explicit request naming the artifact.

@@ -11,7 +11,7 @@ Skills (every plugins/<plugin>/skills/<dir>/SKILL.md):
   * a non-empty `description` of at most 1024 characters with no XML tags (the line a model
     reads to decide whether to load the skill);
   * a non-empty body.
-Skills this repository owns (not vendored, see upstream.json) are also held to:
+Every skill is also held to:
   * at most 500 lines in SKILL.md (longer material goes in references/);
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
@@ -21,6 +21,9 @@ server, hooks or bin/ of their own: an add-on uses the core's one `atlan` connec
 Repository: plugin content only under plugins/ (the root is the marketplace), no symlinks, no
 CLAUDE.md (plugins do not load it), no bin/ (claude.ai and organization sync refuse it), no hooks
 (out of scope, see AGENTS.md), and no credential-shaped strings in any tracked text file.
+Voice (every Markdown file at the root and under plugins/, and plugin.toml): no em dash, no
+exclamation mark ending a sentence, and none of the filler words AGENTS.md's Voice section bans,
+outside code. The words a user reads should say what happens, not how to feel about it.
 """
 
 from __future__ import annotations
@@ -46,7 +49,6 @@ CITED_SKILL = re.compile(r"`(atlan-[a-z0-9-]+)`")
 NOT_SKILLS = {
     "atlan-plugins",  # this repository's marketplace name
     "atlan-dev",  # the suggested server name for the dev environment
-    "atlan-author-knowledge",  # served by the gateway as an MCP prompt, not vendored here
 }
 SECRETS = [
     ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b")),
@@ -57,6 +59,24 @@ SECRETS = [
     ("API key", re.compile(r"\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{32,}\b")),
     ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
 ]
+
+
+# Voice: the marks and words that read as filler. AGENTS.md's Voice section says why. Checked
+# outside fenced blocks and code spans, so a quoted error message or a tool name is never flagged.
+EM_DASH = "\u2014"
+SENTENCE_EXCLAIM = re.compile(r"[A-Za-z0-9)]!(?=\s|$)")
+FILLER = re.compile(
+    r"\b(?:seamless(?:ly)?|leverag(?:e|es|ed|ing)|robust(?:ly|ness)?|empower(?:s|ed|ing|ment)?"
+    r"|effortless(?:ly)?|supercharg(?:e|es|ed|ing)|delv(?:e|es|ed|ing)|comprehensive(?:ly)?"
+    r"|cutting-edge|streamlin(?:e|es|ed|ing)|game-chang(?:er|ers|ing)|unleash(?:es|ed|ing)?"
+    r"|frictionless|great question|happy to help|i'd be happy to|let me know if|hope this helps"
+    r"|dive (?:in|into))\b",
+    re.IGNORECASE,
+)
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+# What the voice check reads: the Markdown people and models read, and the manifest strings.
+VOICE_SUFFIXES = {".md", ".toml"}
+VOICE_SKIPPED = ("evals/", ".github/", "assets/")
 
 
 def frontmatter(text: str) -> tuple[dict[str, str], str] | None:
@@ -82,10 +102,6 @@ def tracked_files() -> list[Path]:
         check=True,
     )
     return [ROOT / name for name in result.stdout.decode().split("\0") if name]
-
-
-def vendored() -> set[str]:
-    return set(json.loads((ROOT / "upstream.json").read_text(encoding="utf-8"))["files"])
 
 
 def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT) -> list[str]:
@@ -159,6 +175,32 @@ def lint_addon(root: Path) -> list[str]:
     return errors
 
 
+def voice_scope(path: Path) -> bool:
+    relative = path.relative_to(ROOT).as_posix()
+    return path.suffix in VOICE_SUFFIXES and not relative.startswith(VOICE_SKIPPED)
+
+
+def lint_voice(path: Path, text: str) -> list[str]:
+    """The marks and words AGENTS.md's Voice section bans, with the line each one is on."""
+    relative = path.relative_to(ROOT)
+    errors = []
+    in_fence = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        prose = INLINE_CODE.sub("", line)
+        if EM_DASH in prose:
+            errors.append(f"{relative}:{number}: em dash; use a comma, a colon or a full stop")
+        if SENTENCE_EXCLAIM.search(prose):
+            errors.append(f"{relative}:{number}: exclamation mark; state it plainly")
+        for match in FILLER.finditer(prose):
+            errors.append(f"{relative}:{number}: filler {match.group(0)!r}; say what happens instead")
+    return errors
+
+
 def lint_repository(files: list[Path]) -> list[str]:
     errors = [
         f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
@@ -186,6 +228,8 @@ def lint_repository(files: list[Path]) -> list[str]:
         for label, pattern in SECRETS:
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: looks like it contains a {label}")
+        if voice_scope(path):
+            errors += lint_voice(path, text)
     return errors
 
 
@@ -197,7 +241,6 @@ def citable(roots: list[Path]) -> set[str]:
 
 
 def main() -> int:
-    owned_paths = vendored()
     roots = plugin_roots()
     skill_dirs = [
         (root, p) for root in roots if (root / "skills").is_dir() for p in sorted((root / "skills").iterdir()) if p.is_dir()
@@ -210,8 +253,7 @@ def main() -> int:
         if directory.name in seen:
             errors.append(f"{directory.relative_to(ROOT)}: skill name also used by {seen[directory.name].relative_to(ROOT)}")
         seen[directory.name] = directory
-        owned = f"{directory.relative_to(ROOT).as_posix()}/SKILL.md" not in owned_paths
-        errors += lint_skill(directory, owned, skills, root)
+        errors += lint_skill(directory, True, skills, root)
     commands = [path for root in roots for top in ("commands", "agents") for path in sorted((root / top).glob("*.md"))]
     for path in commands:
         errors += lint_command(path)

@@ -366,9 +366,9 @@ failed Git operation resumes Git, not agent creation.
 Finish with one compact result: agent name, ID, workspace, mode, and declaration path or folder;
 linked skill IDs and owned file IDs/paths; the credential path only, never its
 contents; the source commit and whether the tree is still dirty; the verification
-performed, including whether a trace was observed; and what is now powered —
+performed, including whether a trace was observed; and what is now powered:
 catalogue/profile, context graph, runtime identity, tracing/cost, eval subject
-selection, and output attribution — each marked ready or still requiring runtime
+selection, and output attribution, each marked ready or still requiring runtime
 work. Do not claim synchronization beyond installed CLI coverage. Runtime output
 provenance belongs to `skills/atlan-record-outputs/references/record.md`, not to static agent
 configuration.
