@@ -174,7 +174,7 @@ class VariantTest(unittest.TestCase):
     def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
         for table, field, value in (
             ("plugin", "name", "atlanai"),
-            ("marketplace", "name", "atlan-plugins"),
+            ("marketplace", "name", "atlan"),
             ("plugin", "version", "9.9.9"),
             ("mcp", "url", "http://plain.example/mcp"),
         ):
@@ -186,7 +186,7 @@ class VariantTest(unittest.TestCase):
     def test_a_dev_variant_follows_the_gateway_suffix_convention(self) -> None:
         overrides = copy.deepcopy(self.OVERRIDES)
         overrides["plugin"]["name"] = "atlanai-dev"
-        overrides["marketplace"]["name"] = "atlan-plugins-dev"
+        overrides["marketplace"]["name"] = "atlan-dev"
         overrides["mcp"]["url"] = "https://api.dev.example/mcp"
         variant = build.make_variant(self.source, overrides)
         files = build.variant_files(self.source, variant, "variant.toml")
