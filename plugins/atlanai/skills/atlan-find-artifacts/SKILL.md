@@ -13,6 +13,9 @@ Everything in the registry is an **artifact**: a versioned item of one **kind**,
 Calls below are written as `mcp__call_tool` in search mode. The first call opens the session
 by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
 and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
+Replies lead with the result: the first sentence is the answer or the step, counts rather
+than lists, handles only when asked, one next step rather than a menu, and no greeting,
+apology or closing offer.
 
 ## Pick the read
 
