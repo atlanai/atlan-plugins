@@ -61,7 +61,7 @@ LEGACY = ("skills", "commands", "assets", "plugin.json", "mcp.json", ".mcp.json"
 # What a variant file may set, by table.
 OVERRIDES = {
     "plugin": ("name", "display_name", "description", "short_description", "long_description", "homepage", "repository"),
-    "marketplace": ("name", "display_name", "description"),
+    "marketplace": ("name", "claude_name", "display_name", "description"),
     "mcp": ("url", "client"),
 }
 
@@ -87,8 +87,9 @@ def check_name(name: str, label: str) -> None:
 def validate(source: dict) -> None:
     plugin = source["plugin"]
     check_name(plugin["name"], "plugin.name")
-    if not NAME.match(source["marketplace"]["name"]):
-        raise SystemExit("marketplace.name is not a valid name")
+    for field in ("name", "claude_name"):
+        if not NAME.match(source["marketplace"][field]):
+            raise SystemExit(f"marketplace.{field} is not a valid name")
     if not SEMVER.match(plugin["version"]):
         raise SystemExit(f"plugin.version {plugin['version']!r} is not SemVer")
     if not NAME.match(source["mcp"]["client"]):
@@ -147,8 +148,12 @@ def make_variant(source: dict, overrides: dict) -> dict:
     validate(variant)
     if variant["plugin"]["name"] == source["plugin"]["name"]:
         raise SystemExit("a variant needs its own plugin name, or its commands collide with this one's")
-    if variant["marketplace"]["name"] == source["marketplace"]["name"]:
-        raise SystemExit("a variant needs its own marketplace name, so both can be added on one machine")
+    # A variant that names one marketplace uses that name in Claude too.
+    if "claude_name" not in overrides.get("marketplace", {}):
+        variant["marketplace"]["claude_name"] = variant["marketplace"]["name"]
+    for field in ("name", "claude_name"):
+        if variant["marketplace"][field] == source["marketplace"][field]:
+            raise SystemExit("a variant needs its own marketplace names, so both can be added on one machine")
     if not all(url.startswith("https://") for pair in variant["rewrite"].items() for url in pair):
         raise SystemExit("every variant [rewrite] URL must be https")
     return variant
@@ -432,7 +437,7 @@ def outputs(source: dict) -> dict[str, dict]:
         },
         ".claude-plugin/marketplace.json": {
             "$schema": CLAUDE_MARKETPLACE_SCHEMA,
-            "name": market["name"],
+            "name": market["claude_name"],
             "description": market["description"],
             "owner": owner,
             "metadata": {"description": market["description"]},
@@ -489,6 +494,7 @@ def rewrites(source: dict, variant: dict) -> dict[str, str]:
     """What a variant's copy replaces: its own pairs, then every way a file names the plugin."""
     main, other = source["plugin"], variant["plugin"]
     market, other_market = source["marketplace"]["name"], variant["marketplace"]["name"]
+    claude, other_claude = source["marketplace"]["claude_name"], variant["marketplace"]["claude_name"]
     pairs = dict(variant["rewrite"])
     names = [(main["name"], other["name"])]
     names += [(a["name"], b["name"]) for a, b in zip(source.get("addons", []), variant.get("addons", []))]
@@ -498,6 +504,7 @@ def rewrites(source: dict, variant: dict) -> dict[str, str]:
                 f"plugin:{old}:": f"plugin:{new}:",
                 f"mcp__plugin_{old}_": f"mcp__plugin_{new}_",
                 f"{old}@{market}": f"{new}@{other_market}",
+                f"{old}@{claude}": f"{new}@{other_claude}",
                 f"plugin install {old} ": f"plugin install {new} ",
                 # The plugin named on its own in prose: "install `atlanai` first".
                 f"`{old}`": f"`{new}`",
@@ -528,10 +535,11 @@ def rewrite(text: str, pairs: dict[str, str]) -> str:
 def variant_readme(source: dict, variant: dict, variant_file: str) -> str:
     plugin, mcp = variant["plugin"], variant["mcp"]
     slug, market = github_slug(plugin["repository"]), variant["marketplace"]["name"]
+    claude = variant["marketplace"]["claude_name"]
     addons = variant.get("addons", [])
     addon_lines = ""
     if addons:
-        names = ", ".join(f"`{addon['name']}@{market}`" for addon in addons)
+        names = ", ".join(f"`{addon['name']}@{claude}`" for addon in addons)
         addon_lines = f"\nAdd-ons install the same way and use this plugin's connection: {names}.\n"
     return f"""# {plugin['display_name']}
 
@@ -543,7 +551,7 @@ Claude Code:
 
 ```
 /plugin marketplace add {slug}
-/plugin install {plugin['name']}@{market}
+/plugin install {plugin['name']}@{claude}
 ```
 
 Codex:

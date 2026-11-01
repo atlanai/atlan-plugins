@@ -55,7 +55,7 @@ opens on Atlan's sign-in page.
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
-codex plugin add atlanai@atlan
+codex plugin add atlanai@atlan-plugins
 ```
 
 The marketplace asks Codex to sign in at install time. If it did not, find the server with

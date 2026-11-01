@@ -1,5 +1,5 @@
 {
-  "name": "atlan",
+  "name": "atlan-plugins",
   "interface": {
     "displayName": "Atlan"
   },
