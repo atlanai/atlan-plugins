@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   check:
-    name: check (drift, vendored hashes, lint, tests)
+    name: check (drift, lint, tests)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

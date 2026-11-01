@@ -90,7 +90,7 @@ One edge per call, so an agent that uses three skills is one linked create plus 
 
 2. **Wrong target kind** - 422:
 
-   > `uses_skill` on `agent` may point at skill — not `agent`
+   > `uses_skill` on `agent` may point at skill, not `agent`
 
 3. **Different workspaces** - 422:
 

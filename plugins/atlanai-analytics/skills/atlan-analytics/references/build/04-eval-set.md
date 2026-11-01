@@ -1,4 +1,4 @@
-# Phase 4 — the eval set
+# Phase 4: the eval set
 
 Goal: 20–50 real questions, each with SQL the user trusts, stored locally where the agent
 can't reach it, and split once into train and test.

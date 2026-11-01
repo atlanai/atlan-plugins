@@ -20,7 +20,7 @@ claude plugin install atlanai --marketplace atlanai/atlan-plugins
 Then run `/mcp`, pick `plugin:atlanai:atlan` and choose **Authenticate**. For Claude chat, Codex,
 Cursor and VS Code, see the [repository README](../../README.md#install).
 
-The first thing to ask: *"Connect to Atlan and show me which skills my organization has."*
+The first thing to type: *"Connect me to Atlan."*
 
 ## MCP server
 

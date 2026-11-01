@@ -20,7 +20,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 import build  # noqa: E402
 import lint  # noqa: E402
 import skill_index  # noqa: E402
-import sync_upstream  # noqa: E402
 
 CORE = ROOT / build.core_dir(build.load())
 
@@ -183,6 +182,19 @@ class VariantTest(unittest.TestCase):
             overrides[table][field] = value
             with self.subTest(field=f"{table}.{field}"), self.assertRaises(SystemExit):
                 build.make_variant(self.source, overrides)
+
+    def test_a_dev_variant_follows_the_gateway_suffix_convention(self) -> None:
+        overrides = copy.deepcopy(self.OVERRIDES)
+        overrides["plugin"]["name"] = "atlanai-dev"
+        overrides["marketplace"]["name"] = "atlan-plugins-dev"
+        overrides["mcp"]["url"] = "https://api.dev.example/mcp"
+        variant = build.make_variant(self.source, overrides)
+        files = build.variant_files(self.source, variant, "variant.toml")
+        self.assertIn("plugins/atlanai-dev/skills/atlan-get-started/SKILL.md", files)
+        self.assertIn("plugins/atlanai-dev-analytics/skills/atlan-analytics/SKILL.md", files)
+        mcp = json.loads(files["plugins/atlanai-dev/.mcp.json"])
+        self.assertEqual(mcp["mcpServers"]["atlan"]["url"], "https://api.dev.example/mcp")
+        self.assertIn("claude plugin install atlanai-dev --marketplace example/atlan-staging\n", files["plugins/atlanai-dev/skills/atlan-get-started/references/install-and-sign-in.md"])
 
 
 class AddonTest(unittest.TestCase):
@@ -486,81 +498,34 @@ class SkillIndexTest(unittest.TestCase):
         self.assertEqual(self.served, again_served)
 
 
-class SyncTest(unittest.TestCase):
-    def test_check_passes_on_the_committed_tree(self) -> None:
-        self.assertEqual(sync_upstream.check(sync_upstream.load()), [])
+class VoiceTest(unittest.TestCase):
+    """The voice rule in AGENTS.md: no em dashes, no exclamations, no filler, outside code."""
 
-    def test_check_reports_an_edited_vendored_file(self) -> None:
-        manifest = sync_upstream.load()
-        path = next(iter(manifest["files"]))
-        manifest["files"][path] = dict(manifest["files"][path], sha256="0" * 64)
-        problems = sync_upstream.check(manifest)
-        self.assertEqual(len(problems), 1)
-        self.assertIn(path, problems[0])
-
-    def test_sync_copies_a_pinned_revision_and_drops_files_upstream_removed(self) -> None:
+    def voice(self, text: str, name: str = "plugins/atlanai/README.md") -> list[str]:
         with tempfile.TemporaryDirectory() as temp:
-            temp_path = Path(temp)
-            upstream, plugin = temp_path / "upstream", temp_path / "plugin"
-            (upstream / "app/defaults/skills/atlan-z").mkdir(parents=True)
-            (upstream / "app/defaults/skills/atlan-z/SKILL.md").write_text("one\n")
-            (upstream / "app/defaults/other.md").write_text("ignored\n")
-            git = ["git", "-C", str(upstream), "-c", "user.name=t", "-c", "user.email=t@example.com"]
-            subprocess.run([*git, "init", "-q"], check=True)
-            subprocess.run([*git, "add", "."], check=True)
-            subprocess.run([*git, "commit", "-qm", "one"], check=True)
-            plugin.mkdir()
-            (plugin / "commands").mkdir()
-            (plugin / "commands/gone.md").write_text("old\n")
-
-            manifest = {
-                "sources": [{"name": "app", "repository": "x", "rev": "HEAD", "path": "app/defaults"}],
-                "files": {"commands/gone.md": {"source": "app", "sha256": "x"}},
-            }
-            saved = sync_upstream.ROOT, sync_upstream.MANIFEST
-            sync_upstream.ROOT, sync_upstream.MANIFEST = plugin, plugin / "upstream.json"
+            root = Path(temp)
+            path = root / name
+            path.parent.mkdir(parents=True)
+            path.write_text(text, encoding="utf-8")
+            saved, lint.ROOT = lint.ROOT, root
             try:
-                with contextlib.redirect_stdout(io.StringIO()):
-                    sync_upstream.sync(manifest, {"app": upstream}, adopt_head=True)
-                written = json.loads((plugin / "upstream.json").read_text())
+                return lint.lint_voice(path, text) if lint.voice_scope(path) else []
             finally:
-                sync_upstream.ROOT, sync_upstream.MANIFEST = saved
+                lint.ROOT = saved
 
-            self.assertEqual((plugin / "skills/atlan-z/SKILL.md").read_text(), "one\n")
-            self.assertFalse((plugin / "commands/gone.md").exists())
-            self.assertFalse((plugin / "other.md").exists())
-            self.assertEqual(list(written["files"]), ["skills/atlan-z/SKILL.md"])
-            self.assertRegex(written["sources"][0]["rev"], r"^[0-9a-f]{40}$")
+    def test_flags_an_em_dash_an_exclamation_and_filler_with_their_lines(self) -> None:
+        errors = self.voice("Plain line.\nA pause \u2014 here.\nDone!\nA seamless, robust flow.\n")
+        self.assertEqual([e.split(": ", 1)[0] for e in errors], ["plugins/atlanai/README.md:2", "plugins/atlanai/README.md:3", "plugins/atlanai/README.md:4", "plugins/atlanai/README.md:4"])
+        self.assertIn("filler 'seamless'", errors[2])
 
-    def test_sync_copies_into_a_folder_and_leaves_excluded_paths(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            temp_path = Path(temp)
-            upstream, plugin = temp_path / "upstream", temp_path / "plugin"
-            (upstream / "app/defaults/skills/atlan-y").mkdir(parents=True)
-            (upstream / "app/defaults/skills/atlan-y/SKILL.md").write_text("two\n")
-            (upstream / "app/defaults/commands").mkdir()
-            (upstream / "app/defaults/commands/rendered.md").write_text("partial\n")
-            git = ["git", "-C", str(upstream), "-c", "user.name=t", "-c", "user.email=t@example.com"]
-            subprocess.run([*git, "init", "-q"], check=True)
-            subprocess.run([*git, "add", "."], check=True)
-            subprocess.run([*git, "commit", "-qm", "one"], check=True)
-            plugin.mkdir()
-            manifest = {
-                "sources": [{"name": "app", "repository": "x", "rev": "HEAD", "path": "app/defaults",
-                             "into": "plugins/atlan-y", "exclude": ["commands/rendered.md"]}],
-                "files": {},
-            }
-            saved = sync_upstream.ROOT, sync_upstream.MANIFEST
-            sync_upstream.ROOT, sync_upstream.MANIFEST = plugin, plugin / "upstream.json"
-            try:
-                with contextlib.redirect_stdout(io.StringIO()):
-                    sync_upstream.sync(manifest, {"app": upstream}, adopt_head=False)
-                written = json.loads((plugin / "upstream.json").read_text())
-            finally:
-                sync_upstream.ROOT, sync_upstream.MANIFEST = saved
+    def test_leaves_code_quoted_text_and_out_of_scope_files_alone(self) -> None:
+        self.assertEqual(self.voice("Run `a \u2014 b`.\n\n```\nseamless!\n```\n\nThe reply `Done!` is fine.\n"), [])
+        self.assertEqual(self.voice("seamless \u2014 wow!\n", "evals/atlan/cases/x/case.yaml"), [])
+        self.assertEqual(self.voice("seamless \u2014 wow!\n", "assets/notes.md"), [])
 
-            self.assertEqual(list(written["files"]), ["plugins/atlan-y/skills/atlan-y/SKILL.md"])
-            self.assertFalse((plugin / "plugins/atlan-y/commands/rendered.md").exists())
+    def test_the_committed_text_passes(self) -> None:
+        errors = [e for p in lint.tracked_files() if p.is_file() and lint.voice_scope(p) for e in lint.lint_voice(p, p.read_text(encoding="utf-8"))]
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

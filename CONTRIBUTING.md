@@ -4,7 +4,7 @@ Thanks for helping improve the Atlan plugins. This repository holds plugin conte
 skills, commands and agents, and the manifests that describe them) plus the standard library
 Python tools that build and check it. There is no service code here.
 
-[AGENTS.md](AGENTS.md) is the full rulebook: the layout, what is generated, what is vendored,
+[AGENTS.md](AGENTS.md) is the full rulebook: the layout, what is generated,
 variants and releases. Coding agents read it too. This page covers what you need to send a
 first pull request.
 
@@ -31,9 +31,8 @@ cd atlan-plugins
 make check
 ```
 
-`make check` verifies that the generated files match `plugin.toml`, that the vendored files
-match their pinned hashes, lints every skill and command, and runs the unit tests in
-`tools/tests/`.
+`make check` verifies that the generated files match `plugin.toml`, lints every skill and
+command, and runs the unit tests in `tools/tests/`.
 
 `make validate` runs `claude plugin validate --strict` on the marketplace and every plugin. It
 needs the [Claude Code CLI](https://code.claude.com) (`npm install --global
@@ -52,7 +51,6 @@ To try your change in a host, add your checkout as a local marketplace. In Claud
 |---|---|---|
 | A plugin's name, version, description, prompts or a skill's card | `plugin.toml` | `make build` |
 | A skill this repository owns | `plugins/<plugin>/skills/<name>/` | `make check` |
-| A skill listed in `upstream.json` | The owning repository first, then move the pin | `make sync-adopt` |
 | The core plugin's README | `plugins/atlanai/README.md` | `make check` |
 | An add-on's README or manifests | `[[addons]]` in `plugin.toml` | `make build` |
 
@@ -61,8 +59,6 @@ The rules that catch people out:
 - **Never hand-edit a generated file.** The marketplace JSON, every plugin manifest, each
   skill's `agents/openai.yaml`, the add-on READMEs and the copies of `LICENSE` and the logo in
   each plugin folder come from `plugin.toml` and the root files. CI fails on drift.
-- **Never edit a vendored file.** The files `upstream.json` lists belong to the Atlan
-  registry's apps. A fix lands there first.
 - **Keep plugins portable.** No hooks, no `bin/`, no symlinks, no submodules, no paths outside
   a plugin's folder, and no secrets.
 - **Plugin names (`atlanai`, `atlanai-analytics`) and the `atlan` server key do not change.**
