@@ -589,6 +589,8 @@ class EvalCasesTest(unittest.TestCase):
         only = self.runner.groups(self.CASES, ["wrong-server"])
         self.assertEqual([c.name for _, cases in only.values() for c in cases], ["wrong-server"])
         self.assertEqual(self.runner.case_filters(["--runs", "1", "--case", "a", "--case", "b*"]), ["a", "b*"])
+        self.assertEqual(self.runner.without_case_filters(["--runs", "1", "--case", "a", "--case", "b*", "-j", "4"]),
+                         ["--runs", "1", "-j", "4"])
 
     def test_the_runner_refuses_an_unknown_sidecar_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

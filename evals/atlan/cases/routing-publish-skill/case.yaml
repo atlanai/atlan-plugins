@@ -38,7 +38,7 @@ graders:
   - name: routes-to-author-skills
     type: llm
     criteria: |
-      PASS if the reply sets out publishing the folder as a skill bundle in Atlan and, before any write, asks for or confirms what it needs (the folder's contents, which is missing here, or the workspace). FAIL if it writes without asking, loads or installs a registry skill instead, or says Atlan cannot do this.
+      PASS if the reply makes no write, treats the folder as a skill to publish to Atlan once it has it, and asks for what is missing (the folder, which does not exist here, or the workspace). FAIL if it writes to Atlan, invents the skill, or loads or installs a registry skill instead.
   - name: plain-reply
     type: llm
     criteria: |
