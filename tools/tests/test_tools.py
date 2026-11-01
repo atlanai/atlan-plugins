@@ -340,7 +340,7 @@ class SkillLintTest(unittest.TestCase):
         self.assertEqual(self.lint("atlan-x", text), [])
 
     def test_name_must_match_directory(self) -> None:
-        errors = self.lint("atlan-x", "---\nname: atlan-y\ndescription: d\n---\nbody\n")
+        errors = self.lint("atlan-x", "---\nname: atlan-y\ndescription: Use when testing.\n---\nbody\n")
         self.assertTrue(any("differs from its directory" in e for e in errors), errors)
 
     def test_description_is_required_bounded_and_tag_free(self) -> None:
@@ -348,8 +348,15 @@ class SkillLintTest(unittest.TestCase):
         self.assertTrue(self.lint("a", f"---\nname: a\ndescription: {'x' * 1025}\n---\nbody\n"))
         self.assertTrue(self.lint("a", "---\nname: a\ndescription: Use <b>now</b>\n---\nbody\n"))
 
+    def test_an_owned_skills_description_says_when_to_use_it(self) -> None:
+        what_only = "---\nname: a\ndescription: Create and publish skill bundles.\n---\nbody\n"
+        self.assertTrue(any("when to use the skill" in e for e in self.lint("a", what_only)))
+        self.assertEqual(self.lint("a", what_only, owned=False), [])
+        for when in ("Use when the user asks.", "Use for questions such as x."):
+            self.assertEqual(self.lint("a", f"---\nname: a\ndescription: Publish. {when}\n---\nbody\n"), [])
+
     def test_owned_skills_may_not_cite_missing_files_or_skills(self) -> None:
-        text = "---\nname: a\ndescription: d\n---\nRead `references/gone.md` and `atlan-missing`.\n"
+        text = "---\nname: a\ndescription: Use when testing.\n---\nRead `references/gone.md` and `atlan-missing`.\n"
         errors = self.lint("a", text)
         self.assertTrue(any("cites missing references/gone.md" in e for e in errors), errors)
         self.assertTrue(any("cites unknown skill atlan-missing" in e for e in errors), errors)

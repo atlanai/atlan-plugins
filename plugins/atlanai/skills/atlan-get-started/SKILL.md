@@ -1,6 +1,6 @@
 ---
 name: atlan-get-started
-description: Connect to the Atlan registry and route an Atlan task to the right skill. Use first whenever the user mentions Atlan, the Atlan registry, or their organization's skills, agents, knowledge, MCP servers or traces, when the `atlan` MCP server is new or not answering, or when unsure which Atlan skill applies.
+description: Connect to the Atlan registry, check the sign-in and show what the organization has, or route an Atlan request no other Atlan skill fits. Use when the user has just installed the plugin, asks whether they are connected or what they can do with Atlan, when the `atlan` MCP server's tools are missing, not signed in or are not the three search-mode tools, or when unsure which Atlan skill applies. A request that another Atlan skill's description covers goes straight to that skill, without this one first.
 license: Apache-2.0
 user-invocable: false
 ---
@@ -36,8 +36,11 @@ server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp_
     the organization; say so, and give the user the note for their Owner from the reference.
   - Claude Code: run `/mcp`, choose `plugin:atlanai:atlan`, then **Authenticate**.
   - Codex, Cursor, VS Code and the rest: the reference has each one.
-- **Tools are there**: prove it works with one read. You know this tool's name and arguments,
-  so call it directly; the call opens the session:
+- **Tools are there, and the user is routing a task**: skip the check. The task's own first
+  call opens the session and proves the connection; go to section 3.
+- **Tools are there, and the user is connecting or asked what they have**: prove it works with
+  one read. You know this tool's name and arguments, so call it directly; the call opens the
+  session:
 
   ```
   mcp__call_tool {
@@ -109,6 +112,8 @@ Read `references/calling-tools.md` once. In short:
   and skip `mcp__initialise`: your first search already opened the session.
 
 ## 3. Route the task
+
+Load the skill the row names and follow it; it opens the session itself.
 
 | The user wants to… | Use |
 |---|---|
