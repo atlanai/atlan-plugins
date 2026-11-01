@@ -11,6 +11,12 @@ graders:
     type: tool_used
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-author-knowledge"'
+  - name: goes-straight-to-the-skill
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+    min: 0
+    max: 0
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool

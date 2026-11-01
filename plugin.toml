@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.3.4"
+version = "0.3.5"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Skills, agents and MCP from the Atlan registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."

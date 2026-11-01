@@ -1,14 +1,18 @@
 ---
 name: atlan-author-skills
-description: Create, update and publish Atlan skill bundles with exact source identity and pinned file versions.
+description: Publish a skill to Atlan as a versioned bundle, or a new version of one, from a skill folder on this computer. Use when the user wants to publish, upload, share, push or release a skill to Atlan or the registry, or update a skill already there. Not for loading or installing a registry skill here (atlan-use-skill), reading a skill's files (atlan-content) or publishing from GitHub CI (atlan-connect-repo).
 license: Apache-2.0
 ---
 
 # Author skill bundles
 
-Open one audited session with `mcp__initialise`; pass its `session_id` and a first-person
-`rationale` on every later tool call. Resolve the workspace with `registry__list_workspaces`
-and read `registry__get_kind_schema` before writing a kind for the first time.
+Pass a `session_id` and a first-person `rationale` on every tool call. In search mode, the
+default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by sending
+`objective`, each `registry__…` tool named here runs through `mcp__call_tool` with `session_id`
+and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
+skipped. In full mode, call `mcp__initialise` first. Resolve the workspace with
+`registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for the
+first time. Replies lead with the result in a few lines, and ask before every write.
 
 - **Create and publish a bundle:** [publishing](references/publish.md).
 - **Update a bundle:** [update a skill](references/update-a-skill.md).
