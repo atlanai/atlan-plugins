@@ -11,7 +11,9 @@ on every later tool call. In search mode, the default, your first `mcp__search_t
 `mcp__call_tool` opens it by sending `objective`, and each tool named here runs through
 `mcp__call_tool`; in full mode, call `mcp__initialise` first. Resolve the workspace with
 `registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for
-the first time.
+the first time. Replies lead with the result: the first sentence is the answer or the step, counts rather
+than lists, handles only when asked, one next step rather than a menu, and no greeting,
+apology or closing offer.
 
 Choose the operation and read its procedure:
 

@@ -18,7 +18,9 @@ two ways to use one:
 
 Calls below are search-mode `mcp__call_tool` calls. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
-`rationale`, on every later call.
+`rationale`, on every later call. Replies lead with the result: the first sentence is the answer or the step, counts rather
+than lists, handles only when asked, one next step rather than a menu, and no greeting,
+apology or closing offer.
 Whatever the skill says, ask before any credential use, external service setup or
 irreversible step it leads to.
 
