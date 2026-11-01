@@ -96,7 +96,7 @@ jobs:
           commit-message: 'chore(upstream): adopt the registry apps'' latest recipes'
           add-paths: |
             upstream.json
-            plugins/atlan
+            plugins/atlanai
           body: |
             Moves the pins in `upstream.json` to `main` of agent-gateway, app-skill, app-agent, app-knowledge
             and app-repo and

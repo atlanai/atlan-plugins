@@ -70,6 +70,10 @@ def load(path: Path = ROOT / "plugin.toml") -> dict:
     with path.open("rb") as handle:
         source = tomllib.load(handle)
     validate(source)
+    # Checked here, not in validate(): a variant's plugin folder does not exist in this repository.
+    onboarding = source.get("codex", {}).get("onboarding_skill")
+    if onboarding and not (ROOT / core_dir(source) / onboarding).is_file():
+        raise SystemExit(f"codex.onboarding_skill {onboarding} is not a file in {core_dir(source)}")
     return source
 
 
@@ -130,7 +134,7 @@ def make_variant(source: dict, overrides: dict) -> dict:
         variant[table].update(overrides.get(table, {}))
     variant["rewrite"] = dict(overrides.get("rewrite", {}))
     variant["keep"] = list(overrides.get("keep", []))
-    # Each add-on follows its core: atlan-analytics becomes <variant>-analytics.
+    # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
     main, other = source["plugin"], variant["plugin"]
     for addon in variant.get("addons", []):
         addon["name"] = other["name"] + addon["name"].removeprefix(main["name"])
@@ -189,6 +193,12 @@ def codex_interface(source: dict) -> dict:
         if key in plugin:
             interface[field] = plugin[key]
     return interface
+
+
+def codex_onboarding(source: dict) -> dict:
+    """Codex runs this skill after install, so the first thing a user sees is the sign-in check."""
+    skill = source["codex"].get("onboarding_skill")
+    return {"onboardingSkill": skill} if skill else {}
 
 
 def addon_core(source: dict, addon: dict) -> dict:
@@ -261,11 +271,16 @@ def addon_readme(source: dict, addon: dict) -> str:
 ## Install
 
 It uses the `{plugin['name']}` plugin's connection to Atlan and has no MCP server of its own.
-Claude Code installs `{plugin['name']}` with it:
+One command installs both into every coding agent on this machine:
 
 ```
-/plugin marketplace add {slug}
-/plugin install {addon['name']}@{market}
+npx plugins add {slug}
+```
+
+Or in Claude Code alone, which installs `{plugin['name']}` with it:
+
+```
+claude plugin install {addon['name']} --marketplace {slug}
 ```
 
 Other hosts install plugins one at a time, so add `{plugin['name']}` first. In Codex:
@@ -279,7 +294,7 @@ codex plugin add {addon['name']}@{market}
 ## Privacy
 
 It has no hooks and no binaries. Its skills may run the standard-library Python scripts bundled
-with them and keep working files in your project, and they reach Atlan only through the `atlan`
+with them and keep working files in your project, and they reach Atlan only through the `{plugin['name']}`
 plugin's connection, signed in as you. See Atlan's
 [privacy notice]({plugin['privacy_policy_url']}).
 
@@ -349,7 +364,7 @@ def outputs(source: dict) -> dict[str, dict]:
     owner = {"name": source["author"]["name"], "url": source["author"]["url"]}
 
     agent_plugin = {"$schema": AGENT_PLUGINS_SCHEMA, **core(source)}
-    agent_plugin["extensions"] = {"com.openai": {"interface": codex_interface(source)}}
+    agent_plugin["extensions"] = {"com.openai": {**codex_onboarding(source), "interface": codex_interface(source)}}
 
     base = core_dir(source)
     entry = {
@@ -421,6 +436,7 @@ def outputs(source: dict) -> dict[str, dict]:
             "skills": "./skills/",
             "mcpServers": "./.mcp.json",
             "interface": codex_interface(source),
+            **({"extensions": {"com.openai": codex_onboarding(source)}} if codex_onboarding(source) else {}),
         },
         # Codex marketplace. Codex also reads .claude-plugin/marketplace.json.
         ".agents/plugins/marketplace.json": {
@@ -474,9 +490,11 @@ def rewrites(source: dict, variant: dict) -> dict[str, str]:
                 f"plugin:{old}:": f"plugin:{new}:",
                 f"mcp__plugin_{old}_": f"mcp__plugin_{new}_",
                 f"{old}@{market}": f"{new}@{other_market}",
-                f"/plugin install {old} ": f"/plugin install {new} ",
+                f"plugin install {old} ": f"plugin install {new} ",
+                # The plugin named on its own in prose: "install `atlanai` first".
+                f"`{old}`": f"`{new}`",
                 f"/{old}:": f"/{new}:",
-                # A skill named for the Skill tool, as the commands name theirs: `atlan:atlan-continue`.
+                # A skill named for the Skill tool, as the commands name theirs: `atlanai:atlan-continue`.
                 f"`{old}:": f"`{new}:",
             }
         )

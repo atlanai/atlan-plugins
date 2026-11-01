@@ -44,14 +44,14 @@ class BuildTest(unittest.TestCase):
         documents = build.outputs(self.source)
         server, url = self.source["mcp"]["server"], self.source["mcp"]["url"]
         headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
-        self.assertEqual(documents["plugins/atlan/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
-        self.assertEqual(documents["plugins/atlan/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
+        self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
+        self.assertEqual(documents["plugins/atlanai/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
 
     def test_agent_plugins_manifests_keep_to_the_closed_schema(self) -> None:
         documents = build.outputs(self.source)
         allowed = {"$schema", "name", "version", "description", "author", "homepage", "repository", "license", "keywords", "extensions"}
-        self.assertLessEqual(set(documents["plugins/atlan/plugin.json"]), allowed)
-        self.assertEqual(set(documents["plugins/atlan/mcp.json"]), {"$schema", "mcpServers"})
+        self.assertLessEqual(set(documents["plugins/atlanai/plugin.json"]), allowed)
+        self.assertEqual(set(documents["plugins/atlanai/mcp.json"]), {"$schema", "mcpServers"})
 
     def test_the_root_is_the_marketplace_and_every_plugin_is_a_folder_under_plugins(self) -> None:
         documents = build.outputs(self.source)
@@ -128,7 +128,7 @@ class VariantTest(unittest.TestCase):
             for path in (CORE / top).rglob("*"):
                 if path.is_file():
                     self.assertIn(f"plugins/atlan-staging/{path.relative_to(CORE).as_posix()}", self.files)
-        self.assertFalse(any(path.startswith(("plugins/atlan/", "skills/", "commands/")) for path in self.files))
+        self.assertFalse(any(path.startswith(("plugins/atlanai/", "skills/", "commands/")) for path in self.files))
         for path, text in self.files.items():
             if path.endswith(".md"):
                 self.assertNotIn(f"/{main}:", text, path)
@@ -138,7 +138,9 @@ class VariantTest(unittest.TestCase):
         self.assertIn("`atlan-staging:atlan-continue`", self.files["plugins/atlan-staging/commands/continue.md"])
         install = self.files["plugins/atlan-staging/skills/atlan-get-started/references/install-and-sign-in.md"]
         self.assertIn("/plugin install atlan-staging@atlan-staging-plugins", install)
-        self.assertIn("/plugin marketplace add example/atlan-staging\n", install)
+        self.assertIn("`/plugin marketplace add example/atlan-staging`", install)
+        self.assertIn("claude plugin install atlan-staging --marketplace example/atlan-staging\n", install)
+        self.assertIn("(`atlan-staging` and\n`atlan-staging-analytics`)", install)
 
     def test_pairs_apply_once_longest_first_and_kept_strings_stay(self) -> None:
         pairs = build.rewrites(self.source, self.variant)
@@ -172,7 +174,7 @@ class VariantTest(unittest.TestCase):
 
     def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
         for table, field, value in (
-            ("plugin", "name", "atlan"),
+            ("plugin", "name", "atlanai"),
             ("marketplace", "name", "atlan-plugins"),
             ("plugin", "version", "9.9.9"),
             ("mcp", "url", "http://plain.example/mcp"),
@@ -357,7 +359,7 @@ class SkillLintTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "plugin.toml").write_text('[plugin]\nname = "atlan"\n')
-            (root / "plugins/atlan").mkdir(parents=True)
+            (root / "plugins/atlanai").mkdir(parents=True)
             (root / "skills/atlan-x").mkdir(parents=True)
             (root / ".claude-plugin").mkdir()
             (root / ".claude-plugin/plugin.json").write_text("{}")
@@ -398,15 +400,30 @@ class DashboardPromptTest(unittest.TestCase):
     }
 
     def test_the_command_prefix_is_the_plugin_name(self) -> None:
-        self.assertEqual(build.load()["plugin"]["name"], "atlan")
+        self.assertEqual(build.load()["plugin"]["name"], "atlanai")
 
     def test_each_command_follows_its_skill(self) -> None:
         for command, skill in self.COMMANDS.items():
             with self.subTest(command=command):
                 text = (CORE / "commands" / f"{command}.md").read_text(encoding="utf-8")
-                self.assertIn(f"`atlan:{skill}`", text)
+                self.assertIn(f"`atlanai:{skill}`", text)
                 self.assertNotIn("skills/", text, "a command must name its skill, not a path: hosts resolve paths against the project")
                 self.assertTrue((CORE / "skills" / skill / "SKILL.md").is_file())
+
+    def test_each_commands_skill_hides_its_own_slash_entry(self) -> None:
+        # Claude Code lists a command and a skill alike in the `/` menu; the skill behind a
+        # command sets `user-invocable: false` so the task is listed once, under the command.
+        for command, skill in self.COMMANDS.items():
+            with self.subTest(command=command):
+                parsed = lint.frontmatter((CORE / "skills" / skill / "SKILL.md").read_text(encoding="utf-8"))
+                self.assertEqual(parsed[0].get("user-invocable"), "false")
+
+    def test_codex_runs_the_get_started_skill_after_install(self) -> None:
+        documents = build.outputs(build.load())
+        skill = "./skills/atlan-get-started/SKILL.md"
+        self.assertEqual(documents["plugins/atlanai/plugin.json"]["extensions"]["com.openai"]["onboardingSkill"], skill)
+        self.assertEqual(documents["plugins/atlanai/.codex-plugin/plugin.json"]["extensions"]["com.openai"]["onboardingSkill"], skill)
+        self.assertTrue((CORE / skill).is_file())
 
     def test_each_chat_sentence_names_a_skill_whose_description_matches_it(self) -> None:
         for sentence, (skill, phrase, handle) in self.CHAT.items():
