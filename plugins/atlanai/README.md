@@ -60,9 +60,11 @@ the menu lists each task once. The other skills are invoked by name
 
 ## Alongside other Atlan plugins
 
-- The Atlan desktop app installs a plugin also named `atlanai`, from
-  `https://api.atlan.com/public/marketplace.git`, with the same `atlan` server. Keep one of the
-  two, or its skills are listed twice.
+- The registry's own marketplace, `https://api.atlan.com/public/marketplace.git`, serves this
+  same plugin under the same name, with the same `atlan` server. A machine that added it by
+  hand, or kept it from an older Atlan desktop app, lists the skills twice: keep one of the two.
+  The desktop app itself installs no plugin; its `aireg` CLI installs each workspace as its own
+  plugin, named after the workspace.
 - The `atlan` plugin in Anthropic's directory (atlanhq/agent-toolkit) is Atlan's data catalog,
   on a different server. It can stay installed beside this one.
 

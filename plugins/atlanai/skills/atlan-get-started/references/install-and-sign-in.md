@@ -112,10 +112,12 @@ https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client, with pages for
 
 ## Other Atlan plugins you may already have
 
-- **The Atlan desktop app's plugin.** The desktop app and the registry's marketplace
-  (`https://api.atlan.com/public/marketplace.git`) install a plugin also named `atlanai`, with
-  the same `atlan` server. Keep one of the two: with both, its skills are listed twice. This
-  marketplace's copy is the one that also installs in Codex, Cursor and Copilot.
+- **The registry's own marketplace** (`https://api.atlan.com/public/marketplace.git`) serves
+  this same plugin, also named `atlanai`, with the same `atlan` server. A machine that added
+  that marketplace by hand, or kept it from an older Atlan desktop app, lists every skill
+  twice. Keep one of the two; this marketplace's copy is the one that also installs in Codex,
+  Cursor and Copilot. The Atlan desktop app installs no plugin today: its CLI, `aireg`, installs
+  each workspace as a plugin named after the workspace, which is not a duplicate of this one.
 - **The `atlan` plugin in Anthropic's directory** (atlanhq/agent-toolkit) is Atlan's data
   catalog, a different product on a different server (`https://mcp.atlan.com/mcp`). It can stay
   installed beside `atlanai`: the different names keep their tools and skills apart. Its
