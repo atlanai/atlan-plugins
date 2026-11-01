@@ -284,6 +284,22 @@ def file_content(a: dict) -> dict:
             "version_ordinal": a.get("version_ordinal", 1), "content": found["content"]}
 
 
+def included_file(item: dict, path: str) -> dict:
+    """`get_artifact`'s `include_file`, as the gateway answers it: the manifest's own pin, read
+    exactly as `get_file_content` reads it. A file that cannot be read keeps the artifact and says
+    why in `error`."""
+    files = item.get("metadata", {}).get("files") or []
+    pin = next((f for f in files if f.get("path") == path), None)
+    if pin is None:
+        listed = ", ".join(f"`{f['path']}`" for f in files[:20])
+        return {"path": path, "error": f"no `{path}` in this artifact's `metadata.files`; it lists {listed}"
+                if files else "this artifact has no `metadata.files` manifest"}
+    try:
+        return file_content({"file_id": pin["file_id"], "version_ordinal": pin["file_version_ordinal"]})
+    except Refusal as refused:
+        return {"path": path, "file_id": pin["file_id"], "error": refused.body["detail"]}
+
+
 def write(kind: str, a: dict) -> dict:
     return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "note": "eval write recorded"}
 
@@ -318,7 +334,10 @@ def dispatch(name: str, a: dict) -> dict:
                  and (a.get("kind") or i["kind"] != "file") and in_project(i, a.get("project_id"))]
         return {"items": items[: a.get("limit", 50)], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(items)}}
     if name == "registry__get_artifact":
-        return artifact(a["artifact_id"])
+        found = artifact(a["artifact_id"])
+        if "include_file" in a:
+            found = found | {"included_file": included_file(found, a["include_file"])}
+        return found
     if name == "registry__get_project":
         project = WORLD["projects"].get(a["project_id"])
         if not project:
