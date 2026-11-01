@@ -54,7 +54,7 @@ Then type: *"Connect me to Atlan."* In Claude Code,
 | Agent | Install |
 |---|---|
 | [Claude Code](https://code.claude.com) | `claude plugin install atlanai --marketplace atlanai/atlan-plugins` |
-| [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan` |
+| [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan-plugins` |
 | [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **AI Registry**, then **Connect** on its **Connectors** tab |
 | [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **AI Registry** from the Cursor Marketplace |
 | [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **AI Registry** from Chat Plugins |
@@ -181,9 +181,9 @@ See Atlan's [privacy notice](https://atlan.com/privacy-policy/). To report a vul
 - **Upgrading from 0.2 or earlier.** The plugins were named `atlan` and `atlan-analytics`.
   Uninstall them (`claude plugin uninstall atlan@atlan-plugins`, and the same for
   `atlan-analytics`), then install `atlanai`. Slash commands move from `/atlan:` to `/atlanai:`.
-- **Installed from the `atlan-plugins` marketplace.** The marketplace is now named `atlan`.
-  Remove the old one (`claude plugin marketplace remove atlan-plugins` in Claude Code) and
-  install again.
+- **Added the `atlan-plugins` marketplace in Claude.** In Claude it is now named `atlan`.
+  Remove the old one (`claude plugin marketplace remove atlan-plugins`) and install again.
+  Codex and Cursor keep `atlan-plugins`.
 - **A call is refused or fails.** Ask your agent to use `atlan-troubleshoot`. It reads the
   error and says whether to sign in again, ask for access or retry.
 

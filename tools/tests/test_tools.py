@@ -174,7 +174,8 @@ class VariantTest(unittest.TestCase):
     def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
         for table, field, value in (
             ("plugin", "name", "atlanai"),
-            ("marketplace", "name", "atlan"),
+            ("marketplace", "name", "atlan-plugins"),
+            ("marketplace", "claude_name", "atlan"),
             ("plugin", "version", "9.9.9"),
             ("mcp", "url", "http://plain.example/mcp"),
         ):
@@ -186,7 +187,7 @@ class VariantTest(unittest.TestCase):
     def test_a_dev_variant_follows_the_gateway_suffix_convention(self) -> None:
         overrides = copy.deepcopy(self.OVERRIDES)
         overrides["plugin"]["name"] = "atlanai-dev"
-        overrides["marketplace"]["name"] = "atlan-dev"
+        overrides["marketplace"]["name"] = "atlan-plugins-dev"
         overrides["mcp"]["url"] = "https://api.atlan.dev/mcp"
         variant = build.make_variant(self.source, overrides)
         files = build.variant_files(self.source, variant, "variant.toml")
@@ -237,6 +238,10 @@ class AddonTest(unittest.TestCase):
         self.assertEqual([p["displayName"] for p in claude], [p["display_name"] for p in plugins])
         self.assertEqual([p["category"] for p in claude], [p["claude_category"] for p in plugins])
         self.assertEqual([p["category"] for p in codex], [p["category"] for p in plugins])
+        market = self.source["marketplace"]
+        self.assertEqual(self.documents[".claude-plugin/marketplace.json"]["name"], market["claude_name"])
+        for path in (".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
+            self.assertEqual(self.documents[path]["name"], market["name"], path)
         for base in (build.core_dir(self.source), self.base):
             self.assertIn("displayName", self.documents[f"{base}/.claude-plugin/plugin.json"], base)
 

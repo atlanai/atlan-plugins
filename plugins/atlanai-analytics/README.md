@@ -21,8 +21,8 @@ Other hosts install plugins one at a time, so add `atlanai` first. In Codex:
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
-codex plugin add atlanai@atlan
-codex plugin add atlanai-analytics@atlan
+codex plugin add atlanai@atlan-plugins
+codex plugin add atlanai-analytics@atlan-plugins
 ```
 
 ## Privacy
