@@ -5,12 +5,16 @@
 # `python3 tools/build.py --check` fails on drift.
 
 [plugin]
-# Immutable once published. Every manifest and every marketplace uses this exact name, so the
-# skill prefix is the same in every tool (`atlan:atlan-get-started` in Claude Code).
-name = "atlan"
+# Every manifest and every marketplace uses this exact name, so the skill prefix is the same in
+# every tool (`atlanai:atlan-get-started` in Claude Code). It is `atlanai`, not `atlan`: Anthropic's
+# plugin directory lists a different plugin named `atlan` (atlanhq/agent-toolkit, Atlan's data
+# catalog), and two plugins of one name share a skill prefix and an MCP server slot, so one
+# silently replaces the other. `atlanai` is also the name of the registry's own plugin, which
+# serves the same `atlan` server, so installing both collapses to one server instead of two.
+name = "atlanai"
 display_name = "Atlan"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.2.1"
+version = "0.3.0"
 description = "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
 short_description = "Skills, agents and MCP from the Atlan registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -40,8 +44,8 @@ description = "Atlan's plugins for coding agents: the Atlan registry's MCP serve
 # The server key every Atlan plugin uses, the registry's own umbrella plugin included.
 server = "atlan"
 # The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
-# URL is search mode: four tools that reach the whole catalogue (see
-# plugins/atlan/skills/atlan-get-started/references/calling-tools.md).
+# URL is search mode: three tools that reach the whole catalogue (see
+# plugins/atlanai/skills/atlan-get-started/references/calling-tools.md).
 url = "https://api.atlan.com/mcp"
 # Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
 # a session came from; a server added by hand sends none (MCP service decision
@@ -50,6 +54,9 @@ client = "atlan-plugin"
 
 [codex]
 capabilities = ["Interactive", "Write"]
+# The skill Codex offers to run right after install: it checks the sign-in and shows what the
+# organization has. Plugin-relative, and it must be a skill this plugin ships.
+onboarding_skill = "./skills/atlan-get-started/SKILL.md"
 # Codex shows at most three and truncates at 128 characters; about 50 reads best.
 default_prompts = [
   "Show my organization's skills and agents in Atlan",
@@ -62,9 +69,9 @@ default_prompts = [
 # this plugin's connection. Its skills, commands and agents are written in its folder; the app
 # behind the workload pins this repository. Bump an add-on's version on every release of it.
 [[addons]]
-name = "atlan-analytics"
+name = "atlanai-analytics"
 display_name = "Atlan Analytics"
-version = "0.3.0"
+version = "0.4.0"
 description = "Answer data questions from governed metrics, use and draft your business ontology, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
 short_description = "Metrics and talk-to-data agents on Atlan"
 long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."

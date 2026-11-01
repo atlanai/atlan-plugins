@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the `atlan-analytics` plugin's evals against the gateway emulator.
 
-    python3 evals/atlan-analytics/run.py [--plugin plugins/atlan-analytics] [-- <claude plugin eval options>]
+    python3 evals/atlan-analytics/run.py [--plugin plugins/atlanai-analytics] [-- <claude plugin eval options>]
 
 The same setup as evals/atlan/run.py, with two differences. The plugin's `atlan` dependency is
 removed from the copy, because `claude plugin eval` loads one plugin and silently skips one whose
@@ -25,7 +25,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 EMULATOR = ROOT / "evals" / "atlan" / "emulator" / "atlan_emulator.py"
-PLUGIN = "atlan-analytics"
+PLUGIN = "atlanai-analytics"
 SERVER = "atlan"
 TOOLS = f"mcp__plugin_{PLUGIN}_{SERVER}__*"
 

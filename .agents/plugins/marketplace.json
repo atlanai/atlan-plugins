@@ -5,11 +5,11 @@
   },
   "plugins": [
     {
-      "name": "atlan",
+      "name": "atlanai",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/atlanai/atlan-plugins.git",
-        "path": "./plugins/atlan"
+        "path": "./plugins/atlanai"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -18,11 +18,11 @@
       "category": "Developer Tools"
     },
     {
-      "name": "atlan-analytics",
+      "name": "atlanai-analytics",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/atlanai/atlan-plugins.git",
-        "path": "./plugins/atlan-analytics"
+        "path": "./plugins/atlanai-analytics"
       },
       "policy": {
         "installation": "AVAILABLE",

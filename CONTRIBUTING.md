@@ -43,7 +43,7 @@ To try your change in a host, add your checkout as a local marketplace. In Claud
 
 ```
 /plugin marketplace add ./path/to/atlan-plugins
-/plugin install atlan@atlan-plugins
+/plugin install atlanai@atlan-plugins
 ```
 
 ## Making a change
@@ -53,7 +53,7 @@ To try your change in a host, add your checkout as a local marketplace. In Claud
 | A plugin's name, version, description, prompts or a skill's card | `plugin.toml` | `make build` |
 | A skill this repository owns | `plugins/<plugin>/skills/<name>/` | `make check` |
 | A skill listed in `upstream.json` | The owning repository first, then move the pin | `make sync-adopt` |
-| The core plugin's README | `plugins/atlan/README.md` | `make check` |
+| The core plugin's README | `plugins/atlanai/README.md` | `make check` |
 | An add-on's README or manifests | `[[addons]]` in `plugin.toml` | `make build` |
 
 The rules that catch people out:
@@ -65,7 +65,8 @@ The rules that catch people out:
   registry's apps. A fix lands there first.
 - **Keep plugins portable.** No hooks, no `bin/`, no symlinks, no submodules, no paths outside
   a plugin's folder, and no secrets.
-- **Plugin names and the `atlan` server key never change.** People have them installed.
+- **Plugin names (`atlanai`, `atlanai-analytics`) and the `atlan` server key do not change.**
+  People have them installed.
 - **A new skill** is named `atlan-<task>`, does one task, and has a description that says when
   to use it. Keep `SKILL.md` under 500 lines and move detail into `references/`. Add its
   `[skills.<name>]` entry to `plugin.toml`.

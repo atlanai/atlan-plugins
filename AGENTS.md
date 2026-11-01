@@ -1,7 +1,7 @@
 # Contributing to the Atlan plugins
 
 This repository is a plugin marketplace, `atlan-plugins`, for Claude Code, OpenAI Codex, Cursor
-and Agent Plugins hosts (GitHub Copilot, VS Code and others). Its core plugin, `atlan`, is a
+and Agent Plugins hosts (GitHub Copilot, VS Code and others). Its core plugin, `atlanai`, is a
 remote MCP server URL plus skills and commands. Each add-on is skills, commands and agents that
 use that server. It holds no service code. Contributor guidance lives here because no host
 loads a plugin's own `CLAUDE.md`, and `claude plugin validate` warns on one.
@@ -13,15 +13,16 @@ plugin.toml                       the one source for every manifest (edit this)
 .claude-plugin/marketplace.json   Claude and Claude Code marketplace                  (generated)
 .agents/plugins/marketplace.json  Codex marketplace                                   (generated)
 .cursor-plugin/marketplace.json   Cursor marketplace                                  (generated)
-plugins/atlan/                    the core plugin
+plugins/atlanai/                    the core plugin
   plugin.json, mcp.json           Agent Plugins 1.0: Codex, Cursor, Copilot, VS Code  (generated)
   .mcp.json, .claude-plugin/      Claude Code's MCP file and manifest                 (generated)
   .codex-plugin/, .cursor-plugin/ Codex overlay and Cursor manifest                   (generated)
   skills/<name>/SKILL.md          skills; owned here unless upstream.json lists them
   skills/<name>/agents/openai.yaml  Codex's card for the skill, from [skills] in plugin.toml (generated)
-  commands/*.md                   Claude Code and Cursor commands
+  commands/*.md                   Claude Code and Cursor commands; each command's skill sets
+                                  `user-invocable: false` so the `/` menu lists the task once
   README.md                       written by hand
-plugins/atlan-<workload>/         add-ons: skills, commands and agents written here; manifests and
+plugins/atlanai-<workload>/       add-ons: skills, commands and agents written here; manifests and
                                   README generated
 plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugin cannot point
                                   outside its folder
@@ -58,16 +59,20 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   plugin root, no secrets. Adding a hook needs a decision first: hooks are the least portable
   component, each host names their events differently, and Codex keeps hook plugins out of its
   directory.
-- **One name everywhere.** Plugin names (`atlan`, `atlan-analytics`) and the MCP server key
-  (`atlan`) are immutable once published: users have them installed, and add-ons name `atlan` as
-  their dependency. Relabel with `display_name`. `X-Atlan-Client`'s value, `atlan-plugin`, is a
+- **One name everywhere.** Plugin names (`atlanai`, `atlanai-analytics`) and the MCP server key
+  (`atlan`) do not change again: users have them installed, and add-ons name `atlanai` as their
+  dependency. Relabel with `display_name`. 0.3.0 renamed the plugins from `atlan` and
+  `atlan-analytics` once, because Anthropic's directory lists a different plugin named `atlan`
+  (atlanhq/agent-toolkit, the data catalog) and two plugins of one name share a skill prefix and
+  an MCP server slot in Claude Code, so one silently replaced the other. `atlanai` is also the
+  name of the registry's own plugin, which serves the same server. `X-Atlan-Client`'s value, `atlan-plugin`, is a
   wire identifier the gateway records, and stays as it is.
 - **A workload is an add-on, not a core skill.** A workload built on the registry (analytics,
-  later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlan-<workload>`.
+  later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
   is their source of truth: the app behind the workload pins a commit of this repository to serve
-  the same files over MCP (metric service does, for `atlan-analytics`). A change here reaches that
-  app at its next pin bump, where its own tests run against the new text. An add-on depends on `atlan` and declares no MCP server, hooks or
+  the same files over MCP (metric service does, for `atlanai-analytics`). A change here reaches that
+  app at its next pin bump, where its own tests run against the new text. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
@@ -99,7 +104,7 @@ prompt send *Catch me up on Atlan artifact "…" (output_…)* with the source s
 "…" skill from the Atlan skill registry* with its `skill_…` id (`skill-chat-prompt.ts`).
 `tools/tests/test_tools.py` (`DashboardPromptTest`) holds those forms against the descriptions
 of `atlan-continue` and `atlan-use-skill`, and `evals/atlan/cases/dashboard-handoff-prompt` runs
-the first one whole. People also type `/atlan:continue output_…` and `/atlan:use-skill skill_…`.
+the first one whole. People also type `/atlanai:continue output_…` and `/atlanai:use-skill skill_…`.
 Change a description and the dashboard's prompt builders together.
 
 `make site` indexes the core's skills; its output is what atlan.com serves at `/.well-known/agent-skills/` for
@@ -130,8 +135,8 @@ correctly after the rewrite. This repository holds no variant of its own.
    installed until it changes) and run `make build`. An add-on has its own `version` under
    `[[addons]]`; bump it when its content or manifest changes.
 2. Say what changes for users in the pull request's description; there is no changelog file.
-3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlan--v0.1.2`,
-   `atlan-analytics--v0.1.0`), so a dependency with a version range resolves in Claude Code.
+3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlanai--v0.3.0`,
+   `atlanai-analytics--v0.4.0`), so a dependency with a version range resolves in Claude Code.
    The repository is its own marketplace for every tool, so users get the new version on their
    tool's next marketplace refresh. Directory listings (Claude, Codex, Cursor)
    are pinned to a commit and move only when the listing is updated.
