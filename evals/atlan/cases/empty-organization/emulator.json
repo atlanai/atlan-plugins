@@ -1,0 +1,5 @@
+{
+  "env": {
+    "ATLAN_EMULATOR_EMPTY": "1"
+  }
+}

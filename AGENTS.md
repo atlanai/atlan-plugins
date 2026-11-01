@@ -121,7 +121,12 @@ replaced by `evals/atlan/emulator/`, a stdio stand-in for the gateway's search m
 fixed organization, because `claude plugin eval` mocks cannot name a tool with `__` in it. It
 needs the claude CLI and costs money, so it is not in CI: run it before a release that changes
 an owned skill, and add a case for each failure you fix. When the live gateway changes a tool
-or a refusal the skills rely on, change the emulator to match.
+or a refusal the skills rely on, change the emulator to match. A case that needs the emulator
+in another state (an organization without the agent app, an empty registry, a rate limit, the
+data-catalog server in the plugin's place) carries an `emulator.json` beside its `case.yaml`
+with the emulator's environment switches; the runner groups cases by that file, one Claude Code
+run per group, because the emulator starts once per run. `make check` validates every case
+and sidecar.
 
 ## Prompts other products send
 
