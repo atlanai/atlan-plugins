@@ -27,7 +27,7 @@ write to see whether it works again is how duplicates get made.
 | `tool is unavailable; refresh tools/list` | The name is wrong for this connection's mode. In search mode run every tool through `mcp__call_tool`; on a `?tools=full` URL the three `mcp__*_tools` meta-tools do not exist. |
 | A call is refused for a missing session | Send `objective` on the first `mcp__search_tools` or `mcp__call_tool`, then pass the returned `session_id` on every call. An id you did not receive in this conversation is refused. |
 | A call is refused for a missing rationale | Add `rationale`, a first-person sentence on why you are making this call, beside `name`. |
-| A recipe names `extension__file__request_upload`, `extension__file__get_content` or `request_upload` | Older names. The registry's tools are `registry__request_file_upload` and `registry__get_file_content`. |
+| A recipe names `request_upload` or `get_content`, bare or under the old `file` extension prefix | Older names. The registry's tools are `registry__request_file_upload` and `registry__get_file_content`. |
 | A recipe starts with `mcp__initialise` and search mode does not list it | Skip it: your first search already opened the session. |
 | `mcp__search_tools` finds nothing, or not the registry tool you expected | Search ranks every connected server. Call a tool you know by name (`registry__…`) directly, or pass `servers: ["registry"]`. An empty search does not mean the tool is missing. |
 | `mcp__connect_server` is not a tool | It runs through `mcp__call_tool` with `name: "mcp__connect_server"` and `arguments: { "server": … }`. |

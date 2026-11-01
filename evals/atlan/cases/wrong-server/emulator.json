@@ -1,0 +1,9 @@
+{
+  "env": {
+    "ATLAN_EMULATOR_CATALOG": "1"
+  },
+  "plugin_name": "atlan",
+  "allow_tools": [
+    "mcp__plugin_atlan_atlan__*"
+  ]
+}
