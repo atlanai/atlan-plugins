@@ -1,0 +1,30 @@
+<!-- The stable and prod app icon: the Atlan "a" (Paper, Brand file, "atlan-a · black metallic") on the macOS 824px icon tile. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2C2C30"/>
+      <stop offset="0.5" stop-color="#161618"/>
+      <stop offset="1" stop-color="#0B0B0C"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#DCDDE2"/>
+      <stop offset="0.7" stop-color="#F0F1F4"/>
+      <stop offset="1" stop-color="#ADB0B8"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#A9F2FF"/>
+      <stop offset="0.6" stop-color="#62E1FC"/>
+      <stop offset="1" stop-color="#45CDEF"/>
+    </radialGradient>
+    <filter id="tileShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="#000000" filter="url(#tileShadow)"/>
+  <path d="M 100 285.4 A 185.4 185.4 0 0 1 285.4 100 L 738.6 100 A 185.4 185.4 0 0 1 924 285.4 L 924 738.6 A 185.4 185.4 0 0 1 738.6 924 L 285.4 924 A 185.4 185.4 0 0 1 100 738.6 Z" fill="url(#tile)"/>
+  <g transform="translate(100 100) scale(2.746667)">
+      <path transform="translate(61.5 61.5)" d="M177.000 4.583C177.000 4.583 177.000 169.051 177.000 169.051C177.000 169.051 127.660 169.051 127.660 169.051C127.660 169.051 127.660 153.591 127.660 153.591C116.805 166.090 100.698 173.634 78.626 173.634C35.525 173.634 0.000 135.839 0.000 86.817C0.000 37.795 35.525 0.000 78.626 0.000C100.665 0.000 116.816 7.544 127.660 20.043C127.660 20.043 127.660 4.583 127.660 4.583C127.660 4.583 177.000 4.583 177.000 4.583ZM127.649 86.598C127.649 61.917 111.202 46.610 88.473 46.610C65.743 46.610 49.296 61.917 49.296 86.598C49.296 111.279 65.787 126.750 88.473 126.750C111.158 126.750 127.649 111.268 127.649 86.598Z" fill="url(#metal)"/>
+      <circle cx="149.97" cy="148.105" r="20.23" fill="url(#dot)"/>
+  </g>
+</svg>
