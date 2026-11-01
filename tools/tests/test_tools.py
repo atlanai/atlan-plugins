@@ -230,6 +230,16 @@ class AddonTest(unittest.TestCase):
         self.assertEqual(codex["source"]["path"], f"./{self.base}")
         self.assertTrue((ROOT / self.base / "skills").is_dir())
 
+    def test_claude_and_codex_each_get_their_own_label_and_category(self) -> None:
+        plugins = [self.source["plugin"], self.addon]
+        claude = self.documents[".claude-plugin/marketplace.json"]["plugins"]
+        codex = self.documents[".agents/plugins/marketplace.json"]["plugins"]
+        self.assertEqual([p["displayName"] for p in claude], [p["display_name"] for p in plugins])
+        self.assertEqual([p["category"] for p in claude], [p["claude_category"] for p in plugins])
+        self.assertEqual([p["category"] for p in codex], [p["category"] for p in plugins])
+        for base in (build.core_dir(self.source), self.base):
+            self.assertIn("displayName", self.documents[f"{base}/.claude-plugin/plugin.json"], base)
+
     def test_refuses_an_addon_without_the_core_prefix_or_declared_twice(self) -> None:
         broken = copy.deepcopy(self.source)
         broken["addons"][0]["name"] = "analytics"
