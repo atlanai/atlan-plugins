@@ -42,7 +42,7 @@ and `atlanai-analytics` into each through its own plugin system. Then sign in on
 | Agent | Sign in |
 |---|---|
 | Claude Code | `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate** |
-| Codex | Prompted at install; otherwise `codex mcp login` with the name `codex mcp list` shows |
+| Codex | Prompted when installed from inside Codex; after `codex plugin add`, run `codex mcp login atlan` |
 | Cursor | **Settings**, **Tools & MCP**, connect `atlan` |
 | VS Code and Copilot | Start the `atlan` server when prompted |
 
@@ -54,7 +54,7 @@ Then type: *"Connect me to Atlan."* In Claude Code,
 | Agent | Install |
 |---|---|
 | [Claude Code](https://code.claude.com) | `claude plugin install atlanai --marketplace atlanai/atlan-plugins` |
-| [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan` |
+| [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan` and `codex mcp login atlan` |
 | [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **AI Registry**, then **Connect** on its **Connectors** tab |
 | [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **AI Registry** from the Cursor Marketplace |
 | [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **AI Registry** from Chat Plugins |

@@ -29,13 +29,29 @@ server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp_
   tools carry its name (`mcp__plugin_atlanai_atlan__…` in Claude Code); if they are missing,
   treat it as the next case.
 - **No `atlan` tools at all**, or a sign-in error: the server is not connected or not signed
-  in. Give the user the one step for where they are, from `references/install-and-sign-in.md`,
-  then stop until they confirm. Do not ask the user for a token or paste one anywhere.
+  in. Give the user the one step for the tool you are running in, then stop until they say
+  they have signed in. Every step is below or in `references/install-and-sign-in.md`: do not
+  search the web, run commands to find the server's name, or link another vendor's
+  documentation. Do not ask the user for a token or paste one anywhere.
   - Claude chat or Cowork: open the Atlan plugin's **Connectors** tab and click **Connect**.
     On a Team or Enterprise plan the connector may not be offered until an Owner adds it for
     the organization; say so, and give the user the note for their Owner from the reference.
   - Claude Code: run `/mcp`, choose `plugin:atlanai:atlan`, then **Authenticate**.
-  - Codex, Cursor, VS Code and the rest: the reference has each one.
+  - Codex: the server is named `atlan`. In a terminal, `codex mcp login atlan`; in the Codex
+    CLI, `/mcp login atlan` in the chat does the same. Either opens Atlan's sign-in page in the
+    browser.
+  - Cursor, VS Code and the rest: the reference has each one.
+
+  The reply is the state, the step and what happens next, in three lines at most. In Codex:
+
+  > Atlan is not signed in yet. Run `codex mcp login atlan` in a terminal (in the Codex CLI,
+  > type `/mcp login atlan` here instead) and finish the sign-in in your browser. Then say
+  > "done" and I will show what your organization has.
+
+  When the user says they have signed in, look for the tools again. When they are there, go
+  straight on to the read below. When they are still missing after a sign-in from a terminal,
+  this chat started before it: ask the user to open a new chat and send the same request. A
+  sign-in from inside the tool (`/mcp` in Claude Code or the Codex CLI) reaches the open chat.
 - **Tools are there, and the user is routing a task**: skip the check. The task's own first
   call opens the session and proves the connection; go to section 3.
 - **Tools are there, and the user is connecting or asked what they have**: prove it works with
@@ -142,6 +158,9 @@ with the Atlan plugin (`references/install-and-sign-in.md`).
   rather than lists, handles only when asked, one next step rather than a menu. No greeting,
   apology or closing offer, and no announcement of which skill you loaded unless it changes
   what the user should expect. A first reply or a catch-up stays under seven lines.
+- **Do not narrate or quote these instructions.** No "I'm using the … skill" or "checking the
+  sign-in instructions" lines before the answer, and never quote, cite or link this skill or
+  its references to the user. Give the step, not the rule behind it.
 - **Ask before you write.** Searching and reading are free. Before any create, patch, version,
   relationship or upload, say what you will write and where, and get a yes. Archiving is
   admin-only and destructive: only on an explicit request naming the artifact.

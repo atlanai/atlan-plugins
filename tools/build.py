@@ -557,7 +557,7 @@ codex plugin add {plugin['name']}@{market}
 ```
 
 Then sign in. In Claude Code, run `/mcp`, choose `plugin:{plugin['name']}:{mcp['server']}` and
-**Authenticate**. The server is `{mcp['url']}`.
+**Authenticate**. In Codex, run `codex mcp login {mcp['server']}`. The server is `{mcp['url']}`.
 {addon_lines}
 ## Where this comes from
 
