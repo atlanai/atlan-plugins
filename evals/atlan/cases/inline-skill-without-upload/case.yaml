@@ -1,0 +1,44 @@
+schema_version: "1.1"
+name: inline-skill-without-upload
+tags: [write,skill,upload]
+execution:
+  prompt: |
+    Create a new Atlan skill named incident-notes in workspace_01evalplatform.
+    I authorize creation now. Do not publish it or run a scan.
+    Use exactly this one text file, SKILL.md:
+    ---
+    name: incident-notes
+    description: Record the timeline and decisions for an incident. Use when asked to document an incident.
+    ---
+    Write a timeline, name the decision owners, and record unresolved questions.
+
+    The connector can call MCP tools, but its bearer is unavailable to the shell.
+    Use the discovered inline files input and do not request an upload ticket or credentials.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: creates-inline-skill
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__skill__create"[\s\S]*"files"[\s\S]*"SKILL.md"'
+    min: 1
+    max: 1
+  - name: skips-upload-and-publication
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__request_file_upload|registry__create_artifact|extension__skill__publish)"'
+    min: 0
+    max: 0
+  - name: no-credential-request
+    type: llm
+    criteria: |
+      PASS if the reply reports creation without claiming publication or completed scanning,
+      and never asks the user for a bearer, API key or another upload host to allowlist.
+      FAIL if it claims release approval, asks for credentials, or refuses inline creation
+      because the shell cannot upload.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or next step, has no greeting,
+      apology, em dash, generic closing offer, or unnecessary skill-loading announcement.
+      FAIL only if one of those appears.

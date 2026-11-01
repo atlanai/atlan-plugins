@@ -10,6 +10,9 @@ Atlan's MCP gateway puts every MCP server the organization registered behind the
 `atlan` connection. The user signs in to Atlan once; each downstream server is reached with
 the user's own connected account or a credential an admin linked, never with a key in chat.
 Every call is permission-checked and recorded in the session the user can audit later.
+Replies lead with the result: the first sentence is the answer or the step, counts rather
+than lists, handles only when asked, one next step rather than a menu, and no greeting,
+apology or closing offer.
 
 ## Call a registered server's tools
 
@@ -22,11 +25,15 @@ Every call is permission-checked and recorded in the session the user can audit 
    }
    ```
 
+   The first search of the conversation sends `objective` (what the whole session is for)
+   instead of `session_id`, and returns the `session_id` to reuse.
+
    Pass `servers` (`["linear"]`) once you know the server, named as its tool names start.
    `mcp__describe_tools { "servers": ["linear"] }` lists every tool of a server.
 
-2. Run the match with `mcp__call_tool`, exactly as `atlan-get-started` shows, with the tool's
-   exact name and arguments matching its schema. Never invent either.
+2. Run the match with `mcp__call_tool`, with the tool's exact name and arguments matching its
+   schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
+   Never invent a name or an argument.
 
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its

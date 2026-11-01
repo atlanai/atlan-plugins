@@ -63,7 +63,7 @@ class BuildTest(unittest.TestCase):
         for index, name in enumerate(names):
             self.assertEqual(claude[index]["source"], f"./plugins/{name}")
             self.assertEqual(cursor[index]["source"], f"./plugins/{name}")
-            self.assertEqual(codex[index]["source"], {"source": "git-subdir", "url": f"{self.source['plugin']['repository']}.git", "path": f"./plugins/{name}"})
+            self.assertEqual(codex[index]["source"], {"source": "local", "path": f"./plugins/{name}"})
 
     def test_every_plugin_folder_carries_the_logo_license_and_a_readme(self) -> None:
         for name in [self.source["plugin"]["name"], *(addon["name"] for addon in self.source["addons"])]:
@@ -174,7 +174,7 @@ class VariantTest(unittest.TestCase):
     def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
         for table, field, value in (
             ("plugin", "name", "atlanai"),
-            ("marketplace", "name", "atlan-plugins"),
+            ("marketplace", "name", "atlan"),
             ("plugin", "version", "9.9.9"),
             ("mcp", "url", "http://plain.example/mcp"),
         ):
@@ -186,7 +186,7 @@ class VariantTest(unittest.TestCase):
     def test_a_dev_variant_follows_the_gateway_suffix_convention(self) -> None:
         overrides = copy.deepcopy(self.OVERRIDES)
         overrides["plugin"]["name"] = "atlanai-dev"
-        overrides["marketplace"]["name"] = "atlan-plugins-dev"
+        overrides["marketplace"]["name"] = "atlan-dev"
         overrides["mcp"]["url"] = "https://api.atlan.dev/mcp"
         variant = build.make_variant(self.source, overrides)
         files = build.variant_files(self.source, variant, "variant.toml")
@@ -226,9 +226,18 @@ class AddonTest(unittest.TestCase):
         codex = self.documents[".agents/plugins/marketplace.json"]["plugins"][1]
         self.assertEqual(claude["source"], f"./{self.base}")
         self.assertEqual(cursor["source"], f"./{self.base}")
-        self.assertEqual(codex["source"]["source"], "git-subdir")
-        self.assertEqual(codex["source"]["path"], f"./{self.base}")
+        self.assertEqual(codex["source"], {"source": "local", "path": f"./{self.base}"})
         self.assertTrue((ROOT / self.base / "skills").is_dir())
+
+    def test_claude_and_codex_each_get_their_own_label_and_category(self) -> None:
+        plugins = [self.source["plugin"], self.addon]
+        claude = self.documents[".claude-plugin/marketplace.json"]["plugins"]
+        codex = self.documents[".agents/plugins/marketplace.json"]["plugins"]
+        self.assertEqual([p["displayName"] for p in claude], [p["display_name"] for p in plugins])
+        self.assertEqual([p["category"] for p in claude], [p["claude_category"] for p in plugins])
+        self.assertEqual([p["category"] for p in codex], [p["category"] for p in plugins])
+        for base in (build.core_dir(self.source), self.base):
+            self.assertIn("displayName", self.documents[f"{base}/.claude-plugin/plugin.json"], base)
 
     def test_refuses_an_addon_without_the_core_prefix_or_declared_twice(self) -> None:
         broken = copy.deepcopy(self.source)
@@ -330,7 +339,7 @@ class SkillLintTest(unittest.TestCase):
         self.assertEqual(self.lint("atlan-x", text), [])
 
     def test_name_must_match_directory(self) -> None:
-        errors = self.lint("atlan-x", "---\nname: atlan-y\ndescription: d\n---\nbody\n")
+        errors = self.lint("atlan-x", "---\nname: atlan-y\ndescription: Use when testing.\n---\nbody\n")
         self.assertTrue(any("differs from its directory" in e for e in errors), errors)
 
     def test_description_is_required_bounded_and_tag_free(self) -> None:
@@ -338,8 +347,15 @@ class SkillLintTest(unittest.TestCase):
         self.assertTrue(self.lint("a", f"---\nname: a\ndescription: {'x' * 1025}\n---\nbody\n"))
         self.assertTrue(self.lint("a", "---\nname: a\ndescription: Use <b>now</b>\n---\nbody\n"))
 
+    def test_an_owned_skills_description_says_when_to_use_it(self) -> None:
+        what_only = "---\nname: a\ndescription: Create and publish skill bundles.\n---\nbody\n"
+        self.assertTrue(any("when to use the skill" in e for e in self.lint("a", what_only)))
+        self.assertEqual(self.lint("a", what_only, owned=False), [])
+        for when in ("Use when the user asks.", "Use for questions such as x."):
+            self.assertEqual(self.lint("a", f"---\nname: a\ndescription: Publish. {when}\n---\nbody\n"), [])
+
     def test_owned_skills_may_not_cite_missing_files_or_skills(self) -> None:
-        text = "---\nname: a\ndescription: d\n---\nRead `references/gone.md` and `atlan-missing`.\n"
+        text = "---\nname: a\ndescription: Use when testing.\n---\nRead `references/gone.md` and `atlan-missing`.\n"
         errors = self.lint("a", text)
         self.assertTrue(any("cites missing references/gone.md" in e for e in errors), errors)
         self.assertTrue(any("cites unknown skill atlan-missing" in e for e in errors), errors)
@@ -532,7 +548,8 @@ class EvalCasesTest(unittest.TestCase):
     """The core plugin's eval cases and their `emulator.json` sidecars (evals/atlan/cases/)."""
 
     CASES = ROOT / "evals" / "atlan" / "cases"
-    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG"}
+    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
+                "ATLAN_EMULATOR_SIGNED_OUT"}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -573,6 +590,8 @@ class EvalCasesTest(unittest.TestCase):
         only = self.runner.groups(self.CASES, ["wrong-server"])
         self.assertEqual([c.name for _, cases in only.values() for c in cases], ["wrong-server"])
         self.assertEqual(self.runner.case_filters(["--runs", "1", "--case", "a", "--case", "b*"]), ["a", "b*"])
+        self.assertEqual(self.runner.without_case_filters(["--runs", "1", "--case", "a", "--case", "b*", "-j", "4"]),
+                         ["--runs", "1", "-j", "4"])
 
     def test_the_runner_refuses_an_unknown_sidecar_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

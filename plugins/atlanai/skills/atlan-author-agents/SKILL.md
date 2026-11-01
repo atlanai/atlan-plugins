@@ -1,6 +1,6 @@
 ---
 name: atlan-author-agents
-description: Create and update Atlan agents, link repository agents and their skills, register coding harnesses and prepare private runtime identity.
+description: Register an agent in Atlan or update one: link an agent that lives in a repository with the skills it uses, register the coding tool running this session as a harness, or prepare an agent's private runtime credential. Use when the user wants to add, register, catalogue or update an agent in Atlan, record which skills an agent uses, or issue an agent's runtime credential. Not for publishing skills (atlan-author-skills) or setting up GitHub CI publication (atlan-connect-repo).
 license: Apache-2.0
 ---
 
@@ -16,9 +16,13 @@ Choose the workflow:
 - **Register the coding tool running this session:** [harness and session](references/harness-and-session.md).
 - **Review skill pins and relationships:** [edges](references/agent-edges.md).
 
-Open one audited session with `mcp__initialise`; pass its `session_id` and a first-person
-`rationale` on every later tool call. Resolve the workspace with `registry__list_workspaces`
-and read `registry__get_kind_schema` before writing a kind for the first time.
+Pass a `session_id` and a first-person `rationale` on every tool call. In search mode, the
+default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by sending
+`objective`, each `registry__…` tool named here runs through `mcp__call_tool` with `session_id`
+and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
+skipped. In full mode, call `mcp__initialise` first. Resolve the workspace with
+`registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for the
+first time. Replies lead with the result in a few lines, and ask before every write.
 
 A coding harness is distinct from the autonomous agent the repository implements.
 Read back workspace, exact repository and declaration path before reusing an agent;

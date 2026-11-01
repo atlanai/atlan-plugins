@@ -1,0 +1,35 @@
+schema_version: "1.1"
+name: codex-after-sign-in
+tags: [connect,codex]
+# The turn after codex-not-signed-in: the user has signed in. The skill picks up with the
+# connection read, without asking again or repeating the sign-in step.
+execution:
+  prompt: |
+    I'm in Codex. I ran `codex mcp login atlan` and finished the sign-in in the browser. Done, set up AI Registry.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-get-started
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+  - name: lists-workspaces
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__list_workspaces"'
+    min: 1
+  - name: no-web-search
+    type: tool_used
+    tool: WebSearch
+    min: 0
+    max: 0
+  - name: picks-up
+    type: llm
+    criteria: |
+      PASS if the reply confirms the connection works, names some of the organization's active workspaces (Acme, Platform Engineering, Dana's Workspace, Marketing) and offers a concrete first task.
+      FAIL if it repeats the sign-in step, asks the user to confirm again before checking, or says it is not connected.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

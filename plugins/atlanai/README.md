@@ -1,4 +1,4 @@
-# Atlan
+# AI Registry
 
 Connects your coding agent to the Atlan registry: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and
