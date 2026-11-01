@@ -45,6 +45,7 @@ SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 XML_TAG = re.compile(r"<[A-Za-z/][^>]*>")
 CITED_PATH = re.compile(r"`((?:skills|references)/[A-Za-z0-9_./-]+\.md)`")
 CITED_SKILL = re.compile(r"`(atlan-[a-z0-9-]+)`")
+WHEN = re.compile(r"\bUse (?:when|for)\b")
 # Backticked `atlan-…` words that are not skills in this plugin.
 NOT_SKILLS = {
     "atlan-plugins",  # this repository's marketplace name
@@ -134,6 +135,10 @@ def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT
         errors.append(f"{relative}/SKILL.md: body is empty")
 
     if owned:
+        # The description is what a harness matches a request against and what registry search
+        # ranks, so it says when to use the skill, not only what the skill is.
+        if description and not WHEN.search(description):
+            errors.append(f"{relative}/SKILL.md: description does not say when to use the skill (\"Use when\" or \"Use for\")")
         line_count = text.count("\n") + 1
         if line_count > 500:
             errors.append(f"{relative}/SKILL.md: {line_count} lines; move material to references/")

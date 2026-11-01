@@ -10,8 +10,9 @@ Everything in the registry is an **artifact**: a versioned item of one **kind**,
 **workspace** and optionally one **project**, with a handle shaped `<kind>_<id>`
 (`skill_01j…`, `agent_01k…`). Reads are safe: nothing here writes.
 
-Calls below are written as `mcp__call_tool` in search mode. Open the session first as
-`atlan-get-started` shows, and pass `session_id` and a `rationale` on every call.
+Calls below are written as `mcp__call_tool` in search mode. The first call opens the session
+by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
+and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
 
 ## Pick the read
 
@@ -39,6 +40,8 @@ mcp__call_tool {
 ```
 
 - **Write `query` as natural words** describing the thing, not a keyword list.
+- **Always pass `limit`**: 10 is enough to choose from. Without it the gateway returns 50,
+  and every one of them lands in the conversation. The same holds for `registry__list_artifacts`.
 - **Set `semantic: true`** when the user's wording may not match the artifact's (it fuses
   meaning with keyword relevance). Leave it off for exact names.
 - **Narrow with `kind`** when you know the type. Omit it to search every discoverable kind.
