@@ -138,8 +138,12 @@ def make_variant(source: dict, overrides: dict) -> dict:
     main, other = source["plugin"], variant["plugin"]
     for addon in variant.get("addons", []):
         addon["name"] = other["name"] + addon["name"].removeprefix(main["name"])
+        # The add-on's label carries the variant's, so a variant installed beside these plugins
+        # never shows two add-ons under one name.
         if addon["display_name"].startswith(main["display_name"]):
             addon["display_name"] = other["display_name"] + addon["display_name"].removeprefix(main["display_name"])
+        elif other["display_name"] != main["display_name"]:
+            addon["display_name"] = f"{other['display_name']} {addon['display_name']}"
     validate(variant)
     if variant["plugin"]["name"] == source["plugin"]["name"]:
         raise SystemExit("a variant needs its own plugin name, or its commands collide with this one's")
@@ -247,6 +251,7 @@ def addon_outputs(source: dict, addon: dict) -> dict[str, dict]:
         # Atlan tools and say which plugin to add.
         f"{base}/.claude-plugin/plugin.json": {
             **addon_core(source, addon),
+            "displayName": addon["display_name"],
             "dependencies": [source["plugin"]["name"]],
         },
         f"{base}/.codex-plugin/plugin.json": {
@@ -369,6 +374,7 @@ def outputs(source: dict) -> dict[str, dict]:
     base = core_dir(source)
     entry = {
         "name": plugin["name"],
+        "displayName": plugin["display_name"],
         "source": f"./{base}",
         "description": plugin["description"],
         "author": dict(source["author"]),
@@ -376,12 +382,13 @@ def outputs(source: dict) -> dict[str, dict]:
         "repository": plugin["repository"],
         "license": plugin["license"],
         "keywords": list(plugin["keywords"]),
-        "category": plugin["category"],
+        "category": plugin["claude_category"],
     }
     addons = source.get("addons", [])
     claude_addons = [
         {
             "name": addon["name"],
+            "displayName": addon["display_name"],
             "source": f"./{addon_dir(addon)}",
             "description": addon["description"],
             "author": dict(source["author"]),
@@ -389,7 +396,7 @@ def outputs(source: dict) -> dict[str, dict]:
             "repository": plugin["repository"],
             "license": plugin["license"],
             "keywords": list(addon["keywords"]),
-            "category": addon["category"],
+            "category": addon["claude_category"],
         }
         for addon in addons
     ]
@@ -420,6 +427,7 @@ def outputs(source: dict) -> dict[str, dict]:
         # directory reads the privacy link from the README instead.
         f"{base}/.claude-plugin/plugin.json": {
             **core(source),
+            "displayName": plugin["display_name"],
             "mcpServers": "./.mcp.json",
         },
         ".claude-plugin/marketplace.json": {
