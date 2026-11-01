@@ -1,6 +1,6 @@
 # Contributing to the Atlan plugins
 
-This repository is a plugin marketplace, `atlan-plugins`, for Claude Code, OpenAI Codex, Cursor
+This repository is a plugin marketplace, `atlan`, for Claude Code, OpenAI Codex, Cursor
 and Agent Plugins hosts (GitHub Copilot, VS Code and others). Its core plugin, `atlanai`, is a
 remote MCP server URL plus skills and commands. Each add-on is skills, commands and agents that
 use that server. It holds no service code. Contributor guidance lives here because no host
@@ -161,7 +161,7 @@ can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketpla
 the skills here free of any one environment's URLs beyond production's, so every variant reads
 correctly after the rewrite. Name a variant the way the gateway names its own marketplace for
 that environment, `atlanai-<suffix>` (its `the marketplace name suffix`, `dev` on
-the dev gateway), with the marketplace `atlan-plugins-<suffix>` and the environment's `/mcp`
+the dev gateway), with the marketplace `atlan-<suffix>` and the environment's `/mcp`
 URL, so the two install side by side with production's the way the gateway's do. This
 repository holds no variant of its own.
 

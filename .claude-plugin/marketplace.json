@@ -1,6 +1,6 @@
 {
   "$schema": "https://code.claude.com/schemas/marketplace.json",
-  "name": "atlan-plugins",
+  "name": "atlan",
   "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it.",
   "owner": {
     "name": "Atlan",
