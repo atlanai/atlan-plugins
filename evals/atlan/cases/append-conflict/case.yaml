@@ -1,0 +1,57 @@
+schema_version: "1.1"
+name: append-conflict
+tags: [content,write,conflict]
+execution:
+  prompt: |
+    Append the line "- 2026-11-01: shipped the churn fix" to my standup notes file in Atlan, file_01evalnotes. Yes, go ahead and write it; no need to ask again.
+  max_turns: 25
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-content
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-content"'
+  - name: reads-the-head
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__get_artifact"[\s\S]*file_01evalnotes'
+    min: 2
+  - name: appends-with-if-match
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__append_artifact_version"[\s\S]*"if_match"'
+    min: 2
+  - name: never-creates-a-new-file
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__create_artifact\w*|registry__request_file_upload)"'
+    min: 0
+    max: 0
+  - name: never-archives-or-patches
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__(?:archive|patch|move)_artifact"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: reports-the-landed-version
+    type: llm
+    criteria: |
+      PASS if the reply says the line was appended to file_01evalnotes as version 3, and that the file had changed between the first read and the write (another editor added a 2026-10-31 line), so it re-read the head and wrote again with the new etag, keeping the other editor's line.
+      FAIL if it reports success without the conflict having been handled, says it created a new file, dropped the other editor's line, or stopped at the 409 and asked the user what to do.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
