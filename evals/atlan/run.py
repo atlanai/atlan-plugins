@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Run the `atlan` plugin's evals against the gateway emulator.
+"""Run the `atlanai` plugin's evals against the gateway emulator.
 
-    python3 evals/atlan/run.py [--plugin plugins/atlan] [-- <claude plugin eval options>]
+    python3 evals/atlan/run.py [--plugin plugins/atlanai] [-- <claude plugin eval options>]
 
 `claude plugin eval` mocks cannot stand in for the Atlan gateway (its tool names contain `__`,
 which a mock's name may not), so this copies the plugin to a temporary folder, points its
@@ -27,12 +27,12 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SERVER = "atlan"
 # Claude Code's name for a plugin's MCP tools: mcp__plugin_<plugin>_<server>__<tool>.
-TOOLS = f"mcp__plugin_atlan_{SERVER}__*"
+TOOLS = f"mcp__plugin_atlanai_{SERVER}__*"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--plugin", default=str(ROOT / "plugins" / "atlan"), help="the plugin folder to evaluate")
+    parser.add_argument("--plugin", default=str(ROOT / "plugins" / "atlanai"), help="the plugin folder to evaluate")
     parser.add_argument("--label", default="", help="a name for this run's results folder")
     parser.add_argument("extra", nargs="*", help="options passed to `claude plugin eval`, after --")
     args = parser.parse_args()
@@ -41,7 +41,7 @@ def main() -> int:
     out = HERE / "results" / (f"{stamp}-{args.label}" if args.label else stamp)
     out.mkdir(parents=True)
     with tempfile.TemporaryDirectory(prefix="atlan-eval-") as tmp:
-        plugin = Path(tmp) / "atlan"
+        plugin = Path(tmp) / "atlanai"
         shutil.copytree(args.plugin, plugin, ignore=shutil.ignore_patterns("evals"))
         emulator = HERE / "emulator" / "atlan_emulator.py"
         server = {"type": "stdio", "command": sys.executable, "args": [str(emulator)],

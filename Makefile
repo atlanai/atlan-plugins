@@ -10,7 +10,7 @@ SOURCES = --from registry-files=$(AGENT_GATEWAY) --from skill=$(APP_SKILL) --fro
 	--from knowledge=$(APP_KNOWLEDGE) --from repo=$(APP_REPO)
 
 # The analytics helpers' offline selftests run in `check`.
-ANALYTICS_SCRIPTS = plugins/atlan-analytics/skills/atlan-analytics/scripts
+ANALYTICS_SCRIPTS = plugins/atlanai-analytics/skills/atlan-analytics/scripts
 
 .PHONY: check build sync sync-adopt lint test site validate eval eval-analytics
 
@@ -60,6 +60,6 @@ EVAL_ARGS ?= --runs 2 -j 4
 eval:
 	$(PYTHON) evals/atlan/run.py -- $(EVAL_ARGS)
 
-# The same for the atlan-analytics plugin: routing, isolation, publishing and propose behaviour.
+# The same for the atlanai-analytics plugin: routing, isolation, publishing and propose behaviour.
 eval-analytics:
 	$(PYTHON) evals/atlan-analytics/run.py -- $(EVAL_ARGS)

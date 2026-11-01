@@ -1,0 +1,49 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "atlanai",
+  "version": "0.3.0",
+  "description": "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills.",
+  "author": {
+    "name": "Atlan",
+    "url": "https://atlan.com"
+  },
+  "homepage": "https://github.com/atlanai/atlan-plugins",
+  "repository": "https://github.com/atlanai/atlan-plugins",
+  "license": "Apache-2.0",
+  "keywords": [
+    "atlan",
+    "registry",
+    "skills",
+    "agents",
+    "mcp",
+    "knowledge",
+    "catalog",
+    "governance"
+  ],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/atlan-get-started/SKILL.md",
+      "interface": {
+        "displayName": "Atlan",
+        "shortDescription": "Skills, agents and MCP from the Atlan registry",
+        "longDescription": "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes.",
+        "developerName": "Atlan",
+        "category": "Developer Tools",
+        "capabilities": [
+          "Interactive",
+          "Write"
+        ],
+        "websiteURL": "https://atlan.com",
+        "defaultPrompt": [
+          "Show my organization's skills and agents in Atlan",
+          "Find an Atlan skill for this task and install it",
+          "Publish the skill in this folder to Atlan"
+        ],
+        "brandColor": "#2026D2",
+        "composerIcon": "./assets/logo.svg",
+        "logo": "./assets/logo.svg",
+        "privacyPolicyURL": "https://atlan.com/privacy-policy/"
+      }
+    }
+  }
+}

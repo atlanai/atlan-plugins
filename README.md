@@ -24,99 +24,62 @@ organization's Atlan registry: the skills, agents, knowledge and MCP servers you
 already published. It can find what fits the task, use it in the current project, and publish
 new work back, all under your own sign-in.
 
-The same marketplace installs in every major agent host:
-
-| Host | Install from | Status |
-|---|---|---|
-| [Claude Code](https://code.claude.com) | `/plugin marketplace add` | Supported, installs dependencies |
-| [Claude](https://claude.ai) chat and Cowork | **Customize → Plugins** | Supported |
-| [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add` | Supported |
-| [Cursor](https://cursor.com) | Cursor Marketplace or team marketplace | Supported |
-| [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) and other [Agent Plugins](https://agent-plugins.org) hosts | `chat.plugins.marketplaces` | Supported |
-| Any MCP client | `https://api.atlan.com/mcp` | MCP server only, no skills |
-
 ## Install
 
 You need an account in an Atlan organization. You sign in through your browser with OAuth, so
 there is no API key to create or paste.
 
-### Claude Code
+**One command, every coding agent on this machine** (Node.js 18 or later):
 
 ```
-/plugin marketplace add atlanai/atlan-plugins
-/plugin install atlan@atlan-plugins
-/plugin install atlan-analytics@atlan-plugins    # optional; installs atlan too
+npx plugins add atlanai/atlan-plugins
 ```
 
-Then run `/mcp`, pick `plugin:atlan:atlan` and choose **Authenticate**. Check the connection
-with `/atlan:get-started`.
+It finds Claude Code, Codex, Cursor, GitHub Copilot CLI, VS Code and the other agents the
+[`plugins`](https://github.com/vercel-labs/plugins) installer supports, and installs `atlanai`
+and `atlanai-analytics` into each through its own plugin system. Then sign in once per agent:
 
-<details>
-<summary><b>Claude chat and Cowork</b></summary>
+| Agent | Sign in |
+|---|---|
+| Claude Code | `/mcp`, pick `plugin:atlanai:atlan`, **Authenticate** |
+| Codex | Prompted at install; otherwise `codex mcp login` with the name `codex mcp list` shows |
+| Cursor | **Settings**, **Tools & MCP**, connect `atlan` |
+| VS Code and Copilot | Start the `atlan` server when prompted |
 
-In Claude, go to **Customize**, **Plugins**, **Add**, **Add marketplace** and enter
-`atlanai/atlan-plugins`. Add **Atlan**, then click **Connect** on its **Connectors** tab.
+Then ask your agent: *"Connect to Atlan and show me what my organization has."* In Claude Code,
+`/atlanai:get-started` does the same.
 
-On Team and Enterprise plans, an Owner first adds the connector `https://api.atlan.com/mcp`
-for the organization.
+### Or install for one agent
 
-</details>
+| Agent | Install |
+|---|---|
+| [Claude Code](https://code.claude.com) | `claude plugin install atlanai --marketplace atlanai/atlan-plugins` |
+| [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan-plugins` |
+| [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **Atlan**, then **Connect** on its **Connectors** tab |
+| [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **Atlan** from the Cursor Marketplace |
+| [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **Atlan** from Chat Plugins |
+| Skills only, any Agent Skills tool | `npx skills add atlanai/atlan-plugins` (no MCP server; add `--skill <name>` to pick one) |
+| MCP server only, any MCP client | `https://api.atlan.com/mcp` (Streamable HTTP with OAuth), for example `claude mcp add --transport http atlan https://api.atlan.com/mcp` |
 
-<details>
-<summary><b>OpenAI Codex</b></summary>
+For the analytics add-on, install `atlanai-analytics` the same way. Claude Code installs
+`atlanai` with it; every other agent needs `atlanai` installed first. Inside a running Claude
+Code session, type the install as `/plugin install …` and then `/reload-plugins`.
 
-```
-codex plugin marketplace add atlanai/atlan-plugins
-codex plugin add atlan@atlan-plugins
-codex plugin add atlan-analytics@atlan-plugins   # optional
-```
+On Claude Team and Enterprise plans, an Owner first adds the connector
+`https://api.atlan.com/mcp` for the organization. The
+[install and sign-in guide](plugins/atlanai/skills/atlan-get-started/references/install-and-sign-in.md)
+covers each agent in detail.
 
-</details>
-
-<details>
-<summary><b>Cursor</b></summary>
-
-Install **Atlan** from the Cursor Marketplace, or import `atlanai/atlan-plugins` as a team
-marketplace. Then connect the `atlan` server under **Settings**, **Tools & MCP**.
-
-</details>
-
-<details>
-<summary><b>VS Code with GitHub Copilot</b></summary>
-
-Add `atlanai/atlan-plugins` to the `chat.plugins.marketplaces` setting, then install **Atlan**
-from the Chat Plugins section of the Extensions view.
-
-</details>
-
-<details>
-<summary><b>Skills only, or the MCP server only</b></summary>
-
-`npx skills add atlanai/atlan-plugins` copies the skills without the MCP server. Add
-`--skill <name>` to pick one.
-
-To use the MCP server without any skills, point an MCP client at `https://api.atlan.com/mcp`
-(Streamable HTTP with OAuth). For example:
-
-```
-claude mcp add --transport http atlan https://api.atlan.com/mcp
-```
-
-</details>
-
-Only Claude Code installs a plugin's dependencies. In every other host, install `atlan` before
-any other plugin from this marketplace. The
-[install and sign-in guide](plugins/atlan/skills/atlan-get-started/references/install-and-sign-in.md)
-covers each host in detail.
-
-Once you are signed in, try: *"Connect to Atlan and show me which skills my organization has."*
+> **Not the `atlan` plugin in Anthropic's directory.** `/plugin install atlan` installs Atlan's
+> data catalog plugin (atlanhq/agent-toolkit), a different product on a different server. This
+> marketplace's plugin is `atlanai`, and the two can be installed side by side.
 
 ## Plugins
 
 | Plugin | What it adds |
 |---|---|
-| [**Atlan**](plugins/atlan) (`atlan`) | Atlan's remote MCP server and the skills to find, use and publish what is in the registry. Every other plugin here builds on it. |
-| [**Atlan Analytics**](plugins/atlan-analytics) (`atlan-analytics`) | Answers data questions from your governed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
+| [**Atlan**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in the registry. Every other plugin here builds on it. |
+| [**Atlan Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your governed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
 
 ### Atlan
 
@@ -137,16 +100,17 @@ The core plugin connects one MCP server, `atlan`, and teaches your agent when to
 | `atlan-connect-repo` | Record where a skill came from, or sync a repository's skills from GitHub |
 | `atlan-record-outputs` | Record what a run produced as an Atlan output |
 
-In Claude Code and Cursor, the commands `/atlan:get-started`, `/atlan:use-skill <skill_…>` and
-`/atlan:continue <output_…>` run `atlan-get-started`, `atlan-use-skill` and `atlan-continue`. The Atlan dashboard's
-**Open in Claude** buttons send the last two.
+In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-skill <skill_…>` and
+`/atlanai:continue <output_…>` run `atlan-get-started`, `atlan-use-skill` and `atlan-continue`; those
+three skills hide their own slash entries, so each task is listed once. In Codex, the plugin
+runs `atlan-get-started` right after install.
 
 ### Atlan Analytics
 
 An add-on for the analytics workload. It uses the core plugin's connection and declares no MCP
 server of its own, so no Atlan tool appears twice. It finds your warehouse through Atlan or a
 connector you already have, and asks you to connect one when it is missing. Building and
-evaluating an agent needs Claude Code. See its [README](plugins/atlan-analytics) for the full
+evaluating an agent needs Claude Code. See its [README](plugins/atlanai-analytics) for the full
 list of skills and agents.
 
 ## What you can ask
@@ -168,8 +132,8 @@ These work in any host once you are signed in.
 ```mermaid
 flowchart LR
   agent["Your coding agent<br/>Claude Code, Codex, Cursor, Copilot"]
-  plugin["atlan plugin<br/>skills and commands"]
-  addon["Add-ons<br/>atlan-analytics"]
+  plugin["atlanai plugin<br/>skills and commands"]
+  addon["Add-ons<br/>atlanai-analytics"]
   gateway["Atlan MCP gateway<br/>api.atlan.com/mcp<br/>OAuth, permissions, sessions"]
   registry["Atlan registry<br/>skills, agents, knowledge, files, outputs"]
   servers["Your organization's MCP servers<br/>Slack, Linear, warehouses, ..."]
@@ -182,9 +146,10 @@ flowchart LR
   gateway --> servers
 ```
 
-The `atlan` server runs Atlan's MCP gateway in search mode. Four tools (`mcp__search_tools`,
-`mcp__describe_tools`, `mcp__call_tool` and `mcp__connect_server`) reach the registry's own
-tools, every Atlan app's tools and every MCP server your organization registered. The agent
+The `atlan` server runs Atlan's MCP gateway in search mode. Three tools (`mcp__search_tools`,
+`mcp__describe_tools` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's
+tools and every MCP server your organization registered; connecting your account for one of
+those servers runs through `mcp__call_tool` as `mcp__connect_server`. The agent
 searches for the tool it needs instead of loading hundreds of schemas up front. Atlan checks
 your permissions on each call and records it in a session you can review.
 
@@ -207,10 +172,15 @@ See Atlan's [privacy notice](https://atlan.com/privacy-policy/). To report a vul
 
 ## Troubleshooting
 
-- **Every Atlan tool appears twice.** The Atlan desktop app installs its own plugin, `atlanai`,
-  which registers the same `atlan` server. Keep one of the two.
-- **The add-on says the Atlan tools are missing.** Outside Claude Code, install `atlan` first,
+- **Atlan skills appear twice.** The Atlan desktop app installs its own copy of `atlanai`, from
+  another marketplace, or the `atlan` server was also added by hand. Keep one.
+- **The Atlan tools are about search, lineage and glossaries.** That is the data catalog plugin
+  named `atlan` from Anthropic's directory, a different product. Install `atlanai` beside it.
+- **The add-on says the Atlan tools are missing.** Outside Claude Code, install `atlanai` first,
   then sign in to its server.
+- **Upgrading from 0.2 or earlier.** The plugins were named `atlan` and `atlan-analytics`.
+  Uninstall them (`claude plugin uninstall atlan@atlan-plugins`, and the same for
+  `atlan-analytics`), then install `atlanai`. Slash commands move from `/atlan:` to `/atlanai:`.
 - **A call is refused or fails.** Ask your agent to use `atlan-troubleshoot`. It reads the
   error and says whether to sign in again, ask for access or retry.
 
@@ -229,7 +199,7 @@ tools/                            the build, sync and lint, and their tests
 Every plugin is a folder under `plugins/`, the layout Anthropic's
 [official marketplace](https://github.com/anthropics/claude-plugins-official) and OpenAI's
 [plugins](https://github.com/openai/plugins) use. A workload built on the registry ships as its
-own plugin, named `atlan-<workload>`.
+own plugin, named `atlanai-<workload>`.
 
 ## Contributing
 
