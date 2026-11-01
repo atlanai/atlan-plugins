@@ -7,8 +7,7 @@
     {
       "name": "atlanai",
       "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/atlanai/atlan-plugins.git",
+        "source": "local",
         "path": "./plugins/atlanai"
       },
       "policy": {
@@ -20,8 +19,7 @@
     {
       "name": "atlanai-analytics",
       "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/atlanai/atlan-plugins.git",
+        "source": "local",
         "path": "./plugins/atlanai-analytics"
       },
       "policy": {

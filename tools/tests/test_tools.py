@@ -63,7 +63,7 @@ class BuildTest(unittest.TestCase):
         for index, name in enumerate(names):
             self.assertEqual(claude[index]["source"], f"./plugins/{name}")
             self.assertEqual(cursor[index]["source"], f"./plugins/{name}")
-            self.assertEqual(codex[index]["source"], {"source": "git-subdir", "url": f"{self.source['plugin']['repository']}.git", "path": f"./plugins/{name}"})
+            self.assertEqual(codex[index]["source"], {"source": "local", "path": f"./plugins/{name}"})
 
     def test_every_plugin_folder_carries_the_logo_license_and_a_readme(self) -> None:
         for name in [self.source["plugin"]["name"], *(addon["name"] for addon in self.source["addons"])]:
@@ -226,8 +226,7 @@ class AddonTest(unittest.TestCase):
         codex = self.documents[".agents/plugins/marketplace.json"]["plugins"][1]
         self.assertEqual(claude["source"], f"./{self.base}")
         self.assertEqual(cursor["source"], f"./{self.base}")
-        self.assertEqual(codex["source"]["source"], "git-subdir")
-        self.assertEqual(codex["source"]["path"], f"./{self.base}")
+        self.assertEqual(codex["source"], {"source": "local", "path": f"./{self.base}"})
         self.assertTrue((ROOT / self.base / "skills").is_dir())
 
     def test_claude_and_codex_each_get_their_own_label_and_category(self) -> None:
