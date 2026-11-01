@@ -1,0 +1,5 @@
+{
+  "env": {
+    "ATLAN_EMULATOR_RATE_LIMIT": "registry__get_related_artifacts"
+  }
+}

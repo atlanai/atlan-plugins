@@ -82,9 +82,12 @@ take their place:
   whose request matches the artifact;
 - `registry__get_trace { "trace_id": "…", "include": ["content"] }` for the request and the
   final reply;
-- `registry__get_trace_spans { "trace_id": "…", "limit": 20 }`, paged with `cursor`, only for
-  what those leave open. These take no `session_id` argument, so they cannot narrow to the
-  source session: say so when more than one run could be it.
+- `registry__get_trace_spans { "trace_id": "…", "limit": 20 }`, paged with `cursor`, for what
+  those leave open. A run whose `error_count` is above zero has a step that failed, and the
+  final reply usually names the symptom, not the cause: read its spans and quote the failed
+  step's error before you say why something was not done. These take no `errors_only`
+  filter and no `session_id` argument, so they cannot narrow to the source session: say so
+  when more than one run could be it.
 
 With the agent app:
 

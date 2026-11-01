@@ -42,9 +42,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **Every skill is written here.** Until 0.3.1, six of the core's skills (`atlan-author-skills`,
   `atlan-author-agents`, `atlan-author-knowledge`, `atlan-connect-repo`, `atlan-content`,
   `atlan-record-outputs`) were copied from the registry's apps at pinned commits. They are now
-  this repository's own and are edited here like the rest; nothing syncs them. The apps still
-  serve their own copies as MCP prompts and in the registry's `atlanai` plugin, so when the
-  gateway changes a tool or a procedure, change the skill here to match and add an eval case.
+  this repository's own and are edited here like the rest; nothing syncs them *into* this
+  repository. The gateway's own `atlanai` plugin ships copies of these folders vendored *from*
+  it at a pinned commit (gateway's `pinned-files.toml`), and the gateway's checks on
+  contributed skills apply to the text: every `registry__…` name is one the gateway serves,
+  retired tool names are not quoted, and a placeholder is written `registry__…`, never
+  `registry__x`. When the gateway changes a tool or a procedure, change the skill here to match,
+  add an eval case, and move the gateway's pin.
 - **Every skill in every plugin has a `[skills.<name>]` entry** in
   `plugin.toml`: a display name, a short description and a starter prompt that invokes it as
   `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
@@ -117,7 +121,12 @@ replaced by `evals/atlan/emulator/`, a stdio stand-in for the gateway's search m
 fixed organization, because `claude plugin eval` mocks cannot name a tool with `__` in it. It
 needs the claude CLI and costs money, so it is not in CI: run it before a release that changes
 an owned skill, and add a case for each failure you fix. When the live gateway changes a tool
-or a refusal the skills rely on, change the emulator to match.
+or a refusal the skills rely on, change the emulator to match. A case that needs the emulator
+in another state (an organization without the agent app, an empty registry, a rate limit, the
+data-catalog server in the plugin's place) carries an `emulator.json` beside its `case.yaml`
+with the emulator's environment switches; the runner groups cases by that file, one Claude Code
+run per group, because the emulator starts once per run. `make check` validates every case
+and sidecar.
 
 ## Prompts other products send
 

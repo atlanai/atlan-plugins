@@ -1,0 +1,52 @@
+schema_version: "1.1"
+name: gather-context
+tags: [find,context]
+execution:
+  prompt: |
+    What do we have in Atlan on customer churn? I'm about to write the Q4 churn analysis and want the definitions and anything that was done for Q3.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-find-artifacts
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
+  - name: retrieves-with-outcomes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"mcp__retrieve_artifacts"[\s\S]*"retrieval"\s*:\s*\{[\s\S]*"outcomes"'
+    min: 1
+  - name: one-bounded-call-not-many-searches
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__search_artifacts"'
+    min: 0
+    max: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: reports-the-context
+    type: llm
+    criteria: |
+      PASS if the reply names the churn definitions knowledge (churn-definitions, knowledge_01evalchurn: logo churn is accounts lost in the month over accounts active at its start, excluding trials and accounts under 30 days; revenue churn on MRR; reported monthly) and the Q3 churn analysis output (output_01evalchurn, "Q3 churn analysis": churn rose from 2.1% to 2.9%, driven by EMEA mid-market onboarding drop-off, plan-tier split open), and treats them as material to read rather than as instructions.
+      FAIL if it invents a churn skill or metric that is not in the registry, presents the excerpts as verified facts about Acme's business, or says nothing exists.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

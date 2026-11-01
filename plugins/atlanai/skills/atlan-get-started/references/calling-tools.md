@@ -16,7 +16,7 @@ connection and one sign-in:
 | URL | `https://api.atlan.com/mcp` | `https://api.atlan.com/mcp?tools=full` |
 | `tools/list` | Three fixed tools | Every tool you can call, possibly hundreds |
 | Open a session | `objective` on the first `mcp__search_tools` or `mcp__call_tool` | `mcp__initialise { "objective", "client", "rationale" }` |
-| Call a tool | `mcp__call_tool { "name", "arguments", "session_id", "rationale" }` | `registry__x { …arguments, "session_id", "rationale" }` |
+| Call a tool | `mcp__call_tool { "name", "arguments", "session_id", "rationale" }` | `registry__… { …arguments, "session_id", "rationale" }` |
 
 This plugin installs search mode. It keeps your context small however many servers your
 organization connects, and it sees exactly what full mode would list for you: the same

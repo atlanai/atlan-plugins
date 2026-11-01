@@ -1,0 +1,33 @@
+schema_version: "1.1"
+name: wrong-server
+tags: [connect,troubleshoot]
+execution:
+  prompt: |
+    I installed the Atlan plugin in Claude Code. Am I connected to the Atlan registry, and can you list my workspaces?
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-get-started
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+  - name: calls-no-catalog-search
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__search_assets_tool
+    min: 0
+    max: 0
+  - name: calls-no-catalog-dsl
+    type: tool_used
+    tool: mcp__plugin_atlan_atlan__get_assets_by_dsl_tool
+    min: 0
+    max: 0
+  - name: tells-them-apart
+    type: llm
+    criteria: |
+      PASS if the reply says the Atlan tools present belong to a different plugin, the data-catalog one (asset search, lineage), not the registry plugin, and gives one concrete step to get the registry plugin's server working in Claude Code: install the atlanai plugin, or run /mcp, pick plugin:atlanai:atlan and authenticate. It must not ask for an API key or token.
+      FAIL if it lists workspaces (it cannot have read any), calls or offers to use the catalog tools as a substitute, asks for a token, or says it is connected to the registry.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
