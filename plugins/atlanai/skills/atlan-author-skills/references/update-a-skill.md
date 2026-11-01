@@ -5,12 +5,17 @@ a silent no-op in the other.
 
 ## The content changed → publish a new version
 
-Repeat the whole authoring recipe with the **same identity**: the same `source_id`, or the
-same `name` in the same workspace if you never set one.
+Repeat the whole authoring recipe with the **same identity**: `workspace_id`,
+`source_type` and `source_id`. Read and reuse them from the existing skill;
+matching only its name is insufficient.
 
 That is an append, not a duplicate. The registry reconciles the create onto the existing
 line, runs the same materialization a first create runs, and the previous version stays
 resolvable at its own ordinal.
+
+For small text bundles, send the complete `files` map to `extension__skill__create`
+using the [inline limits and rules](publish.md#small-text-skills-send-files-inline).
+For larger bundles, binaries or executable files, use the uploaded ZIP path:
 
 ```
 registry__request_file_upload → PUT → registry__create_artifact kind:file → extension__skill__create
