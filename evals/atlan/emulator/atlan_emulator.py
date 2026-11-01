@@ -20,7 +20,9 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_RATE_LIMIT=registry__get_related_artifacts`: the first call of that tool is
   refused with the gateway's JSON-RPC `-32003` `rate_limited` error, and every later call answers;
 - `ATLAN_EMULATOR_CATALOG=1`: the server is the data-catalog plugin's (`mcp.atlan.com`), with
-  asset search and lineage tools and none of the gateway's three.
+  asset search and lineage tools and none of the gateway's three;
+- `ATLAN_EMULATOR_SIGNED_OUT=1`: the user has not signed in, so the server lists no tools and
+  refuses every call as unauthenticated, the way a host shows an OAuth server before its login.
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") 
 EMPTY = os.environ.get("ATLAN_EMULATOR_EMPTY") == "1"
 RATE_LIMIT = os.environ.get("ATLAN_EMULATOR_RATE_LIMIT")
 CATALOG = os.environ.get("ATLAN_EMULATOR_CATALOG") == "1"
+SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
 
 # The data-catalog plugin named `atlan` (Anthropic's directory, atlanhq/agent-toolkit) serves
 # `https://mcp.atlan.com/mcp`: asset tools, no registry and no search mode.
@@ -508,9 +511,13 @@ def handle(msg: dict) -> dict | None:
         return {"jsonrpc": "2.0", "id": rid, "result": {"protocolVersion": version, "capabilities": {"tools": {}},
                 "serverInfo": {"name": "atlan-eval-emulator", "version": "1"}}}
     if method == "tools/list":
-        return {"jsonrpc": "2.0", "id": rid, "result": {"tools": CATALOG_TOOLS if CATALOG else META_TOOLS}}
+        tools = [] if SIGNED_OUT else CATALOG_TOOLS if CATALOG else META_TOOLS
+        return {"jsonrpc": "2.0", "id": rid, "result": {"tools": tools}}
     if method == "tools/call":
         params = msg.get("params") or {}
+        if SIGNED_OUT:
+            log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32001}})
+            return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32001, "message": "authentication required"}}
         if CATALOG:
             body = {"error": "This is the Atlan data-catalog MCP server (mcp.atlan.com). It needs an Atlan API key "
                              "and serves asset search, lineage and updates; it has no registry tools."}
