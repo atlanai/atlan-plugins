@@ -1,6 +1,6 @@
 {
   "$schema": "https://code.claude.com/schemas/marketplace.json",
-  "name": "atlan-plugins",
+  "name": "atlan",
   "description": "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it.",
   "owner": {
     "name": "Atlan",
@@ -12,6 +12,7 @@
   "plugins": [
     {
       "name": "atlanai",
+      "displayName": "AI Registry",
       "source": "./plugins/atlanai",
       "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
       "author": {
@@ -31,10 +32,11 @@
         "catalog",
         "governance"
       ],
-      "category": "Developer Tools"
+      "category": "development"
     },
     {
       "name": "atlanai-analytics",
+      "displayName": "Analytics",
       "source": "./plugins/atlanai-analytics",
       "description": "Answer data questions from governed metrics, use and draft your business ontology, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry.",
       "author": {
@@ -54,7 +56,7 @@
         "databricks",
         "evals"
       ],
-      "category": "Data"
+      "category": "data"
     }
   ]
 }

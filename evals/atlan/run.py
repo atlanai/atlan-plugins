@@ -67,6 +67,20 @@ def case_filters(extra: list[str]) -> list[str]:
     return [extra[i + 1] for i, arg in enumerate(extra) if arg == "--case" and i + 1 < len(extra)]
 
 
+def without_case_filters(extra: list[str]) -> list[str]:
+    """The options for `claude plugin eval`, less `--case`: the copied suite already holds only the
+    selected cases, and `claude plugin eval` keeps only the last `--case` it is given."""
+    out, skip = [], False
+    for arg in extra:
+        if skip:
+            skip = False
+        elif arg == "--case":
+            skip = True
+        else:
+            out.append(arg)
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--plugin", default=str(ROOT / "plugins" / PLUGIN), help="the plugin folder to evaluate")
@@ -116,7 +130,7 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
             "--allow-tools", tools_pattern(name), *settings.get("allow_tools", []), "Write",
             "--ablation", "none", "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *extra,
+            "--output-dir", str(out), *without_case_filters(extra),
         ]
         print("+", " ".join(command), flush=True)
         return subprocess.run(command, check=False).returncode

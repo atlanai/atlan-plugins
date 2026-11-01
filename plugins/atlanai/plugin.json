@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai",
-  "version": "0.3.2",
+  "version": "0.3.9",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -24,8 +24,8 @@
     "com.openai": {
       "onboardingSkill": "./skills/atlan-get-started/SKILL.md",
       "interface": {
-        "displayName": "Atlan",
-        "shortDescription": "Skills, agents and MCP from the Atlan registry",
+        "displayName": "AI Registry",
+        "shortDescription": "Atlan AI Registry",
         "longDescription": "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes.",
         "developerName": "Atlan",
         "category": "Developer Tools",

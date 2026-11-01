@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: routing-register-agent
+tags: [routing,write]
+execution:
+  prompt: |
+    Register the agent in this repo with Atlan and record which skills it uses.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-author-agents
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-author-agents"'
+  - name: goes-straight-to-the-skill
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-write-before-a-yes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: routes-to-author-agents
+    type: llm
+    criteria: |
+      PASS if the reply makes no write, treats the request as registering the repository's agent in Atlan with its skill links, and asks for what is missing (the agent's manifest or folder, which does not exist here, or the workspace). FAIL if it writes to Atlan or treats the request as publishing a skill.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

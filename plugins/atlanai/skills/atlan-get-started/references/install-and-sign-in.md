@@ -1,7 +1,7 @@
 # Installing the plugin and signing in
 
-Give the user the steps for the tool they are in, and wait for them to confirm. Signing in is
-always theirs to do in the browser: never ask for a token, a password or a code in chat.
+Give the user the step for the tool they are in, and wait for them to say they have signed in.
+The sign-in happens in their browser: never ask for a token, a password or a code in chat.
 
 ## Before anything: an Atlan account
 
@@ -46,7 +46,7 @@ claude plugin install atlanai --marketplace atlanai/atlan-plugins
 
 Inside a running session, type the same as `/plugin install atlanai --marketplace atlanai/atlan-plugins`
 and then `/reload-plugins`. Claude Code before 2.1.275 needs the two-step form,
-`/plugin marketplace add atlanai/atlan-plugins` then `/plugin install atlanai@atlan-plugins`.
+`/plugin marketplace add atlanai/atlan-plugins` then `/plugin install atlanai@atlan`.
 
 Then run `/mcp`, pick `plugin:atlanai:atlan`, and choose **Authenticate**. A browser window
 opens on Atlan's sign-in page.
@@ -55,11 +55,20 @@ opens on Atlan's sign-in page.
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
-codex plugin add atlanai@atlan-plugins
+codex plugin add atlanai@atlan
 ```
 
-The marketplace asks Codex to sign in at install time. If it did not, find the server with
-`codex mcp list` and run `codex mcp login <name>`.
+Installing from inside Codex (the app's plugin directory, or `/plugins` in the CLI) opens
+Atlan's sign-in page right away. `codex plugin add` in a terminal does not, so follow it with
+
+```
+codex mcp login atlan
+```
+
+The plugin's server is always named `atlan`. In the Codex CLI, `/mcp login atlan` in a chat does
+the same, and that chat gets the tools as soon as the sign-in finishes; a sign-in from a
+terminal reaches chats opened after it. `No MCP server named 'atlan' found` means the plugin
+is not installed or is turned off: run the two install commands above.
 
 **Cursor**
 

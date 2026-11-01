@@ -1,6 +1,6 @@
 # Contributing to the Atlan plugins
 
-This repository is a plugin marketplace, `atlan-plugins`, for Claude Code, OpenAI Codex, Cursor
+This repository is a plugin marketplace, `atlan`, for Claude Code, OpenAI Codex, Cursor
 and Agent Plugins hosts (GitHub Copilot, VS Code and others). Its core plugin, `atlanai`, is a
 remote MCP server URL plus skills and commands. Each add-on is skills, commands and agents that
 use that server. It holds no service code. Contributor guidance lives here because no host
@@ -54,7 +54,12 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
   `agents/openai.yaml`, and fails on a skill without one.
 - **Skills this repository owns** are named `atlan-<task>`, one task each, with a description
-  that says when to use the skill rather than what it is. Keep `SKILL.md` under 500 lines and put
+  that says when to use the skill rather than what it is: the action, then `Use when` (or
+  `Use for`) with the words people say, then `Not for` naming the nearest sibling skill.
+  `make check` fails on a description without `Use when` or `Use for`. The description is the
+  retrieval signal twice over: the harness matches requests against it, and the registry's
+  search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
+  a task loads one skill, not `atlan-get-started` first. Keep `SKILL.md` under 500 lines and put
   detail in `references/`. Teach decisions and point at live tools; do not paste reference data
   that will go stale.
 - **Search mode is the default.** Owned skills show calls as `mcp__call_tool { "name", "arguments",
@@ -102,7 +107,9 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
 under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
 grader that reads the reply's shape. The rules live in `atlan-get-started` too, under **Replies
-lead with the result**, because that skill opens every Atlan task.
+lead with the result**, and every skill carries a one-line version, because a task reaches its
+skill directly rather than through `atlan-get-started`. Drop that line from a skill and its
+replies grow: the first eval pass after 0.3.5 caught longer catch-ups that the judge failed.
 
 ## Checks
 
@@ -161,7 +168,7 @@ can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketpla
 the skills here free of any one environment's URLs beyond production's, so every variant reads
 correctly after the rewrite. Name a variant the way the gateway names its own marketplace for
 that environment, `atlanai-<suffix>` (its `the marketplace name suffix`, `dev` on
-the dev gateway), with the marketplace `atlan-plugins-<suffix>` and the environment's `/mcp`
+the dev gateway), with the marketplace `atlan-<suffix>` and the environment's `/mcp`
 URL, so the two install side by side with production's the way the gateway's do. This
 repository holds no variant of its own.
 
