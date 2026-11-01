@@ -22,7 +22,8 @@ apology or closing offer.
 | Question | Tool |
 |---|---|
 | "Is there a skill for X?" "Find the agent that does Y" | `registry__search_artifacts` |
-| "What do we have?" "What changed recently?" | `registry__list_artifacts` |
+| "What do we have?" "Find me skills", with no task named | [Overview](#overview), then a search for the user's task |
+| "What changed recently?" | `registry__list_artifacts` |
 | "Tell me about this one" | `registry__get_artifact` |
 | "What uses it, what does it use?" | `registry__get_related_artifacts` |
 | "What does this skill or file actually say?" | `atlan-content` |
@@ -44,7 +45,12 @@ mcp__call_tool {
 
 - **Write `query` as natural words** describing the thing, not a keyword list.
 - **Always pass `limit`**: 10 is enough to choose from. Without it the gateway returns 50,
-  and every one of them lands in the conversation. The same holds for `registry__list_artifacts`.
+  and every one of them lands in the conversation. The same holds for `registry__list_artifacts`,
+  whose rows are larger: with a `kind`, each one carries the kind's properties, a skill's whole
+  file manifest among them.
+- **Make each call once.** Keep what a result told you (each hit's name, handle, workspace and
+  status, and `page.total`) and answer follow-ups from it. Never repeat an identical call in
+  the same task; call again only for a different page, scope or query.
 - **Set `semantic: true`** when the user's wording may not match the artifact's (it fuses
   meaning with keyword relevance). Leave it off for exact names.
 - **Narrow with `kind`** when you know the type. Omit it to search every discoverable kind.
@@ -59,6 +65,20 @@ mcp__call_tool {
 - **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
   `semantic: true`) before concluding nothing exists. An artifact in a workspace the user
   cannot read is indistinguishable from one that does not exist, by design.
+
+## Overview
+
+A broad ask ("find me skills", "what agents do we have?") wants the shape of the catalogue,
+not its most recently changed rows, which is all a browse returns.
+
+1. **Count.** `registry__list_artifacts { "kind": "skill", "limit": 1 }` returns
+   `page.total`, the number the user can see. For a breakdown by workspace, repeat it with each
+   `workspace_id` from `registry__list_workspaces`, up to five workspaces.
+2. **Ask or narrow.** If the user named no task, give the count and the breakdown and ask what
+   they want to do. If they named one, search for it (`semantic: true`, `limit: 10`).
+3. **Say what you looked at.** Separate the catalogue's total from the rows you read: "392
+   skills in total; these 10 are the closest to preview deploys", or "the 10 most recently
+   changed", never a sample presented as the whole.
 
 ## Kinds you will meet most
 
