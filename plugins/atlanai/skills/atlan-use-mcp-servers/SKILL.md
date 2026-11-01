@@ -22,11 +22,15 @@ Every call is permission-checked and recorded in the session the user can audit 
    }
    ```
 
+   The first search of the conversation sends `objective` (what the whole session is for)
+   instead of `session_id`, and returns the `session_id` to reuse.
+
    Pass `servers` (`["linear"]`) once you know the server, named as its tool names start.
    `mcp__describe_tools { "servers": ["linear"] }` lists every tool of a server.
 
-2. Run the match with `mcp__call_tool`, exactly as `atlan-get-started` shows, with the tool's
-   exact name and arguments matching its schema. Never invent either.
+2. Run the match with `mcp__call_tool`, with the tool's exact name and arguments matching its
+   schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
+   Never invent a name or an argument.
 
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its

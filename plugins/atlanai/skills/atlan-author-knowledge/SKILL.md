@@ -1,14 +1,18 @@
 ---
 name: atlan-author-knowledge
-description: Create, read and edit governed Atlan knowledge bundles while preserving pinned bytes and concurrent edits.
+description: Create or edit a knowledge bundle in Atlan, the organization's curated Markdown that agents read: a glossary, table and column documentation, metric definitions, runbooks or other reference notes. Use when the user wants to turn notes or documents into Atlan knowledge, add or change a term or concept in a bundle, or read a bundle in order to edit it. Not for uploading a single file (atlan-content) or finding what knowledge exists (atlan-find-artifacts).
 license: Apache-2.0
 ---
 
 # Author knowledge
 
-Open one audited session with `mcp__initialise`; pass its `session_id` and a first-person
-`rationale` on every later tool call. Resolve the workspace with `registry__list_workspaces`
-and read `registry__get_kind_schema` before writing a kind for the first time.
+Pass a `session_id` and a first-person `rationale` on every tool call. In search mode, the
+default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by sending
+`objective`, each `registry__…` tool named here runs through `mcp__call_tool` with `session_id`
+and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
+skipped. In full mode, call `mcp__initialise` first. Resolve the workspace with
+`registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for the
+first time. Replies lead with the result in a few lines, and ask before every write.
 
 Follow [the knowledge workflow](references/author.md) for creation, reading and editing.
 Load only the references that procedure calls for.
