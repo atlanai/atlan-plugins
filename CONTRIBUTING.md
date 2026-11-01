@@ -42,7 +42,7 @@ To try your change in a host, add your checkout as a local marketplace. In Claud
 
 ```
 /plugin marketplace add ./path/to/atlan-plugins
-/plugin install atlanai@atlan-plugins
+/plugin install atlanai@atlan
 ```
 
 ## Making a change

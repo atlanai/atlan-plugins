@@ -46,7 +46,7 @@ claude plugin install atlanai --marketplace atlanai/atlan-plugins
 
 Inside a running session, type the same as `/plugin install atlanai --marketplace atlanai/atlan-plugins`
 and then `/reload-plugins`. Claude Code before 2.1.275 needs the two-step form,
-`/plugin marketplace add atlanai/atlan-plugins` then `/plugin install atlanai@atlan-plugins`.
+`/plugin marketplace add atlanai/atlan-plugins` then `/plugin install atlanai@atlan`.
 
 Then run `/mcp`, pick `plugin:atlanai:atlan`, and choose **Authenticate**. A browser window
 opens on Atlan's sign-in page.
@@ -55,7 +55,7 @@ opens on Atlan's sign-in page.
 
 ```
 codex plugin marketplace add atlanai/atlan-plugins
-codex plugin add atlanai@atlan-plugins
+codex plugin add atlanai@atlan
 ```
 
 The marketplace asks Codex to sign in at install time. If it did not, find the server with

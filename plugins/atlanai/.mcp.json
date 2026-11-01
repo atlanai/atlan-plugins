@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://api.atlan.com/mcp",
       "headers": {
-        "X-Atlan-Client": "atlan-plugin/0.3.3"
+        "X-Atlan-Client": "atlan-plugin/0.3.4"
       }
     }
   }
