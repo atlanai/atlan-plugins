@@ -42,6 +42,9 @@ EMPTY = os.environ.get("ATLAN_EMULATOR_EMPTY") == "1"
 RATE_LIMIT = os.environ.get("ATLAN_EMULATOR_RATE_LIMIT")
 CATALOG = os.environ.get("ATLAN_EMULATOR_CATALOG") == "1"
 SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
+# Pads the catalogue to this many skills, the most recently changed of them about UI motion, so a
+# browse of the newest rows is a misleading sample of the whole.
+SKILLS = int(os.environ.get("ATLAN_EMULATOR_SKILLS") or 0)
 
 # The data-catalog plugin named `atlan` (Anthropic's directory, atlanhq/agent-toolkit) serves
 # `https://mcp.atlan.com/mcp`: asset tools, no registry and no search mode.
@@ -155,7 +158,39 @@ def served_tools() -> list[dict]:
 
 
 def artifacts() -> dict:
-    return {} if EMPTY else WORLD["artifacts"]
+    return {} if EMPTY else padding() | WORLD["artifacts"]
+
+
+PAD_TOPICS = [
+    ("motion", "Use when adding entrance, exit or hover animation to a UI component."),
+    ("warehouse", "Use when writing or reviewing a dbt model for the analytics warehouse."),
+    ("incident", "Use when running an incident review and writing its timeline."),
+    ("release", "Use when cutting a release branch and writing the changelog."),
+    ("access", "Use when granting or reviewing access to a production system."),
+    ("pricing", "Use when drafting a pricing page change for review."),
+]
+_PADDED: dict = {}
+
+
+def padding() -> dict:
+    """`SKILLS` minus the world's own skills, generated: the newest dozen are UI motion skills."""
+    if _PADDED or not SKILLS:
+        return _PADDED
+    own = sum(1 for a in WORLD["artifacts"].values() if a["kind"] == "skill")
+    spaces = ["workspace_01evalplatform", "workspace_01evalplatform", "workspace_01evalmktg", "workspace_01evaldana"]
+    for n in range(max(SKILLS - own, 0)):
+        topic, description = PAD_TOPICS[0] if n < 12 else PAD_TOPICS[n % len(PAD_TOPICS)]
+        handle = f"skill_01evalpad{n:011d}"
+        files = [{"path": "SKILL.md", "file_id": f"file_01evalpad{n:011d}", "file_version_ordinal": 1,
+                  "size_bytes": 2400, "sha256": "0" * 64}]
+        _PADDED[handle] = {
+            "id": handle, "kind": "skill", "name": f"{topic}-{n:03d}", "display_name": f"{topic}-{n:03d}",
+            "description": description, "workspace_id": spaces[n % len(spaces)], "artifact_status": "active",
+            "is_released": True, "version_ordinal": 1, "released_channels": ["latest"],
+            "updated_at": f"2026-10-{31 - min(n // 20, 9):02d}T{23 - n % 20:02d}:00:00Z",
+            "metadata": {"files": files},
+        }
+    return _PADDED
 
 
 def public(tool: dict, detail: str = "schema") -> dict:
@@ -265,10 +300,44 @@ def search_artifacts(a: dict) -> dict:
         if score:
             hits.append((score, item))
     hits.sort(key=lambda h: -h[0])
-    keep = ("id", "kind", "name", "display_name", "description", "workspace_id", "artifact_status", "is_released",
-            "version_ordinal", "updated_at")
-    return {"items": [{k: h.get(k) for k in keep if k in h} | {"score": s / 100} for s, h in hits[: a.get("limit", 50)]],
-            "page": {"limit": a.get("limit", 50), "offset": 0}}
+    limit = a.get("limit", 10)
+    return {"items": [(h if a.get("full") else summary(h)) | {"score": s / 100} for s, h in hits[:limit]],
+            "page": {"limit": limit, "offset": 0}}
+
+
+SUMMARY = ("id", "kind", "name", "display_name", "description", "workspace_id", "project_id", "artifact_status",
+           "is_released", "version_label", "updated_at", "repo_id", "source_id", "version_ordinal")
+
+
+def summary(item: dict) -> dict:
+    """A list or search row as the gateway returns it without `full`: no kind properties, no nulls."""
+    return {k: item[k] for k in SUMMARY if item.get(k) is not None}
+
+
+def browsed(a: dict) -> list[dict]:
+    """What `list_artifacts` and `get_artifact_counts` see for these filters, most recent first."""
+    return [i for i in artifacts().values()
+            if (not a.get("kind") or i["kind"] == a["kind"]) and i["kind"] != "session"
+            and (a.get("kind") or i["kind"] != "file")
+            and (not a.get("workspace_id") or i["workspace_id"] == a["workspace_id"])
+            and in_project(i, a.get("project_id"))]
+
+
+def counts(a: dict) -> dict:
+    """`get_artifact_counts`: the total, and with `group_by` the largest groups first."""
+    items = browsed(a)
+    out = {"total": len(items)}
+    field = a.get("group_by")
+    if field:
+        tally: dict = {}
+        for i in items:
+            tally[i.get(field)] = tally.get(i.get(field), 0) + 1
+        groups = sorted(tally.items(), key=lambda g: -g[1])
+        limit = a.get("limit", 20)
+        out |= {"group_by": field, "groups": [{field: k, "count": n} for k, n in groups[:limit]]}
+        if len(groups) > limit:
+            out["note"] = f"{len(groups) - limit} smaller groups are not shown; raise limit to see them."
+    return out
 
 
 def file_content(a: dict) -> dict:
@@ -329,10 +398,11 @@ def dispatch(name: str, a: dict) -> dict:
     if name == "registry__search_artifacts":
         return search_artifacts(a)
     if name == "registry__list_artifacts":
-        items = [head(i) for i in artifacts().values()
-                 if (not a.get("kind") or i["kind"] == a["kind"]) and i["kind"] not in ("session",)
-                 and (a.get("kind") or i["kind"] != "file") and in_project(i, a.get("project_id"))]
-        return {"items": items[: a.get("limit", 50)], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(items)}}
+        items = [head(i) for i in browsed(a)]
+        rows = items if a.get("full") else [summary(i) for i in items]
+        return {"items": rows[: a.get("limit", 50)], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(items)}}
+    if name == "registry__get_artifact_counts":
+        return counts(a)
     if name == "registry__get_artifact":
         found = artifact(a["artifact_id"])
         if "include_file" in a:

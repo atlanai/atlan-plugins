@@ -78,6 +78,8 @@ Never derive links from other workspace artifacts, and never write workspace-wid
 
 ## 5. Verify
 
-Count by kind with `registry__list_artifacts`. Then `registry__search_artifacts` for one sample
+Count by kind in one call: `registry__get_artifact_counts` with the `workspace_id` and
+`group_by` `kind` (on a gateway without it, `registry__list_artifacts` with `limit` 1 per kind
+and read `page.total`). Then `registry__search_artifacts` for one sample
 question with kind `sql_query`. It should come back near the top. Report the counts at the
 workflow's STOP gate.
