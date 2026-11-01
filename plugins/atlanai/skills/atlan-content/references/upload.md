@@ -139,7 +139,8 @@ how to read a skill's `SKILL.md` from its manifest.
 
 ## Where this is used from
 
-- Publishing a skill: `skills/atlan-author-skills/references/publish.md`
+- Publishing a skill: `skills/atlan-author-skills/references/publish.md` (inline), and
+  `skills/atlan-author-skills/references/publish-zip.md` for an uploaded bundle
 - Recording a deliverable a run produced: `skills/atlan-record-outputs/references/record.md`
 
 Uploads enforce `max_bytes` during streaming and again at adoption. The gateway enforces `expires_in_seconds` when the PUT starts; reserve just before sending.

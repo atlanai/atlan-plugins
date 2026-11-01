@@ -14,8 +14,8 @@ line, runs the same materialization a first create runs, and the previous versio
 resolvable at its own ordinal.
 
 For small text bundles, send the complete `files` map to `extension__skill__create`
-using the [inline limits and rules](publish.md#small-text-skills-send-files-inline).
-For larger bundles, binaries or executable files, use the uploaded ZIP path:
+as in [publishing](publish.md#3-create).
+For larger bundles, binaries or executable files, use [the ZIP path](publish-zip.md):
 
 ```
 registry__request_file_upload → PUT → registry__create_artifact kind:file → extension__skill__create
