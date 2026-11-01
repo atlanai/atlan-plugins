@@ -548,7 +548,8 @@ class EvalCasesTest(unittest.TestCase):
     """The core plugin's eval cases and their `emulator.json` sidecars (evals/atlan/cases/)."""
 
     CASES = ROOT / "evals" / "atlan" / "cases"
-    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG"}
+    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
+                "ATLAN_EMULATOR_SIGNED_OUT"}
 
     @classmethod
     def setUpClass(cls) -> None:

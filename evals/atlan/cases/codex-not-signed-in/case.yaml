@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: codex-not-signed-in
+tags: [connect,codex]
+# Codex's onboarding prompt right after install, before the user has signed in. The first run
+# once announced the skill, searched the web for Codex's sign-in, linked OpenAI's docs and
+# quoted the skill's own rule back to the user. The step is in the skill; the reply is short.
+execution:
+  prompt: |
+    I'm in Codex and just installed AI Registry. Help me set up AI Registry with the Get Started with Atlan skill.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-get-started
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+  - name: no-web-search
+    type: tool_used
+    tool: WebSearch
+    min: 0
+    max: 0
+  - name: no-web-fetch
+    type: tool_used
+    tool: WebFetch
+    min: 0
+    max: 0
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: gives-codex-step
+    type: llm
+    criteria: |
+      PASS if the reply says Atlan is not signed in (or its tools are not available yet), gives `codex mcp login atlan` (or `/mcp login atlan` inside the Codex CLI) as the step, and says what happens after: the user says they are done and the assistant carries on.
+      FAIL if it uses a placeholder server name, tells the user to run `codex mcp list` to find the name, gives the Claude Code `/mcp` Authenticate path or the Claude Connectors tab instead, asks for a token, links OpenAI's or any other documentation, or claims to be connected or lists workspaces.
+  - name: no-narration-or-quoting
+    type: llm
+    criteria: |
+      PASS if the reply is at most four lines and speaks only about the user's situation and step.
+      FAIL if it announces the skill it is using ("I'm using the atlan-get-started skill"), narrates its own process ("checking the Codex sign-in instructions"), or quotes, cites or links the skill or its instructions ("the setup skill requires", "per the skill").
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
