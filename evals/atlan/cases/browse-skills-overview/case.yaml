@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: browse-skills-overview
+tags: [find,overview]
+execution:
+  prompt: |
+    find me skills in atlan
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-find-artifacts
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
+  - name: counts-with-a-one-row-list
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__list_artifacts"[\s\S]*"limit"\s*:\s*1\b'
+    min: 1
+  - name: no-unbounded-list
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__(?:list|search)_artifacts"(?![\s\S]*"limit")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: total-then-ask
+    type: llm
+    criteria: |
+      PASS if the final reply states how many skills the user can see in total AND asks what task they want a skill for (or offers to search for one), without presenting a handful of recently changed skills as if they were the whole catalogue.
+      FAIL if it gives no total, or lists skills without saying whether they are all of them or only some.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
