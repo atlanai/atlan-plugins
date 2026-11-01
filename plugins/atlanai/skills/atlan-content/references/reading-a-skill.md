@@ -8,16 +8,17 @@ The loop, and the four ways it goes wrong.
 registry__search_artifacts { "query": "slide design", "kind": "skill", ... }
   → skill_01m1pb66fxek99t3fxjv0mqeg2
 
-registry__get_artifact { "artifact_id": "skill_01m1pb66fxek99t3fxjv0mqeg2", ... }
+registry__get_artifact { "artifact_id": "skill_01m1pb66fxek99t3fxjv0mqeg2", "include_file": "SKILL.md", ... }
   → metadata.files = [
       { "path": "SKILL.md",                    "file_id": "file_01A", "file_version_ordinal": 3, "size_bytes": 17966 },
       { "path": "LEARNINGS.md",                "file_id": "file_01B", "file_version_ordinal": 1, "size_bytes":  2876 },
       { "path": "references/anti-patterns.md", "file_id": "file_01C", "file_version_ordinal": 1, "size_bytes":  6165 },
       { "path": "references/frameworks.md",    "file_id": "file_01D", "file_version_ordinal": 1, "size_bytes": 12543 }
     ]
+  → included_file.content = the SKILL.md text, at ordinal 3
 
+  ... if included_file is missing or carries an error:
 registry__get_file_content { "file_id": "file_01A", "version_ordinal": 3, ... }
-  → the SKILL.md text
 
   ... then, only if SKILL.md sends you there:
 registry__get_file_content { "file_id": "file_01C", "version_ordinal": 1, ... }

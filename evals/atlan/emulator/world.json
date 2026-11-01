@@ -91,7 +91,7 @@
   },
   {
    "name": "registry__get_artifact",
-   "description": "Read one artifact by its handle, including the kind's own properties. The handle is the `id` a search result carries, shaped `<kind>_<identifier>`. It cannot find anything by name. Set channel (for example latest) or release_id for the exact published version.",
+   "description": "Read one artifact by its handle, including the kind's own properties. The handle is the `id` a search result carries, shaped `<kind>_<identifier>`. It cannot find anything by name. Set channel (for example latest) or release_id for the exact published version. Set include_file to a path from the artifact's `metadata.files`, such as `SKILL.md`, to read that file's text in the same call instead of a second get_file_content.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -110,6 +110,10 @@
      },
      "release_id": {
       "type": "string"
+     },
+     "include_file": {
+      "type": "string",
+      "description": "A `path` from the artifact's `metadata.files`, such as `SKILL.md`. The result adds `included_file`: that file's text at the version the manifest pins, read exactly as get_file_content reads it. A file that cannot be read keeps the artifact and says why in `included_file.error`."
      }
     },
     "required": [
