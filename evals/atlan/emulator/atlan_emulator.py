@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A stdio stand-in for Atlan's MCP gateway in search mode, for the `atlan` plugin's evals.
+"""A stdio stand-in for Atlan's MCP gateway in search mode, for the `atlanai` plugin's evals.
 
 `claude plugin eval` mocks cannot name a tool with `__` in it, and every gateway tool has one
 (`mcp__call_tool`, `registry__get_artifact`), so the eval runner points the plugin's `atlan`

@@ -3,36 +3,36 @@ name: use-skill-pending-review
 tags: [use-skill,status]
 execution:
   prompt: |
-    /atlan:use-skill skill_01evalpending
+    /atlanai:use-skill skill_01evalpending
   max_turns: 20
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
   - name: reads-it
     type: tool_used
-    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"registry__get_artifact"[\s\S]*skill_01evalpending'
     min: 1
   - name: no-substitute
     type: tool_used
-    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"registry__get_file_content"[\s\S]*file_01evalsecrev'
     min: 0
     max: 0
   - name: rails-beside-arguments
     type: tool_used
-    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
     min: 0
     max: 0
   - name: every-call-has-rationale
     type: tool_used
-    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '^(?![\s\S]*"rationale")'
     min: 0
     max: 0
   - name: no-unrequested-writes
     type: tool_used
-    tool: mcp__plugin_atlan_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
     min: 0
     max: 0

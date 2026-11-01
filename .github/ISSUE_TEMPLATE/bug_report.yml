@@ -12,8 +12,8 @@ body:
     attributes:
       label: Plugin
       options:
-        - atlan
-        - atlan-analytics
+        - atlanai
+        - atlanai-analytics
         - Not sure
     validations:
       required: true
