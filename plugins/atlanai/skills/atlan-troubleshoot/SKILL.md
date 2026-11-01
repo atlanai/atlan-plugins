@@ -7,7 +7,8 @@ license: Apache-2.0
 # Troubleshooting Atlan
 
 Read the error before acting. Most refusals say exactly what to change, and repeating a
-write to see whether it works again is how duplicates get made.
+write to see whether it works again is how duplicates get made. Reply with the one step that
+fixes it, without apology.
 
 ## Connection and sign-in
 

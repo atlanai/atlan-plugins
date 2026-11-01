@@ -107,8 +107,9 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
 under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
 grader that reads the reply's shape. The rules live in `atlan-get-started` too, under **Replies
-lead with the result**, and each skill that writes carries a one-line version, because a task
-reaches its skill directly rather than through `atlan-get-started`.
+lead with the result**, and every skill carries a one-line version, because a task reaches its
+skill directly rather than through `atlan-get-started`. Drop that line from a skill and its
+replies grow: the first eval pass after 0.3.5 caught longer catch-ups that the judge failed.
 
 ## Checks
 
