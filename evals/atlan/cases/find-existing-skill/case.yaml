@@ -39,3 +39,8 @@ graders:
     criteria: |
       PASS if the reply says yes and names the `security-review` skill with its handle (skill_01evalsecrev01, in Platform Engineering), notes there is a second, personal `security-review` copy (skill_01evalsecrev02), and says `secure-pr-review` is pending review rather than offering it as ready to use.
       FAIL if it says nothing exists, invents skills, or presents secure-pr-review as usable now.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

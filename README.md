@@ -46,7 +46,7 @@ and `atlanai-analytics` into each through its own plugin system. Then sign in on
 | Cursor | **Settings**, **Tools & MCP**, connect `atlan` |
 | VS Code and Copilot | Start the `atlan` server when prompted |
 
-Then ask your agent: *"Connect to Atlan and show me what my organization has."* In Claude Code,
+Then type: *"Connect me to Atlan."* In Claude Code,
 `/atlanai:get-started` does the same.
 
 ### Or install for one agent
@@ -192,8 +192,7 @@ See Atlan's [privacy notice](https://atlan.com/privacy-policy/). To report a vul
 .cursor-plugin/marketplace.json   the same marketplace, for Cursor
 plugins/<name>/                   one folder per plugin: manifests, skills, commands and agents
 plugin.toml                       the source of every manifest
-upstream.json                     pins for the skills taken from the registry's apps
-tools/                            the build, sync and lint, and their tests
+tools/                            the build and lint, and their tests
 ```
 
 Every plugin is a folder under `plugins/`, the layout Anthropic's

@@ -1,4 +1,4 @@
-# Phase 1 — purpose and audience
+# Phase 1: purpose and audience
 
 Goal: one short `brief.md` that every later phase drafts from.
 

@@ -71,6 +71,23 @@ Read it through its traces. The chat readers that tool search offers for "messag
 session" (`extension__agent__session_read`, `session_list`) serve only a project's Claw and
 refuse a person's agent; do not call them.
 
+Which trace readers you have depends on the organization's apps. Check once with
+`mcp__describe_tools { "servers": ["extension__agent"], "session_id": "…" }`: when it lists
+`extension__agent__list_session_traces`, follow the steps below; when it lists nothing, the
+organization has no agent app, and the registry's own readers, which every gateway serves,
+take their place:
+
+- `registry__list_traces { "from": <Unix seconds>, "to": <Unix seconds> }` around the
+  artifact's `created_at`, with `user_id` set to its owner when that is not you. Pick the run
+  whose request matches the artifact;
+- `registry__get_trace { "trace_id": "…", "include": ["content"] }` for the request and the
+  final reply;
+- `registry__get_trace_spans { "trace_id": "…", "limit": 20 }`, paged with `cursor`, only for
+  what those leave open. These take no `session_id` argument, so they cannot narrow to the
+  source session: say so when more than one run could be it.
+
+With the agent app:
+
 1. `extension__agent__list_session_traces` with the source session as `arguments.session_id`.
    That argument is the source session; the top-level `session_id` beside `arguments` stays
    your own MCP session, as on every call.

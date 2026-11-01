@@ -17,7 +17,7 @@ plugins/atlanai/                    the core plugin
   plugin.json, mcp.json           Agent Plugins 1.0: Codex, Cursor, Copilot, VS Code  (generated)
   .mcp.json, .claude-plugin/      Claude Code's MCP file and manifest                 (generated)
   .codex-plugin/, .cursor-plugin/ Codex overlay and Cursor manifest                   (generated)
-  skills/<name>/SKILL.md          skills; owned here unless upstream.json lists them
+  skills/<name>/SKILL.md          skills, written here
   skills/<name>/agents/openai.yaml  Codex's card for the skill, from [skills] in plugin.toml (generated)
   commands/*.md                   Claude Code and Cursor commands; each command's skill sets
                                   `user-invocable: false` so the `/` menu lists the task once
@@ -26,10 +26,9 @@ plugins/atlanai-<workload>/       add-ons: skills, commands and agents written h
                                   README generated
 plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugin cannot point
                                   outside its folder
-upstream.json                     pinned sources and sha256 of every vendored file
 assets/hero.png                   the README's banner and the repository's social preview (written by hand)
 assets/logo.svg                   the listing icon: the Atlan desktop app's icon (frontend, apps/dashboard/src-tauri/icons/source/atlan-app-icon.svg)
-tools/                            build, sync, lint and the skill index, standard library Python 3.11+
+tools/                            build, lint and the skill index, standard library Python 3.11+
 tools/tests/                      unit tests for the tools
 evals/atlan/                      the core plugin's behaviour evals and the gateway emulator they run against
 ```
@@ -40,11 +39,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   installs lives at the root, and `make check` refuses skills, commands or plugin manifests there.
   This is the layout of Anthropic's own marketplace and of vendors that ship several plugins.
 - **Never hand-edit a generated file.** Change `plugin.toml`, run `make build`. CI fails on drift.
-- **Never edit a vendored file.** The core's skills and commands listed in `upstream.json` belong to the
-  registry's apps (agent-gateway's files module, app-skill, app-agent, app-knowledge, app-repo), which serve the same files
-  as MCP prompts and in the registry's own `atlanai` plugin. Fix them upstream, then move the pin:
-  `make sync-adopt` with sibling checkouts, or the **Sync upstream recipes** workflow.
-- **Every skill, vendored or owned, in every plugin has a `[skills.<name>]` entry** in
+- **Every skill is written here.** Until 0.3.1, six of the core's skills (`atlan-author-skills`,
+  `atlan-author-agents`, `atlan-author-knowledge`, `atlan-connect-repo`, `atlan-content`,
+  `atlan-record-outputs`) were copied from the registry's apps at pinned commits. They are now
+  this repository's own and are edited here like the rest; nothing syncs them. The apps still
+  serve their own copies as MCP prompts and in the registry's `atlanai` plugin, so when the
+  gateway changes a tool or a procedure, change the skill here to match and add an eval case.
+- **Every skill in every plugin has a `[skills.<name>]` entry** in
   `plugin.toml`: a display name, a short description and a starter prompt that invokes it as
   `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
   `agents/openai.yaml`, and fails on a skill without one.
@@ -77,10 +78,32 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
 
+## Voice
+
+The words a user reads, in a README, a skill's reply or an error, say what happens and what to
+do next. Nothing else. The rules, which `make check` enforces where a check can:
+
+1. The first sentence is the result or the step. Never `This document`, `Great question`,
+   `I'd be happy to`, `Certainly`.
+2. Numbers and names, not adjectives. Counts instead of lists; a table when items have
+   attributes; handles in code spans, and only when asked.
+3. One step per failure. No apology, no `unfortunately`, no `it seems`.
+4. No closing offer unless the next step is real. Never `let me know if you need anything else`.
+5. Commas, colons and full stops. No em dashes, no exclamation marks, no emoji.
+6. Under 80 words unless the user asked for a list. A first reply or a catch-up stays under
+   seven lines.
+7. Do not announce which skill was loaded unless it changes what the user should expect.
+
+`tools/lint.py` fails on an em dash, a sentence-ending exclamation mark or a short list of filler
+words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
+under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
+grader that reads the reply's shape. The rules live in `atlan-get-started` too, under **Replies
+lead with the result**, because that skill opens every Atlan task.
+
 ## Checks
 
 ```
-make check       # generated-file drift, vendored hashes, lint, unit tests
+make check       # generated-file drift, lint, unit tests
 make validate    # claude plugin validate --strict and the directory profile, needs the claude CLI
 make site        # dist/site/.well-known/agent-skills/: the skills as a discovery index
 ```
@@ -121,13 +144,17 @@ python3 <this repo>/tools/build.py --variant variant.toml --out .
 ```
 
 which writes the marketplace files and every plugin folder under `plugins/`, named after the
-variant (`atlan-dev`, `atlan-dev-analytics`), with the variant's URLs, plugin names and
+variant (`atlanai-dev`, `atlanai-dev-analytics`), with the variant's URLs, plugin names and
 repository rewritten. It owns `plugins/` in that repository, and removes the files an older build
 wrote at its root. Add `--check` in its CI. The file
 can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketplace]` names and
 `[mcp] url` and `client` (the name its `X-Atlan-Client` header sends), plus `[rewrite]` pairs and a top-level `keep` list of strings never to rewrite. Keep
 the skills here free of any one environment's URLs beyond production's, so every variant reads
-correctly after the rewrite. This repository holds no variant of its own.
+correctly after the rewrite. Name a variant the way the gateway names its own marketplace for
+that environment, `atlanai-<suffix>` (its `GATEWAY_REGISTRY_MARKETPLACE_NAME_SUFFIX`, `dev` on
+the dev gateway), with the marketplace `atlan-plugins-<suffix>` and the environment's `/mcp`
+URL, so the two install side by side with production's the way the gateway's do. This
+repository holds no variant of its own.
 
 ## Releasing
 

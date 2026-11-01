@@ -66,3 +66,8 @@ graders:
     criteria: |
       PASS if the reply summarises the churn analysis (2.9% logo churn, EMEA mid-market onboarding drop-off), says from the source session that the plan-tier split was not done because the run had no access to plan_tiers (a permissions error; hedging over which step failed is fine), and asks what to do next or offers fitting next steps.
       FAIL if it invents content, misses the plan-tier gap, or reports the session history as unreadable.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
