@@ -11,10 +11,10 @@ graders:
     type: tool_used
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
-  - name: counts-with-a-one-row-list
+  - name: counts-with-the-count-tool
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"registry__list_artifacts"[\s\S]*"limit"\s*:\s*1\b'
+    input_match: '"registry__get_artifact_counts"'
     min: 1
   - name: no-unbounded-list
     type: tool_used
@@ -37,6 +37,7 @@ graders:
   - name: total-then-ask
     type: llm
     criteria: |
+      The registry holds 392 skills; the dozen most recently changed are all UI motion skills.
       PASS if the final reply states how many skills the user can see in total AND asks what task they want a skill for (or offers to search for one), without presenting a handful of recently changed skills as if they were the whole catalogue.
       FAIL if it gives no total, or lists skills without saying whether they are all of them or only some.
   - name: plain-reply
