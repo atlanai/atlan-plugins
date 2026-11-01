@@ -42,9 +42,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **Every skill is written here.** Until 0.3.1, six of the core's skills (`atlan-author-skills`,
   `atlan-author-agents`, `atlan-author-knowledge`, `atlan-connect-repo`, `atlan-content`,
   `atlan-record-outputs`) were copied from the registry's apps at pinned commits. They are now
-  this repository's own and are edited here like the rest; nothing syncs them. The apps still
-  serve their own copies as MCP prompts and in the registry's `atlanai` plugin, so when the
-  gateway changes a tool or a procedure, change the skill here to match and add an eval case.
+  this repository's own and are edited here like the rest; nothing syncs them *into* this
+  repository. The gateway's own `atlanai` plugin ships copies of these folders vendored *from*
+  it at a pinned commit (gateway's `pinned-files.toml`), and the gateway's checks on
+  contributed skills apply to the text: every `registry__…` name is one the gateway serves,
+  retired tool names are not quoted, and a placeholder is written `registry__…`, never
+  `registry__x`. When the gateway changes a tool or a procedure, change the skill here to match,
+  add an eval case, and move the gateway's pin.
 - **Every skill in every plugin has a `[skills.<name>]` entry** in
   `plugin.toml`: a display name, a short description and a starter prompt that invokes it as
   `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
