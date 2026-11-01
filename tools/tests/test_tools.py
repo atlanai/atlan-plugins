@@ -528,5 +528,61 @@ class VoiceTest(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+class EvalCasesTest(unittest.TestCase):
+    """The core plugin's eval cases and their `emulator.json` sidecars (evals/atlan/cases/)."""
+
+    CASES = ROOT / "evals" / "atlan" / "cases"
+    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG"}
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("atlan_eval_run", ROOT / "evals" / "atlan" / "run.py")
+        cls.runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.runner)
+
+    def cases(self) -> list[Path]:
+        found = sorted(p for p in self.CASES.iterdir() if (p / "case.yaml").is_file())
+        self.assertGreaterEqual(len(found), 23)
+        return found
+
+    def test_every_case_is_named_after_its_folder_and_carries_the_plain_reply_grader(self) -> None:
+        for case in self.cases():
+            text = (case / "case.yaml").read_text(encoding="utf-8")
+            self.assertIn(f"name: {case.name}\n", text.splitlines(keepends=True), case.name)
+            self.assertIn("  - name: plain-reply\n", text.splitlines(keepends=True), case.name)
+
+    def test_every_sidecar_names_known_keys_and_switches_and_a_plugin_its_tools_pattern_matches(self) -> None:
+        sidecars = [case / "emulator.json" for case in self.cases() if (case / "emulator.json").is_file()]
+        self.assertGreaterEqual(len(sidecars), 4)
+        for sidecar in sidecars:
+            settings = json.loads(sidecar.read_text(encoding="utf-8"))
+            self.assertLessEqual(set(settings), {"env", "plugin_name", "allow_tools"}, sidecar)
+            self.assertLessEqual(set(settings.get("env", {})), self.SWITCHES, sidecar)
+            if "plugin_name" in settings:
+                self.assertIn(self.runner.tools_pattern(settings["plugin_name"]), settings.get("allow_tools", []), sidecar)
+
+    def test_the_runner_groups_cases_by_sidecar_and_filters_by_case_glob(self) -> None:
+        groups = self.runner.groups(self.CASES, [])
+        self.assertEqual(sum(len(cases) for _, cases in groups.values()), len(self.cases()))
+        self.assertIn("", groups)
+        for key, (settings, cases) in groups.items():
+            self.assertEqual(key, json.dumps(settings, sort_keys=True) if settings else "")
+            self.assertTrue(cases)
+        only = self.runner.groups(self.CASES, ["wrong-server"])
+        self.assertEqual([c.name for _, cases in only.values() for c in cases], ["wrong-server"])
+        self.assertEqual(self.runner.case_filters(["--runs", "1", "--case", "a", "--case", "b*"]), ["a", "b*"])
+
+    def test_the_runner_refuses_an_unknown_sidecar_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            case = Path(tmp) / "odd"
+            case.mkdir()
+            (case / "case.yaml").write_text("name: odd\n", encoding="utf-8")
+            (case / "emulator.json").write_text('{"environment": {}}', encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                self.runner.groups(Path(tmp), [])
+
+
 if __name__ == "__main__":
     unittest.main()

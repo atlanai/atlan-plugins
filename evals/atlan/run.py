@@ -10,11 +10,23 @@ runs `claude plugin eval` on the copy with real servers on. Results land in
 evals/atlan/results/. Each case is a full Claude Code run on your own credential: it costs
 money and is not part of `make check`. `--plugin` evaluates another checkout of the plugin,
 for a before-and-after comparison.
+
+A case that needs the emulator in another state carries an `emulator.json` beside its
+`case.yaml`:
+
+    {"env": {"ATLAN_EMULATOR_HIDE_SERVERS": "extension__agent"},   # the emulator's switches
+     "plugin_name": "atlan",                                       # install the copy under this name
+     "allow_tools": ["mcp__plugin_atlan_atlan__*"]}                # beyond the plugin's own server
+
+The emulator is started once per Claude Code run with the plugin's `.mcp.json` environment, so
+cases are grouped by their `emulator.json` and each group is one `claude plugin eval` run over
+one copy of the plugin. The cases without one are the default group.
 """
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import shutil
 import subprocess
@@ -26,13 +38,38 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SERVER = "atlan"
-# Claude Code's name for a plugin's MCP tools: mcp__plugin_<plugin>_<server>__<tool>.
-TOOLS = f"mcp__plugin_atlanai_{SERVER}__*"
+PLUGIN = "atlanai"
+
+
+def tools_pattern(plugin: str) -> str:
+    """Claude Code's name for a plugin's MCP tools: mcp__plugin_<plugin>_<server>__<tool>."""
+    return f"mcp__plugin_{plugin}_{SERVER}__*"
+
+
+def groups(cases: Path, wanted: list[str]) -> dict[str, tuple[dict, list[Path]]]:
+    """The cases to run, grouped by their `emulator.json` (the default group's key is "")."""
+    out: dict[str, tuple[dict, list[Path]]] = {}
+    for case in sorted(p for p in cases.iterdir() if (p / "case.yaml").is_file()):
+        if wanted and not any(fnmatch.fnmatchcase(case.name, pattern) for pattern in wanted):
+            continue
+        sidecar = case / "emulator.json"
+        settings = json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.is_file() else {}
+        unknown = set(settings) - {"env", "plugin_name", "allow_tools"}
+        if unknown:
+            sys.exit(f"{sidecar}: unknown keys {sorted(unknown)}")
+        key = json.dumps(settings, sort_keys=True) if settings else ""
+        out.setdefault(key, (settings, []))[1].append(case)
+    return out
+
+
+def case_filters(extra: list[str]) -> list[str]:
+    """The `--case <glob>` filters among the options passed through to `claude plugin eval`."""
+    return [extra[i + 1] for i, arg in enumerate(extra) if arg == "--case" and i + 1 < len(extra)]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--plugin", default=str(ROOT / "plugins" / "atlanai"), help="the plugin folder to evaluate")
+    parser.add_argument("--plugin", default=str(ROOT / "plugins" / PLUGIN), help="the plugin folder to evaluate")
     parser.add_argument("--label", default="", help="a name for this run's results folder")
     parser.add_argument("extra", nargs="*", help="options passed to `claude plugin eval`, after --")
     args = parser.parse_args()
@@ -40,25 +77,49 @@ def main() -> int:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = HERE / "results" / (f"{stamp}-{args.label}" if args.label else stamp)
     out.mkdir(parents=True)
+    selected = groups(HERE / "cases", case_filters(args.extra))
+    if not selected:
+        print("no case matches", file=sys.stderr)
+        return 2
+    code = 0
+    results = []
+    for number, (settings, cases) in enumerate(selected.values()):
+        group_out = out if len(selected) == 1 else out / f"group-{number}"
+        group_out.mkdir(exist_ok=True)
+        code = run_group(args.plugin, settings, cases, group_out, args.extra) or code
+        results.append(group_out / "result.json")
+    for path in results:
+        summarize(path)
+    return code
+
+
+def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: list[str]) -> int:
+    name = settings.get("plugin_name", PLUGIN)
     with tempfile.TemporaryDirectory(prefix="atlan-eval-") as tmp:
-        plugin = Path(tmp) / "atlanai"
-        shutil.copytree(args.plugin, plugin, ignore=shutil.ignore_patterns("evals"))
+        plugin = Path(tmp) / name
+        shutil.copytree(source, plugin, ignore=shutil.ignore_patterns("evals"))
+        if name != PLUGIN:
+            manifest = plugin / ".claude-plugin" / "plugin.json"
+            manifest.write_text(json.dumps(json.loads(manifest.read_text(encoding="utf-8")) | {"name": name}, indent=2) + "\n",
+                                encoding="utf-8")
         emulator = HERE / "emulator" / "atlan_emulator.py"
-        server = {"type": "stdio", "command": sys.executable, "args": [str(emulator)],
-                  "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl")}}
+        env = {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), **settings.get("env", {})}
+        server = {"type": "stdio", "command": sys.executable, "args": [str(emulator)], "env": env}
         (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n", encoding="utf-8")
-        shutil.copytree(HERE / "cases", plugin / "evals")
+        suite = plugin / "evals"
+        suite.mkdir()
+        for case in cases:
+            shutil.copytree(case, suite / case.name)
         command = [
             "claude", "plugin", "eval", str(plugin),
-            "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write",
+            "--trust-plugin", "--mocks", "off",
+            "--allow-tools", tools_pattern(name), *settings.get("allow_tools", []), "Write",
             "--ablation", "none", "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *args.extra,
+            "--output-dir", str(out), *extra,
         ]
         print("+", " ".join(command), flush=True)
-        code = subprocess.run(command, check=False).returncode
-    summarize(out / "result.json")
-    return code
+        return subprocess.run(command, check=False).returncode
 
 
 def summarize(path: Path) -> None:

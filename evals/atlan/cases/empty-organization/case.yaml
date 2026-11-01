@@ -1,0 +1,51 @@
+schema_version: "1.1"
+name: empty-organization
+tags: [connect,routing,empty]
+execution:
+  prompt: |
+    I just installed the Atlan plugin. Am I connected, and what can I do with it?
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-get-started
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+  - name: lists-workspaces
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__list_workspaces"'
+    min: 1
+  - name: checks-for-skills-first
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__(?:list_artifacts|search_artifacts)"'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: offers-publishing-not-searching
+    type: llm
+    criteria: |
+      PASS if the reply confirms the connection works, names the active workspaces (Acme, Platform Engineering, Dana's Workspace, Marketing, or a subset) and, because the organization has published nothing yet, offers as the first task to publish a skill from this project or to sync a repository's skills from GitHub.
+      FAIL if the first task it offers is to find or search for existing skills, if it claims the organization has skills or agents, if it lists archived "e2e-create-…" workspaces as places to work, or if it says it is not connected.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

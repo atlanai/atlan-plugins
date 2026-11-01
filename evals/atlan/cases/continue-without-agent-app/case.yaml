@@ -1,0 +1,68 @@
+schema_version: "1.1"
+name: continue-without-agent-app
+tags: [continue,dashboard,fallback]
+execution:
+  prompt: |
+    /atlanai:continue output_01evalchurn
+  max_turns: 25
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-continue
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-continue"'
+  - name: reads-output
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__get_artifact"[\s\S]*output_01evalchurn'
+    min: 1
+  - name: reads-file
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__get_file_content"[\s\S]*file_01evalchurnmd'
+    min: 1
+  - name: no-agent-app-readers
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__agent__'
+    min: 0
+    max: 0
+  - name: lists-runs-with-the-registry
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__list_traces"'
+    min: 1
+  - name: opens-the-run-with-the-registry
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__get_trace"'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: catches-up
+    type: llm
+    criteria: |
+      PASS when the reply does all three: (1) says logo churn rose to 2.9% with onboarding drop-off in EMEA mid-market as the driver; (2) says the plan-tier split was not done and that a permissions error on plan_tiers is why (hedging over which step failed is fine); (3) asks the user what to do next or offers next steps.
+      FAIL only when one of the three is missing, or the reply states as fact something this record contradicts or lacks. The record, all true: output_01evalchurn "Q3 churn analysis", active, version 1; owner user_dana; workspace workspace_01evaldana; one file churn.md saying logo churn rose from 2.1% to 2.9%, driven by onboarding drop-off in EMEA mid-market, with the plan-tier split an open question; made by harness harness_01evalclaudecode; used skill skill_01evalsecrev02; session session_01evalchurnsrc; one run, trace_01evalchurn, on 2026-10-25, 154 spans, status ok; its request "Break Q3 churn down by region and driver, and by plan tier if you can."; one failed sql_query span, s003, "permission denied for table plan_tiers".
+      Reasoning from the record, saying that the organization has no agent app so the run was read through the registry's own trace tools, saying what was not read or that traces are a reconstruction, and promising to ask before writing are not inventing.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
