@@ -104,8 +104,8 @@ Read `references/calling-tools.md` once. In short:
   call, written for the person who audits it later. Not a restatement of the arguments.
 - **`session_id`, `objective` and `rationale` go beside `name` and `arguments`**, never inside
   `arguments`.
-- The authoring skills below write calls in *full mode*, as `registry__x { … }`. In search
-  mode, run the same tool as `mcp__call_tool { "name": "registry__x", "arguments": { … } }`,
+- The authoring skills below write calls in *full mode*, as `registry__… { … }`. In search
+  mode, run the same tool as `mcp__call_tool { "name": "registry__…", "arguments": { … } }`,
   and skip `mcp__initialise`: your first search already opened the session.
 
 ## 3. Route the task
