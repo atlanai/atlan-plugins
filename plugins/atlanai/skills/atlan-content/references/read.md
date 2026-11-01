@@ -10,21 +10,28 @@ that happens to be in your toolset. If you cannot read it, say so.
 
 ## Before your first call
 
-1. Open a session once, and keep the id:
+1. Open a session once, and keep the id. How depends on the mode your client connected in:
 
-   ```
-   mcp__initialise {
-     "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "claude-code",
-     "rationale": "<why you are opening it>"
-   }
-   → { "session_id": "mcp_session_01J..." }
-   ```
+   - **Search mode**, the default, lists `mcp__search_tools`, `mcp__describe_tools` and
+     `mcp__call_tool`. Send `objective`, one sentence for a human auditor reading this later,
+     on your first search or call; it returns the id (`session_id` from a search,
+     `mcp_session_id` from a call). Run each tool this procedure names with `mcp__call_tool`:
+     its `name` and `arguments`, with `session_id` and `rationale` at the top level beside
+     `arguments`, never inside it. Search mode does not list `mcp__initialise`.
+   - **Full mode** lists every tool by name. Open the session with `mcp__initialise`:
 
-   Pass that as `session_id` on every later call - it is **required**, and a call that omits
-   it is refused with a message telling you to open one. `mcp__initialise` is the only
-   tool that does not take it, which is what makes this first call possible. Do not invent a
-   value - an id that names no session of yours is refused, not ignored.
+     ```
+     mcp__initialise {
+       "objective": "<one sentence, for a human auditor reading this later>",
+       "client": "claude-code",
+       "rationale": "<why you are opening it>"
+     }
+     → { "session_id": "mcp_session_01J..." }
+     ```
+
+   Pass that id as `session_id` on every later call. Full mode refuses a call without it;
+   search mode opens a second session, splitting the audit trail. Do not invent a value - an
+   id that names no session of yours is refused, not ignored.
 
 2. **`rationale` is required on every tool call.** A first-person sentence about why you are
    making *this* call, for a human reading the audit trail.

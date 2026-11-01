@@ -49,7 +49,7 @@ have credentials for. `file_id` is the handle; `registry__get_file_content` is t
 
 ## When the skill is withdrawn
 
-A skill that failed a security scan is `blocked`, and a blocked skill's manifest is withheld —
+A skill that failed a security scan is `blocked`, and a blocked skill's manifest is withheld:
 `metadata.files` is simply absent from the read. That is not a bug and not a permissions
 problem: the bundle has been withdrawn and its content is no longer served through any door.
 `artifact_status` on the artifact tells you which state it is in, and a skill's `security`
@@ -59,5 +59,5 @@ insight has the reason.
 
 Publishing a new version of a skill means editing the bundle that exists, not writing a fresh
 one from its description. Read every file in the current manifest first, apply the change, and
-re-upload the whole bundle — `atlan-author-skills` has the upload half. A "new version" that
+re-upload the whole bundle; `atlan-author-skills` has the upload half. A "new version" that
 silently drops the references the previous one had is the usual result of skipping this.

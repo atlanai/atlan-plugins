@@ -1,4 +1,4 @@
-# Phase 3 — governed context: metrics and saved queries
+# Phase 3: governed context: metrics and saved queries
 
 Goal: the definitions the agent will look up before it writes SQL, published to the project
 workspace:

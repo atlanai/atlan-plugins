@@ -35,7 +35,7 @@ That is the whole vocabulary of every kind that declares one. So:
 
 - **to join an agent to a skill**, the source is the **agent**: `uses_skill`.
 - **to say a deliverable drew on a skill**, the source is the **output**: `used_skill`.
-- **to join a file to a skill** — there is no such edge, and there is nothing to create. A
+- **to join a file to a skill**: there is no such edge, and there is nothing to create. A
   skill's own files are not related to it, they are *in* it: the pinned `metadata.files`
   manifest, written by the create hook from the bundle. If a file belongs to a skill, put it
   in the `.zip`.
@@ -103,7 +103,7 @@ the order is: upload the skill, then relate from the other artifact.
 
 2. **Wrong target kind** - 422:
 
-   > `depends_on` on `skill` may point at skill — not `agent`
+   > `depends_on` on `skill` may point at skill, not `agent`
 
 3. **Different workspaces** - 422:
 

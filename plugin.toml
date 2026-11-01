@@ -14,8 +14,8 @@
 name = "atlanai"
 display_name = "Atlan"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.3.0"
-description = "Find, use and publish skills, agents, MCP servers and knowledge in the Atlan registry, through Atlan's remote MCP server and guided skills."
+version = "0.3.1"
+description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Skills, agents and MCP from the Atlan registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
 license = "Apache-2.0"
@@ -59,7 +59,7 @@ capabilities = ["Interactive", "Write"]
 onboarding_skill = "./skills/atlan-get-started/SKILL.md"
 # Codex shows at most three and truncates at 128 characters; about 50 reads best.
 default_prompts = [
-  "Show my organization's skills and agents in Atlan",
+  "Connect me to Atlan",
   "Find an Atlan skill for this task and install it",
   "Publish the skill in this folder to Atlan",
 ]
@@ -83,7 +83,7 @@ default_prompts = [
   "Build a talk-to-data agent for our revenue questions",
 ]
 
-# Codex's card for each skill in every plugin above, vendored recipes included: tools/build.py
+# Codex's card for each skill in every plugin above: tools/build.py
 # writes it to skills/<name>/agents/openai.yaml with a dependency on the `atlan` MCP server, so a
 # skill installed on its own still asks for the server. Every skill needs an entry. `prompt` is
 # the starter prompt and invokes the skill as `$<name>`, Codex's explicit mention.
