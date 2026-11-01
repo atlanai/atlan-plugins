@@ -403,7 +403,7 @@ def outputs(source: dict) -> dict[str, dict]:
     codex_addons = [
         {
             "name": addon["name"],
-            "source": {"source": "git-subdir", "url": f"{plugin['repository']}.git", "path": f"./{addon_dir(addon)}"},
+            "source": {"source": "local", "path": f"./{addon_dir(addon)}"},
             "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
             "category": addon["category"],
         }
@@ -446,14 +446,17 @@ def outputs(source: dict) -> dict[str, dict]:
             "interface": codex_interface(source),
             **({"extensions": {"com.openai": codex_onboarding(source)}} if codex_onboarding(source) else {}),
         },
-        # Codex marketplace. Codex also reads .claude-plugin/marketplace.json.
+        # Codex marketplace. Codex also reads .claude-plugin/marketplace.json. Each entry is a
+        # local path into the clone `codex plugin marketplace add` makes: Codex lists a git or npm
+        # entry without reading its plugin's manifest, so the picker showed the bare name and a
+        # stock icon; a local entry is listed from the plugin's own manifest, displayName and logo.
         ".agents/plugins/marketplace.json": {
             "name": market["name"],
             "interface": {"displayName": market["display_name"]},
             "plugins": [
                 {
                     "name": plugin["name"],
-                    "source": {"source": "git-subdir", "url": f"{plugin['repository']}.git", "path": f"./{base}"},
+                    "source": {"source": "local", "path": f"./{base}"},
                     "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
                     "category": plugin["category"],
                 },
