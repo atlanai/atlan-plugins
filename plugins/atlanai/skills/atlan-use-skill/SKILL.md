@@ -32,13 +32,15 @@ offer to. Tell the user what the skill asked for, and that it may need its owner
 ## 1. Pick the exact skill
 
 **First, look at the skills already installed here.** Your tool lists them in this
-conversation, so checking costs no call. Match on the skill's `name`:
+conversation, so checking costs no call. Match on the skill's `name`, ignoring any plugin
+prefix (`acme:security-review` is `security-review`), and read the installed copy's `SKILL.md`
+from its folder, or load it with your tool's skill loader when you do not know the path:
 
 | What is installed | What to do |
 |---|---|
 | No skill of that name | Go on below. |
-| A skill of that name, and the request gives only a name or a description | Load and follow the installed one, with no search. Say in one line that it is the installed copy, and that you can check Atlan for a newer version. |
-| A skill of that name, and the request gives a handle or asks for the Atlan, organization or latest version | Read the registry skill (section 2), then compare its `SKILL.md` with the installed one's. The same text: use the installed copy and say it is current. Different text: use the registry's for this task, say the installed copy differs (an older version, or a local skill of the same name), and offer to update it (sections 5 and 6). If you cannot read the installed file, as in Claude chat, use the registry's and say a copy of that name is installed. |
+| A skill of that name, and the request gives only a name or a description | Load and follow the installed one, with no search. If the user asked for Atlan's, add that this is the installed copy and you can check Atlan for a newer version. |
+| A skill of that name, and the request gives a handle or asks for the Atlan, organization or latest version | Read the registry skill (section 2), then compare its `SKILL.md` with the installed one's. The same text: use the installed copy, and open the reply with one line saying it matches Atlan's. Different text: use the registry's for this task, say the installed copy differs (an older version, or a local skill of the same name), and offer to update it (sections 5 and 6). If you cannot read the installed file (in Claude chat, or a plugin's skill whose folder you do not know), use the registry's and say in one line that a copy of that name is installed and was not compared. |
 
 A user who asks to install a skill that is already installed with the same text gets told so,
 and nothing is written.
@@ -73,6 +75,8 @@ section 4 says.
     owns it, and stop. Do not use another skill of a similar name in its place.
   - `blocked`: the bundle failed Atlan's security scan and its files are withheld. Stop and
     tell the user; do not look for the content elsewhere.
+- **A skill of this name is installed here?** Compare the two `SKILL.md` texts now, as the table
+  in section 1 says, before following either.
 - `metadata.files` lists every file: `path`, `file_id`, `file_version_ordinal`, `size_bytes`,
   `media_type`. This is the pinned snapshot of the version you are reading.
 

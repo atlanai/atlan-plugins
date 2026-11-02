@@ -7,11 +7,6 @@ execution:
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
-  - name: uses-the-installed-skill
-    type: tool_used
-    tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?security-review"'
-    min: 1
   - name: no-registry-search
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
@@ -39,8 +34,8 @@ graders:
   - name: follows-the-installed-skill
     type: llm
     criteria: |
-      A skill named security-review is already installed in this session.
-      PASS if the reply follows its first step (asks what to review: the current diff, a file or a PR number) without first searching or listing skills in Atlan.
+      A skill named security-review is already installed in this session from the plugin folder (atlanai:security-review, Acme's pre-merge review). Claude Code may also list its own generic security-review skill.
+      PASS if the reply uses or proposes the installed Acme security-review skill and asks for the change to review (the diff, a file or a PR number), without searching Atlan or offering registry results. Naming both installed skills and saying which one it will use is fine.
       FAIL if it lists Atlan search results, asks which of several registry skills to use, or starts reviewing something it invented.
   - name: plain-reply
     type: llm
