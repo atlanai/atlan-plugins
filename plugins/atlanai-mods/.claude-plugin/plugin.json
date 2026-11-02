@@ -1,7 +1,7 @@
 {
   "name": "atlanai-mods",
-  "version": "0.2.1",
-  "description": "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, and the status line reports a broken Atlan connection.",
+  "version": "0.3.0",
+  "description": "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, and the status line reports a broken or degraded Atlan connection.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"

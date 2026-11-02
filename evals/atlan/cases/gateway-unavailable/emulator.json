@@ -1,0 +1,5 @@
+{
+  "env": {
+    "ATLAN_EMULATOR_UNAVAILABLE": "registry__get_artifact"
+  }
+}

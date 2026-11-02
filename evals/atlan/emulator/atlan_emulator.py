@@ -19,6 +19,9 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_EMPTY=1`: the workspaces exist and hold no artifacts;
 - `ATLAN_EMULATOR_RATE_LIMIT=registry__get_related_artifacts`: the first call of that tool is
   refused with the gateway's JSON-RPC `-32003` `rate_limited` error, and every later call answers;
+- `ATLAN_EMULATOR_UNAVAILABLE=registry__get_artifact`: the first two calls of that tool fail as
+  the gateway's `503` does, JSON-RPC `-32603` `service unavailable` with `retryable: true`, and
+  every later call answers;
 - `ATLAN_EMULATOR_CATALOG=1`: the server is the data-catalog plugin's (`mcp.atlan.com`), with
   asset search and lineage tools and none of the gateway's three;
 - `ATLAN_EMULATOR_SIGNED_OUT=1`: the user has not signed in, so the server lists no tools and
@@ -40,6 +43,7 @@ LOG = os.environ.get("ATLAN_EMULATOR_LOG")
 HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") if s}
 EMPTY = os.environ.get("ATLAN_EMULATOR_EMPTY") == "1"
 RATE_LIMIT = os.environ.get("ATLAN_EMULATOR_RATE_LIMIT")
+UNAVAILABLE = os.environ.get("ATLAN_EMULATOR_UNAVAILABLE")
 CATALOG = os.environ.get("ATLAN_EMULATOR_CATALOG") == "1"
 SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
 # Pads the catalogue to this many skills, the most recently changed of them about UI motion, so a
@@ -295,6 +299,9 @@ def search_artifacts(a: dict) -> dict:
         if a.get("workspace_id") and item["workspace_id"] != a["workspace_id"]:
             continue
         if not in_project(item, a.get("project_id")):
+            continue
+        # Approved artifacts only, as the gateway answers, unless the caller asks for the rest.
+        if item.get("artifact_status", "active") != "active" and not a.get("include_unreviewed"):
             continue
         score = len(query & words(" ".join(str(item.get(k, "")) for k in ("name", "display_name", "description"))))
         if score:
@@ -623,6 +630,12 @@ def handle(msg: dict) -> dict | None:
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32003}})
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32003, "message": "rate_limited: the organization's "
                     "call budget is spent for the moment; retry after 2 seconds", "data": {"retry_after_seconds": 2}}}
+        if UNAVAILABLE and params.get("name") == "mcp__call_tool" and called == UNAVAILABLE and state.get("unavailable", 0) < 2:
+            state["unavailable"] = state.get("unavailable", 0) + 1
+            log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32603}})
+            return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
+                    "data": {"server": "registry", "retryable": True, "retry_after_seconds": 1,
+                             "code": "downstream_unavailable"}}}
         handler = HANDLERS.get(params.get("name"))
         if handler is None:
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32602, "message": "tool is unavailable; refresh tools/list"}}

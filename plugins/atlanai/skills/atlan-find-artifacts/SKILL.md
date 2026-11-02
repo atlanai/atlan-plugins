@@ -56,9 +56,14 @@ mcp__call_tool {
 - **Narrow with `kind`** when you know the type. Omit it to search every discoverable kind.
   `workspace_id` narrows to one workspace; `project_id` to the artifacts homed in or linked
   into one project.
-- **Read `artifact_status` on every hit before you recommend it.** `active` is usable.
-  `pending_review` is a new version held until a reviewer approves it: its files cannot be read
-  yet. `blocked` failed the security scan. Say which, rather than offering every hit as ready.
+- **Search returns approved artifacts.** Hits are `active` unless you pass
+  `include_unreviewed: true`, which adds `pending_review` (held until its scan or a reviewer
+  approves it; its files cannot be read yet) and `blocked` (failed the security scan). Pass it
+  only when the user looks for their own upload under review. Still read `artifact_status` on
+  every hit, and say which, rather than offering every hit as ready.
+- **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
+  and workspace, and let the user pick before anything loads. Never load a skill because it
+  ranked first.
 - **Same name, different skill.** Two artifacts can share a `name` in different workspaces
   (a team's skill and someone's personal copy). Show the workspace and handle of each so the
   user can tell them apart.

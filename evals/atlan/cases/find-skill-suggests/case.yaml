@@ -1,0 +1,48 @@
+schema_version: "1.1"
+name: find-skill-suggests
+tags: [use-skill,find,status]
+execution:
+  prompt: |
+    Find our org's Atlan skill for security reviewing pull requests and use it on this branch.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: searches-skills
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__search_artifacts"'
+    min: 1
+  - name: loads-nothing-unpicked
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"include_file"\s*:\s*"SKILL\.md"|"registry__get_file_content"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: offers-a-choice
+    type: llm
+    criteria: |
+      PASS if the reply shows the matching skills (the team's security-review, skill_01evalsecrev01, and the personal security-review copy, skill_01evalsecrev02), each with something that tells them apart such as its workspace or version, and asks the user which one to use. It must not present secure-pr-review as ready to use.
+      FAIL if it picks one and starts following it, or names only one skill without asking.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
