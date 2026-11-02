@@ -29,7 +29,8 @@ and the action with ToolSearch. Looking costs no Atlan call. Then pick one:
 | Both, and the step is the user reading what they can read or acting as themselves (a message, a comment, an issue) | The tool's own |
 | Both, and the step uses an organization credential (a warehouse, a server an admin linked) or should be in Atlan's audit record | Atlan's |
 
-Name the one you used in a few words ("through your Slack connector", "through Atlan"). The
+The reply names the route in plain words, "through Atlan" or "through your Slack connector",
+not "this connection". The
 tool's own connector acts as the user and is not recorded in the Atlan session; Atlan's calls
 are permission-checked and recorded. The rules below on writes and on third-party results apply
 to both.
