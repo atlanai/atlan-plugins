@@ -36,7 +36,9 @@ class BuildTest(unittest.TestCase):
             self.assertEqual(documents[path]["name"], name, path)
             self.assertEqual(documents[path]["version"], version, path)
         addons = [addon["name"] for addon in self.source.get("addons", [])]
-        for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
+        mods = [mod["name"] for mod in self.source.get("mods", [])]
+        self.assertEqual([p["name"] for p in documents[".claude-plugin/marketplace.json"]["plugins"]], [name, *addons, *mods])
+        for path in (".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
             self.assertEqual([p["name"] for p in documents[path]["plugins"]], [name, *addons], path)
 
     def test_both_mcp_files_point_at_one_url_with_each_tools_transport_label(self) -> None:
@@ -66,7 +68,8 @@ class BuildTest(unittest.TestCase):
             self.assertEqual(codex[index]["source"], {"source": "local", "path": f"./plugins/{name}"})
 
     def test_every_plugin_folder_carries_the_logo_license_and_a_readme(self) -> None:
-        for name in [self.source["plugin"]["name"], *(addon["name"] for addon in self.source["addons"])]:
+        mods = [mod["name"] for mod in self.source.get("mods", [])]
+        for name in [self.source["plugin"]["name"], *(addon["name"] for addon in self.source["addons"]), *mods]:
             for relative in ("assets/logo.svg", "LICENSE", "README.md"):
                 self.assertTrue((ROOT / "plugins" / name / relative).is_file(), f"{name}/{relative}")
 
@@ -231,7 +234,7 @@ class AddonTest(unittest.TestCase):
 
     def test_claude_and_codex_each_get_their_own_label_and_category(self) -> None:
         plugins = [self.source["plugin"], self.addon]
-        claude = self.documents[".claude-plugin/marketplace.json"]["plugins"]
+        claude = self.documents[".claude-plugin/marketplace.json"]["plugins"][: len(plugins)]
         codex = self.documents[".agents/plugins/marketplace.json"]["plugins"]
         self.assertEqual([p["displayName"] for p in claude], [p["display_name"] for p in plugins])
         self.assertEqual([p["category"] for p in claude], [p["claude_category"] for p in plugins])
@@ -259,6 +262,65 @@ class AddonTest(unittest.TestCase):
         self.assertIn(f"{base}/skills/atlan-analytics/SKILL.md", files)
         self.assertIn(f"{base}/assets/logo.svg", files)
         self.assertFalse(any(path.startswith(f"{self.base}/") for path in files))
+
+
+class ModTest(unittest.TestCase):
+    """`[[mods]]`: Claude Code plugins whose hooks module acts on the core's tools."""
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.mod = self.source["mods"][0]
+        self.documents = build.outputs(self.source)
+        self.base = build.mod_dir(self.mod)
+
+    def test_a_mod_has_one_claude_manifest_that_depends_on_the_core(self) -> None:
+        manifest = self.documents[f"{self.base}/.claude-plugin/plugin.json"]
+        self.assertEqual((manifest["name"], manifest["version"]), (self.mod["name"], self.mod["version"]))
+        self.assertEqual(manifest["dependencies"], [self.source["plugin"]["name"]])
+        self.assertNotIn("mcpServers", manifest)
+        self.assertEqual(manifest["userConfig"], self.mod["user_config"])
+        self.assertTrue((ROOT / self.base / manifest["types"]).is_file())
+        for path in ("plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json", ".mcp.json"):
+            self.assertNotIn(f"{self.base}/{path}", self.documents, path)
+
+    def test_only_the_claude_marketplace_lists_a_mod(self) -> None:
+        claude = [p["name"] for p in self.documents[".claude-plugin/marketplace.json"]["plugins"]]
+        self.assertIn(self.mod["name"], claude)
+        for path in (".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
+            self.assertNotIn(self.mod["name"], [p["name"] for p in self.documents[path]["plugins"]], path)
+
+    def test_a_variant_carries_no_mod(self) -> None:
+        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
+        files = build.variant_files(self.source, variant, "variant.toml")
+        self.assertFalse(any("-mods" in path for path in files))
+        self.assertNotIn("-mods", files[".claude-plugin/marketplace.json"])
+
+    def test_refuses_a_mod_without_the_core_prefix_or_named_like_an_addon(self) -> None:
+        broken = copy.deepcopy(self.source)
+        broken["mods"][0]["name"] = "mods"
+        with self.assertRaises(SystemExit):
+            build.validate(broken)
+        broken = copy.deepcopy(self.source)
+        broken["mods"][0]["name"] = broken["addons"][0]["name"]
+        with self.assertRaises(SystemExit):
+            build.validate(broken)
+
+    def test_a_mod_may_hold_one_hooks_module_but_no_settings_hooks_or_server(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            mod = Path(temp) / "atlan-m"
+            (mod / "hooks").mkdir(parents=True)
+            (mod / "hooks/register.ts").write_text("export const register = () => {}\n")
+            (mod / "hooks/hooks.json").write_text('{"modules": ["./register.ts"]}')
+            saved = lint.ROOT
+            lint.ROOT = Path(temp)
+            try:
+                self.assertEqual(lint.lint_mod(mod), [])
+                (mod / "hooks/hooks.json").write_text('{"modules": ["./register.ts"], "hooks": {"Stop": []}}')
+                (mod / ".mcp.json").write_text("{}")
+                errors = lint.lint_mod(mod)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(len(errors), 2)
 
 
 class SkillMetadataTest(unittest.TestCase):

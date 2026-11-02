@@ -12,8 +12,10 @@ The repository is a marketplace: its root holds only the marketplace files, and 
 folder under plugins/. The core, `[plugin]` in plugin.toml, is plugins/<name>/ and holds the one
 `atlan` MCP server. An add-on (`[[addons]]`) is a workload built on the registry, in its own folder
 beside the core. It depends on the core and declares no MCP server, so it reaches Atlan through the
-core's one connection. Every plugin folder gets the listing logo and the LICENSE copied in, because
-a plugin cannot point outside its own folder.
+core's one connection. A mod (`[[mods]]`) is a Claude Code plugin whose hooks module changes how
+Claude Code treats the core's tools; it is listed in the Claude marketplace alone, since no other
+host loads a hooks module. Every plugin folder gets the listing logo and the LICENSE copied in,
+because a plugin cannot point outside its own folder.
 
 A variant is this marketplace under another name and endpoint, published from another repository:
 its TOML file overrides `[plugin]`, `[marketplace]` and `[mcp]` fields and lists `[rewrite]` pairs
@@ -111,6 +113,15 @@ def validate(source: dict) -> None:
         names.add(addon["name"])
         if not SEMVER.match(addon["version"]):
             raise SystemExit(f"add-on {addon['name']} version {addon['version']!r} is not SemVer")
+    for mod in source.get("mods", []):
+        check_name(mod["name"], "mods.name")
+        if not mod["name"].startswith(f"{plugin['name']}-"):
+            raise SystemExit(f"mod {mod['name']!r} must be named {plugin['name']}-<purpose>")
+        if mod["name"] in names:
+            raise SystemExit(f"mod {mod['name']!r} is declared twice or shares an add-on's name")
+        names.add(mod["name"])
+        if not SEMVER.match(mod["version"]):
+            raise SystemExit(f"mod {mod['name']} version {mod['version']!r} is not SemVer")
     for name, entry in source.get("skills", {}).items():
         if set(entry) != {"display_name", "short_description", "prompt"}:
             raise SystemExit(f"[skills.{name}] needs exactly display_name, short_description and prompt")
@@ -133,6 +144,8 @@ def make_variant(source: dict, overrides: dict) -> dict:
             raise SystemExit(f"variant [{table}] cannot set {', '.join(sorted(unknown))}")
         variant[table].update(overrides.get(table, {}))
     variant["rewrite"] = dict(overrides.get("rewrite", {}))
+    # A mod matches the production plugin's server names, so a variant does not carry one yet.
+    variant.pop("mods", None)
     variant["keep"] = list(overrides.get("keep", []))
     # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
     main, other = source["plugin"], variant["plugin"]
@@ -160,6 +173,10 @@ def core_dir(source: dict) -> str:
 
 def addon_dir(addon: dict) -> str:
     return f"{PLUGINS}/{addon['name']}"
+
+
+def mod_dir(mod: dict) -> str:
+    return f"{PLUGINS}/{mod['name']}"
 
 
 def core(source: dict) -> dict:
@@ -266,6 +283,21 @@ def addon_outputs(source: dict, addon: dict) -> dict[str, dict]:
     }
 
 
+def mod_outputs(source: dict, mod: dict) -> dict[str, dict]:
+    """A mod's one manifest. Only Claude Code loads a hooks module, so it has no Agent Plugins,
+    Codex or Cursor manifest, and it depends on the core for the `atlan` server it acts on."""
+    manifest = {
+        **addon_core(source, mod),
+        "displayName": mod["display_name"],
+        "dependencies": [source["plugin"]["name"]],
+    }
+    if mod.get("types"):
+        manifest["types"] = mod["types"]
+    if mod.get("user_config"):
+        manifest["userConfig"] = copy.deepcopy(mod["user_config"])
+    return {f"{mod_dir(mod)}/.claude-plugin/plugin.json": manifest}
+
+
 def addon_readme(source: dict, addon: dict) -> str:
     plugin, market = source["plugin"], source["marketplace"]["name"]
     slug = github_slug(plugin["repository"])
@@ -312,11 +344,12 @@ or copies them.
 
 
 def plugin_assets(source: dict) -> dict[str, str]:
-    """The shared files in every plugin folder, and each add-on's README. The core's README is
-    written by hand."""
+    """The shared files in every plugin folder, and each add-on's README. The core's and each
+    mod's README are written by hand."""
     shared = {relative: (ROOT / relative).read_text(encoding="utf-8") for relative in SHARED}
     files = {}
-    for base in (core_dir(source), *(addon_dir(addon) for addon in source.get("addons", []))):
+    bases = (core_dir(source), *(addon_dir(a) for a in source.get("addons", [])), *(mod_dir(m) for m in source.get("mods", [])))
+    for base in bases:
         files.update({f"{base}/{relative}": text for relative, text in shared.items()})
     for addon in source.get("addons", []):
         files[f"{addon_dir(addon)}/README.md"] = addon_readme(source, addon)
@@ -413,6 +446,22 @@ def outputs(source: dict) -> dict[str, dict]:
         {"name": addon["name"], "source": f"./{addon_dir(addon)}", "description": addon["description"]}
         for addon in addons
     ]
+    # Mods are Claude Code's alone: no other host loads a hooks module.
+    claude_mods = [
+        {
+            "name": mod["name"],
+            "displayName": mod["display_name"],
+            "source": f"./{mod_dir(mod)}",
+            "description": mod["description"],
+            "author": dict(source["author"]),
+            "homepage": plugin["homepage"],
+            "repository": plugin["repository"],
+            "license": plugin["license"],
+            "keywords": list(mod["keywords"]),
+            "category": mod["claude_category"],
+        }
+        for mod in source.get("mods", [])
+    ]
 
     documents = {
         # Agent Plugins 1.0: Codex, Cursor, GitHub Copilot, VS Code and other conforming hosts.
@@ -436,7 +485,7 @@ def outputs(source: dict) -> dict[str, dict]:
             "description": market["description"],
             "owner": owner,
             "metadata": {"description": market["description"]},
-            "plugins": [entry, *claude_addons],
+            "plugins": [entry, *claude_addons, *claude_mods],
         },
         # Codex builds that predate plugin.json. Ignored when extensions.com.openai exists.
         f"{base}/.codex-plugin/plugin.json": {
@@ -477,6 +526,8 @@ def outputs(source: dict) -> dict[str, dict]:
     }
     for addon in addons:
         documents.update(addon_outputs(source, addon))
+    for mod in source.get("mods", []):
+        documents.update(mod_outputs(source, mod))
     return documents
 
 

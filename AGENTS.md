@@ -24,6 +24,8 @@ plugins/atlanai/                    the core plugin
   README.md                       written by hand
 plugins/atlanai-<workload>/       add-ons: skills, commands and agents written here; manifests and
                                   README generated
+plugins/atlanai-mods/             the Claude Code mod: hooks module, types, tests and README written
+                                  here; manifest generated from [[mods]]
 plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugin cannot point
                                   outside its folder
 assets/hero.png                   the README's banner and the repository's social preview (written by hand)
@@ -66,9 +68,19 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   "session_id", "rationale" }`. Vendored recipes use full-mode notation; `atlan-get-started`
   explains the translation.
 - **Portable only.** No hooks, no `bin/`, no symlinks, no submodules, no paths outside the
-  plugin root, no secrets. Adding a hook needs a decision first: hooks are the least portable
-  component, each host names their events differently, and Codex keeps hook plugins out of its
-  directory.
+  plugin root, no secrets. Hooks are the least portable component, each host names their events
+  differently, and Codex keeps hook plugins out of its directory. The one exception is a mod,
+  below: a Claude Code plugin of its own, so the portable plugins stay hook-free.
+- **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
+  module ([Claude Code mods](https://code.claude.com/docs/en/plugins/mods/overview)) changes how
+  Claude Code handles the core's tools: `atlanai-mods` guards registry writes and repairs gateway
+  calls. The build lists it in the Claude marketplace alone and writes only its
+  `.claude-plugin/plugin.json`; variants do not carry it. It depends on `atlanai`, declares no MCP
+  server and no settings hooks, and `hooks/hooks.json` names one hooks module (`make check`
+  refuses anything else). A mod may remove friction but never carries a rule a skill relies on:
+  Codex, Cursor and Claude chat run the skills without it. Keep rules that need no `$` in
+  `hooks/registry.ts` as plain functions, test both files with `claude plugin test`, and list every
+  call the mod makes in its README. `make validate` validates the folder whole and runs its tests.
 - **One name everywhere.** Plugin names (`atlanai`, `atlanai-analytics`) and the MCP server key
   (`atlan`) do not change again: users have them installed, and add-ons name `atlanai` as their
   dependency. Relabel with `display_name`. 0.3.0 renamed the plugins from `atlan` and
@@ -115,7 +127,8 @@ replies grow: the first eval pass after 0.3.5 caught longer catch-ups that the j
 
 ```
 make check       # generated-file drift, lint, unit tests
-make validate    # claude plugin validate --strict and the directory profile, needs the claude CLI
+make validate    # claude plugin validate --strict and the directory profile, and each mod's
+                 # `claude plugin test`; needs the claude CLI
 make site        # dist/site/.well-known/agent-skills/: the skills as a discovery index
 ```
 
@@ -176,7 +189,7 @@ repository holds no variant of its own.
 
 1. Bump `[plugin] version` in `plugin.toml` (SemVer; Claude Code keeps users on the version they
    installed until it changes) and run `make build`. An add-on has its own `version` under
-   `[[addons]]`; bump it when its content or manifest changes.
+   `[[addons]]`, and a mod under `[[mods]]`; bump it when its content or manifest changes.
 2. Say what changes for users in the pull request's description; there is no changelog file.
 3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlanai--v0.3.0`,
    `atlanai-analytics--v0.4.0`), so a dependency with a version range resolves in Claude Code.
