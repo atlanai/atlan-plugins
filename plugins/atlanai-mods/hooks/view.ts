@@ -2,7 +2,7 @@
 // artifacts this session touched, the confirmation card, the publish band and the skill picker.
 // Nothing here calls `$`, so each rule is tested without a session.
 
-import { CONSEQUENCE, artifactOf, jsonObjects, type Related, type Summary } from './registry'
+import { CONSEQUENCE, argsOf, artifactOf, jsonObjects, type Related, type Summary } from './registry'
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -44,8 +44,9 @@ const PAST: Record<string, string> = {
 }
 
 /** The skills a publish call names, from `extension__skill__create`'s `skills`. */
-export function publishNames(args: unknown): string[] {
-  if (!isRecord(args) || !Array.isArray(args.skills)) return []
+export function publishNames(value: unknown): string[] {
+  const args = argsOf(value)
+  if (!Array.isArray(args.skills)) return []
   return args.skills.map((skill, i) => (isRecord(skill) && isText(skill.name) ? clip(skill.name, 64) : `skill ${i + 1}`))
 }
 
@@ -62,7 +63,7 @@ function describeRaw(tool: string, input: unknown): string {
     return servers.length > 0 ? `read the tools of ${servers.join(', ')}` : 'read tool definitions'
   }
   const name = isText(call.name) ? call.name : ''
-  const args = isRecord(call.arguments) ? call.arguments : {}
+  const args = argsOf(call.arguments)
   if (name === 'extension__skill__create') {
     const names = publishNames(args)
     return names.length > 0 ? `published ${names.length === 1 ? 'skill' : 'skills'} ${names.join(', ')}` : 'published a skill'
@@ -189,12 +190,18 @@ export function touchesOf(name: string, args: unknown, text: string, isError: bo
         id,
         kind: field(row, 'kind') || id.split('_')[0] || 'artifact',
         name: field(row, 'display_name') || field(row, 'name'),
-        version: field(row, 'version_label'),
+        version: releaseOf(row),
         status: field(row, 'artifact_status'),
         action,
       },
     ]
   })
+}
+
+/** The version an artifact or publish slot names: its release's label, else its own. */
+function releaseOf(row: Record<string, unknown>): string {
+  const releases = Array.isArray(row.current_releases) ? row.current_releases.filter(isRecord) : []
+  return (releases[0] && field(releases[0], 'version_label')) || field(row, 'version_label')
 }
 
 /** Folds new touches into the list, newest first; a read never hides an earlier write. */
@@ -230,8 +237,7 @@ function publishStep(slot: Record<string, unknown>, name: string): Publish {
   if (code >= 400) return { name, id, state: 'failed', text: `${name}: failed, ${clip(field(slot, 'message') || field(slot, 'error') || `status ${code}`, 100)}` }
   if (status === 'blocked') return { name, id, state: 'blocked', text: `${name}: blocked by the security scan` }
   if (status === 'active' || slot.is_released === true) {
-    const releases = Array.isArray(slot.current_releases) ? slot.current_releases.filter(isRecord) : []
-    const version = (releases[0] && field(releases[0], 'version_label')) || field(slot, 'version_label')
+    const version = releaseOf(slot)
     return { name, id, state: 'published', text: `${name}: published${version ? ` ${version}` : ''}` }
   }
   return { name, id, state: 'scanning', text: `${name}: scanning` }
