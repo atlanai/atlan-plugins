@@ -1,0 +1,61 @@
+schema_version: "1.1"
+name: share-team-and-slack
+tags: [share,write,slack]
+execution:
+  prompt: |
+    Share this note with Platform Engineering in Atlan and post it in #platform-eng on Slack. Go ahead with both, no need to ask me again.
+
+    November release notes draft. The deploy queue now retries failed health checks twice before paging. Build caching cut median CI time from 14 to 9 minutes. The old staging cluster is retired on 30 November.
+  max_turns: 30
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-share
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
+  - name: writes-the-file-with-a-source-key
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"file")(?=[\s\S]*workspace_01evalplatform)(?=[\s\S]*"source_type"\s*:\s*"local")(?=[\s\S]*"source_id"\s*:\s*"[^"]+")'
+    min: 1
+    max: 1
+  - name: records-the-output-pinned-and-keyed
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"output")(?=[\s\S]*file_01evalnew)(?=[\s\S]*"file_version_ordinal"\s*:\s*1)(?=[\s\S]*"source_id"\s*:\s*"[^"]+")'
+    min: 1
+    max: 1
+  - name: never-shares-to-the-personal-workspace
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: 'workspace_01evaldana'
+    min: 0
+    max: 0
+  - name: posts-the-hand-off-once
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"slack__send_message"(?=[\s\S]*platform-eng)(?=[\s\S]*/atlanai:continue output_01evalnew)'
+    min: 1
+    max: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: reports-the-share
+    type: llm
+    criteria: |
+      PASS if the reply says the note was shared with Platform Engineering as a first version, gives the hand-off prompt `/atlanai:continue output_01evalnew0000000000000000`, and says it was posted to #platform-eng. The Slack post it sent is a short summary with the hand-off, not the whole note pasted.
+      FAIL if it asks for permission again, shares to another workspace, pastes the full note into Slack, or reports a post or a share that its tool calls do not show.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

@@ -1,6 +1,6 @@
 ---
 name: atlan-record-outputs
-description: Record a deliverable an agent produced as an Atlan output, by uploading its file or linking where it is hosted, and publish new versions of it. Use when the user wants a report, dashboard, document, dataset or other result of an agent run saved, registered or shared in Atlan, or a recorded output updated. Not for uploading a file that no agent run produced (atlan-content) or finding outputs (atlan-find-artifacts).
+description: Record a deliverable an agent produced as an Atlan output, by uploading its file or linking where it is hosted, and publish new versions of it. Use when the user wants a report, dashboard, document, dataset or other result of an agent run saved, registered or recorded in Atlan, or a recorded output updated. Not for sharing it with colleagues or posting it to Slack (atlan-share), uploading a file that no agent run produced (atlan-content) or finding outputs (atlan-find-artifacts).
 license: Apache-2.0
 ---
 
@@ -17,6 +17,10 @@ first time. Replies lead with the result in a few lines, and ask before every wr
 - **Register a deliverable:** [recording](references/record.md).
 - **Choose upload or link mode:** [mode rules](references/output-modes.md).
 - **Publish another version:** follow the append procedure in [recording](references/record.md#publishing-a-new-version).
+
+Give the file and the output the same source key (`source_type` and `source_id`, see
+[recording](references/record.md#the-source-key)), so recording the same deliverable again
+appends a version instead of creating a second output.
 
 Append to the existing output ID with the observed head ETag. Repeating create makes a
 second output. Pin exact file ordinals in upload mode; read the result back. If an edge

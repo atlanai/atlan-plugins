@@ -100,10 +100,12 @@ The core plugin connects one MCP server, `atlan`, and teaches your agent when to
 | `atlan-author-knowledge` | Publish knowledge to Atlan, or update it |
 | `atlan-connect-repo` | Record where a skill came from, or sync a repository's skills from GitHub |
 | `atlan-record-outputs` | Record what a run produced as an Atlan output |
+| `atlan-share` | Share a result with your team through Atlan, and post the hand-off to Slack |
 
-In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-skill <skill_…>` and
-`/atlanai:continue <output_…>` run `atlan-get-started`, `atlan-use-skill` and `atlan-continue`; those
-three skills hide their own slash entries, so each task is listed once. In Codex, the plugin
+In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-skill <skill_…>`,
+`/atlanai:continue <output_…>` and `/atlanai:share` run `atlan-get-started`, `atlan-use-skill`,
+`atlan-continue` and `atlan-share`; those four skills hide their own slash entries, so each task is
+listed once. In Codex, the plugin
 runs `atlan-get-started` right after install.
 
 ### Registry Mods
@@ -132,6 +134,7 @@ These work in any host once you are signed in.
 | *"Show my organization's skills and agents in Atlan."* | Lists what your workspaces hold |
 | *"Find an Atlan skill for writing release notes and use it here."* | Searches the registry, then loads the best match into the session |
 | *"Post a summary of this PR to our team's Slack channel through Atlan."* | Calls an MCP server your organization registered in Atlan, under your permissions |
+| *"Share this report with the platform team and post it in #platform-eng."* | Records it in the team's workspace, versioned on each share, and posts the hand-off to Slack after you approve the post |
 | *"Publish the skill in this folder to Atlan."* | Bundles the folder, uploads it and creates a new version |
 | *"Sync this repository's skills to Atlan from GitHub."* | Sets up GitHub-to-Atlan sync for the repository |
 | *"Why did my last Atlan call fail?"* | Reads the error and the session record, and says what to fix |
