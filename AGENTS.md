@@ -24,7 +24,7 @@ plugins/atlanai/                    the core plugin
   README.md                       written by hand
 plugins/atlanai-<workload>/       add-ons: skills, commands and agents written here; manifests and
                                   README generated
-plugins/atlanai-mods/             the Claude Code mod: hooks module, types, tests and README written
+plugins/atlanai-mods/             the Claude Code mod: hooks module, tests and README written
                                   here; manifest generated from [[mods]]
 plugins/*/assets/logo.svg, LICENSE  copies of the root files, generated: a plugin cannot point
                                   outside its folder

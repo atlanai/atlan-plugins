@@ -250,6 +250,17 @@ export function diagnose(text: string): 'sign-in' | 'missing' | 'unreachable' | 
   return 'error'
 }
 
+/** The Atlan connection as the last check or call found it. */
+export type AtlanHealth = {
+  state: 'unknown' | 'ready' | 'sign-in' | 'missing' | 'unreachable' | 'error'
+  /** The server name the check reached, as /mcp lists it. */
+  server: string
+  /** A short reason, never a token or a response body. */
+  detail: string
+  /** Milliseconds since the epoch. */
+  checkedAt: number
+}
+
 /** The fix for each state, in one line. */
 export const FIX: Record<string, string> = {
   ready: 'Connected. Registry reads run without a prompt; writes ask first.',
