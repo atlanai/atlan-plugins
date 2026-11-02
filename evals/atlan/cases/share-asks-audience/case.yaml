@@ -1,0 +1,53 @@
+schema_version: "1.1"
+name: share-asks-audience
+tags: [share,routing]
+execution:
+  prompt: |
+    Share this with my team in Atlan:
+
+    Q3 churn summary. Churn fell from 4.1% to 3.2% quarter on quarter, mostly in the SMB tier. Two follow-ups: re-run the cohort cut for EMEA, and confirm the enterprise renewals data.
+  max_turns: 15
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-share
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
+  - name: goes-straight-to-the-skill
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+    min: 0
+    max: 0
+  - name: reads-the-workspaces
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__list_workspaces"'
+  - name: no-write-before-a-yes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate|request_file_upload)\w*|extension__\w+__create\w*|slack__send_message)"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: asks-which-team
+    type: llm
+    criteria: |
+      PASS if the reply writes nothing yet and asks one question about who the summary is for, naming the team workspaces Platform Engineering and Marketing (everyone in Acme may also be offered). It may also show the title and summary it would record.
+      FAIL if it records the summary anywhere, picks a workspace without asking, offers Dana's personal workspace as the default or as a way to share with the team, or asks for a workspace id.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
