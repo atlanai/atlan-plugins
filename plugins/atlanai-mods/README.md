@@ -82,8 +82,11 @@ model. See Atlan's [privacy notice](https://atlan.com/privacy-policy/).
 ```
 claude plugin validate plugins/atlanai-mods   # what it hooks and calls
 claude plugin test plugins/atlanai-mods       # the tests in tests/, no session needed
-claude --plugin-dir plugins/atlanai-mods      # load it for one session; it reloads on save
+claude --plugin-dir plugins/atlanai --plugin-dir plugins/atlanai-mods   # one session; reloads on save
+tsc -p plugins/atlanai-mods                   # type-check, once a load has written its types
 ```
+
+The mod needs the `atlanai` plugin it depends on, so load both folders together.
 
 `hooks/registry.ts` holds the rules and `hooks/view.ts` what is drawn, as plain functions;
 `hooks/register.tsx` wires them to Claude Code's events and draws them. `tools/build.py` writes the manifest from `[[mods]]` in `plugin.toml`.
