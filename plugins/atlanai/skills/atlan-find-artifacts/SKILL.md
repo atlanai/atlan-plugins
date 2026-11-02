@@ -166,6 +166,9 @@ agents that use a skill, read the skill's incoming edges rather than its outgoin
 ## Present results
 
 Lead with the answer. Show a short table of name, kind, workspace and a one-line description,
-with each handle, so the user can ask about one by name. Offer the next step that fits:
+with each handle, so the user can ask about one by name. Mark a skill whose `name` matches one
+already installed here (your tool lists its skills in this conversation) as installed, so the
+user does not install it twice; whether that copy is current is `atlan-use-skill`'s check.
+Offer the next step that fits:
 read it (`atlan-content`), use it here (`atlan-use-skill`), or call its tools
 (`atlan-use-mcp-servers`).
