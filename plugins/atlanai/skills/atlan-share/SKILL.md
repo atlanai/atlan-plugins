@@ -132,9 +132,12 @@ always, in a code span: `/atlanai:continue output_…`. Anyone in the workspace 
 by searching Atlan for its title.
 
 When the session has a working folder and `.atlan/share.json` is missing or names a different
-workspace or Slack destination, offer once to save this share's choices there, so the next share
-asks nothing. Write it only on a yes, with only the keys above. Committing it gives the whole team
-the same default.
+workspace or Slack destination, end the reply with one short sentence offering to save this
+share's choices there, so the next share asks nothing. Write it only on a yes, with only the keys
+above. Committing it gives the whole team the same default.
+
+When step 5 posts, the whole reply, post included, stays within four lines. Report what the tools
+returned; do not add caveats about what they did not.
 
 ## 5. Tell people, when Slack is connected
 

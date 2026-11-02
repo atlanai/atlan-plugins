@@ -52,8 +52,8 @@ graders:
   - name: reports-the-share
     type: llm
     criteria: |
-      PASS if the reply says the note was shared with Platform Engineering as a first version, gives the hand-off prompt `/atlanai:continue output_01evalnew0000000000000000`, and says it was posted to #platform-eng. The Slack post it sent is a short summary with the hand-off, not the whole note pasted.
-      FAIL if it asks for permission again, shares to another workspace, pastes the full note into Slack, or reports a post or a share that its tool calls do not show.
+      PASS if the reply says the note was shared with Platform Engineering, gives the hand-off prompt `/atlanai:continue output_01evalnew0000000000000000`, and says it was posted to #platform-eng.
+      FAIL if it asks for permission again before acting, names a different workspace or channel, or says the share or the post failed. (The tool calls are graded separately; judge only what the reply says.)
   - name: plain-reply
     type: llm
     criteria: |

@@ -27,7 +27,8 @@ available (`#platform-eng` for Platform Engineering), and ask.
 
 - **A channel**: resolve the name with the tool's channel search when it has one. Read its topic
   or description; if it says this kind of post belongs elsewhere, tell the user instead of
-  posting. A name that matches no channel is asked about, never guessed.
+  posting. A name that matches no channel is asked about, never guessed. A tool with no channel
+  search takes the channel by the name the user gave.
 - **A person**: resolve them with the tool's user search, by name or email. Several matches or
   none is a question to the user. Never guess an address or a user id.
 
@@ -51,5 +52,5 @@ Show the post and its destination, and send only after a yes. A request that alr
 destination and says to go ahead is that yes. A destination saved in `.atlan/share.json` is not:
 it saves asking where, not asking whether.
 
-After sending, say where it went in one line. A refusal from Slack is reported as it came, once;
+After sending, say where it went in one line, without quoting the post back. A refusal from Slack is reported as it came, once;
 do not retry with a different channel or tool.
