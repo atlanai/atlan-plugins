@@ -6,15 +6,15 @@ license: Apache-2.0
 
 # Author skill bundles
 
-Pass a `session_id` and a first-person `rationale` on every tool call. In search mode, the
-default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by sending
-`objective`, each `registry__…` tool named here runs through `mcp__call_tool` with `session_id`
-and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
-skipped. In full mode, call `mcp__initialise` first. Resolve the workspace with
-`registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for the
-first time. Replies lead with the result in a few lines, and ask before every write.
+Pass a `session_id` on every tool call, and a first-person `rationale` on every write (on a read,
+when the tool's schema requires one). In search mode, the default, the first
+`mcp__search_tools` or `mcp__call_tool` opens the session by sending `objective`, and each
+`registry__…` tool named here runs through `mcp__call_tool` with `session_id` and `rationale`
+beside `name` and `arguments`. In full mode, call `mcp__initialise` first. Replies lead with the
+result in a few lines, and ask before every write.
 
-- **Create and publish a bundle:** [publishing](references/publish.md).
+- **Publish a skill:** [publishing](references/publish.md). Text skills go inline in one call;
+  read [the ZIP path](references/publish-zip.md) only for binaries, executables or large bundles.
 - **Update a bundle:** [update a skill](references/update-a-skill.md).
 - **Review relationships:** [skill edges](references/skill-edges.md).
 

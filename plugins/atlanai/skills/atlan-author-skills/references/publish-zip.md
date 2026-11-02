@@ -1,0 +1,63 @@
+# Publishing a skill from a ZIP
+
+For a bundle inline `files` cannot carry: binaries, executable files, more than 256 KiB or 128
+files in one batch, or a server whose `extension__skill__create` schema has no `files`. Everything
+else is in [publishing](publish.md): the workspace, the bundle rules, reading the slot, the
+release and appending a version. This adds the upload.
+
+## 1. Zip the contents, not the folder
+
+`SKILL.md` must sit at the archive root. A zip with a top-level directory is refused with "skill
+bundle missing SKILL.md at root". Zip from inside the skill folder:
+
+```sh
+cd path/to/deploy-preview && zip -r ../deploy-preview.zip .
+```
+
+## 2. Reserve, upload, register
+
+```
+registry__request_file_upload { "size_bytes": <zip size> }
+→ { "upload_url": ..., "upload_key": ..., "is_presigned": false, "expires_in_seconds": 900 }
+```
+
+`PUT` the whole zip to `upload_url` with your Authorization header. The URL is root-relative:
+resolve it against the API origin you called the tool on. Start within `expires_in_seconds`; an
+expired ticket answers 400, so reserve again. An older server may return `is_presigned: true`:
+that storage URL carries its own authorization, so never send your API bearer to it. If your
+client keeps its bearer private, you cannot `PUT`; use inline `files` instead of extracting the
+credential into a shell.
+
+```
+registry__create_artifact {
+  "kind": "file",
+  "metadata": {
+    "name": "deploy-preview.zip",
+    "workspace_id": "workspace_01J...",
+    "path": "bundles/deploy-preview-2026-09-04.zip",
+    "upload_key": "<from the reservation>"
+  }
+}
+→ { "id": "file_01J...", ... }
+```
+
+Give each upload a unique `path`: a file's path is its identity in its workspace, and a second
+upload to the same path is a `409`. Dating the path avoids it. Upload failure modes:
+`atlan-content`'s [upload](../../atlan-content/references/upload.md).
+
+## 3. Create the skill from the file
+
+```
+extension__skill__create {
+  "skills": [{
+    "name": "deploy-preview",
+    "workspace_id": "workspace_01J...",
+    "bundle_file_id": "file_01J..."
+  }]
+}
+```
+
+Send exactly one of `files` or `bundle_file_id` per skill, and never base64 a bundle into the call.
+`registry__create_artifact` cannot create a skill: the skill kind takes no `upload_key`, and its
+properties are derived from the bundle by the create hook. Then read the slot as in
+[publishing](publish.md#4-read-the-slot).
