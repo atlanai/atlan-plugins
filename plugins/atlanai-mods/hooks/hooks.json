@@ -1,4 +1,4 @@
 {
-  "description": "Atlan registry guard, call repair and connection status for Claude Code.",
-  "modules": ["./register.ts"]
+  "description": "Atlan registry guard, call repair, connection status and Atlan views for Claude Code.",
+  "modules": ["./register.tsx"]
 }
