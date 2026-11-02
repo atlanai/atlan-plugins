@@ -654,8 +654,10 @@ class EvalCasesTest(unittest.TestCase):
         self.assertGreaterEqual(len(sidecars), 4)
         for sidecar in sidecars:
             settings = json.loads(sidecar.read_text(encoding="utf-8"))
-            self.assertLessEqual(set(settings), {"env", "plugin_name", "allow_tools"}, sidecar)
+            self.assertLessEqual(set(settings), self.runner.SIDECAR_KEYS, sidecar)
             self.assertLessEqual(set(settings.get("env", {})), self.SWITCHES, sidecar)
+            for skill in settings.get("installed_skills", []):
+                self.assertTrue((self.runner.INSTALLED / skill / "SKILL.md").is_file(), f"{sidecar}: {skill}")
             if "plugin_name" in settings:
                 self.assertIn(self.runner.tools_pattern(settings["plugin_name"]), settings.get("allow_tools", []), sidecar)
 

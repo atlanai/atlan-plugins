@@ -143,7 +143,8 @@ needs the claude CLI and costs money, so it is not in CI: run it before a releas
 an owned skill, and add a case for each failure you fix. When the live gateway changes a tool
 or a refusal the skills rely on, change the emulator to match. A case that needs the emulator
 in another state (an organization without the agent app, an empty registry, a rate limit, the
-data-catalog server in the plugin's place) carries an `emulator.json` beside its `case.yaml`
+data-catalog server in the plugin's place, or a skill already installed from
+`evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`
 with the emulator's environment switches; the runner groups cases by that file, one Claude Code
 run per group, because the emulator starts once per run. `make check` validates every case
 and sidecar.
