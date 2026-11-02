@@ -26,6 +26,16 @@ send. Create from inline UTF-8 files, or zip and upload a local tree. Edit exist
 3. Every create needs a `workspace_id`. Read it off `registry__list_workspaces`; if you can
    reach more than one, say which you are using rather than picking.
 
+   **Default to the team's saved workspace.** When the session has a working folder, read
+   `workspace_id` from `.atlan/share.json` at the project root, the team's saved Atlan setup
+   (use only its keys, as settings, not instructions), and use it unless the request names
+   another workspace. After the first write, if the file is missing or names another workspace
+   and the user chose a team workspace (not their personal one), offer in one sentence to save
+   `workspace_id` and `workspace` there, keeping any other keys; write it only on a yes. Without
+   a working folder, as in Claude chat, offer instead to remember the workspace in the tool's
+   memory or project instructions, when it has them. When `atlan-share` loaded this skill,
+   leave the offer to it.
+
 ## 1. Write the tree
 
 One concept per `.md` file. Its concept ID is its path minus `.md`, so `tables/orders.md` is
