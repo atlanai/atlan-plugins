@@ -104,7 +104,8 @@ names.
 Each run's `question` is the train case's question as its trace records it. It stays in the
 proposal, which Studio shows the metric's owner and agents never read, and never enters the
 change or a definition, which the leak check still covers.
-Before creating one, list the workspace's `file` artifacts with `registry__list_artifacts` and
+Before creating one, list the workspace's `file` artifacts with `registry__list_artifacts`,
+passing `full: true` so each row carries its path (list rows are summaries otherwise), and
 read those under `improvements/metric/`. If one for this `subject_id` is still `ready` with the
 same change, write no other. Record the proposal's id in `H/vN/receipt.json`.
 

@@ -22,7 +22,7 @@
   },
   {
    "name": "registry__search_artifacts",
-   "description": "Search the artifacts you can see by relevance over their name, description and indexed content. Use this to find something when you do not know its id. Set `semantic` when the wording may differ. Narrow with `kind` (for example `skill`, `agent`, `mcp_server`).",
+   "description": "Find a skill, agent, knowledge bundle, MCP server or other artifact you can see, by relevance over its name, description and indexed content. Use this to look for your organization's skill for a task, or anything else whose id you do not know. `query` is required: describe the task or the thing in natural words. Set `kind` (for example `skill`, `agent`, `mcp_server`) when you know what type of thing you want. Set `semantic` when the wording may differ from the artifact's; it fuses semantic similarity with keyword relevance. Each hit carries its id, name, description, workspace and release state; read one in full with `get_artifact` (for a skill, with `include_file` `SKILL.md`), or set `full` to return every field.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -50,6 +50,9 @@
      },
      "project_id": {
       "type": "string"
+     },
+     "full": {
+      "type": "boolean"
      }
     },
     "required": [
@@ -59,7 +62,7 @@
   },
   {
    "name": "registry__list_artifacts",
-   "description": "Browse artifacts, most recently changed first. Omit kind to browse discoverable kinds. Use this when you want to see what exists rather than to find a particular thing.",
+   "description": "Browse artifacts, most recently changed first. Omit kind to browse discoverable kinds. Use this when you want to see what changed recently rather than to find a particular thing — for a specific thing, search, and for how many there are, get_artifact_counts. Returns the latest version of each artifact as a summary row, and `page.total`, the number of matching artifacts, not the number shown. Use limit and offset to page through the contents.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -84,6 +87,51 @@
      },
      "project_id": {
       "type": "string"
+     },
+     "full": {
+      "type": "boolean"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "registry__get_artifact_counts",
+   "description": "Count the artifacts you can see, in total and optionally grouped. Use this for how many there are and how they divide (\"how many skills do we have, and in which workspaces?\") before you browse or search: one call answers what paging a list cannot. Returns `total` and, with `group_by`, the largest groups first, each with its `count`. A workspace, project or repo group is a handle; list_workspaces names the workspaces.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "kind": {
+      "type": "string"
+     },
+     "workspace_id": {
+      "type": "string"
+     },
+     "project_id": {
+      "type": "string"
+     },
+     "group_by": {
+      "type": "string",
+      "enum": [
+       "kind",
+       "workspace_id",
+       "project_id",
+       "repo_id",
+       "owner_id",
+       "artifact_status"
+      ]
+     },
+     "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
      }
     },
     "required": []
@@ -145,7 +193,7 @@
   },
   {
    "name": "registry__get_project",
-   "description": "Read a native project by its project_\u2026 handle, including its description, knowledge_urls and containing workspace. To read what is in it, call list_artifacts with project_id; add kind to include a kind hidden from cross-kind discovery. Projects are containers, not artifacts, and do not have artifact releases or typed relationships.",
+   "description": "Read a native project by its project_… handle, including its description, knowledge_urls and containing workspace. To read what is in it, call list_artifacts with project_id; add kind to include a kind hidden from cross-kind discovery. Projects are containers, not artifacts, and do not have artifact releases or typed relationships.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -585,7 +633,7 @@
   },
   {
    "name": "extension__agent__list_session_traces",
-   "description": "Find the trace for an uploaded transcript: the runtime view of a session. A session is joined to its spans by `external_session_id`. Open a listed run with `get_trace` or `get_trace_spans`, passing this `session_\u2026` handle as their `subject_id`.",
+   "description": "Find the trace for an uploaded transcript: the runtime view of a session. A session is joined to its spans by `external_session_id`. Open a listed run with `get_trace` or `get_trace_spans`, passing this `session_…` handle as their `subject_id`.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -613,7 +661,7 @@
   },
   {
    "name": "extension__agent__get_trace",
-   "description": "Read one run of an agent or harness: timing, cost, status and shape. `include: [\"content\"]` adds its request and final reply. For a run `list_session_traces` listed, pass that `session_\u2026` handle as `subject_id`. Scoped to the subject.",
+   "description": "Read one run of an agent or harness: timing, cost, status and shape. `include: [\"content\"]` adds its request and final reply. For a run `list_session_traces` listed, pass that `session_…` handle as `subject_id`. Scoped to the subject.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -626,7 +674,7 @@
     "properties": {
      "subject_id": {
       "type": "string",
-      "description": "`agent_\u2026` or `harness_\u2026`, or the `session_\u2026` handle a `list_session_traces` run came from."
+      "description": "`agent_…` or `harness_…`, or the `session_…` handle a `list_session_traces` run came from."
      },
      "trace_id": {
       "type": "string"
@@ -659,7 +707,7 @@
     "properties": {
      "subject_id": {
       "type": "string",
-      "description": "`agent_\u2026` or `harness_\u2026`, or the `session_\u2026` handle a `list_session_traces` run came from."
+      "description": "`agent_…` or `harness_…`, or the `session_…` handle a `list_session_traces` run came from."
      },
      "trace_id": {
       "type": "string"
@@ -1408,7 +1456,7 @@
    "items": [
     {
      "trace_id": "trace_01evalchurn",
-     "title": "claude-code \u00b7 2026-10-25 18:00",
+     "title": "claude-code · 2026-10-25 18:00",
      "run_status": "ok",
      "service_name": "claude-code",
      "summary": {
