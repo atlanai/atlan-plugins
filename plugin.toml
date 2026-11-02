@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.3.13"
+version = "0.3.14"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -133,6 +133,11 @@ prompt = "Use $atlan-use-skill to find an Atlan skill for this task and use it h
 display_name = "MCP Servers through Atlan"
 short_description = "Call Slack, Linear and other servers through Atlan"
 prompt = "Use $atlan-use-mcp-servers to list the MCP servers my organization registered in Atlan."
+
+[skills.atlan-share]
+display_name = "Share with Colleagues"
+short_description = "Share a result with your team and post it to Slack"
+prompt = "Use $atlan-share to share this with my team in Atlan and post it to our Slack channel."
 
 [skills.atlan-continue]
 display_name = "Continue from Atlan"
