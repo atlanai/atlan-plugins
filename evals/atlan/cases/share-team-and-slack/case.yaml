@@ -3,7 +3,7 @@ name: share-team-and-slack
 tags: [share,write,slack]
 execution:
   prompt: |
-    Share this note with Platform Engineering in Atlan and post it in #platform-eng on Slack. Go ahead with both, no need to ask me again.
+    Share this note with Platform Engineering in Atlan and post it in #platform-eng on Slack. Go ahead with both, no need to ask me again. Our dashboard is https://app.atlan.com/acme.
 
     November release notes draft. The deploy queue now retries failed health checks twice before paging. Build caching cut median CI time from 14 to 9 minutes. The old staging cluster is retired on 30 November.
   max_turns: 30

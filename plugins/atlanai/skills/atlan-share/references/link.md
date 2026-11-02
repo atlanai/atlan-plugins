@@ -7,8 +7,12 @@ workspace and offers to join it.
 
 ## What goes in it
 
-- **The organization's slug**: the `name` of the `org_default` workspace that
-  `registry__list_workspaces` returned in step 2, such as `acme`.
+- **The organization's slug**, such as `acme`: the first segment of the user's Atlan dashboard
+  address (`https://app.atlan.com/acme/…`). Take it from the request, a dashboard address the
+  user pasted, or `org` in `.atlan/share.json`. The registry does not return it, and no
+  workspace name is it: the `org_default` workspace's `name` is often a generic one such as
+  `org-workspace`. The app sends a link with a slug the reader does not belong to back to its
+  home page, so a guessed slug gives a link that opens nothing.
 - **The output's handle**, from the create result: `output_…`.
 - **Its workspace**, `workspace_…`, and its display name. The app uses these only to label the
   join page; they grant nothing.
@@ -35,5 +39,4 @@ node -e 'const [org,id,ws,n]=process.argv.slice(1);const q=new URLSearchParams({
 ```
 
 The link carries no version, so it opens the newest one and keeps working after the next share.
-Without an `org_default` workspace in the list there is no slug: give the hand-off prompt alone
-and do not guess one.
+Without a slug, give the hand-off prompt alone and do not guess one.
