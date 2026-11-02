@@ -92,17 +92,17 @@ default_prompts = [
 # Mods: Claude Code plugins whose hooks module changes how Claude Code handles the core's tools,
 # as its own plugin under plugins/<name>/. Only Claude Code loads a hooks module, so a mod is listed
 # in the Claude marketplace alone and needs no Codex or Cursor manifest. It depends on the core and
-# declares no MCP server. Its hooks module, types, tests and README are written in its folder; the
-# build writes its manifest from here. Bump a mod's version on every release of it.
+# declares no MCP server. Its hooks module, tests and README are written in its folder; the build
+# writes its manifest from here. Bump a mod's version on every release of it. A mod keeps its
+# session state in its hooks module: `$.state` needs a `types` contract in plugin.json, which the
+# desktop app does not read (tools/lint.py refuses it).
 [[mods]]
 name = "atlanai-mods"
 display_name = "Registry Mods"
-version = "0.1.0"
+version = "0.1.1"
 description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, session ids and rationales are fixed before a call, and the status line reports a broken Atlan connection."
 keywords = ["atlan", "registry", "mods", "permissions"]
 claude_category = "development"
-# Declares the mod's $.state values, which `claude plugin validate` holds the hooks module to.
-types = "./types/index.d.ts"
 
 [mods.user_config.confirm_writes]
 type = "boolean"

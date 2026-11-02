@@ -279,7 +279,6 @@ class ModTest(unittest.TestCase):
         self.assertEqual(manifest["dependencies"], [self.source["plugin"]["name"]])
         self.assertNotIn("mcpServers", manifest)
         self.assertEqual(manifest["userConfig"], self.mod["user_config"])
-        self.assertTrue((ROOT / self.base / manifest["types"]).is_file())
         for path in ("plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json", ".mcp.json"):
             self.assertNotIn(f"{self.base}/{path}", self.documents, path)
 
@@ -321,6 +320,24 @@ class ModTest(unittest.TestCase):
             finally:
                 lint.ROOT = saved
         self.assertEqual(len(errors), 2)
+
+
+    def test_a_claude_manifest_holds_only_keys_every_claude_host_reads(self) -> None:
+        for path, document in self.documents.items():
+            if path.endswith(".claude-plugin/plugin.json"):
+                self.assertLessEqual(set(document), lint.CLAUDE_MANIFEST_KEYS, path)
+        with tempfile.TemporaryDirectory() as temp:
+            mod = Path(temp) / "atlan-m"
+            (mod / ".claude-plugin").mkdir(parents=True)
+            (mod / ".claude-plugin/plugin.json").write_text('{"name": "atlan-m", "types": "./types/index.d.ts"}')
+            saved = lint.ROOT
+            lint.ROOT = Path(temp)
+            try:
+                errors = lint.lint_claude_manifest(mod)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(len(errors), 1)
+        self.assertIn("`types`", errors[0])
 
 
 class SkillMetadataTest(unittest.TestCase):

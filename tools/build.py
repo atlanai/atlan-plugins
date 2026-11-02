@@ -291,8 +291,6 @@ def mod_outputs(source: dict, mod: dict) -> dict[str, dict]:
         "displayName": mod["display_name"],
         "dependencies": [source["plugin"]["name"]],
     }
-    if mod.get("types"):
-        manifest["types"] = mod["types"]
     if mod.get("user_config"):
         manifest["userConfig"] = copy.deepcopy(mod["user_config"])
     return {f"{mod_dir(mod)}/.claude-plugin/plugin.json": manifest}

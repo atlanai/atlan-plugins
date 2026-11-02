@@ -169,6 +169,27 @@ def plugin_roots() -> list[Path]:
     return [core, *sorted(p for p in PLUGINS.iterdir() if p.is_dir() and p != core)]
 
 
+# The top-level keys a Claude plugin.json may hold: those every Claude host reads. The CLI reads
+# more (`types`, `experimental`), but the desktop app strips a key it does not know and shows the
+# person a warning on install, so a key joins this list only once the desktop app reads it too.
+CLAUDE_MANIFEST_KEYS = frozenset({
+    "name", "version", "description", "author", "homepage", "repository", "license", "keywords",
+    "displayName", "dependencies", "mcpServers", "userConfig",
+})
+
+
+def lint_claude_manifest(root: Path) -> list[str]:
+    """Every Claude manifest holds only keys every Claude host reads."""
+    manifest = root / ".claude-plugin" / "plugin.json"
+    if not manifest.is_file():
+        return []
+    extra = sorted(set(json.loads(manifest.read_text(encoding="utf-8"))) - CLAUDE_MANIFEST_KEYS)
+    return [
+        f"{manifest.relative_to(ROOT)}: `{key}` is not a key every Claude host reads; the desktop app strips it and warns on install"
+        for key in extra
+    ]
+
+
 def mod_names() -> set[str]:
     """The plugins plugin.toml declares as mods: the only folders that may hold hooks."""
     with (ROOT / "plugin.toml").open("rb") as handle:
@@ -296,6 +317,8 @@ def main() -> int:
     mods = mod_names()
     for root in roots[1:]:
         errors += lint_mod(root) if root.name in mods else lint_addon(root)
+    for root in roots:
+        errors += lint_claude_manifest(root)
     errors += lint_repository(tracked_files())
 
     for error in errors:
