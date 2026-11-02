@@ -70,6 +70,7 @@ const PANE = 'atlan'
 const PICKER = 'atlan-skills'
 const DASHBOARD = 'https://app.atlan.com'
 const PUBLISH = 'extension__skill__create'
+const GROUP_ROWS = 6
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
@@ -480,6 +481,37 @@ export const register: Register = (on, options) => {
     const { Text } = $.ui.resolve(e)
     const summary = summarizeResult(resultText({ result: e.props.output }), e.props.isErrored)
     return <Text dimColor={!e.props.isErrored}>{`  ⎿ ${summary}`}</Text>
+  })
+
+  // A run of Atlan calls the transcript folds into one count line ("Called atlan 4 times"): one
+  // line per call instead, the latest few, so the run says what it did. A mixed run stays folded.
+  on('ui.render', { component: 'ToolGroup' }, ($, e, next) => {
+    if (e.component !== 'ToolGroup' || e.props.isExpanded || e.props.calls.length === 0) return next(e)
+    // The model often loads the Atlan tools with ToolSearch first, in the same run: leave it out.
+    const calls = e.props.calls.filter(call => call.tool !== 'ToolSearch')
+    if (calls.length === 0 || !calls.every(call => GATEWAY_TOOL.test(call.tool))) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    const shown = calls.slice(-GROUP_ROWS)
+    const earlier = calls.length - shown.length
+    return (
+      <Box flexDirection="column">
+        {earlier > 0 ? <Text dimColor>{`Atlan · ${earlier} earlier ${earlier === 1 ? 'call' : 'calls'} (ctrl+o shows all)`}</Text> : ''}
+        {shown.map(call => (
+          <Box flexDirection="column">
+            <Text>
+              <Text bold>Atlan</Text>
+              {` · ${describeCall(call.tool, call.input)}`}
+              <Text dimColor>{call.isInterrupted ? ' (interrupted)' : call.isRunning ? ' …' : ''}</Text>
+            </Text>
+            {call.isRunning || call.isInterrupted ? (
+              ''
+            ) : (
+              <Text dimColor={!call.isErrored}>{`  ⎿ ${summarizeResult(resultText({ result: call.output }), call.isErrored)}`}</Text>
+            )}
+          </Box>
+        ))}
+      </Box>
+    )
   })
 
   // 2 and 3. The Atlan pane: questions waiting on the person, then what this session touched.
