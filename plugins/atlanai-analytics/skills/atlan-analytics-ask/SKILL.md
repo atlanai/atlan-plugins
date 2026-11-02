@@ -73,8 +73,10 @@ The published definition still decides the formula and filters, whatever the dat
 
 Lead with the answer in one or two sentences: the number, its definition and window ("CSAT,
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
-- **Source**: the metric or saved query used, by name, with its release; or **Not governed:
-  no published metric covers this**, followed by the formula and filters you assumed;
+- **Source**: the metric or saved query used, by name, with its release, then its id and
+  release id in code (`metric_… · rel_…`), so Atlan can count the answer toward that metric; or
+  **Not governed: no published metric covers this**, followed by the formula and filters you
+  assumed;
 - **Caveats**: an unreviewed query, a partial window, an assumption about the question;
 - the SQL, only when the person asks to see it.
 
