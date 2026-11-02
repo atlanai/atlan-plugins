@@ -8,9 +8,11 @@ mod can:
 |---|---|
 | Registry reads run without a prompt | Searches, reads and listings are allowed at the permission check. Your deny rules and your organization's limits still apply. |
 | Writes ask first | A create, patch, append or relate asks, and the prompt names the write. Turn this off with the `confirm_writes` option. |
-| Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`). Where nobody can answer, as under `claude -p`, the call is refused. |
-| Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them. The session's audit session is reused. A call with no rationale is refused with the fix. |
-| Connection problems show | The status line says when Atlan needs a sign-in, cannot be reached or is not connected. It shows nothing while the connection works. |
+| Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`). Where nobody can answer, as under `claude -p`, the call is refused. A name in another case, with spaces around it, or wrapped in a nested `mcp__call_tool` asks the same way. |
+| Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them. The session's audit session is reused, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A call with no rationale is refused with the fix. |
+| Outages are absorbed | When Atlan answers 502, 503 or 504, or a server behind it is briefly unavailable, Claude is told to repeat a read after the gateway's wait (2 seconds when it names none), at most 3 tries, and to read back before repeating a write. The mod's own lookups retry once. |
+| Connection problems show | The status line says when Atlan needs a sign-in, cannot be reached, is not connected or is answering with temporary errors (`Atlan: degraded, retrying reads`). A failed check is diagnosed from its error, not reported as a timeout. It shows nothing while the connection works. |
+| A skipped guard shows | If another plugin answers the permission check for an Atlan write before this mod can, the write did not get its confirmation: the status line says `Atlan: write guard skipped` and `/atlan` says how many. |
 | Atlan calls read as one line | Each Atlan call's row in the transcript says what it did and what came back (`Atlan · searched skills for "churn"`, then `7 found: pii-scrub 1.0.0, ...`) in place of the raw JSON. Ctrl+O shows the full call. |
 | The Atlan pane | A pane beside the chat lists the artifacts this session read, created, changed, archived or published, with their version and status, and copies an artifact's id. It opens by itself at the session's first change in Atlan, or with `/atlan pane`. |
 | A card for archive, approve and move | While one of these waits for your answer, the pane shows it as a card: the artifact, its version and workspace, each artifact that depends on it, and what the change does to everyone else. |
@@ -19,9 +21,9 @@ mod can:
 | `/atlan` | Checks the connection and prints the fix. Runs at once, with no Claude turn. |
 | `/atlan search <words>` | Searches the registry and lists names, versions, status and handles, with no Claude turn. |
 
-Other servers reached through Atlan (Slack, Linear and the rest) follow their tool annotations: a
-read-only tool runs without a prompt, a destructive one always asks, and a tool with no
-annotations is left to your permission rules.
+Other servers reached through Atlan (Slack, Linear and the rest) are left to your permission
+rules, whatever their tool annotations say: a server's own read-only claim is not trusted to skip
+a prompt. A tool its server marks destructive always asks.
 
 ## Install
 
@@ -65,8 +67,8 @@ lists every call it makes. It:
 - calls the `atlan` server you signed in to, as you: `mcp__describe_tools` at session start
   (opens no audit session), `registry__get_artifact` and `registry__get_related_artifacts` before
   an archive, approve or move, and `registry__search_artifacts` for `/atlan search` and the skill
-  picker. Each call carries a rationale naming this mod, so it is recorded under your audit
-  session;
+  picker, retried once after a temporary error. Each call carries a rationale naming this mod, so
+  it is recorded under your audit session, or under a session of the mod's own when none is open;
 - reads each Atlan call's input and result again to draw its transcript row, the pane and the
   publish band. What it shows stays in the session's memory and is gone when the session ends;
 - puts text in your prompt only when you pick a skill, and copies an id only when you press

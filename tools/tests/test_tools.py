@@ -628,7 +628,7 @@ class EvalCasesTest(unittest.TestCase):
 
     CASES = ROOT / "evals" / "atlan" / "cases"
     SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
-                "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS"}
+                "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE"}
 
     @classmethod
     def setUpClass(cls) -> None:
