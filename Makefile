@@ -27,6 +27,7 @@ site:
 
 # The marketplace, then each plugin's manifest and components: validating a manifest does not
 # check skills or commands. The directory profile adds the checks a directory submission must pass.
+# A mod's folder is validated whole, which reads its hooks module, and its tests run.
 validate:
 	claude plugin validate .claude-plugin/marketplace.json --strict
 	for plugin in plugins/*/; do \
@@ -34,6 +35,10 @@ validate:
 		for tree in skills commands agents; do \
 			if [ -d $${plugin}$$tree ]; then claude plugin validate $${plugin}$$tree --strict || exit 1; fi; \
 		done; \
+		if [ -f $${plugin}hooks/hooks.json ]; then \
+			claude plugin validate $$plugin --strict || exit 1; \
+			claude plugin test $$plugin || exit 1; \
+		fi; \
 	done
 
 # The core plugin's behaviour evals against a local gateway emulator: claude CLI, costs money,

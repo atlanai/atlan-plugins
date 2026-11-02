@@ -80,6 +80,7 @@ covers each agent in detail.
 |---|---|
 | [**AI Registry**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in the registry. Every other plugin here builds on it. |
 | [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your governed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
+| [**Registry Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Registry reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, reports a broken connection on the status line, and adds `/atlan` and `/atlan search`. |
 
 ### AI Registry
 
@@ -104,6 +105,15 @@ In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-sk
 `/atlanai:continue <output_…>` run `atlan-get-started`, `atlan-use-skill` and `atlan-continue`; those
 three skills hide their own slash entries, so each task is listed once. In Codex, the plugin
 runs `atlan-get-started` right after install.
+
+### Registry Mods
+
+A [mod](https://code.claude.com/docs/en/plugins/mods/overview) for Claude Code v2.1.287 or later:
+TypeScript that runs inside Claude Code and changes how it treats the `atlan` server's tools.
+Install it with `claude plugin install atlanai-mods --marketplace atlanai/atlan-plugins`. Other
+agents do not load mods, and every skill works without it. See its
+[README](plugins/atlanai-mods) for what it calls and how organizations that allow only managed
+mods deploy it.
 
 ### Analytics
 
@@ -158,8 +168,10 @@ and point at live tools instead of copying reference data that would go stale.
 
 ## Privacy and security
 
-- **Nothing runs on your machine.** The plugins have no hooks, no binaries and no local
-  storage. They are Markdown files and an MCP server URL.
+- **Nothing runs on your machine, except the mod you choose.** `atlanai` and the add-ons have
+  no hooks, no binaries and no local storage: they are Markdown files and an MCP server URL.
+  `atlanai-mods` is code that runs inside Claude Code; its [README](plugins/atlanai-mods) lists
+  every call it makes.
 - **Your sign-in, your permissions.** Every call carries your own OAuth sign-in, and Atlan
   enforces your organization's permissions on it. The plugins hold no credentials.
 - **Every call is recorded.** Atlan keeps each call in a session you can review in the
@@ -201,7 +213,7 @@ tools/                            the build and lint, and their tests
 Every plugin is a folder under `plugins/`, the layout Anthropic's
 [official marketplace](https://github.com/anthropics/claude-plugins-official) and OpenAI's
 [plugins](https://github.com/openai/plugins) use. A workload built on the registry ships as its
-own plugin, named `atlanai-<workload>`.
+own plugin, named `atlanai-<workload>`. A Claude Code mod ships the same way, as `atlanai-mods`.
 
 ## Contributing
 
