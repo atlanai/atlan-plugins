@@ -1,0 +1,55 @@
+schema_version: "1.1"
+name: use-skill-installed-copy
+tags: [use-skill,installed]
+execution:
+  prompt: |
+    Load the "security-review" skill from the Atlan skill registry (skill_01evalsecrev01) and use it here.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: reads-exact-handle-with-skill-md
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__get_artifact"[\s\S]*skill_01evalsecrev01[\s\S]*"include_file"\s*:\s*"SKILL\.md"|"include_file"\s*:\s*"SKILL\.md"[\s\S]*skill_01evalsecrev01'
+    min: 1
+  - name: no-search-for-a-given-handle
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__search_artifacts"'
+    min: 0
+    max: 0
+  - name: no-second-read-of-skill-md
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__get_file_content"[\s\S]*file_01evalsecrevmd'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: says-installed-copy-is-current
+    type: llm
+    criteria: |
+      A skill named security-review is already installed in this session with the same SKILL.md text as the registry's skill_01evalsecrev01.
+      PASS if the reply says the installed copy is the same as (or current with) the registry's version and goes on with the skill's first step (asks what to review: the diff, a file or a PR number).
+      FAIL if it says the installed copy differs or is outdated, offers to install or update it, or never mentions that a copy is already installed.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
