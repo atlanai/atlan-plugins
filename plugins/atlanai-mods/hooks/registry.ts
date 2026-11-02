@@ -150,9 +150,24 @@ export function harvestHints(text: string): HintTable {
   return table
 }
 
+/** A call's `arguments` as an object. A model sometimes sends them as a JSON string when the
+ * tool's schema leaves their type open; the gateway's own schema asks for an object. */
+export function argsOf(value: unknown): Record<string, unknown> {
+  if (isRecord(value)) return value
+  if (typeof value === 'string' && value.trim().startsWith('{')) {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (isRecord(parsed)) return parsed
+    } catch {
+      // not JSON: no arguments to read
+    }
+  }
+  return {}
+}
+
 /** The artifact a write names, for the confirmation's wording. */
-export function artifactOf(args: unknown): string | undefined {
-  if (!isRecord(args)) return undefined
+export function artifactOf(value: unknown): string | undefined {
+  const args = argsOf(value)
   for (const key of ['artifact_id', 'id', 'subject_id']) {
     if (isText(args[key])) return args[key] as string
   }
@@ -170,7 +185,7 @@ function creation(args: Record<string, unknown>): string {
 
 /** One sentence naming what a write will do, shown in the permission prompt. */
 export function describeWrite(name: string, args: unknown): string {
-  const record = isRecord(args) ? args : {}
+  const record = argsOf(args)
   const verb = name.replace(/^registry__/, '').replace(/_/g, ' ')
   const target = name.includes('create') ? creation(record) : (artifactOf(record) ?? '')
   return `Atlan registry write: ${verb}${target ? ` ${target}` : ''}.`

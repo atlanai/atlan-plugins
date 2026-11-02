@@ -1,4 +1,4 @@
-import type { On } from 'claude-code'
+import type { On, ToolGroupCall } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import {
@@ -301,5 +301,52 @@ describe('registry text from other people', () => {
     const hostile = { ...ARTIFACT, display_name: 'evil\u001b[2J‮name' }
     expect(summarizeResult(JSON.stringify(hostile), false)).toBe('skill evil [2J name 0.2.0')
     expect(describeCall(CALL, { name: 'registry__search_artifacts', arguments: { query: 'a\u0007b' } })).toBe('searched the registry for "a b"')
+  })
+})
+
+describe('a folded run of Atlan calls', () => {
+  const group = (calls: ToolGroupCall[]) =>
+    ({
+      plugin: PLUGIN,
+      surface: 'terminal',
+      component: 'ToolGroup',
+      requestId: 'group-1',
+      props: { calls, isActive: false, isExpanded: false },
+    }) as const
+
+  test('reads as one line per call, and a mixed run stays folded', async ($, on) => {
+    engine(on, fresh())
+    on('ui.render', ($, e) => {
+      const { Text } = $.ui.resolve(e)
+      return <Text>engine</Text>
+    })
+    const search = {
+      tool_use_id: 'toolu_1',
+      tool: CALL,
+      input: { name: 'registry__search_artifacts', arguments: { query: 'pii', kind: 'skill' } },
+      isRunning: false,
+      isErrored: false,
+      isInterrupted: false,
+      output: [{ type: 'text', text: `${JSON.stringify(SEARCH)}${RECEIPT}` }],
+    }
+    // A model may send `arguments` as a JSON string; it reads the same.
+    const read = { ...search, tool_use_id: 'toolu_2', input: { name: 'registry__get_artifact', arguments: '{"artifact_id":"skill_01target"}' }, isRunning: true, output: undefined }
+    // The model loading the Atlan tools first does not keep the run folded.
+    const loaded = { ...search, tool_use_id: 'toolu_0', tool: 'ToolSearch', input: { query: 'select:mcp__atlan__mcp__call_tool' } }
+    const ui = await $.ui.mount(group([loaded, search, read]))
+    const lines = (await ui.findAll({ type: 'Text' })).map(found => found.text)
+    expect(lines.some(line => line.includes('ToolSearch') || line.includes('select:'))).toBe(false)
+    expect(lines).toContain('Atlan · searched skills for "pii"')
+    expect(lines).toContain('Atlan · read skill_01target …')
+    await ui.unmount()
+
+    const mixed = await $.ui.mount(group([search, { ...search, tool: 'Read', input: { file_path: '/x' } }]))
+    expect((await mixed.find({ type: 'Text' }))?.text).toBe('engine')
+    await mixed.unmount()
+  })
+
+  test('a published skill carries its released version into the pane', () => {
+    const slot = { skills: [{ status_code: 201, id: 'skill_01new', name: 'deploy-preview', artifact_status: 'active', current_releases: [{ version_label: '0.1.0' }] }] }
+    expect(touchesOf('extension__skill__create', PUBLISH_ARGS, JSON.stringify(slot), false)[0]?.version).toBe('0.1.0')
   })
 })
