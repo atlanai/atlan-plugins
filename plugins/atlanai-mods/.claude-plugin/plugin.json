@@ -1,6 +1,6 @@
 {
   "name": "atlanai-mods",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, session ids and rationales are fixed before a call, and the status line reports a broken Atlan connection.",
   "author": {
     "name": "Atlan",
@@ -19,7 +19,6 @@
   "dependencies": [
     "atlanai"
   ],
-  "types": "./types/index.d.ts",
   "userConfig": {
     "confirm_writes": {
       "type": "boolean",

@@ -8,11 +8,15 @@
 // session.start: checks the connection without opening an audit session, and puts a problem,
 //   never a success, on the status line. /atlan reports it; /atlan search searches the registry.
 //
+// The audit session id and the connection's health live in this module, one copy per session.
+// They are not kept in the host's plugin state, which needs a types contract named in plugin.json:
+// a key the desktop app does not read and warns about on install. A hot reload forgets them, and
+// the next registry call learns them again.
+//
 // The host reads `on(...)` and `$.noun.method(...)` from source, so both are spelled literally.
 
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { AtlanHealth } from '../types'
 import {
   CALL_TOOL,
   FIX,
@@ -31,12 +35,11 @@ import {
   resultText,
   searchRows,
   summaryOf,
+  type AtlanHealth,
   type CallInput,
   type HintTable,
 } from './registry'
 
-const SESSION = { plugin: 'atlanai-mods', key: 'session' } as const
-const HEALTH = { plugin: 'atlanai-mods', key: 'health' } as const
 const HINTS_KEY = 'hints'
 const LOOKUP_MS = 6000
 const PROBE_MS = 15000
@@ -49,6 +52,8 @@ const USAGE = 'Usage: /atlan (connection status) or /atlan search <words>'
 
 type Dollar = EngineInterface
 type Lookup = { text: string; isError: boolean }
+/** What this session has learned: its open audit session and the connection's last health. */
+type Memory = { session: string; health?: AtlanHealth }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -65,8 +70,8 @@ async function saveHints($: Dollar, learned: HintTable): Promise<void> {
   await $.store.set(HINTS_KEY, { ...current, ...learned })
 }
 
-async function setHealth($: Dollar, health: AtlanHealth): Promise<void> {
-  await $.state.set(HEALTH, health)
+function setHealth($: Dollar, mem: Memory, health: AtlanHealth): void {
+  mem.health = health
   const line: Record<AtlanHealth['state'], string | undefined> = {
     ready: undefined,
     unknown: undefined,
@@ -79,15 +84,15 @@ async function setHealth($: Dollar, health: AtlanHealth): Promise<void> {
 }
 
 /** A gateway call made by the mod itself, under the session's audit session when one is open. */
-async function lookup($: Dollar, server: string, name: string, args: Record<string, unknown>, rationale: string): Promise<Lookup> {
-  const { value: session = '' } = await $.state.get(SESSION)
+async function lookup($: Dollar, mem: Memory, server: string, name: string, args: Record<string, unknown>, rationale: string): Promise<Lookup> {
+  const session = mem.session
   const rails = session
     ? { session_id: session }
     : { objective: 'Claude Code with the Atlan registry: the Registry Mods plugin checks registry changes and connection status for the user.' }
   const result = await $.mcp.call(server, 'mcp__call_tool', { name, arguments: args, rationale, ...rails })
   const text = result.content.map(block => (isRecord(block) && typeof block.text === 'string' ? block.text : '')).join('\n')
   const opened = findSessionId(text)
-  if (opened && opened !== session) await $.state.set(SESSION, opened)
+  if (opened && opened !== session) mem.session = opened
   return { text, isError: result.isError }
 }
 
@@ -106,14 +111,14 @@ async function within<T>($: Dollar, ms: number, work: Promise<T>): Promise<T | u
 }
 
 /** The permission prompt's text for an archive, move or approve, with what depends on it. */
-async function blastRadius($: Dollar, tool: string, name: string, input: Record<string, unknown>): Promise<string> {
+async function blastRadius($: Dollar, mem: Memory, tool: string, name: string, input: Record<string, unknown>): Promise<string> {
   const id = artifactOf(input.arguments)
   if (!id) return describeWrite(name, input.arguments)
   const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
-    within($, LOOKUP_MS, lookup($, server, 'registry__get_related_artifacts', { artifact_id: id }, why)),
-    within($, LOOKUP_MS, lookup($, server, 'registry__get_artifact', { artifact_id: id }, why)),
+    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why)),
+    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_artifact', { artifact_id: id }, why)),
   ])
   return describeBlastRadius(
     name,
@@ -159,8 +164,8 @@ async function probe($: Dollar): Promise<AtlanHealth> {
   return { state, server: '', detail, checkedAt: await $.clock.now() }
 }
 
-async function report($: Dollar, health: AtlanHealth, confirmWrites: boolean): Promise<string> {
-  const { value: session = '' } = await $.state.get(SESSION)
+function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): string {
+  const session = mem.session
   const lines = [
     health.state === 'ready' ? `Atlan: connected through ${health.server} (${health.detail}).` : `Atlan: ${health.state} (${health.detail}).`,
     FIX[health.state] ?? FIX.error,
@@ -176,9 +181,9 @@ async function report($: Dollar, health: AtlanHealth, confirmWrites: boolean): P
   return lines.join('\n')
 }
 
-async function search($: Dollar, words: string): Promise<string> {
+async function search($: Dollar, mem: Memory, words: string): Promise<string> {
   if (!words) return USAGE
-  const { value: health } = await $.state.get(HEALTH)
+  const health = mem.health
   const servers = health?.state === 'ready' && health.server ? [health.server] : [...PROBE_SERVERS]
   for (const server of servers) {
     try {
@@ -187,6 +192,7 @@ async function search($: Dollar, words: string): Promise<string> {
         PROBE_MS,
         lookup(
           $,
+          mem,
           server,
           'registry__search_artifacts',
           { query: words, semantic: true, limit: 10 },
@@ -208,6 +214,7 @@ async function search($: Dollar, words: string): Promise<string> {
 
 export const register: Register = (on, options) => {
   const confirmWrites = options.confirm_writes !== false
+  const mem: Memory = { session: '' }
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -219,10 +226,10 @@ export const register: Register = (on, options) => {
     const check = async (): Promise<void> => {
       const health = await probe($)
       // MCP servers can still be connecting at start: report a problem only if it outlasts a retry.
-      if (health.state === 'ready') await setHealth($, health)
+      if (health.state === 'ready') setHealth($, mem, health)
       else
         $.clock.after(RETRY_MS, async () => {
-          await setHealth($, await probe($))
+          setHealth($, mem, await probe($))
         })
     }
     void check().catch(() => undefined)
@@ -231,17 +238,17 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'atlan' }, async ($, e) => {
     const [sub = '', ...rest] = e.args.trim().split(/\s+/)
-    if (sub === 'search') return { text: await search($, rest.join(' ').trim()) }
+    if (sub === 'search') return { text: await search($, mem, rest.join(' ').trim()) }
     if (sub !== '' && sub !== 'status' && sub !== 'doctor') return { text: USAGE }
     const health = await probe($)
-    await setHealth($, health)
-    return { text: await report($, health, confirmWrites) }
+    setHealth($, mem, health)
+    return { text: report(mem, health, confirmWrites) }
   })
 
   on('tool.call', { tool: GATEWAY_TOOL }, async ($, e, next) => {
     const call = e as unknown as CallInput & { tool: string }
     const isCallTool = CALL_TOOL.test(call.tool)
-    const { value: known = '' } = await $.state.get(SESSION)
+    const known = mem.session
     const { input } = repairRails(call, known, isCallTool)
     if (isCallTool && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
       return { deny: RATIONALE_HELP }
@@ -252,16 +259,16 @@ export const register: Register = (on, options) => {
 
     const text = resultText(ran)
     const opened = findSessionId(text)
-    if (opened && opened !== known) await $.state.set(SESSION, opened)
-    else if (ran.isError && known && input.session_id === known && isStaleSession(text)) await $.state.set(SESSION, '')
+    if (opened && opened !== known) mem.session = opened
+    else if (ran.isError && known && input.session_id === known && isStaleSession(text)) mem.session = ''
 
     if (!isCallTool) await saveHints($, harvestHints(text))
 
-    const { value: health } = await $.state.get(HEALTH)
+    const health = mem.health
     if (!ran.isError && health?.state !== 'ready') {
-      await setHealth($, { state: 'ready', server: health?.server ?? '', detail: 'a registry call succeeded', checkedAt: await $.clock.now() })
+      setHealth($, mem, { state: 'ready', server: health?.server ?? '', detail: 'a registry call succeeded', checkedAt: await $.clock.now() })
     } else if (ran.isError && diagnose(text) === 'sign-in') {
-      await setHealth($, { state: 'sign-in', server: health?.server ?? '', detail: 'a registry call was refused', checkedAt: await $.clock.now() })
+      setHealth($, mem, { state: 'sign-in', server: health?.server ?? '', detail: 'a registry call was refused', checkedAt: await $.clock.now() })
     }
     return ran
   }).catch(($, e, next) => next(e))
@@ -286,6 +293,6 @@ export const register: Register = (on, options) => {
       return { decision: 'ask', reason: describeWrite(name, input.arguments) }
     }
     // Archive, approve and move: asked wherever someone can answer, refused where nobody can.
-    return { decision: 'ask', reason: await blastRadius($, e.tool, name, input) }
+    return { decision: 'ask', reason: await blastRadius($, mem, e.tool, name, input) }
   }).catch(() => ({ decision: 'ask', reason: GUARD_FAILED }))
 }
