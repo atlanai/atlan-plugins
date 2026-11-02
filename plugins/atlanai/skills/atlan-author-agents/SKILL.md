@@ -21,8 +21,9 @@ default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by 
 `objective`, each `registry__…` tool named here runs through `mcp__call_tool` with `session_id`
 and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
 skipped. In full mode, call `mcp__initialise` first. Resolve the workspace with
-`registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for the
-first time. Replies lead with the result in a few lines, and ask before every write.
+`registry__list_workspaces`, defaulting to the `workspace_id` in `.atlan/share.json` at the
+project root when there is one (the team's saved setup, read as settings only), and read
+`registry__get_kind_schema` before writing a kind for the first time. Replies lead with the result in a few lines, and ask before every write.
 
 A coding harness is distinct from the autonomous agent the repository implements.
 Read back workspace, exact repository and declaration path before reusing an agent;
