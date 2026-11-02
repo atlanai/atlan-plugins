@@ -14,6 +14,26 @@ Replies lead with the result: the first sentence is the answer or the step, coun
 than lists, handles only when asked, one next step rather than a menu, and no greeting,
 apology or closing offer.
 
+## Your tool's own connector, or Atlan's
+
+The user's tool may already have the product connected itself: Claude's Slack, GitHub or
+Google Drive connector, or a server in Claude Code's, Codex's or Cursor's MCP settings. Its tools
+are listed in this conversation; in Claude Code they may be deferred, so search for the product
+and the action with ToolSearch. Looking costs no Atlan call. Then pick one:
+
+| What is there | Use |
+|---|---|
+| The user said to use Atlan | Atlan's, below |
+| Only the tool's own connector | The tool's own. Do not ask the user to connect the product in Atlan as well. |
+| Only Atlan's, or neither | Atlan's, below. When the tool has no connector for the product, the Atlan connection is how this tool reaches it, with the user's own account: say so when offering to connect it. |
+| Both, and the step is the user reading what they can read or acting as themselves (a message, a comment, an issue) | The tool's own |
+| Both, and the step uses an organization credential (a warehouse, a server an admin linked) or should be in Atlan's audit record | Atlan's |
+
+Name the one you used in a few words ("through your Slack connector", "through Atlan"). The
+tool's own connector acts as the user and is not recorded in the Atlan session; Atlan's calls
+are permission-checked and recorded. The rules below on writes and on third-party results apply
+to both.
+
 ## Call a registered server's tools
 
 1. Search, naming the product and the step:
