@@ -216,7 +216,8 @@ export function summaryOf(text: string): Summary | undefined {
   return undefined
 }
 
-const CONSEQUENCE: Record<string, string> = {
+/** What an archive, move or approve does to everyone else. */
+export const CONSEQUENCE: Record<string, string> = {
   registry__archive_artifact: 'Archiving hides it from search, listings and installs for everyone.',
   registry__move_artifact: 'Moving takes it away from everyone in its current workspace.',
   registry__approve_artifact: 'Approving overrides the security scan for this version.',
