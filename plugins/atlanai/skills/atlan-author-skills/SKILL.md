@@ -1,6 +1,6 @@
 ---
 name: atlan-author-skills
-description: Publish a skill to Atlan as a versioned bundle, or a new version of one, from a skill folder on this computer. Use when the user wants to publish, upload, share, push or release a skill to Atlan or the registry, or update a skill already there. Not for loading or installing a registry skill here (atlan-use-skill), reading a skill's files (atlan-content) or publishing from GitHub CI (atlan-connect-repo).
+description: Publish a skill to Atlan as a versioned bundle or a new version of one, or make a new skill for the team and publish it. Use when the user wants to publish, upload, share, push or release a skill to Atlan or the registry, update a skill already there, or create a skill for their team or organization. Not for loading or installing a registry skill here (atlan-use-skill), reading a skill's files (atlan-content), publishing from GitHub CI (atlan-connect-repo) or a skill kept only on this computer (your tool's own skill creator).
 license: Apache-2.0
 ---
 
@@ -13,6 +13,8 @@ when the tool's schema requires one). In search mode, the default, the first
 beside `name` and `arguments`. In full mode, call `mcp__initialise` first. Replies lead with the
 result in a few lines, and ask before every write.
 
+- **Make a new skill to share:** [creating](references/create.md). Search Atlan first, draft with
+  your tool's skill creator when it has one, then publish.
 - **Publish a skill:** [publishing](references/publish.md). Text skills go inline in one call;
   read [the ZIP path](references/publish-zip.md) only for binaries, executables or large bundles.
 - **Update a bundle:** [update a skill](references/update-a-skill.md).

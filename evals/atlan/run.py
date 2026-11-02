@@ -16,7 +16,12 @@ A case that needs the emulator in another state carries an `emulator.json` besid
 
     {"env": {"ATLAN_EMULATOR_HIDE_SERVERS": "extension__agent"},   # the emulator's switches
      "plugin_name": "atlan",                                       # install the copy under this name
-     "allow_tools": ["mcp__plugin_atlan_atlan__*"]}                # beyond the plugin's own server
+     "allow_tools": ["mcp__plugin_atlan_atlan__*"],                # beyond the plugin's own server
+     "installed_skills": ["security-review"]}                      # from fixtures/installed-skills/
+
+`installed_skills` copies each named folder from `fixtures/installed-skills/` into the plugin
+copy's `skills/`, so the run starts with a skill of that name already installed, as a user who
+installed a registry skill earlier would.
 
 The emulator is started once per Claude Code run with the plugin's `.mcp.json` environment, so
 cases are grouped by their `emulator.json` and each group is one `claude plugin eval` run over
@@ -39,6 +44,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SERVER = "atlan"
 PLUGIN = "atlanai"
+SIDECAR_KEYS = {"env", "plugin_name", "allow_tools", "installed_skills"}
+INSTALLED = HERE / "fixtures" / "installed-skills"
 
 
 def tools_pattern(plugin: str) -> str:
@@ -54,7 +61,7 @@ def groups(cases: Path, wanted: list[str]) -> dict[str, tuple[dict, list[Path]]]
             continue
         sidecar = case / "emulator.json"
         settings = json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.is_file() else {}
-        unknown = set(settings) - {"env", "plugin_name", "allow_tools"}
+        unknown = set(settings) - SIDECAR_KEYS
         if unknown:
             sys.exit(f"{sidecar}: unknown keys {sorted(unknown)}")
         key = json.dumps(settings, sort_keys=True) if settings else ""
@@ -116,6 +123,8 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
             manifest = plugin / ".claude-plugin" / "plugin.json"
             manifest.write_text(json.dumps(json.loads(manifest.read_text(encoding="utf-8")) | {"name": name}, indent=2) + "\n",
                                 encoding="utf-8")
+        for skill in settings.get("installed_skills", []):
+            shutil.copytree(INSTALLED / skill, plugin / "skills" / skill)
         emulator = HERE / "emulator" / "atlan_emulator.py"
         env = {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), **settings.get("env", {})}
         server = {"type": "stdio", "command": sys.executable, "args": [str(emulator)], "env": env}
