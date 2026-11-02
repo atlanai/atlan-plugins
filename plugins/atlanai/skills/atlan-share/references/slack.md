@@ -43,8 +43,8 @@ Open it: https://app.atlan.com/?open=%2Facme%2Foutputs%2Foutput_…
 In Claude or Codex: /atlanai:continue output_…
 ```
 
-The title and version, the workspace, the two-sentence summary from step 3, the link from step 4,
-and the hand-off prompt. Never the content itself, a file's bytes, or anything step 1 flagged.
+The title and version, the workspace, the two-sentence summary from step 3, the link from step 4
+when there is one, and the hand-off prompt. Never the content itself, a file's bytes, or anything step 1 flagged.
 
 ## Approval
 

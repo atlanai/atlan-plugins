@@ -381,6 +381,17 @@ def write(kind: str, a: dict) -> dict:
     # gateway answers: a share pins the file it just wrote by that ordinal.
     if kind == "artifact" and a.get("kind"):
         kind = a["kind"]
+    meta = a.get("metadata") or {}
+    key = (meta.get("workspace_id"), meta.get("source_type"), meta.get("source_id"))
+    live = next((i for i in artifacts().values() if i["kind"] == kind and key[2]
+                 and (i["workspace_id"], i.get("source_type"), i.get("source_id")) == key), None)
+    if live and kind == "file":
+        # The registry refuses a second file under a live source key, changed bytes or not.
+        raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
+    if live:
+        # Any other kind reconciles: the create becomes the line's next version, under its handle.
+        return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": live["version_ordinal"] + 1,
+                "note": "eval write recorded"}
     return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "version_ordinal": 1,
             "note": "eval write recorded"}
 
