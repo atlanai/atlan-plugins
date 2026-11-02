@@ -127,9 +127,14 @@ share: say which version is current and go on to step 4 with it. Any other refus
 ## 4. Hand back how to open it
 
 Reply in at most three lines: what was shared and its version, who can open it, and how a
-colleague picks it up. Give the link when the result carries a `url`. Give the hand-off prompt
-always, in a code span: `/atlanai:continue output_…`. Anyone in the workspace can also find it
-by searching Atlan for its title.
+colleague picks it up:
+
+- **the link**, which opens the output in the Atlan app, built as [the link](references/link.md)
+  says from the organization's slug, the output's handle and its workspace;
+- **the hand-off prompt**, in a code span, for a colleague who works in Claude or Codex:
+  `/atlanai:continue output_…`.
+
+Anyone in the workspace can also find it by searching Atlan for its title.
 
 When the session has a working folder and `.atlan/share.json` is missing or names a different
 workspace or Slack destination, end the reply with one short sentence offering to save this
