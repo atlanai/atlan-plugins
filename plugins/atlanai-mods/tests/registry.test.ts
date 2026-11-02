@@ -8,10 +8,13 @@ import {
   diagnose,
   findSessionId,
   harvestHints,
+  isStaleSession,
   jsonObjects,
   repairRails,
+  retryOf,
   searchRows,
   summaryOf,
+  unwrap,
 } from '../hooks/registry'
 
 const CALL = 'mcp__plugin_atlanai_atlan__mcp__call_tool'
@@ -74,10 +77,32 @@ describe('classify', () => {
     expect(classify('slack__send_message', {})).toBe('unknown')
   })
 
-  test('annotations decide a tool the naming does not', () => {
-    expect(classify('linear__list_issues', { linear__list_issues: { readOnly: true } })).toBe('read')
-    expect(classify('linear__save_issue', { linear__save_issue: {} })).toBe('write')
+  test("another server's read-only hint does not make its tool a read (X2)", () => {
+    expect(classify('linear__list_issues', { linear__list_issues: { readOnly: true } })).toBe('unknown')
+    expect(classify('linear__save_issue', { linear__save_issue: {} })).toBe('unknown')
+    // A destructive hint can only add a question, so it still counts.
     expect(classify('github__delete_file', { github__delete_file: { destructive: true } })).toBe('destructive')
+    // The gateway's own tools keep their annotations.
+    expect(classify('extension__skill__create', { extension__skill__create: { readOnly: false } })).toBe('write')
+    expect(classify('registry__get_artifact', { registry__get_artifact: { readOnly: true } })).toBe('read')
+  })
+
+  test('case and space do not slip a call past the names that always ask (X1b)', () => {
+    expect(classify(' Registry__Archive_Artifact ', {})).toBe('destructive')
+    expect(classify('REGISTRY__MOVE_ARTIFACT', { registry__move_artifact: { destructive: false } })).toBe('destructive')
+    expect(classify('Registry__Create_Artifact', {})).toBe('write')
+  })
+
+  test('a nested call_tool is judged by the call it wraps (X1d)', () => {
+    const inner = unwrap('mcp__call_tool', { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' } })
+    expect(inner).toEqual({ name: 'registry__archive_artifact', args: { artifact_id: 'skill_01target' } })
+    expect(classify(inner.name, {})).toBe('destructive')
+    const twice = unwrap('mcp__call_tool', { name: 'MCP__CALL_TOOL', arguments: { name: 'registry__patch_artifact', arguments: {} } })
+    expect(classify(twice.name, {})).toBe('write')
+    const stringed = unwrap('mcp__call_tool', JSON.stringify({ name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' } }))
+    expect(classify(stringed.name, {})).toBe('destructive')
+    expect(classify('mcp__search_tools', {})).toBe('read')
+    expect(classify('mcp__initialise', {})).toBe('write')
   })
 })
 
@@ -131,6 +156,22 @@ describe('parsing gateway results', () => {
     expect(diagnose('Proxy refused to open a tunnel: 403 Forbidden')).toBe('unreachable')
     expect(diagnose('401 Unauthorized')).toBe('sign-in')
     expect(diagnose('MCP server "atlan" not found')).toBe('missing')
+    expect(diagnose('HTTP 502 Bad Gateway')).toBe('degraded')
+  })
+
+  test("clears a session only on the gateway's own refusal of it (X3b)", () => {
+    expect(isStaleSession('session not found; call `mcp__search_tools` without `session_id`, with an `objective`, to start a new session')).toBe(true)
+    expect(isStaleSession('the requested session is unavailable; call `mcp__initialise` to open one')).toBe(true)
+    expect(isStaleSession(`artifact not found${RECEIPT}`)).toBe(false)
+    expect(isStaleSession('session closed by the workspace owner; file not found')).toBe(false)
+  })
+
+  test('tells a transient failure from a refusal', () => {
+    expect(retryOf('HTTP 503 Service Unavailable')).toEqual({ retryable: true, afterSeconds: 2 })
+    expect(retryOf(JSON.stringify({ code: 'downstream_unavailable', retryable: true, retry_after_seconds: 7 }))).toEqual({ retryable: true, afterSeconds: 7 })
+    expect(retryOf(JSON.stringify({ code: 'downstream_unavailable', retryable: false }))).toBeUndefined()
+    expect(retryOf('400 Bad Request: `query` is required')).toBeUndefined()
+    expect(retryOf('401 Unauthorized')).toBeUndefined()
   })
 })
 
@@ -164,6 +205,38 @@ describe('the guard', () => {
       return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
     })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
+    expect(verdict.decision).toBe('ask')
+    expect(verdict.reason).toContain('2 artifacts depend on it')
+  })
+
+  test("does not let another server's read-only hint allow its tool (X2)", async ($, on) => {
+    engine(on)
+    on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'slack__send_message', annotations: { readOnlyHint: true } }] }) }))
+    on('tool.check', () => ({ decision: 'ask', reason: 'engine' }))
+    await $.tool.call({ tool: DESCRIBE, servers: ['slack'] })
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'slack__send_message', arguments: {}, rationale: 'r' } })
+    expect(verdict).toEqual(expect.objectContaining({ decision: 'ask', reason: 'engine' }))
+  })
+
+  test('asks before an archive spelled in another case (X1b)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('mcp.call', () => ({ value: text('{}') }))
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'Registry__Archive_Artifact ', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
+    expect(verdict.decision).toBe('ask')
+  })
+
+  test('asks before an archive nested inside call_tool (X1d)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('mcp.call', (_, e) => {
+      const name = (e.args as { name?: string }).name
+      return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
+    })
+    const verdict = await $.tool.check({
+      tool: CALL,
+      input: { name: 'mcp__call_tool', arguments: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' } }, rationale: 'r' },
+    })
     expect(verdict.decision).toBe('ask')
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
@@ -212,6 +285,49 @@ describe('call repair', () => {
     expect(sessions).toEqual([undefined, SESSION])
   })
 
+  test('keeps the session when a tool says its artifact was not found (X3b)', async ($, on) => {
+    engine(on)
+    const sessions: unknown[] = []
+    const answers = [
+      { result: 'ok', text: `${ARTIFACT}${RECEIPT}` },
+      { result: 'artifact not found', text: `artifact not found${RECEIPT}`, isError: true },
+      { result: 'ok', text: ARTIFACT },
+    ]
+    on('tool.call', (_, e) => {
+      sessions.push((e as { session_id?: unknown }).session_id)
+      return answers.shift() ?? { result: 'ok', text: ARTIFACT }
+    })
+    await $.tool.call({ tool: CALL, name: 'registry__search_artifacts', arguments: { query: 'x' }, rationale: 'r', objective: 'o' })
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01gone' }, rationale: 'r' })
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    expect(sessions).toEqual([undefined, SESSION, SESSION])
+  })
+
+  test("does not hand the mod's own session to the model's calls (X6)", async ($, on) => {
+    engine(on)
+    on('mcp.call', () => ({ value: text(`${JSON.stringify({ items: [], page: { total: 0 } })}${RECEIPT}`) }))
+    const sessions: unknown[] = []
+    on('tool.call', (_, e) => {
+      sessions.push((e as { session_id?: unknown }).session_id)
+      return { result: 'ok', text: ARTIFACT }
+    })
+    await $.command.run(atlan('search pii'))
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r', objective: 'o' })
+    expect(sessions).toEqual([undefined])
+  })
+
+  test('tells the model to repeat a read after a transient failure, and never a write', async ($, on) => {
+    const lines: unknown[] = []
+    engine(on, lines)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))
+    const read = await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    expect(read.context?.at(-1)).toContain('safe to repeat')
+    expect(lines.at(-1)).toBe('Atlan: degraded, retrying reads')
+    const write = await $.tool.call({ tool: CALL, name: 'registry__patch_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    expect(write.context?.at(-1)).toContain('may already have run')
+  })
+
   test('learns annotations from describe_tools', async ($, on) => {
     engine(on)
     on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'linear__save_issue', annotations: { readOnlyHint: false, destructiveHint: true } }] }) }))
@@ -231,11 +347,27 @@ describe('/atlan', () => {
     expect(ran.text).toContain('Atlan: connected through plugin:atlanai:atlan')
   })
 
+  test('reports a call that failed as a failure, not as a server that did not answer (X5a)', async ($, on) => {
+    engine(on)
+    // A hook that throws is skipped, so the call fails beneath it at once: no timeout passed.
+    on('mcp.call', () => {
+      throw new Error('401 Unauthorized')
+    })
+    const ran = await $.command.run(atlan('status'))
+    expect(ran.text).not.toContain('did not answer')
+    expect(ran.text).toContain('Atlan: error')
+  })
+
+  test('reports a refused sign-in as sign-in', async ($, on) => {
+    engine(on)
+    on('mcp.call', () => ({ value: { content: [{ type: 'text', text: '401 Unauthorized' }], isError: true } }))
+    const ran = await $.command.run(atlan('status'))
+    expect(ran.text).toContain('Atlan: sign-in')
+  })
+
   test('says what to do when the network is blocked', async ($, on) => {
     engine(on)
-    on('mcp.call', () => {
-      throw new Error('Proxy refused to open a tunnel: 403 Forbidden')
-    })
+    on('mcp.call', () => ({ value: { content: [{ type: 'text', text: 'Proxy refused to open a tunnel: 403 Forbidden' }], isError: true } }))
     const ran = await $.command.run(atlan('status'))
     expect(ran.text).toContain('cannot reach api.atlan.com')
   })
@@ -264,9 +396,7 @@ describe('writes and the status line', () => {
   test('puts a lasting connection problem on the status line, after one retry', async ($, on) => {
     const lines: unknown[] = []
     const clock = engine(on, lines)
-    on('mcp.call', () => {
-      throw new Error('Proxy refused to open a tunnel: 403 Forbidden')
-    })
+    on('mcp.call', () => ({ value: { content: [{ type: 'text', text: 'Proxy refused to open a tunnel: 403 Forbidden' }], isError: true } }))
     on('session.start', (_, e) => ({ cwd: e.cwd }))
     await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
     await clock.settle()
@@ -274,6 +404,36 @@ describe('writes and the status line', () => {
     await clock.advance(20_000)
     await clock.settle()
     expect(lines).toEqual(['Atlan: offline, run /atlan'])
+  })
+
+  test('shows a degraded gateway on the status line during an outage, and clears it after', async ($, on) => {
+    const lines: unknown[] = []
+    engine(on, lines)
+    on('tool.check', () => ({ decision: 'allow' }))
+    const answers = [
+      { result: 'bad gateway', text: 'HTTP 502 Bad Gateway', isError: true },
+      { result: 'ok', text: ARTIFACT },
+    ]
+    on('tool.call', () => answers.shift() ?? { result: 'ok', text: ARTIFACT })
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    expect(lines.at(-1)).toBe('Atlan: degraded, retrying reads')
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    expect(lines.at(-1)).toBeUndefined()
+  })
+
+  // The engine runs the permission check inside the call, under the call's own id, so a write the
+  // guard checked never reads as skipped. (A plugin seated above this one that answers the check
+  // without passing it on is what turns the warning on; a test cannot seat one there.)
+  test('stays quiet about a write the guard checked (L-02)', async ($, on) => {
+    const lines: unknown[] = []
+    engine(on, lines)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: ARTIFACT }))
+    await $.tool.call({ tool: CALL, name: 'registry__patch_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    expect(lines.filter(Boolean)).toEqual([])
+    const ran = await $.command.run(atlan('status'))
+    expect(ran.text).not.toContain('Another plugin answered')
   })
 
   test('shows nothing when the connection works', async ($, on) => {
