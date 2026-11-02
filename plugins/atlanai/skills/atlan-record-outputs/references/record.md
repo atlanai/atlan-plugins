@@ -106,8 +106,13 @@ than a second output, without the handle having to survive the session.
 - `source_id`: stable and at most 512 characters: `<repository or folder name>/<path from its
   root>` for a file, or `claude/<title in kebab case>` for content with no file.
 
-A `409` on the file that names identical content means the bytes have not changed since the
-version already recorded: pin that version rather than uploading again.
+The reconcile works for the `output`, not for its `file`: a second file create under the same
+source key is refused with `409`, whether or not the bytes changed. For a new version, find the
+earlier output (`registry__search_artifacts`, `kind` `output`, matching `source_id`), read the
+`file_artifact_id` it pins, and append to that file with `registry__append_artifact_version`.
+Compare the text first with `registry__get_file_content`: an append of identical bytes is not
+refused and makes a duplicate version. Then create the output with the same source key and the
+new file ordinal, which becomes the output's next version.
 
 ## Two names that mean different things on this one call
 

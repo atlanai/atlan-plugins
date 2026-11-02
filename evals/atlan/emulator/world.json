@@ -1385,6 +1385,44 @@
     "etag": "W/\"v2-c41e\"",
     "appended": "- 2026-10-31: reviewed the invoice pipeline alert with Sam\n"
    }
+  },
+  "output_01evalincident": {
+   "id": "output_01evalincident",
+   "kind": "output",
+   "name": "october-incident-review",
+   "display_name": "October incident review",
+   "description": "Review of the 14 October checkout outage and its root cause.",
+   "workspace_id": "workspace_01evalplatform",
+   "artifact_status": "active",
+   "version_ordinal": 1,
+   "owner_id": "user_dana",
+   "source_type": "local",
+   "source_id": "claude/october-incident-review",
+   "metadata": {
+    "file_artifact_id": "file_01evalincidentmd",
+    "file_version_ordinal": 1,
+    "mode": "upload"
+   }
+  },
+  "file_01evalincidentmd": {
+   "id": "file_01evalincidentmd",
+   "kind": "file",
+   "name": "october-incident-review",
+   "display_name": "october-incident-review.md",
+   "description": null,
+   "workspace_id": "workspace_01evalplatform",
+   "owner_id": "user_dana",
+   "artifact_status": "active",
+   "version_ordinal": 1,
+   "etag": "W/\"v1-9b2d\"",
+   "updated_at": "2026-11-01T09:00:00Z",
+   "source_type": "local",
+   "source_id": "claude/october-incident-review",
+   "metadata": {
+    "path": "october-incident-review.md",
+    "media_type": "text/markdown",
+    "size_bytes": 140
+   }
   }
  },
  "files": {
@@ -1452,6 +1490,11 @@
    "path": "notes/standup.md",
    "media_type": "text/markdown",
    "content": "# Standup notes\n\n- 2026-10-29: started the churn fix\n- 2026-10-30: churn fix in review\n"
+  },
+  "file_01evalincidentmd": {
+   "path": "october-incident-review.md",
+   "media_type": "text/markdown",
+   "content": "October incident review. The checkout outage on 14 October lasted 38 minutes. Root cause: an expired TLS certificate on the payments proxy.\n"
   }
  },
  "traces": {
