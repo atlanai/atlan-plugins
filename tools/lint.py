@@ -16,11 +16,12 @@ Every skill is also held to:
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
 Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`.
-Skill names are unique across every plugin. Add-ons (every plugin but the core) carry no MCP
-server, hooks or bin/ of their own: an add-on uses the core's one `atlan` connection.
+Skill names are unique across every plugin. Add-ons carry no MCP server, hooks or bin/ of their
+own: an add-on uses the core's one `atlan` connection. Mods (`[[mods]]` in plugin.toml) carry no MCP
+server or bin/ either, and their hooks/hooks.json names one hooks module and no settings hooks.
 Repository: plugin content only under plugins/ (the root is the marketplace), no symlinks, no
 CLAUDE.md (plugins do not load it), no bin/ (claude.ai and organization sync refuse it), no hooks
-(out of scope, see AGENTS.md), and no credential-shaped strings in any tracked text file.
+outside a mod (see AGENTS.md), and no credential-shaped strings in any tracked text file.
 Voice (every Markdown file at the root and under plugins/, and plugin.toml): no em dash, no
 exclamation mark ending a sentence, and none of the filler words AGENTS.md's Voice section bans,
 outside code. The words a user reads should say what happens, not how to feel about it.
@@ -168,6 +169,35 @@ def plugin_roots() -> list[Path]:
     return [core, *sorted(p for p in PLUGINS.iterdir() if p.is_dir() and p != core)]
 
 
+def mod_names() -> set[str]:
+    """The plugins plugin.toml declares as mods: the only folders that may hold hooks."""
+    with (ROOT / "plugin.toml").open("rb") as handle:
+        return {mod["name"] for mod in tomllib.load(handle).get("mods", [])}
+
+
+def lint_mod(root: Path) -> list[str]:
+    """A mod reaches Atlan through the core's server, and its hooks are one hooks module: settings
+    hooks (shell commands) are the least portable component and stay out."""
+    relative = root.relative_to(ROOT)
+    errors = []
+    for name in (".mcp.json", "mcp.json", "bin"):
+        if (root / name).exists():
+            errors.append(f"{relative}/{name}: a mod reaches Atlan through the core plugin's server")
+    manifest = root / ".claude-plugin" / "plugin.json"
+    if manifest.is_file() and "mcpServers" in json.loads(manifest.read_text(encoding="utf-8")):
+        errors.append(f"{relative}/.claude-plugin/plugin.json: a mod declares no mcpServers")
+    hooks = root / "hooks" / "hooks.json"
+    if not hooks.is_file():
+        return errors + [f"{relative}/hooks/hooks.json: a mod names its hooks module here"]
+    document = json.loads(hooks.read_text(encoding="utf-8"))
+    modules = document.get("modules")
+    if set(document) - {"description", "modules"}:
+        errors.append(f"{relative}/hooks/hooks.json: a mod has no settings hooks, only `modules`")
+    if not (isinstance(modules, list) and len(modules) == 1 and (root / "hooks" / str(modules[0])).is_file()):
+        errors.append(f"{relative}/hooks/hooks.json: `modules` names exactly one file in hooks/")
+    return errors
+
+
 def lint_addon(root: Path) -> list[str]:
     relative = root.relative_to(ROOT)
     errors = []
@@ -212,13 +242,14 @@ def lint_repository(files: list[Path]) -> list[str]:
         for name in PLUGIN_CONTENT
         if (ROOT / name).exists()
     ]
+    mods = mod_names()
     for root in (ROOT, *plugin_roots()):
         relative = root.relative_to(ROOT).as_posix()
         if (root / "CLAUDE.md").exists():
             errors.append(f"{relative}/CLAUDE.md is not loaded by any host; use AGENTS.md at the root")
         if (root / "bin").exists():
             errors.append(f"{relative}/bin/ is refused by claude.ai and organization sync")
-        if (root / "hooks").exists():
+        if (root / "hooks").exists() and root.name not in mods:
             errors.append(f"{relative}/hooks/ is out of scope for these plugins; see AGENTS.md before adding one")
     for path in files:
         if path.is_symlink():
@@ -262,14 +293,15 @@ def main() -> int:
     commands = [path for root in roots for top in ("commands", "agents") for path in sorted((root / top).glob("*.md"))]
     for path in commands:
         errors += lint_command(path)
+    mods = mod_names()
     for root in roots[1:]:
-        errors += lint_addon(root)
+        errors += lint_mod(root) if root.name in mods else lint_addon(root)
     errors += lint_repository(tracked_files())
 
     for error in errors:
         print(error, file=sys.stderr)
     if not errors:
-        print(f"ok: {len(skill_dirs)} skills, {len(commands)} commands and agents, {len(roots) - 1} add-ons")
+        print(f"ok: {len(skill_dirs)} skills, {len(commands)} commands and agents, {len(roots) - 1 - len(mods)} add-ons, {len(mods)} mods")
     return 1 if errors else 0
 
 
