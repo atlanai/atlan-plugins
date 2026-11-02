@@ -49,8 +49,10 @@ and nothing is written.
   to check: a search result is a ranked guess and can be a different skill with different
   instructions.
 - **Given only a name or a description**, search with `kind: "skill"` and `limit: 10` (see
-  `atlan-find-artifacts`), with `semantic: true` for a description. If more than one result
-  fits, show them and let the user pick.
+  `atlan-find-artifacts`), with `semantic: true` for a description. Show the results that fit,
+  each with its name, version and workspace, and let the user pick, even when only one fits.
+  Go straight to it only when the user named that exact skill and one hit has that name. Never
+  load a hit because it ranked first: search ranks by wording, not by review.
 
 ## 2. Read its manifest and SKILL.md together
 

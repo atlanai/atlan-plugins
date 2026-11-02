@@ -38,8 +38,11 @@ import {
   isStaleSession,
   repairRails,
   resultText,
+  retryNote,
+  retryOf,
   searchRows,
   summaryOf,
+  unwrap,
   type AtlanHealth,
   type CallInput,
   type HintTable,
@@ -84,8 +87,17 @@ type Picker = { query: string; state: 'idle' | 'searching' | 'done' | 'failed'; 
 
 /** What this session has learned and shows. */
 type Memory = {
+  /** The audit session the model's own calls opened, reused for every later call. */
   session: string
+  /** A session the mod's own lookups opened while the model had none. Never given to the model's
+   * calls: they open their own, under the objective the model states. */
+  housekeeping: string
   health?: AtlanHealth
+  /** The calls this mod's permission check saw, by tool_use_id, so a write that ran without it
+   * shows on the status line. */
+  checked: Set<string>
+  /** Registry writes that ran while another plugin answered the permission check first. */
+  unguarded: number
   /** Artifacts this session read or changed, newest first. */
   touches: Touch[]
   /** Confirmation cards for calls waiting on the person, by tool_use_id. */
@@ -113,17 +125,29 @@ async function saveHints($: Dollar, learned: HintTable): Promise<void> {
   await $.store.set(HINTS_KEY, { ...current, ...learned })
 }
 
+const STATUS: Record<AtlanHealth['state'], string | undefined> = {
+  ready: undefined,
+  unknown: undefined,
+  'sign-in': 'Atlan: sign in with /mcp',
+  missing: 'Atlan: not connected, run /atlan',
+  unreachable: 'Atlan: offline, run /atlan',
+  degraded: 'Atlan: degraded, retrying reads',
+  error: 'Atlan: error, run /atlan',
+}
+
+const UNGUARDED =
+  'Another plugin answered the permission check for an Atlan registry write before Registry Mods could, so the write did not get its confirmation.'
+
+/** The status line: the connection's problem, then a skipped guard, or nothing when all is well. */
+function paint($: Dollar, mem: Memory): void {
+  const parts = [mem.health ? STATUS[mem.health.state] : undefined, mem.unguarded > 0 ? 'Atlan: write guard skipped, run /atlan' : undefined]
+  const line = parts.filter(Boolean).join(' · ')
+  $.ui.status(line || undefined)
+}
+
 function setHealth($: Dollar, mem: Memory, health: AtlanHealth): void {
   mem.health = health
-  const line: Record<AtlanHealth['state'], string | undefined> = {
-    ready: undefined,
-    unknown: undefined,
-    'sign-in': 'Atlan: sign in with /mcp',
-    missing: 'Atlan: not connected, run /atlan',
-    unreachable: 'Atlan: offline, run /atlan',
-    error: 'Atlan: error, run /atlan',
-  }
-  $.ui.status(line[health.state])
+  paint($, mem)
 }
 
 function redraw($: Dollar): void {
@@ -137,31 +161,56 @@ function offerPane($: Dollar, mem: Memory, always = false): void {
   void $.ui.open({ id: PANE, title: 'Atlan' }).catch(() => undefined)
 }
 
-/** A gateway call made by the mod itself, under the session's audit session when one is open. */
+/**
+ * A gateway call made by the mod itself: under the model's audit session when one is open, else
+ * under the mod's own. A session the mod opens stays the mod's, so the model's next call does not
+ * inherit an objective it never stated.
+ */
 async function lookup($: Dollar, mem: Memory, server: string, name: string, args: Record<string, unknown>, rationale: string): Promise<Lookup> {
-  const session = mem.session
+  const session = mem.session || mem.housekeeping
   const rails = session
     ? { session_id: session }
     : { objective: 'Claude Code with the Atlan registry: the Registry Mods plugin checks registry changes and connection status for the user.' }
   const result = await $.mcp.call(server, 'mcp__call_tool', { name, arguments: args, rationale, ...rails })
   const text = result.content.map(block => (isRecord(block) && typeof block.text === 'string' ? block.text : '')).join('\n')
   const opened = findSessionId(text)
-  if (opened && opened !== session) mem.session = opened
+  if (opened && opened !== session && !mem.session) mem.housekeeping = opened
+  if (result.isError && session && session === mem.housekeeping && isStaleSession(text)) mem.housekeeping = ''
   return { text, isError: result.isError }
 }
 
-/** Settles with `undefined` once `ms` pass, so a slow registry never holds a prompt. */
-async function within<T>($: Dollar, ms: number, work: Promise<T>): Promise<T | undefined> {
+/** How a bounded wait ended: the work's value, the clock, or the work's own failure. */
+type Outcome<T> = { kind: 'ok'; value: T } | { kind: 'timeout' } | { kind: 'error'; message: string }
+
+/** Settles once `ms` pass, so a slow registry never holds a prompt, and keeps a failure apart from
+ * a timeout: a refused sign-in is not an offline server. */
+async function within<T>($: Dollar, ms: number, work: Promise<T>): Promise<Outcome<T>> {
   const stop = new AbortController()
   const timer = $.clock.sleep(ms, { signal: stop.signal }).then(
-    () => undefined,
-    () => undefined,
+    (): Outcome<T> => ({ kind: 'timeout' }),
+    (): Outcome<T> => ({ kind: 'timeout' }),
+  )
+  const settled = work.then(
+    (value): Outcome<T> => ({ kind: 'ok', value }),
+    (error: unknown): Outcome<T> => ({ kind: 'error', message: error instanceof Error ? error.message : String(error) }),
   )
   try {
-    return await Promise.race([work.catch(() => undefined), timer])
+    return await Promise.race([settled, timer])
   } finally {
     stop.abort()
   }
+}
+
+/** The value of a bounded wait that worked, else `undefined`. */
+const valueOf = <T,>(outcome: Outcome<T>): T | undefined => (outcome.kind === 'ok' ? outcome.value : undefined)
+
+/** A read the mod makes for itself, tried again once after a transient failure. */
+async function lookupWithRetry($: Dollar, mem: Memory, server: string, name: string, args: Record<string, unknown>, rationale: string, ms: number): Promise<Outcome<Lookup>> {
+  const first = await within($, ms, lookup($, mem, server, name, args, rationale))
+  const transient = first.kind === 'ok' ? first.value.isError && retryOf(first.value.text) : first.kind === 'error' && retryOf(first.message)
+  if (!transient) return first
+  await $.clock.sleep(transient.afterSeconds * 1000)
+  return within($, ms, lookup($, mem, server, name, args, rationale))
 }
 
 /** The permission prompt's text for an archive, move or approve, and the pane's card for it. */
@@ -171,8 +220,8 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
   const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
-    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why)),
-    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_artifact', { artifact_id: id }, why)),
+    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why)).then(valueOf),
+    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_artifact', { artifact_id: id }, why)).then(valueOf),
   ])
   const summary = artifact && !artifact.isError ? summaryOf(artifact.text) : undefined
   const dependents = related && !related.isError ? dependentsOf(related.text) : undefined
@@ -185,12 +234,14 @@ async function probe($: Dollar): Promise<AtlanHealth> {
   let state: AtlanHealth['state'] = 'missing'
   for (const server of PROBE_SERVERS) {
     try {
-      const result = await within($, PROBE_MS, $.mcp.call(server, 'mcp__describe_tools', { servers: ['registry'], detail: 'summary' }))
-      if (result === undefined) {
+      const outcome = await within($, PROBE_MS, $.mcp.call(server, 'mcp__describe_tools', { servers: ['registry'], detail: 'summary' }))
+      if (outcome.kind === 'timeout') {
         state = 'unreachable'
         detail = `${server} did not answer within ${PROBE_MS / 1000} seconds`
         continue
       }
+      if (outcome.kind === 'error') throw new Error(outcome.message)
+      const result = outcome.value
       const text = result.content.map(block => (isRecord(block) && typeof block.text === 'string' ? block.text : '')).join('\n')
       if (result.isError) {
         state = diagnose(text)
@@ -229,6 +280,7 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
     )
     lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
   }
+  if (mem.unguarded > 0) lines.push(`${UNGUARDED} Writes this session: ${mem.unguarded}. Check which plugins answer permission prompts with /plugin.`)
   return lines.join('\n')
 }
 
@@ -237,12 +289,8 @@ async function searchRegistry($: Dollar, mem: Memory, args: Record<string, unkno
   const health = mem.health
   const servers = health?.state === 'ready' && health.server ? [health.server] : [...PROBE_SERVERS]
   for (const server of servers) {
-    try {
-      const found = await within($, PROBE_MS, lookup($, mem, server, 'registry__search_artifacts', args, rationale))
-      if (found) return found
-    } catch {
-      // try the next server name
-    }
+    const found = valueOf(await lookupWithRetry($, mem, server, 'registry__search_artifacts', args, rationale, PROBE_MS))
+    if (found) return found
   }
   return undefined
 }
@@ -299,6 +347,9 @@ export const register: Register = (on, options) => {
   const confirmWrites = options.confirm_writes !== false
   const mem: Memory = {
     session: '',
+    housekeeping: '',
+    checked: new Set(),
+    unguarded: 0,
     touches: [],
     cards: new Map(),
     publishes: [],
@@ -397,6 +448,18 @@ export const register: Register = (on, options) => {
     if (opened && opened !== known) mem.session = opened
     else if (isError && known && input.session_id === known && isStaleSession(text)) mem.session = ''
 
+    // The call that really ran, and what it does: a nested call_tool is judged by what it wraps.
+    const inner = isCallTool ? unwrap(name, input.arguments) : { name: call.tool.slice(call.tool.lastIndexOf('__mcp__') + 2), args: undefined }
+    const effect = classify(inner.name, await loadHints($))
+    if (isCallTool && call.tool_use_id) {
+      const wasChecked = mem.checked.delete(call.tool_use_id)
+      if (!wasChecked && (effect === 'write' || effect === 'destructive')) {
+        mem.unguarded += 1
+        if (mem.unguarded === 1) $.ui.toast(`Atlan: ${UNGUARDED}`)
+        paint($, mem)
+      }
+    }
+
     if (!isCallTool) await saveHints($, harvestHints(text))
 
     if (isCallTool) {
@@ -422,20 +485,35 @@ export const register: Register = (on, options) => {
     }
 
     const health = mem.health
+    const retry = isError ? retryOf(text) : undefined
     if (!isError && health?.state !== 'ready') {
       setHealth($, mem, { state: 'ready', server: health?.server ?? '', detail: 'a registry call succeeded', checkedAt: await $.clock.now() })
     } else if (isError && diagnose(text) === 'sign-in') {
       setHealth($, mem, { state: 'sign-in', server: health?.server ?? '', detail: 'a registry call was refused', checkedAt: await $.clock.now() })
+    } else if (retry) {
+      setHealth($, mem, { state: 'degraded', server: health?.server ?? '', detail: 'a registry call failed with a temporary error', checkedAt: await $.clock.now() })
+    }
+    // A transient failure tells the model how to recover: repeat a read after a wait, read back
+    // before repeating a write. The engine never runs a call twice for a hook.
+    if (retry && ran.result !== undefined) {
+      return { ...ran, context: [...(ran.context ?? []), retryNote(effect === 'read' ? 'read' : 'write', retry)] }
     }
     return ran
   }).catch(($, e, next) => next(e))
 
   on('tool.check', { tool: CALL_TOOL }, async ($, e, next) => {
+    if (e.tool_use_id) {
+      mem.checked.add(e.tool_use_id)
+      // Bounded: a call whose run never reached tool.call leaves its id behind.
+      if (mem.checked.size > 200) mem.checked.delete(mem.checked.values().next().value as string)
+    }
     const verdict = await next(e)
     if (verdict.decision === 'deny') return verdict
 
-    const input = isRecord(e.input) ? e.input : {}
-    const name = typeof input.name === 'string' ? input.name : ''
+    const outer = isRecord(e.input) ? e.input : {}
+    const inner = unwrap(outer.name, outer.arguments)
+    const name = inner.name
+    const input: Record<string, unknown> = { ...outer, name, arguments: inner.args }
     const effect = classify(name, await loadHints($))
 
     if (effect === 'unknown') return verdict
