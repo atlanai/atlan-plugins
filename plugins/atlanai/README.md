@@ -46,6 +46,7 @@ call in a session you can review.
 | `atlan-author-knowledge` | Create, read or edit a knowledge bundle |
 | `atlan-connect-repo` | Register a repository, or publish its skills and agents to Atlan from GitHub CI |
 | `atlan-record-outputs` | Record what a run produced as an Atlan output |
+| `atlan-share` | Share a result with your team through Atlan, and post the hand-off to Slack |
 
 The registry's own apps write the last six. This plugin carries them unchanged, and the
 gateway also serves them as MCP resources.

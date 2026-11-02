@@ -370,7 +370,12 @@ def included_file(item: dict, path: str) -> dict:
 
 
 def write(kind: str, a: dict) -> dict:
-    return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "note": "eval write recorded"}
+    # A generic create names the kind it made, and a new line's first version is ordinal 1, as the
+    # gateway answers: a share pins the file it just wrote by that ordinal.
+    if kind == "artifact" and a.get("kind"):
+        kind = a["kind"]
+    return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "version_ordinal": 1,
+            "note": "eval write recorded"}
 
 
 def dispatch(name: str, a: dict) -> dict:
