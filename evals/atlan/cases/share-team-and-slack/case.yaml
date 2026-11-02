@@ -34,7 +34,7 @@ graders:
   - name: posts-the-hand-off-once
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"slack__send_message"(?=[\s\S]*platform-eng)(?=[\s\S]*/atlanai:continue output_01evalnew)'
+    input_match: '"name"\s*:\s*"slack__send_message"(?=[\s\S]*platform-eng)(?=[\s\S]*/atlanai:continue output_01evalnew)(?=[\s\S]*https://app\.atlan\.com/\?open=%2Facme%2Foutputs%2Foutput_01evalnew0000000000000000%3Fws%3Dworkspace_01evalplatform%26n%3D)'
     min: 1
     max: 1
   - name: rails-beside-arguments
@@ -52,7 +52,7 @@ graders:
   - name: reports-the-share
     type: llm
     criteria: |
-      PASS if the reply says the note was shared with Platform Engineering, gives the hand-off prompt `/atlanai:continue output_01evalnew0000000000000000`, and says it was posted to #platform-eng.
+      PASS if the reply says the note was shared with Platform Engineering, gives a link starting `https://app.atlan.com/?open=%2Facme%2Foutputs%2Foutput_01evalnew0000000000000000` and the hand-off prompt `/atlanai:continue output_01evalnew0000000000000000`, and says it was posted to #platform-eng.
       FAIL if it asks for permission again before acting, names a different workspace or channel, or says the share or the post failed. (The tool calls are graded separately; judge only what the reply says.)
   - name: plain-reply
     type: llm

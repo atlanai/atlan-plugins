@@ -34,17 +34,17 @@ available (`#platform-eng` for Platform Engineering), and ask.
 
 ## What the post says
 
-At most 60 words, plain text:
+At most 60 words, plain text, not counting the link:
 
 ```
 Shared in Atlan: Q3 churn report (v2), in Platform Engineering.
 Churn fell from 4.1% to 3.2%, mostly in the SMB tier. Two follow-ups are open.
-Open it in Claude: /atlanai:continue output_…
+Open it: https://app.atlan.com/?open=%2Facme%2Foutputs%2Foutput_…
+In Claude or Codex: /atlanai:continue output_…
 ```
 
-The title and version, the workspace, the two-sentence summary from step 3, and the link when
-there is one, else the hand-off prompt. Never the content itself, a file's bytes, or anything
-step 1 flagged.
+The title and version, the workspace, the two-sentence summary from step 3, the link from step 4,
+and the hand-off prompt. Never the content itself, a file's bytes, or anything step 1 flagged.
 
 ## Approval
 
