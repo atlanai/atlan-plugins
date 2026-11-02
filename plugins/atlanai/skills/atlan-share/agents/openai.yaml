@@ -1,0 +1,11 @@
+interface:
+  display_name: "Share with Colleagues"
+  short_description: "Share a result with your team and post it to Slack"
+  default_prompt: "Use $atlan-share to share this with my team in Atlan and post it to our Slack channel."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

@@ -85,6 +85,20 @@ that, which is why this is a column pair rather than a relationship.
 `file_version_ordinal` must be at least 1. A missing one comes back as
 "file `<id>` has no version `<n>`".
 
+## The source key
+
+Set `source_type` and `source_id` on both the `file` and the `output`, flat in `metadata`
+beside `name`. A create whose workspace, kind, `source_type` and `source_id` match a live line
+becomes an append to that line, so recording the same deliverable again adds a version rather
+than a second output, without the handle having to survive the session.
+
+- `source_type`: `local` for something made on this computer.
+- `source_id`: stable and at most 512 characters: `<repository or folder name>/<path from its
+  root>` for a file, or `claude/<title in kebab case>` for content with no file.
+
+A `409` on the file that names identical content means the bytes have not changed since the
+version already recorded: pin that version rather than uploading again.
+
 ## Two names that mean different things on this one call
 
 This is the section this recipe exists to have.
