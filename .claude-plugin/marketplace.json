@@ -57,6 +57,26 @@
         "evals"
       ],
       "category": "data"
+    },
+    {
+      "name": "atlanai-mods",
+      "displayName": "Registry Mods",
+      "source": "./plugins/atlanai-mods",
+      "description": "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, session ids and rationales are fixed before a call, and the status line reports a broken Atlan connection.",
+      "author": {
+        "name": "Atlan",
+        "url": "https://atlan.com"
+      },
+      "homepage": "https://github.com/atlanai/atlan-plugins",
+      "repository": "https://github.com/atlanai/atlan-plugins",
+      "license": "Apache-2.0",
+      "keywords": [
+        "atlan",
+        "registry",
+        "mods",
+        "permissions"
+      ],
+      "category": "development"
     }
   ]
 }
