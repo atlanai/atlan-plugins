@@ -30,7 +30,9 @@ and never touches the network: you make every registry write through the Atlan M
 
 1. **Plan.** Run `EVAL todo --variant V --reps R [--ids all|train|validation|holdout]`. It
    returns the (case_id, rep) pairs not yet recorded, so a stopped run resumes where it left
-   off. `all` is train and validation; the holdout runs only at hand-back.
+   off. `all` is train and validation; the holdout runs only at hand-back. A pair whose last row
+   is `incomplete`, `gold_error` or `harness_error` is listed again with `retry` naming that class,
+   up to 3 attempts; after that it is under `unresolved`, and you report it.
    - For a new variant, run one pair first as a canary.
    - Then state the count × time × tokens (from the canary's usage, never a dollar guess) and
      get a yes before the rest.
@@ -52,8 +54,11 @@ and never touches the network: you make every registry write through the Atlan M
       transcript does. Save the file, then record again.
       `record` grades by result set and parses the transcript into the trace, tool calls,
       model and usage. It appends one row to `results.jsonl` and writes
-      `traces/<case_id>_rep<k>.json`. A pair that is already recorded is skipped, never
-      overwritten.
+      `traces/<case_id>_rep<k>.json`. A graded pair is skipped, never overwritten. A pair listed
+      with `retry` gets a new row, `attempt` 2 or more, that supersedes the last; the old rows
+      stay in the file and `summary`, `compare` and `publish` read the latest.
+      A transcript with no agent message in it is refused, as a missing one is: a file the
+      script cannot read is no evidence the run was isolated.
 3. **Check it's complete.** `EVAL summary --variant V` must show N×R rows. If rows are short,
    run `todo` again and finish the missing pairs. Never quote a partial run.
 4. **Publish** the variant as [Publish](#publish) describes.
@@ -115,9 +120,12 @@ A case passes when the agent's result set matches the gold one:
 Classes: `pass`, `wrong_result`, `agent_sql_error`, `no_sql`, `gold_error`, `harness_error`,
 `incomplete`, `invalid_contaminated`, `judged`. `harness_error` is the one class you set yourself, for a run
 that failed outside the agent (a tool failure, a timeout): `record --class harness_error --reason "…"`,
-with no answer file. `incomplete` means the gold or the agent result was truncated, so matching rows
+with no answer file. `incomplete` means the gold or the agent result was truncated, at any level of
+the response (a `truncated` or `has_more` flag, a next-page cursor, `complete: false`), so matching rows
 prove nothing: fetch every page, or bound the gold query, and record the case again. It,
 `harness_error` and `gold_error` leave the scored denominator; report their counts beside the rate.
+Each rate carries `n` and a 95% Wilson interval (`ci95_low`, `ci95_high`; `ci95` is half its width).
+Quote the interval with the rate: one passing case is 100%, between 21% and 100%.
 Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the grader agent
 (`atlanai-analytics:atlan-analytics-grader` in Claude Code):
 1. Write its one input file, `hillclimb/V/judge/<case_id>_rep<k>.json`, holding `question`,
