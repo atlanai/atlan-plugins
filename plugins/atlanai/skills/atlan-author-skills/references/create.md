@@ -10,7 +10,7 @@ draft. Atlan adds the search before it and the governed copy after it.
 Search before drafting, with the user's own words for what the skill should do:
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__search_artifacts",
   "arguments": { "query": "review pull requests for security issues", "kind": "skill", "limit": 3 },
   "session_id": "mcp_session_…",

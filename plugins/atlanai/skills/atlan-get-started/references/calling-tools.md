@@ -14,9 +14,9 @@ connection and one sign-in:
 | | Search mode (default) | Full mode |
 |---|---|---|
 | URL | `https://api.atlan.com/mcp` | `https://api.atlan.com/mcp?tools=full` |
-| `tools/list` | Three fixed tools | Every tool you can call, possibly hundreds |
-| Open a session | `objective` on the first `mcp__search_tools` or `mcp__call_tool` | `mcp__initialise { "objective", "client", "rationale" }` |
-| Call a tool | `mcp__call_tool { "name", "arguments", "session_id", "rationale" }` | `registry__… { …arguments, "session_id", "rationale" }` |
+| `tools/list` | Five fixed tools: search, describe and three runners | Every tool you can call, possibly hundreds |
+| Open a session | `objective` on the first search or runner call | `mcp__initialise { "objective", "client", "rationale" }` |
+| Call a tool | its runner, such as `mcp__call_read_tool { "name", "arguments", "session_id", "rationale" }` | `registry__… { …arguments, "session_id", "rationale" }` |
 
 This plugin installs search mode. It keeps your context small however many servers your
 organization connects, and it sees exactly what full mode would list for you: the same
@@ -31,7 +31,7 @@ permission checks run on every call either way.
    }
    → { "session_id": "mcp_session_…", "tools": [ { "name", "description", "inputSchema", … } ] }
 
-2. mcp__call_tool {
+2. mcp__call_read_tool {                                     ← the runner its run_with names
      "name": "<exact name from the search>",
      "arguments": { …matching its inputSchema… },
      "session_id": "mcp_session_…",
@@ -39,6 +39,19 @@ permission checks run on every call either way.
    }
 ```
 
+- Each search or describe result names its tool's runner in `run_with`:
+
+  | Runner | Runs | Examples |
+  |---|---|---|
+  | `mcp__call_read_tool` | read-only tools | `registry__search_artifacts`, `registry__get_artifact`, `registry__list_workspaces` |
+  | `mcp__call_write_tool` | anything not destructive, reads included | `registry__create_artifact`, `registry__patch_artifact`, `registry__relate_artifact`, `registry__move_artifact` |
+  | `mcp__call_tool` | any tool | `registry__archive_artifact`, `registry__approve_artifact`, `registry__release_artifact` |
+
+  All three take the same arguments and run the same permission checks. A runner refuses a tool
+  above its tier and names the runner that runs it: send the same call there. For a tool you call
+  by name without a search, pick by what it does; a refusal costs one call. The split lets the
+  person allow the read and write runners in their host and still be asked before anything
+  destructive.
 - Skip the search when you already know a tool's exact name and schema: every `registry__…`
   tool these skills name is one. If you know only its name,
   `mcp__describe_tools { "names": ["registry__get_artifact"], "session_id": "…" }` returns the
@@ -47,9 +60,9 @@ permission checks run on every call either way.
 - `servers` narrows a search or describe to some servers, named as their tool names start:
   `["registry"]`, `["slack", "linear"]`.
 - A server you have not connected yet comes back under `connect`, not as tools. Ask the user,
-  then run `mcp__call_tool { "name": "mcp__connect_server", "arguments": { "server": "<as listed>" }, … }`.
+  then run `mcp__call_write_tool { "name": "mcp__connect_server", "arguments": { "server": "<as listed>" }, … }`.
   It is not a tool of its own in `tools/list`. See `atlan-use-mcp-servers`.
-- A first `mcp__call_tool` with an `objective` and no `session_id` opens a session too; its
+- A first runner call with an `objective` and no `session_id` opens a session too; its
   result carries `mcp_session_id`. Reuse that as `session_id`. Do not repeat a side-effecting
   call just to get a receipt.
 
@@ -57,8 +70,8 @@ permission checks run on every call either way.
 
 Every Atlan skill starts here; its own references add only what differs.
 
-1. **One session, and its id on every call.** In search mode your first `mcp__search_tools` or
-   `mcp__call_tool` opens it: send `objective`, one sentence for a human auditor reading this
+1. **One session, and its id on every call.** In search mode your first search or runner call
+   opens it: send `objective`, one sentence for a human auditor reading this
    later, and keep the id it returns (`session_id` from a search, `mcp_session_id` from a call).
    In full mode open it with `mcp__initialise` instead:
 
@@ -110,10 +123,10 @@ registry__get_kind_schema {
 }
 ```
 
-In search mode, the same call is:
+In search mode, the same call goes through its runner, here the read runner:
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__get_kind_schema",
   "arguments": { "kind": "skill" },
   "session_id": "mcp_session_01J...",
@@ -134,7 +147,7 @@ that a repeat will not change (see `atlan-troubleshoot`).
 |---|---|
 | `502`, `503`, `504`, "service unavailable", or `retryable: true` | A read: wait `retry_after_seconds` when the error gives it, else 2 seconds, and repeat the same call; then 4, then 8 seconds, 3 tries in all. Then tell the user Atlan is not answering. A write: do not repeat it. Read the artifact back, or repeat a create with the same `idempotency_key` and identical arguments, and retry only what did not happen. `extension__skill__create` takes its key per skill, inside each `skills` item, and an older skill app has none: without one, read the skill back first, as `atlan-author-skills` says under **When the reply is lost**. |
 | JSON-RPC `-32003`, `rate_limited` | The organization's budget is spent for the moment: the same rule, waiting longer. |
-| "session not found; call `mcp__search_tools` …" | The gateway no longer knows that session (it expired, or the id came from another conversation). Open a new one once: the next `mcp__search_tools` or `mcp__call_tool` with `objective` and no `session_id`. Use the new id from then on, and tell the user only if a write was in flight. |
+| "session not found; call `mcp__search_tools` …" | The gateway no longer knows that session (it expired, or the id came from another conversation). Open a new one once: the next search or runner call with `objective` and no `session_id`. Use the new id from then on, and tell the user only if a write was in flight. |
 | A search or describe result marked `partial` | A server did not answer in time, so tools may be missing from the list. Repeat the search once; if it is still partial, say the results may be incomplete rather than concluding a tool does not exist. |
 
 Never retry on a timer forever, and never repeat an archive, move, approve or release, or a
