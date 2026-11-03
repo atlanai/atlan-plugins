@@ -118,6 +118,40 @@ Every Atlan skill starts here; its own references add only what differs.
    the session must go first and alone, and writes stay one at a time unless a recipe says
    otherwise.
 
+6. **Know what this host can do before a long task.** Before a task of several steps, such as a
+   publish, an install, an upload or an eval run, settle once per session what the route needs,
+   from what you can already see:
+   - **A shell**, a tool that runs commands. Without one, nothing is installed, zipped or run,
+     and a bundle is checked by reading it.
+   - **A bearer** for an upload's `PUT`. Claude chat, Cowork and other hosts that sign in to
+     Atlan for you never hand you one, so a binary upload or a ZIP publish cannot finish there.
+   - **The app tools the task calls**, from one `mcp__search_tools` that names them, or
+     `mcp__describe_tools` by name. Each `inputSchema` says which optional arguments that app
+     takes.
+
+   When a route cannot finish here, say so in one sentence before the user approves anything,
+   and offer one that can. Then keep what you learned, as the next section says.
+
+## Reuse what the session already learned
+
+Within one session these do not change, so read each once and reuse it:
+
+| Learned | Reuse it for |
+|---|---|
+| The `session_id` | Every call |
+| The workspace the user chose | Every create that names no other |
+| A kind's schema | Every write to that kind |
+| A tool's exact name, `inputSchema` and runner | Every call to it, with no second search or describe. When a runner refused it and named another, use that one from then on |
+| An optional argument the schema does not list, or a call refused by name (`include_file`, `files_from`, `wait_for_release`, `idempotency_key`) | Leave it out for the rest of the session. Never send a call you expect to be refused to find out what the app takes |
+| A handle you found by name | The handle, not a second search |
+
+Read again only what can move under you:
+
+- An artifact's latest version or release, before you write a new version on top of it or tell
+  the user which version is current. Someone else may have published since.
+- A permission, after a refusal or when the user says their access changed.
+- Anything the user says changed, or asks you to look at again.
+
 ## Translating a recipe written in full mode
 
 The registry's authoring skills (`atlan-author-skills`, `atlan-author-agents`,
