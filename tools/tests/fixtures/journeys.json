@@ -44,7 +44,8 @@
       "args": {
        "kind": "org_default"
       },
-      "group": "g1"
+      "group": "g1",
+      "workaround_for": "T14"
      },
      {
       "tool": "registry__get_artifact_counts",
@@ -896,7 +897,8 @@
       "args": {
        "kind": "metric",
        "query": "<measure>"
-      }
+      },
+      "workaround_for": "T5"
      },
      {
       "tool": "extension__metric__search_metrics",
@@ -969,7 +971,8 @@
       "args": {
        "kind": "metric",
        "query": "<measure>"
-      }
+      },
+      "workaround_for": "T5"
      },
      {
       "tool": "extension__metric__search_metrics",
