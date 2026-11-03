@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { CAPABILITY, SECTION, isLostReply } from '../register'
+import { CAPABILITY, isLostReply } from '../register'
 import type { Case } from './case'
 import { CASES } from './fixtures'
 
@@ -317,11 +317,37 @@ describe('a lost reply', () => {
 })
 
 describe('the capability line', () => {
-  test('is added once, last, to the session side of the prompt', async ($, on) => {
+  const prompt = (text: string, extra: Record<string, unknown> = {}) => ({ text, wait: false, origin: { kind: 'composer' as const }, ...extra })
+
+  test('rides the first prompt of a conversation once, and again after /clear', async ($, on) => {
+    let session = 'session-1'
+    on('session.id', () => ({ value: session }))
+    const contexts: (readonly string[] | undefined)[] = []
+    on('prompt.submit', (_, e) => {
+      contexts.push(e.context)
+      return { text: e.text, context: e.context }
+    })
+    await $.prompt.submit(prompt('publish my skill'))
+    await $.prompt.submit(prompt('and another'))
+    session = 'session-2'
+    await $.prompt.submit(prompt('after clear'))
+    expect(contexts).toEqual([[CAPABILITY], undefined, [CAPABILITY]])
+  })
+
+  test('keeps the context a prompt already carries', async ($, on) => {
+    on('session.id', () => ({ value: 'session-1' }))
+    const contexts: (readonly string[] | undefined)[] = []
+    on('prompt.submit', (_, e) => {
+      contexts.push(e.context)
+      return { text: e.text, context: e.context }
+    })
+    await $.prompt.submit(prompt('publish my skill', { context: ['from another hook'] }))
+    expect(contexts).toEqual([['from another hook', CAPABILITY]])
+  })
+
+  test('adds nothing to the system prompt', async ($, on) => {
     on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude.', scope: 'shared' as const }] }))
     const composed = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: [], tools: [], outputStyle: null, traits: [] })
-    const last = composed.sections[composed.sections.length - 1]
-    expect(last).toEqual({ id: SECTION, text: CAPABILITY, scope: 'session' })
-    expect(composed.sections.filter(section => section.id === SECTION).length).toBe(1)
+    expect(composed.sections).toEqual([{ id: 'intro', text: 'You are Claude.', scope: 'shared' }])
   })
 })
