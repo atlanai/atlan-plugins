@@ -147,6 +147,10 @@ RECOMMENDATION`. Don't loop.
   - any literal compared with a person's, customer's or record's ID column, however short;
   - UUIDs and prefixed IDs such as `cus_8Hk2Lm9`.
 
+  `MINE check` applies the same rules to everything a card publishes: formula, filters, joins,
+  dimensions and their values, parameter defaults, examples with their SQL and result rows, and
+  the description. A sample value under a person column (`customer_name`, `email`) is refused
+  whatever it looks like.
   It is a pattern match, not a guarantee: an identifier in a column it does not recognise gets
   through. Spot-check the payload again before a push, and turn any value you would not publish
   into a parameter.
