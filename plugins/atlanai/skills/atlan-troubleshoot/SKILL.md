@@ -57,7 +57,7 @@ fixes it, without apology.
 | `PUT` to `upload_url` returns `401` | `is_presigned` was `false`: that URL needs the user's bearer token, which an MCP sign-in does not hand to you. Tell the user the upload needs a direct API token. Never ask for one in chat. |
 | `PUT` returns `403` or the URL expired | Upload URLs expire (`expires_in_seconds`). Reserve a new one with `registry__request_file_upload`. |
 | `registry__get_file_content` refuses over the byte ceiling or as not UTF-8 | The tool returns text up to 256 KiB only. Say which file you could not read; do not guess its content. |
-| A skill has no `metadata.files` | Its `artifact_status` is `blocked`: it failed a security scan and its content is withdrawn. |
+| A skill has no `metadata.files` | Its `artifact_status` is `blocked`: it failed a security scan and its content is withdrawn. `registry__get_security_findings` says why: each finding's rule, file, lines and fix. |
 | A skill's `SKILL.md` answers `not found`, or lists `size_bytes: 0` | Its `artifact_status` is `pending_review`: that version waits for a reviewer and cannot be read until it is approved. |
 | A handle such as `out_…` answers `not found` | Outputs are `output_…`. Ask for the handle as the dashboard shows it rather than guessing another. |
 | `not found` on a file you just saw listed | The file is withdrawn, or the version you asked for is not readable. Pass the `file_version_ordinal` the manifest gave you. |
