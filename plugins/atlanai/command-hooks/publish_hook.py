@@ -315,10 +315,27 @@ def keyed(tool_input: dict) -> bool:
     )
 
 
+def reads_as_success(text: str) -> bool:
+    """Whether the text is a JSON object with no error in it: a result, not a failure.
+
+    Cursor passes no isError flag, so a bare status code alone cannot mark a reply as lost:
+    a successful create whose result holds "file_count": 503 would read as a 503.
+    """
+    try:
+        value = json.loads(text)
+    except ValueError:
+        return False
+    if not isinstance(value, dict) or any(k in value for k in ("error", "errors", "isError", "code")):
+        return False
+    status = value.get("status")
+    return not (isinstance(status, int) and status >= 400)
+
+
 def post_note(text: str, is_error: bool | None, with_key: bool = False) -> str | None:
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    status_only = LOST.search(text) and not (is_error is None and reads_as_success(text))
     lost = re.search(r'"may_have_run"\s*:\s*true', text) or (
-        not re.search(r'"retryable"\s*:\s*false', text) and (re.search(r'"retryable"\s*:\s*true', text) or LOST.search(text)))
+        not re.search(r'"retryable"\s*:\s*false', text) and (re.search(r'"retryable"\s*:\s*true', text) or status_only))
     if is_error is not False and lost:
         if with_key:
             return (
