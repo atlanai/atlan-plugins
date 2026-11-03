@@ -34,7 +34,12 @@ type Seen = { searches: Record<string, unknown>[]; contexts: (readonly string[] 
 
 /** The engine beneath the mod: a store, a clock, a gateway that answers the connection check and
  * the skill search with `answer`, and a prompt box that records what reached the model. */
-function engine(on: On, answer: () => unknown = () => ({ value: text(`${FOUND}${RECEIPT}`) }), commands: string[] = []) {
+function engine(
+  on: On,
+  answer: () => unknown = () => ({ value: text(`${FOUND}${RECEIPT}`) }),
+  commands: string[] = [],
+  check: () => unknown = () => ({ value: text(DESCRIBED) }),
+) {
   const seen: Seen = { searches: [], contexts: [] }
   mock.store(on)
   on('ui.status', () => ({ value: undefined }))
@@ -44,7 +49,7 @@ function engine(on: On, answer: () => unknown = () => ({ value: text(`${FOUND}${
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('mcp.call', (_, e) => {
     const args = e.args as { name?: string; arguments?: Record<string, unknown> }
-    if (e.tool === 'mcp__describe_tools') return { value: text(DESCRIBED) }
+    if (e.tool === 'mcp__describe_tools') return check()
     if (args.name === 'registry__search_artifacts') seen.searches.push(args.arguments ?? {})
     return answer()
   })
@@ -91,6 +96,7 @@ describe('which hits are named', () => {
       { ...JOKES, id: 'skill_01ffffffffff', is_released: false, match: { similarity: 0.9 } },
     ]
     expect(skillMatches(`${JSON.stringify({ items })}${RECEIPT}`).map(match => match.id)).toEqual(['skill_01bbbbbbbbbb', 'skill_01cccccccccc'])
+    expect(skillMatches(JSON.stringify({ mcp_session_id: SESSION, result: { items } })).map(match => match.id)).toEqual(['skill_01bbbbbbbbbb', 'skill_01cccccccccc'])
     expect(skillMatches(NOTHING)).toEqual([])
     expect(skillMatches('HTTP 503 Service Unavailable')).toEqual([])
   })
@@ -151,8 +157,20 @@ describe('the prompt-time skill hint', () => {
     expect(seen.contexts).toEqual([undefined])
   })
 
-  test('searches nothing until the connection check finds Atlan ready', async ($, on) => {
+  test("searches on a session's first prompt, before the connection check has settled", async ($, on) => {
     const { seen } = engine(on)
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    expect(seen.searches).toHaveLength(1)
+    expect(seen.contexts[0]?.[0]).toContain(JOKES.id)
+  })
+
+  test('searches nothing once the connection check finds Atlan signed out', async ($, on) => {
+    const refused = { value: { content: [{ type: 'text', text: '401 Unauthorized: sign in again' }], isError: true } }
+    const { seen, clock } = engine(on, () => refused, [], () => refused)
+    await connect($, clock)
+    // A failed check is reported only after its one retry.
+    await clock.advance(20_000)
+    await clock.settle()
     await $.prompt.submit(prompt('tell me a great startup joke'))
     expect(seen.searches).toEqual([])
     expect(seen.contexts).toEqual([undefined])
