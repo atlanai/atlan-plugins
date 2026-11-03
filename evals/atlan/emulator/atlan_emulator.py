@@ -319,7 +319,9 @@ def search_artifacts(a: dict) -> dict:
             hits.append((score, item))
     hits.sort(key=lambda h: -h[0])
     limit = a.get("limit", 10)
-    return {"items": [(h if a.get("full") else summary(h)) | {"score": s / 100} for s, h in hits[:limit]],
+    # Every hit here matched a query word; the gateway's fused hits say so in `match`.
+    return {"items": [(h if a.get("full") else summary(h)) | {"score": s / 100, "match": {"keyword": True}}
+                      for s, h in hits[:limit]],
             "page": {"limit": limit, "offset": 0}}
 
 
