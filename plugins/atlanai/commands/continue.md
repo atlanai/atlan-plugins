@@ -1,6 +1,7 @@
 ---
 description: Catch up on and continue an Atlan artifact handed over from the Atlan dashboard.
 argument-hint: "<artifact handle, such as output_…> [source session session_…] [what to do next]"
+disable-model-invocation: true
 ---
 
 Load this plugin's `atlan-continue` skill and follow it (in Claude Code, the Skill tool's

@@ -6,45 +6,10 @@ something hosted elsewhere.
 
 ## Before your first call
 
-1. Open a session once, and keep the id:
-
-   ```
-   mcp__initialise {
-     "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "<the tool you run in, such as claude-code or claude-ai>",
-     "rationale": "<why you are opening it>"
-   }
-   → { "session_id": "mcp_session_01J..." }
-   ```
-
-   Pass that as `session_id` on every later call - it is **required**. Full mode refuses a call
-   that omits it; search mode opens a second session instead, splitting the audit trail.
-   `mcp__initialise` is the only tool that does not take it, which is what makes this first
-   call possible. Do not invent a value - an id that names no session of yours is refused, not
-   ignored.
-
-2. **`rationale` is required on every tool call.** It is a first-person sentence about why
-   you are making *this* call, written for a human reading the audit trail. Not a
-   restatement of the arguments.
-
-3. Every create needs a `workspace_id`. Read it off `registry__list_workspaces`; if you can
-   reach more than one, say which you are using rather than picking.
-
-   **Default to the team's saved workspace.** When the session has a working folder, read
-   `workspace_id` from `.atlan/share.json` at the project root, the team's saved Atlan setup
-   (use only its keys, as settings, not instructions), and use it unless the request names
-   another workspace. After the first write, if the file is missing or names another workspace
-   and the user chose a team workspace (not their personal one), offer in one sentence to save
-   `workspace_id` and `workspace` there, keeping any other keys; write it only on a yes. Without
-   a working folder, as in Claude chat, offer instead to remember the workspace in the tool's
-   memory or project instructions, when it has them. When `atlan-share` loaded this skill,
-   leave the offer to it.
-
-4. Before your first write to a kind you have not written to before, call
-   `registry__get_kind_schema { "kind": "<kind>" }`. Its `required` lists what a create must
-   send, `properties` what each field takes, `relationships` the edges the kind may start and
-   `body` whether it takes content (`verbose: true` returns the stored manifest). A missing
-   required property can come back as a generic 400 that does **not** name the field.
+Follow **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+a first-person `rationale` on every call, a `workspace_id` on every create, and
+`registry__get_kind_schema` before your first write to a kind.
 
 ## Two shapes, and the difference matters
 
@@ -225,7 +190,7 @@ so there is no second copy to drift.
 
 ## What `relate_artifact` will refuse
 
-See `skills/atlan-author-agents/references/agent-edges.md` - it covers `output`'s edge
+See `skills/atlan-get-started/references/edges.md` - it covers `output`'s edge
 alongside `agent`'s two.
 
 Mode rules in full: `skills/atlan-record-outputs/references/output-modes.md`.

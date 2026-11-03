@@ -1,6 +1,7 @@
 ---
 description: Use a skill from the Atlan registry in this task, or install it here.
 argument-hint: "<skill handle or name> [install]"
+disable-model-invocation: true
 ---
 
 Load this plugin's `atlan-use-skill` skill and follow it (in Claude Code, the Skill tool's

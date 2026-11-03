@@ -15,7 +15,8 @@ Every skill is also held to:
   * at most 500 lines in SKILL.md (longer material goes in references/);
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
-Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`.
+Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`; commands
+also set `disable-model-invocation: true`.
 Skill names are unique across every plugin. Add-ons carry no MCP server, hooks or bin/ of their
 own: an add-on uses the core's one `atlan` connection. Mods (`[[mods]]` in plugin.toml) carry no MCP
 server or bin/ either, and their hooks/hooks.json names one hooks module and no settings hooks.
@@ -171,6 +172,11 @@ def lint_command(path: Path) -> list[str]:
     parsed = frontmatter(path.read_text(encoding="utf-8"))
     if parsed is None or not parsed[0].get("description"):
         return [f"{path.relative_to(ROOT)}: needs frontmatter with a description"]
+    # A command only loads a skill the model can already see, so it is the person's `/` entry
+    # alone: without this, hosts that list commands to the model (claude.ai, Claude Code's Skill
+    # tool) show each task twice.
+    if path.parent.name == "commands" and parsed[0].get("disable-model-invocation") != "true":
+        return [f"{path.relative_to(ROOT)}: needs `disable-model-invocation: true`"]
     return []
 
 
