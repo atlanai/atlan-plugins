@@ -1503,6 +1503,64 @@
     "media_type": "text/markdown",
     "size_bytes": 140
    }
+  },
+  "skill_01evaltfplan01": {
+   "id": "skill_01evaltfplan01",
+   "kind": "skill",
+   "name": "terraform-plan-review",
+   "display_name": "terraform-plan-review",
+   "description": "Use when reviewing a Terraform plan before apply, against Acme's infrastructure guardrails.",
+   "workspace_id": "workspace_01evalplatform",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 1,
+   "updated_at": "2026-10-22T10:00:00Z",
+   "metadata": {
+    "files": [
+     {
+      "file_id": "file_01evaltfplan01md",
+      "path": "SKILL.md",
+      "size_bytes": 410,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 1,
+      "is_executable": false
+     }
+    ],
+    "file_count": 1,
+    "frontmatter_metadata": {}
+   }
+  },
+  "skill_01evaltfplan02": {
+   "id": "skill_01evaltfplan02",
+   "kind": "skill",
+   "name": "tf-plan-checklist",
+   "display_name": "tf-plan-checklist",
+   "description": "Use when reviewing a Terraform plan before apply: my own quick checklist.",
+   "workspace_id": "workspace_01evaldana",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 1,
+   "updated_at": "2026-10-22T10:00:00Z",
+   "metadata": {
+    "files": [
+     {
+      "file_id": "file_01evaltfplan02md",
+      "path": "SKILL.md",
+      "size_bytes": 410,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 1,
+      "is_executable": false
+     }
+    ],
+    "file_count": 1,
+    "frontmatter_metadata": {}
+   }
   }
  },
  "files": {
