@@ -349,23 +349,38 @@ async function pickerSearch($: Dollar, mem: Memory, words: string): Promise<void
   redraw($)
 }
 
+/** Connection states in which the hint searches nothing: the search could only fail. */
+const NO_HINT: ReadonlySet<AtlanHealth['state']> = new Set(['sign-in', 'missing', 'unreachable'])
+
+/** The first answer a registry search gets from `servers`, tried in turn. */
+async function firstAnswer($: Dollar, mem: Memory, servers: readonly string[], args: Record<string, unknown>, rationale: string): Promise<Lookup> {
+  let last: Lookup = { text: '', isError: true }
+  for (const server of servers) {
+    last = await lookup($, mem, server, 'registry__search_artifacts', args, rationale).catch(() => last)
+    if (!last.isError) return last
+  }
+  return last
+}
+
 /**
  * The context lines that name registry skills which clearly fit the prompt, or none. Searched once
- * per prompt text a conversation, through the server the connection check found, and only while
- * that check says ready: signed out or offline, nothing is searched. Each skill is named once a
- * conversation, and never when a skill of that name is installed here. Never throws.
+ * per prompt text a conversation, through the server the connection check found (or each one in
+ * turn while the check has not settled, as on a session's first prompt); signed out, missing or
+ * offline, nothing is searched. Each skill is named once a conversation, and never when a skill
+ * of that name is installed here. Never throws.
  */
 async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<string[]> {
   if (!isHintable(prompt)) return []
   const health = mem.health
-  if (health?.state !== 'ready' || !health.server) return []
+  if (health && NO_HINT.has(health.state)) return []
+  const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   const session = await $.session.id()
   if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
   const hint = mem.hint
   const query = hintQuery(prompt.text)
   let pending = hint.searches.get(query)
   if (!pending) {
-    pending = lookup($, mem, health.server, 'registry__search_artifacts', { query, kind: 'skill', semantic: true, limit: 3 }, HINT_RATIONALE).then(
+    pending = firstAnswer($, mem, servers, { query, kind: 'skill', semantic: true, limit: 3 }, HINT_RATIONALE).then(
       found => {
         if (found.isError) hint.searches.delete(query)
         return found.isError ? [] : skillMatches(found.text)
