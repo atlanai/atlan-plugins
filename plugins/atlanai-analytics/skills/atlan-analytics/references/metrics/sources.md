@@ -102,14 +102,13 @@ run, so it can't be imported.
 
 ## Query history
 
-Evidence of use, not a definition. The
-[warehouses](../warehouses.md) reference has the
-**Query history** statements for each warehouse. It also has the fallbacks when access is
-denied, and the one-time view an admin can create so analysts need no extra grant. Section 2 of
-the workflow turns the rows into shapes.
+Evidence of use, not a definition. [Query history](../warehouses/query-history.md) has the
+statements for each warehouse, the fallbacks when access is denied, and the one-time view an
+admin can create so analysts need no extra grant. Section 2 of the workflow turns the rows into
+shapes.
 
-An **export file** works the same way. Take a JSONL or CSV of statement text with run and user
-counts, convert it to `{sql, exec, users}` lines, and start at the filter step.
+An **export file** works the same way: `MINE querylog` reads a JSONL or CSV of statement text
+with run and user counts, then start at the filter step.
 
 ## By hand
 
