@@ -888,25 +888,16 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics-ask",
    "title": "Answer a number from a released metric",
-   "route": "Where metrics live (opens the session), the workspace's metric with one definition, warehouse check, query",
+   "route": "One metric search across workspaces with one definition (opens the session), warehouse check, query",
    "calls": {
     "cold": [
-     {
-      "tool": "registry__search_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "metric",
-       "query": "<measure>"
-      },
-      "workaround_for": "T5"
-     },
      {
       "tool": "extension__metric__search_metrics",
       "runner": "call_read_tool",
       "args": {
-       "workspace_id": "<ws>",
        "query": "<terms>",
-       "definition_limit": 1
+       "definition_limit": 1,
+       "include_definition": true
       }
      },
      {
@@ -944,7 +935,7 @@
     ]
    },
    "budget": {
-    "cold": 4,
+    "cold": 3,
     "warm": 2
    },
    "targets": {
@@ -962,25 +953,16 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics-ask",
    "title": "Answer with no published definition",
-   "route": "Search first, saved queries without SQL, then ad hoc SQL labelled not governed",
+   "route": "One metric search across workspaces, saved queries without SQL, then ad hoc SQL labelled not governed",
    "calls": {
     "cold": [
-     {
-      "tool": "registry__search_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "metric",
-       "query": "<measure>"
-      },
-      "workaround_for": "T5"
-     },
      {
       "tool": "extension__metric__search_metrics",
       "runner": "call_read_tool",
       "args": {
-       "workspace_id": "<ws>",
        "query": "<terms>",
-       "definition_limit": 1
+       "definition_limit": 1,
+       "include_definition": true
       }
      },
      {
@@ -1038,7 +1020,7 @@
     ]
    },
    "budget": {
-    "cold": 5,
+    "cold": 4,
     "warm": 3
    },
    "targets": null,
