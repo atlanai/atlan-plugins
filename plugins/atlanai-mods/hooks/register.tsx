@@ -503,8 +503,10 @@ export const register: Register = (on, options) => {
       setHealth($, mem, { state: 'degraded', server: health?.server ?? '', detail: 'a registry call failed with a temporary error', checkedAt: await $.clock.now() })
     }
     // A transient failure tells the model how to recover: repeat a read after a wait, read back
-    // before repeating a write. The engine never runs a call twice for a hook.
-    if (retry && ran.result !== undefined) {
+    // before repeating a write. The engine never runs a call twice for a hook. A lost skill create
+    // is left to atlanai's publish helper and atlan-author-skills' read-back: it takes no
+    // idempotency_key, so this note's advice would be wrong for it, and two notes would disagree.
+    if (retry && ran.result !== undefined && !(isCallTool && inner.name === PUBLISH)) {
       return { ...ran, context: [...(ran.context ?? []), retryNote(effect === 'read' ? 'read' : 'write', retry)] }
     }
     return ran
