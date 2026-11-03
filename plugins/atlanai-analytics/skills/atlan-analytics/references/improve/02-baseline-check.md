@@ -17,7 +17,8 @@ Do these before round 1. Each has quietly wrecked a hill-climb.
    - Is the gold right? Is the fail real, or a formatting or grain mismatch the comparator
      should forgive?
    - Classify every zero as agent failure or harness error, and take harness errors out of the
-     denominator.
+     denominator: re-record that case into the fresh variant below with
+     `EVAL record --class harness_error --reason "<what failed>"` and no answer file.
    - Fix a bad gold in `answers.jsonl`, re-run its gold SQL into `eval/gold/<case_id>.json`,
      then re-`record` the stored answer and result files into a fresh variant (for example
      `baseline2`). `record` never overwrites a pair, and nothing re-runs the model. Use that

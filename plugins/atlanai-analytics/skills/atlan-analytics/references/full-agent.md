@@ -2,6 +2,10 @@
 
 ## 1. Preflight (every run, quietly)
 
+0. Check the harness first. Build, eval and improve run `scripts/analytics_eval.py` and a
+   Claude Code subagent, so they need a shell and the Agent tool. Without either, as in
+   Claude chat or Cowork, stop with BLOCKED before any registry call: say these modes need
+   Claude Code, and that `ask` and `connect` work here.
 1. Open a registry session as the conventions' **Registry calls** describes, with an
    `objective` naming the project. Keep the `session_id` for every later registry call. If no
    Atlan MCP tools are available at all, stop with BLOCKED: the user needs the `atlan` plugin
@@ -21,8 +25,8 @@ Show one line per check (`ok` or what failed).
 
 ## 2. Resume or start
 
-- Look for `.atlan-analytics/*/state.json`. For each one, read its `phase`, `agent_id` and
-  `workspace_id`.
+- Look for `.atlan-analytics/*/state.json`. For each one, read its `phase`, `ids.agent_id` and
+  `ids.workspace_id` (a project adopted before 0.4.4 keeps the two ids at the top level).
 - **One project mid-flight:** welcome back in two sentences (what exists, what's next), then
   continue in the skill for its phase.
 - **Several projects:** ask which one, with the most recently updated recommended.
@@ -48,7 +52,7 @@ Show one line per check (`ok` or what failed).
 | improve, round_N | `atlan-analytics improve` |
 | any, when the user asks "how is it scoring" | `atlan-analytics eval` |
 
-An explicit argument (`/atlan-analytics improve`) wins over the phase.
+An explicit argument (`/atlanai-analytics:atlan-analytics improve`) wins over the phase.
 
 ## What the user ends up with
 
@@ -56,7 +60,8 @@ An explicit argument (`/atlan-analytics improve`) wins over the phase.
   (`sql_query`) and any rule skills.
 - A **registered agent** and a **Claude Code subagent** `.claude/agents/<slug>.md` that is that
   agent. It can read only the registry and the warehouse. Running it, and so the eval and
-  improve phases, needs Claude Code's subagents; metrics and propose modes work in any harness.
+  improve phases, needs Claude Code's subagents. Metrics and propose modes need a shell for
+  their scripts, not subagents; only ask and connect work in any harness.
 - A **local eval set**: questions, plus gold SQL kept out of the agent's reach.
 - **Experiments in the registry**: every run's score and session, visible in the
   agent's Evals and Sessions tabs.

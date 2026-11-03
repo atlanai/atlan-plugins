@@ -52,7 +52,7 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
    - **Prompt, model or effort**: edit `.claude/agents/<slug>.md`, and mirror the prompt to
      the registered agent with `registry__patch_artifact` (`instructions`, `model_id`). The
      subagent file is re-read by new sessions. If the edit doesn't take effect in this session,
-     tell the user to restart and resume with `/atlan-analytics`.
+     tell the user to restart and resume with `/atlanai-analytics:atlan-analytics`.
 5. Write `H/vN/change.patch` (the diff of the definition JSON or the subagent file) and
    `H/vN/receipt.json` (the artifact id, before/after version ids and ordinals, and any release
    ids actually consumed by the run). Record a proposed change as proposed, never as saved.
