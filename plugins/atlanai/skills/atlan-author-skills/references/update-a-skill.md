@@ -24,10 +24,11 @@ registry__request_file_upload → PUT → registry__create_artifact kind:file �
 with the identity unchanged. Check `version_ordinal` in the returned slot to confirm it
 appended rather than started a new line.
 
-**A byte-identical re-upload is an idempotent no-op.** It returns the existing head with
-**no** new version. So "nothing changed" has two causes worth telling apart:
+**A byte-identical re-upload is refused with a `409`** whose slot carries
+`existing_artifact_id`, the head it matches, and writes **no** new version. So "nothing changed"
+has two causes worth telling apart:
 
-- the bytes were identical - nothing needed to change;
+- the bytes were identical (that `409`) - nothing needed to change;
 - the `name` or `source_id` differed - you started a *new* line and the old skill is
   untouched.
 

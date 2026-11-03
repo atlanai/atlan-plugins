@@ -21,8 +21,9 @@ Never post with a lookalike tool from another product.
 
 ## Where it goes
 
-In order: the channel or person the user named, then `slack` in `.atlan/share.json`. With
-neither, suggest one channel whose name matches the workspace when a channel search tool is
+In order: the channel or person the user named, then `slack` in `.atlan/share.json` (with no
+working folder, as in Claude chat, the channel remembered in the tool's memory or project
+instructions). With none, suggest one channel whose name matches the workspace when a channel search tool is
 available (`#platform-eng` for Platform Engineering), and ask.
 
 - **A channel**: resolve the name with the tool's channel search when it has one. Read its topic
