@@ -1,15 +1,16 @@
 # Registry Mods
 
 A Claude Code mod for the `atlanai` plugin. Every Atlan registry call goes through one tool,
-`mcp__call_tool`, so Claude Code's own permission rules cannot tell a search from an archive. This
-mod can:
+`mcp__call_tool`, so Claude Code's own permission rules cannot tell a search from an archive. The
+mod knows the gateway by its tool names, so a gateway added by hand under another name
+(`claude mcp add atlan-prod …`) is covered too. This mod can:
 
 | What | How |
 |---|---|
 | Registry reads run without a prompt | Searches, reads and listings are allowed at the permission check. Your deny rules and your organization's limits still apply. |
 | Writes ask first | A create, patch, append or relate asks, and the prompt names the write. Turn this off with the `confirm_writes` option. |
 | Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`). Where nobody can answer, as under `claude -p`, the call is refused. A name in another case, with spaces around it, or wrapped in a nested `mcp__call_tool` asks the same way. |
-| Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them. The session's audit session is reused, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A call with no rationale is refused with the fix. |
+| Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them, for the registry's tools and the apps' (`extension__…`) alike; another server's tool keeps an argument of the same name. The session's audit session is reused, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A call with no rationale is refused with the fix. |
 | Outages are absorbed | When Atlan answers 502, 503 or 504, or a server behind it is briefly unavailable, Claude is told to repeat a read after the gateway's wait (2 seconds when it names none), at most 3 tries, and to read back before repeating a write; a lost skill publish is left to `atlanai`'s publish helper and the publish skill's read-back. The mod's own lookups retry once. |
 | Connection problems show | The status line says when Atlan needs a sign-in, cannot be reached, is not connected or is answering with temporary errors (`Atlan: degraded, retrying reads`). A failed check is diagnosed from its error, not reported as a timeout. It shows nothing while the connection works. |
 | A skipped guard shows | If another plugin answers the permission check for an Atlan write before this mod can, the write did not get its confirmation: the status line says `Atlan: write guard skipped` and `/atlan` says how many. `/atlan` also counts reads that another plugin answered first, which is why they may ask. See [when another plugin answers first](#when-another-plugin-answers-first). |
