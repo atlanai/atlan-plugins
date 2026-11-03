@@ -32,8 +32,10 @@ uses its machine identity.
    reach more than one, say which you are using rather than picking.
 
 4. Before your first write to a kind you have not written to before, call
-   `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
-   as a generic 400 that does **not** name the field.
+   `registry__get_kind_schema { "kind": "<kind>" }`. Its `required` lists what a create must
+   send, `properties` what each field takes, `relationships` the edges the kind may start and
+   `body` whether it takes content (`verbose: true` returns the stored manifest). A missing
+   required property can come back as a generic 400 that does **not** name the field.
 
 ## Read the kind first
 

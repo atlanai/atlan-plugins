@@ -37,9 +37,10 @@ released.
 
 A patch that touches only `display_name` or `description` still edits in place.
 
-To label the version, or to keep it unreleased, publish it explicitly with
-`POST /agent/v1/agents/{agent_id}/versions` - the same change set as a patch, plus
-`version_label`, a version `description` and `auto_release`.
+To label the version a patch made, cut its release with `registry__release_artifact`
+(`artifact_id`, the new `version_id`, and `version_label`, such as `1.2.0`);
+`registry__list_releases` shows what each channel ships. Do not call the agent app's HTTP routes
+yourself.
 
 ## Merge semantics
 
