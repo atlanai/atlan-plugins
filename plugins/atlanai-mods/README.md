@@ -12,7 +12,7 @@ mod can:
 | Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them. The session's audit session is reused, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A call with no rationale is refused with the fix. |
 | Outages are absorbed | When Atlan answers 502, 503 or 504, or a server behind it is briefly unavailable, Claude is told to repeat a read after the gateway's wait (2 seconds when it names none), at most 3 tries, and to read back before repeating a write. The mod's own lookups retry once. |
 | Connection problems show | The status line says when Atlan needs a sign-in, cannot be reached, is not connected or is answering with temporary errors (`Atlan: degraded, retrying reads`). A failed check is diagnosed from its error, not reported as a timeout. It shows nothing while the connection works. |
-| A skipped guard shows | If another plugin answers the permission check for an Atlan write before this mod can, the write did not get its confirmation: the status line says `Atlan: write guard skipped` and `/atlan` says how many. |
+| A skipped guard shows | If another plugin answers the permission check for an Atlan write before this mod can, the write did not get its confirmation: the status line says `Atlan: write guard skipped` and `/atlan` says how many. `/atlan` also counts reads that another plugin answered first, which is why they may ask. See [when another plugin answers first](#when-another-plugin-answers-first). |
 | Atlan calls read as one line | Each Atlan call's row in the transcript says what it did and what came back (`Atlan · searched skills for "churn"`, then `7 found: pii-scrub 1.0.0, ...`) in place of the raw JSON. Ctrl+O shows the full call. |
 | The Atlan pane | A pane beside the chat lists the artifacts this session read, created, changed, archived or published, with their version and status, and copies an artifact's id. It opens by itself at the session's first change in Atlan, or with `/atlan pane`. |
 | A card for archive, approve and move | While one of these waits for your answer, the pane shows it as a card: the artifact, its version and workspace, each artifact that depends on it, and what the change does to everyone else. |
@@ -23,7 +23,20 @@ mod can:
 
 Other servers reached through Atlan (Slack, Linear and the rest) are left to your permission
 rules, whatever their tool annotations say: a server's own read-only claim is not trusted to skip
-a prompt. A tool its server marks destructive always asks.
+a prompt. A tool its server marks destructive always asks, and is refused where nobody can answer.
+
+An allow rule you set on `mcp__call_tool` is not enough to skip a write's prompt while
+`confirm_writes` is on: the mod asks anyway. Turn `confirm_writes` off to let your rules decide
+writes. Archive, approve and move ask in every case.
+
+### When another plugin answers first
+
+Plugins answer a permission check in order, and a plugin seated above this one can decide the
+check without passing it on. Claude Code's default security plugin (`cc-plugin-sec-default`) does
+this in some hosts, and the transcript says `atlanai-mods: its tool.check hook was skipped`. Then
+none of the rows above about prompts apply: reads ask again, writes and archives run on the other
+plugin's verdict, and this mod can only count them afterwards (`/atlan`). Nothing in a mod can
+move it above another plugin. Check which plugins answer permission prompts with `/plugin`.
 
 ## Install
 

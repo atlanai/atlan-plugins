@@ -112,7 +112,7 @@ def filter_querylog(src: str, dst: str) -> dict:
             if not line.strip():
                 continue
             row = json.loads(line)
-            why = pii_reason(row.get("sql") or row.get("query_text") or "")
+            why = pii_reason(row.get("sql") or row.get("query_text") or row.get("statement_text") or "")
             if why:
                 dropped += 1
                 by[why] = by.get(why, 0) + 1
@@ -387,10 +387,16 @@ def cmd_init(a) -> dict:
     """Create (or report) the project's state.json. Idempotent: an existing project is returned as is."""
     pr = Proj(a.dir)
     st = pr.state()
+    adopt = {k: v for k, v in (("agent_id", getattr(a, "agent_id", None)),
+                               ("workspace_id", getattr(a, "workspace_id", None))) if v}
     if st:
-        return {"status": "ok", "created": False, "state": st}
-    st = {"slug": a.slug or pr.dir.name, "phase": "preflight", "answers": {}, "ids": {}, "decisions": [],
+        for key, value in adopt.items():  # adopting an agent into an existing project
+            pr.set_id(key, value)
+        return {"status": "ok", "created": False, "state": pr.state() if adopt else st}
+    st = {"slug": a.slug or pr.dir.name, "phase": "preflight", "answers": {}, "ids": adopt, "decisions": [],
           "created_at": now(), "updated_at": now()}
+    if adopt:
+        st["adopted"] = True
     for sub in ("eval", "hillclimb"):
         pr.p(sub).mkdir(parents=True, exist_ok=True)
     dump_json(pr.p("state.json"), st)
@@ -546,7 +552,14 @@ def cmd_record(a) -> dict:
     res_path = vd / "results.jsonl"
     if (a.case, a.rep) in _done(res_path):
         return {"status": "ok", "exists": True, "case": a.case, "rep": a.rep}
-    ans = _read_answer(a.answer_file)
+    harness_error = getattr(a, "cls", None) == "harness_error"
+    if harness_error and not getattr(a, "reason", None):
+        raise Blocked("A harness error needs --reason.", "Say what failed: the tool, the timeout or the crash.")
+    if not harness_error and not a.answer_file:
+        raise Blocked("No --answer-file.", "Pass the agent's answer, or --class harness_error when the run failed.")
+    ans = _read_answer(a.answer_file) if a.answer_file and pathlib.Path(a.answer_file).exists() else {}
+    if not ans and not harness_error:
+        raise Blocked(f"No answer file at {a.answer_file}.", "Write the agent's answer there, or record --class harness_error.")
     gold_res = load_json(a.gold_result) if a.gold_result else None
     agent_res = load_json(a.agent_result) if a.agent_result and pathlib.Path(a.agent_result).exists() else None
     # keep the executed results beside the row so a re-grade needs no warehouse
@@ -555,7 +568,9 @@ def cmd_record(a) -> dict:
         dump_json(vd / "results" / f"{tag}.gold.json", gold_res)
     if agent_res is not None:
         dump_json(vd / "results" / f"{tag}.agent.json", agent_res)
-    if a.gold_result:
+    if harness_error:  # the run failed, not the agent: out of the scored denominator
+        g = {"grade": {"pass": 0, "exec_ok": 0, "extra_cols": 0}, "class": "harness_error", "reason": a.reason}
+    elif a.gold_result:
         g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "")
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
         g = {"grade": {"pass": 0, "exec_ok": int(agent_res is not None), "extra_cols": 0}, "class": "ungraded",
@@ -771,7 +786,8 @@ class Publication:
 
 def _context(pr: Proj, a) -> dict:
     st = pr.state()
-    ids = st.get("ids") or {}
+    # An agent adopted before 0.4.4 kept its ids at the top level of state.json, not under `ids`.
+    ids = {k: st[k] for k in ("agent_id", "workspace_id") if st.get(k)} | (st.get("ids") or {})
     ws = getattr(a, "workspace", None) or ids.get("eval_workspace_id") or ids.get("workspace_id")
     agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
     if not ws or not agent_id:
@@ -1150,6 +1166,28 @@ def selftest() -> dict:
         ok("contamination invalidates", rec("v2", dirty)["class"] == "invalid_contaminated")
         ok("search-mode contamination invalidates", rec("v3", dispatched)["class"] == "invalid_contaminated")
         ok("a write call invalidates", rec("v4", writer)["class"] == "invalid_contaminated")
+        failed = cmd_record(argparse.Namespace(dir=d, variant="v5", case="c1", rep=0, answer_file=None,
+                                               gold_result=str(pr / "gold.json"), agent_result=None,
+                                               transcript=None, model=None, latency_s=None,
+                                               cls="harness_error", reason="the warehouse timed out"))
+        ok("a failed run records as a harness error",
+           failed["class"] == "harness_error"
+           and case_means(read_jsonl(pr / "hillclimb" / "v5" / "results.jsonl")) == {})
+        adopted = pathlib.Path(d) / "adopted"
+        dump_json(adopted / "state.json", {"slug": "adopted", "agent_id": "agent_old", "workspace_id": "workspace_old"})
+        (adopted / "hillclimb" / "v1").mkdir(parents=True)
+        (adopted / "hillclimb" / "v1" / "results.jsonl").write_text(json.dumps({"prompt_id": "c1", "rep": 0}) + "\n")
+        ctx = _context(Proj(str(adopted)), argparse.Namespace(variant="v1"))
+        ok("an agent adopted with top-level ids can publish", ctx["agent_id"] == "agent_old" and ctx["ws"] == "workspace_old")
+        fresh = cmd_init(argparse.Namespace(dir=str(pathlib.Path(d) / "adopted2"), slug="",
+                                            agent_id="agent_new", workspace_id="workspace_new"))["state"]
+        ok("init --agent-id adopts under ids", fresh["ids"] == {"agent_id": "agent_new", "workspace_id": "workspace_new"}
+           and fresh["adopted"] is True)
+        log = pr / "querylog.jsonl"
+        log.write_text(json.dumps({"statement_text": "select * from t where email = 'ann@example.com'"}) + "\n"
+                       + json.dumps({"statement_text": "select region, count(*) from t group by 1"}) + "\n")
+        kept = filter_querylog(str(log), str(pr / "querylog.kept.jsonl"))
+        ok("the PII filter reads a Databricks statement_text log", kept["dropped"] == 1 and kept["kept"] == 1)
         row = read_jsonl(pr / "hillclimb" / "v1" / "results.jsonl")[0]
         ok("usage + tool calls parsed", row["tool_calls"] == 1 and row["usage"]["input_tokens"] == 10)
         ok("legacy answers keep empty revision citations", row["used_context_refs"] == [])
@@ -1190,6 +1228,8 @@ def build_parser() -> argparse.ArgumentParser:
     c = s.add_parser("init", help="create the project's state.json (idempotent)")
     c.add_argument("--dir", required=True)
     c.add_argument("--slug", default="")
+    c.add_argument("--agent-id", help="adopting an existing agent: its id, kept under ids")
+    c.add_argument("--workspace-id", help="adopting an existing agent: its workspace, kept under ids")
     c.set_defaults(func=cmd_init)
 
     c = s.add_parser("split", help="random train/test split, stratified by tags[0], fixed once")
@@ -1217,7 +1257,10 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--variant", required=True)
     c.add_argument("--case", required=True)
     c.add_argument("--rep", type=int, default=0)
-    c.add_argument("--answer-file", required=True)
+    c.add_argument("--answer-file", help="the agent's answer; omit only with --class harness_error")
+    c.add_argument("--class", dest="cls", choices=["harness_error"],
+                   help="record a run that failed for a reason outside the agent (tool failure, timeout)")
+    c.add_argument("--reason", help="with --class: what failed")
     c.add_argument("--gold-result", help="omit only for smoke runs (the row is recorded ungraded)")
     c.add_argument("--question", help="smoke runs only: the ad-hoc question (no gold, not in the eval set)")
     c.add_argument("--agent-result")
