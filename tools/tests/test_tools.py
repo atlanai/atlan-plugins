@@ -837,6 +837,8 @@ class PublishHookTest(unittest.TestCase):
                     for rel, text in case.get("files", {}).items():
                         if rel in sent["files"]:
                             self.assertEqual(sent["files"][rel], text)
+                    self.assertEqual(sent["sha256"], {
+                        rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in sent["files"].items()})
 
     def test_refuses_a_folder_linked_out_of_the_tree_and_never_reads_it(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

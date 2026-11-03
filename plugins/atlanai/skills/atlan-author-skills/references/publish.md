@@ -148,7 +148,10 @@ extension__skill__create {
 ```
 
 Where the `atlanai` publish helper runs as a hook, it reads the folder, checks it as step 2 does,
-and sends its files, so the bytes never pass through your output. A refused check comes
+and sends its files, each with its `sha256`, so the bytes never pass through your output and the
+server refuses the call, listing `sha256_mismatch`, if any text changed on the way; nothing was
+saved, so send the same call again. Leave `sha256` out beside `files_from`: the hook computes it
+from the files it reads and replaces any you give. A refused check comes
 back as a list of problems with file, line and column, and nothing was sent: fix those files and
 call again. `files_from` is a folder inside the working directory, relative to it; the hook
 refuses links, credential folders and anything outside it, and keeps every other field, the
