@@ -76,6 +76,8 @@ def dump_json(path, obj) -> None:
 _PERSON = (r"(?:assignee|assigned_agent|agent|requester|submitter|reviewer|author|owner|user|updater|actor|"
            r"creator|employee|csm|manager)")
 _CUSTOMER = r"(?:customer|account|organization|organisation|org|company|tenant|domain|client)"
+_RECORD = (r"(?:member|visitor|session|device|patient|contact|lead|subscriber|ticket|record|case|order|invoice|"
+           r"incident|issue|transaction|payment|subscription|cart|shipment)")
 _OPS = r"(?:=|<>|!=|\bi?like\b|\bin\s*\()"
 _COL = r"[\w.\"]*?"
 PII_RULES = [
@@ -86,6 +88,12 @@ PII_RULES = [
     ("record_id", re.compile(r"\b[\w.\"]*?(?:ticket|record|case|order|invoice|incident|issue)_?id\"?\s*"
                              r"(?:=|in\s*\()\s*'?\d{4,}", re.I)),
     ("history_value", re.compile(r"(?:\bvalue\"?|prev_assignee)\s*(?:=|<>|!=|in\s*\()\s*'?\d{10,}", re.I)),
+    # Any literal, of any length, compared with the ID of a person, customer or record: a short
+    # numeric `user_id = 42` identifies as well as a long one.
+    ("entity_id", re.compile(rf"\b{_COL}(?:{_PERSON}|{_CUSTOMER}|{_RECORD})_?(?:id|uuid|key|number|no)\"?\s*{_OPS}\s*(?:'|[-+]?\d)", re.I)),
+    ("uuid", re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)),
+    # A prefixed ID such as 'cus_8Hk2Lm9' or 'ord_ab12cd': a short prefix, then letters and digits.
+    ("prefixed_id", re.compile(r"'[a-z]{2,5}_(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6,}'")),
     ("full_name", re.compile(r"'%?[A-Z][a-z]+ [A-Z][a-z]+%?'")),
 ]
 _FULL_NAME_OK = re.compile(r"'%?(?:Pending Ruling|Not Applicable|Closed Won|Closed Lost|United States|"
@@ -180,8 +188,10 @@ def normalize_result(obj) -> dict:
             schema = manifest.get("schema") or {}
             cols = [c.get("name") for c in schema.get("columns") or [] if isinstance(c, dict)]
             data = (obj.get("result") or {}).get("data_array") or []
+            # More chunks to fetch means this response holds only the first of them.
+            more = (obj.get("result") or {}).get("next_chunk_index") is not None
             return {"columns": cols, "rows": [list(r) for r in data],
-                    "truncated": bool(manifest.get("truncated"))}
+                    "truncated": bool(manifest.get("truncated")) or more}
         cols = obj.get("columns") or obj.get("column_names")
         rows = obj.get("rows")
         if cols is not None and isinstance(rows, list):
@@ -298,11 +308,17 @@ def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x") -> dict
     agent = normalize_result(agent_res)
     if agent.get("error"):
         return {"grade": zero, "class": "agent_sql_error", "reason": agent["error"]}
+    if gold.get("truncated") or agent.get("truncated"):
+        # Matching first pages do not make matching answers, and differing ones may differ only
+        # past the cut. Neither result is complete, so the case cannot be graded: it leaves the
+        # scored denominator, as a harness error does, until every page is fetched.
+        cut = [n for n, r in (("gold", gold), ("agent", agent)) if r.get("truncated")]
+        which = "gold and agent results are" if len(cut) == 2 else f"{cut[0]} result is"
+        return {"grade": {**zero, "exec_ok": 1}, "class": "incomplete",
+                "reason": f"the {which} truncated: fetch every page, or bound the query, and grade again"}
     cmp = compare(gold, agent, gold_sql)
-    truncated = bool(gold.get("truncated") or agent.get("truncated"))
     return {"grade": {"pass": cmp["pass"], "exec_ok": 1, "extra_cols": cmp["extra_cols"]},
-            "class": "pass" if cmp["pass"] else "wrong_result",
-            "reason": cmp["reason"] + (" (results truncated)" if truncated else "")}
+            "class": "pass" if cmp["pass"] else "wrong_result", "reason": cmp["reason"]}
 
 
 # ====================================================================== project layout
@@ -603,11 +619,14 @@ def cmd_grade(a) -> dict:
                                     pathlib.Path(a.gold_sql).exists() else (a.gold_sql or ""), "x")}
 
 
+UNSCORED = ("harness_error", "gold_error", "incomplete")
+
+
 def case_means(rows: list, metric: str = "pass") -> dict:
     by: dict = {}
     for r in rows:
-        if r.get("class") in ("harness_error", "gold_error"):
-            continue  # not the agent's fault: out of the scored denominator
+        if r.get("class") in UNSCORED:
+            continue  # not the agent's fault, or not gradable: out of the scored denominator
         by.setdefault(r["prompt_id"], []).append(float((r.get("grade") or {}).get(metric, 0)))
     return {k: sum(v) / len(v) for k, v in by.items()}
 
@@ -1114,12 +1133,33 @@ def selftest() -> dict:
        == "agent_sql_error")
     ok("agent error class", grade(g, {"error": "invalid identifier"}, "", "select nope")["class"] == "agent_sql_error")
     ok("no sql class", grade(g, None, "", "")["class"] == "no_sql")
+    cut = {"columns": ["n"], "rows": [[1], [2]], "truncated": True}
+    ok("matching truncated results are incomplete, not a pass",
+       grade(cut, cut, "", "select 1")["class"] == "incomplete" and grade(cut, cut, "", "select 1")["grade"]["pass"] == 0)
+    ok("a truncated agent result against a full gold is incomplete",
+       grade({"columns": ["n"], "rows": [[1], [2], [3]]}, cut, "", "select 1")["class"] == "incomplete")
+    ok("a databricks response with more chunks is truncated",
+       grade([{"N": 3}], {**dbx, "result": {"data_array": [["3"]], "next_chunk_index": 1}}, "", "select 1")["class"]
+       == "incomplete")
+    ok("incomplete cases leave the denominator",
+       case_means([{"prompt_id": "a", "class": "incomplete", "grade": {"pass": 0}},
+                   {"prompt_id": "b", "class": "pass", "grade": {"pass": 1}}]) == {"b": 1.0})
     cs = [{"case_id": f"c{i}", "tags": ["a" if i % 2 else "b"]} for i in range(10)]
     s1, s2 = make_split(cs, 0.5, 7), make_split(cs, 0.5, 7)
     ok("split deterministic + disjoint", s1 == s2 and not set(s1["train_ids"]) & set(s1["test_ids"]))
     ok("pii email", pii_reason("select * from t where email = 'a.b@x.com'") == "email")
     ok("pii person name", pii_reason("select * from t where assignee_name ilike '%sam%'") == "person_name")
     ok("pii clean", pii_reason("select count(*) from t where status = 'solved'") is None)
+    for sql, why in (("select * from t where customer_id = 'cus_8Hk2Lm9'", "entity_id"),
+                     ("select * from t where user_id = 42", "entity_id"),
+                     ("select * from t where o.order_number in (17, 18)", "entity_id"),
+                     ("select * from t where actor = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'", "uuid"),
+                     ("select * from t where ref = 'ord_ab12cd'", "prefixed_id")):
+        ok(f"pii {why}: {sql[22:]}", pii_reason(sql) is not None)
+    for sql in ("select sum(amount) from orders o join customers c on o.customer_id = c.customer_id where o.status = 'paid'",
+                "select count(*) from t where region = 'eu_central' and amount > 1000",
+                "select count(*) from t where status_id = 2"):
+        ok(f"pii keeps business literals: {sql[-30:]}", pii_reason(sql) is None)
     # The value registry CLI's identity.v1 traceId gives this session, so a proposal names the trace the desktop sync uploads.
     ok("session trace id matches the desktop sync",
        session_trace_id("claude-code", "0b3f7c2e-5d41-4a8e-9c6b-2f1e8d7a4c90") == "807a0b2e8d4753667014b60e5c11bd75")

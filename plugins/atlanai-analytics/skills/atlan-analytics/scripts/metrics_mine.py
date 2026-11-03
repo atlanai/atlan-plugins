@@ -368,11 +368,46 @@ def _sql_fields(d: dict) -> list:
     return out
 
 
+_ID_OWNER = (r"(?:assignee|agent|requester|reviewer|author|owner|user|actor|creator|employee|manager|customer|"
+             r"account|organization|organisation|org|company|tenant|client|member|visitor|session|device|patient|"
+             r"contact|lead|subscriber|ticket|record|case|order|invoice|incident|issue|transaction|payment|"
+             r"subscription|cart|shipment)")
+# A literal compared with a person's, customer's or record's ID, whatever its length; a UUID; a
+# prefixed ID such as 'cus_8Hk2Lm9'. A heuristic, as analytics_eval's query-log filter is: the
+# person still reviews the preview before anything is saved.
+_ENTITY_ID = re.compile(rf"\b[\w.\"]*?{_ID_OWNER}_?(?:id|uuid|key|number|no)\"?\s*(?:=|<>|!=|\bi?like\b|\bin\s*\()"
+                        r"\s*(?:'|[-+]?\d)", re.I)
+_UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
+_PREFIXED_ID = re.compile(r"'[a-z]{2,5}_(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6,}'")
+
+
 def _pii(text: str):
     if _EMAIL.search(text or ""):
         return "an email address"
     m = _FULLNAME.search(text or "")
-    return f"a person's name ({m.group(0)})" if m else None
+    if m:
+        return f"a person's name ({m.group(0)})"
+    if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
+        return "an identifier literal: make it a parameter, or leave the row out"
+    return None
+
+
+# Statements that change data or grants. Read-only checks look for them anywhere in the code, not
+# only at the start: `WITH d AS (DELETE ... RETURNING *) SELECT ...` begins with WITH.
+# SELECT ... INTO makes a table in PostgreSQL and SQL Server.
+_WRITES = re.compile(r"\b(insert|update|delete|merge|upsert|truncate|drop|create|alter|grant|revoke|copy|call|into)\b",
+                     re.I)
+
+
+def _writes(sql: str):
+    """The first data- or grant-changing keyword in the SQL's code, outside strings, quoted names
+    and comments, or None."""
+    for kind, text in scan(sql or ""):
+        if kind == "code":
+            m = _WRITES.search(text)
+            if m:
+                return m.group(1).upper()
+    return None
 
 
 def check_metric(body: dict) -> tuple:
@@ -475,6 +510,8 @@ def check_metric(body: dict) -> tuple:
         why = _pii(text)
         if why:
             errs.append(f"{where} holds {why}")
+        if _writes(text):
+            errs.append(f"{where} holds {_writes(text)}: a metric reads, it never changes data")
     for p in sorted(used - declared):
         errs.append(f"{{{{{p}}}}} is used but not declared in source.parameters")
     for p in sorted(declared - used):
@@ -504,6 +541,8 @@ def check_query(body: dict) -> tuple:
         errs.append("definition.sql must be one SELECT or WITH statement")
     if ";" in _code_only(sql):
         errs.append("definition.sql holds more than one statement")
+    if sql and _writes(sql):
+        errs.append(f"definition.sql holds {_writes(sql)}: a saved query only reads")
     why = _pii(d.get("sql") or "")
     if why:
         errs.append(f"definition.sql holds {why}")
@@ -512,17 +551,27 @@ def check_query(body: dict) -> tuple:
     return errs, warns
 
 
-def _norm_pred(text: str) -> str:
-    return normalize(text or "").replace(" ", "")
+def _canon(text: str) -> str:
+    """A predicate or formula as compared for identity: no comments, no spaces, code and quoted
+    names in lower case, and every literal kept as written. Unlike normalize(), which keys query
+    shapes, `status = 'paid'` and `status = 'refunded'`, or `amount > 100` and `amount > 1000`,
+    stay different: the literals are the population the metric counts."""
+    parts = []
+    for kind, text in scan(text or ""):
+        if kind == "comment":
+            continue
+        parts.append(text if kind in ("str", "dollar") else _WS.sub("", text).lower())
+    return "".join(parts).rstrip(";")
 
 
 def identity(body: dict) -> str:
-    """What a metric measures: entity, FROM clause, formula and mandatory filters. Never its name."""
+    """What a metric measures: entity, FROM clause, formula and mandatory filters, literals
+    included. Never its name."""
     d = body.get("definition") or {}
     src = d.get("source") or {}
-    parts = [_ident(src.get("entity") or ""), _norm_pred(src.get("sql") or src.get("table") or ""),
-             _norm_pred(d.get("formula") or ""),
-             "|".join(sorted(_norm_pred(f) for f in d.get("mandatory_filters") or []))]
+    parts = [_ident(src.get("entity") or ""), _canon(src.get("sql") or src.get("table") or ""),
+             _canon(d.get("formula") or ""),
+             "|".join(sorted(_canon(f) for f in d.get("mandatory_filters") or []))]
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:16]
 
 
@@ -580,6 +629,9 @@ def cmd_check(a) -> dict:
         if hit is not None:
             match = hit.get("id")
             action = "reuse" if _same(body, hit) else "revise"
+            if identity(hit) != ident:
+                warns.append(f"changes what live {hit.get('name')!r} measures (its source, formula or mandatory "
+                             "filters): show the person both definitions before it is revised")
             if hit.get("name") != body.get("name"):
                 errs.append(f"revises {hit.get('name')!r} under a new name: a name is frozen at create")
         elif ("metric", body.get("name")) in live_names:
@@ -734,6 +786,37 @@ def selftest() -> dict:
     for frag in ("retired", "disagrees", "its own cut", "fixed date", "no evidence"):
         ok(f"a bad card is refused: {frag}", any(frag in x for x in e))
     ok("identity ignores the name", identity(good) == identity({**good, "name": "other"}))
+    def variant(**changes):
+        body = json.loads(json.dumps(good))
+        body["definition"].update(changes)
+        return body
+    for what, a_def, b_def in (
+            ("paid vs refunded", {}, {"mandatory_filters": ["DB.S.ORDERS.STATUS = 'refunded'"]}),
+            ("included vs excluded", {}, {"mandatory_filters": ["DB.S.ORDERS.STATUS <> 'paid'"]}),
+            ("thresholds", {"formula": "SUM(CASE WHEN AMOUNT > 100 THEN AMOUNT END)"},
+             {"formula": "SUM(CASE WHEN AMOUNT > 1000 THEN AMOUNT END)"}),
+            ("currency", {"mandatory_filters": ["DB.S.ORDERS.CURRENCY = 'USD'"]},
+             {"mandatory_filters": ["DB.S.ORDERS.CURRENCY = 'EUR'"]}),
+            ("conditional formula", {"formula": "SUM(IFF(CHANNEL = 'web', AMOUNT, 0))"},
+             {"formula": "SUM(IFF(CHANNEL = 'store', AMOUNT, 0))"})):
+        ok(f"identity keeps literals: {what}", identity(variant(**a_def)) != identity(variant(**b_def)))
+    ok("identity ignores spacing, case and comments",
+       identity(variant(formula="sum( db.s.orders.amount ) -- gross")) == identity(good))
+    for text in ("with d as (delete from orders returning *) select count(*) from d",
+                 "with x as (select 1) insert into t select * from x",
+                 "select * into backup from orders"):
+        q = {"name": "q", "display_name": "Q", "definition": {"spec_version": QUERY_SPEC, "question": "x",
+                                                              "dialect": "postgres", "sql": text}}
+        ok(f"a writing statement is refused: {text[:24]}", any("only reads" in x for x in check_query(q)[0]))
+    q = {"name": "q", "display_name": "Q", "definition": {"spec_version": QUERY_SPEC, "question": "x", "dialect": "snowflake",
+         "sql": "select count(*) as updates, 'delete' as label from t where \"update\" > 0 -- insert"}}
+    ok("write words in names, strings and comments are not writes", not check_query(q)[0])
+    for text in ("select * from t where customer_id = 'cus_8Hk2Lm9'", "select * from t where user_id = 42",
+                 "select * from t where ref = 'ord_ab12cd'",
+                 "select * from t where k = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'"):
+        ok(f"identifier literal refused: {text[22:]}", _pii(text) is not None)
+    ok("joins on ids are not literals",
+       _pii("select 1 from o join c on o.customer_id = c.customer_id where o.status = 'paid'") is None)
 
     with tempfile.TemporaryDirectory() as td:
         t = pathlib.Path(td)
@@ -755,6 +838,22 @@ def selftest() -> dict:
         plan = load_json(t / "run" / "plan.json")
         ok("check adopts a live metric that measures the same", r["status"] == "ok"
            and plan["metrics"][0]["action"] == "reuse" and plan["metrics"][0]["name"] == "paid_rev")
+        refunded = variant(mandatory_filters=["DB.S.ORDERS.STATUS = 'refunded'"])
+        refunded.update({"name": "refunded_revenue", "display_name": "Refunded Revenue",
+                         "description": "Revenue from refunded orders."})
+        refunded["definition"]["output"]["alias"] = "refunded_revenue"
+        refunded.pop("source_id", None)
+        dump_json(t / "run" / "metrics.json", [refunded])
+        r = cmd_check(argparse.Namespace(dir=str(t / "run")))
+        plan = load_json(t / "run" / "plan.json")
+        ok("a different population is a new metric, never a revision", plan["metrics"][0]["action"] == "create"
+           and plan["metrics"][0]["match_id"] is None and plan["metrics"][0]["name"] == "refunded_revenue")
+        moved = json.loads(json.dumps(refunded))
+        moved.update({"name": "paid_rev", "source_id": "x"})
+        dump_json(t / "run" / "metrics.json", [moved])
+        cmd_check(argparse.Namespace(dir=str(t / "run")))
+        ok("revising a live metric's population is called out", any(
+            "changes what live 'paid_rev' measures" in w["warning"] for w in load_json(t / "run" / "plan.json")["warnings"]))
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 
 

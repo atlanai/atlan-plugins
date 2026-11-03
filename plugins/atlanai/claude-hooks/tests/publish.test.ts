@@ -259,6 +259,31 @@ describe('files_from', () => {
     expect(String((skills[1]?.files as Record<string, string>)['SKILL.md'])).toContain('name: two')
   })
 
+  test("expands under the write runner too, and never under another server's call_tool", async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    disk.file(`${CWD}/demo/SKILL.md`, SKILL)
+    await $.tool.call({ ...publish({ files_from: 'demo' }), tool: 'mcp__plugin_atlanai_atlan__mcp__call_write_tool' } as never)
+    await $.tool.call({ ...publish({ files_from: 'demo' }), tool: 'mcp__unrelated_vendor__call_tool' } as never)
+    expect(sent.length).toBe(2)
+    expect(Object.keys(skillsOf(sent[0])[0]?.files as object)).toEqual(['SKILL.md'])
+    expect(skillsOf(sent[1])[0]?.files_from).toBe('demo')
+    expect(skillsOf(sent[1])[0]?.files).toBe(undefined)
+  })
+
+  test("counts the other skills' inline files in the call's one budget", async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    disk.file(`${CWD}/demo/SKILL.md`, SKILL)
+    disk.file(`${CWD}/demo/references/big.md`, 'x'.repeat(150 * 1024))
+    const call = publish({ files_from: 'demo' })
+    call.arguments.skills.push({ name: 'two', workspace_id: 'workspace_01ws', files: { 'SKILL.md': SKILL + 'y'.repeat(150 * 1024) } } as never)
+    const ran = (await $.tool.call(call as never)) as { deny?: string }
+    expect(sent.length).toBe(0)
+    expect(String(ran.deny)).toContain('too-large: ')
+    expect(String(ran.deny)).toContain('Nothing was sent')
+  })
+
   test('takes arguments sent as a JSON string, and sends them back the same way', async ($, on) => {
     const disk = new Disk()
     const sent = engine(on, disk)
@@ -337,6 +362,7 @@ describe('a lost reply', () => {
     const note = (ran.context ?? []).join('\n')
     expect(note).toContain('registry__search_artifacts')
     expect(note).toContain('no idempotency_key')
+    expect(note).toContain('include_unreviewed: true')
   })
 
   test('tells the model to resend unchanged when every skill carried a key', async ($, on) => {

@@ -107,12 +107,21 @@ resending the batch re-runs the ones that landed. A created slot carries the ski
 | `artifact_status` | Means |
 |---|---|
 | `active`, with `current_releases` | Scanned and released. Under the default `auto` policy a new skill ships to `latest` as `0.1.0`, and each new version as the next minor. |
-| `pending_review` | The scan has not settled. Check again with `registry__get_artifact` and `channel: "latest"`. |
+| `pending_review` | The scan has not settled. Check again with `registry__get_artifact` and no `channel` (the head), and trust the answer only when its `version_ordinal` is the slot's: [following a pending version](#following-a-pending-version). |
 | `blocked` | The scan refused it. The slot's `security` lists the findings, or read them: [when the scan blocks it](#when-the-scan-blocks-it). |
 
 A `409` slot with `existing_artifact_id` means the bundle is byte-identical to that skill's head:
 nothing changed. An older skill app answers only the full record with no `next`; read
-`artifact_status` and, if needed, `registry__get_artifact` with `channel: "latest"`.
+`artifact_status` and, if needed, follow the version as below.
+
+### Following a pending version
+
+Track the version this create made, never a channel. `channel: "latest"` names the newest
+*released* version, so while the new one is still scanning it answers with the older release,
+and that release's `active` says nothing about the new version. Read the head
+(`registry__get_artifact`, no `channel`) and check its `version_ordinal` is the slot's before you
+read its `artifact_status`. Call it released only when `current_releases` names that version. A
+higher `version_ordinal` means someone published after you: report it and stop polling.
 
 ## When the reply is lost
 
@@ -127,7 +136,9 @@ with `409 idempotency_conflict`, and a new key writes a second version.
 **Without one** (an older skill app, or a call sent without it), resending the bundle writes a
 second version, or a `409`. Read back first:
 
-1. `registry__search_artifacts` with `kind: "skill"`, the `workspace_id` and the skill's `name`.
+1. `registry__search_artifacts` with `kind: "skill"`, the `workspace_id`, the skill's `name` and
+   `include_unreviewed: true`. Without it the search leaves out a version still under scan, which
+   is exactly what a create cut off mid-scan leaves behind.
 2. `registry__get_artifact` with the match's `artifact_id`. The version landed when its
    `version_ordinal` is the one you expected (1 for a new skill, the old head's plus one) and its
    `updated_at` is no earlier than 10 seconds before you sent the create.
