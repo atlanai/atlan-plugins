@@ -107,9 +107,10 @@ Every Atlan skill starts here; its own references add only what differs.
 
 4. **Write first, and read `registry__get_kind_schema { "kind": "<kind>" }` only when a write
    is refused.** The skill you follow lists what each kind takes, and kind schemas are closed,
-   so a property the kind lacks is refused by name. A missing required property or a value a
-   check rejects can come back as a generic 400 that does **not** name the field. On either
-   refusal, read the schema once (`required` lists what a create must send, `properties` what
+   so a wrong property is refused, not stored. A refusal that carries `field` names the
+   argument to fix. An unknown property, a missing required one or a value a check rejects comes
+   back as a 400 or 422 `validation_failed` that does **not** name the field. Then read the
+   schema once (`required` lists what a create must send, `properties` what
    each field takes, `relationships` the edges the kind may start, see `references/edges.md`,
    and `body` whether it takes content), fix the call and send it once more. Read it before the
    write only for a kind no skill describes.
