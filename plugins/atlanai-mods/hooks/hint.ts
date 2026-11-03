@@ -64,7 +64,9 @@ const text = (value: unknown): string => (typeof value === 'string' ? value.trim
  * above the threshold, best first, at most HINT_MAX. A result in another shape finds none.
  */
 export function skillMatches(result: string, threshold = HINT_SIMILARITY): SkillMatch[] {
-  for (const object of jsonObjects(result)) {
+  for (const found of jsonObjects(result)) {
+    // A session's first answer may come wrapped beside its receipt: `{ mcp_session_id, result }`.
+    const object = isRecord(found) && isRecord(found.result) && !Array.isArray(found.items) ? found.result : found
     if (!isRecord(object) || !Array.isArray(object.items)) continue
     return object.items
       .flatMap(item => {
