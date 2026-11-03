@@ -22,6 +22,9 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_UNAVAILABLE=registry__get_artifact`: the first two calls of that tool fail as
   the gateway's `503` does, JSON-RPC `-32603` `service unavailable` with `retryable: true`, and
   every later call answers;
+- `ATLAN_EMULATOR_LOST_REPLY=extension__skill__create`: the first call of that tool commits, then
+  answers as the gateway does when its relay cuts a slow scan: JSON-RPC `-32603` `service
+  unavailable` with `retryable: true`. The created skill is there to read back;
 - `ATLAN_EMULATOR_CATALOG=1`: the server is the data-catalog plugin's (`mcp.atlan.com`), with
   asset search and lineage tools and none of the gateway's three;
 - `ATLAN_EMULATOR_SIGNED_OUT=1`: the user has not signed in, so the server lists no tools and
@@ -34,6 +37,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -44,6 +48,7 @@ HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") 
 EMPTY = os.environ.get("ATLAN_EMULATOR_EMPTY") == "1"
 RATE_LIMIT = os.environ.get("ATLAN_EMULATOR_RATE_LIMIT")
 UNAVAILABLE = os.environ.get("ATLAN_EMULATOR_UNAVAILABLE")
+LOST_REPLY = os.environ.get("ATLAN_EMULATOR_LOST_REPLY")
 CATALOG = os.environ.get("ATLAN_EMULATOR_CATALOG") == "1"
 SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
 # Pads the catalogue to this many skills, the most recently changed of them about UI motion, so a
@@ -145,7 +150,7 @@ class Refusal(Exception):
         self.body = {"status": status, "code": code, "detail": detail}
 
 
-state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}}
+state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}}
 
 
 def words(text: str) -> set[str]:
@@ -162,7 +167,7 @@ def served_tools() -> list[dict]:
 
 
 def artifacts() -> dict:
-    return {} if EMPTY else padding() | WORLD["artifacts"]
+    return ({} if EMPTY else padding() | WORLD["artifacts"]) | state["created"]
 
 
 PAD_TOPICS = [
@@ -404,6 +409,48 @@ def write(kind: str, a: dict) -> dict:
             "note": "eval write recorded"}
 
 
+FILES_FROM_REFUSAL = ("`files_from` is expanded by the atlanai publish helper, which is not running here. Send the "
+                      "folder's contents as `files` (relative paths to UTF-8 text, root `SKILL.md` required), or upload "
+                      "a ZIP and send its `bundle_file_id`.")
+
+
+def skill_create(a: dict) -> dict:
+    """`extension__skill__create` as skill 4.1.1 answers it: one slim slot per skill, a new skill
+    as ordinal 1 and a matching identity as its next version, `files_from` refused by name."""
+    items = a.get("skills") or []
+    if any("files_from" in item for item in items):
+        raise Refusal(400, "invalid_request", FILES_FROM_REFUSAL)
+    slots = []
+    for index, item in enumerate(items):
+        if ("files" in item) == ("bundle_file_id" in item):
+            raise Refusal(400, "invalid_request", "Supply exactly one of files or bundle_file_id for each skill.")
+        identity = (item["workspace_id"], item.get("source_type", "local"), item.get("source_id", item["name"]))
+        live = next((i for i in artifacts().values() if i["kind"] == "skill"
+                     and (i["workspace_id"], i.get("source_type", "local"), i.get("source_id", i["name"])) == identity), None)
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        if live:
+            ordinal = head(live)["version_ordinal"] + 1
+            state["versions"][live["id"]] = {"version_ordinal": ordinal, "metadata": {}}
+            handle = live["id"]
+            live["updated_at"] = now
+        else:
+            ordinal, handle = 1, f"skill_01evalnew{len(state['created']):014d}"
+            state["created"][handle] = {
+                "id": handle, "kind": "skill", "name": item["name"], "display_name": item.get("display_name", item["name"]),
+                "description": item.get("description") or "", "workspace_id": item["workspace_id"],
+                "source_type": identity[1], "source_id": identity[2], "artifact_status": "active", "is_released": True,
+                "released_channels": ["latest"], "version_ordinal": 1, "version_label": "0.1.0", "updated_at": now,
+                "metadata": {"files": sorted(({"path": f["path"]} for f in item.get("files") or []), key=lambda f: f["path"])},
+            }
+        label = "0.1.0" if ordinal == 1 else f"0.{ordinal - 1}.0"
+        slots.append({"index": index, "status_code": 201,
+                      "skill": {"id": handle, "name": item["name"], "workspace_id": item["workspace_id"],
+                                "artifact_status": "active", "version_ordinal": ordinal, "etag": f"\"eval-{handle}-{ordinal}\"",
+                                "current_releases": {"latest": {"version_label": label}}},
+                      "next": f"Active and released on `latest` as `{label}`."})
+    return {"skills": slots}
+
+
 def dispatch(name: str, a: dict) -> dict:
     tool = next((t for t in served_tools() if t["name"] == name), None)
     if name == "mcp__connect_server":
@@ -424,6 +471,8 @@ def dispatch(name: str, a: dict) -> dict:
         raise Refusal(400, "invalid_arguments", f"{name} requires {', '.join(missing)}.")
     if "refuse" in tool:
         raise Refusal(**tool["refuse"])
+    if name == "extension__skill__create":
+        return skill_create(a)
     if name == "registry__list_workspaces":
         return {"items": WORLD["workspaces"], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(WORLD["workspaces"])}}
     if name == "registry__search_artifacts":
@@ -668,6 +717,18 @@ def handle(msg: dict) -> dict | None:
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
                     "data": {"server": "registry", "retryable": True, "retry_after_seconds": 1,
                              "code": "downstream_unavailable"}}}
+        if LOST_REPLY and params.get("name") == "mcp__call_tool" and called == LOST_REPLY and not state.get("lost"):
+            # The relay cut the call after the create committed: the write stands, the reply is lost.
+            state["lost"] = True
+            try:
+                call_tool(params.get("arguments") or {})
+            except Refusal:
+                pass
+            else:
+                log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32603}})
+                return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
+                        "data": {"server": "skill", "retryable": True, "retry_after_seconds": 1,
+                                 "code": "downstream_unavailable"}}}
         handler = HANDLERS.get(params.get("name"))
         if handler is None:
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32602, "message": "tool is unavailable; refresh tools/list"}}

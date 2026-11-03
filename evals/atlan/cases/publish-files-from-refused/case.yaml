@@ -1,0 +1,37 @@
+schema_version: "1.1"
+name: publish-files-from-refused
+tags: [write,skill,upload]
+execution:
+  prompt: |
+    Publish a new Atlan skill named standup-notes in workspace_01evalplatform. I authorize it now.
+    Send it with files_from so the bytes are not copied by hand. Its folder holds one file, SKILL.md:
+    ---
+    name: standup-notes
+    description: Summarize a standup into blockers, owners and next steps. Use when asked for standup notes.
+    ---
+    List each blocker with its owner, then the next steps.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: sends-inline-files
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__skill__create"[\s\S]*"files"\s*:\s*\[[\s\S]*"SKILL.md"'
+    min: 1
+    max: 1
+  - name: no-files-from-without-the-helper
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"files_from"'
+    min: 0
+    max: 0
+  - name: no-credential-request
+    type: llm
+    criteria: |
+      PASS if the reply reports standup-notes created, and explains briefly that files_from needs the publish helper, which is not on here, so the file was sent inline.
+      FAIL if it asks for credentials, refuses to publish, or claims files_from was used.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
