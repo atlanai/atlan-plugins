@@ -21,30 +21,30 @@ otherwise take the narrowest reasonable reading and say so in the answer.
 
 1. Open a registry session as **Registry calls** in the conventions describes, with the question
    as the `objective`. Its first call is step 2's search.
-2. Find where the metrics live before searching any one workspace. Call
-   `registry__search_artifacts` with `kind` `metric`, the measure as `query` and no
-   `workspace_id`: it searches every workspace you can read, and each hit names its workspace.
-   Use the workspace that holds the best hit. When good hits sit in several workspaces, ask which
-   one, recommending the one whose metric name matches the measure. With no hit, call
-   `registry__get_artifact_counts` with `kind` `metric` and `group_by` `workspace_id` and use the
-   workspace it ranks first; when it counts no metrics at all, go to **Nothing found** below.
-   Never search workspaces one by one, and never pick a workspace from its description alone:
-   descriptions can point the wrong way.
-3. Search that workspace for the question's key terms: the measure, its business nouns and the
-   likely metric names. Use `extension__metric__search_metrics` with `workspace_id`, `query`,
-   `include_definition: true` and `definition_limit: 1` (2 when the top two names both fit the
-   measure). Each definition is up to 16 KiB, so never ask for more. Without
-   `include_definition`, the metric search returns heads, which may be unreleased drafts. With
-   it, the search returns released revisions with their receipts and definitions. An empty
-   published result is the answer "no published metric"; never fall back to the head search for
-   a definition. When those tools aren't listed, read step 2's metric hit at a release as
-   step 4 says.
+2. Search released metrics in every workspace at once: call
+   `extension__metric__search_metrics` with the measure and its business nouns as `query`,
+   `include_definition: true`, `definition_limit: 1` (2 when the top two names both fit the
+   measure) and no `workspace_id`. Each item names its workspace and carries its release
+   receipt; the first carries its definition (up to 16 KiB, so never ask for more). When good
+   hits sit in several workspaces, ask which one, recommending the one whose metric name
+   matches the measure. An empty result is the answer "no published metric": go to **Nothing
+   found** below, and never fall back to a search without `include_definition`, which returns
+   unreleased heads.
 
-   Search saved queries only when no released metric answers the question, or when the person
-   asks for one: `extension__metric__search_queries` with `workspace_id`, `query`, `limit: 5`
-   and `include_sql: false`. Then fetch the SQL of the one query you will use by `name` (with
-   `include_sql` left on). The query search returns only released revisions. Without those
-   tools, use `registry__search_artifacts` with kind `sql_query` and that workspace.
+   If the call is refused because `workspace_id` is required (an older metric app), find the
+   workspace first: `registry__search_artifacts` with `kind` `metric`, the measure as `query`
+   and no `workspace_id`, then use the workspace of the best hit (with no hit,
+   `registry__get_artifact_counts` with `kind` `metric` and `group_by` `workspace_id`, and its
+   first). Then repeat this step's search with that `workspace_id`. Never search workspaces
+   one by one, and never pick a workspace from its description alone. When the metric tools
+   aren't listed at all, read the `search_artifacts` hit at a release as step 4 says.
+3. Search saved queries only when no released metric answers the question, or when the person
+   asks for one: `extension__metric__search_queries` with `query`, `limit: 5` and
+   `include_sql: false`, and the metric's `workspace_id` when you have one (omit it otherwise;
+   an older metric app needs it, as step 2 says). Then fetch the SQL of the one query you will
+   use by `name` and its `workspace_id` (with `include_sql` left on). The query search returns
+   only released revisions. Without those tools, use `registry__search_artifacts` with kind
+   `sql_query`.
 4. Read the one or two most relevant results exactly as step 1 and the **Rules** of
    [the agent template](../atlan-analytics/references/eval/agent-template.md) say: only a
    released revision counts, a rejected query is skipped, an unreviewed one is a caveat, and a
