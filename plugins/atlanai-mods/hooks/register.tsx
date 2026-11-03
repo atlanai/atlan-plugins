@@ -373,7 +373,7 @@ async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<s
   if (!isHintable(prompt)) return []
   const health = mem.health
   if (health && NO_HINT.has(health.state)) return []
-  const servers = health?.state === 'ready' && health.server ? [health.server] : [...PROBE_SERVERS]
+  const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   const session = await $.session.id()
   if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
   const hint = mem.hint
