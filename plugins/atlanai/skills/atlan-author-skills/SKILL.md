@@ -6,12 +6,11 @@ license: Apache-2.0
 
 # Author skill bundles
 
-Pass a `session_id` and a first-person `rationale` on every tool call, reads included: the
-gateway accepts a read without one, but the audit trail needs it. In search mode, the default, the first
-`mcp__search_tools` or `mcp__call_tool` opens the session by sending `objective`, and each
-`registry__…` or `extension__…` tool named here runs through `mcp__call_tool` with `session_id` and `rationale`
-beside `name` and `arguments`. In full mode, call `mcp__initialise` first. Replies lead with the
-result in a few lines, and ask before every write.
+In search mode, the default, run each tool named here through `mcp__call_tool`, with
+`session_id` and a first-person `rationale` beside `name` and `arguments`; your first call opens
+the session by sending `objective`. **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
+and the kind schema. Replies lead with the result in a few lines, and ask before every write.
 
 ## Quick path: one new text skill
 
@@ -71,7 +70,7 @@ whatever `run_with` a search answer names.
 - **Every publish route, limit and outcome:** [publishing](references/publish.md);
   read [the ZIP path](references/publish-zip.md) only for binaries, executables or large bundles.
 - **Update a bundle:** [update a skill](references/update-a-skill.md).
-- **Review relationships:** [skill edges](references/skill-edges.md).
+- **Review relationships:** `skills/atlan-get-started/references/edges.md`.
 
 Read the current entry point and referenced files before updating. Publish the complete
 bundle through the skill-specific upload/create procedure and preserve its exact source
