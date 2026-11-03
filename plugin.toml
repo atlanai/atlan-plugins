@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.4.0"
+version = "0.5.1"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -36,6 +36,12 @@ privacy_policy_url = "https://atlan.com/privacy-policy/"
 # of hooks/, the folder Codex and Cursor read by default, since only Claude Code runs a module. A
 # variant leaves it out, as it leaves out the mods.
 claude_hooks = "./claude-hooks/hooks.json"
+# The same helper as a command hook for Codex and Cursor (command-hooks/publish_hook.py), named from
+# each one's own manifest field: Codex's `extensions.com.openai.hooks` in plugin.json (and the legacy
+# .codex-plugin overlay), Cursor's `hooks` in .cursor-plugin/plugin.json. Setting each turns off that
+# harness's hooks/hooks.json discovery. A variant leaves them out too.
+codex_hooks = "./command-hooks/codex.json"
+cursor_hooks = "./command-hooks/cursor.json"
 # terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
 
 [author]
@@ -104,8 +110,8 @@ default_prompts = [
 [[mods]]
 name = "atlanai-mods"
 display_name = "Registry Mods"
-version = "0.3.3"
-description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, and the status line reports a broken or degraded Atlan connection."
+version = "0.4.1"
+description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection."
 keywords = ["atlan", "registry", "mods", "permissions"]
 claude_category = "development"
 
@@ -113,6 +119,12 @@ claude_category = "development"
 type = "boolean"
 title = "Ask before registry writes"
 description = "Ask before Claude creates or changes anything in Atlan. Archive, approve and move always ask."
+default = true
+
+[mods.user_config.suggest_skills]
+type = "boolean"
+title = "Suggest registry skills"
+description = "Search your organization's Atlan skills with each request, and name one to Claude when it clearly fits. The first 300 characters of the request are sent to Atlan's search."
 default = true
 
 # Codex's card for each skill in every plugin above: tools/build.py

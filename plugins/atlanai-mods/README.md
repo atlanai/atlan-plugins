@@ -18,6 +18,7 @@ mod knows the gateway by its tool names, so a gateway added by hand under anothe
 | The Atlan pane | A pane beside the chat lists the artifacts this session read, created, changed, archived or published, with their version and status, and copies an artifact's id. It opens by itself at the session's first change in Atlan, or with `/atlan pane`. |
 | A card for archive, approve and move | While one of these waits for your answer, the pane shows it as a card: the artifact, its version and workspace, each artifact that depends on it, and what the change does to everyone else. |
 | A band while a skill publishes | Above the prompt, each skill being published goes from sending to scanning to published (with its version), blocked or unchanged. A toast says when it lands. The band clears at your next request. |
+| Registry skills come up by themselves | With each request you type, the mod searches your organization's skills (the request's first 300 characters, `kind: "skill"`, `limit: 3`). A skill that is active, released and scores at least 0.45 similarity, and is not installed here, is named to Claude beside your request, at most 2 at once and each once a conversation, so Claude can load it with `atlan-use-skill`. Nothing is added when nothing fits, and a search slower than 0.8 seconds, a failed one, or a session not connected to Atlan adds nothing and holds nothing up. Slash commands, requests under 4 words, a request naming a `skill_…` handle and one holding something credential-shaped are not searched. Turn this off with the `suggest_skills` option. |
 | `/atlan skills [words]` | Opens a picker over your organization's skills. Search by what the skill should do, pick one, and `/atlanai:use-skill <id>` is put in your prompt to send. The search spends no Claude turn. |
 | `/atlan` | Checks the connection and prints the fix. Runs at once, with no Claude turn. |
 | `/atlan search <words>` | Searches the registry and lists names, versions, status and handles, with no Claude turn. |
@@ -81,12 +82,14 @@ lists every call it makes. It:
 - calls the `atlan` server you signed in to, as you: `mcp__describe_tools` at session start
   (opens no audit session), `registry__get_artifact` and `registry__get_related_artifacts` before
   an archive, approve or move, and `registry__search_artifacts` for `/atlan search` and the skill
-  picker, retried once after a temporary error. Each call carries a rationale naming this mod, so
+  picker, retried once after a temporary error, and with the first 300 characters of each request
+  you type, for the skill hint (no retry; off with `suggest_skills`). Each call carries a rationale naming this mod, so
   it is recorded under your audit session, or under a session of the mod's own when none is open;
 - reads each Atlan call's input and result again to draw its transcript row, the pane and the
   publish band. What it shows stays in the session's memory and is gone when the session ends;
 - puts text in your prompt only when you pick a skill, and copies an id only when you press
-  Copy id;
+  Copy id; adds a line beside a request for Claude only when a registry skill clearly fits it;
+- lists the session's commands, to leave out a skill that is already installed;
 - keeps the tool annotations in Claude Code's plugin store on this machine, and the session id in
   the session's memory.
 

@@ -12,6 +12,11 @@
 //   skill publish to its end; the `atlan-skills` pane picks a skill to load.
 // session.start: checks the connection without opening an audit session, and puts a problem,
 //   never a success, on the status line. /atlan reports it; /atlan search, skills and pane.
+// prompt.submit: clears a finished publish band, and searches the registry's skills with the
+//   person's prompt: one that clearly fits is named beside the prompt, as context the model reads.
+//   It rides prompt.submit because Claude Code's built-in cc-plugin-sec-default, seated for Team
+//   and Enterprise organizations and on machines with managed settings, passes installed plugins
+//   over on prompt.compose and prompt.context. A slow or failed search adds nothing.
 //
 // What the session learned lives in this module, one copy per session. It is not kept in the
 // host's plugin state, which needs a types contract named in plugin.json: a key the desktop app
@@ -65,6 +70,7 @@ import {
   type SkillRow,
   type Touch,
 } from './view'
+import { HINT_MS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, type HintPrompt, type SkillMatch } from './hint'
 
 const HINTS_KEY = 'hints'
 const LOOKUP_MS = 6000
@@ -75,6 +81,9 @@ const PICKER = 'atlan-skills'
 const DASHBOARD = 'https://app.atlan.com'
 const PUBLISH = 'extension__skill__create'
 const GROUP_ROWS = 6
+const HINT_RATIONALE = "Looking for a published skill in the organization's registry that fits the user's request."
+/** Searches kept per session, for a prompt sent again. */
+const HINT_CACHE = 50
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
@@ -116,6 +125,8 @@ type Memory = {
   /** The pane opens by itself once a session, at its first write or question. */
   hasOpenedPane: boolean
   picker: Picker
+  /** The skill hint's state, for the conversation `hintSession` names: a /clear starts a new one. */
+  hint: { session: string; named: Set<string>; searches: Map<string, Promise<SkillMatch[]>> }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -338,6 +349,44 @@ async function pickerSearch($: Dollar, mem: Memory, words: string): Promise<void
   redraw($)
 }
 
+/**
+ * The context lines that name registry skills which clearly fit the prompt, or none. Searched once
+ * per prompt text a conversation, through the server the connection check found, and only while
+ * that check says ready: signed out or offline, nothing is searched. Each skill is named once a
+ * conversation, and never when a skill of that name is installed here. Never throws.
+ */
+async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<string[]> {
+  if (!isHintable(prompt)) return []
+  const health = mem.health
+  if (health?.state !== 'ready' || !health.server) return []
+  const session = await $.session.id()
+  if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
+  const hint = mem.hint
+  const query = hintQuery(prompt.text)
+  let pending = hint.searches.get(query)
+  if (!pending) {
+    pending = lookup($, mem, health.server, 'registry__search_artifacts', { query, kind: 'skill', semantic: true, limit: 3 }, HINT_RATIONALE).then(
+      found => {
+        if (found.isError) hint.searches.delete(query)
+        return found.isError ? [] : skillMatches(found.text)
+      },
+      () => {
+        hint.searches.delete(query)
+        return []
+      },
+    )
+    hint.searches.set(query, pending)
+    if (hint.searches.size > HINT_CACHE) hint.searches.delete(hint.searches.keys().next().value as string)
+  }
+  // A search that outlasts the wait still finishes, and answers the same prompt sent again.
+  const matches = (valueOf(await within($, HINT_MS, pending)) ?? []).filter(match => !hint.named.has(match.id))
+  if (matches.length === 0) return []
+  const installed = valueOf(await within($, HINT_MS, $.command.list()))?.map(command => command.name) ?? []
+  const fresh = matches.filter(match => !isInstalled(match.name, installed))
+  for (const match of fresh) hint.named.add(match.id)
+  return fresh.map(hintLine)
+}
+
 /** Puts the chosen skill in the prompt as the atlanai plugin's command, for the person to send. */
 async function pickSkill($: Dollar, row: SkillRow): Promise<void> {
   await $.prompt.fill({ text: `/atlanai:use-skill ${row.id} ` })
@@ -355,6 +404,7 @@ const MARK: Record<Publish['state'], string> = {
 
 export const register: Register = (on, options) => {
   const confirmWrites = options.confirm_writes !== false
+  const suggestSkills = options.suggest_skills !== false
   const mem: Memory = {
     session: '',
     housekeeping: '',
@@ -367,6 +417,7 @@ export const register: Register = (on, options) => {
     isBandHidden: false,
     hasOpenedPane: false,
     picker: { query: '', state: 'idle', rows: [], total: 0, note: '' },
+    hint: { session: '', named: new Set(), searches: new Map() },
   }
 
   on('session.start', async ($, e, next) => {
@@ -409,14 +460,15 @@ export const register: Register = (on, options) => {
     return { text: report(mem, health, confirmWrites) }
   })
 
-  on('prompt.submit', ($, e, next) => {
+  on('prompt.submit', async ($, e, next) => {
     // A new request starts with a clean band: finished publishes leave it, running ones stay.
     if (mem.publishes.length > 0 && mem.publishes.every(one => SETTLED.has(one.state))) {
       mem.publishes = []
       mem.isBandHidden = false
       redraw($)
     }
-    return next(e)
+    const hints = suggestSkills ? await skillHints($, mem, e).catch(() => []) : []
+    return hints.length > 0 ? next({ ...e, context: [...(e.context ?? []), ...hints] }) : next(e)
   }).catch(($, e, next) => next(e))
 
   on('tool.call', { tool: GATEWAY_TOOL }, async ($, e, next) => {
