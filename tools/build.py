@@ -61,9 +61,6 @@ HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cu
 FIXTURES = "tools/tests/fixtures/publish-bundles.json"
 # Files every plugin folder gets a copy of, from the repository root.
 SHARED = ("assets/logo.svg", "LICENSE")
-# OAuth client modes OpenAI's hosts accept for a server they register with on their own: dynamic
-# client registration, or a client ID metadata document.
-OAUTH_CLIENT_MODES = ("dcr", "cimd")
 # What the directory package takes from the core's folder, beside the manifests it writes.
 DIRECTORY_TREES = ("skills", "assets")
 DIRECTORY_FILES = ("LICENSE",)
@@ -124,8 +121,6 @@ def validate(source: dict) -> None:
     logo = ROOT / plugin["logo"]
     if not logo.is_file():
         raise SystemExit(f"plugin.logo {plugin['logo']} does not exist")
-    if source["mcp"].get("oauth_client", "dcr") not in OAUTH_CLIENT_MODES:
-        raise SystemExit(f"mcp.oauth_client must be one of {', '.join(OAUTH_CLIENT_MODES)}")
     for shot in source.get("codex", {}).get("screenshots", []):
         if not re.match(r"^\./assets/[\w.-]+\.(?:png|jpe?g|webp)$", shot):
             raise SystemExit(f"codex.screenshots {shot} must be an image under ./assets/")
@@ -247,15 +242,6 @@ def codex_interface(source: dict) -> dict:
     if codex.get("screenshots"):
         interface["screenshots"] = list(codex["screenshots"])
     return interface
-
-
-def openai_auth(source: dict) -> dict:
-    """How OpenAI's hosts sign in to the server: OAuth, registering their own client. The gateway
-    serves RFC 9728 protected resource metadata and registers clients dynamically at the Control
-    Plane, which is what Codex already finds through the 401; declaring it lets ChatGPT and the
-    directory's connection form skip that discovery. Other hosts ignore this namespace."""
-    mode = source["mcp"].get("oauth_client", "dcr")
-    return {"extensions": {"com.openai": {"auth": {"type": "oauth", "client": {"mode": mode}}}}}
 
 
 def codex_onboarding(source: dict) -> dict:
@@ -522,9 +508,12 @@ def outputs(source: dict) -> dict[str, dict]:
     documents = {
         # Agent Plugins 1.0: Codex, Cursor, GitHub Copilot, VS Code and other conforming hosts.
         f"{base}/plugin.json": agent_plugin,
+        # No extensions.com.openai.auth on the server: codex-cli 0.160.0 drops a server entry that
+        # carries `extensions`, so atlanai shipped no `atlan` server in Codex (atlanai 0.5.7, 0.5.8).
+        # Codex finds the OAuth sign-in through the gateway's 401 and protected resource metadata.
         f"{base}/mcp.json": {
             "$schema": AGENT_PLUGINS_MCP_SCHEMA,
-            "mcpServers": {mcp["server"]: {"type": "streamable-http", "url": mcp["url"], "headers": headers, **openai_auth(source)}},
+            "mcpServers": {mcp["server"]: {"type": "streamable-http", "url": mcp["url"], "headers": headers}},
         },
         # Claude Code (CLI, desktop, IDE extensions) reads only these two.
         f"{base}/.mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"], "headers": dict(headers)}}},

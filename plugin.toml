@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.8"
+version = "0.5.9"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -67,10 +67,6 @@ url = "https://api.atlan.com/mcp"
 # a session came from; a server added by hand sends none (MCP service decision
 # mcp-2026-10-30-session-records-the-install-surface).
 client = "atlan-plugin"
-# How OpenAI's hosts register an OAuth client with the server, written to mcp.json as
-# extensions.com.openai.auth: "dcr" (dynamic client registration, which the gateway's Control Plane
-# serves) or "cimd" (a client ID metadata document).
-oauth_client = "dcr"
 
 [codex]
 capabilities = ["Interactive", "Write"]
