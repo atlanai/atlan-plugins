@@ -593,6 +593,22 @@ class SkillIndexTest(unittest.TestCase):
         self.assertEqual(self.served, again_served)
 
 
+class DriftTest(unittest.TestCase):
+    """Tool names and handles the live gateway does not serve, which releases once shipped."""
+
+    def drift(self, text: str) -> list[str]:
+        return lint.lint_drift(lint.PLUGINS / "atlanai" / "x.md", text)
+
+    def test_flags_an_unprefixed_app_tool_a_wrk_handle_and_a_fixed_client(self) -> None:
+        errors = self.drift('Call `metric__search_queries`.\n"workspace_id": "wrk_01J..."\n"client": "claude-code",\n')
+        self.assertEqual([e.split(": ", 1)[0] for e in errors], ["plugins/atlanai/x.md:1", "plugins/atlanai/x.md:2", "plugins/atlanai/x.md:3"])
+        self.assertIn("'metric__search_queries'", errors[0])
+
+    def test_leaves_served_names_alone(self) -> None:
+        text = "`extension__metric__search_queries`, `registry__get_artifact`, `slack__send_message`, `mcp__call_tool`, `workspace_01J`\n"
+        self.assertEqual(self.drift(text), [])
+
+
 class VoiceTest(unittest.TestCase):
     """The voice rule in AGENTS.md: no em dashes, no exclamations, no filler, outside code."""
 

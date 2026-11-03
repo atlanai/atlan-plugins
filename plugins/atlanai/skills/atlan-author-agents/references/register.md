@@ -12,16 +12,17 @@ uses its machine identity.
    ```
    mcp__initialise {
      "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "claude-code",
+     "client": "<the tool you run in, such as claude-code or claude-ai>",
      "rationale": "<why you are opening it>"
    }
    → { "session_id": "mcp_session_01J..." }
    ```
 
-   Pass that as `session_id` on every later call - it is **required**, and a call that omits
-   it is refused with a message telling you to open one. `mcp__initialise` is the only
-   tool that does not take it, which is what makes this first call possible. Do not invent a
-   value - an id that names no session of yours is refused, not ignored.
+   Pass that as `session_id` on every later call - it is **required**. Full mode refuses a call
+   that omits it; search mode opens a second session instead, splitting the audit trail.
+   `mcp__initialise` is the only tool that does not take it, which is what makes this first
+   call possible. Do not invent a value - an id that names no session of yours is refused, not
+   ignored.
 
 2. **`rationale` is required on every tool call.** It is a first-person sentence about why
    you are making *this* call, written for a human reading the audit trail. Not a

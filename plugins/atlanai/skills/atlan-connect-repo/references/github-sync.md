@@ -13,7 +13,8 @@ repository
 
 The workflow runs `atlanai/ai-registry-action@v1`, which runs `aireg` with the
 Atlan adapter. `aireg` records the repository and each folder with every version
-it publishes, so there is no separate repository registration step.
+it publishes, so CI needs no separate repository registration step. Linking a repository by
+hand, before CI or without it, is [registering](register.md).
 
 ## Rules
 

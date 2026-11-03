@@ -23,7 +23,7 @@ that happens to be in your toolset. If you cannot read it, say so.
      ```
      mcp__initialise {
        "objective": "<one sentence, for a human auditor reading this later>",
-       "client": "claude-code",
+       "client": "<the tool you run in, such as claude-code or claude-ai>",
        "rationale": "<why you are opening it>"
      }
      → { "session_id": "mcp_session_01J..." }
@@ -38,7 +38,10 @@ that happens to be in your toolset. If you cannot read it, say so.
 
 ## Reading a skill
 
-Two hops. The skill's manifest gives you the handles; the handles give you the bytes.
+One hop for one file: `registry__get_artifact` with `include_file` returns the manifest and that
+file's text at the pinned ordinal ([reading a skill](reading-a-skill.md)).
+For several files it is two hops: the skill's manifest gives you the handles; the handles give
+you the bytes.
 
 ### 1. Get the skill
 

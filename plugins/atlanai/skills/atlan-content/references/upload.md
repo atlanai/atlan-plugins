@@ -18,7 +18,7 @@ For binary content or text above the inline ceiling, content arrives out of band
      ```
      mcp__initialise {
        "objective": "<one sentence, for a human auditor reading this later>",
-       "client": "claude-code",
+       "client": "<the tool you run in, such as claude-code or claude-ai>",
        "rationale": "<why you are opening it>"
      }
      → { "session_id": "mcp_session_01J..." }
@@ -39,9 +39,22 @@ For binary content or text above the inline ceiling, content arrives out of band
    `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
    as a generic 400 that does **not** name the field.
 
-Uploads use the authenticated API host. Storage placement remains registry-owned. If your
-connector does not expose a bearer for shell HTTP requests, use the skill create tool's inline
-`files` input for small text skills. Do not copy connector credentials into tool arguments.
+Uploads use the authenticated API host. Storage placement remains registry-owned. Do not copy
+connector credentials into tool arguments.
+
+## Without a shell or a bearer
+
+Claude chat, Cowork and other hosts that sign in to Atlan for you never hand you the bearer the
+`PUT` in step 2 needs, and often give you no shell. Check this before asking the user to
+approve an upload, not after. Without both:
+
+- **Text up to 64 KiB:** send it inline as `content` on the `file` create
+  ([write and append](write-and-version.md)), or as inline `files` on a skill or knowledge
+  create.
+- **Something hosted elsewhere:** record an `output` in `mode: "link"` with its `external_url`.
+- **Binary content or larger text:** say in one sentence that it needs the Atlan CLI or an
+  upload in the Atlan dashboard, and write nothing until it is there. Never ask for a token in
+  chat.
 
 ## The three steps
 
@@ -67,8 +80,9 @@ over-size upload is refused before the transfer rather than after it.
 
 ### 2. `PUT` the bytes
 
-Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is always
-`false`; `upload_url` is root-relative (`/file/v1/...`). Resolve it against the API origin you
+Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is `false`
+on today's gateway; if a server ever answers `true`, the URL carries its own authorization, so
+send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`). Resolve it against the API origin you
 called `registry__request_file_upload` on. A missing bearer returns 401.
 
 Start the PUT within `expires_in_seconds` (900 seconds). Expired or unissued tickets return
@@ -101,7 +115,8 @@ place it is handed to you without a second read.
 - **`upload_key` or bytes, never both.** Both is a 400; neither is a 400. For small UTF-8,
   use top-level `content` instead, following [write and append](write-and-version.md).
 - **`path` is the file's identity in its workspace.** A second file at the same `path` is a
-  409 naming it. Give each upload a distinct path - `bundles/deploy-preview-2026-09-04.zip`
+  409 naming it. So is a second file create with a live file's `source_type` and `source_id`,
+  whatever its path: append to that file instead. Give each upload a distinct path - `bundles/deploy-preview-2026-09-04.zip`
   rather than `bundle.zip`.
 - **`max_bytes` is enforced during streaming and at step 3.** Check the size before sending.
 - **Upload tickets expire.** Reserve when ready to send; request a fresh ticket after expiry.

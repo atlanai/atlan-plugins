@@ -16,12 +16,15 @@ first time. Replies lead with the result in a few lines, and ask before every wr
 
 - **Register a deliverable:** [recording](references/record.md).
 - **Choose upload or link mode:** [mode rules](references/output-modes.md).
-- **Publish another version:** follow the append procedure in [recording](references/record.md#publishing-a-new-version).
+- **Publish another version:** [recording](references/record.md#publishing-a-new-version).
 
 Give the file and the output the same source key (`source_type` and `source_id`, see
 [recording](references/record.md#the-source-key)), so recording the same deliverable again
 appends a version instead of creating a second output.
 
-Append to the existing output ID with the observed head ETag. Repeating create makes a
-second output. Pin exact file ordinals in upload mode; read the result back. If an edge
-write fails after creation, repair that edge using the returned ID instead of creating again.
+A new version is one route: append the new bytes to the earlier output's file, then create
+the output again with the same source key and the new file ordinal; the registry makes it
+the next version under the same handle. Only an output recorded without a source key is
+appended to directly, with its head ETag. Pin exact file ordinals in upload mode; read the
+result back. If an edge write fails after creation, repair that edge using the returned ID
+instead of creating again.

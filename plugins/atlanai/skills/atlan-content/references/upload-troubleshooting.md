@@ -2,10 +2,10 @@
 
 ## A `401` on the `PUT`
 
-The gateway PUT requires your bearer in the Authorization header. `is_presigned` is always
-false. Authenticate the request; re-minting cannot fix missing credentials. For small text
-skills, inline `files` avoids the separate upload request when the connector's bearer is
-unavailable to your shell.
+The gateway PUT requires your bearer in the Authorization header (`is_presigned` is `false` on
+today's gateway). Authenticate the request; re-minting cannot fix missing credentials. When your
+host never gives you the bearer, as in Claude chat or Cowork, follow
+[without a shell or a bearer](upload.md#without-a-shell-or-a-bearer).
 
 ## A `404` on the `PUT`
 
@@ -15,9 +15,10 @@ it against the origin you called `registry__request_file_upload` on.
 
 ## A `409` on the create
 
-Another file already occupies that `path` in that workspace. A file's `path` is its
-identity there, deliberately - it is what makes a re-upload to the same path a conflict
-rather than a silent second copy.
+Another live file in that workspace already holds that `path`, or that `source_type` and
+`source_id`; the message names which. Both are the file's identity there, deliberately: a
+re-upload is a conflict rather than a silent second copy. A share that stopped halfway leaves
+the second kind.
 
 Pick a distinct path. If you meant to replace the content, that is a new version of the
 existing file, not a new file at the same path: read the existing artifact first and append

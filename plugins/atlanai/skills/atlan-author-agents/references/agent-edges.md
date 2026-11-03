@@ -19,9 +19,12 @@ and you confirm it by reading it back.
 | `output` | `used_skill` | `skill` |
 | `skill` | `depends_on`, `next_step`, `alternative`, `duplicate_of`, `conflicts_with` | `skill` |
 | `skill`, `scorer` | `sourced_from` | `repo` |
+| `scorer` | `applies_to` | `skill`, `agent` |
 | `experiment` | `uses_context` | `skill`, `file`, `agent` |
+| `knowledge_concept` | `documents` | `output` |
 
-That is the complete set for every kind that declares one. Two consequences worth stating,
+That is the set for every kind that declares one; `registry__get_kind_schema` is the live
+answer when an app adds a kind. Two consequences worth stating,
 because they are what people get wrong:
 
 - **A `skill` may only point at another `skill`.** So an agent-to-skill join is created from
@@ -68,7 +71,7 @@ so the agent and its `uses_skill` edge land together and there is no second call
 ```
 registry__create_artifact_linked {
   "kind": "agent",
-  "metadata": { "name": "deck-builder", "workspace_id": "wrk_01J...", ... },
+  "metadata": { "name": "deck-builder", "workspace_id": "workspace_01J...", ... },
   "subject_id": "skill_01K...",
   "rel_type": "uses_skill",
   "session_id": "...",
