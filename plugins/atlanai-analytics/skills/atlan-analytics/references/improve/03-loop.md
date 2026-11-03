@@ -155,13 +155,14 @@ describes, so the registry records the round as an experiment linked to the base
 ## Record and decide
 
 - `EVAL compare --a baseline --b vN` gives the paired validation and train deltas, each with
-  its band and an exact sign-test p-value. `EVAL summary --variant vN` gives context
-  engagement, unverified isolation and tokens.
+  its band and an exact sign-test p-value, and `guardrails` with each variant's p50 and p95
+  time and tokens per run. `EVAL summary --variant vN` gives context engagement and unverified
+  isolation.
 - Update `H/_state.json` (`current_round`, and `best` when validation beats it). Rewrite
   `H/narrative.md` with the status table on top:
 
-  | round | change | validation | train | p | used context | out toks |
-  |---|---|---|---|---|---|---|
+  | round | change | validation | train | p | used context | p95 s | tokens/run |
+  |---|---|---|---|---|---|---|---|
 
   Leave cost out: the script measures tokens, not money.
 
