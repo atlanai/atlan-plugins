@@ -241,6 +241,102 @@
    ]
   },
   {
+   "name": "colon-in-a-plain-description",
+   "about": "YAML refuses `: ` inside a plain value, and the registry's parser is real YAML",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when: asked to do it.\n---\nFollow the steps.\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "frontmatter-yaml"
+   ],
+   "at": [
+    [
+     "SKILL.md",
+     3,
+     13
+    ]
+   ]
+  },
+  {
+   "name": "colon-in-a-quoted-or-folded-value",
+   "about": "The same words quoted, or as a folded block, are valid YAML",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: >\n  Do a thing. Use when: asked to do it.\nlicense: \"MIT: see LICENSE\"\nallowed-tools:\n  - Bash(git add *)\n---\nFollow the steps.\n"
+   },
+   "expect": "send"
+  },
+  {
+   "name": "unclosed-quote",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: \"Do a thing. Use when asked to do it.\n---\nFollow the steps.\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "frontmatter-yaml"
+   ],
+   "at": [
+    [
+     "SKILL.md",
+     3,
+     13
+    ]
+   ]
+  },
+  {
+   "name": "duplicate-key",
+   "about": "The registry refuses a key given twice rather than pick one",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\ndescription: Another.\n---\nFollow the steps.\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "frontmatter-yaml"
+   ],
+   "at": [
+    [
+     "SKILL.md",
+     4,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "tab-indent",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\nmetadata:\n\tlifecycle: draft\n---\nFollow the steps.\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "frontmatter-yaml"
+   ],
+   "at": [
+    [
+     "SKILL.md",
+     5,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "no-body",
+   "about": "Frontmatter with nothing after it",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\n\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "no-body"
+   ],
+   "at": [
+    [
+     "SKILL.md",
+     4,
+     1
+    ]
+   ]
+  },
+  {
    "name": "no-root-skill-md",
    "files": {
     "demo/SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n"

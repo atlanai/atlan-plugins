@@ -4,7 +4,7 @@
 
 - `<slug> · improve · what to optimise`
 - **Raise the validation pass rate (Recommended when the baseline is below 80%)**
-- **Cut cost per question**, keeping the pass rate within noise
+- **Cut tokens per question**, keeping the pass rate within noise
 - **Cut latency**, keeping the pass rate within noise
 - **Move to another model** and recover the pass rate on it
 
@@ -32,7 +32,8 @@ The eval script, the grader and the eval set are **never** levers.
 
 ## Stopping condition
 
-State the cost of one pass from the baseline: "N cases × R reps ≈ X min, about $Y." Then ask:
+State the cost of one pass from the baseline's measured usage: "N cases × R reps ≈ X min, about
+T tokens." Give no dollar figure: the script has no pricing data. Then ask:
 - `<slug> · improve · when to check back in`
 - **Until plateau (Recommended)**: stop when validation moves less than δ for 3 rounds in a row, or a
   guardrail regresses outside noise
@@ -40,7 +41,7 @@ State the cost of one pass from the baseline: "N cases × R reps ≈ X min, abou
 - **N rounds**: the user gives N
 
 Set δ above the noise floor from `skills/atlan-analytics/references/improve/02-baseline-check.md`. If there's a budget, show
-`(rounds + 1) × R × $Y` and treat it as a guide, not a wall.
+`(rounds + 1) × T` tokens and treat it as a guide, not a wall.
 
 ## Sign-off (required before any change)
 
