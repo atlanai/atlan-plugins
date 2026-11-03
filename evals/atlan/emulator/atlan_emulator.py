@@ -33,6 +33,7 @@ another state through its environment (`emulator.json` beside the case, read by 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -417,15 +418,35 @@ FILES_FROM_REFUSAL = ("`files_from` is expanded by the atlanai publish helper, w
 
 
 def skill_create(a: dict) -> dict:
-    """`extension__skill__create` as skill 4.1.1 answers it: one slim slot per skill, a new skill
-    as ordinal 1 and a matching identity as its next version, `files_from` refused by name."""
+    """`extension__skill__create` as skill 4.2.0 answers it: one slim slot per skill, a new skill
+    as ordinal 1 and a matching identity as its next version, `files_from` refused by name. A
+    skill's `idempotency_key` replays the slot its first call wrote, and `dry_run` creates nothing."""
     items = a.get("skills") or []
     if any("files_from" in item for item in items):
         raise Refusal(400, "invalid_request", FILES_FROM_REFUSAL)
+    keys = [item["idempotency_key"] for item in items if "idempotency_key" in item]
+    if len(keys) != len(set(keys)):
+        raise Refusal(400, "invalid_request", "Each skill's idempotency_key must be unique within one call.")
+    receipts = state.setdefault("receipts", {})
     slots = []
     for index, item in enumerate(items):
         if ("files" in item) == ("bundle_file_id" in item):
             raise Refusal(400, "invalid_request", "Supply exactly one of files or bundle_file_id for each skill.")
+        if a.get("dry_run"):
+            slots.append({"index": index, "status_code": 200, "dry_run": True, "warnings": [],
+                          "files": [{"path": path, "sha256": hashlib.sha256(text.encode()).hexdigest(),
+                                     "size_bytes": len(text.encode())}
+                                    for path, text in sorted((item.get("files") or {}).items())]})
+            continue
+        key = item.get("idempotency_key")
+        fingerprint = json.dumps({k: v for k, v in item.items() if k != "idempotency_key"}, sort_keys=True)
+        if key in receipts:
+            if receipts[key][0] != fingerprint:
+                slots.append({"index": index, "status_code": 409, "error": {"status": 409, "code": "idempotency_conflict",
+                              "detail": "This idempotency_key was used with different content."}})
+            else:
+                slots.append({**receipts[key][1], "index": index})
+            continue
         identity = (item["workspace_id"], item.get("source_type", "local"), item.get("source_id", item["name"]))
         live = next((i for i in artifacts().values() if i["kind"] == "skill"
                      and (i["workspace_id"], i.get("source_type", "local"), i.get("source_id", i["name"])) == identity), None)
@@ -450,6 +471,8 @@ def skill_create(a: dict) -> dict:
                                 "artifact_status": "active", "version_ordinal": ordinal, "etag": f"\"eval-{handle}-{ordinal}\"",
                                 "current_releases": {"latest": {"version_label": label}}},
                       "next": f"Active and released on `latest` as `{label}`."})
+        if key:
+            receipts[key] = (fingerprint, slots[-1])
     return {"skills": slots}
 
 

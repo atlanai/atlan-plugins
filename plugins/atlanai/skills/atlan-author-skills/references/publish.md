@@ -52,7 +52,10 @@ It lists each problem with its file, line, column and fix: a missing frontmatter
 path, the size limits, a link or binary file, an invisible character (a direction control, a
 zero-width character, a joiner or variation selector outside an emoji) or a credential-shaped
 string. Fix the files it names, then send. Without a shell, check the same points by reading the
-files.
+files, and for a skill of more than one file, send the step 3 call once with `"dry_run": true`
+beside `skills` first. The server checks each bundle as the create would (its limits, `SKILL.md`
+and its frontmatter) and creates nothing; each slot lists the files with their sha256, or the
+refusal to fix. It does not run the security scan, which runs only on a saved version.
 
 Every frontmatter key and limit: [bundle format](bundle-format.md).
 
@@ -63,6 +66,7 @@ extension__skill__create {
   "skills": [{
     "name": "deploy-preview",
     "workspace_id": "workspace_01J...",
+    "idempotency_key": "deploy-preview-7f3k9q2m",
     "files": {
       "SKILL.md": "---\nname: deploy-preview\ndescription: Deploy a branch to a preview environment and report the URL. Use when asked to put a branch somewhere reviewable.\n---\nFollow references/deploy.md.\n",
       "references/deploy.md": "Build, deploy, and report the preview URL."
@@ -77,6 +81,13 @@ for the scan and release, so step 4 needs no second read. A newer skill app stop
 the gateway's own limit and answers `pending_review` with a `next` that says the version is saved:
 read it back later, never send it again. A skill app older than 3.6.0 refuses the argument by
 name before it writes anything: send the call again without it.
+
+Give each skill an `idempotency_key`: its name, a hyphen and eight random letters or digits, new
+for each publish and unique in the call (1 to 128 letters, digits, `-` or `_`). It is what makes
+a resend after a lost reply safe: the same key with the same files returns the version the first
+call saved, instead of a second one. A skill app older than 4.2.0 refuses `idempotency_key` by
+name before it writes anything: send the call again without it, and use the read-back below if
+the reply is then lost.
 
 Leave `description` out: the frontmatter's is used. A `description` argument that differs is
 stored beside it, so the skill describes itself two ways (the slot warns when it does).
@@ -106,8 +117,15 @@ nothing changed. An older skill app answers only the full record with no `next`;
 ## When the reply is lost
 
 The create can commit and still answer "service unavailable", `502`, `503` or `504`: the gateway
-cut the call while the scan ran. Resending the bundle then writes a second version, or a `409`.
-Read back first:
+cut the call while the scan ran.
+
+**With an `idempotency_key`:** send the same call again, unchanged: the same key and the same
+files. The server answers with the version the first call saved, or creates it if nothing landed.
+Never change the files or the key in that resend: different files under the same key are refused
+with `409 idempotency_conflict`, and a new key writes a second version.
+
+**Without one** (an older skill app, or a call sent without it), resending the bundle writes a
+second version, or a `409`. Read back first:
 
 1. `registry__search_artifacts` with `kind: "skill"`, the `workspace_id` and the skill's `name`.
 2. `registry__get_artifact` with the match's `artifact_id`. The version landed when its
@@ -116,8 +134,7 @@ Read back first:
 3. Nothing landed yet: wait 5 seconds and read once more. Only when that read finds nothing,
    send the create again, once.
 
-Then report the version and its `artifact_status`, and go on from step 4. The skill create takes
-no `idempotency_key`, so a resend is never safe without this read.
+Then report the version and its `artifact_status`, and go on from step 4.
 
 ## Sending files_from
 
@@ -125,7 +142,7 @@ When the skill's folder is on disk inside the working directory, name it in plac
 
 ```json
 extension__skill__create {
-  "skills": [{ "name": "deploy-preview", "workspace_id": "workspace_01J...", "files_from": "skills/deploy-preview" }],
+  "skills": [{ "name": "deploy-preview", "workspace_id": "workspace_01J...", "idempotency_key": "deploy-preview-7f3k9q2m", "files_from": "skills/deploy-preview" }],
   "wait_for_release": true
 }
 ```
@@ -134,8 +151,10 @@ Where the `atlanai` publish helper runs as a hook, it reads the folder, checks i
 and sends its files, so the bytes never pass through your output. A refused check comes
 back as a list of problems with file, line and column, and nothing was sent: fix those files and
 call again. `files_from` is a folder inside the working directory, relative to it; the hook
-refuses links, credential folders and anything outside it. When the reply is lost, the hook adds
-the time the call went out to the result: use it for [the read-back](#when-the-reply-is-lost).
+refuses links, credential folders and anything outside it, and keeps every other field, the
+`idempotency_key` among them. When the reply is lost, the hook adds a note to the result: resend
+the same call when it carried a key, else [read back](#when-the-reply-is-lost) from the time the
+note gives.
 Send `files` or `files_from` per skill, never both.
 
 Where the hook does not run, the server refuses `files_from` by name before it writes anything,
