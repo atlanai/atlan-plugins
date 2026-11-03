@@ -25,14 +25,14 @@ Take from the prompt:
 No handle, only a title: search for it (`registry__search_artifacts`, `semantic: true`,
 `limit: 5`) and confirm the match with the user before reading on.
 
-The first `mcp__call_tool` opens the session: send `objective` beside `name`, such as
+The first runner call opens the session: send `objective` beside `name`, such as
 `Catch up on "<title>" handed over from the Atlan dashboard`, and reuse the `mcp_session_id` it
 returns as `session_id` on every later call, with a `rationale` on each.
 
 ## 1. Read the artifact and its files
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__get_artifact",
   "arguments": { "artifact_id": "output_…" },
   "session_id": "mcp_session_…",

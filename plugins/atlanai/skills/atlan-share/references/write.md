@@ -25,7 +25,7 @@ approval too.
 1. **The file.** Text up to 64 KiB goes inline:
 
    ```
-   mcp__call_tool {
+   mcp__call_write_tool {
      "name": "registry__create_artifact",
      "arguments": {
        "kind": "file",
@@ -46,7 +46,7 @@ approval too.
 2. **The output**, with the same source key and the file pin:
 
    ```
-   mcp__call_tool {
+   mcp__call_write_tool {
      "name": "registry__create_artifact",
      "arguments": {
        "kind": "output",

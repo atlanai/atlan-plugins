@@ -28,9 +28,12 @@ build. Its final gate sets `phase` to `complete`; no later agent or eval phase f
 The Atlan MCP server runs in one of two modes. Check which tools you have; their connection
 prefix may differ from the names here.
 
-- **Search mode** (the default): only `mcp__search_tools`, `mcp__describe_tools`,
-  `mcp__call_tool` and `mcp__connect_server` are listed. Call a named tool such as
-  `registry__list_workspaces` through `mcp__call_tool`, with its `name` and `arguments`. Send
+- **Search mode** (the default): only `mcp__search_tools`, `mcp__describe_tools` and three
+  runners are listed. Call a named tool through the runner for what it does, with its `name`
+  and `arguments`: a read such as `registry__list_workspaces` through `mcp__call_read_tool`, a
+  create or update through `mcp__call_write_tool`, anything destructive through
+  `mcp__call_tool`. A search or describe names each tool's runner in `run_with`, and a refused
+  call names the runner to resend it through. Send
   `objective`, one sentence naming the project, on the first call; that opens the session and
   returns its `mcp_session_id`. Pass it as `session_id` on every later call, beside `name` and
   never inside `arguments`, with a one-line `rationale`.

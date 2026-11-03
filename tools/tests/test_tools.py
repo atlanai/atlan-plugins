@@ -45,8 +45,8 @@ class BuildTest(unittest.TestCase):
         documents = build.outputs(self.source)
         server, url = self.source["mcp"]["server"], self.source["mcp"]["url"]
         headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
-        auth = {"com.openai": {"auth": {"type": "oauth", "client": {"mode": "dcr"}}}}
-        self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers, "extensions": auth})
+        # Exactly these keys: codex-cli 0.160.0 drops a server entry carrying `extensions`.
+        self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
         self.assertEqual(documents["plugins/atlanai/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
 
     def test_agent_plugins_manifests_keep_to_the_closed_schema(self) -> None:
@@ -1043,12 +1043,6 @@ class CodexDirectoryTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build.directory_files(source)
         source["codex"]["screenshots"] = ["../outside.png"]
-        with self.assertRaises(SystemExit):
-            build.validate(source)
-
-    def test_only_known_oauth_client_modes_are_declared(self) -> None:
-        source = copy.deepcopy(build.load())
-        source["mcp"]["oauth_client"] = "provided"
         with self.assertRaises(SystemExit):
             build.validate(source)
 

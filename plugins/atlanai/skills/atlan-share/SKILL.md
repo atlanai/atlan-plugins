@@ -10,7 +10,8 @@ user-invocable: false
 Sharing is four steps: decide who it is for, record it where they can open it, hand back how to
 open it, and tell them if the user wants. The user answers one question and approves once, for
 all of step 3's writes.
-Calls below are search-mode `mcp__call_tool` calls. The first one opens the session by sending
+Calls below are search-mode runner calls: `mcp__call_read_tool` for a read and
+`mcp__call_write_tool` for a create. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Replies lead with the result: the first sentence is the answer
 or the step, counts rather than lists, handles only when asked, and no greeting, apology or
