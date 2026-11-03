@@ -31,7 +31,7 @@ import {
   CALL_TOOL,
   FIX,
   GATEWAY_TOOL,
-  PROBE_SERVERS,
+  probeServers,
   artifactOf,
   classify,
   dependentsOf,
@@ -46,6 +46,7 @@ import {
   retryNote,
   retryOf,
   searchRows,
+  serverKeyOf,
   summaryOf,
   unwrap,
   type AtlanHealth,
@@ -117,6 +118,9 @@ type Memory = {
   cards: Map<string, Card>
   /** Skill publishes this turn, for the band. */
   publishes: Publish[]
+  /** The server key of the gateway the model last called, when it is not one the mod probes
+   * anyway (a gateway added as `atlan-prod`). */
+  seenServer?: string
   isBandHidden: boolean
   /** The pane opens by itself once a session, at its first write or question. */
   hasOpenedPane: boolean
@@ -244,10 +248,10 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
 }
 
 /** Checks the connection with `mcp__describe_tools`, which opens no audit session. */
-async function probe($: Dollar): Promise<AtlanHealth> {
+async function probe($: Dollar, mem: Memory): Promise<AtlanHealth> {
   let detail = 'no Atlan server answered'
   let state: AtlanHealth['state'] = 'missing'
-  for (const server of PROBE_SERVERS) {
+  for (const server of probeServers(mem.seenServer)) {
     try {
       const outcome = await within($, PROBE_MS, $.mcp.call(server, 'mcp__describe_tools', { servers: ['registry'], detail: 'summary' }))
       if (outcome.kind === 'timeout') {
@@ -304,7 +308,7 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
 /** Runs a registry search through the server that answered last, or each one in turn. */
 async function searchRegistry($: Dollar, mem: Memory, args: Record<string, unknown>, rationale: string): Promise<Lookup | undefined> {
   const health = mem.health
-  const servers = health?.state === 'ready' && health.server ? [health.server] : [...PROBE_SERVERS]
+  const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   for (const server of servers) {
     const found = valueOf(await lookupWithRetry($, mem, server, 'registry__search_artifacts', args, rationale, PROBE_MS))
     if (found) return found
@@ -424,12 +428,12 @@ export const register: Register = (on, options) => {
       immediate: true,
     })
     const check = async (): Promise<void> => {
-      const health = await probe($)
+      const health = await probe($, mem)
       // MCP servers can still be connecting at start: report a problem only if it outlasts a retry.
       if (health.state === 'ready') setHealth($, mem, health)
       else
         $.clock.after(RETRY_MS, async () => {
-          setHealth($, mem, await probe($))
+          setHealth($, mem, await probe($, mem))
         })
     }
     void check().catch(() => undefined)
@@ -451,7 +455,7 @@ export const register: Register = (on, options) => {
       return { text: opened.isPlaced ? 'The Atlan pane lists what this session read and changed.' : 'The Atlan pane opens once the window is wide enough.' }
     }
     if (sub !== '' && sub !== 'status' && sub !== 'doctor') return { text: USAGE }
-    const health = await probe($)
+    const health = await probe($, mem)
     setHealth($, mem, health)
     return { text: report(mem, health, confirmWrites) }
   })
@@ -470,6 +474,7 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: GATEWAY_TOOL }, async ($, e, next) => {
     const call = e as unknown as CallInput & { tool: string; tool_use_id?: string }
     const isCallTool = CALL_TOOL.test(call.tool)
+    mem.seenServer = serverKeyOf(call.tool) ?? mem.seenServer
     const known = mem.session
     const { input } = repairRails(call, known, isCallTool)
     if (isCallTool && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
