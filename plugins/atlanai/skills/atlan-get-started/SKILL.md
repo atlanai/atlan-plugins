@@ -1,6 +1,6 @@
 ---
 name: atlan-get-started
-description: Connect to the Atlan registry, check the sign-in and show what the organization has, or route an Atlan request no other Atlan skill fits. Use when the user has just installed the plugin, asks whether they are connected or what they can do with Atlan, when the `atlan` MCP server's tools are missing, not signed in or are not the three search-mode tools, or when unsure which Atlan skill applies. A request that another Atlan skill's description covers goes straight to that skill, without this one first.
+description: Connect to the Atlan registry, check the sign-in and show what the organization has, or route an Atlan request no other Atlan skill fits. Use when the user has just installed the plugin, asks whether they are connected or what they can do with Atlan, when the `atlan` MCP server's tools are missing, not signed in or are not the five search-mode tools, or when unsure which Atlan skill applies. A request that another Atlan skill's description covers goes straight to that skill, without this one first.
 license: Apache-2.0
 user-invocable: false
 ---
@@ -18,13 +18,15 @@ tools rather than answering from memory or from these files.
 
 ## 1. Check the connection
 
-Look for the `atlan` server's tools. In the default search mode there are three:
-`mcp__search_tools`, `mcp__describe_tools` and `mcp__call_tool` (your host may prefix them:
-`mcp__plugin_atlanai_atlan__mcp__call_tool` in Claude Code, `mcp__atlan__mcp__call_tool` for a
-connector added in Claude chat or Cowork). Connecting a downstream
-server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp__connect_server`.
+Look for the `atlan` server's tools. In the default search mode there are five:
+`mcp__search_tools`, `mcp__describe_tools`, and three runners that run a tool by name,
+`mcp__call_read_tool` (reads only), `mcp__call_write_tool` (anything not destructive) and
+`mcp__call_tool` (any tool). Your host may prefix them: `mcp__plugin_atlanai_atlan__mcp__call_tool`
+in Claude Code, `mcp__atlan__mcp__call_tool` for a connector added in Claude chat or Cowork.
+Connecting a downstream server's account is not a tool of its own: it runs through
+`mcp__call_write_tool` (it stores a credential) as `mcp__connect_server`.
 
-- **`atlan` tools, but not these three** (tools named for search, lineage or glossary): that is
+- **`atlan` tools, but not these five** (tools named for search, lineage or glossary): that is
   a different plugin, the data-catalog plugin named `atlan` from Anthropic's directory, which
   serves `https://mcp.atlan.com/mcp`. It can stay installed. This plugin is `atlanai`, and its
   tools carry its name (`mcp__plugin_atlanai_atlan__…` in Claude Code); if they are missing,
@@ -60,7 +62,7 @@ server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp_
   session:
 
   ```
-  mcp__call_tool {
+  mcp__call_read_tool {
     "name": "registry__list_workspaces",
     "arguments": {},
     "objective": "<one sentence on what this whole session is for, for a human auditor>",
@@ -83,7 +85,7 @@ server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp_
   carrying the session id and, like every call, a `rationale`:
 
   ```
-  mcp__call_tool {
+  mcp__call_read_tool {
     "name": "registry__list_artifacts",
     "arguments": { "kind": "skill", "limit": 1 },
     "session_id": "mcp_session_…",
@@ -113,7 +115,7 @@ server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp_
 
 Read `references/calling-tools.md` once. In short:
 
-- **One session per conversation.** The first `mcp__search_tools` or `mcp__call_tool` carries
+- **One session per conversation.** The first search or runner call carries
   `objective` and returns the session's id (`session_id` from a search, `mcp_session_id` from a
   call). Pass it as `session_id` on every later call. Never invent one, and never send
   `objective` again: that opens a second session.
@@ -123,6 +125,12 @@ Read `references/calling-tools.md` once. In short:
   need no search. When you do search for one, pass `servers: ["registry"]`: tool search ranks
   every connected server, and an unfiltered query can miss a registry tool or return a
   lookalike from another app.
+- **Run each tool with the runner for what it does.** A search or describe result names it in
+  `run_with`. For a tool you call by name: `mcp__call_read_tool` for a get, list or search,
+  `mcp__call_write_tool` for a create, update, append, relate or move, and `mcp__call_tool` for
+  an archive, approve, release or anything else destructive. A runner refuses a tool above its tier and names the
+  one that runs it; send the same call there. This is what lets the person allow reads and writes
+  without a prompt and still be asked before anything destructive.
 - **Every call carries a `rationale`**: one first-person sentence on why you are making this
   call, written for the person who audits it later. Not a restatement of the arguments.
 - **`session_id`, `objective` and `rationale` go beside `name` and `arguments`**, never inside
@@ -132,7 +140,7 @@ Read `references/calling-tools.md` once. In short:
   write. On "session not found", open a new session once. `references/calling-tools.md` has the
   table.
 - The authoring skills below write calls in *full mode*, as `registry__… { … }`. In search
-  mode, run the same tool as `mcp__call_tool { "name": "registry__…", "arguments": { … } }`,
+  mode, run the same tool through its runner, as `mcp__call_read_tool { "name": "registry__…", "arguments": { … } }` for a read,
   and skip `mcp__initialise`: your first search already opened the session.
 
 ## 3. Route the task

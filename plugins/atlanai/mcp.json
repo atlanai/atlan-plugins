@@ -5,17 +5,7 @@
       "type": "streamable-http",
       "url": "https://api.atlan.com/mcp",
       "headers": {
-        "X-Atlan-Client": "atlan-plugin/0.5.8"
-      },
-      "extensions": {
-        "com.openai": {
-          "auth": {
-            "type": "oauth",
-            "client": {
-              "mode": "dcr"
-            }
-          }
-        }
+        "X-Atlan-Client": "atlan-plugin/0.5.10"
       }
     }
   }

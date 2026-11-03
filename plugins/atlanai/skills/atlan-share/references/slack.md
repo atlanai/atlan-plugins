@@ -11,7 +11,8 @@ Use the first that is reachable:
    `slack_search_channels` and `slack_search_users`, often under a server prefix. It posts in the
    user's own Slack with no Atlan call.
 2. **Slack registered in Atlan**: `mcp__search_tools { "query": "send a Slack message", "session_id": "mcp_session_…" }`.
-   Run what it finds with `mcp__call_tool`, by its exact name and schema. When Slack comes back
+   Run what it finds with the runner its `run_with` names (a post is a write:
+   `mcp__call_write_tool`), by its exact name and schema. When Slack comes back
    under `connect` instead of as tools, ask whether to connect it and follow
    `atlan-use-mcp-servers`.
 3. **Neither**: say in one line that Slack is not connected here, and give the post as text the

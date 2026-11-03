@@ -17,8 +17,10 @@ Choose the workflow:
 - **Register the coding tool running this session:** [harness and session](references/harness-and-session.md).
 - **Review skill pins and relationships:** `skills/atlan-get-started/references/edges.md`.
 
-In search mode, the default, run each tool named here through `mcp__call_tool`, with
-`session_id` and a first-person `rationale` beside `name` and `arguments`; your first call opens
+In search mode, the default, run each tool named here through the runner for what it does
+(`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
+`mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
+beside `name` and `arguments`; your first call opens
 the session by sending `objective`. **Before your first call** in
 `skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
 and the kind schema. Replies lead with the result in a few lines, and ask before every write.

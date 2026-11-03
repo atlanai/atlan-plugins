@@ -12,9 +12,10 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
 
 ## How you work
 
-0. **Open a registry session once.** If your only Atlan tools are `mcp__call_tool` and its
-   siblings, call each tool named here through `mcp__call_tool` with its `name` and
-   `arguments`: send `objective` (one sentence on the question) on the first call and pass the
+0. **Open a registry session once.** If your Atlan tools are `mcp__call_read_tool` and
+   `mcp__describe_tools` (search mode), call each tool named here through
+   `mcp__call_read_tool` with its `name` and `arguments`, and the warehouse query tool through
+   the runner your instructions name for it: send `objective` (one sentence on the question) on the first call and pass the
    returned `mcp_session_id` as `session_id` on every later call. Otherwise call
    `mcp__initialise` and pass the `session_id` it returns on every later registry call. Call
    only the read tools named in these instructions and the warehouse query tool, never a tool

@@ -89,8 +89,8 @@ their span views stay empty.
    A yes covers every step of this variant's publish.
 2. **Loop until done.** Run `EVAL publish --variant V [--baseline baseline] [--sessions-only]`.
    It prints the next `step` and its `calls`, each a `{tool, arguments}` pair. Send each call
-   in order with that exact name and arguments (in search mode, through `mcp__call_tool`, with
-   the session id beside them). Save the tool results, in call order, as one JSON list, for
+   in order with that exact name and arguments (in search mode, through `mcp__call_write_tool`, with
+   the session id beside them; a refusal names the runner to resend through). Save the tool results, in call order, as one JSON list, for
    example `hillclimb/V/publish-<step>.json`, then run
    `EVAL publish-ack --variant V --step <step> --responses <that file>`.
    Repeat until `publish` prints `"step": "done"`.

@@ -95,7 +95,7 @@ stored beside it, so the skill describes itself two ways (the slot warns when it
 In search mode this runs through `mcp__call_tool`, with `session_id` and a `rationale` beside
 `name` and `arguments`, never inside them. Call it by this name directly: it needs no
 `mcp__describe_tools` first, and `mcp__call_tool` runs it whatever `run_with` a search answer
-names.
+names. `files_from` is expanded on `mcp__call_write_tool` too, if that is the runner named.
 
 ## 4. Read the slot
 
