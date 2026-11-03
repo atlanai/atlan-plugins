@@ -197,7 +197,9 @@ describe('the guard', () => {
     expect(verdict).toEqual(expect.objectContaining({ decision: 'ask', reason: 'engine' }))
   })
 
-  test('asks before an archive and names what depends on it', async ($, on) => {
+  // A test's check has no approver, as under `claude -p`: an archive, move or approve is refused
+  // there, with the same blast radius a person would be asked about.
+  test('refuses an archive nobody can confirm and names what depends on it', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', (_, e) => {
@@ -205,7 +207,26 @@ describe('the guard', () => {
       return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
     })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
+    expect(verdict.reason).toContain('2 artifacts depend on it')
+    expect(verdict.reason).toContain('Nobody can confirm it here')
+  })
+
+  test('reads what depends on an artifact again after a transient failure', async ($, on) => {
+    const clock = engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    let failures = 1
+    on('mcp.call', (_, e) => {
+      const name = (e.args as { name?: string }).name
+      if (name === 'registry__get_related_artifacts' && failures-- > 0)
+        return { value: { content: [{ type: 'text', text: 'HTTP 503 Service Unavailable' }], isError: true } }
+      return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
+    })
+    const pending = $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
+    await clock.settle()
+    await clock.advance(2_000)
+    await clock.settle()
+    const verdict = await pending
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
 
@@ -218,15 +239,15 @@ describe('the guard', () => {
     expect(verdict).toEqual(expect.objectContaining({ decision: 'ask', reason: 'engine' }))
   })
 
-  test('asks before an archive spelled in another case (X1b)', async ($, on) => {
+  test('guards an archive spelled in another case (X1b)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', () => ({ value: text('{}') }))
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'Registry__Archive_Artifact ', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
   })
 
-  test('asks before an archive nested inside call_tool (X1d)', async ($, on) => {
+  test('guards an archive nested inside call_tool (X1d)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', (_, e) => {
@@ -237,18 +258,18 @@ describe('the guard', () => {
       tool: CALL,
       input: { name: 'mcp__call_tool', arguments: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' } }, rationale: 'r' },
     })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
 
-  test('still asks before an archive when the registry cannot be read', async ($, on) => {
+  test('still guards an archive when the registry cannot be read', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', () => {
       throw new Error('offline')
     })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__move_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
     expect(verdict.reason).toContain('Could not read what depends on it.')
   })
 })
@@ -335,7 +356,7 @@ describe('call repair', () => {
     on('mcp.call', () => ({ value: text('{}') }))
     await $.tool.call({ tool: DESCRIBE, servers: ['linear'] })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'linear__save_issue', arguments: {}, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
   })
 })
 

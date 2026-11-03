@@ -1,6 +1,6 @@
 # Propose a metric from this conversation
 
-`/atlan-analytics propose` turns a gap this conversation found into a proposal that the
+`/atlanai-analytics:atlan-analytics propose` turns a gap this conversation found into a proposal that the
 metric's owners review in Metric Studio:
 - a **new metric** when an answer had no published metric for what was asked;
 - a **fix** when the person said a published metric's number was wrong, and why.
