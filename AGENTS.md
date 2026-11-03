@@ -77,8 +77,12 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   (from `claude_hooks` in `plugin.toml`): never in `hooks/`, which Codex and Cursor read by
   default, and in no other manifest. It lets `extension__skill__create` take `files_from`, a
   folder in the working tree it checks with `check_bundle.py`'s rules and sends inline, and it
-  announces that with one prompt line; without that line the skill text sends `files`, so every
-  other host, and Claude Code under `allowManagedHooksOnly`, keeps working. Every hook in it fails
+  announces that with one prompt line. The skill text does not wait for that line, because some
+  hosts drop a plugin's `prompt.compose` section while its `tool.call` hook runs: it sends
+  `files_from` whenever the skill's folder is in the working directory, and where no hook expands
+  it, the server refuses `files_from` by name before writing, and the skill sends `files`. So
+  every other host, and Claude Code under `allowManagedHooksOnly`, keeps working for one extra
+  call. Every hook in it fails
   open, it reads only the folder the model names, and variants leave it out. The other exception
   is a mod, below.
 - **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
