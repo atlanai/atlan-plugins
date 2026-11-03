@@ -56,7 +56,7 @@ These steps apply a local agent, and local skills for a skills-only request.
    immediately, then use
    `registry__relate_artifact` with that agent as `artifact_id`, the verified repo
    as `subject_id`, `rel_type: sourced_from`, and `attributes: {"path":
-   ".atlan/agents/<slug>.yaml"}`. Read the edge back. If linking fails, resume
+   ".atlan/agents/<slug>.yaml"}`. Its result is the edge. If linking fails, resume
    linking the recorded agent ID; never create another agent or credential.
 
    If the command printed an agent ID but exited non-zero, the agent exists and
