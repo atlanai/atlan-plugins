@@ -171,13 +171,13 @@ and point at live tools instead of copying reference data that would go stale.
 
 ## Privacy and security
 
-- **Little runs on your machine, and only in Claude Code.** The add-ons, and `atlanai` in every
-  other tool, are Markdown files and an MCP server URL: no hooks, no binaries, no local storage.
-  In Claude Code, `atlanai` adds one hook, the publish helper: when the agent publishes a skill
-  with `files_from`, it reads that one folder in your working tree, refuses links, credential
-  files and folders, and anything outside the tree, and sends the files only in that same call to
-  Atlan. It reads nothing otherwise. `atlanai-mods` is code that runs inside Claude Code; its
-  [README](plugins/atlanai-mods) lists every call it makes.
+- **Little runs on your machine.** The add-ons are Markdown files: no hooks, no binaries, no
+  local storage. `atlanai` adds one hook, the publish helper, in Claude Code, Codex and Cursor
+  (in Codex and Cursor only once you trust its hooks, and only where `python3` is installed):
+  when the agent publishes a skill with `files_from`, it reads that one folder in your working
+  tree, refuses links, credential files and folders, and anything outside the tree, and sends
+  the files only in that same call to Atlan. It reads nothing otherwise. `atlanai-mods` is code
+  that runs inside Claude Code; its [README](plugins/atlanai-mods) lists every call it makes.
 - **Your sign-in, your permissions.** Every call carries your own OAuth sign-in, and Atlan
   enforces your organization's permissions on it. The plugins hold no credentials.
 - **Every call is recorded.** Atlan keeps each call in a session you can review in the

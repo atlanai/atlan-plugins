@@ -71,10 +71,11 @@ the menu lists each task once. The other skills are invoked by name
 
 ## Privacy
 
-The plugin stores nothing on your machine and has no binaries. In Claude Code it runs one hook,
-the publish helper: when the agent publishes a skill with `files_from`, it reads that one folder
-in your working tree (never a link, a credential file or folder, or anything outside the tree)
-and sends its files only in that same call to Atlan. Other tools run no code from it.
+The plugin stores nothing on your machine and has no binaries. In Claude Code, Codex and Cursor
+it runs one hook, the publish helper (in Codex and Cursor a Python script, once you trust the
+plugin's hooks): when the agent publishes a skill with `files_from`, it reads that one folder in
+your working tree (never a link, a credential file or folder, or anything outside the tree) and
+sends its files only in that same call to Atlan. Other tools run no code from it.
 Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).
