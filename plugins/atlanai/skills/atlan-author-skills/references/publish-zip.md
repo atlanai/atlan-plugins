@@ -54,12 +54,16 @@ extension__skill__create {
   "skills": [{
     "name": "deploy-preview",
     "workspace_id": "workspace_01J...",
+    "idempotency_key": "deploy-preview-7f3k9q2m",
     "bundle_file_id": "file_01J..."
-  }]
+  }],
+  "wait_for_release": true
 }
 ```
 
 Send exactly one of `files` or `bundle_file_id` per skill, and never base64 a bundle into the call.
+`idempotency_key` and `wait_for_release` work as for inline files: a new key per skill, the same
+call resent unchanged after a lost reply ([publishing](publish.md#3-create)).
 `registry__create_artifact` cannot create a skill: the skill kind takes no `upload_key`, and its
 properties are derived from the bundle by the create hook. Then read the slot as in
 [publishing](publish.md#4-read-the-slot).

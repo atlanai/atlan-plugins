@@ -163,9 +163,11 @@ install current in the background, so prefer it for a lasting install on the use
 It is an upgrade, never a requirement.
 
 1. Check for it: `command -v aireg || command -v brain`. If neither is there, offer the
-   installer (`curl -fsSL https://app.atlan.com/brain/cli/install.sh | sh`, which the user can
-   download and read first) or the MCP route in section 6, and wait for the user to choose.
-   Never run the installer without a yes.
+   installer or the MCP route in section 6, and wait for the user to choose. Offer the
+   installer as a download the user reads before running, never piped into a shell:
+   `curl -fsSL -o install.sh https://app.atlan.com/brain/cli/install.sh`, then `sh install.sh`.
+   Where the user's or their organization's rules forbid running downloaded installers, offer
+   only the MCP route. Never run the installer without a yes.
 2. Find the Atlan registry's local name: `aireg registry list -g --json`, the entry whose
    source is `https://api.atlan.com`. If there is none, connecting the CLI is the user's own
    sign-in step; offer the MCP route instead.

@@ -217,6 +217,119 @@ export function frontmatter(text: string): Record<string, string> | undefined {
   return undefined
 }
 
+const KEY_LINE = /^(?:"[^"]*"|'[^']*'|[^\s#'"[\]{},:&*!|>%@`-][^:#]*?)\s*:(?:[ \t]+(.*)|[ \t]*)$/
+
+/** The index just past the quoted scalar opening `value`, or undefined while it is unclosed. */
+function closes(value: string, quote: string): number | undefined {
+  let i = 1
+  while (i < value.length) {
+    const c = value[i]
+    if (quote === '"' && c === '\\') {
+      i += 2
+      continue
+    }
+    if (c === quote) {
+      if (quote === "'" && value[i + 1] === "'") {
+        i += 2
+        continue
+      }
+      return i + 1
+    }
+    i += 1
+  }
+  return undefined
+}
+
+/** Why a top-level value, with any continuation lines joined, is not YAML the registry reads. */
+function valueProblem(value: string): string | undefined {
+  const v = value.trim()
+  if (!v || v[0] === '#') return undefined
+  const first = v[0] as string
+  if (first === '"' || first === "'") {
+    const end = closes(v, first)
+    if (end === undefined) return `the ${first} quote is never closed`
+    const rest = v.slice(end).trim()
+    return rest && !rest.startsWith('#') ? 'text follows the closing quote; quote the whole value' : undefined
+  }
+  if (first === '[' || first === '{') {
+    let depth = 0
+    let quote: string | undefined
+    for (let i = 0; i < v.length; i++) {
+      const c = v[i] as string
+      if (quote) {
+        if (c === quote) quote = undefined
+      } else if (c === '"' || c === "'") quote = c
+      else if (c === '[' || c === '{') depth += 1
+      else if (c === ']' || c === '}') {
+        depth -= 1
+        if (depth === 0) {
+          const rest = v.slice(i + 1).trim()
+          return !rest || rest.startsWith('#') ? undefined : 'text follows the closing bracket'
+        }
+      }
+    }
+    return `the ${first} is never closed`
+  }
+  if (first === '|' || first === '>') return /^[|>][-+0-9]*\s*(?:#.*)?$/.test(v) ? undefined : "a block scalar's indicator line holds text"
+  if (first === '@' || first === '`') return `a plain value cannot start with ${first}; quote it`
+  const plain = v.split(/\s#/)[0] as string
+  if (/:(?:\s|$)/.test(plain)) return 'a plain value holds `: `; put the value in double quotes or use `>`'
+  return undefined
+}
+
+/**
+ * What the registry's parser refuses in SKILL.md's frontmatter and body, as [line, column, rule,
+ * fix]: check_bundle.py's frontmatter_problems, line for line. The subset of YAML a SKILL.md
+ * uses, not the whole language.
+ */
+export function frontmatterProblems(text: string): [number, number, string, string][] {
+  const lines = text.split(/\r\n|\r|\n/)
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
+  let end = -1
+  for (let i = 1; i < lines.length; i++) {
+    if ((lines[i] as string).trim() === '---') {
+      end = i
+      break
+    }
+  }
+  if (lines.length === 0 || (lines[0] as string).trim() !== '---' || end < 0) return []
+  const found: [number, number, string, string][] = []
+  const seen = new Map<string, number>()
+  const block = lines.slice(1, end)
+  let i = 0
+  while (i < block.length) {
+    const line = block[i] as string
+    const number = i + 2
+    i += 1
+    if (!line.trim() || line.trimStart().startsWith('#')) continue
+    const indent = line.slice(0, line.length - line.replace(/^[ \t]+/, '').length)
+    if (indent.includes('\t')) {
+      found.push([number, indent.indexOf('\t') + 1, 'frontmatter-yaml', 'a tab indents this line; YAML indents with spaces'])
+      continue
+    }
+    if (indent) continue
+    const match = KEY_LINE.exec(line)
+    if (!match) {
+      found.push([number, 1, 'frontmatter-yaml', 'is not a `key: value` line; fix it or indent it under its key'])
+      continue
+    }
+    const key = (line.split(':', 1)[0] as string).trim().replace(/^["']+|["']+$/g, '')
+    const first = seen.get(key)
+    if (first !== undefined) found.push([number, 1, 'frontmatter-yaml', `\`${key}\` is given twice (first on line ${first}); keep one`])
+    else seen.set(key, number)
+    let value = match[1] ?? ''
+    while (i < block.length && /^[ \t]/.test(block[i] as string) && ['"', "'", '[', '{'].includes(value.trim()[0] ?? '')) {
+      value += ` ${(block[i] as string).trim()}`
+      i += 1
+    }
+    const why = valueProblem(value)
+    if (why) found.push([number, line.indexOf(':') + 2, 'frontmatter-yaml', why])
+  }
+  if (!lines.slice(end + 1).join('\n').trim())
+    found.push([end + 1, 1, 'no-body', 'nothing follows the frontmatter; the registry needs Markdown instructions after the closing `---`'])
+  return found
+}
+
 /** Why `rel` is not a path the create takes, or undefined. */
 export function pathProblem(rel: string): string | undefined {
   const parts = rel.split('/')
@@ -289,6 +402,7 @@ export function check(folders: readonly { label: string; entries: readonly Entry
           if (!description)
             problems.push(problem(where, 'frontmatter-description', '`description` is missing; say what the skill does and when to use it', 1, 1))
           else if (description.length > 1024) problems.push(problem(where, 'frontmatter-description', '`description` is over 1024 characters', 1, 1))
+          for (const [line, column, rule, fix] of frontmatterProblems(text)) problems.push(problem(where, rule, fix, line, column))
         }
       }
       files[entry.path] = text
