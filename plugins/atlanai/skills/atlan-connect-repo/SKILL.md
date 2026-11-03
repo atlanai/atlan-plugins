@@ -12,12 +12,11 @@ Choose the operation:
 - **Set up GitHub publication or migrate an older sync:** [GitHub sync](references/github-sync.md),
   using [workflow and manifest templates](references/workflows.md).
 
-Pass a `session_id` and a first-person `rationale` on every tool call. In search mode, the
-default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by sending
-`objective`, each `registry__…` tool named here runs through `mcp__call_tool` with `session_id`
-and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
-skipped. In full mode, call `mcp__initialise` first. Replies lead with the result in a few
-lines.
+In search mode, the default, run each tool named here through `mcp__call_tool`, with
+`session_id` and a first-person `rationale` beside `name` and `arguments`; your first call opens
+the session by sending `objective`. **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
+and the kind schema. Replies lead with the result in a few lines.
 
 Registration and provenance alone do not prove that a publishing workflow ran.
 Use the checkout's canonical remote, verify the returned repository's workspace and remote,

@@ -5,39 +5,10 @@ For binary content or text above the inline ceiling, content arrives out of band
 
 ## Before your first call
 
-1. Open a session once, and keep the id. How depends on the mode your client connected in:
-
-   - **Search mode**, the default, lists `mcp__search_tools`, `mcp__describe_tools` and
-     `mcp__call_tool`. Send `objective`, one sentence for a human auditor reading this later,
-     on your first search or call; it returns the id (`session_id` from a search,
-     `mcp_session_id` from a call). Run each tool this procedure names with `mcp__call_tool`:
-     its `name` and `arguments`, with `session_id` and `rationale` at the top level beside
-     `arguments`, never inside it. Search mode does not list `mcp__initialise`.
-   - **Full mode** lists every tool by name. Open the session with `mcp__initialise`:
-
-     ```
-     mcp__initialise {
-       "objective": "<one sentence, for a human auditor reading this later>",
-       "client": "<the tool you run in, such as claude-code or claude-ai>",
-       "rationale": "<why you are opening it>"
-     }
-     → { "session_id": "mcp_session_01J..." }
-     ```
-
-   Pass that id as `session_id` on every later call. Full mode refuses a call without it;
-   search mode opens a second session, splitting the audit trail. Do not invent a value - an
-   id that names no session of yours is refused, not ignored.
-
-2. **`rationale` is required on every tool call.** It is a first-person sentence about why
-   you are making *this* call, written for a human reading the audit trail. Not a
-   restatement of the arguments.
-
-3. Every create needs a `workspace_id`. Read it off `registry__list_workspaces`; if you can
-   reach more than one, say which you are using rather than picking.
-
-4. Before your first write to a kind you have not written to before, call
-   `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
-   as a generic 400 that does **not** name the field.
+Follow **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+a first-person `rationale` on every call, a `workspace_id` on every create, and
+`registry__get_kind_schema` before your first write to a kind.
 
 Uploads use the authenticated API host. Storage placement remains registry-owned. Do not copy
 connector credentials into tool arguments.
@@ -145,7 +116,7 @@ skill's `metadata.files` manifest. Uploading a file next to a skill and hoping t
 leaves you with an orphan.
 
 For what the other kinds may join, and which end declares it:
-`skills/atlan-author-skills/references/skill-edges.md`.
+`skills/atlan-get-started/references/edges.md`.
 
 ## Reading content back out
 

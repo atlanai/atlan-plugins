@@ -1,25 +1,22 @@
 # Joining artifacts: the edge vocabulary, and which end declares it
 
+The one edges reference for every Atlan skill: skills, agents, outputs, knowledge and the rest.
+
 ## Nothing is joined automatically
 
 Creating two artifacts in one conversation creates two unrelated rows. Uploading a skill and
 an agent together does not link them; neither does creating a file "as part of" a skill. An
-edge exists because you asked for one. If you meant two things to be related, say so with a
-call and then read it back.
+edge exists because you asked for one, and you confirm it by reading it back.
 
 ## An edge is declared by its **source** kind
 
 This is the part that misleads. A `skill` may only ever point at another `skill`. That does
-not mean nothing can be joined to a skill - it means the edge is declared from the other end,
-and you create it there.
+not mean nothing can be joined to a skill: the edge is declared from the other end, and you
+create it there.
 
 | Source kind | `rel_type` | Target kinds |
 |---|---|---|
-| `skill` | `depends_on` | `skill` |
-| `skill` | `next_step` | `skill` |
-| `skill` | `alternative` | `skill` |
-| `skill` | `duplicate_of` | `skill` |
-| `skill` | `conflicts_with` | `skill` |
+| `skill` | `depends_on`, `next_step`, `alternative`, `duplicate_of`, `conflicts_with` | `skill` |
 | `skill` | `sourced_from` | `repo` |
 | `agent` | `uses_skill` | `skill` |
 | `agent` | `sub_agent` | `agent` |
@@ -34,21 +31,22 @@ and you create it there.
 | `scorer` | `sourced_from` | `repo` |
 
 That is the vocabulary of every kind that declares one; `registry__get_kind_schema` is the
-live answer when an app adds a kind. So:
+live answer when an app adds a kind (its `relationships`). So:
 
-- **to join an agent to a skill**, the source is the **agent**: `uses_skill`.
+- **to join an agent to a skill**, the source is the **agent**: `uses_skill`. Reading the
+  skill's own vocabulary and concluding the join is impossible is the usual mistake.
 - **to say a deliverable drew on a skill**, the source is the **output**: `used_skill`.
 - **to join a file to a skill**: there is no such edge, and there is nothing to create. A
   skill's own files are not related to it, they are *in* it: the pinned `metadata.files`
   manifest, written by the create hook from the bundle. If a file belongs to a skill, put it
-  in the `.zip`.
+  in the bundle.
+
+`uses_skill` and `used_skill` are spelled differently on purpose and are easy to swap: the
+first is a standing configuration on an agent, the second a fact about one deliverable.
 
 `sourced_from` names the repository an artifact is synced from, with the repo-relative `path`
 in its `attributes`. The sync writes it; create one by hand only when registering a repo's
 existing artifacts.
-
-`uses_skill` and `used_skill` are spelled differently on purpose and are easy to swap: the
-first is a standing configuration on an agent, the second a fact about one deliverable.
 
 ## What the five skill edges mean
 
@@ -60,13 +58,34 @@ first is a standing configuration on an agent, the second a fact about one deliv
 | `duplicate_of` | Two skills that should be one |
 | `conflicts_with` | Running both is wrong |
 
+## An agent's skills come from its manifest
+
+Do not write `uses_skill` by hand on an agent that has a `skills` manifest. The manifest,
+`[{ "skill_id": ..., "version_ordinal": ... }]` on the agent's own metadata, is the record of
+which skill versions that agent version loads, and the registry derives `uses_skill` from it:
+one edge per pinned skill, marked `provenance: manifest`, with every other `uses_skill` on the
+agent archived. A hand-written edge on such an agent is removed on its next write. Patch the
+manifest instead.
+
+The hand-written form below is for an agent that has never written a manifest, and for the
+other edge types.
+
+## Attribution is not an edge
+
+The most common mistake on `output` is reaching for `relate_artifact` to say which agent
+produced it. That is not an edge: it is the `subject_kind` / `subject_id` column pair in the
+output's own `metadata`, set at create time and set **together**.
+
+`used_skill` is the only relationship an `output` starts, and it answers a different question:
+what the deliverable drew on, not who made it.
+
 ## Creating one
 
 ```
 registry__relate_artifact {
-  "artifact_id": "skill_01J...",     <- the source, whose kind declares the rel_type
+  "artifact_id": "agent_01J...",     <- the source, whose kind declares the rel_type
   "subject_id":  "skill_01K...",     <- the target
-  "rel_type": "depends_on",
+  "rel_type": "uses_skill",
   "session_id": "...",
   "rationale": "..."
 }
@@ -75,9 +94,9 @@ registry__relate_artifact {
 Safe to repeat: the edge is keyed on both ends and the type, so a second identical call
 changes nothing.
 
-**If you are creating the second artifact anyway, create it linked.**
+**If you are creating the source artifact anyway, create it linked.**
 `registry__create_artifact_linked` takes the same `kind` and `metadata` as a create plus
-`subject_id` and `rel_type`, and makes the artifact and the edge in one call - so there is no
+`subject_id` and `rel_type`, and makes the artifact and the edge in one call, so there is no
 window where the new artifact exists unattached and no second call to forget.
 
 ```
@@ -91,24 +110,26 @@ registry__create_artifact_linked {
 }
 ```
 
-It cannot create a `skill` - a skill is its bytes and needs `extension__skill__create`. So for a skill
-the order is: upload the skill, then relate from the other artifact.
+One edge per call, so an agent that uses three skills is one linked create plus two
+`relate_artifact` calls. It cannot create a `skill`: a skill is its bytes and needs
+`extension__skill__create`. So for a skill the order is: upload the skill, then relate from
+the other artifact.
 
 ## The three refusals, in the order they fire
 
-1. **Unknown `rel_type`** - 422, and the message **names the vocabulary**:
+1. **Unknown `rel_type`**: 422, and the message **names the vocabulary**:
 
    > `banana` is not an edge type `skill` declares; it declares alternative, conflicts_with,
    > depends_on, duplicate_of, next_step
 
    Read the list out of the error rather than guessing again. If the type you wanted is not
-   there, check the table above - it is probably declared on the other kind.
+   there, check the table above: it is probably declared on the other kind.
 
-2. **Wrong target kind** - 422:
+2. **Wrong target kind**: 422:
 
-   > `depends_on` on `skill` may point at skill, not `agent`
+   > `uses_skill` on `agent` may point at skill, not `agent`
 
-3. **Different workspaces** - 422:
+3. **Different workspaces**: 422:
 
    > `<handle>` is in another workspace; a relationship's two ends must be in the same one
 
@@ -118,18 +139,18 @@ costs no lookup and tells you about the typo rather than about a missing artifac
 ## Reading them back
 
 ```
-registry__get_related_artifacts { "artifact_id": "skill_01J...", ... }
+registry__get_related_artifacts { "artifact_id": "agent_01J...", ... }
 ```
 
-Returns both directions - what this skill points at and what points back at it. That second
-half is how you confirm an `agent` or an `output` you linked actually landed, since the edge
-does not live on the skill. Do this after any multi-artifact upload: it is the only way to
-know the join happened.
+Returns both directions: what this artifact points at and what points back at it. That second
+half is how you confirm an `agent` or an `output` you linked to a skill actually landed, since
+the edge does not live on the skill. Call it after any multi-artifact create: it is the only
+way to know the join happened rather than assuming it did.
 
 ## The opposite footgun
 
 **A kind that declares no edges accepts any `rel_type`.** `file`, `harness` and `session` are
-in that group, and a typo from one of them is stored silently rather than refused - you get a
+in that group, and a typo from one of them is stored silently rather than refused: you get a
 relationship nothing will ever query.
 
 `registry__get_kind_schema` is the way to know which case you are in: its `relationships` lists
