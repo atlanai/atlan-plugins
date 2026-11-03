@@ -349,6 +349,15 @@ describe('call repair', () => {
     expect(write.context?.at(-1)).toContain('may already have run')
   })
 
+  test('leaves a lost skill publish to the publish helper: the create takes no idempotency_key', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))
+    const skills = [{ name: 'demo', workspace_id: 'workspace_01ws', files: { 'SKILL.md': '---\nname: demo\n---\n' } }]
+    const ran = await $.tool.call({ tool: CALL, name: 'extension__skill__create', arguments: { skills }, rationale: 'r' })
+    expect((ran.context ?? []).some(note => note.includes('idempotency_key'))).toBe(false)
+  })
+
   test('learns annotations from describe_tools', async ($, on) => {
     engine(on)
     on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'linear__save_issue', annotations: { readOnlyHint: false, destructiveHint: true } }] }) }))

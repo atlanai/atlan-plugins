@@ -1,0 +1,4 @@
+{
+  "description": "Atlan publish helper for Claude Code: extension__skill__create takes files_from, a skill folder in the working tree, and sends its checked files inline.",
+  "modules": ["./register.ts"]
+}

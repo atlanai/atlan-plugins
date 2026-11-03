@@ -340,6 +340,64 @@ class ModTest(unittest.TestCase):
         self.assertIn("`types`", errors[0])
 
 
+class CoreHooksTest(unittest.TestCase):
+    """The core's claude-hooks/: the publish helper, for Claude Code alone."""
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.documents = build.outputs(self.source)
+        self.base = build.core_dir(self.source)
+
+    def test_only_the_core_claude_manifest_names_the_hooks_module(self) -> None:
+        self.assertEqual(self.documents[f"{self.base}/.claude-plugin/plugin.json"]["hooks"], lint.CORE_HOOKS)
+        for path, document in self.documents.items():
+            if path != f"{self.base}/.claude-plugin/plugin.json" and isinstance(document, dict):
+                self.assertNotIn("hooks", document, path)
+        self.assertEqual(lint.lint_core_hooks(ROOT / self.base), [])
+
+    def test_a_variant_carries_no_hooks_module(self) -> None:
+        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
+        files = build.variant_files(self.source, variant, "variant.toml")
+        self.assertFalse(any("claude-hooks" in path for path in files))
+        self.assertNotIn('"hooks"', files["plugins/atlan-staging/.claude-plugin/plugin.json"])
+
+    def test_the_hooks_tests_read_the_shared_fixtures(self) -> None:
+        fixtures = build.hook_fixtures(self.source)[f"{self.base}/claude-hooks/tests/fixtures.ts"]
+        cases = json.loads((ROOT / build.FIXTURES).read_text(encoding="utf-8"))["cases"]
+        for case in cases:
+            self.assertIn(json.dumps(case["name"]), fixtures)
+
+    def test_refuses_a_hooks_key_outside_the_core_or_naming_another_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            for name, hooks, is_core in (("atlan-m", lint.CORE_HOOKS, False), ("atlan", "./hooks/hooks.json", True)):
+                plugin = Path(temp) / name
+                (plugin / ".claude-plugin").mkdir(parents=True)
+                (plugin / ".claude-plugin/plugin.json").write_text(json.dumps({"name": name, "hooks": hooks}))
+                saved = lint.ROOT
+                lint.ROOT = Path(temp)
+                try:
+                    errors = lint.lint_claude_manifest(plugin, is_core)
+                finally:
+                    lint.ROOT = saved
+                self.assertEqual(len(errors), 1, name)
+                self.assertIn("only the core names a hooks module", errors[0])
+
+    def test_refuses_settings_hooks_and_another_host_naming_the_module(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            core = Path(temp) / "atlan"
+            (core / "claude-hooks").mkdir(parents=True)
+            (core / "claude-hooks/register.ts").write_text("export const register = () => {}\n")
+            (core / "claude-hooks/hooks.json").write_text('{"modules": ["./register.ts"], "hooks": {"Stop": []}}')
+            (core / "plugin.json").write_text('{"name": "atlan", "hooks": "./claude-hooks/hooks.json"}')
+            saved = lint.ROOT
+            lint.ROOT = Path(temp)
+            try:
+                errors = lint.lint_core_hooks(core)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(len(errors), 2, errors)
+
+
 class SkillMetadataTest(unittest.TestCase):
     """`[skills]`: Codex's card for each skill and the MCP server it needs."""
 
