@@ -77,8 +77,12 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   (from `claude_hooks` in `plugin.toml`): never in `hooks/`, which Codex and Cursor read by
   default, and in no other manifest. It lets `extension__skill__create` take `files_from`, a
   folder in the working tree it checks with `check_bundle.py`'s rules and sends inline, and it
-  announces that with one prompt line. The skill text does not wait for that line, because some
-  hosts drop a plugin's `prompt.compose` section while its `tool.call` hook runs: it sends
+  announces that with one line of `prompt.submit` context on a conversation's first prompt, not
+  with `prompt.compose`: Claude Code's built-in `cc-plugin-sec-default`, seated for Team and
+  Enterprise organizations and on machines with managed settings, passes installed plugins over on
+  `prompt.compose`, `prompt.context` and `skill.prompt`, while their `prompt.submit` and
+  `tool.call` hooks run. Use those two for anything a hook must tell the model. The skill text
+  does not wait for that line either: it sends
   `files_from` whenever the skill's folder is in the working directory, and where no hook expands
   it, the server refuses `files_from` by name before writing, and the skill sends `files`. So
   every other host, and Claude Code under `allowManagedHooksOnly`, keeps working for one extra
