@@ -48,6 +48,8 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 # Where every plugin lives, and the trees a plugin may carry.
 PLUGINS = "plugins"
 TREES = ("skills", "commands", "agents")
+# Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
+FIXTURES = "tools/tests/fixtures/publish-bundles.json"
 # Files every plugin folder gets a copy of, from the repository root.
 SHARED = ("assets/logo.svg", "LICENSE")
 # Codex's per-skill metadata, inside each skill folder: written from [skills] in plugin.toml.
@@ -73,6 +75,9 @@ def load(path: Path = ROOT / "plugin.toml") -> dict:
         source = tomllib.load(handle)
     validate(source)
     # Checked here, not in validate(): a variant's plugin folder does not exist in this repository.
+    hooks = source["plugin"].get("claude_hooks")
+    if hooks and not (hooks.startswith("./claude-hooks/") and (ROOT / core_dir(source) / hooks).is_file()):
+        raise SystemExit(f"plugin.claude_hooks {hooks} must be a file under {core_dir(source)}/claude-hooks/")
     onboarding = source.get("codex", {}).get("onboarding_skill")
     if onboarding and not (ROOT / core_dir(source) / onboarding).is_file():
         raise SystemExit(f"codex.onboarding_skill {onboarding} is not a file in {core_dir(source)}")
@@ -146,6 +151,8 @@ def make_variant(source: dict, overrides: dict) -> dict:
     variant["rewrite"] = dict(overrides.get("rewrite", {}))
     # A mod matches the production plugin's server names, so a variant does not carry one yet.
     variant.pop("mods", None)
+    # So does the core's hooks module: the variant's plugin folder gets no claude-hooks/.
+    variant["plugin"].pop("claude_hooks", None)
     variant["keep"] = list(overrides.get("keep", []))
     # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
     main, other = source["plugin"], variant["plugin"]
@@ -354,6 +361,20 @@ def plugin_assets(source: dict) -> dict[str, str]:
     return files
 
 
+def hook_fixtures(source: dict) -> dict[str, str]:
+    """The shared publish fixtures as a module the hooks' tests import, since a test runs with no
+    file system. check_bundle.py's tests read the JSON itself."""
+    if not source["plugin"].get("claude_hooks"):
+        return {}
+    cases = json.loads((ROOT / FIXTURES).read_text(encoding="utf-8"))["cases"]
+    body = json.dumps(cases, indent=2, ensure_ascii=True)
+    return {
+        f"{core_dir(source)}/claude-hooks/tests/fixtures.ts": f"// Written by tools/build.py from {FIXTURES}: edit that file.\n\n"
+        "import type { Case } from './case'\n\n"
+        f"export const CASES: readonly Case[] = {body}\n"
+    }
+
+
 def skill_metadata(source: dict, name: str) -> str:
     """Codex's card for one skill, and the MCP server it needs, so a skill installed without the
     plugin can still ask for Atlan's server. JSON strings are YAML double-quoted scalars."""
@@ -476,6 +497,8 @@ def outputs(source: dict) -> dict[str, dict]:
             **core(source),
             "displayName": plugin["display_name"],
             "mcpServers": "./.mcp.json",
+            # Claude Code alone runs a hooks module; no other manifest names it.
+            **({"hooks": plugin["claude_hooks"]} if plugin.get("claude_hooks") else {}),
         },
         ".claude-plugin/marketplace.json": {
             "$schema": CLAUDE_MARKETPLACE_SCHEMA,
@@ -695,6 +718,7 @@ def main(argv: list[str] | None = None) -> int:
         texts = {path: render(document) for path, document in outputs(source).items()}
         texts.update(plugin_assets(source))
         texts.update(skill_files(source, source))
+        texts.update(hook_fixtures(source))
         drift = sync(texts, ROOT, args.check)
         target = "python3 tools/build.py"
 

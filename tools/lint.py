@@ -186,20 +186,52 @@ def plugin_roots() -> list[Path]:
 # person a warning on install, so a key joins this list only once the desktop app reads it too.
 CLAUDE_MANIFEST_KEYS = frozenset({
     "name", "version", "description", "author", "homepage", "repository", "license", "keywords",
-    "displayName", "dependencies", "mcpServers", "userConfig",
+    "displayName", "dependencies", "mcpServers", "userConfig", "hooks",
 })
+# The core's hooks module, named only from its Claude manifest: Codex and Cursor read hooks/ by
+# default, and only Claude Code runs a module (AGENTS.md, "Portable, except one hooks module").
+CORE_HOOKS = "./claude-hooks/hooks.json"
+OTHER_MANIFESTS = ("plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json")
 
 
-def lint_claude_manifest(root: Path) -> list[str]:
-    """Every Claude manifest holds only keys every Claude host reads."""
+def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
+    """Every Claude manifest holds only keys every Claude host reads, and only the core's names
+    a hooks module, its own claude-hooks/."""
     manifest = root / ".claude-plugin" / "plugin.json"
     if not manifest.is_file():
         return []
-    extra = sorted(set(json.loads(manifest.read_text(encoding="utf-8"))) - CLAUDE_MANIFEST_KEYS)
-    return [
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    extra = sorted(set(document) - CLAUDE_MANIFEST_KEYS)
+    errors = [
         f"{manifest.relative_to(ROOT)}: `{key}` is not a key every Claude host reads; the desktop app strips it and warns on install"
         for key in extra
     ]
+    if "hooks" in document and not (is_core and document["hooks"] == CORE_HOOKS):
+        errors.append(f"{manifest.relative_to(ROOT)}: only the core names a hooks module, as `hooks`: {CORE_HOOKS!r}")
+    return errors
+
+
+def lint_core_hooks(root: Path) -> list[str]:
+    """The core's claude-hooks/: one hooks module, no settings hooks, named by no other host's manifest."""
+    folder = root / "claude-hooks"
+    if not folder.exists():
+        return []
+    relative = folder.relative_to(ROOT)
+    hooks = folder / "hooks.json"
+    if not hooks.is_file():
+        return [f"{relative}/hooks.json: the core names its hooks module here"]
+    errors = []
+    document = json.loads(hooks.read_text(encoding="utf-8"))
+    modules = document.get("modules")
+    if set(document) - {"description", "modules"}:
+        errors.append(f"{relative}/hooks.json: the core has no settings hooks, only `modules`")
+    if not (isinstance(modules, list) and len(modules) == 1 and (folder / str(modules[0])).is_file()):
+        errors.append(f"{relative}/hooks.json: `modules` names exactly one file in claude-hooks/")
+    for name in OTHER_MANIFESTS:
+        other = root / name
+        if other.is_file() and "hooks" in json.loads(other.read_text(encoding="utf-8")):
+            errors.append(f"{other.relative_to(ROOT)}: only Claude Code runs the hooks module; no other manifest names it")
+    return errors
 
 
 def mod_names() -> set[str]:
@@ -295,6 +327,8 @@ def lint_repository(files: list[Path]) -> list[str]:
             errors.append(f"{relative}/bin/ is refused by claude.ai and organization sync")
         if (root / "hooks").exists() and root.name not in mods:
             errors.append(f"{relative}/hooks/ is out of scope for these plugins; see AGENTS.md before adding one")
+        if (root / "claude-hooks").exists() and root != plugin_roots()[0]:
+            errors.append(f"{relative}/claude-hooks/ belongs to the core alone; a mod keeps its module in hooks/")
     for path in files:
         if path.is_symlink():
             errors.append(f"{path.relative_to(ROOT)}: symlinks do not survive every host's install")
@@ -343,7 +377,8 @@ def main() -> int:
     for root in roots[1:]:
         errors += lint_mod(root) if root.name in mods else lint_addon(root)
     for root in roots:
-        errors += lint_claude_manifest(root)
+        errors += lint_claude_manifest(root, root == roots[0])
+    errors += lint_core_hooks(roots[0])
     errors += lint_repository(tracked_files())
 
     for error in errors:
