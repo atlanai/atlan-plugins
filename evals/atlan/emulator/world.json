@@ -589,6 +589,19 @@
           "external"
          ],
          "default": "local"
+        },
+        "idempotency_key": {
+         "type": "string",
+         "pattern": "^[A-Za-z0-9_-]{1,128}$",
+         "description": "Your retry key for this skill, unique within the call. Resending the same key with the same content returns the version the first attempt saved; the same key with different content is refused 409."
+        },
+        "sha256": {
+         "type": "object",
+         "additionalProperties": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+         },
+         "description": "Optional, with files only: the hex sha256 of each path's UTF-8 text."
         }
        },
        "required": [
@@ -618,6 +631,11 @@
         }
        ]
       }
+     },
+     "dry_run": {
+      "type": "boolean",
+      "default": false,
+      "description": "Check each bundle as the create would and create nothing. The security scan does not run."
      },
      "wait_for_release": {
       "type": "boolean",
