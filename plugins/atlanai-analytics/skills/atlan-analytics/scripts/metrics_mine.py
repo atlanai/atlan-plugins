@@ -13,6 +13,7 @@ published the same way. Standard library only, Python 3.10+.
 Exit 0 ok, 1 error, 2 BLOCKED ({"status":"BLOCKED","reason","fix"}: something the user must fix).
 
 Run directory (<context-dir>), written by the skill:
+  querylog.jsonl         {sql, exec, users}               <- `querylog`, from the saved history pull
   querylog.clean.jsonl   {sql, exec, users}               <- after `analytics_eval.py filter-querylog`
   shapes.jsonl           one ranked shape per line        <- `shapes`
   metrics.json           [metric body]                    <- authored, or `import-run`
@@ -66,6 +67,105 @@ def dump_json(path, obj) -> None:
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, indent=1, default=str))
     tmp.replace(p)
+
+
+# ====================================================================== query log intake
+# A query-history pull can be 5,000 rows of SQL. These turn whatever holds it (a tool result the
+# host saved to a file, CLI output, an export) into querylog.jsonl without the rows passing back
+# through the conversation. Only the statement, its run count and a distinct-user count are kept:
+# user names are counted while reading and never written.
+_SQL_COLS = ("sql", "query_text", "statement_text", "query", "text")
+_EXEC_COLS = ("exec", "execs", "executions", "count", "run_count", "runs")
+_USERS_COLS = ("users", "user_count", "distinct_users")
+_USER_COLS = ("user_name", "executed_by", "executed_by_user_id", "executed_as", "user_id", "user")
+_STATUS_COLS = ("execution_status", "status", "state")
+_TYPE_COLS = ("query_type", "statement_type")
+_OK_STATUS = {"success", "succeeded", "finished"}
+
+
+def _records(value) -> list:
+    """Rows as dicts from any shape a warehouse tool, CLI or export returns them in."""
+    if isinstance(value, str):
+        try:
+            return _records(json.loads(value))
+        except ValueError:
+            return []
+    if isinstance(value, list):
+        if not all(isinstance(r, dict) for r in value):
+            return []
+        if value and all("type" in r and "text" in r for r in value):  # MCP content blocks
+            return [x for r in value for x in _records(r["text"])]
+        return value
+    if not isinstance(value, dict):
+        return []
+    result = value.get("result") if isinstance(value.get("result"), dict) else {}
+    cols = value.get("columns") or ((value.get("manifest") or {}).get("schema") or {}).get("columns")
+    rows = value.get("rows") if isinstance(value.get("rows"), list) else (value.get("data_array") or result.get("data_array"))
+    if isinstance(cols, list) and isinstance(rows, list) and all(isinstance(r, list) for r in rows):
+        names = [c.get("name") if isinstance(c, dict) else c for c in cols]
+        return [dict(zip(names, r)) for r in rows]
+    for key in ("structuredContent", "content", "data", "result", "results", "items", "rows"):
+        if key in value:
+            got = _records(value[key])
+            if got:
+                return got
+    return []
+
+
+def _pick(row: dict, names: tuple):
+    low = {str(k).lower(): v for k, v in row.items()}
+    return next((low[n] for n in names if n in low and low[n] not in (None, "")), None)
+
+
+def read_querylog_source(path: pathlib.Path) -> list:
+    text = path.read_text(encoding="utf-8-sig")
+    if path.suffix.lower() == ".csv":
+        import csv
+        import io
+        return list(csv.DictReader(io.StringIO(text)))
+    try:
+        return _records(json.loads(text))
+    except ValueError:
+        return [r for ln in text.splitlines() if ln.strip() for r in _records(ln)]
+
+
+def cmd_querylog(a) -> dict:
+    """Group a history pull into {sql, exec, users} lines; counts only, never the statements."""
+    groups: dict = {}
+    dst = pathlib.Path(a.dst)
+    if a.append:
+        for r in read_jsonl(dst):
+            groups[r["sql"]] = {"exec": int(r.get("exec") or 0), "users": int(r.get("users") or 0), "seen": set()}
+    read = skipped = 0
+    for src in a.src:
+        rows = read_querylog_source(pathlib.Path(src))
+        if not rows:
+            raise Blocked(f"No rows found in {src}.", "Pass the saved tool result, CLI output or export that holds "
+                          "the history pull, or check it is not an error message.")
+        for row in rows:
+            read += 1
+            sql = _pick(row, _SQL_COLS)
+            status = str(_pick(row, _STATUS_COLS) or "success").lower()
+            kind = str(_pick(row, _TYPE_COLS) or "select").lower()
+            if not isinstance(sql, str) or status not in _OK_STATUS or kind != "select":
+                skipped += 1
+                continue
+            g = groups.setdefault(sql, {"exec": 0, "users": 0, "seen": set()})
+            g["exec"] += int(_pick(row, _EXEC_COLS) or 1)
+            given = _pick(row, _USERS_COLS)
+            who = _pick(row, _USER_COLS)
+            if given is not None:
+                g["users"] = max(g["users"], int(given))
+            elif who is not None:
+                g["seen"].add(hashlib.sha256(str(who).encode()).hexdigest())
+                g["users"] = max(g["users"], len(g["seen"]))
+    ranked = sorted(groups.items(), key=lambda kv: -kv[1]["exec"])[: a.limit]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with dst.open("w") as f:
+        for sql, g in ranked:
+            f.write(json.dumps({"sql": sql, "exec": g["exec"], "users": g["users"]}) + "\n")
+    return {"status": "ok", "rows_read": read, "skipped": skipped, "statements": len(ranked),
+            "dropped_over_limit": max(0, len(groups) - len(ranked)), "out": str(dst)}
 
 
 # ====================================================================== SQL scanning
@@ -1005,6 +1105,34 @@ def selftest() -> dict:
         cmd_check(argparse.Namespace(dir=str(t / "run")))
         ok("revising a live metric's population is called out", any(
             "changes what live 'paid_rev' measures" in w["warning"] for w in load_json(t / "run" / "plan.json")["warnings"]))
+    with tempfile.TemporaryDirectory() as d:
+        t = pathlib.Path(d)
+        (t / "tool.json").write_text(json.dumps({"isError": False, "content": [{"type": "text", "text": json.dumps(
+            {"columns": ["SQL", "EXEC", "USERS"], "rows": [["select 1 from t", 3, 2], ["select 2 from t", 1, 1]]})}]}))
+        (t / "dbx.json").write_text(json.dumps({"manifest": {"schema": {"columns": [{"name": "sql"}, {"name": "exec"},
+                                     {"name": "users"}]}}, "result": {"data_array": [["select 1 from t", "2", "1"]]}}))
+        (t / "api.json").write_text(json.dumps([
+            {"query_text": "select 3 from t", "user_name": "ann@example.com", "status": "FINISHED", "statement_type": "SELECT"},
+            {"query_text": "select 3 from t", "user_name": "bob@example.com", "status": "FINISHED", "statement_type": "SELECT"},
+            {"query_text": "delete from t", "user_name": "eve", "status": "FINISHED", "statement_type": "DELETE"},
+            {"query_text": "select 4 from t", "user_name": "eve", "status": "FAILED", "statement_type": "SELECT"}]))
+        (t / "export.csv").write_text("QUERY_TEXT,COUNT,USERS\nselect 5 from t,7,3\n")
+        out = t / "querylog.jsonl"
+        res = cmd_querylog(argparse.Namespace(src=[str(t / n) for n in ("tool.json", "dbx.json", "api.json")],
+                                              dst=str(out), append=False, limit=5000))
+        log = {r["sql"]: r for r in read_jsonl(out)}
+        ok("querylog reads a saved tool result, a Databricks statement and the history API", res["statements"] == 3
+           and log["select 1 from t"]["exec"] == 5 and log["select 3 from t"] == {"sql": "select 3 from t", "exec": 2, "users": 2})
+        ok("querylog keeps only successful SELECTs", res["skipped"] == 2 and "delete from t" not in log)
+        ok("querylog never writes a user name", "example.com" not in out.read_text() and "eve" not in out.read_text())
+        cmd_querylog(argparse.Namespace(src=[str(t / "export.csv")], dst=str(out), append=True, limit=5000))
+        ok("querylog --append merges the next page", len(read_jsonl(out)) == 4 and read_jsonl(out)[0]["exec"] == 7)
+        (t / "err.json").write_text(json.dumps({"isError": True, "content": [{"type": "text", "text": "permission denied"}]}))
+        try:
+            cmd_querylog(argparse.Namespace(src=[str(t / "err.json")], dst=str(out), append=True, limit=5000))
+            ok("an error result is refused, not read as an empty log", False)
+        except Blocked:
+            ok("an error result is refused, not read as an empty log", True)
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 
 
@@ -1019,6 +1147,13 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--tables", help="tables.txt: keep shapes that read one of these tables")
     c.add_argument("--top", type=int, default=400)
     c.set_defaults(func=cmd_shapes)
+
+    c = s.add_parser("querylog", help="turn a saved history pull into querylog.jsonl without printing it")
+    c.add_argument("src", nargs="+", help="a tool result saved to a file, CLI JSON output, or a JSONL or CSV export")
+    c.add_argument("dst", help="querylog.jsonl: {sql, exec, users} per line")
+    c.add_argument("--append", action="store_true", help="merge into dst's existing lines, for the next page")
+    c.add_argument("--limit", type=int, default=5000)
+    c.set_defaults(func=cmd_querylog)
 
     c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")
     c.add_argument("--dir", required=True)
