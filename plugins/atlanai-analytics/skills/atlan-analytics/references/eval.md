@@ -48,6 +48,8 @@ and never touches the network: you make every registry write through the Atlan M
       ```
       EVAL record --variant V --case <case_id> --rep <k> --answer-file hillclimb/V/answers/<case_id>_rep<k>.json --agent-result hillclimb/V/agent_results/<case_id>_rep<k>.json --gold-result eval/gold/<case_id>.json --transcript <output_file>
       ```
+      A gold or agent result file that is named but missing blocks the row, as a missing
+      transcript does. Save the file, then record again.
       `record` grades by result set and parses the transcript into the trace, tool calls,
       model and usage. It appends one row to `results.jsonl` and writes
       `traces/<case_id>_rep<k>.json`. A pair that is already recorded is skipped, never
@@ -111,14 +113,23 @@ A case passes when the agent's result set matches the gold one:
 - extra agent columns are allowed.
 
 Classes: `pass`, `wrong_result`, `agent_sql_error`, `no_sql`, `gold_error`, `harness_error`,
-`incomplete`, `invalid_contaminated`. `harness_error` is the one class you set yourself, for a run
+`incomplete`, `invalid_contaminated`, `judged`. `harness_error` is the one class you set yourself, for a run
 that failed outside the agent (a tool failure, a timeout): `record --class harness_error --reason "…"`,
 with no answer file. `incomplete` means the gold or the agent result was truncated, so matching rows
 prove nothing: fetch every page, or bound the gold query, and record the case again. It,
 `harness_error` and `gold_error` leave the scored denominator; report their counts beside the rate.
-Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the
-`atlan-analytics-grader` agent. It sees the question, the gold SQL's result and the agent's answer,
-never the agent's context. Report judged cases separately from the result-set pass rate.
+Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the grader agent
+(`atlanai-analytics:atlan-analytics-grader` in Claude Code):
+1. Write its one input file, `hillclimb/V/judge/<case_id>_rep<k>.json`, holding `question`,
+   `gold_result` and `agent_answer` (the answer text and the rows its SQL returned).
+2. Spawn a fresh grader with only that path. Save its JSON reply, `{pass, reason}`, as
+   `hillclimb/V/judge/<case_id>_rep<k>.verdict.json`.
+3. Record the case with `--verdict <that file>` added. The row's class is `judged`. `record`
+   refuses a verdict for a case not tagged `fuzzy`.
+
+`summary` reports judged cases under `judged`, apart from the result-set rates, and a report
+gives them on their own line. The grader's instructions are part of the approved harness: an
+edit to them blocks `record` until the user approves it again.
 To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.json> --gold-sql <sql>`.
 
 ## Files

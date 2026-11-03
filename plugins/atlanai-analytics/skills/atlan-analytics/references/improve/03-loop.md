@@ -5,7 +5,7 @@ Each round N writes to `H/vN/`.
 ## Analyse
 
 Skip the analyst only when the fix is already clear: the user named it, or the last round
-points straight at it. Otherwise spawn **one fresh `atlan-analytics-failure-analyst`** and give it:
+points straight at it. Otherwise spawn **one fresh failure analyst** (`atlanai-analytics:atlan-analytics-failure-analyst`) and give it:
 - the exact list of **train** trace paths, `H/<prev>/traces/<id>_rep<k>.json` for ids in
   `eval/split.json` `train_ids`, with the instruction to read nothing else;
 - the train rows of `H/<prev>/results.jsonl`;
