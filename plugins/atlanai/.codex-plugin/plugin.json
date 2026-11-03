@@ -1,6 +1,6 @@
 {
   "name": "atlanai",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -42,6 +42,7 @@
     "logo": "./assets/logo.svg",
     "privacyPolicyURL": "https://atlan.com/privacy-policy/"
   },
+  "hooks": "./command-hooks/codex.json",
   "extensions": {
     "com.openai": {
       "onboardingSkill": "./skills/atlan-get-started/SKILL.md"
