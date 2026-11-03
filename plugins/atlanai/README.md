@@ -77,6 +77,12 @@ plugin's hooks): when the agent publishes a skill with `files_from`, it reads th
 your working tree (never a link, a credential file or folder, or anything outside the tree) and
 sends its files only in that same call to Atlan. It says it is on with one line beside the
 conversation's first request. Other tools run no code from it.
+
+In Claude Code, the separate [Registry Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)
+changes how this plugin's calls behave: registry reads run without a prompt, writes, archives,
+approvals and moves ask first and name what they touch, a `session_id` or `rationale` put inside
+`arguments` is moved beside them, temporary gateway errors tell Claude how to retry, and a
+fitting registry skill is named beside your request. This plugin works the same without it.
 Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).

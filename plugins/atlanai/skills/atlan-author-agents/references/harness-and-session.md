@@ -10,7 +10,7 @@ Two required properties:
 | Property | Rule |
 |---|---|
 | `harness_vendor_id` | A live `harness_vendor` handle. **Immutable after create** |
-| `default_model_provider` | An enum value, backed by a real database `CHECK` |
+| `default_model_provider` | One of `openai`, `anthropic`, `open_router`, `bedrock`, `openai_compatible`, `azure`, `google_ai`, `vertex`, `litellm`, `typesafe`, backed by a real database `CHECK`. Claude Code and Claude are `anthropic`; Codex is `openai`. `registry__get_kind_schema` for `harness` lists the current set |
 
 ```
 registry__create_artifact {
@@ -68,5 +68,5 @@ Which means they accept **any** `rel_type`. A typo from one of them is stored si
 rather than refused - the opposite footgun from the 422 you get on a kind with a
 vocabulary.
 
-`registry__get_kind_schema` tells you which case a kind is in. An empty edge vocabulary
+`registry__get_kind_schema` tells you which case a kind is in. An empty `relationships`
 means "anything goes", not "nothing allowed".

@@ -15,6 +15,13 @@ resolvable at its own ordinal.
 
 For small text bundles, send the complete `files` map to `extension__skill__create`
 as in [publishing](publish.md#3-create).
+
+`files` has two shapes, and they are not interchangeable. What you **send** to
+`extension__skill__create` is an object of path to file text
+(`{"SKILL.md": "---\nname: …"}`). What a read **returns** is `metadata.files`, an array of
+manifest entries (`path`, `file_id`, `file_version_ordinal`, `size_bytes`, `media_type`), with
+no text in it. Never send the manifest back as `files`: read each file's text with
+`registry__get_file_content` and send the map.
 For larger bundles, binaries or executable files, use [the ZIP path](publish-zip.md):
 
 ```
