@@ -440,7 +440,7 @@ def skill_create(a: dict) -> dict:
                 "description": item.get("description") or "", "workspace_id": item["workspace_id"],
                 "source_type": identity[1], "source_id": identity[2], "artifact_status": "active", "is_released": True,
                 "released_channels": ["latest"], "version_ordinal": 1, "version_label": "0.1.0", "updated_at": now,
-                "metadata": {"files": sorted(({"path": f["path"]} for f in item.get("files") or []), key=lambda f: f["path"])},
+                "metadata": {"files": [{"path": path} for path in sorted(item.get("files") or {})]},
             }
         label = "0.1.0" if ordinal == 1 else f"0.{ordinal - 1}.0"
         slots.append({"index": index, "status_code": 201,
