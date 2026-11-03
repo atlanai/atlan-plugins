@@ -41,8 +41,10 @@ something hosted elsewhere.
    leave the offer to it.
 
 4. Before your first write to a kind you have not written to before, call
-   `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
-   as a generic 400 that does **not** name the field.
+   `registry__get_kind_schema { "kind": "<kind>" }`. Its `required` lists what a create must
+   send, `properties` what each field takes, `relationships` the edges the kind may start and
+   `body` whether it takes content (`verbose: true` returns the stored manifest). A missing
+   required property can come back as a generic 400 that does **not** name the field.
 
 ## Two shapes, and the difference matters
 
@@ -150,6 +152,12 @@ and **no** pin fields. Rules:
 `subject_kind` and `subject_id` **must be set together** - half a pair is a 400.
 `subject_kind` is `agent` or `harness`, and it selects which table the id is resolved
 against, so a mismatched pair is a 404 rather than a type error.
+
+**With no registered producer, leave them out.** In Claude chat, or any session where no
+`agent_…` or `harness_…` is registered for what is running, omit `subject_kind`,
+`subject_id` and `metadata.session_id` entirely. The output is still recorded, under the
+person who made the call. Never invent a handle, and never put the top-level
+`mcp_session_…` id in `metadata.session_id`.
 
 `session_id` in `metadata` is separate rather than derived from the subject. A session
 already names its own subject, but an output can exist **without** a session - uploaded by
