@@ -3,7 +3,7 @@
 The tell: 2–3 rounds in a row where validation hasn't cleared the noise band, even though the changes
 looked right. Stop changing content. Spend one round sorting the failures instead.
 
-Spawn a fresh `atlan-analytics-failure-analyst` in **bucket mode**, with the same train-only inputs
+Spawn a fresh failure analyst (`atlanai-analytics:atlan-analytics-failure-analyst`) in **bucket mode**, with the same train-only inputs
 as a normal round. It sorts every remaining train failure into one of these buckets:
 
 | bucket | tell | what to do instead of another content round |
