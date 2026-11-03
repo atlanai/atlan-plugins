@@ -81,9 +81,11 @@ Skip this section when no history source was chosen.
    Report the counts by reason in one line.
 4. Group and rank:
    `MINE shapes <context-dir>/querylog.clean.jsonl <context-dir>/shapes.jsonl --tables tables.txt`.
-   Each shape is one statement with literals folded away. It carries the most-run text, its run
-   and user counts, and hints: tables, aggregates, group-bys, filters. Report the counts in one
-   line.
+   Each shape is one statement with its dates and numbers folded away. Quoted values that pick a
+   population stay: `status = 'paid'` and `status = 'refunded'` are two shapes. Shapes that differ
+   only in those values share a `family`, and each lists its values under `predicates`. A shape
+   carries the most-run text, its run and user counts, and hints: tables, aggregates, group-bys,
+   filters. Report the shape and family counts in one line.
 5. If a database name in the SQL is a mirror of the real one (a copy or a benchmark prefix),
    normalise it to the real name and say so.
 
