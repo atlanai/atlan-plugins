@@ -35,8 +35,10 @@ discipline:
   for metric/query updates and restoration; PATCH cannot edit those definitions.
   A new saved query uses create. Record touched artifact/version ids in
   `H/vN/receipt.json` so restoration has an exact source.
-- **Harness changes stop the loop.** The grader agent's instructions and the eval script are
-  the harness. If either changed since `EVAL approve-harness`, the next `record` refuses until
+- **Harness changes stop the loop.** The grader agent's instructions and the eval script's
+  grading, record and scoring code are the harness; its publishing and command-line code are
+  not, so a plugin upgrade that touches only those keeps the approval. If the harness changed
+  since `EVAL approve-harness`, the next `record` refuses until
   the user reviews the change and approves it themselves, with the command written out as
   [the baseline](build/07-baseline.md) gives it.
 - **Report the validation delta with its sign-test p-value.** If it's not significant, say so
