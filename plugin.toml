@@ -67,6 +67,10 @@ url = "https://api.atlan.com/mcp"
 # a session came from; a server added by hand sends none (app-mcp decision
 # mcp-2026-10-30-session-records-the-install-surface).
 client = "atlan-plugin"
+# How OpenAI's hosts register an OAuth client with the server, written to mcp.json as
+# extensions.com.openai.auth: "dcr" (dynamic client registration, which the gateway's Control Plane
+# serves) or "cimd" (a client ID metadata document).
+oauth_client = "dcr"
 
 [codex]
 capabilities = ["Interactive", "Write"]
@@ -79,6 +83,9 @@ default_prompts = [
   "Find an Atlan skill for this task and install it",
   "Publish the skill in this folder to Atlan",
 ]
+# The directory listing's screenshots: images placed by hand in the core's own assets/ folder
+# (plugins/atlanai/assets/), plugin-relative. `make codex-directory` says when none are set.
+# screenshots = ["./assets/screenshot-search.png"]
 
 # Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
 # marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through
