@@ -130,10 +130,12 @@ extension__skill__create {
 ```
 
 The hook reads the folder, checks it as step 2 does, and sends its files. A refused check comes
-back as a list of problems with file, line and column: fix those files and call again. The hook
-also does the read-back above and reads a blocked version's findings for you. Send `files` or
-`files_from` per skill, never both. Without the line, never send `files_from`: the server refuses
-it, and its message says to send `files` instead.
+back as a list of problems with file, line and column, and nothing was sent: fix those files and
+call again. `files_from` is a folder inside the working directory, relative to it; the hook
+refuses links, credential folders and anything outside it. When the reply is lost, the hook adds
+the time the call went out to the result: use it for [the read-back](#when-the-reply-is-lost).
+Send `files` or `files_from` per skill, never both. Without the line, never send `files_from`:
+the server refuses it, and its message says to send `files` instead.
 
 ## When the scan blocks it
 
