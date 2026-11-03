@@ -13,7 +13,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "^mcp__.*call_tool$",
+        "matcher": "^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$",
         "hooks": [
           {
             "type": "command",
@@ -26,7 +26,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "^mcp__.*call_tool$",
+        "matcher": "^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$",
         "hooks": [
           {
             "type": "command",

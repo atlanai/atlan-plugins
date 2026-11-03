@@ -104,9 +104,11 @@ A case passes when the agent's result set matches the gold one:
 - extra agent columns are allowed.
 
 Classes: `pass`, `wrong_result`, `agent_sql_error`, `no_sql`, `gold_error`, `harness_error`,
-`invalid_contaminated`. `harness_error` is the one class you set yourself, for a run that failed
-outside the agent (a tool failure, a timeout): `record --class harness_error --reason "…"`, with
-no answer file. It and `gold_error` leave the scored denominator.
+`incomplete`, `invalid_contaminated`. `harness_error` is the one class you set yourself, for a run
+that failed outside the agent (a tool failure, a timeout): `record --class harness_error --reason "…"`,
+with no answer file. `incomplete` means the gold or the agent result was truncated, so matching rows
+prove nothing: fetch every page, or bound the gold query, and record the case again. It,
+`harness_error` and `gold_error` leave the scored denominator; report their counts beside the rate.
 Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the
 `atlan-analytics-grader` agent. It sees the question, the gold SQL's result and the agent's answer,
 never the agent's context. Report judged cases separately from the result-set pass rate.

@@ -4,16 +4,21 @@
     python3 publish_hook.py session-start --host codex|cursor
     python3 publish_hook.py pre --host codex|cursor    # before a tool call: expand files_from
     python3 publish_hook.py post --host codex|cursor   # after one: note a lost or blocked publish
+    python3 publish_hook.py mcp-guard --host cursor    # before Cursor sends an MCP call: check its server
 
 Each entry point reads the harness's hook event as JSON on stdin and prints that harness's answer
 on stdout, or nothing. It is claude-hooks/register.ts for the harnesses that run commands:
 
 - session-start adds the line atlan-author-skills' publish.md waits for before it sends files_from;
-- pre, on the gateway's call_tool naming extension__skill__create, reads each `files_from` folder
+- pre, on the Atlan gateway's call_tool or call_write_tool naming extension__skill__create, and on
+  no other server's tool of a like name, reads each `files_from` folder
   in the working tree, checks it with check_bundle.py's rules and sends its files inline with each
   file's sha256, or refuses the call with the problems, by file, line and column;
 - post, when that create's reply was lost or the scan blocked it, says what to read before
-  sending it again.
+  sending it again;
+- mcp-guard, in Cursor, refuses a skill create bound for any MCP server but Atlan's. Cursor names
+  an MCP tool `MCP:<tool>` in pre, without its server; this event names the server, so it is the
+  check that the files only ever go to Atlan.
 
 It reads only the folders the call names, inside the session's working directory or workspace,
 and refuses links, credential folders and files, and anything outside. On any fault it exits 0
@@ -37,6 +42,14 @@ CAPABILITY = "Atlan publish helper is on: extension__skill__create accepts files
 NOT_SENT = "Nothing was sent. Fix what is listed and call extension__skill__create again."
 CREDENTIAL_DIRS = {".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", "gcloud"}
 LOST = re.compile(r"\b(?:502|503|504)\b|bad gateway|service unavailable|gateway time-?out", re.IGNORECASE)
+# The gateway's runners that can carry the create, by the name each harness gives them in pre. Codex
+# names the server (`atlan`, the key every Atlan plugin uses, or under a plugin prefix); Cursor names
+# only the tool, so mcp-guard checks its server.
+RUNNERS = {
+    "codex": re.compile(r"^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$"),
+    "cursor": re.compile(r"^MCP:mcp__call(?:_write)?_tool$"),
+}
+ATLAN_HOST = re.compile(r"^(?:[a-z0-9-]+\.)*atlan\.com$")
 CHECKER = Path(__file__).resolve().parent.parent / "skills" / "atlan-author-skills" / "scripts" / "check_bundle.py"
 
 
@@ -69,13 +82,40 @@ def args_of(value):
     return None
 
 
-def publish_input(event: dict):
-    """The call_tool input when this call is the skill create, else None."""
+def publish_input(event: dict, host: str):
+    """The runner's input when this call is the Atlan gateway's skill create, else None. A tool of
+    the same shape on another server is never the create, so its files_from is never read."""
     tool = event.get("tool_name")
     tool_input = event.get("tool_input")
-    if not isinstance(tool, str) or "call_tool" not in tool or not isinstance(tool_input, dict):
+    runner = RUNNERS.get(host)
+    if runner is None or not isinstance(tool, str) or not runner.match(tool) or not isinstance(tool_input, dict):
         return None
     return tool_input if tool_input.get("name") == PUBLISH else None
+
+
+def is_atlan_server(event: dict) -> bool:
+    """Whether Cursor's beforeMCPExecution event names the Atlan server: by its URL's host, which
+    must be atlan.com's, when the event carries one, else by its name (`atlan`, or one ending in
+    `-atlan` or `_atlan`). A launch command (a stdio server) is never Atlan's."""
+    url = event.get("mcp_server_url") or event.get("url")
+    if isinstance(url, str) and url:
+        host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", url.strip().lower()).split("/", 1)[0].rsplit("@", 1)[-1].split(":", 1)[0]
+        return bool(ATLAN_HOST.match(host))
+    name = event.get("mcp_server_name")
+    return not event.get("command") and isinstance(name, str) and bool(re.fullmatch(r"(?:[\w-]*[_-])?atlan", name))
+
+
+def guard(event: dict):
+    """The refusal for a skill create on another MCP server, else None."""
+    if is_atlan_server(event):
+        return None
+    tool_input = args_of(event.get("tool_input"))
+    inner = tool_input.get("name") if tool_input else None
+    if inner != PUBLISH and event.get("tool_name") != PUBLISH:
+        return None
+    server = event.get("mcp_server_name") if isinstance(event.get("mcp_server_name"), str) else "this server"
+    return (f"The Atlan publish helper sends skill files only to the Atlan server, and {server!r} is not it. "
+            "Nothing was sent. Run extension__skill__create through the `atlan` server's runner.")
 
 
 def trees(event: dict) -> list[str]:
@@ -169,6 +209,28 @@ def walk(checker, label: str, base: str, budget: dict):
     return files, []
 
 
+def over_budget(checker, skills: list, folders: list, slots: list) -> list:
+    """One budget for the call: the expanded folders' files and the other skills' inline `files`
+    together, as the skill app counts them."""
+    count, size = 0, 0
+    for index, skill in enumerate(skills):
+        if index in slots or not isinstance(skill, dict) or not isinstance(skill.get("files"), dict):
+            continue
+        count += len(skill["files"])
+        size += sum(len(v.encode("utf-8")) for v in skill["files"].values() if isinstance(v, str))
+    if not count:
+        return []
+    for folder in folders:
+        if folder is not None:
+            count += len(folder[1])
+            size += sum(len(data) for _, data in folder[1])
+    if count > checker.MAX_FILES:
+        return [problem("", "too-many-files", f"the call holds {count} files with its inline `files`; a call takes at most {checker.MAX_FILES}, so split it or use the ZIP route")]
+    if size > checker.MAX_BYTES:
+        return [problem("", "too-large", f"the call holds {size} bytes with its inline `files`; a call takes at most {checker.MAX_BYTES}, so split it or use the ZIP route")]
+    return []
+
+
 def expand(tool_input: dict, event: dict):
     """(new input, None), (None, refusal text), or (None, None) when no skill names files_from."""
     args = args_of(tool_input.get("arguments"))
@@ -204,7 +266,7 @@ def expand(tool_input: dict, event: dict):
         names = {rel for rel, _ in files}
         folders.append((label, files, [], "SKILL.md" in names) if not refused_inside else None)
     checked = checker.check_files([f for f in folders if f is not None])
-    problems = walked + checked["problems"]
+    problems = walked + checked["problems"] + over_budget(checker, skills, folders, slots)
     if problems:
         text = checker.render({**checked, "ok": False, "problems": problems})
         return None, f"{text}\n{NOT_SENT}"
@@ -231,6 +293,11 @@ def response_text(event: dict) -> tuple[str, bool | None]:
             return value, None
         value = parsed
     is_error = value.get("isError") if isinstance(value, dict) and isinstance(value.get("isError"), bool) else None
+    blocks = value.get("content") if isinstance(value, dict) else None
+    if isinstance(blocks, list) and any(isinstance(b, dict) and isinstance(b.get("text"), str) for b in blocks):
+        # The tool's own text, as register.ts reads it: dumped whole, its JSON would come back
+        # escaped, and `"retryable": true` or `"may_have_run": true` inside it would never match.
+        return "\n".join(b["text"] for b in blocks if isinstance(b, dict) and isinstance(b.get("text"), str)), is_error
     return (value if isinstance(value, str) else json.dumps(value)), is_error
 
 
@@ -250,7 +317,9 @@ def keyed(tool_input: dict) -> bool:
 
 def post_note(text: str, is_error: bool | None, with_key: bool = False) -> str | None:
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    if is_error is not False and (re.search(r'"may_have_run"\s*:\s*true', text) or (not re.search(r'"retryable"\s*:\s*false', text) and LOST.search(text))):
+    lost = re.search(r'"may_have_run"\s*:\s*true', text) or (
+        not re.search(r'"retryable"\s*:\s*false', text) and (re.search(r'"retryable"\s*:\s*true', text) or LOST.search(text)))
+    if is_error is not False and lost:
         if with_key:
             return (
                 f"The skill create may have committed before its reply was lost (answered at {now}). Every skill carried an "
@@ -260,8 +329,8 @@ def post_note(text: str, is_error: bool | None, with_key: bool = False) -> str |
             )
         return (
             f"The skill create may have committed before its reply was lost (answered at {now}). It carried no idempotency_key, "
-            'so do not send it again yet: find the skill with registry__search_artifacts (kind "skill", the workspace_id and name), '
-            "read it with registry__get_artifact, and count the version as landed when its version_ordinal is the one expected and "
+            'so do not send it again yet: find the skill with registry__search_artifacts (kind "skill", the workspace_id, name '
+            "and include_unreviewed: true, since a version still under scan is left out otherwise), read it with registry__get_artifact, and count the version as landed when its version_ordinal is the one expected and "
             "its updated_at is no earlier than 10 seconds before you sent the create. If nothing landed, wait 5 seconds and read "
             "once more; only then send the create again, once."
         )
@@ -279,7 +348,12 @@ def answer(entry: str, host: str, event: dict):
     codex = host == "codex"
     if entry == "session-start":
         return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": CAPABILITY}} if codex else {"additional_context": CAPABILITY}
-    tool_input = publish_input(event)
+    if entry == "mcp-guard":
+        refusal = guard(event) if not codex else None
+        if refusal is None:
+            return None
+        return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper kept skill files from a server that is not Atlan's."}
+    tool_input = publish_input(event, host)
     if tool_input is None:
         return None
     if entry == "pre":

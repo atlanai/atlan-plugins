@@ -925,6 +925,72 @@ class PublishHookTest(unittest.TestCase):
         landed = {**base, "tool_response": {"isError": False, "content": [{"type": "text", "text": '{"created":[{"artifact_status":"active"}]}'}]}}
         self.assertIsNone(self.run_hook("post", "codex", landed))
 
+    def test_only_the_atlan_servers_runners_expand_files_from(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "demo").mkdir()
+            (cwd / "demo" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            for host, tool, expands in (
+                    ("codex", "mcp__atlan__mcp__call_write_tool", True),
+                    ("codex", "mcp__plugin_atlanai_atlan__mcp__call_tool", True),
+                    ("codex", "mcp__unrelated_vendor__call_tool", False),
+                    ("codex", "mcp__notatlan__mcp__call_tool", False),
+                    ("cursor", "MCP:mcp__call_write_tool", True),
+                    ("cursor", "MCP:call_tool", False),
+                    ("cursor", "MCP:vendor_call_tool", False)):
+                with self.subTest(host=host, tool=tool):
+                    event = {**self.event(cwd, {"files_from": "demo"}, host), "tool_name": tool}
+                    decision, rewritten, _ = self.verdict(self.run_hook("pre", host, event), host)
+                    if expands:
+                        self.assertEqual(decision, "allow")
+                        self.assertIn("Follow the steps.", json.dumps(rewritten))
+                    else:
+                        self.assertIsNone(decision, "a like-named tool on another server is never read for")
+
+    def test_cursor_refuses_a_skill_create_bound_for_another_server(self) -> None:
+        create = {"tool_name": "mcp__call_tool", "tool_input": json.dumps({"name": "extension__skill__create", "arguments": {}})}
+        for event, refused in (
+                ({**create, "mcp_server_name": "atlan", "mcp_server_url": "https://api.atlan.com/mcp"}, False),
+                ({**create, "mcp_server_name": "plugin-atlanai-atlan"}, False),
+                ({**create, "mcp_server_name": "atlan", "mcp_server_url": "https://atlan.com.evil.example/mcp"}, True),
+                ({**create, "mcp_server_name": "unrelated_vendor", "url": "https://mcp.vendor.example"}, True),
+                ({**create, "mcp_server_name": "atlan", "command": "npx atlan-lookalike"}, True),
+                ({**create}, True),
+                ({"tool_name": "search", "tool_input": "{}", "mcp_server_name": "unrelated_vendor"}, False)):
+            with self.subTest(event=event):
+                answer = self.run_hook("mcp-guard", "cursor", event)
+                if refused:
+                    self.assertEqual(answer["permission"], "deny")
+                    self.assertIn("only to the Atlan server", answer["agent_message"])
+                else:
+                    self.assertIsNone(answer)
+        self.assertIsNone(self.run_hook("mcp-guard", "codex", create))
+
+    def test_inline_files_and_folders_share_one_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "demo" / "references").mkdir(parents=True)
+            (cwd / "demo" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            (cwd / "demo" / "references" / "big.md").write_text("x" * (150 * 1024), encoding="utf-8")
+            for host in ("codex", "cursor"):
+                with self.subTest(host=host):
+                    event = self.event(cwd, {"files_from": "demo"}, host)
+                    event["tool_input"]["arguments"]["skills"].append(
+                        {"name": "two", "workspace_id": "workspace_01ws", "files": {"SKILL.md": self.SKILL + "y" * (150 * 1024)}})
+                    decision, _, text = self.verdict(self.run_hook("pre", host, event), host)
+                    self.assertEqual(decision, "deny")
+                    self.assertIn("too-large: ", text)
+                    self.assertIn("Nothing was sent", text)
+
+    def test_post_reads_structured_signals_inside_the_tools_text(self) -> None:
+        for text in ('{"error":{"code":"x","retryable":true}}', '{"error":{"code":-32603,"data":{"may_have_run":true}}}'):
+            with self.subTest(text=text):
+                event = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool",
+                         "tool_input": {"name": "extension__skill__create", "arguments": {}},
+                         "tool_response": {"isError": True, "content": [{"type": "text", "text": text}]}}
+                note = self.run_hook("post", "codex", event)["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("include_unreviewed: true", note)
+
     def test_each_manifest_names_its_own_hooks_file(self) -> None:
         documents = build.outputs(build.load())
         base = build.core_dir(build.load())
