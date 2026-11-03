@@ -172,22 +172,31 @@ def problem(path: str, rule: str, fix: str, line: int | None = None, column: int
 
 
 def check(roots: list[Path]) -> dict:
-    problems: list[dict] = []
-    count = total = 0
+    folders = []
     for root in roots:
         files, refused = walk(root)
+        has_skill_md = (root / "SKILL.md").is_file() and not (root / "SKILL.md").is_symlink()
+        folders.append((root.name, [(rel, path.read_bytes()) for rel, path in files], refused, has_skill_md))
+    return check_files(folders)
+
+
+def check_files(folders: list[tuple[str, list[tuple[str, bytes]], list[dict], bool]]) -> dict:
+    """The checks on bytes already read: `(name, [(path, bytes)], walk problems, has SKILL.md)` per
+    folder. The command hook reads each file once and checks the bytes it sends."""
+    problems: list[dict] = []
+    count = total = 0
+    for name, files, refused, has_skill_md in folders:
         problems += refused
-        if not (root / "SKILL.md").is_file() or (root / "SKILL.md").is_symlink():
-            problems.append(problem("SKILL.md", "missing-skill-md", f"{root.name} has no SKILL.md at its root"))
-        for rel, path in files:
+        if not has_skill_md:
+            problems.append(problem("SKILL.md", "missing-skill-md", f"{name} has no SKILL.md at its root"))
+        for rel, data in files:
             count += 1
-            data = path.read_bytes()
             total += len(data)
-            label = rel if len(roots) == 1 else f"{root.name}/{rel}"
+            label = rel if len(folders) == 1 else f"{name}/{rel}"
             bad = path_problem(rel)
             if bad:
                 problems.append(problem(label, "unsafe-path", f"the path {bad}"))
-            if KEY_FILES.search(path.name):
+            if KEY_FILES.search(rel.rsplit("/", 1)[-1]):
                 problems.append(problem(label, "credential-file", "looks like a credential file; leave it out"))
                 continue
             try:

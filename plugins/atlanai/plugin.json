@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai",
-  "version": "0.4.2",
+  "version": "0.5.1",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -43,7 +43,8 @@
         "composerIcon": "./assets/logo.svg",
         "logo": "./assets/logo.svg",
         "privacyPolicyURL": "https://atlan.com/privacy-policy/"
-      }
+      },
+      "hooks": "./command-hooks/codex.json"
     }
   }
 }
