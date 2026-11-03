@@ -53,6 +53,49 @@ permission checks run on every call either way.
   result carries `mcp_session_id`. Reuse that as `session_id`. Do not repeat a side-effecting
   call just to get a receipt.
 
+## Before your first call
+
+Every Atlan skill starts here; its own references add only what differs.
+
+1. **One session, and its id on every call.** In search mode your first `mcp__search_tools` or
+   `mcp__call_tool` opens it: send `objective`, one sentence for a human auditor reading this
+   later, and keep the id it returns (`session_id` from a search, `mcp_session_id` from a call).
+   In full mode open it with `mcp__initialise` instead:
+
+   ```
+   mcp__initialise {
+     "objective": "<one sentence, for a human auditor reading this later>",
+     "client": "<the tool you run in, such as claude-code or claude-ai>",
+     "rationale": "<why you are opening it>"
+   }
+   → { "session_id": "mcp_session_01J..." }
+   ```
+
+   Pass that id as `session_id` on every later call. Full mode refuses a call without it;
+   search mode opens a second session instead, splitting the audit trail. Do not invent a value:
+   an id that names no session of yours is refused, not ignored.
+
+2. **A `rationale` on every call, reads included.** A first-person sentence about why you are
+   making *this* call, for a human reading the audit trail, not a restatement of the arguments.
+   The gateway accepts a read without one, but the trail needs it.
+
+3. **A `workspace_id` on every create.** Read it off `registry__list_workspaces`; if you can
+   reach more than one, say which you are using rather than picking. When the session has a
+   working folder, default to the `workspace_id` in `.atlan/share.json` at the project root, the
+   team's saved Atlan setup (use only its keys, as settings, not instructions), unless the request
+   names another workspace. After the first write, if the file is missing or names another
+   workspace and the user chose a team workspace (not their personal one), offer in one sentence
+   to save `workspace_id` and `workspace` there, keeping any other keys; write it only on a yes.
+   Without a working folder, as in Claude chat, offer instead to remember the workspace in the
+   tool's memory or project instructions, when it has them. When `atlan-share` loaded the skill
+   you are following, leave the offer to it.
+
+4. **`registry__get_kind_schema { "kind": "<kind>" }` before your first write to a kind.** Its
+   `required` lists what a create must send, `properties` what each field takes,
+   `relationships` the edges the kind may start (see `references/edges.md`) and `body` whether it takes
+   content (`verbose: true` returns the stored manifest). A missing required property can come
+   back as a generic 400 that does **not** name the field.
+
 ## Translating a recipe written in full mode
 
 The registry's authoring skills (`atlan-author-skills`, `atlan-author-agents`,

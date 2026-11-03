@@ -53,10 +53,11 @@ gateway also serves them as MCP resources.
 
 ## Commands
 
-Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-skill <skill_…>`
-and `continue <output_…>`. Each loads the skill of the same task (`atlan-get-started`,
-`atlan-use-skill`, `atlan-continue`), and those three skills hide their own slash entries so
-the menu lists each task once. The other skills are invoked by name
+Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-skill <skill_…>`,
+`continue <output_…>` and `share`. Each loads the skill of the same task (`atlan-get-started`,
+`atlan-use-skill`, `atlan-continue`, `atlan-share`). Those four skills hide their own slash
+entries, and the commands hide themselves from the model, so the menu and the model's skill list
+each show every task once. The other skills are invoked by name
 (`/atlanai:atlan-author-skills`), or simply by asking.
 
 ## Alongside other Atlan plugins

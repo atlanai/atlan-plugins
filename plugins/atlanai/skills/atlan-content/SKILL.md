@@ -6,14 +6,13 @@ license: Apache-2.0
 
 # File content
 
-Open one audited session and pass its id as `session_id`, with a first-person `rationale`,
-on every later tool call. In search mode, the default, your first `mcp__search_tools` or
-`mcp__call_tool` opens it by sending `objective`, and each tool named here runs through
-`mcp__call_tool`; in full mode, call `mcp__initialise` first. Resolve the workspace with
-`registry__list_workspaces` and read `registry__get_kind_schema` before writing a kind for
-the first time. Replies lead with the result: the first sentence is the answer or the step, counts rather
-than lists, handles only when asked, one next step rather than a menu, and no greeting,
-apology or closing offer.
+In search mode, the default, run each tool named here through `mcp__call_tool`, with
+`session_id` and a first-person `rationale` beside `name` and `arguments`; your first call opens
+the session by sending `objective`. **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
+and the kind schema. Replies lead with the result: the first sentence is the answer or the step,
+counts rather than lists, handles only when asked, one next step rather than a menu, and no
+greeting, apology or closing offer.
 
 Choose the operation and read its procedure:
 
