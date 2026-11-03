@@ -113,8 +113,11 @@ connected, and otherwise mark it untested.
    `registry__get_artifact` for the metrics whose tables overlap this run's.
 2. Run `MINE check --dir <context-dir>`. It checks every body against the registry's contract
    and the card rules. It refuses duplicates, and matches each metric to a live one that
-   measures the same thing. It then writes `plan.json`, which marks each item `create`, `revise`
-   or `reuse` and lists every refusal by item and field.
+   measures the same thing: the same source, formula and mandatory filters, literals included,
+   so `STATUS = 'paid'` never matches `STATUS = 'refunded'`. It then writes `plan.json`, which
+   marks each item `create`, `revise` or `reuse` and lists every refusal by item and field. A
+   warning that a revision "changes what live … measures" means its population changes: show
+   the person both definitions in the preview before it is sent.
 3. On REFUSED, fix exactly the named fields of the refused items and run it again. Never touch
    items that passed. After three rounds, hold what is still refused and report it.
 4. **Test against the warehouse** when a query tool is recorded. For each metric, run one read
