@@ -147,27 +147,31 @@ as a hidden part of an edit or undo.
 
 ## Run
 
-Run variant `vN` over **all** cases at the baseline's rep count via `atlan-analytics eval`. Then
+Run variant `vN` over the train and validation cases (`EVAL todo --ids all`, which leaves the
+holdout out) at the baseline's rep count via `atlan-analytics eval`. Then
 publish it with `--baseline baseline`, as [Publish in the eval procedure](../eval.md#publish)
 describes, so the registry records the round as an experiment linked to the baseline.
 
 ## Record and decide
 
-- `EVAL compare --a baseline --b vN` gives test and train pass rates with their bands, the
-  context-engagement rate, tokens and cost.
-- Update `H/_state.json` (`current_round`, and `best` when test beats it). Rewrite
+- `EVAL compare --a baseline --b vN` gives the paired validation and train deltas, each with
+  its band and an exact sign-test p-value. `EVAL summary --variant vN` gives context
+  engagement, unverified isolation and tokens.
+- Update `H/_state.json` (`current_round`, and `best` when validation beats it). Rewrite
   `H/narrative.md` with the status table on top:
 
-  | round | change | test | train | used context | out toks | $/run | spend |
-  |---|---|---|---|---|---|---|---|
+  | round | change | validation | train | p | used context | out toks |
+  |---|---|---|---|---|---|---|
+
+  Leave cost out: the script measures tokens, not money.
 
   Under the table, one paragraph on what's winning and why.
-- In chat, one line: `v3 test 52% → 61% (±18), change: <one line>`, then the path to
+- In chat, one line: `v3 validation 52% → 61% (±18, p 0.04), change: <one line>`, then the path to
   `narrative.md`.
 - **Keep or revert:**
-  - train up and test flat: it overfit. Revert it and try another angle.
+  - train up and validation flat: it overfit. Revert it and try another angle.
   - train down: revert.
-  - train down but test up: treat it as noise until a rerun confirms.
+  - train down but validation up: treat it as noise until a rerun confirms.
   - a tie: keep the later round.
 - Check the stopping condition. After 2–3 rounds flat within noise, go to
   `skills/atlan-analytics/references/improve/04-stall.md`.

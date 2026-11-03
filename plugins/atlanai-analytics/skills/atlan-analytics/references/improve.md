@@ -2,9 +2,10 @@
 
 Read [shared conventions](conventions.md) first. This follows the eval hill-climb
 discipline:
-- the train/test split is fixed before round 1 and never redrawn to chase a score;
+- the split is frozen before round 1 and never redrawn (`split` refuses once a row is graded);
 - the analyst reads train traces only;
-- test is scored every round and is the only number reported;
+- validation is scored every round and picks the winner;
+- the holdout (the final test) is scored once, at hand-back, and never picks anything;
 - one idea per round;
 - every change is recorded so it can be reverted;
 - the loop stops at a plateau instead of grinding.
@@ -26,7 +27,8 @@ discipline:
   `atlan-analytics eval` first.
 - **The held-out wall.**
   - The analyst gets an explicit list of train trace files.
-  - You pick changes from train scores and test totals only; never read test transcripts.
+  - You pick changes from train scores and validation totals only; never read validation or
+    holdout transcripts, and never run the holdout before hand-back.
   - Proposed changes must not quote eval wording, gold SQL or gold values.
 - **Definition changes append complete revisions.** Follow
   [Saving and undoing a definition change](improve/03-loop.md#saving-and-undoing-a-definition-change)
@@ -36,7 +38,7 @@ discipline:
 - **Harness changes stop the loop.** The grader and the eval script are the harness. If either
   changed since `EVAL approve-harness`, the next `record` refuses until the user reviews the
   change and approves it themselves.
-- **Report the test delta with its band.** If it's inside noise, say so and recommend not
-  keeping the change.
+- **Report the validation delta with its sign-test p-value.** If it's not significant, say so
+  and recommend not keeping the change. At hand-back, report the holdout once beside it.
 
 End with one status line.
