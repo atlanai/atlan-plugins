@@ -48,6 +48,8 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 # Where every plugin lives, and the trees a plugin may carry.
 PLUGINS = "plugins"
 TREES = ("skills", "commands", "agents")
+# The core's hooks, by plugin.toml key: each harness's file, and the folder it must sit in.
+HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cursor_hooks": "command-hooks"}
 # Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
 FIXTURES = "tools/tests/fixtures/publish-bundles.json"
 # Files every plugin folder gets a copy of, from the repository root.
@@ -75,9 +77,10 @@ def load(path: Path = ROOT / "plugin.toml") -> dict:
         source = tomllib.load(handle)
     validate(source)
     # Checked here, not in validate(): a variant's plugin folder does not exist in this repository.
-    hooks = source["plugin"].get("claude_hooks")
-    if hooks and not (hooks.startswith("./claude-hooks/") and (ROOT / core_dir(source) / hooks).is_file()):
-        raise SystemExit(f"plugin.claude_hooks {hooks} must be a file under {core_dir(source)}/claude-hooks/")
+    for key, folder in HOOK_KEYS.items():
+        hooks = source["plugin"].get(key)
+        if hooks and not (hooks.startswith(f"./{folder}/") and (ROOT / core_dir(source) / hooks).is_file()):
+            raise SystemExit(f"plugin.{key} {hooks} must be a file under {core_dir(source)}/{folder}/")
     onboarding = source.get("codex", {}).get("onboarding_skill")
     if onboarding and not (ROOT / core_dir(source) / onboarding).is_file():
         raise SystemExit(f"codex.onboarding_skill {onboarding} is not a file in {core_dir(source)}")
@@ -152,7 +155,8 @@ def make_variant(source: dict, overrides: dict) -> dict:
     # A mod matches the production plugin's server names, so a variant does not carry one yet.
     variant.pop("mods", None)
     # So does the core's hooks module: the variant's plugin folder gets no claude-hooks/.
-    variant["plugin"].pop("claude_hooks", None)
+    for key in HOOK_KEYS:
+        variant["plugin"].pop(key, None)
     variant["keep"] = list(overrides.get("keep", []))
     # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
     main, other = source["plugin"], variant["plugin"]
@@ -421,7 +425,9 @@ def outputs(source: dict) -> dict[str, dict]:
     owner = {"name": source["author"]["name"], "url": source["author"]["url"]}
 
     agent_plugin = {"$schema": AGENT_PLUGINS_SCHEMA, **core(source)}
-    agent_plugin["extensions"] = {"com.openai": {**codex_onboarding(source), "interface": codex_interface(source)}}
+    # Codex reads its plugin hooks from here; the other Agent Plugins hosts ignore this namespace.
+    codex_hooks = {"hooks": plugin["codex_hooks"]} if plugin.get("codex_hooks") else {}
+    agent_plugin["extensions"] = {"com.openai": {**codex_onboarding(source), "interface": codex_interface(source), **codex_hooks}}
 
     base = core_dir(source)
     entry = {
@@ -514,6 +520,7 @@ def outputs(source: dict) -> dict[str, dict]:
             "skills": "./skills/",
             "mcpServers": "./.mcp.json",
             "interface": codex_interface(source),
+            **codex_hooks,
             **({"extensions": {"com.openai": codex_onboarding(source)}} if codex_onboarding(source) else {}),
         },
         # Codex marketplace. Codex also reads .claude-plugin/marketplace.json. Each entry is a
@@ -534,7 +541,11 @@ def outputs(source: dict) -> dict[str, dict]:
             ],
         },
         # Cursor: the full component set (skills, commands) and the listing logo.
-        f"{base}/.cursor-plugin/plugin.json": {**core(source), "logo": plugin["logo"].removeprefix("./")},
+        f"{base}/.cursor-plugin/plugin.json": {
+            **core(source),
+            "logo": plugin["logo"].removeprefix("./"),
+            **({"hooks": plugin["cursor_hooks"]} if plugin.get("cursor_hooks") else {}),
+        },
         ".cursor-plugin/marketplace.json": {
             "name": market["name"],
             "owner": owner,

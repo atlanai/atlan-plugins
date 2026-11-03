@@ -1,6 +1,6 @@
 {
   "name": "atlanai",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -19,5 +19,6 @@
     "catalog",
     "governance"
   ],
-  "logo": "assets/logo.svg"
+  "logo": "assets/logo.svg",
+  "hooks": "./command-hooks/cursor.json"
 }
