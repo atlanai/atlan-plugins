@@ -9,7 +9,7 @@ something hosted elsewhere.
 Follow **Before your first call** in
 `skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
-`registry__get_kind_schema` before your first write to a kind.
+`registry__get_kind_schema` only after a write to a kind is refused.
 
 ## Two shapes, and the difference matters
 
