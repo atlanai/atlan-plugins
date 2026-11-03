@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Check a skill folder before publishing it to Atlan. Standard library only.
+
+    python3 check_bundle.py <skill-folder> [<skill-folder> ...]   # one line per problem
+    python3 check_bundle.py --json <skill-folder> ...             # the same, as JSON
+
+Run it on the folder you are about to send as inline `files` in `extension__skill__create`. Several
+folders are checked together, because the inline limits (128 files, 256 KiB) are per call. Exit 0
+when the folders can be sent as they are, 1 when one cannot, 2 when a folder does not exist.
+
+It catches what the server cannot see or refuses only after a round trip:
+
+- no root `SKILL.md`, or frontmatter without `name` or `description`;
+- a path the create refuses (absolute, `..`, a backslash or colon, more than eight levels);
+- more than 128 files or 256 KiB in total, a symbolic link, or a file that is not UTF-8 text
+  (those go through the ZIP route);
+- characters a reader cannot see: direction controls, zero-width characters, a joiner or a
+  variation selector outside an emoji, tag characters outside a flag, and control characters.
+  A tool call that decodes `\\ufe0f` into the character itself puts one in a file unseen;
+- credential-shaped strings and key files, since tool arguments can be kept in audit records.
+
+Each problem names its file, line and column (1-based, in characters) and the fix. Credential
+matches are never printed. `.git`, `__pycache__`, `node_modules` and `.DS_Store` are skipped, as
+the publish helper skips them.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+MAX_FILES = 128
+MAX_BYTES = 256 * 1024
+MAX_DEPTH = 8
+NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SKIPPED_DIRS = {".git", "__pycache__", "node_modules"}
+SKIPPED_FILES = {".DS_Store"}
+KEY_FILES = re.compile(r"(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx)$|^id_(?:rsa|dsa|ecdsa|ed25519)$)")
+# The same patterns tools/lint.py refuses in this repository.
+SECRETS = [
+    ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b")),
+    ("GitHub fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{40,}\b")),
+    ("AWS access key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
+    ("private key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("Slack token", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b")),
+    ("API key", re.compile(r"\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{32,}\b")),
+    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
+]
+
+DIRECTION = {0x061C, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A)}
+ZERO_WIDTH = {0x200B, 0x200C, 0x2060, 0x2061, 0x2062, 0x2063, 0x2064, 0x180E, 0xFEFF}
+SEPARATORS = {0x2028, 0x2029}
+ZWJ, VS15, VS16, KEYCAP, BLACK_FLAG, CANCEL_TAG = 0x200D, 0xFE0E, 0xFE0F, 0x20E3, 0x1F3F4, 0xE007F
+
+
+def emoji_base(cp: int) -> bool:
+    """Whether `cp` can carry an emoji presentation: pictographs, symbols and keycap bases."""
+    return (
+        0x1F000 <= cp <= 0x1FAFF
+        or 0x2600 <= cp <= 0x27BF
+        or 0x2300 <= cp <= 0x23FF
+        or 0x2B00 <= cp <= 0x2BFF
+        or 0x2190 <= cp <= 0x21FF
+        or 0x2100 <= cp <= 0x214F
+        or 0x25A0 <= cp <= 0x25FF
+        or cp in {0x00A9, 0x00AE, 0x203C, 0x2049, 0x2934, 0x2935, 0x3030, 0x303D, 0x3297, 0x3299}
+    )
+
+
+def hidden(text: str) -> list[tuple[int, str, str]]:
+    """Every character in `text` a reader cannot see, as (index, rule, what to do)."""
+    found = []
+    cps = [ord(c) for c in text]
+    tag_run = False
+    for i, cp in enumerate(cps):
+        prev = cps[i - 1] if i else None
+        nxt = cps[i + 1] if i + 1 < len(cps) else None
+        if 0xE0020 <= cp <= 0xE007F:
+            tag_run = tag_run or prev == BLACK_FLAG
+            if not tag_run:
+                found.append((i, "tag-character", f"U+{cp:04X} is a tag character outside a flag; delete it"))
+            if cp == CANCEL_TAG:
+                tag_run = False
+            continue
+        tag_run = False
+        if cp in (VS15, VS16):
+            keycap = prev is not None and chr(prev) in "0123456789#*" and nxt == KEYCAP
+            if not (prev is not None and (emoji_base(prev) or keycap)):
+                found.append((i, "variation-selector",
+                              f"U+{cp:04X} follows a character that is not an emoji; delete it"))
+        elif 0xFE00 <= cp <= 0xFE0D or 0xE0100 <= cp <= 0xE01EF:
+            found.append((i, "variation-selector", f"U+{cp:04X} is a variation selector; delete it"))
+        elif cp == ZWJ:
+            before = prev is not None and (emoji_base(prev) or prev == VS16 or 0x1F3FB <= prev <= 0x1F3FF)
+            if not (before and nxt is not None and emoji_base(nxt)):
+                found.append((i, "zero-width-joiner", "U+200D joins characters that are not emoji; delete it"))
+        elif cp in DIRECTION:
+            found.append((i, "direction-control", f"U+{cp:04X} reorders the text a reader sees; delete it"))
+        elif cp in ZERO_WIDTH:
+            where = "at the start of the file (a byte order mark)" if cp == 0xFEFF and i == 0 else "here"
+            found.append((i, "zero-width", f"U+{cp:04X} is invisible {where}; delete it"))
+        elif cp in SEPARATORS:
+            found.append((i, "line-separator", f"U+{cp:04X} is an invisible line break; use a newline"))
+        elif (cp < 0x20 and cp not in (0x09, 0x0A, 0x0D)) or cp == 0x7F or 0x80 <= cp <= 0x9F:
+            found.append((i, "control-character", f"U+{cp:04X} is a control character; delete it"))
+    return found
+
+
+def position(text: str, index: int) -> tuple[int, int]:
+    """1-based line and column (in characters) of `text[index]`."""
+    line = text.count("\n", 0, index) + 1
+    start = text.rfind("\n", 0, index) + 1
+    return line, index - start + 1
+
+
+def frontmatter(text: str) -> dict[str, str] | None:
+    """The top-level scalar keys of a `---` block, enough to see `name` and `description`."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    keys: dict[str, str] = {}
+    block: str | None = None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return keys
+        if block and (line.startswith((" ", "\t")) or not line.strip()):
+            keys[block] = (keys[block] + " " + line.strip()).strip()
+            continue
+        block = None
+        match = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", line)
+        if not match:
+            continue
+        key, value = match.group(1), match.group(2).strip()
+        if value[:1] in ("|", ">"):
+            keys[key], block = "", key
+        else:
+            keys[key] = "" if value == "~" else value.strip("'\"")
+    return None
+
+
+def path_problem(rel: str) -> str | None:
+    parts = rel.split("/")
+    if len(parts) > MAX_DEPTH:
+        return f"is {len(parts)} levels deep; the create takes at most {MAX_DEPTH}"
+    if any(part in ("", ".", "..") for part in parts) or "\\" in rel or ":" in rel:
+        return "is not a plain relative path; rename it"
+    if any(ord(c) < 0x20 or ord(c) == 0x7F for c in rel):
+        return "has a control character in its name; rename it"
+    return None
+
+
+def walk(root: Path) -> tuple[list[tuple[str, Path]], list[dict]]:
+    """The files the publish helper would send from `root`, and the entries it refuses."""
+    files, problems = [], []
+    if root.is_symlink():
+        return [], [problem(root.name, "symbolic-link", "the folder is a symbolic link; name the real folder")]
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if any(part in SKIPPED_DIRS for part in path.relative_to(root).parts) or path.name in SKIPPED_FILES:
+            continue
+        if path.is_symlink():
+            problems.append(problem(rel, "symbolic-link", "is a symbolic link; copy the file in, or use the ZIP route"))
+        elif path.is_file():
+            files.append((rel, path))
+    return files, problems
+
+
+def problem(path: str, rule: str, fix: str, line: int | None = None, column: int | None = None) -> dict:
+    return {"path": path, "line": line, "column": column, "rule": rule, "fix": fix}
+
+
+def check(roots: list[Path]) -> dict:
+    problems: list[dict] = []
+    count = total = 0
+    for root in roots:
+        files, refused = walk(root)
+        problems += refused
+        if not (root / "SKILL.md").is_file() or (root / "SKILL.md").is_symlink():
+            problems.append(problem("SKILL.md", "missing-skill-md", f"{root.name} has no SKILL.md at its root"))
+        for rel, path in files:
+            count += 1
+            data = path.read_bytes()
+            total += len(data)
+            label = rel if len(roots) == 1 else f"{root.name}/{rel}"
+            bad = path_problem(rel)
+            if bad:
+                problems.append(problem(label, "unsafe-path", f"the path {bad}"))
+            if KEY_FILES.search(path.name):
+                problems.append(problem(label, "credential-file", "looks like a credential file; leave it out"))
+                continue
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                problems.append(problem(label, "not-text", "is not UTF-8 text; send this bundle through the ZIP route"))
+                continue
+            for index, rule, fix in hidden(text):
+                line, column = position(text, index)
+                problems.append(problem(label, rule, fix, line, column))
+            for kind, pattern in SECRETS:
+                for match in pattern.finditer(text):
+                    line, column = position(text, match.start())
+                    problems.append(problem(label, "credential", f"matches the {kind} pattern; remove it", line, column))
+            if rel == "SKILL.md":
+                keys = frontmatter(text)
+                if keys is None:
+                    problems.append(problem(label, "frontmatter", "needs a `---` block with `name` and `description` at the top", 1, 1))
+                else:
+                    name, description = keys.get("name", ""), keys.get("description", "")
+                    if not NAME.match(name) or len(name) > 64:
+                        problems.append(problem(label, "frontmatter-name",
+                                                "`name` must be lowercase letters, digits and single hyphens, at most 64", 1, 1))
+                    if not description:
+                        problems.append(problem(label, "frontmatter-description",
+                                                "`description` is missing; say what the skill does and when to use it", 1, 1))
+                    elif len(description) > 1024:
+                        problems.append(problem(label, "frontmatter-description", "`description` is over 1024 characters", 1, 1))
+    if count > MAX_FILES:
+        problems.append(problem("", "too-many-files", f"{count} files; inline `files` take at most {MAX_FILES} a call, so use the ZIP route"))
+    if total > MAX_BYTES:
+        problems.append(problem("", "too-large", f"{total} bytes; inline `files` take at most {MAX_BYTES} a call, so use the ZIP route"))
+    return {"ok": not problems, "files": count, "bytes": total, "problems": problems}
+
+
+def render(result: dict) -> str:
+    lines = []
+    for p in result["problems"]:
+        where = ":".join(str(part) for part in (p["path"], p["line"], p["column"]) if part not in (None, ""))
+        lines.append(f"{where}: {p['rule']}: {p['fix']}" if where else f"{p['rule']}: {p['fix']}")
+    verdict = "ready to send" if result["ok"] else f"{len(result['problems'])} problem(s); fix them before sending"
+    lines.append(f"{result['files']} files, {result['bytes']} bytes: {verdict}")
+    return "\n".join(lines)
+
+
+def main(argv: list[str]) -> int:
+    as_json = "--json" in argv
+    roots = [Path(a) for a in argv if a != "--json"]
+    if not roots:
+        print(__doc__.strip().splitlines()[2].strip(), file=sys.stderr)
+        return 2
+    missing = [str(r) for r in roots if not r.is_dir()]
+    if missing:
+        print(f"not a folder: {', '.join(missing)}", file=sys.stderr)
+        return 2
+    result = check(roots)
+    print(json.dumps(result, indent=2) if as_json else render(result))
+    return 0 if result["ok"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

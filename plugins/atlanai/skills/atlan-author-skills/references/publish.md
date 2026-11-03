@@ -1,8 +1,18 @@
 # Publishing a skill
 
 Most skills are text, and text goes inline: one `extension__skill__create` call sends the files and
-the server builds the bundle. Use [the ZIP path](publish-zip.md) only for binaries, executable
-files, more than 256 KiB or 128 files in a batch, or a server whose create schema has no `files`.
+the server builds the bundle. Pick the route in this order:
+
+| Route | When |
+|---|---|
+| `files_from`, a folder the publish helper reads | Only when your context holds the line `Atlan publish helper is on: extension__skill__create accepts files_from.` ([below](#when-the-publish-helper-is-on)) |
+| Inline `files` | Text, at most 256 KiB and 128 files in the call. The default |
+| [A ZIP](publish-zip.md) | Binaries, executable files, a larger bundle, or a server whose create schema has no `files` |
+| CI from GitHub (`atlan-connect-repo`) | The skill lives in a repository and should publish on every merge |
+
+Copy each file's bytes as they are on disk. Never retype a file from memory, and never turn an
+escape such as `\ufe0f` into the character itself: an invisible character in a file is still
+sent, and the scan or a reader may trip on it.
 
 ## 1. Pick the workspace
 
@@ -32,6 +42,18 @@ instructions, when it has them. When `atlan-share` loaded this skill, leave the 
   slash-separated, at most eight components; no `..`, backslashes, colons or control characters.
 - No secrets: tool arguments may be kept in audit records.
 
+With a shell, check the folder before sending it:
+
+```sh
+python3 <this skill's folder>/scripts/check_bundle.py path/to/deploy-preview
+```
+
+It lists each problem with its file, line, column and fix: a missing frontmatter key, an unsafe
+path, the size limits, a link or binary file, an invisible character (a direction control, a
+zero-width character, a joiner or variation selector outside an emoji) or a credential-shaped
+string. Fix the files it names, then send. Without a shell, check the same points by reading the
+files.
+
 Every frontmatter key and limit: [bundle format](bundle-format.md).
 
 ## 3. Create
@@ -51,8 +73,9 @@ extension__skill__create {
 
 When the create tool's schema lists `wait_for_release`, add `"wait_for_release": true` beside
 `skills`: the call then waits, up to 20 seconds, for the scan and release, so step 4 needs no
-second read. That wait comes after the create's own 15-second processing budget
-([batching](bundle-format.md)), not out of it. An older skill app refuses arguments it does not list.
+second read. A newer skill app stops waiting before the gateway's own limit and answers
+`pending_review` with a `next` that says the version is saved: read it back later, never send it
+again. An older skill app refuses arguments it does not list.
 
 Leave `description` out: the frontmatter's is used. A `description` argument that differs is
 stored beside it, so the skill describes itself two ways (the slot warns when it does).
@@ -76,6 +99,41 @@ resending the batch re-runs the ones that landed. A created slot carries the ski
 A `409` slot with `existing_artifact_id` means the bundle is byte-identical to that skill's head:
 nothing changed. An older skill app answers only the full record with no `next`; read
 `artifact_status` and, if needed, `registry__get_artifact` with `channel: "latest"`.
+
+## When the reply is lost
+
+The create can commit and still answer "service unavailable", `502`, `503` or `504`: the gateway
+cut the call while the scan ran. Resending the bundle then writes a second version, or a `409`.
+Read back first:
+
+1. `registry__search_artifacts` with `kind: "skill"`, the `workspace_id` and the skill's `name`.
+2. `registry__get_artifact` with the match's `artifact_id`. The version landed when its
+   `version_ordinal` is the one you expected (1 for a new skill, the old head's plus one) and its
+   `updated_at` is no earlier than 10 seconds before you sent the create.
+3. Nothing landed yet: wait 5 seconds and read once more. Only when that read finds nothing,
+   send the create again, once.
+
+Then report the version and its `artifact_status`, and go on from step 4. The skill create takes
+no `idempotency_key`, so a resend is never safe without this read.
+
+## When the publish helper is on
+
+Some harnesses run the `atlanai` publish helper as a hook. It adds one line to your context at
+session start: `Atlan publish helper is on: extension__skill__create accepts files_from.` Only
+then, name the skill's folder in place of its files:
+
+```json
+extension__skill__create {
+  "skills": [{ "name": "deploy-preview", "workspace_id": "workspace_01J...", "files_from": "skills/deploy-preview" }],
+  "wait_for_release": true
+}
+```
+
+The hook reads the folder, checks it as step 2 does, and sends its files. A refused check comes
+back as a list of problems with file, line and column: fix those files and call again. The hook
+also does the read-back above and reads a blocked version's findings for you. Send `files` or
+`files_from` per skill, never both. Without the line, never send `files_from`: the server refuses
+it, and its message says to send `files` instead.
 
 ## When the scan blocks it
 
