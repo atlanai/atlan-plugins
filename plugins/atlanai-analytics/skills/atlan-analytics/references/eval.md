@@ -19,15 +19,21 @@ and never touches the network: you make every registry write through the Atlan M
   such as `dataset_record`, an eval artifact id, or a path such as `answers.jsonl` or
   `.atlan-analytics/`) is marked contaminated. It is recorded as `invalid_contaminated` and
   fails, whatever its SQL returned.
-- Don't read test-case transcripts while choosing changes. That's the analyst's train-only job
-  in `atlan-analytics improve`.
+- A run with no transcript has no evidence of isolation. Pass `--transcript` for every run in
+  this harness: a path that is named but missing is refused. Leave it out only for an answer
+  made elsewhere (an adopted agent). That row is marked isolation unverified, and `summary`
+  counts it, so report that count beside the rate.
+- Don't read validation or holdout transcripts while choosing changes. That's the analyst's
+  train-only job in `atlan-analytics improve`.
 
 ## Procedure
 
-1. **Plan.** Run `EVAL todo --variant V --reps R [--ids all|train|test]`. It returns the
-   (case_id, rep) pairs not yet recorded, so a stopped run resumes where it left off.
+1. **Plan.** Run `EVAL todo --variant V --reps R [--ids all|train|validation|holdout]`. It
+   returns the (case_id, rep) pairs not yet recorded, so a stopped run resumes where it left
+   off. `all` is train and validation; the holdout runs only at hand-back.
    - For a new variant, run one pair first as a canary.
-   - Then state the count × time × cost and get a yes before the rest.
+   - Then state the count × time × tokens (from the canary's usage, never a dollar guess) and
+     get a yes before the rest.
 2. **Run each pair** (up to 4 subagents in parallel; wait for a batch before starting the next):
    1. Spawn the subagent with the question. Keep the Agent tool's `output_file` (the
       transcript path).
@@ -50,7 +56,8 @@ and never touches the network: you make every registry write through the Atlan M
    run `todo` again and finish the missing pairs. Never quote a partial run.
 4. **Publish** the variant as [Publish](#publish) describes.
 5. **Compare** (for rounds): `EVAL compare --a baseline --b V` gives the paired per-case delta
-   on test (the headline) with its band, and on train separately.
+   on validation (the headline) and on train, each with its band and an exact sign-test
+   p-value; `significant` is p < 0.05. `--final` adds the holdout, once, at hand-back.
 
 ## Publish
 

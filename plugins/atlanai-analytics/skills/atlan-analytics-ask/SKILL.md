@@ -24,10 +24,14 @@ otherwise take the narrowest reasonable reading and say so in the answer.
 2. Pick the workspace. Call `registry__list_workspaces`; with one, use it. With several, search
    each for the measure (step 3) and ask which one, recommending the one whose metrics match.
 3. Search the workspace for the question's key terms: the measure, its business nouns and the
-   likely metric names. Use `extension__metric__search_queries` (saved queries) and
-   `extension__metric__search_metrics` (metrics) when they are listed, both with `workspace_id`
-   and `query`, since they return released revisions with their receipts; otherwise
-   `registry__search_artifacts` with kind `metric`, then `sql_query`.
+   likely metric names. Use `extension__metric__search_metrics` with `workspace_id`, `query` and
+   `include_definition: true`, and `extension__metric__search_queries` with `workspace_id` and
+   `query`, when they are listed. Without `include_definition`, the metric search returns heads,
+   which may be unreleased drafts. With it, the search returns released revisions with their
+   receipts and definitions. The query search returns only released revisions. An empty
+   published result is the answer "no published metric"; never fall back to the head search
+   for a definition. When those tools aren't listed, use `registry__search_artifacts` with kind
+   `metric`, then `sql_query`, and read each hit at a release as step 4 says.
 4. Read the one or two most relevant results exactly as step 1 and the **Rules** of
    [the agent template](../atlan-analytics/references/eval/agent-template.md) say: only a
    released revision counts, a rejected query is skipped, an unreviewed one is a caveat, and a

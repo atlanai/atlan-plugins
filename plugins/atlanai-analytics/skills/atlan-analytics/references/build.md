@@ -33,7 +33,8 @@ you enter a phase.
 
 After phase 7:
 
-- State the baseline train and test pass rates, with the noise band `±1/sqrt(n·reps)`.
+- State the baseline validation and train pass rates, with the noise band `±1/sqrt(n·reps)`.
+  The holdout is still unscored; it is read once, when an improve loop hands back.
 - List the three most common failure classes.
 - Offer `atlan-analytics improve` as the next step (Recommended).
 - Set `phase` to `improve`.
