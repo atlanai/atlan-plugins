@@ -891,12 +891,13 @@ class PublishHookTest(unittest.TestCase):
                     self.assertTrue(answer is None or self.verdict(answer, host)[0] == "deny", answer)
         self.assertIsNone(self.run_hook("pre", "vscode", "{}"))
 
-    def test_session_start_adds_the_line_publish_md_waits_for(self) -> None:
+    def test_session_start_adds_the_line_publish_md_names(self) -> None:
         line = "Atlan publish helper is on: extension__skill__create accepts files_from."
         self.assertEqual(self.run_hook("session-start", "codex", {})["hookSpecificOutput"]["additionalContext"], line)
         self.assertEqual(self.run_hook("session-start", "cursor", {})["additional_context"], line)
         publish = (CORE / "skills" / "atlan-author-skills" / "references" / "publish.md").read_text(encoding="utf-8")
-        self.assertIn(line, publish)
+        # publish.md wraps its prose, so compare with its line breaks folded to spaces.
+        self.assertIn(line, " ".join(publish.split()))
 
     def test_post_names_the_read_back_after_a_lost_reply_and_the_findings_after_a_block(self) -> None:
         base = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}

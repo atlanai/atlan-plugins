@@ -98,5 +98,6 @@ Everything about the content: `summary`, `license`, `skill_version`, `when_to_us
 `extension__skill__create` takes only the envelope: `name`, `workspace_id`, either
 `bundle_file_id` or inline `files`, and optionally `display_name`, `description`, `project_id`,
 `source_type`, `source_id`; `wait_for_release` sits beside `skills` for the whole call. That is
-the whole writable surface. Check the live tool's schema: an older skill app lists neither
-`files` nor `wait_for_release`.
+the whole writable surface. An older skill app refuses an argument it does not take, by name,
+before it writes anything: without `wait_for_release` (added in 3.6.0), send the call again
+without it; without `files`, send the bundle as [a ZIP](publish-zip.md).
