@@ -32,14 +32,17 @@ request, and ask once only when two modes fit equally well.
 2. Confirm the Ontology app is installed: `mcp__describe_tools` (or the full tool list) shows
    `extension__ontology__get_context`, and `registry__get_kind_schema` knows `ontology`. If not,
    stop with BLOCKED: an Atlan admin installs **Ontology** from the Store.
-3. Pick the workspace with `registry__list_workspaces`, then find ontologies with
-   `registry__list_artifacts` (kind `ontology`). With several, ask which one, recommending the
-   one whose name or description matches the request.
-4. Resolve the **release**: `registry__get_artifact` on the ontology with `channel` `latest`,
-   and keep the `rel_…` release handle it resolves to. Every read below names that exact
-   release. With no release, say the ontology has no published version yet: context and
-   records modes stop there, and draft mode still works. Never read draft definitions as if
-   they were published.
+3. Find ontologies with `registry__list_artifacts` (kind `ontology`, no `workspace_id`): it
+   lists every workspace you can read, and each row names its workspace, so you need no
+   workspace listing first. With several, ask which one, recommending the one whose name or
+   description matches the request.
+4. Resolve the **release**: `registry__list_releases` with the ontology's `artifact_id` and
+   `limit: 5`, and keep the `release_id` of the item whose `channel` is `latest` and
+   `is_current` is true. It is under 1 KB. Never call `registry__get_artifact` on an ontology
+   for this: it returns the whole model, which can be hundreds of thousands of characters, more
+   than a host shows in one tool result. Every read below names that exact release. With no
+   release, say the ontology has no published version yet: context and records modes stop
+   there, and draft mode still works. Never read draft definitions as if they were published.
 
 ## 2. Context mode
 
@@ -47,7 +50,8 @@ request, and ask once only when two modes fit equally well.
    person's business terms, not SQL). Keep `max_resources` at 20 or less and raise
    `max_depth` to 2 only when the answer needs a second hop.
 2. When the question is about tables or joins, find the binding: `registry__list_artifacts`
-   (kind `ontology_binding`), resolve its `latest` release the same way, and call
+   (kind `ontology_binding`), resolve its `latest` release with `registry__list_releases` the
+   same way, and call
    `extension__ontology__get_binding_context` with `binding_id`, `release_id`, the same `query`
    and, when the binding was released against an older ontology release, `ontology_release_id`
    set to the one from step 1.4. A refusal there means a logical definition changed since the

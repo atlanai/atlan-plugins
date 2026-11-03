@@ -925,6 +925,20 @@ class PublishHookTest(unittest.TestCase):
         landed = {**base, "tool_response": {"isError": False, "content": [{"type": "text", "text": '{"created":[{"artifact_status":"active"}]}'}]}}
         self.assertIsNone(self.run_hook("post", "codex", landed))
 
+    def test_post_reads_a_status_code_inside_a_successful_result_as_data(self) -> None:
+        base = {"cwd": "/", "tool_name": "MCP:mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
+        # Cursor passes no isError flag: a created skill with 503 files must not read as a lost 503.
+        landed = {**base, "tool_output": json.dumps({"created": [{"artifact_status": "active", "file_count": 503}]})}
+        self.assertIsNone(self.run_hook("post", "cursor", landed))
+        codex_landed = {**base, "tool_name": "mcp__atlan__mcp__call_tool",
+                        "tool_response": {"content": [{"type": "text", "text": '{"created":[{"file_count":503}]}'}]}}
+        self.assertIsNone(self.run_hook("post", "codex", codex_landed))
+        for output in ("HTTP 503 Service Unavailable", json.dumps({"error": "upstream answered 503"}),
+                       json.dumps({"status": 503, "message": "service unavailable"})):
+            with self.subTest(output=output):
+                note = self.run_hook("post", "cursor", {**base, "tool_output": output})
+                self.assertIn("may have committed", note["additional_context"])
+
     def test_only_the_atlan_servers_runners_expand_files_from(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)

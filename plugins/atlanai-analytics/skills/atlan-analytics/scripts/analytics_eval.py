@@ -546,15 +546,28 @@ def cmd_refreeze(a) -> dict:
 
 
 # ====================================================================== harness integrity
-# The harness is this script and the fuzzy-case judge's instructions: an edit to either changes a score.
+# The harness is the part of this script that decides a score, from grading through record, summary
+# and compare, plus the fuzzy-case judge's instructions: an edit to either changes a score.
+# Publishing, the selftests and the command line sit after HARNESS_END, so a plugin upgrade that
+# only touches them does not ask for a new approval. Score-deciding code goes above that marker.
 GRADER_AGENT = pathlib.Path(__file__).resolve().parents[3] / "agents" / "atlan-analytics-grader.md"
+HARNESS_START = "# " + "=" * 70 + " grading (the trust anchor)\n"
+HARNESS_END = "# " + "=" * 70 + " publishing (registry MCP)\n"
+
+
+def harness_digest(source: str, judge: bytes | None) -> str:
+    """sha256 of the score-deciding span of `source` and the judge. Without both markers, all of it."""
+    i, j = source.find(HARNESS_START), source.find(HARNESS_END)
+    span = source[i:j] if 0 <= i < j else source
+    h = hashlib.sha256(span.encode())
+    if judge is not None:
+        h.update(b"\0" + judge)
+    return h.hexdigest()
 
 
 def harness_sha() -> str:
-    h = hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes())
-    if GRADER_AGENT.is_file():
-        h.update(b"\0" + GRADER_AGENT.read_bytes())
-    return h.hexdigest()
+    source = pathlib.Path(__file__).resolve().read_text(encoding="utf-8")
+    return harness_digest(source, GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else None)
 
 
 def check_harness(pr: Proj) -> None:
@@ -569,7 +582,8 @@ def cmd_approve_harness(a) -> dict:
     sp = pr.p("hillclimb", "_state.json")
     st = load_json(sp, {}) or {}
     st["harness_sha"] = harness_sha()
-    st["harness_paths"] = ["skills/atlan-analytics/scripts/analytics_eval.py"]
+    st["harness_paths"] = ["skills/atlan-analytics/scripts/analytics_eval.py (grading through compare)",
+                           "agents/atlan-analytics-grader.md"]
     dump_json(sp, st)
     return {"status": "ok", "harness_sha": st["harness_sha"]}
 
@@ -953,6 +967,7 @@ def cmd_compare(a) -> dict:
 # MCP write, so each case is published as a session with its full message list instead.
 BATCH = 100        # create_artifacts takes at most 100 items
 SESSION_BATCH = 20  # session creates per step: each needs its own create_artifact call
+BATCH_BYTES = 256 * 1024  # one create_artifacts call's items, as JSON: transcripts make messages large
 LIST_TOOLS = ("registry__list_artifacts", "registry__search_artifacts")
 
 
@@ -1156,16 +1171,27 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                           "output_tokens": int(u.get("output_tokens") or 0)}}, _idem_key(ws, "session", conv)))
             names.append(tag)
         return "sessions", calls, names
+    # One create_artifacts call carries as many sessions' messages as fit, so a 40-case variant
+    # takes a handful of steps rather than one step per session.
+    items, names, size = [], [], 0
     for r in rows:
         tag = _tag(r)
         sent = set(pub.s["messages"].get(tag) or [])
         turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
-        msgs = session_messages(r, turns)
-        if len(sent) < len(msgs):
-            sess = pub.s["sessions"][tag]
-            items = [{"name": f"{sess['conversation_id']}-msg-{i}", "workspace_id": ws, "session_id": sess["id"],
-                      "sequence_number": i, **m} for i, m in enumerate(msgs) if i not in sent][:BATCH]
-            return "messages", [_create_many("session_message", items)], [f"{tag}#{it['sequence_number']}" for it in items]
+        sess = pub.s["sessions"][tag]
+        for i, m in enumerate(session_messages(r, turns)):
+            if i in sent:
+                continue
+            item = {"name": f"{sess['conversation_id']}-msg-{i}", "workspace_id": ws, "session_id": sess["id"],
+                    "sequence_number": i, **m}
+            n = len(json.dumps(item, ensure_ascii=False).encode())
+            if items and (len(items) >= BATCH or size + n > BATCH_BYTES):
+                return "messages", [_create_many("session_message", items)], names
+            items.append(item)
+            names.append(f"{tag}#{i}")
+            size += n
+    if items:
+        return "messages", [_create_many("session_message", items)], names
     if not full:
         return "done", [], []
     eid = exps[V]
@@ -1233,9 +1259,11 @@ def cmd_publish(a) -> dict:
                 "results": len(pub.s["results"]), "traces": "sessions only: trace spans have no MCP write"}
     pub.s["pending"] = {"step": step, "names": names, "calls": len(calls), "at": now()}
     pub.save()
+    how = ("Send these calls as parallel tool calls in one turn (they do not depend on each other), then save "
+           "the results as a JSON list in the order of `calls`" if step == "sessions" and len(calls) > 1
+           else "Send each call in order, save the results as a JSON list")
     return {"status": "ok", "step": step, "workspace_id": c["ws"], "calls": calls,
-            "next": f"Send each call in order, save the results as a JSON list, then run "
-                    f"`publish-ack --variant {a.variant} --step {step} --responses <file>`."}
+            "next": f"{how}, then run `publish-ack --variant {a.variant} --step {step} --responses <file>`."}
 
 
 def cmd_publish_ack(a) -> dict:
@@ -1381,6 +1409,23 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
             and len(pub["results"]) == 1 and len(pub["sessions"]) == 1
             and all(t.startswith("registry__") for t in calls_seen))
 
+def _selftest_message_fill(d: pathlib.Path) -> tuple:
+    """(filled, capped): one messages step carries several sessions' messages, and splits at the byte cap."""
+    pr = Proj(str(d))
+    rows = [{"prompt_id": f"c{i}", "rep": 0, "prompt": f"q{i}", "answer": "1", "model": "m"} for i in range(3)]
+    pub = Publication(pr, "fill")
+    pub.s["sessions"] = {_tag(r): {"id": f"session_{i}", "conversation_id": f"conv-{i}"} for i, r in enumerate(rows)}
+    c = {"ids": {}, "ws": "workspace_t", "slug": "t", "rows": rows, "agent_id": "agent_t"}
+    a = argparse.Namespace(variant="fill", sessions_only=True)
+    step, calls, names = _next_step(pr, pub, c, a)
+    filled = (step == "messages" and len(calls) == 1 and len(names) == 6
+              and {n.split("#")[0] for n in names} == {_tag(r) for r in rows})
+    rows[1]["answer"] = "x" * (BATCH_BYTES - 200)  # with the three before it, over the cap
+    step, calls, names = _next_step(pr, pub, c, a)
+    capped = step == "messages" and names == ["c0_rep0#0", "c0_rep0#1", "c1_rep0#0"]
+    return filled, capped
+
+
 def selftest() -> dict:
     checks = []
 
@@ -1515,6 +1560,9 @@ def selftest() -> dict:
         ok("record retains exact published and query revision citations", cited["used_context_refs"] == refs
            and cited["used_context_ids"] == [r["artifact_id"] for r in refs])
         ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
+        filled, capped = _selftest_message_fill(pathlib.Path(d) / "fill")
+        ok("one messages step fills its batch across sessions", filled)
+        ok("a messages step stops at the byte cap", capped)
         cmd_approve_harness(argparse.Namespace(dir=d))
         st = load_json(pr / "hillclimb" / "_state.json")
         st["harness_sha"] = "0" * 64
@@ -1675,8 +1723,21 @@ def _selftest_inputs(ok) -> None:
         summ = summarize(Proj(d), "v")
         ok("judged cases are reported apart from the result-set rate",
            summ["judged"]["n"] == 1 and summ["judged"]["pass_rate"] == 1.0 and summ["validation"]["n"] == 1)
-    ok("the approved harness covers the grader agent's instructions",
-       not GRADER_AGENT.is_file() or harness_sha() != hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes()).hexdigest())
+    source = pathlib.Path(__file__).resolve().read_text(encoding="utf-8")
+    judge = GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else b"judge"
+    base = harness_digest(source, judge)
+    ok("the approved harness covers the grader agent's instructions", base != harness_digest(source, judge + b" "))
+    ok("both harness markers are in this script, in order",
+       0 <= source.find(HARNESS_START) < source.find(HARNESS_END))
+    ok("an edit to publishing, selftests or the CLI keeps the harness digest",
+       harness_digest(source.replace("def build_parser()", "def build_parser( )", 1), judge) == base)
+    ok("an edit to grading changes the harness digest",
+       harness_digest(source.replace("SIG = 4", "SIG = 3", 1), judge) != base)
+    ok("an edit to record or summary changes the harness digest",
+       harness_digest(source.replace("MAX_ATTEMPTS = 3", "MAX_ATTEMPTS = 4", 1), judge) != base)
+    unmarked = source.replace(HARNESS_END, "", 1)
+    ok("without its markers the whole script is the harness",
+       harness_digest(unmarked, None) == hashlib.sha256(unmarked.encode()).hexdigest())
 
 
 def _selftest_review_probes(ok) -> None:

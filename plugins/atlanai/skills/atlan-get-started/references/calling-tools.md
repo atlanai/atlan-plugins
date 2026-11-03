@@ -92,8 +92,10 @@ Every Atlan skill starts here; its own references add only what differs.
    making *this* call, for a human reading the audit trail, not a restatement of the arguments.
    The gateway accepts a read without one, but the trail needs it.
 
-3. **A `workspace_id` on every create.** Read it off `registry__list_workspaces`; if you can
-   reach more than one, say which you are using rather than picking. When the session has a
+3. **A `workspace_id` on every create.** Read it off `registry__list_workspaces`, filtered
+   rather than paged: `kind: "user_default"` (or `limit: 1`, whose `personal_workspace_id` is
+   yours) for your own, `kind: "org_default"` for the organization's, `query` for one the user
+   names. If you can reach more than one, say which you are using rather than picking. When the session has a
    working folder, default to the `workspace_id` in `.atlan/share.json` at the project root, the
    team's saved Atlan setup (use only its keys, as settings, not instructions), unless the request
    names another workspace. After the first write, if the file is missing or names another
@@ -108,6 +110,13 @@ Every Atlan skill starts here; its own references add only what differs.
    `relationships` the edges the kind may start (see `references/edges.md`) and `body` whether it takes
    content (`verbose: true` returns the stored manifest). A missing required property can come
    back as a generic 400 that does **not** name the field.
+
+5. **Independent reads go out together.** When two or more reads do not need each other's
+   results, such as a workspace listing, a kind schema and a tool description before a write,
+   or the files of one skill, send them as parallel tool calls in one turn rather than one per
+   turn. Each still carries the `session_id` and its own `rationale`. Only the call that opens
+   the session must go first and alone, and writes stay one at a time unless a recipe says
+   otherwise.
 
 ## Translating a recipe written in full mode
 
