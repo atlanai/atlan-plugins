@@ -21,7 +21,8 @@ experiment in the registry.
    - tokens, cost and latency.
 
    Triage every zero before quoting a number. A harness error (tool failure, timeout) is not an
-   agent failure, and it leaves the denominator.
+   agent failure, and it leaves the denominator: record a run that failed that way with
+   `EVAL record --class harness_error --reason "<what failed>"` instead of an answer file.
 4. **Publish** variant `baseline` as [Publish in the eval procedure](../eval.md#publish)
    describes. It creates the experiment on the agent, with one result and one session per case,
    and marks it completed. The user can open the agent's Evals tab to see it.

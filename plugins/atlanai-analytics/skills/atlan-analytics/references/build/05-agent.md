@@ -74,7 +74,7 @@ Show it, then ask:
 3. On a yes, write the file and record `subagent_path` in state.
 4. Check that the subagent type is available to the Agent tool. Claude Code loads new agent
    files at session start. If it isn't listed:
-   - tell the user to restart Claude Code in this directory and run `/atlan-analytics`;
+   - tell the user to restart Claude Code in this directory and run `/atlanai-analytics:atlan-analytics`;
    - state is saved, and the run resumes at the smoke test;
    - end with NEEDS_CONTEXT.
 
