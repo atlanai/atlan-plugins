@@ -131,8 +131,9 @@ approval too.
 **A new version** appends to the earlier share's file, because a second file create under the
 same source key is refused with `409`, changed bytes or not:
 
-1. `registry__get_artifact` on the earlier output gives its `file_artifact_id`;
-   `registry__get_artifact` on that file gives its `etag` and `metadata.path`.
+1. `registry__get_artifact` on the earlier output gives its `metadata.file_artifact_id`;
+   `registry__get_artifact` on that file gives its `etag` (top level, beside `id`) and
+   `metadata.path`.
 2. `registry__get_file_content` with that `file_id` reads the current text. If it equals what is
    being shared, nothing changed: write nothing, and go to step 4 with the current version. The
    registry does not catch this for you; an append of identical bytes makes a duplicate version.

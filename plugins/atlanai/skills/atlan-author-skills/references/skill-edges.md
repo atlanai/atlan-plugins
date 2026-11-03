@@ -132,6 +132,6 @@ know the join happened.
 in that group, and a typo from one of them is stored silently rather than refused - you get a
 relationship nothing will ever query.
 
-`registry__get_kind_schema` is the way to know which case you are in: its reply carries the
-`rel_type` values the kind may be the source of and the target kinds each permits. An empty
-vocabulary means "anything goes", not "nothing allowed".
+`registry__get_kind_schema` is the way to know which case you are in: its `relationships` lists
+the `rel_type` values the kind may be the source of and the target kinds each permits. An empty
+`relationships` means "anything goes", not "nothing allowed".
