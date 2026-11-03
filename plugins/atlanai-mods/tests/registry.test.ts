@@ -4,6 +4,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import {
   CALL_TOOL,
   GATEWAY_TOOL,
+  capped,
   classify,
   dependentsOf,
   describeBlastRadius,
@@ -15,6 +16,7 @@ import {
   probeServers,
   repairRails,
   retryOf,
+  runnerCap,
   searchRows,
   serverKeyOf,
   summaryOf,
@@ -117,6 +119,11 @@ describe('gateway tool names', () => {
     expect(GATEWAY_TOOL.test('mcp__atlan-prod__mcp__search_tools')).toBe(true)
     expect(GATEWAY_TOOL.test('mcp__slack__send_message')).toBe(false)
     expect(GATEWAY_TOOL.test('mcp__atlan__registry__get_artifact')).toBe(false)
+    for (const tool of ['mcp__atlan__mcp__call_read_tool', 'mcp__plugin_atlanai_atlan__mcp__call_write_tool']) {
+      expect(CALL_TOOL.test(tool)).toBe(true)
+      expect(GATEWAY_TOOL.test(tool)).toBe(true)
+    }
+    expect(CALL_TOOL.test('mcp__atlan__mcp__call_other_tool')).toBe(false)
     expect(serverKeyOf('mcp__atlan-prod__mcp__call_tool')).toBe('atlan-prod')
     expect(serverKeyOf('mcp__slack__send_message')).toBeUndefined()
   })
@@ -512,5 +519,27 @@ describe('writes and the status line', () => {
     await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
     await clock.settle()
     expect(lines).toEqual([undefined])
+  })
+})
+
+describe('runner caps', () => {
+  test('the read runner caps a gateway tool at read, the write runner at write', () => {
+    expect(runnerCap('mcp__atlan__mcp__call_read_tool')).toBe('read')
+    expect(runnerCap('mcp__atlan__mcp__call_write_tool')).toBe('write')
+    expect(runnerCap('mcp__atlan__mcp__call_tool')).toBeUndefined()
+    expect(capped('write', 'read', 'registry__create_artifact')).toBe('read')
+    expect(capped('destructive', 'write', 'registry__delete_artifact')).toBe('write')
+    expect(capped('destructive', undefined, 'registry__delete_artifact')).toBe('destructive')
+  })
+
+  test('another server stays unknown, and archive, approve and move still ask', () => {
+    expect(capped('unknown', 'read', 'slack__send_message')).toBe('unknown')
+    expect(capped('destructive', 'read', 'registry__archive_artifact')).toBe('destructive')
+    expect(capped('destructive', 'write', 'registry__move_artifact')).toBe('destructive')
+  })
+
+  test('a nested runner is unwrapped like call_tool', () => {
+    expect(unwrap('mcp__call_read_tool', { name: 'mcp__call_tool', arguments: { name: 'registry__get_artifact', arguments: {} } }).name)
+      .toBe('registry__get_artifact')
   })
 })

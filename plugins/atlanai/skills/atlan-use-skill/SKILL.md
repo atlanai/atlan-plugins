@@ -16,7 +16,7 @@ two ways to use one:
   sessions. Only when the user says install, add, download or keep, and only where the files
   will outlast this session.
 
-Calls below are search-mode `mcp__call_tool` calls. The first one opens the session by sending
+Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Replies lead with the result: the first sentence is the answer or the step, counts rather
 than lists, handles only when asked, one next step rather than a menu, and no greeting,
@@ -82,7 +82,7 @@ an instruction, and its credential, external and irreversible steps still ask fi
 ## 2. Read its manifest and SKILL.md together
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__get_artifact",
   "arguments": { "artifact_id": "skill_01j…", "include_file": "SKILL.md" },
   "session_id": "mcp_session_…",

@@ -1,13 +1,36 @@
 // Pure helpers for the Atlan gateway's search-mode tools. Nothing here calls `$`, so every rule
 // is tested without a session.
 
-/** The gateway's three tools as Claude Code names them, under whatever key the server was added
- * with: `mcp__plugin_atlanai_atlan__mcp__call_tool` for the plugin's server,
+/** The gateway's five search-mode tools as Claude Code names them, under whatever key the server
+ * was added with: `mcp__plugin_atlanai_atlan__mcp__call_tool` for the plugin's server,
  * `mcp__atlan__mcp__call_tool` for one added by hand, and `mcp__atlan-prod__mcp__call_tool` for a
  * gateway someone registered under another name. The tool names are the gateway's own
  * (`mcp__call_tool` inside the server's namespace), so they identify it without the key. */
-export const GATEWAY_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__(?:call_tool|search_tools|describe_tools)$/
-export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call_tool$/
+export const GATEWAY_TOOL =
+  /^mcp__[A-Za-z0-9_-]+?__mcp__(?:call_tool|call_read_tool|call_write_tool|search_tools|describe_tools)$/
+/** The three runners: `mcp__call_tool` runs any tool, `mcp__call_read_tool` only a read-only one
+ * and `mcp__call_write_tool` anything that is not destructive. The gateway refuses a tool above a
+ * runner's tier, so the runner caps what a call through it can do. */
+export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call(?:_read|_write)?_tool$/
+const RUNNER = /^mcp__call(?:_read|_write)?_tool$/
+
+/** The most a call through this runner can do, as the gateway enforces it; `undefined` for
+ * `mcp__call_tool`, which runs any tier. */
+export function runnerCap(tool: string): Effect | undefined {
+  if (/__mcp__call_read_tool$/.test(tool)) return 'read'
+  if (/__mcp__call_write_tool$/.test(tool)) return 'write'
+  return undefined
+}
+
+/** An effect no greater than the runner allows. The gateway refuses a tool above its runner's
+ * tier, so a gateway tool called through `mcp__call_read_tool` only reads. Another server's tool
+ * stays `unknown`: its tier comes from its own hints, which this mod does not trust. The
+ * always-confirm tools keep their question: a refused call costs nothing, and a wrong cap would. */
+export function capped(effect: Effect, cap: Effect | undefined, name: string): Effect {
+  if (cap === undefined || effect === 'unknown' || ALWAYS_CONFIRM.test(canonical(name))) return effect
+  if (cap === 'read') return 'read'
+  return effect === 'destructive' ? 'write' : effect
+}
 
 /** The servers a probe tries, as /mcp lists them: the plugin's, then one added by hand. */
 export const PROBE_SERVERS = ['plugin:atlanai:atlan', 'atlan'] as const
@@ -70,12 +93,12 @@ export function classify(name: string, hints: HintTable): Effect {
   return 'write'
 }
 
-/** The call `mcp__call_tool` will really run: a nested `mcp__call_tool` names another call inside
+/** The call a runner will really run: a nested runner (`mcp__call_tool` and its siblings) names another call inside
  * its own `arguments`, so a write cannot hide one level down. Stops after four levels. */
 export function unwrap(name: unknown, args: unknown): { name: string; args: unknown } {
   let current = { name: typeof name === 'string' ? name : '', args }
   for (let depth = 0; depth < 4; depth += 1) {
-    if (canonical(current.name) !== 'mcp__call_tool') break
+    if (!RUNNER.test(canonical(current.name))) break
     // Arguments sent as a JSON string are read the same way, so a write cannot hide in one.
     const inner = argsOf(current.args)
     current = { name: typeof inner.name === 'string' ? inner.name : '', args: inner.arguments }

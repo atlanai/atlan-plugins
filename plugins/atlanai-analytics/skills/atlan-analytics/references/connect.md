@@ -92,12 +92,14 @@ without a tool when it is chosen.
      "via": "atlan | host | cli",
      "tool": "<the exact tool name, or snow | databricks>",
      "server": "<the Atlan server name, when via is atlan>",
+     "runner": "<the runner its run_with names, when via is atlan>",
      "profile": "<the CLI connection or profile name, when via is cli>",
      "bulk": {"via": "cli | tool | file", "profile": "<when via is cli>"}
    }
    ```
 
-   Through Atlan in search mode, `tool` is the name you pass to `mcp__call_tool`. Through a
+   Through Atlan in search mode, `tool` is the name you pass to a runner; record the runner its
+   `run_with` names as `runner` beside it (`mcp__call_read_tool` for a read-only query tool). Through a
    harness connector it is the full name the harness lists, with its prefix.
 3. Show `warehouse ok (<kind> via <via>)`.
 
