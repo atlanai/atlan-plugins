@@ -58,52 +58,50 @@ Connecting a downstream server's account is not a tool of its own: it runs throu
 - **Tools are there, and the user is routing a task**: skip the check. The task's own first
   call opens the session and proves the connection; go to section 3.
 - **Tools are there, and the user is connecting or asked what they have**: prove it works with
-  one read. You know this tool's name and arguments, so call it directly; the call opens the
-  session:
+  one small read. You know this tool's name and arguments, so call it directly; the call opens
+  the session:
 
   ```
   mcp__call_read_tool {
     "name": "registry__list_workspaces",
-    "arguments": {},
+    "arguments": { "kind": "user_default" },
     "objective": "<one sentence on what this whole session is for, for a human auditor>",
-    "rationale": "Checking the Atlan connection and which workspaces this user can write to."
+    "rationale": "Checking the Atlan connection and which workspace is mine."
   }
-  → { "mcp_session_id": "mcp_session_…", … "items": [ … ] }
+  → { "mcp_session_id": "mcp_session_…", "personal_workspace_id": "workspace_…", "items": [ { "display_name": "Dana's Workspace", … } ] }
   ```
 
-  Reuse the returned `mcp_session_id` as `session_id` on every later call.
+  Reuse the returned `mcp_session_id` as `session_id` on every later call. The `kind` filter is
+  deliberate: an organization can have dozens of workspaces, many of them test ones, and the
+  default page holds 50. Never list them all or page through them.
 
-  Report what the user can use, not the raw list. An organization can return dozens of
-  workspaces, many of them test or `archived` ones:
+  Then learn what the organization has with three small reads, sent as parallel calls in one
+  turn, each carrying the session id and, like every call, a `rationale`:
 
-  - Keep only `workspace_status: "active"` workspaces. Never offer an archived one.
-  - Lead with the user's own (`kind: "user_default"`) and the organization's
-    (`kind: "org_default"`); name a handful of the others and say how many more there are.
+  ```
+  mcp__call_read_tool { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" }, … }
+  mcp__call_read_tool { "name": "registry__get_artifact_counts", "arguments": { "group_by": "kind" }, … }
+  mcp__call_read_tool { "name": "registry__get_artifact_counts", "arguments": { "group_by": "workspace_id", "limit": 5 }, … }
+  ```
+
+  The first names the organization's shared workspace, the second counts skills, agents and
+  the rest, and the third names the workspaces that hold the most. Report what the user can
+  use, not raw lists:
+
+  - Lead with the user's own workspace and the organization's, then name the few busiest
+    others from the third read.
   - Ask which workspace to use only when a write is coming, and then name the candidates.
 
-  Then offer one first task that fits what the organization has. Check with one more call,
-  carrying the session id and, like every call, a `rationale`:
-
-  ```
-  mcp__call_read_tool {
-    "name": "registry__list_artifacts",
-    "arguments": { "kind": "skill", "limit": 1 },
-    "session_id": "mcp_session_…",
-    "rationale": "Checking whether the organization has published any skills yet, to suggest a first task."
-  }
-  ```
-
-  When skills come back, offer to
-  find the ones that fit their work (`atlan-find-artifacts`); when none do, a search would find
-  nothing, so offer to publish a skill from this project (`atlan-author-skills`) or sync a
-  repository's skills from GitHub (`atlan-connect-repo`). Mention that the Atlan dashboard at
+  When the counts include skills, offer to find the ones that fit their work
+  (`atlan-find-artifacts`); when there are none, a search would find nothing, so offer to
+  publish a skill from this project (`atlan-author-skills`) or sync a repository's skills from
+  GitHub (`atlan-connect-repo`). Mention that the Atlan dashboard at
   https://app.atlan.com shows the same registry in the browser.
 
   The whole reply is a few lines, in this shape:
 
   > Connected to Atlan. You can write to **Dana's Workspace** (yours) and **Acme** (the
-  > organization), and read Platform Engineering and Marketing; 14 archived test workspaces
-  > are hidden.
+  > organization); most of what Acme has is in Platform Engineering and Marketing.
   >
   > Acme has 23 skills and 4 agents. Tell me what you are working on and I will find the ones
   > that fit, or say "publish this skill" to put the one in this folder into Atlan.
