@@ -319,6 +319,10 @@ _DATE = re.compile(r"'\d{4}-\d{2}-\d{2}")
 _PARAM = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 _EMAIL = re.compile(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", re.I)
 _FULLNAME = re.compile(r"'%?[A-Z][a-z]+ [A-Z][a-z]+%?'")
+# Two capitalised words that are business values, not people. The same list as analytics_eval's
+# query-log filter, so a statement it keeps is not refused here.
+_FULL_NAME_OK = re.compile(r"'%?(?:Pending Ruling|Not Applicable|Closed Won|Closed Lost|United States|"
+                           r"New York|Human Assisted|First Response)%?'")
 _SQL_IN_PROSE = re.compile(r"\bselect\b[\s\S]+\bfrom\b|\b(?:count|sum)\s*\(", re.I)
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,127}$")
 
@@ -384,9 +388,9 @@ _PREFIXED_ID = re.compile(r"'[a-z]{2,5}_(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{6,}'")
 def _pii(text: str):
     if _EMAIL.search(text or ""):
         return "an email address"
-    m = _FULLNAME.search(text or "")
-    if m:
-        return f"a person's name ({m.group(0)})"
+    for m in _FULLNAME.finditer(text or ""):
+        if not _FULL_NAME_OK.search(m.group(0)):
+            return f"a person's name ({m.group(0)})"
     if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
         return "an identifier literal: make it a parameter, or leave the row out"
     return None
@@ -778,6 +782,8 @@ def selftest() -> dict:
                            "extensions": {"atlan_analytics": {"shapes": ["s-1"]}}}}
     e, _ = check_metric(good)
     ok("a good card passes", not e)
+    ok("a business value of two capitalised words is not a person's name",
+       _pii("where stage = 'Closed Won'") is None and _pii("where rep = 'Jane Smith'"))
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
