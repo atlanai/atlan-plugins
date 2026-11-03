@@ -13,17 +13,20 @@ execution:
   max_turns: 20
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
-  - name: creates-once
+  # The reply to the first create is lost after it commits. A keyed create is resent unchanged and
+  # replays the first version; reading back first is also correct. Either way one version lands.
+  - name: creates-at-most-twice
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"name"\s*:\s*"extension__skill__create"'
     min: 1
-    max: 1
-  - name: reads-back-before-resending
+    max: 2
+  - name: every-create-carries-a-key
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"registry__(?:search_artifacts|get_artifact)"[\s\S]*(?:incident-notes|skill_01evalnew)'
-    min: 1
+    input_match: '^(?![\s\S]*"idempotency_key")[\s\S]*"name"\s*:\s*"extension__skill__create"'
+    min: 0
+    max: 0
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
@@ -33,8 +36,8 @@ graders:
   - name: reports-what-landed
     type: llm
     criteria: |
-      PASS if the reply says incident-notes is in Atlan (naming skill_01evalnew00000000000000 or version 0.1.0 on latest), found by reading it back after the create call's reply was lost.
-      FAIL if it says the publish failed, asks the user to try again, or says it sent the skill a second time.
+      PASS if the reply says incident-notes is in Atlan (naming skill_01evalnew00000000000000 or version 0.1.0 on latest), recovered after the create call's reply was lost, by resending the same call with its idempotency_key or by reading it back.
+      FAIL if it says the publish failed, asks the user to try again, or reports a second version (0.2.0).
   - name: plain-reply
     type: llm
     criteria: |

@@ -899,12 +899,22 @@ class PublishHookTest(unittest.TestCase):
         # publish.md wraps its prose, so compare with its line breaks folded to spaces.
         self.assertIn(line, " ".join(publish.split()))
 
-    def test_post_names_the_read_back_after_a_lost_reply_and_the_findings_after_a_block(self) -> None:
+    def test_post_names_the_resend_or_the_read_back_after_a_lost_reply_and_the_findings_after_a_block(self) -> None:
         base = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
         lost = {**base, "tool_response": {"isError": True, "content": [{"type": "text", "text": "HTTP 503 Service Unavailable"}]}}
         note = self.run_hook("post", "codex", lost)["hookSpecificOutput"]["additionalContext"]
         self.assertIn("registry__search_artifacts", note)
         self.assertIn("no idempotency_key", note)
+        keyed_args = {"skills": [{"name": "a", "idempotency_key": "a-1"}, {"name": "b", "idempotency_key": "b-1"}]}
+        for args in (keyed_args, json.dumps(keyed_args)):
+            with self.subTest(arguments=type(args).__name__):
+                keyed = {**lost, "tool_input": {"name": "extension__skill__create", "arguments": args}}
+                note = self.run_hook("post", "codex", keyed)["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("send the same call again, unchanged", note)
+                self.assertNotIn("registry__search_artifacts", note)
+        half = {"skills": [{"name": "a", "idempotency_key": "a-1"}, {"name": "b"}]}
+        note = self.run_hook("post", "codex", {**lost, "tool_input": {"name": "extension__skill__create", "arguments": half}})
+        self.assertIn("registry__search_artifacts", note["hookSpecificOutput"]["additionalContext"], "one skill without a key reads back")
         blocked = {**base, "tool_name": "MCP:mcp__call_tool", "tool_output": json.dumps({"created": [{"artifact_status": "blocked"}]})}
         self.assertIn("registry__get_security_findings", self.run_hook("post", "cursor", blocked)["additional_context"])
         refused = {**base, "tool_response": {"isError": True, "content": [{"type": "text", "text": '{"code":"conflict","retryable":false}'}]}}
