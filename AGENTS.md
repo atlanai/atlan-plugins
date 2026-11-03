@@ -178,6 +178,16 @@ with the emulator's environment switches; the runner groups cases by that file, 
 run per group, because the emulator starts once per run. `make check` validates every case
 and sidecar.
 
+`tools/tests/fixtures/journeys.json` holds the golden journeys: the route each use case should
+take, cold (a new session) and warm (later in the same session), as the calls it makes and its
+budget. `tools/tests/test_journeys.py` runs in `make check` and checks those routes against the
+skills: every tool a journey calls is one its skill names, a read goes through `call_read_tool`
+and anything destructive through `call_tool`, the counts match the budget, and warm never costs
+more than cold. Change a skill's route and its journey together. A call marked `workaround_for`
+exists only until that tool ask ships; `python3 tools/tests/test_journeys.py --report` lists
+them with each journey's calls and turns. A live run in a sandbox tenant records what it
+measured under the journey's `measured`, with the date and the plugin versions.
+
 ## Prompts other products send
 
 The Atlan dashboard (atlanai/frontend) sends prompts, not commands. Continue in and Copy agent
