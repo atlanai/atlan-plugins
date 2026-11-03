@@ -92,8 +92,8 @@ mcp__call_read_tool {
 
 `include_file` returns `SKILL.md` as `included_file.content`, at the version the manifest pins,
 so no second read is needed. If the call is refused because `get_artifact` does not take
-`include_file`, the gateway predates it: repeat the call without it and read `SKILL.md` as
-section 4 says.
+`include_file`, the gateway predates it: repeat the call without it, read `SKILL.md` as
+section 4 says, and leave `include_file` out of every later read in this session.
 
 - Check `artifact_status` before anything else:
   - `active`: go on.

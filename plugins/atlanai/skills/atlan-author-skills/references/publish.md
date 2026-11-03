@@ -79,15 +79,17 @@ extension__skill__create {
 Always send `"wait_for_release": true` beside `skills`: the call then waits, up to 20 seconds,
 for the scan and release, so step 4 needs no second read. A newer skill app stops waiting before
 the gateway's own limit and answers `pending_review` with a `next` that says the version is saved:
-read it back later, never send it again. A skill app older than 3.6.0 refuses the argument by
-name before it writes anything: send the call again without it.
+read it back later, never send it again. Send it when the create tool's `inputSchema` lists it,
+which the search or describe that found the tool already returned. A skill app older than 3.6.0
+does not, and refuses it by name before it writes anything: send the call again without it, and
+leave it out for the rest of the session.
 
 Give each skill an `idempotency_key`: its name, a hyphen and eight random letters or digits, new
 for each publish and unique in the call (1 to 128 letters, digits, `-` or `_`). It is what makes
 a resend after a lost reply safe: the same key with the same files returns the version the first
-call saved, instead of a second one. A skill app older than 4.2.0 refuses `idempotency_key` by
-name before it writes anything: send the call again without it, and use the read-back below if
-the reply is then lost.
+call saved, instead of a second one. A skill app older than 4.2.0 lists no `idempotency_key` in
+its schema and refuses it by name before it writes anything: send the call again without it,
+leave it out for the rest of the session, and use the read-back below if the reply is then lost.
 
 Leave `description` out: the frontmatter's is used. A `description` argument that differs is
 stored beside it, so the skill describes itself two ways (the slot warns when it does).
