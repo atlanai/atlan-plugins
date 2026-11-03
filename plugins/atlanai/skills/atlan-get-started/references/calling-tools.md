@@ -105,15 +105,18 @@ Every Atlan skill starts here; its own references add only what differs.
    tool's memory or project instructions, when it has them. When `atlan-share` loaded the skill
    you are following, leave the offer to it.
 
-4. **`registry__get_kind_schema { "kind": "<kind>" }` before your first write to a kind.** Its
-   `required` lists what a create must send, `properties` what each field takes,
-   `relationships` the edges the kind may start (see `references/edges.md`) and `body` whether it takes
-   content (`verbose: true` returns the stored manifest). A missing required property can come
-   back as a generic 400 that does **not** name the field.
+4. **Write first, and read `registry__get_kind_schema { "kind": "<kind>" }` only when a write
+   is refused.** The skill you follow lists what each kind takes, and kind schemas are closed,
+   so a property the kind lacks is refused by name. A missing required property or a value a
+   check rejects can come back as a generic 400 that does **not** name the field. On either
+   refusal, read the schema once (`required` lists what a create must send, `properties` what
+   each field takes, `relationships` the edges the kind may start, see `references/edges.md`,
+   and `body` whether it takes content), fix the call and send it once more. Read it before the
+   write only for a kind no skill describes.
 
 5. **Independent reads go out together.** When two or more reads do not need each other's
-   results, such as a workspace listing, a kind schema and a tool description before a write,
-   or the files of one skill, send them as parallel tool calls in one turn rather than one per
+   results, such as a workspace listing and a tool description before a write, or the files
+   of one skill, send them as parallel tool calls in one turn rather than one per
    turn. Each still carries the `session_id` and its own `rationale`. Only the call that opens
    the session must go first and alone, and writes stay one at a time unless a recipe says
    otherwise.
