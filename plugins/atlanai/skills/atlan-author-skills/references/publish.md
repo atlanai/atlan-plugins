@@ -208,4 +208,4 @@ not resolve on retry. Edit the files that exist rather than rewriting from the d
 ## Linking it to an agent or output
 
 Nothing is joined automatically, and the edge is declared from the agent (`uses_skill`) or output
-(`used_skill`) end: [skill edges](skill-edges.md).
+(`used_skill`) end: `skills/atlan-get-started/references/edges.md`.

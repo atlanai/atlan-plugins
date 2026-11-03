@@ -1,6 +1,7 @@
 ---
 description: Share what this session made with colleagues through Atlan, and post it to Slack.
 argument-hint: "[what to share] [with whom] [#channel or @person]"
+disable-model-invocation: true
 ---
 
 Load this plugin's `atlan-share` skill and follow it (in Claude Code, the Skill tool's

@@ -20,7 +20,9 @@ plugins/atlanai/                    the core plugin
   skills/<name>/SKILL.md          skills, written here
   skills/<name>/agents/openai.yaml  Codex's card for the skill, from [skills] in plugin.toml (generated)
   commands/*.md                   Claude Code and Cursor commands; each command's skill sets
-                                  `user-invocable: false` so the `/` menu lists the task once
+                                  `user-invocable: false` so the `/` menu lists the task once,
+                                  and each command sets `disable-model-invocation: true` so the
+                                  model's skill list does too (claude.ai lists commands there)
   claude-hooks/                   the publish helper, Claude Code's hooks module, and its tests;
                                   tests/fixtures.ts generated from tools/tests/fixtures/
   command-hooks/                  the same helper as a command hook for Codex and Cursor:

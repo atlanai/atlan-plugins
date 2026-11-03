@@ -3,7 +3,10 @@
 Use for skills, agents, or both authored in a selected Git checkout.
 Do not require or create an agent for a skills-only request. For a one-off agent
 with no source checkout, use `skills/atlan-author-agents/references/register.md` instead.
-Read [the manifest contract](agent-manifest.md) before authoring.
+Read [the manifest contract](agent-manifest.md) before authoring. This file is
+the shared part: what done means, the interview that picks the mode, discovery,
+the Registry target, credentials and verification. The writes live in
+[the Git-backed flow](link-git-backed-agent.md) or [the local flow](link-local-agent.md).
 Follow existing user authorization: assessment is read-only, explicit setup
 permits scoped local preparation. Ask only about unresolved scope/new actions.
 
@@ -48,9 +51,9 @@ telemetry.
 Use the highest-level surface available for each job:
 
 - **Registry MCP tools** for workspace and schema discovery, exact artifact reads,
-  relationships, and read-back. Open one audited session with
-  `mcp__initialise`, then pass its `session_id` and a concrete first-person
-  `rationale` on every later call, exactly as `skills/atlan-author-agents/references/register.md`
+  relationships, and read-back. Open one audited session and pass its
+  `session_id` and a concrete first-person `rationale` on every later call, as
+  **Before your first call** in `skills/atlan-get-started/references/calling-tools.md`
   describes.
 - **`aireg`, the CLI installed with the Atlan desktop app,** for publishing local
   skills with `aireg publish`, and for creating the agent with `aireg atlan api`, the
@@ -58,8 +61,9 @@ Use the highest-level surface available for each job:
   and strips it from what it prints, so it never enters model context.
   `extension__agent__create_bulk` and `registry__create_artifact` return no
   credential, so use them only for an agent that will not authenticate as
-  itself. Use `aireg atlan api` only for the two calls in step 4, and for the
-  credential in [Finish a Git-backed agent](#finish-a-git-backed-agent). If
+  itself. Use `aireg atlan api` only for the agent create in
+  [the local flow](link-local-agent.md) and for the credential calls in
+  [Runtime credentials](#runtime-credentials). If
   `aireg atlan --help` reports an unknown command, the Atlan adapter is too old:
   stop before creating anything and report that it needs updating with
   `aireg adapter install atlan`.
@@ -96,15 +100,13 @@ local-backed identity unless the user asks to change it. Otherwise ask:
 Recommend Git-backed publication for anything intended to stay synchronized.
 This is an identity choice, not a follow-up convenience:
 
-- **Git-backed:** do not publish or create anything from this machine. Prepare
-  each agent's folder (see [Prepare local configuration](#prepare-local-configuration)),
-  then hand the selected skill paths, agent folders, each agent's skills, and
-  the workspace to `atlan-connect-repo`, which prepares `.registry/manifest.yml`
-  and the sync workflow. Resume here only after the PR is merged, CI succeeds,
-  and the exact skill and agent IDs are verified, then follow
-  [Finish a Git-backed agent](#finish-a-git-backed-agent).
-- **Local:** publish skills with `aireg publish` and create the agent through
-  the API; CI does not republish on merge. Explain before approval that
+- **Git-backed:** do not publish or create anything from this machine. Follow
+  [the Git-backed flow](link-git-backed-agent.md): prepare each agent's folder,
+  hand it to `atlan-connect-repo`, and finish once the PR is merged, CI succeeds,
+  and the exact skill and agent IDs are verified.
+- **Local:** follow [the local flow](link-local-agent.md): publish skills with
+  `aireg publish` and create the agent through the API; CI does not republish on
+  merge. Explain before approval that
   enabling Git sync later needs `atlan-connect-repo`; local publication is not a
   provisional Git publication.
 
@@ -153,36 +155,6 @@ Do not drop requested skills or ask users to copy IDs. Fill agent fields from
 repository evidence using the manifest reference's field mapping; omit a field
 the evidence does not support rather than inventing one.
 
-## Prepare local configuration
-
-**Git-backed.** The agent's definition is a folder with `AGENT.md`, or a
-single-file agent such as `.claude/agents/<name>.md` when that is how the
-repository already defines it. See the Git-backed example in
-[the manifest contract](agent-manifest.md). Give `AGENT.md` front matter with `name` and
-`description`, and keep the real prompt as its body, which becomes the agent's
-instructions. Put the small prompts, policies, schemas, and configuration that
-define the agent inside the folder; CI publishes every file in it, so keep
-secrets, local settings, and large data out, following step 2's path rules.
-For an agent that already exists in Atlan with a `.atlan/agents/<slug>.yaml`
-declaration, give `AGENT.md` the same `name`: CI finds the agent by name and
-updates it, and `atlan-connect-repo` handles its one-time version. Keep the YAML
-until that first publish is verified, then offer to remove it.
-
-**Local.** Use `.atlan/agents/<slug>.yaml` as the committed agent declaration, following
-the reference. Preserve unrelated files and existing declarations. Keep optional
-skills/files in associations; project only the `agent` kind's fields into a
-temporary non-secret JSON payload for creation.
-Use the declaration path as source identity. Do not migrate existing inline
-configs or identities without an explicit reviewed plan.
-
-Write the credential with `aireg atlan api --output-file` to a deterministic private
-JSON destination such as `.atlan/agent-credentials/<workspace-id>/<slug>.json`.
-Before any uploads or provisioning, ensure that directory is ignored and
-untracked, no parent is a symlink, and the destination is absent and writable.
-Never overwrite an existing credential file or read/print its contents.
-Existing-agent updates never mint or rotate credentials. Missing credentials
-for an existing agent are not a reason to recreate it.
-
 ## Resolve the Registry target
 
 Read workspaces with `registry__list_workspaces` and select the one the user
@@ -208,130 +180,31 @@ active `sourced_from` relationship names the exact repo with that path in
 `repo_id` is not proof of a unique source. A name match alone is not identity.
 Multiple plausible matches block the write; never create a duplicate to escape ambiguity.
 
-## Apply and resume
+## Runtime credentials
 
-These steps apply a local agent, and the local skills of either mode. A
-Git-backed agent is published by CI; skip to
-[Finish a Git-backed agent](#finish-a-git-backed-agent) once its pull request
-has merged and its publish run succeeded.
+An agent that authenticates as itself, for example to emit traces, holds one
+reveal-once credential. A local agent gets it at creation; a Git-backed agent
+only when the user asks, after CI has created it.
 
-1. Check the definition against the `agent` kind schema. Its non-secret
-   temporary JSON projection is the create payload; it is not a second
-   committed declaration. Strip unset optional nulls on create.
-2. Require repository-relative readable paths; reject traversal, escaping
-   symlinks, secret files, Git/control-file uploads, duplicate/case-colliding
-   destinations and unsupported media/size. Never execute attachments.
-3. Resolve skills according to the chosen publication mode. For Git-backed
-   skills, reuse only the exact IDs verified after CI; never push them locally.
-   For local skills, run `aireg publish <skill-path>... --to
-   <registry>/<workspace-handle> --dry-run`, then without `--dry-run`. The
-   handle is the selected workspace's slug from `registry__list_workspaces`,
-   not its display name or ID. When aireg refuses a changed skill because its
-   current version "isn't a SemVer version" (an artifact created through the API is numbered
-   1, 2, ...; one published as a skill starts at 0.1.0),
-   name the next one: `--to <registry>/<workspace-handle>/<skill>@<x.y.z>`. Use a registry
-   `aireg registry list -g` already declares for the selected org; ask before
-   declaring one. Publish only
-   committed folders, since `aireg` records the last commit with each version.
-   An `aireg` refusal for a same-named skill is a collision. In both modes follow
-   [the identity gate](agent-manifest.md),
-   never overwrite reuse-only skills, and verify workspace, repo when applicable,
-   source type/path, digest and active status. Digest equality alone is not a
-   binding.
-4. Create the absent agent, keeping its reveal-once identity in the private file:
+Write it with `aireg atlan api --output-file` to a deterministic private JSON
+destination such as `.atlan/agent-credentials/<workspace-id>/<slug>.json`.
+Before any uploads or provisioning, ensure that directory is ignored and
+untracked, no parent is a symlink, and the destination is absent and writable.
+Never overwrite an existing credential file or read/print its contents.
+Existing-agent updates never mint or rotate credentials. Missing credentials
+for an existing agent are not a reason to recreate it.
 
-   ```bash
-   aireg atlan api post /agent/v1/agents --registry <registry> --input <payload.json> \
-     --output-file <private-json-path> --output-field identity
-   ```
+To mint one for an agent that exists without one (CI created it, or the local
+create printed an ID but exited non-zero):
 
-   The payload carries `workspace_id` and the definition fields. For a
-   Git-backed agent it also carries `source_type: git` and the declaration path
-   as `source_id`; omit the legacy `repo_id`. Record the printed non-secret ID
-   immediately, then use
-   `registry__relate_artifact` with that agent as `artifact_id`, the verified repo
-   as `subject_id`, `rel_type: sourced_from`, and `attributes: {"path":
-   ".atlan/agents/<slug>.yaml"}`. Read the edge back. If linking fails, resume
-   linking the recorded agent ID; never create another agent or credential.
+```bash
+echo '{"credential_kind":"api_key"}' | aireg atlan api post --registry <registry> \
+  /agent/v1/agents/<agent-id>/identity/rotate --input - \
+  --output-file <private-json-path>
+```
 
-   If the command printed an agent ID but exited non-zero, the agent exists and
-   no file was written. Do not recreate it. Only for an agent this run just
-   created, mint its credential into the same path, then link it as above:
-
-   ```bash
-   echo '{"credential_kind":"api_key"}' | aireg atlan api post --registry <registry> \
-     /agent/v1/agents/<agent-id>/identity/rotate --input - \
-     --output-file <private-json-path>
-   ```
-
-   If that fails too, report the agent ID.
-5. Update a verified existing agent by its ID with `registry__patch_artifact`.
-   The patch is an RFC 7396 merge: an
-   omitted key is kept and an explicit `null` clears it, so send only the fields
-   the declaration changed and a `null` only when the user means to clear one.
-   Details: `skills/atlan-author-agents/references/update-an-agent.md`. An update
-   does not mint or rotate credentials.
-6. Upload owned files through `atlan-content`, creating each `file` with
-   `parent_kind: agent`, `parent_id: <agent-id>` and the stable destination as
-   `path`. A path that already holds a file is a conflict to resolve, not to
-   retry. Verify file ID, digest, version, workspace and exact owner/path slot. Source code stays in Git; upload only the
-   small prompts, policies, schemas and configuration that define the agent.
-7. Pin the requested skills in the agent's `skills` manifest, in the create
-   payload or as a patch:
-
-   ```
-   registry__patch_artifact {
-     "artifact_id": "agent_01J...",
-     "patch": { "skills": [ { "skill_id": "skill_01K..." } ] },
-     "session_id": "mcp_session_01J...",
-     "rationale": "pinning the review skill this repository's agent declares"
-   }
-   ```
-
-   An entry without `version_ordinal` pins the skill's current release. The
-   registry derives one `uses_skill` edge per pinned skill and archives the
-   rest, so do not write those edges by hand. Changing the manifest of an
-   existing agent publishes its next version. Details:
-   `skills/atlan-author-agents/references/agent-edges.md`.
-
-Use dry-runs where supported; a lookup is not a simulated write, and an upload
-has no dry run. Never
-force drift, bypass blocked scans or prune undeclared files/edges without
-explicit approval.
-
-Record completed phases and returned IDs after every operation. A Git-backed
-flow may pause after local preparation, PR creation, merge, or CI; resume from
-the first unverified phase rather than switching to local publication. On other
-failures re-read state instead of blindly retrying creates. Credential
-persistence failure after agent creation must report the ID without recreating
-it. Apart from the step 4 recovery, a fresh credential is a separate, explicit
-rotation decision.
-
-## Finish a Git-backed agent
-
-After the setup pull request merges and its publish run succeeds:
-
-1. Read back the agent by name in the workspace with `registry__list_artifacts`
-   and `registry__get_artifact`. Exactly one active agent must match, with this
-   repository as its source, its folder's files as its files, and one
-   `uses_skill` edge per `depends_on` skill. Its active `sourced_from` edge
-   names the folder; an agent handed over from a `.atlan/agents/<slug>.yaml`
-   declaration keeps that path as its `source_id`, which is expected. More than
-   one match is a blocker to report, never to resolve by archiving.
-2. Set what CI leaves alone, from repository evidence only: `model_id`,
-   `tools`, `agent_framework_id`, `agent_provider_id`, `max_step_count`, and
-   `public_url`, with `registry__patch_artifact` as in step 5. Never patch the
-   instructions, files, or skill pins of a Git-backed agent: the next merge
-   publishes the repository's version over them.
-3. Offer a runtime credential only when the agent authenticates as itself, for
-   example to emit traces, and only issue it if the user agrees. CI creates the
-   agent without one. Write it with the rotate call from step 4 into a private
-   path that is ignored and untracked, following
-   [Prepare local configuration](#prepare-local-configuration). Never read or
-   print it, and never issue a second one for an agent that already has one.
-
-Later changes to the agent's folder, its `AGENT.md`, or its skills merge through
-pull requests, where the preview shows what each merge publishes.
+Never issue a second one for an agent that already has one: a fresh credential
+is a separate, explicit rotation decision.
 
 ## Verify the link end to end
 
