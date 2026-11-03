@@ -3,7 +3,7 @@ PYTHON ?= python3
 # The analytics helpers' offline selftests run in `check`.
 ANALYTICS_SCRIPTS = plugins/atlanai-analytics/skills/atlan-analytics/scripts
 
-.PHONY: check build lint test site validate eval eval-analytics
+.PHONY: check build lint test site codex-directory validate eval eval-analytics
 
 check:
 	$(PYTHON) tools/build.py --check
@@ -24,6 +24,12 @@ test:
 # The skills as an Agent Skills discovery index, for a website to serve at /.well-known/agent-skills/.
 site:
 	$(PYTHON) tools/skill_index.py dist/site
+
+# The core as a hookless package for OpenAI's plugin directory: dist/codex-directory/atlanai/ and
+# the zip to upload beside it. The directory refuses plugins with lifecycle hooks.
+codex-directory:
+	rm -rf dist/codex-directory
+	$(PYTHON) tools/build.py --codex-directory dist/codex-directory
 
 # The marketplace, then each plugin's manifest and components: validating a manifest does not
 # check skills or commands. The directory profile adds the checks a directory submission must pass.

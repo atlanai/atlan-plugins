@@ -76,7 +76,8 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **Portable, except the publish helper.** No other hooks, no `bin/`, no symlinks, no
   submodules, no paths outside the plugin root, no secrets. Hooks are the least portable
   component, each host names their events differently, and Codex keeps hook plugins out of its
-  directory. The core's publish helper is the exception: it lets `extension__skill__create` take
+  directory, so `make codex-directory` builds the core without them for a directory submission.
+  The core's publish helper is the exception: it lets `extension__skill__create` take
   `files_from`, a folder in the working tree it checks with `check_bundle.py`'s rules and sends
   inline, and it announces that with one prompt line. In Claude Code that line is `prompt.submit`
   context on a conversation's first prompt, not `prompt.compose`: Claude Code's built-in
@@ -156,6 +157,8 @@ make check       # generated-file drift, lint, unit tests
 make validate    # claude plugin validate --strict and the directory profile, and each mod's
                  # `claude plugin test`; needs the claude CLI
 make site        # dist/site/.well-known/agent-skills/: the skills as a discovery index
+make codex-directory  # dist/codex-directory/: the core without hooks, and the zip OpenAI's
+                      # plugin directory takes; names the listing fields plugin.toml still lacks
 ```
 
 CI runs `check` and `validate` on every pull request.

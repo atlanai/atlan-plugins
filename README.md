@@ -106,7 +106,10 @@ In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-sk
 `/atlanai:continue <output_…>` and `/atlanai:share` run `atlan-get-started`, `atlan-use-skill`,
 `atlan-continue` and `atlan-share`; those four skills hide their own slash entries, so each task is
 listed once. In Codex, the plugin
-runs `atlan-get-started` right after install.
+runs `atlan-get-started` right after install, which offers to check Atlan for a fitting skill
+at the start of each task: on a yes it adds a short, marked note to `~/.codex/AGENTS.md`, and
+"stop checking Atlan for skills" removes it. In Claude Code, Registry Mods does the same. Run
+`codex plugin marketplace upgrade atlan` to take a new version in Codex.
 
 ### Registry Mods
 

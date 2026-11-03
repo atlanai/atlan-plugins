@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/command-hooks/publish_hook.py\" session-start --host codex",
+            "command": "python3 \"${PLUGIN_ROOT}/command-hooks/publish_hook.py\" session-start --host codex",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/command-hooks/publish_hook.py\" pre --host codex",
+            "command": "python3 \"${PLUGIN_ROOT}/command-hooks/publish_hook.py\" pre --host codex",
             "timeout": 30,
             "statusMessage": "Checking the skill folder"
           }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/command-hooks/publish_hook.py\" post --host codex",
+            "command": "python3 \"${PLUGIN_ROOT}/command-hooks/publish_hook.py\" post --host codex",
             "timeout": 10
           }
         ]
