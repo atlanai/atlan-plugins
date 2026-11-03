@@ -10,7 +10,9 @@ when the folders can be sent as they are, 1 when one cannot, 2 when a folder doe
 
 It catches what the server cannot see or refuses only after a round trip:
 
-- no root `SKILL.md`, or frontmatter without `name` or `description`;
+- no root `SKILL.md`, frontmatter without `name` or `description`, frontmatter the registry's
+  YAML parser refuses (a plain value holding `: `, an unclosed quote or bracket, a tab used to
+  indent, a key given twice), or no Markdown body after the closing `---`;
 - a path the create refuses (absolute, `..`, a backslash or colon, more than eight levels);
 - more than 128 files or 256 KiB in total, a symbolic link, or a file that is not UTF-8 text
   (those go through the ZIP route);
@@ -140,6 +142,109 @@ def frontmatter(text: str) -> dict[str, str] | None:
     return None
 
 
+_KEY = re.compile(r"""^(?:"[^"]*"|'[^']*'|[^\s#'"\[\]{},:&*!|>%@`-][^:#]*?)\s*:(?:[ \t]+(.*)|[ \t]*)$""")
+
+
+def _closes(value: str, quote: str) -> int | None:
+    """The index just past the quoted scalar opening `value`, or None while it is unclosed."""
+    i = 1
+    while i < len(value):
+        c = value[i]
+        if quote == '"' and c == "\\":
+            i += 2
+            continue
+        if c == quote:
+            if quote == "'" and value[i + 1:i + 2] == "'":
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return None
+
+
+def _value_problem(value: str) -> str | None:
+    """Why a top-level value, with any continuation lines joined, is not YAML the registry reads."""
+    v = value.strip()
+    if not v or v[0] == "#":
+        return None
+    if v[0] in "\"'":
+        end = _closes(v, v[0])
+        if end is None:
+            return f"the {v[0]} quote is never closed"
+        rest = v[end:].strip()
+        if rest and not rest.startswith("#"):
+            return "text follows the closing quote; quote the whole value"
+        return None
+    if v[0] in "[{":
+        depth, quote = 0, None
+        for i, c in enumerate(v):
+            if quote:
+                if c == quote:
+                    quote = None
+            elif c in "\"'":
+                quote = c
+            elif c in "[{":
+                depth += 1
+            elif c in "]}":
+                depth -= 1
+                if depth == 0:
+                    rest = v[i + 1:].strip()
+                    return None if not rest or rest.startswith("#") else "text follows the closing bracket"
+        return f"the {v[0]} is never closed"
+    if v[0] in "|>":
+        return None if re.match(r"^[|>][-+0-9]*\s*(?:#.*)?$", v) else "a block scalar's indicator line holds text"
+    if v[0] in "@`":
+        return f"a plain value cannot start with {v[0]}; quote it"
+    plain = re.split(r"\s#", v, maxsplit=1)[0]
+    if re.search(r":(?:\s|$)", plain):
+        return "a plain value holds `: `; put the value in double quotes or use `>`"
+    return None
+
+
+def frontmatter_problems(text: str) -> list[tuple[int, int, str, str]]:
+    """What the registry's parser refuses in SKILL.md's frontmatter and body, as (line, column,
+    rule, fix). The registry reads the block as YAML with duplicate keys refused, and needs a
+    non-empty body; this checks the subset of YAML a SKILL.md uses, not the whole language."""
+    lines = text.splitlines()
+    end = next((i for i, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
+    if not lines or lines[0].strip() != "---" or end is None:
+        return []  # `frontmatter` reports a missing or unterminated block
+    found: list[tuple[int, int, str, str]] = []
+    seen: dict[str, int] = {}
+    block = lines[1:end]
+    i = 0
+    while i < len(block):
+        line, number = block[i], i + 2
+        i += 1
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = line[: len(line) - len(line.lstrip(" \t"))]
+        if "\t" in indent:
+            found.append((number, indent.index("\t") + 1, "frontmatter-yaml", "a tab indents this line; YAML indents with spaces"))
+            continue
+        if indent:
+            continue  # inside a block scalar, a list or a map: its key's line was checked
+        match = _KEY.match(line)
+        if not match:
+            found.append((number, 1, "frontmatter-yaml", "is not a `key: value` line; fix it or indent it under its key"))
+            continue
+        key = line.split(":", 1)[0].strip().strip("\"'")
+        if key in seen:
+            found.append((number, 1, "frontmatter-yaml", f"`{key}` is given twice (first on line {seen[key]}); keep one"))
+        seen.setdefault(key, number)
+        value = match.group(1) or ""
+        # A quoted or bracketed value may run on over indented lines: join them before judging it.
+        while i < len(block) and block[i][:1] in (" ", "\t") and value.strip()[:1] in ("\"", "'", "[", "{"):
+            value += " " + block[i].strip()
+            i += 1
+        why = _value_problem(value)
+        if why:
+            found.append((number, line.index(":") + 2, "frontmatter-yaml", f"{why}"))
+    if not "\n".join(lines[end + 1:]).strip():
+        found.append((end + 1, 1, "no-body", "nothing follows the frontmatter; the registry needs Markdown instructions after the closing `---`"))
+    return found
+
+
 def path_problem(rel: str) -> str | None:
     parts = rel.split("/")
     if len(parts) > MAX_DEPTH:
@@ -225,6 +330,8 @@ def check_files(folders: list[tuple[str, list[tuple[str, bytes]], list[dict], bo
                                                 "`description` is missing; say what the skill does and when to use it", 1, 1))
                     elif len(description) > 1024:
                         problems.append(problem(label, "frontmatter-description", "`description` is over 1024 characters", 1, 1))
+                    for line, column, rule, fix in frontmatter_problems(text):
+                        problems.append(problem(label, rule, fix, line, column))
     if count > MAX_FILES:
         problems.append(problem("", "too-many-files", f"{count} files; inline `files` take at most {MAX_FILES} a call, so use the ZIP route"))
     if total > MAX_BYTES:
