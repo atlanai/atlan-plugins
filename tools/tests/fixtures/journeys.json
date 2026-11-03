@@ -1553,7 +1553,8 @@
    },
    "mode": "eval",
    "targets": {
-    "publish_steps": 8
+    "message_steps": 5,
+    "publish_steps_after_T10": 8
    },
    "budget_note": "Calls, not steps: session creates go out as parallel calls, and the review's T10 batched ingest would replace them.",
    "workaround_for": "T10",
@@ -1870,7 +1871,8 @@
     ],
     "ontology_preflight_max_kb": 2,
     "partial_searches": 0,
-    "eval_publish_steps": 8,
+    "eval_message_steps": 5,
+    "eval_publish_steps_after_T10": 8,
     "governed_metric_rank": 1
    },
    "measured": null
