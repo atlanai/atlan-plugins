@@ -451,6 +451,8 @@ def dispatch(name: str, a: dict) -> dict:
         return WORLD["kinds"][a["kind"]]
     if name == "registry__get_file_content":
         return file_content(a)
+    if name == "registry__get_security_findings":
+        return security_findings(a)
     if name in ("extension__agent__list_session_traces",):
         return WORLD["traces"].get(a["session_id"], {"items": [], "page": {"limit": 50}})
     if name in ("extension__agent__get_trace", "registry__get_trace"):
@@ -477,6 +479,17 @@ def dispatch(name: str, a: dict) -> dict:
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
+
+
+def security_findings(a: dict) -> dict:
+    """`get_security_findings`, as the registry answers it: the fixture's findings for a scanned
+    artifact, and `not_scanned` with no findings for any other one the caller can see."""
+    found = artifact(a["artifact_id"])
+    if found["id"] in WORLD["findings"]:
+        return WORLD["findings"][found["id"]]
+    return {"artifact_id": found["id"], "artifact_status": found.get("artifact_status"), "scan_status": "not_scanned",
+            "counts": {"gating": 0, "total": 0}, "findings": [], "truncated": False,
+            "next": "No scan of this artifact has been recorded, so there are no findings to show."}
 
 
 def visible_run(name: str, a: dict) -> dict:
