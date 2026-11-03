@@ -1,0 +1,61 @@
+schema_version: "1.1"
+name: skill-checks-clear-match
+tags: [use-skill,skill-checks]
+# Automatic checks are on (the AGENTS.md block atlan-get-started writes), and one active skill,
+# preview-deploy, clearly fits: atlan-use-skill loads it by its handle without asking and names it
+# in one line.
+execution:
+  prompt: |
+    My global Codex instructions (~/.codex/AGENTS.md) contain:
+
+    <!-- atlanai:skill-checks:start -->
+    ## Atlan registry skills
+
+    At the start of each task, check whether my organization's Atlan registry has a skill for it,
+    with the atlan-use-skill skill. Use a single clear match without asking and name it in one
+    line. Ask me when more than one fits, and say nothing when none does. Skip quick questions and
+    tasks a skill installed here already covers.
+    <!-- atlanai:skill-checks:end -->
+
+    Deploy this branch to a preview environment.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: searches-skills
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__search_artifacts"[\s\S]*"kind"\s*:\s*"skill"'
+    min: 1
+  - name: loads-the-clear-match
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"registry__get_artifact"[\s\S]*skill_01evaldeploy'
+    min: 1
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: names-it-and-goes-on
+    type: llm
+    criteria: |
+      PASS if the reply names the preview-deploy skill from Atlan and works from that skill's own steps (running or offering to run scripts/deploy.sh for the branch, or saying what that script does and why it stopped there), without asking the user which skill to use.
+      FAIL if it asks the user to pick a skill, lists several skills as options, or never says which skill it used.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine. Naming the registry skill it used, once, is required by the user's instructions here and is fine.
+      FAIL only if one of those appears.
