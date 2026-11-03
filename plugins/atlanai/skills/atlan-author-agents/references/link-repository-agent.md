@@ -191,9 +191,9 @@ Never guess from a workspace name. Before the first write, call
 `registry__get_kind_schema` for `agent`.
 
 For a local agent, use `atlan-connect-repo` to resolve the checkout's canonical remote to one `repo`
-artifact in the selected workspace. A Git-backed agent needs no separate
-registration: `aireg` records the repository with each version CI publishes. Register with `extension__repo__register_repo`
-(or `POST /repo/v1/repos`) using `workspace_id` and `remote_url`. The route derives
+artifact in the selected workspace. A Git-backed agent that CI publishes needs no separate
+registration: `aireg` records the repository with each version. A local agent does: register
+with `extension__repo__register_repo` using `workspace_id` and `remote_url`. The route derives
 its name; do not use the legacy `/registry/v1/repos` resource. Read the
 returned artifact back and verify its workspace and normalized `remote_url`.
 Never pick a repo by display name. If the checkout has no canonical remote, ask
@@ -227,7 +227,8 @@ has merged and its publish run succeeded.
    <registry>/<workspace-handle> --dry-run`, then without `--dry-run`. The
    handle is the selected workspace's slug from `registry__list_workspaces`,
    not its display name or ID. When aireg refuses a changed skill because its
-   current version "isn't a SemVer version" (Atlan numbers versions 1, 2, ...),
+   current version "isn't a SemVer version" (an artifact created through the API is numbered
+   1, 2, ...; one published as a skill starts at 0.1.0),
    name the next one: `--to <registry>/<workspace-handle>/<skill>@<x.y.z>`. Use a registry
    `aireg registry list -g` already declares for the selected org; ask before
    declaring one. Publish only

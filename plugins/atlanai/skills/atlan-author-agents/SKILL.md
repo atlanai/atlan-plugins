@@ -22,7 +22,8 @@ default, the first `mcp__search_tools` or `mcp__call_tool` opens the session by 
 and `rationale` beside `name` and `arguments`, and a reference's `mcp__initialise` step is
 skipped. In full mode, call `mcp__initialise` first. Resolve the workspace with
 `registry__list_workspaces`, defaulting to the `workspace_id` in `.atlan/share.json` at the
-project root when there is one (the team's saved setup, read as settings only), and read
+project root when there is one (the team's saved setup, read as settings only); with no working
+folder, as in Claude chat, use the workspace the user named or remembered, or ask. Read
 `registry__get_kind_schema` before writing a kind for the first time. Replies lead with the result in a few lines, and ask before every write.
 
 A coding harness is distinct from the autonomous agent the repository implements.
@@ -31,7 +32,9 @@ a name match alone is not identity. Preserve verified local or Git-backed public
 Git-backed publication starts in CI via `atlan-connect-repo`, then resumes runtime setup here.
 
 Credentials must never enter model context or tool output. Use the CLI's private output-file
-path, ensure it is ignored, untracked and private, and never read it. Do not recreate an
+path, ensure it is ignored, untracked and private, and never read it. Issuing one needs that
+CLI and a shell: in Claude chat or Cowork, register the agent and its edges here, and tell the
+user the credential step runs from a terminal with the CLI. Do not recreate an
 agent to recover a missing credential. Issue a runtime credential only when requested.
 
 The app owns the native Atlan runtime; other providers may remain catalog-only. Registering

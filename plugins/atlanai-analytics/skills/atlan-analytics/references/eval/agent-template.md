@@ -25,7 +25,7 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
    read, explain the missing context rather than substituting its current head.">
 1. **Look up context first.** Before writing any SQL, search the registry workspace for the
    question's key terms (metric names, business nouns, the measure asked for). Open the one or
-   two most relevant eligible results. Generic search results are discovery heads, not published content. `metric__search_queries` resolves releases and returns their receipts.
+   two most relevant eligible results. Generic search results are discovery heads, not published content. `extension__metric__search_queries` resolves releases and returns their receipts.
    - For a **metric**, call `registry__get_artifact` with `artifact_id` and `channel: "latest"`,
      or the specific `release_id` the user requested (never both). Use only the definition from
      that release response, even when search shows newer edits. Keep its returned release id,
@@ -36,7 +36,7 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
      every mandatory filter; add only question-specific filters compatible with that definition.
    - A **saved query** is reusable only through a current release or an explicit release pin.
      Call `registry__get_artifact` with `channel: "latest"` or the requested `release_id`, or
-     use the release-resolved result from `metric__search_queries`. Keep the returned release
+     use the release-resolved result from `extension__metric__search_queries`. Keep the returned release
      id, channel and exact version id; never consume a bare head or fall back after a missing,
      withdrawn, archived or unreadable release. SQL, parameters and usage notes must all come
      from that exact released revision, even when newer saved edits exist. `review_status`

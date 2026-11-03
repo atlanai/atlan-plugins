@@ -145,7 +145,7 @@ class Refusal(Exception):
         self.body = {"status": status, "code": code, "detail": detail}
 
 
-state = {"session": False, "rate_limited": False, "heads": {}, "moved": set()}
+state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}}
 
 
 def words(text: str) -> set[str]:
@@ -269,9 +269,15 @@ def artifact(handle: str) -> dict:
 
 
 def head(item: dict) -> dict:
-    """An artifact as `get_artifact` returns it: a `file` carries its current etag and ordinal."""
+    """An artifact as `get_artifact` returns it: a `file` carries its current etag and ordinal, and
+    any other line its newest reconciled version, so a read-back after a write sees it."""
     if item["kind"] != "file":
-        return item
+        newer = state["versions"].get(item["id"])
+        if not newer:
+            return item
+        line = ("name", "workspace_id", "source_type", "source_id")
+        return item | {"version_ordinal": newer["version_ordinal"],
+                       "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
     state["heads"].setdefault(item["id"], {"etag": item["etag"], "version_ordinal": item["version_ordinal"],
                                            "content": WORLD["files"][item["id"]]["content"]})
     current = state["heads"][item["id"]]
@@ -390,7 +396,9 @@ def write(kind: str, a: dict) -> dict:
         raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
     if live:
         # Any other kind reconciles: the create becomes the line's next version, under its handle.
-        return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": live["version_ordinal"] + 1,
+        ordinal = head(live)["version_ordinal"] + 1
+        state["versions"][live["id"]] = {"version_ordinal": ordinal, "metadata": meta}
+        return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": ordinal,
                 "note": "eval write recorded"}
     return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "version_ordinal": 1,
             "note": "eval write recorded"}

@@ -12,7 +12,7 @@ send. Create from inline UTF-8 files, or zip and upload a local tree. Edit exist
    ```
    mcp__initialise {
      "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "claude-code",
+     "client": "<the tool you run in, such as claude-code or claude-ai>",
      "rationale": "<why you are opening it>"
    }
    → { "session_id": "mcp_session_01J..." }
@@ -103,12 +103,14 @@ Then the three steps every upload takes - reserve, `PUT`, register:
 
 ```
 registry__request_file_upload { "size_bytes": <zip size>, "session_id": "...", "rationale": "..." }
-→ { "upload_url": ..., "upload_key": ..., "is_presigned": true|false, ... }
+→ { "upload_url": ..., "upload_key": ..., "is_presigned": false, ... }
 ```
 
-`PUT` the whole zip to `upload_url`. **`is_presigned: true` means send no `Authorization`
-header**; `false` means send it, and the URL is root-relative, so resolve it against the
-origin you called the tool on.
+`PUT` the whole zip to `upload_url` with your `Authorization` header; the URL is root-relative,
+so resolve it against the origin you called the tool on. `is_presigned` is `false` on today's
+gateway; if a server ever answers `true`, send no `Authorization` header to that URL. A host
+that never gives you the bearer, as Claude chat and Cowork do, cannot `PUT`: use inline `files`
+above, and say that a tree too large for them needs the Atlan CLI.
 
 ```
 registry__create_artifact {

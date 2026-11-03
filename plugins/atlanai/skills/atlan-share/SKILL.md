@@ -8,7 +8,8 @@ user-invocable: false
 # Sharing with colleagues through Atlan
 
 Sharing is four steps: decide who it is for, record it where they can open it, hand back how to
-open it, and tell them if the user wants. The user answers one question and approves one write.
+open it, and tell them if the user wants. The user answers one question and approves once, for
+all of step 3's writes.
 Calls below are search-mode `mcp__call_tool` calls. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Replies lead with the result: the first sentence is the answer
@@ -63,7 +64,7 @@ they are both in and send the colleague the hand-off in step 5. You cannot see a
 memberships; if the user is unsure, say that the workspace's members can open it and ask which
 workspace.
 
-## 3. Record it in one approved write
+## 3. Record it, after one approval
 
 Every share carries a **source key**, so the same thing shared again becomes a new version of
 one output rather than a second copy. Use:
@@ -102,6 +103,9 @@ approval too.
 
    Larger or binary files follow the upload recipe in `skills/atlan-content/references/upload.md`,
    with the same `source_type` and `source_id`. Keep the returned `id` and `version_ordinal`.
+   That recipe needs a shell and a bearer; Claude chat and Cowork have neither. There, decide
+   before the approval: offer the text inline, or a `mode: "link"` output when it is hosted
+   elsewhere, and say that a binary needs the Atlan CLI or the dashboard's upload.
 2. **The output**, with the same source key and the file pin:
 
    ```
@@ -138,10 +142,11 @@ same source key is refused with `409`, changed bytes or not:
 4. `registry__create_artifact` for the output exactly as in a first share, pinning the new file
    ordinal. Its matching source key makes it the output's next version, under the same handle.
 
-A `409` on a first share's file create means a file already holds this source key without an
-output pinning it, usually a share that stopped halfway. Find it with `registry__search_artifacts`
-(`kind` `file`, the file name as `query`, the same workspace), match the `source_id`, and continue
-from step 2 of a new version.
+A `409` on a first share's file create names its cause. The same source key means a file
+already holds it without an output pinning it, usually a share that stopped halfway: find it with
+`registry__search_artifacts` (`kind` `file`, the file name as `query`, the same workspace), match
+the `source_id`, and continue from step 2 of a new version. The same `path` with another source
+key is a different file: give this one a distinct path, such as the `source_id`'s own path.
 
 Read the result: a `version_ordinal` above 1 on the output means an earlier share was updated,
 and the reply says so. A `400` that names no field means the metadata does not match the kind:
