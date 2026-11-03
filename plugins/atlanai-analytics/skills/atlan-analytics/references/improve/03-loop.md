@@ -37,8 +37,8 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
      metric's owner (below) and leave the round pending until they apply and release it.
    - **New metric**: when train failures come from a concept no metric covers, first check
      that no proposal already covers it (below). Then draft its complete definition
-     (`registry__get_kind_schema` for `metric`) and test its SQL with the
-     warehouse query tool. When `metric_access.create` is true and the user approved this
+     (the metric body in `metrics/authoring.md`) and test its SQL with the warehouse query
+     tool. When `metric_access.create` is true and the user approved this
      round, create it as metrics mode does by hand
      ([publish](../metrics/publish.md)). Otherwise propose it for
      the workspace's metric owners (below) and leave the round pending until they create and

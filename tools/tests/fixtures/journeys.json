@@ -307,7 +307,7 @@
    "plugin": "atlanai",
    "skill": "atlan-content",
    "title": "Store a small text file",
-   "route": "Workspace and file schema, inline create, read back",
+   "route": "Workspace, inline create (schema only after a refusal), read back",
    "calls": {
     "cold": [
      {
@@ -316,14 +316,6 @@
       "args": {
        "kind": "user_default"
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "file"
-      },
-      "workaround_for": "T9"
      },
      {
       "tool": "registry__create_artifact",
@@ -360,7 +352,7 @@
     ]
    },
    "budget": {
-    "cold": 4,
+    "cold": 3,
     "warm": 2
    },
    "targets": null,
@@ -432,7 +424,7 @@
    "plugin": "atlanai",
    "skill": "atlan-author-agents",
    "title": "Register an agent and link the skill it uses",
-   "route": "Find it by source, workspace and schema, create, relate, read the edges back",
+   "route": "Find it by source and workspace, create, relate; the relate result is the edge",
    "calls": {
     "cold": [
      {
@@ -452,15 +444,6 @@
       "group": "g1"
      },
      {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "agent"
-      },
-      "group": "g1",
-      "workaround_for": "T9"
-     },
-     {
       "tool": "registry__create_artifact",
       "runner": "call_write_tool",
       "args": {
@@ -473,14 +456,6 @@
       "args": {
        "relationship": "uses_skill"
       }
-     },
-     {
-      "tool": "registry__get_related_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<agent>"
-      },
-      "workaround_for": "T9"
      }
     ],
     "warm": [
@@ -505,20 +480,12 @@
       "args": {
        "relationship": "uses_skill"
       }
-     },
-     {
-      "tool": "registry__get_related_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<agent>"
-      },
-      "workaround_for": "T9"
      }
     ]
    },
    "budget": {
-    "cold": 6,
-    "warm": 4
+    "cold": 4,
+    "warm": 3
    },
    "targets": null,
    "measured": null
@@ -528,7 +495,7 @@
    "plugin": "atlanai",
    "skill": "atlan-author-knowledge",
    "title": "Create a knowledge bundle",
-   "route": "Check for an existing bundle, workspace and schema, create, read back",
+   "route": "Check for an existing bundle and the workspace, create, read back",
    "calls": {
     "cold": [
      {
@@ -538,14 +505,6 @@
        "kind": "knowledge",
        "query": "<topic>"
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "knowledge"
-      },
-      "workaround_for": "T9"
      },
      {
       "tool": "extension__knowledge__create",
@@ -580,7 +539,7 @@
     ]
    },
    "budget": {
-    "cold": 4,
+    "cold": 3,
     "warm": 2
    },
    "targets": null,
@@ -591,7 +550,7 @@
    "plugin": "atlanai",
    "skill": "atlan-connect-repo",
    "title": "Register a repository and bind its artifacts",
-   "route": "Register, relate the artifacts to it, read the bindings back; Git and CI steps run outside the gateway",
+   "route": "Register, relate the artifacts to it and report from each result; Git and CI steps run outside the gateway",
    "calls": {
     "cold": [
      {
@@ -614,14 +573,6 @@
       "args": {
        "relationship": "<source>"
       }
-     },
-     {
-      "tool": "registry__get_related_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<repo>"
-      },
-      "workaround_for": "T9"
      }
     ],
     "warm": null
@@ -639,7 +590,7 @@
    "plugin": "atlanai",
    "skill": "atlan-record-outputs",
    "title": "Record a small text report as an output",
-   "route": "Look up its source key, schemas, file, linked output, read back",
+   "route": "Look up its source key, file, linked output, read back",
    "calls": {
     "cold": [
      {
@@ -649,24 +600,6 @@
        "kind": "output",
        "query": "<source_id>"
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "file"
-      },
-      "group": "g1",
-      "workaround_for": "T9"
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "output"
-      },
-      "group": "g1",
-      "workaround_for": "T9"
      },
      {
       "tool": "registry__create_artifact",
@@ -727,7 +660,7 @@
     ]
    },
    "budget": {
-    "cold": 6,
+    "cold": 4,
     "warm": 4
    },
    "targets": null,
@@ -748,14 +681,6 @@
        "kind": "output",
        "query": "<source_id>"
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "output"
-      },
-      "workaround_for": "T9"
      },
      {
       "tool": "registry__create_artifact",
@@ -804,7 +729,7 @@
     ]
    },
    "budget": {
-    "cold": 6,
+    "cold": 5,
     "warm": 2
    },
    "targets": null,
@@ -1072,7 +997,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics",
    "title": "Bootstrap metrics and saved queries from query history",
-   "route": "Workspace and schemas, overlap check, batched creates, read back",
+   "route": "Workspace, overlap check, batched creates, read back",
    "calls": {
     "cold": [
      {
@@ -1081,24 +1006,6 @@
       "args": {
        "limit": 1
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "metric"
-      },
-      "group": "g1",
-      "workaround_for": "T9"
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "sql_query"
-      },
-      "group": "g1",
-      "workaround_for": "T9"
      },
      {
       "tool": "registry__get_artifact_counts",
@@ -1153,7 +1060,7 @@
     ]
    },
    "budget": {
-    "cold": 7,
+    "cold": 5,
     "warm": 2
    },
    "mode": "metrics",
@@ -1166,7 +1073,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics",
    "title": "Hand-author a small metric set",
-   "route": "Workspace and schema, one batched create, read back",
+   "route": "Workspace, one batched create, read back",
    "calls": {
     "cold": [
      {
@@ -1175,14 +1082,6 @@
       "args": {
        "limit": 1
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "metric"
-      },
-      "workaround_for": "T9"
      },
      {
       "tool": "registry__create_artifacts",
@@ -1221,7 +1120,7 @@
     ]
    },
    "budget": {
-    "cold": 4,
+    "cold": 3,
     "warm": 2
    },
    "mode": "metrics",
@@ -1233,7 +1132,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics",
    "title": "Propose a corrected metric to its owners",
-   "route": "Find the definition, read it, schema, save the proposal",
+   "route": "Find the definition, read it, save the proposal",
    "calls": {
     "cold": [
      {
@@ -1252,14 +1151,6 @@
       }
      },
      {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "<proposal kind>"
-      },
-      "workaround_for": "T9"
-     },
-     {
       "tool": "registry__create_artifact",
       "runner": "call_write_tool",
       "args": {
@@ -1285,7 +1176,7 @@
     ]
    },
    "budget": {
-    "cold": 4,
+    "cold": 3,
     "warm": 2
    },
    "mode": "propose",
@@ -1328,14 +1219,6 @@
       "args": {
        "sql": "<check statement>"
       }
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "agent"
-      },
-      "workaround_for": "T9"
      },
      {
       "tool": "registry__create_artifact",

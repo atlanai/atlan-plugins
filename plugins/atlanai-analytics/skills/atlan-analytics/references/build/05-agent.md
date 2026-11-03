@@ -26,11 +26,12 @@ Show it, then ask:
 
 ## 2. Register it
 
-1. Call `registry__get_kind_schema` for `agent`. Required fields vary by deployment.
-2. Call `registry__create_artifact` with `kind` `agent`, `metadata.workspace_id` = the project
+1. Call `registry__create_artifact` with `kind` `agent`, `metadata.workspace_id` = the project
    workspace, and the spec. `instructions` and `model_id` must be non-blank; omit a field
-   rather than sending an empty string. Keep the returned id as `ids.agent_id` in state.
-3. Link the context the agent relies on. Pin every rule skill it should always load in the
+   rather than sending an empty string. Required fields vary by deployment: when the create is
+   refused over a property, read `registry__get_kind_schema` for `agent`, fix it and send it
+   once more. Keep the returned id as `ids.agent_id` in state.
+2. Link the context the agent relies on. Pin every rule skill it should always load in the
    agent's `skills` manifest (`[{"skill_id": "skill_…"}]`, in the create or a patch); the
    registry pins the current release and derives the `uses_skill` edge.
    Read back the manifest and fill the template's rule release id from that pin. Do not
