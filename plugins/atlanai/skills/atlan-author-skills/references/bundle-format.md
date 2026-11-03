@@ -15,7 +15,10 @@ bundle missing SKILL.md at root", and that is the single most common rejection.
 ## Frontmatter
 
 A terminated `---` block at the very start of `SKILL.md`. Real YAML, so `>` and `|` block
-scalars work for a long `description` and `~` means null.
+scalars work for a long `description` and `~` means null. Being real YAML, it refuses what a line
+reader lets through: a plain value holding `: ` (`description: Use when: …`), an unclosed quote or
+bracket, a tab used to indent, and a key given twice. Put a value with a colon in double quotes,
+or write it as a `>` block. `check_bundle.py` catches each before the call.
 
 ### Required
 
@@ -67,11 +70,12 @@ second half.
 | Entries | 10,000 |
 | Path length | 1024 |
 | Directory depth | 8 |
-| `SKILL.md` read cap | 16 KiB |
+| `SKILL.md` | 4 MiB, body 500,000 characters |
+| Inline `files`, one call | 128 files, 256 KiB |
 
-The `SKILL.md` cap is the one worth internalising: 16 KiB is the *frontmatter and body* the
-registry reads. It is generous for a well-shaped skill and tight for one that inlined its
-references, which is the shape it is meant to discourage.
+The registry stores a long `SKILL.md` whole, but its analysis (summary, use cases, triggers) reads
+only the first 6,000 characters. Put what the skill does and when to use it first, and move
+detail into `references/`.
 
 ## Batching, and why the item cap is not the real limit
 
@@ -95,6 +99,11 @@ Everything about the content: `summary`, `license`, `skill_version`, `when_to_us
 (`file_count`, `total_bytes`, `largest_file_bytes`, `max_depth`, `code_file_count`,
 `doc_file_count`, `asset_file_count`, `has_executable_files`, `executable_file_count`).
 
-`extension__skill__create` takes only the envelope: `name`, `workspace_id`, `bundle_file_id`, and
-optionally `display_name`, `description`, `project_id`, `source_type`, `source_id`. That is the whole
-writable surface.
+`extension__skill__create` takes only the envelope: `name`, `workspace_id`, either
+`bundle_file_id` or inline `files`, and optionally `display_name`, `description`, `project_id`,
+`source_type`, `source_id`, `idempotency_key` (a retry key) and `sha256` (a map of path to the
+hex sha256 of that inline file's text, checked on arrival); `wait_for_release` and `dry_run` sit
+beside `skills` for the whole call. That is the whole writable surface. An older skill app refuses
+an argument it does not take, by name, before it writes anything: without `wait_for_release`
+(added in 3.6.0) or `idempotency_key`, `sha256` and `dry_run` (added in 4.2.0), send the call
+again without them; without `files`, send the bundle as [a ZIP](publish-zip.md).

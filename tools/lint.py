@@ -15,7 +15,8 @@ Every skill is also held to:
   * at most 500 lines in SKILL.md (longer material goes in references/);
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
-Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`.
+Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`; commands
+also set `disable-model-invocation: true`.
 Skill names are unique across every plugin. Add-ons carry no MCP server, hooks or bin/ of their
 own: an add-on uses the core's one `atlan` connection. Mods (`[[mods]]` in plugin.toml) carry no MCP
 server or bin/ either, and their hooks/hooks.json names one hooks module and no settings hooks.
@@ -25,6 +26,9 @@ outside a mod (see AGENTS.md), and no credential-shaped strings in any tracked t
 Voice (every Markdown file at the root and under plugins/, and plugin.toml): no em dash, no
 exclamation mark ending a sentence, and none of the filler words AGENTS.md's Voice section bans,
 outside code. The words a user reads should say what happens, not how to feel about it.
+Drift (every Markdown file under plugins/, code included): spellings the live gateway does not
+serve and that a release once shipped by mistake: an app tool without its `extension__` prefix,
+a `wrk_` workspace handle, and an `mcp__initialise` example that names one host as the client.
 """
 
 from __future__ import annotations
@@ -76,6 +80,15 @@ FILLER = re.compile(
     re.IGNORECASE,
 )
 INLINE_CODE = re.compile(r"`[^`\n]*`")
+# Drift: spellings the gateway does not serve. Checked in code too, where tool names live.
+APP_TOOL_PREFIXES = ("metric", "ontology", "agent", "knowledge", "repo", "skill", "file", "scorer", "experiment")
+DRIFT = [
+    (re.compile(r"(?<![A-Za-z0-9_])(?:" + "|".join(APP_TOOL_PREFIXES) + r")__[a-z][a-z_]*"),
+     "an app's tools are served as `extension__<app>__<tool>`"),
+    (re.compile(r"\bwrk_01"), "workspace handles start `workspace_`"),
+    (re.compile(r'"client":\s*"claude-code"'),
+     "name the client as a placeholder; the recipe runs in other tools too"),
+]
 # What the voice check reads: the Markdown people and models read, and the manifest strings.
 VOICE_SUFFIXES = {".md", ".toml"}
 VOICE_SKIPPED = ("evals/", ".github/", "assets/")
@@ -159,6 +172,11 @@ def lint_command(path: Path) -> list[str]:
     parsed = frontmatter(path.read_text(encoding="utf-8"))
     if parsed is None or not parsed[0].get("description"):
         return [f"{path.relative_to(ROOT)}: needs frontmatter with a description"]
+    # A command only loads a skill the model can already see, so it is the person's `/` entry
+    # alone: without this, hosts that list commands to the model (claude.ai, Claude Code's Skill
+    # tool) show each task twice.
+    if path.parent.name == "commands" and parsed[0].get("disable-model-invocation") != "true":
+        return [f"{path.relative_to(ROOT)}: needs `disable-model-invocation: true`"]
     return []
 
 
@@ -174,20 +192,85 @@ def plugin_roots() -> list[Path]:
 # person a warning on install, so a key joins this list only once the desktop app reads it too.
 CLAUDE_MANIFEST_KEYS = frozenset({
     "name", "version", "description", "author", "homepage", "repository", "license", "keywords",
-    "displayName", "dependencies", "mcpServers", "userConfig",
+    "displayName", "dependencies", "mcpServers", "userConfig", "hooks",
 })
+# The core's hooks module, named only from its Claude manifest: Codex and Cursor read hooks/ by
+# default, and only Claude Code runs a module (AGENTS.md, "Portable, except one hooks module").
+CORE_HOOKS = "./claude-hooks/hooks.json"
+# The command hook each other harness may name, by manifest, and where in it: Codex reads plugin
+# hooks from `extensions.com.openai` in plugin.json (or the legacy overlay), Cursor from its own.
+COMMAND_HOOKS = {
+    "plugin.json": ("extensions.com.openai.hooks", "./command-hooks/codex.json"),
+    ".codex-plugin/plugin.json": ("hooks", "./command-hooks/codex.json"),
+    ".cursor-plugin/plugin.json": ("hooks", "./command-hooks/cursor.json"),
+}
+HOOK_SCRIPT = "command-hooks/publish_hook.py"
 
 
-def lint_claude_manifest(root: Path) -> list[str]:
-    """Every Claude manifest holds only keys every Claude host reads."""
+def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
+    """Every Claude manifest holds only keys every Claude host reads, and only the core's names
+    a hooks module, its own claude-hooks/."""
     manifest = root / ".claude-plugin" / "plugin.json"
     if not manifest.is_file():
         return []
-    extra = sorted(set(json.loads(manifest.read_text(encoding="utf-8"))) - CLAUDE_MANIFEST_KEYS)
-    return [
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    extra = sorted(set(document) - CLAUDE_MANIFEST_KEYS)
+    errors = [
         f"{manifest.relative_to(ROOT)}: `{key}` is not a key every Claude host reads; the desktop app strips it and warns on install"
         for key in extra
     ]
+    if "hooks" in document and not (is_core and document["hooks"] == CORE_HOOKS):
+        errors.append(f"{manifest.relative_to(ROOT)}: only the core names a hooks module, as `hooks`: {CORE_HOOKS!r}")
+    return errors
+
+
+def lint_core_hooks(root: Path) -> list[str]:
+    """The core's claude-hooks/: one hooks module, no settings hooks, named by no other host's manifest."""
+    folder = root / "claude-hooks"
+    if not folder.exists():
+        return []
+    relative = folder.relative_to(ROOT)
+    hooks = folder / "hooks.json"
+    if not hooks.is_file():
+        return [f"{relative}/hooks.json: the core names its hooks module here"]
+    errors = []
+    document = json.loads(hooks.read_text(encoding="utf-8"))
+    modules = document.get("modules")
+    if set(document) - {"description", "modules"}:
+        errors.append(f"{relative}/hooks.json: the core has no settings hooks, only `modules`")
+    if not (isinstance(modules, list) and len(modules) == 1 and (folder / str(modules[0])).is_file()):
+        errors.append(f"{relative}/hooks.json: `modules` names exactly one file in claude-hooks/")
+    return errors
+
+
+def lint_command_hooks(root: Path) -> list[str]:
+    """Each other harness's manifest names only its own command-hooks file, and every command in
+    one runs the publish hook script: no other command, and never claude-hooks/."""
+    errors = []
+    for name, (field, expected) in COMMAND_HOOKS.items():
+        manifest = root / name
+        if not manifest.is_file():
+            continue
+        document = json.loads(manifest.read_text(encoding="utf-8"))
+        relative = manifest.relative_to(ROOT)
+        if name == "plugin.json" and "hooks" in document:
+            errors.append(f"{relative}: Agent Plugins has no top-level `hooks`; Codex's go under extensions.com.openai")
+        value = document
+        for key in field.split("."):
+            value = value.get(key) if isinstance(value, dict) else None
+        if value is not None and value != expected:
+            errors.append(f"{relative}: `{field}` may only name {expected!r}")
+        if value is not None and not (root / expected).is_file():
+            errors.append(f"{relative}: `{field}` names {expected}, which does not exist")
+    folder = root / "command-hooks"
+    for path in sorted(folder.glob("*.json")) if folder.is_dir() else []:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        handlers = [h for groups in document.get("hooks", {}).values() for group in groups for h in group.get("hooks", [group])]
+        for handler in handlers:
+            command = handler.get("command", "")
+            if HOOK_SCRIPT not in command or "claude-hooks" in command or handler.get("type", "command") != "command":
+                errors.append(f"{path.relative_to(ROOT)}: every hook runs {HOOK_SCRIPT}, and nothing else")
+    return errors
 
 
 def mod_names() -> set[str]:
@@ -257,6 +340,17 @@ def lint_voice(path: Path, text: str) -> list[str]:
     return errors
 
 
+def lint_drift(path: Path, text: str) -> list[str]:
+    """Spellings of tool names and handles the live gateway does not serve."""
+    relative = path.relative_to(ROOT)
+    return [
+        f"{relative}:{number}: {match.group(0)!r}: {why}"
+        for number, line in enumerate(text.splitlines(), 1)
+        for pattern, why in DRIFT
+        for match in pattern.finditer(line)
+    ]
+
+
 def lint_repository(files: list[Path]) -> list[str]:
     errors = [
         f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
@@ -272,6 +366,10 @@ def lint_repository(files: list[Path]) -> list[str]:
             errors.append(f"{relative}/bin/ is refused by claude.ai and organization sync")
         if (root / "hooks").exists() and root.name not in mods:
             errors.append(f"{relative}/hooks/ is out of scope for these plugins; see AGENTS.md before adding one")
+        if (root / "claude-hooks").exists() and root != plugin_roots()[0]:
+            errors.append(f"{relative}/claude-hooks/ belongs to the core alone; a mod keeps its module in hooks/")
+        if (root / "command-hooks").exists() and root != plugin_roots()[0]:
+            errors.append(f"{relative}/command-hooks/ belongs to the core alone")
     for path in files:
         if path.is_symlink():
             errors.append(f"{path.relative_to(ROOT)}: symlinks do not survive every host's install")
@@ -287,6 +385,8 @@ def lint_repository(files: list[Path]) -> list[str]:
                 errors.append(f"{path.relative_to(ROOT)}: looks like it contains a {label}")
         if voice_scope(path):
             errors += lint_voice(path, text)
+        if path.suffix == ".md" and path.is_relative_to(PLUGINS):
+            errors += lint_drift(path, text)
     return errors
 
 
@@ -318,7 +418,10 @@ def main() -> int:
     for root in roots[1:]:
         errors += lint_mod(root) if root.name in mods else lint_addon(root)
     for root in roots:
-        errors += lint_claude_manifest(root)
+        errors += lint_claude_manifest(root, root == roots[0])
+    errors += lint_core_hooks(roots[0])
+    for root in roots:
+        errors += lint_command_hooks(root)
     errors += lint_repository(tracked_files())
 
     for error in errors:

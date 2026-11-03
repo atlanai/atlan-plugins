@@ -10,9 +10,9 @@ draft. Atlan adds the search before it and the governed copy after it.
 Search before drafting, with the user's own words for what the skill should do:
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__search_artifacts",
-  "arguments": { "query": "review pull requests for security issues", "kind": "skill", "semantic": true, "limit": 5 },
+  "arguments": { "query": "review pull requests for security issues", "kind": "skill", "limit": 3 },
   "session_id": "mcp_session_…",
   "rationale": "Checking whether the organization already has a skill for this before drafting a new one."
 }
@@ -26,18 +26,24 @@ The first call of the conversation sends `objective` instead of `session_id`.
   fit, and say how theirs will differ.
 - **A `pending_review` one:** someone already submitted it. Say who owns it before drafting a
   second.
-- **Nothing close:** say so in one line and go on.
+- **Nothing close:** say so in one line and go on. Judge by name and description. A hit with
+  `match.keyword` false and `match.similarity` under 0.45 is noise: unrelated skills scored 0.19
+  to 0.26 in a live search, so treat it as nothing close.
 
 A skill of that name already installed here counts too: offer to publish that one rather than
 writing another.
 
 ## 2. Draft it
 
+A one-file skill the user described in a sentence or two needs no interview: write its
+`SKILL.md` yourself, as the quick path in [SKILL.md](../SKILL.md) says, and show it in the
+publish question. Use a skill creator for anything bigger, or when the user wants tests.
+
 | Where you are | Draft with |
 |---|---|
 | A tool that lists a skill creator among its skills, such as Claude Code, Claude chat or Cowork with `skill-creator` (often listed as `anthropic-skills:skill-creator`) | That skill |
 | Codex | `$skill-creator`, which Codex ships |
-| Cursor, or any tool with no skill creator listed | Write it yourself, from step 2 of [publishing](publish.md) |
+| Cursor, or any tool with no skill creator listed | Write it yourself: a `SKILL.md` whose frontmatter follows [bundle format](bundle-format.md), with a description that says when to use it, then publish it with [publishing](publish.md) |
 
 Do not install a skill creator to get one; draft it yourself instead.
 
@@ -57,9 +63,10 @@ draft.
 
 ## 3. Publish it
 
-Follow [publishing](publish.md) from step 1. Ask which workspace (the team's or the user's own),
-then show the skill's name, its files and the workspace, and create only after a yes. In a tool
-without files, send the text the skill creator produced inline, as the same call does.
+Follow [publishing](publish.md) from step 1. Ask once: show the skill's name, its files and the
+workspace you picked (or ask the team's or the user's own when nothing settles it), and create
+only after a yes. In a tool without files, send the text the skill creator produced inline, as
+the same call does.
 
 Report the slot as publishing says. Then tell the user that the local folder is a copy: an edit
 there reaches Atlan only as a new version.

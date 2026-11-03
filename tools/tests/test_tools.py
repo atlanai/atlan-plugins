@@ -45,6 +45,7 @@ class BuildTest(unittest.TestCase):
         documents = build.outputs(self.source)
         server, url = self.source["mcp"]["server"], self.source["mcp"]["url"]
         headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
+        # Exactly these keys: codex-cli 0.160.0 drops a server entry carrying `extensions`.
         self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
         self.assertEqual(documents["plugins/atlanai/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
 
@@ -340,6 +341,64 @@ class ModTest(unittest.TestCase):
         self.assertIn("`types`", errors[0])
 
 
+class CoreHooksTest(unittest.TestCase):
+    """The core's claude-hooks/: the publish helper, for Claude Code alone."""
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.documents = build.outputs(self.source)
+        self.base = build.core_dir(self.source)
+
+    def test_only_the_core_claude_manifest_names_the_hooks_module(self) -> None:
+        self.assertEqual(self.documents[f"{self.base}/.claude-plugin/plugin.json"]["hooks"], lint.CORE_HOOKS)
+        for path, document in self.documents.items():
+            if path != f"{self.base}/.claude-plugin/plugin.json" and isinstance(document, dict):
+                self.assertNotIn("claude-hooks", json.dumps(document), path)
+        self.assertEqual(lint.lint_core_hooks(ROOT / self.base), [])
+
+    def test_a_variant_carries_no_hooks_module(self) -> None:
+        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
+        files = build.variant_files(self.source, variant, "variant.toml")
+        self.assertFalse(any("claude-hooks" in path for path in files))
+        self.assertNotIn('"hooks"', files["plugins/atlan-staging/.claude-plugin/plugin.json"])
+
+    def test_the_hooks_tests_read_the_shared_fixtures(self) -> None:
+        fixtures = build.hook_fixtures(self.source)[f"{self.base}/claude-hooks/tests/fixtures.ts"]
+        cases = json.loads((ROOT / build.FIXTURES).read_text(encoding="utf-8"))["cases"]
+        for case in cases:
+            self.assertIn(json.dumps(case["name"]), fixtures)
+
+    def test_refuses_a_hooks_key_outside_the_core_or_naming_another_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            for name, hooks, is_core in (("atlan-m", lint.CORE_HOOKS, False), ("atlan", "./hooks/hooks.json", True)):
+                plugin = Path(temp) / name
+                (plugin / ".claude-plugin").mkdir(parents=True)
+                (plugin / ".claude-plugin/plugin.json").write_text(json.dumps({"name": name, "hooks": hooks}))
+                saved = lint.ROOT
+                lint.ROOT = Path(temp)
+                try:
+                    errors = lint.lint_claude_manifest(plugin, is_core)
+                finally:
+                    lint.ROOT = saved
+                self.assertEqual(len(errors), 1, name)
+                self.assertIn("only the core names a hooks module", errors[0])
+
+    def test_refuses_settings_hooks_and_another_host_naming_the_module(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            core = Path(temp) / "atlan"
+            (core / "claude-hooks").mkdir(parents=True)
+            (core / "claude-hooks/register.ts").write_text("export const register = () => {}\n")
+            (core / "claude-hooks/hooks.json").write_text('{"modules": ["./register.ts"], "hooks": {"Stop": []}}')
+            (core / "plugin.json").write_text('{"name": "atlan", "hooks": "./claude-hooks/hooks.json"}')
+            saved = lint.ROOT
+            lint.ROOT = Path(temp)
+            try:
+                errors = lint.lint_core_hooks(core) + lint.lint_command_hooks(core)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(len(errors), 2, errors)
+
+
 class SkillMetadataTest(unittest.TestCase):
     """`[skills]`: Codex's card for each skill and the MCP server it needs."""
 
@@ -593,6 +652,22 @@ class SkillIndexTest(unittest.TestCase):
         self.assertEqual(self.served, again_served)
 
 
+class DriftTest(unittest.TestCase):
+    """Tool names and handles the live gateway does not serve, which releases once shipped."""
+
+    def drift(self, text: str) -> list[str]:
+        return lint.lint_drift(lint.PLUGINS / "atlanai" / "x.md", text)
+
+    def test_flags_an_unprefixed_app_tool_a_wrk_handle_and_a_fixed_client(self) -> None:
+        errors = self.drift('Call `metric__search_queries`.\n"workspace_id": "wrk_01J..."\n"client": "claude-code",\n')
+        self.assertEqual([e.split(": ", 1)[0] for e in errors], ["plugins/atlanai/x.md:1", "plugins/atlanai/x.md:2", "plugins/atlanai/x.md:3"])
+        self.assertIn("'metric__search_queries'", errors[0])
+
+    def test_leaves_served_names_alone(self) -> None:
+        text = "`extension__metric__search_queries`, `registry__get_artifact`, `slack__send_message`, `mcp__call_tool`, `workspace_01J`\n"
+        self.assertEqual(self.drift(text), [])
+
+
 class VoiceTest(unittest.TestCase):
     """The voice rule in AGENTS.md: no em dashes, no exclamations, no filler, outside code."""
 
@@ -623,11 +698,387 @@ class VoiceTest(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+# Built here, never written whole, so the repository's own secret lint stays quiet. The shared
+# fixtures carry it as `{{fake_aws_key}}`; a hook's own tests substitute the same string.
+FAKE_AWS_KEY = "AKIA" + "ABCDEFGHIJKLMNOP"
+
+
+class CheckBundleTest(unittest.TestCase):
+    """`check_bundle.py` reaches each shared fixture's verdict, at the line and column it names."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import importlib.util
+
+        path = CORE / "skills" / "atlan-author-skills" / "scripts" / "check_bundle.py"
+        spec = importlib.util.spec_from_file_location("check_bundle", path)
+        cls.check = importlib.util.module_from_spec(spec)
+        # No __pycache__ beside the script: the build copies a skill's folder as text.
+        written, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+        try:
+            spec.loader.exec_module(cls.check)
+        finally:
+            sys.dont_write_bytecode = written
+        fixtures = ROOT / "tools" / "tests" / "fixtures" / "publish-bundles.json"
+        cls.cases = json.loads(fixtures.read_text(encoding="utf-8"))["cases"]
+
+    @staticmethod
+    def build(case: dict, root: Path) -> None:
+        for rel, text in case.get("files", {}).items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY)
+            (root / rel).write_bytes(text.encode("utf-8"))
+        for rel, data in case.get("binary", {}).items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_bytes(bytes.fromhex(data))
+        for rel, target in case.get("links", {}).items():
+            (root / rel).symlink_to(target)
+        generate = case.get("generate", {})
+        for n in range(generate.get("files", 0)):
+            (root / "filler").mkdir(exist_ok=True)
+            (root / "filler" / f"{n:03d}.md").write_text("filler\n", encoding="utf-8")
+        if "pad_to_bytes" in generate:
+            used = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+            (root / "pad.md").write_text("x" * (generate["pad_to_bytes"] - used), encoding="utf-8")
+
+    def test_every_folder_case_reaches_its_verdict(self) -> None:
+        for case in self.cases:
+            if "hook" in case.get("applies_to", ["check"]):
+                continue
+            with self.subTest(case["name"]), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp) / "demo"
+                root.mkdir()
+                self.build(case, root)
+                result = self.check.check([root])
+                self.assertEqual(result["ok"], case["expect"] == "send", result["problems"])
+                rules = {p["rule"] for p in result["problems"]}
+                self.assertEqual(rules, set(case.get("rules", [])), result["problems"])
+                where = {(p["path"], p["line"], p["column"]) for p in result["problems"]}
+                for path, line, column in case.get("at", []):
+                    self.assertIn((path, line, column), where)
+
+    def test_a_credential_is_never_printed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "SKILL.md").write_text(f"---\nname: demo\ndescription: d\n---\n{FAKE_AWS_KEY}\n", encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(self.check.main([str(root)]), 1)
+            self.assertNotIn(FAKE_AWS_KEY, out.getvalue())
+            self.assertIn("SKILL.md:5:1: credential", out.getvalue())
+
+
+class PublishHookTest(unittest.TestCase):
+    """command-hooks/publish_hook.py, the publish helper for Codex and Cursor, on the shared fixtures."""
+
+    SCRIPT = CORE / "command-hooks" / "publish_hook.py"
+    SKILL = "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        fixtures = ROOT / "tools" / "tests" / "fixtures" / "publish-bundles.json"
+        cls.cases = json.loads(fixtures.read_text(encoding="utf-8"))["cases"]
+
+    def run_hook(self, entry: str, host: str, event: dict | str) -> dict | None:
+        stdin = event if isinstance(event, str) else json.dumps(event)
+        done = subprocess.run([sys.executable, "-I", str(self.SCRIPT), entry, "--host", host], input=stdin,
+                              capture_output=True, text=True, timeout=60, check=False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.stderr, "")
+        return json.loads(done.stdout) if done.stdout else None
+
+    @staticmethod
+    def event(cwd: Path, skill: dict, host: str, as_string: bool = False) -> dict:
+        args = {"skills": [{"name": "demo", "workspace_id": "workspace_01ws", **skill}], "wait_for_release": True}
+        tool_input = {"name": "extension__skill__create", "rationale": "Publishing.", "arguments": json.dumps(args) if as_string else args}
+        tool = "mcp__atlan__mcp__call_tool" if host == "codex" else "MCP:mcp__call_tool"
+        return {"hook_event_name": "PreToolUse", "cwd": str(cwd), "tool_name": tool, "tool_input": tool_input}
+
+    @staticmethod
+    def verdict(answer: dict | None, host: str) -> tuple[str | None, dict | None, str]:
+        """(allow | deny | None, the rewritten input, the refusal text)."""
+        if answer is None:
+            return None, None, ""
+        if host == "codex":
+            out = answer["hookSpecificOutput"]
+            return out["permissionDecision"], out.get("updatedInput"), out.get("permissionDecisionReason", "")
+        return answer["permission"], answer.get("updated_input"), answer.get("agent_message", "")
+
+    def test_every_shared_case_reaches_its_verdict_in_both_hosts(self) -> None:
+        for host in ("codex", "cursor"):
+            for case in self.cases:
+                with self.subTest(host=host, case=case["name"]), tempfile.TemporaryDirectory() as tmp:
+                    cwd = Path(tmp) / "work"
+                    cwd.mkdir()
+                    if "hook" in case.get("applies_to", []):
+                        (cwd / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+                        (cwd / ".ssh").mkdir()
+                        (cwd / ".ssh" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+                        skill = dict(case["call"])
+                    else:
+                        (cwd / "demo").mkdir()
+                        CheckBundleTest.build(case, cwd / "demo")
+                        skill = {"files_from": "demo"}
+                    decision, rewritten, text = self.verdict(self.run_hook("pre", host, self.event(cwd, skill, host)), host)
+                    self.assertNotIn(FAKE_AWS_KEY, json.dumps(rewritten) + text)
+                    if case["expect"] == "refuse":
+                        self.assertEqual(decision, "deny")
+                        self.assertIn("Nothing was sent", text)
+                        for rule in case.get("rules", []):
+                            self.assertIn(f"{rule}: ", text)
+                        for path, line, column in case.get("at", []):
+                            self.assertIn(f"{path}:{line}:{column}: ", text)
+                        continue
+                    self.assertEqual(decision, "allow")
+                    sent = rewritten["arguments"]["skills"][0]
+                    self.assertNotIn("files_from", sent)
+                    expected = case.get("sent") or sorted(
+                        p.relative_to(cwd / "demo").as_posix() for p in (cwd / "demo").rglob("*") if p.is_file())
+                    self.assertEqual(sorted(sent["files"]), sorted(expected))
+                    for rel, text in case.get("files", {}).items():
+                        if rel in sent["files"]:
+                            self.assertEqual(sent["files"][rel], text)
+                    self.assertEqual(sent["sha256"], {
+                        rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in sent["files"].items()})
+
+    def test_refuses_a_folder_linked_out_of_the_tree_and_never_reads_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd, secret = Path(tmp) / "work", Path(tmp) / "home" / ".aws"
+            cwd.mkdir()
+            secret.mkdir(parents=True)
+            (secret / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            (cwd / "demo").symlink_to(secret)
+            (cwd / "inside").symlink_to(secret.parent)
+            for label in ("demo", "inside/.aws", str(secret), "../home/.aws"):
+                with self.subTest(label):
+                    decision, _, text = self.verdict(self.run_hook("pre", "codex", self.event(cwd, {"files_from": label}, "codex")), "codex")
+                    self.assertEqual(decision, "deny")
+                    self.assertRegex(text, r"symbolic-link|inside the working tree")
+
+    def test_refuses_a_credential_folder_inside_the_skill_case_folded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "demo" / ".AWS").mkdir(parents=True)
+            (cwd / "demo" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            (cwd / "demo" / ".AWS" / "credentials").write_text("placeholder", encoding="utf-8")
+            decision, _, text = self.verdict(self.run_hook("pre", "cursor", self.event(cwd, {"files_from": "demo"}, "cursor")), "cursor")
+            self.assertEqual(decision, "deny")
+            self.assertIn(".AWS: credential-folder", text)
+
+    def test_reads_a_folder_in_the_cursor_workspace_and_keeps_string_arguments_strings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
+            workspace = Path(tmp)
+            (workspace / "demo").mkdir()
+            (workspace / "demo" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            event = self.event(Path(elsewhere), {"files_from": str(workspace / "demo")}, "cursor", as_string=True)
+            event["workspace_roots"] = [str(workspace)]
+            decision, rewritten, _ = self.verdict(self.run_hook("pre", "cursor", event), "cursor")
+            self.assertEqual(decision, "allow")
+            self.assertIsInstance(rewritten["arguments"], str)
+            self.assertEqual(list(json.loads(rewritten["arguments"])["skills"][0]["files"]), ["SKILL.md"])
+
+    def test_says_nothing_about_other_calls_or_a_create_without_files_from(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            other = self.event(Path(tmp), {"files_from": "demo"}, "codex")
+            other["tool_input"]["name"] = "registry__get_artifact"
+            self.assertIsNone(self.run_hook("pre", "codex", other))
+            self.assertIsNone(self.run_hook("pre", "codex", self.event(Path(tmp), {"files": {"SKILL.md": self.SKILL}}, "codex")))
+            bash = {"hook_event_name": "PreToolUse", "cwd": tmp, "tool_name": "Bash", "tool_input": {"command": "ls"}}
+            self.assertIsNone(self.run_hook("pre", "codex", bash))
+
+    def test_fails_quiet_on_anything_it_cannot_read(self) -> None:
+        for host in ("codex", "cursor"):
+            for stdin in ("", "not json", "[]", json.dumps({"tool_name": "mcp__atlan__mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {"skills": [{"files_from": "x"}]}}, "cwd": 7})):
+                with self.subTest(host=host, stdin=stdin[:20]):
+                    answer = self.run_hook("pre", host, stdin)
+                    self.assertTrue(answer is None or self.verdict(answer, host)[0] == "deny", answer)
+        self.assertIsNone(self.run_hook("pre", "vscode", "{}"))
+
+    def test_session_start_adds_the_line_publish_md_names(self) -> None:
+        line = "Atlan publish helper is on: extension__skill__create accepts files_from."
+        self.assertEqual(self.run_hook("session-start", "codex", {})["hookSpecificOutput"]["additionalContext"], line)
+        self.assertEqual(self.run_hook("session-start", "cursor", {})["additional_context"], line)
+        publish = (CORE / "skills" / "atlan-author-skills" / "references" / "publish.md").read_text(encoding="utf-8")
+        # publish.md wraps its prose, so compare with its line breaks folded to spaces.
+        self.assertIn(line, " ".join(publish.split()))
+
+    def test_post_names_the_resend_or_the_read_back_after_a_lost_reply_and_the_findings_after_a_block(self) -> None:
+        base = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
+        lost = {**base, "tool_response": {"isError": True, "content": [{"type": "text", "text": "HTTP 503 Service Unavailable"}]}}
+        note = self.run_hook("post", "codex", lost)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("registry__search_artifacts", note)
+        self.assertIn("no idempotency_key", note)
+        keyed_args = {"skills": [{"name": "a", "idempotency_key": "a-1"}, {"name": "b", "idempotency_key": "b-1"}]}
+        for args in (keyed_args, json.dumps(keyed_args)):
+            with self.subTest(arguments=type(args).__name__):
+                keyed = {**lost, "tool_input": {"name": "extension__skill__create", "arguments": args}}
+                note = self.run_hook("post", "codex", keyed)["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("send the same call again, unchanged", note)
+                self.assertNotIn("registry__search_artifacts", note)
+        half = {"skills": [{"name": "a", "idempotency_key": "a-1"}, {"name": "b"}]}
+        note = self.run_hook("post", "codex", {**lost, "tool_input": {"name": "extension__skill__create", "arguments": half}})
+        self.assertIn("registry__search_artifacts", note["hookSpecificOutput"]["additionalContext"], "one skill without a key reads back")
+        blocked = {**base, "tool_name": "MCP:mcp__call_tool", "tool_output": json.dumps({"created": [{"artifact_status": "blocked"}]})}
+        self.assertIn("registry__get_security_findings", self.run_hook("post", "cursor", blocked)["additional_context"])
+        refused = {**base, "tool_response": {"isError": True, "content": [{"type": "text", "text": '{"code":"conflict","retryable":false}'}]}}
+        self.assertIsNone(self.run_hook("post", "codex", refused))
+        landed = {**base, "tool_response": {"isError": False, "content": [{"type": "text", "text": '{"created":[{"artifact_status":"active"}]}'}]}}
+        self.assertIsNone(self.run_hook("post", "codex", landed))
+
+    def test_post_reads_a_status_code_inside_a_successful_result_as_data(self) -> None:
+        base = {"cwd": "/", "tool_name": "MCP:mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
+        # Cursor passes no isError flag: a created skill with 503 files must not read as a lost 503.
+        landed = {**base, "tool_output": json.dumps({"created": [{"artifact_status": "active", "file_count": 503}]})}
+        self.assertIsNone(self.run_hook("post", "cursor", landed))
+        codex_landed = {**base, "tool_name": "mcp__atlan__mcp__call_tool",
+                        "tool_response": {"content": [{"type": "text", "text": '{"created":[{"file_count":503}]}'}]}}
+        self.assertIsNone(self.run_hook("post", "codex", codex_landed))
+        for output in ("HTTP 503 Service Unavailable", json.dumps({"error": "upstream answered 503"}),
+                       json.dumps({"status": 503, "message": "service unavailable"})):
+            with self.subTest(output=output):
+                note = self.run_hook("post", "cursor", {**base, "tool_output": output})
+                self.assertIn("may have committed", note["additional_context"])
+
+    def test_only_the_atlan_servers_runners_expand_files_from(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "demo").mkdir()
+            (cwd / "demo" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            for host, tool, expands in (
+                    ("codex", "mcp__atlan__mcp__call_write_tool", True),
+                    ("codex", "mcp__plugin_atlanai_atlan__mcp__call_tool", True),
+                    ("codex", "mcp__unrelated_vendor__call_tool", False),
+                    ("codex", "mcp__notatlan__mcp__call_tool", False),
+                    ("cursor", "MCP:mcp__call_write_tool", True),
+                    ("cursor", "MCP:call_tool", False),
+                    ("cursor", "MCP:vendor_call_tool", False)):
+                with self.subTest(host=host, tool=tool):
+                    event = {**self.event(cwd, {"files_from": "demo"}, host), "tool_name": tool}
+                    decision, rewritten, _ = self.verdict(self.run_hook("pre", host, event), host)
+                    if expands:
+                        self.assertEqual(decision, "allow")
+                        self.assertIn("Follow the steps.", json.dumps(rewritten))
+                    else:
+                        self.assertIsNone(decision, "a like-named tool on another server is never read for")
+
+    def test_cursor_refuses_a_skill_create_bound_for_another_server(self) -> None:
+        create = {"tool_name": "mcp__call_tool", "tool_input": json.dumps({"name": "extension__skill__create", "arguments": {}})}
+        for event, refused in (
+                ({**create, "mcp_server_name": "atlan", "mcp_server_url": "https://api.atlan.com/mcp"}, False),
+                ({**create, "mcp_server_name": "plugin-atlanai-atlan"}, False),
+                ({**create, "mcp_server_name": "atlan", "mcp_server_url": "https://atlan.com.evil.example/mcp"}, True),
+                ({**create, "mcp_server_name": "unrelated_vendor", "url": "https://mcp.vendor.example"}, True),
+                ({**create, "mcp_server_name": "atlan", "command": "npx atlan-lookalike"}, True),
+                ({**create}, True),
+                ({"tool_name": "search", "tool_input": "{}", "mcp_server_name": "unrelated_vendor"}, False)):
+            with self.subTest(event=event):
+                answer = self.run_hook("mcp-guard", "cursor", event)
+                if refused:
+                    self.assertEqual(answer["permission"], "deny")
+                    self.assertIn("only to the Atlan server", answer["agent_message"])
+                else:
+                    self.assertIsNone(answer)
+        self.assertIsNone(self.run_hook("mcp-guard", "codex", create))
+
+    def test_inline_files_and_folders_share_one_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            (cwd / "demo" / "references").mkdir(parents=True)
+            (cwd / "demo" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
+            (cwd / "demo" / "references" / "big.md").write_text("x" * (150 * 1024), encoding="utf-8")
+            for host in ("codex", "cursor"):
+                with self.subTest(host=host):
+                    event = self.event(cwd, {"files_from": "demo"}, host)
+                    event["tool_input"]["arguments"]["skills"].append(
+                        {"name": "two", "workspace_id": "workspace_01ws", "files": {"SKILL.md": self.SKILL + "y" * (150 * 1024)}})
+                    decision, _, text = self.verdict(self.run_hook("pre", host, event), host)
+                    self.assertEqual(decision, "deny")
+                    self.assertIn("too-large: ", text)
+                    self.assertIn("Nothing was sent", text)
+
+    def test_post_reads_structured_signals_inside_the_tools_text(self) -> None:
+        for text in ('{"error":{"code":"x","retryable":true}}', '{"error":{"code":-32603,"data":{"may_have_run":true}}}'):
+            with self.subTest(text=text):
+                event = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool",
+                         "tool_input": {"name": "extension__skill__create", "arguments": {}},
+                         "tool_response": {"isError": True, "content": [{"type": "text", "text": text}]}}
+                note = self.run_hook("post", "codex", event)["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("include_unreviewed: true", note)
+
+    def test_each_manifest_names_its_own_hooks_file(self) -> None:
+        documents = build.outputs(build.load())
+        base = build.core_dir(build.load())
+        self.assertEqual(documents[f"{base}/plugin.json"]["extensions"]["com.openai"]["hooks"], "./command-hooks/codex.json")
+        self.assertNotIn("hooks", documents[f"{base}/plugin.json"])
+        self.assertEqual(documents[f"{base}/.codex-plugin/plugin.json"]["hooks"], "./command-hooks/codex.json")
+        self.assertEqual(documents[f"{base}/.cursor-plugin/plugin.json"]["hooks"], "./command-hooks/cursor.json")
+        self.assertEqual(lint.lint_command_hooks(CORE), [])
+        variant = build.make_variant(build.load(), copy.deepcopy(VariantTest.OVERRIDES))
+        files = build.variant_files(build.load(), variant, "variant.toml")
+        self.assertFalse(any("command-hooks" in path for path in files))
+
+
+class CodexDirectoryTest(unittest.TestCase):
+    """The hookless package for OpenAI's plugin directory, which refuses lifecycle hooks."""
+
+    def test_the_package_carries_no_hooks_and_no_other_hosts_files(self) -> None:
+        source = build.load()
+        files = build.directory_files(source)
+        manifest = json.loads(files["plugin.json"])
+        self.assertNotIn("hooks", manifest["extensions"]["com.openai"])
+        self.assertEqual(manifest["extensions"]["com.openai"]["onboardingSkill"], "./skills/atlan-get-started/SKILL.md")
+        self.assertIn("skills/atlan-get-started/SKILL.md", files)
+        self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
+        self.assertEqual(json.loads(files["mcp.json"]), build.outputs(source)["plugins/atlanai/mcp.json"])
+        tops = {path.split("/")[0] for path in files}
+        self.assertEqual(tops, {"plugin.json", "mcp.json", "skills", "assets", "LICENSE"})
+        self.assertFalse([path for path in files if "hooks" in path.split("/")[0] or path.endswith(".pyc")])
+
+    def test_the_zip_is_the_same_for_the_same_source_and_has_the_manifest_at_its_root(self) -> None:
+        source = build.load()
+        with tempfile.TemporaryDirectory() as one, tempfile.TemporaryDirectory() as two:
+            first = build.write_directory(source, Path(one))
+            second = build.write_directory(source, Path(two))
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            import zipfile
+            with zipfile.ZipFile(first) as bundle:
+                self.assertIn("plugin.json", bundle.namelist())
+            with self.assertRaises(SystemExit):
+                build.write_directory(source, Path(one))
+
+    def test_the_build_names_what_the_listing_still_needs(self) -> None:
+        source = copy.deepcopy(build.load())
+        source["plugin"].pop("terms_url", None)
+        source["codex"].pop("screenshots", None)
+        self.assertEqual(len(build.directory_gaps(source)), 2)
+        source["plugin"]["terms_url"] = "https://example.com/terms"
+        source["codex"]["screenshots"] = ["./assets/missing.png"]
+        self.assertEqual(build.directory_gaps(source), [])
+        with self.assertRaises(SystemExit):
+            build.directory_files(source)
+        source["codex"]["screenshots"] = ["../outside.png"]
+        with self.assertRaises(SystemExit):
+            build.validate(source)
+
+
+class SkillChecksTest(unittest.TestCase):
+    """The opt-in that atlan-get-started writes is the one the selection rules read."""
+
+    def test_the_opt_in_block_and_the_rules_name_the_same_section(self) -> None:
+        skills = CORE / "skills"
+        started = (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8")
+        block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
+        self.assertIn("## Atlan registry skills", block)
+        self.assertIn("atlan-use-skill", block)
+        for name in ("atlan-use-skill", "atlan-find-artifacts", "atlan-get-started"):
+            self.assertIn("**Atlan registry skills**", (skills / name / "SKILL.md").read_text(encoding="utf-8"), name)
+
+
 class EvalCasesTest(unittest.TestCase):
     """The core plugin's eval cases and their `emulator.json` sidecars (evals/atlan/cases/)."""
 
     CASES = ROOT / "evals" / "atlan" / "cases"
-    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
+    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_LOST_REPLY", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
                 "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE"}
 
     @classmethod

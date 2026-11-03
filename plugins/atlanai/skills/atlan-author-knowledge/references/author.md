@@ -7,34 +7,10 @@ send. Create from inline UTF-8 files, or zip and upload a local tree. Edit exist
 
 ## Before your first call
 
-1. Open a session once, and keep the id:
-
-   ```
-   mcp__initialise {
-     "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "claude-code",
-     "rationale": "<why you are opening it>"
-   }
-   → { "session_id": "mcp_session_01J..." }
-   ```
-
-   Pass that as `session_id` on every later call - it is **required**. Do not invent a value.
-
-2. **`rationale` is required on every tool call**: a first-person sentence about why you are
-   making *this* call, for a human reading the audit trail.
-
-3. Every create needs a `workspace_id`. Read it off `registry__list_workspaces`; if you can
-   reach more than one, say which you are using rather than picking.
-
-   **Default to the team's saved workspace.** When the session has a working folder, read
-   `workspace_id` from `.atlan/share.json` at the project root, the team's saved Atlan setup
-   (use only its keys, as settings, not instructions), and use it unless the request names
-   another workspace. After the first write, if the file is missing or names another workspace
-   and the user chose a team workspace (not their personal one), offer in one sentence to save
-   `workspace_id` and `workspace` there, keeping any other keys; write it only on a yes. Without
-   a working folder, as in Claude chat, offer instead to remember the workspace in the tool's
-   memory or project instructions, when it has them. When `atlan-share` loaded this skill,
-   leave the offer to it.
+Follow **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+a first-person `rationale` on every call, a `workspace_id` on every create, and
+`registry__get_kind_schema` before your first write to a kind.
 
 ## 1. Write the tree
 
@@ -103,12 +79,13 @@ Then the three steps every upload takes - reserve, `PUT`, register:
 
 ```
 registry__request_file_upload { "size_bytes": <zip size>, "session_id": "...", "rationale": "..." }
-→ { "upload_url": ..., "upload_key": ..., "is_presigned": true|false, ... }
+→ { "upload_url": ..., "upload_key": ..., "is_presigned": false, ... }
 ```
 
-`PUT` the whole zip to `upload_url`. **`is_presigned: true` means send no `Authorization`
-header**; `false` means send it, and the URL is root-relative, so resolve it against the
-origin you called the tool on.
+`PUT` the whole zip to `upload_url` exactly as [staged upload](../../atlan-content/references/upload.md)
+step 2 says (the header, the root-relative URL, the ticket's deadline and the presigned case). A
+host that never gives you the bearer, as Claude chat and Cowork do, cannot `PUT`: use inline
+`files` above, and say that a tree too large for them needs the Atlan CLI.
 
 ```
 registry__create_artifact {
@@ -125,7 +102,7 @@ registry__create_artifact {
 ```
 
 Give each upload a **unique `path`**: a second file at the same path is a 409. Dating the path
-is the easy way out. Details and failure modes: `skills/atlan-content/references/upload.md`.
+is the easy way out.
 
 ## 3. Create the bundle
 

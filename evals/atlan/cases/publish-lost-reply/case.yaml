@@ -1,0 +1,45 @@
+schema_version: "1.1"
+name: publish-lost-reply
+tags: [write,skill,retry]
+execution:
+  prompt: |
+    Publish a new Atlan skill named incident-notes in workspace_01evalplatform. I authorize it now.
+    Use exactly this one text file, SKILL.md:
+    ---
+    name: incident-notes
+    description: Record the timeline and decisions for an incident. Use when asked to document an incident.
+    ---
+    Write a timeline, name the decision owners, and record unresolved questions.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  # The reply to the first create is lost after it commits. A keyed create is resent unchanged and
+  # replays the first version; reading back first is also correct. Either way one version lands.
+  - name: creates-at-most-twice
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"extension__skill__create"'
+    min: 1
+    max: 2
+  - name: every-create-carries-a-key
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"idempotency_key")[\s\S]*"name"\s*:\s*"extension__skill__create"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: reports-what-landed
+    type: llm
+    criteria: |
+      PASS if the reply says incident-notes is in Atlan (naming skill_01evalnew00000000000000 or version 0.1.0 on latest), recovered after the create call's reply was lost, by resending the same call with its idempotency_key or by reading it back.
+      FAIL if it says the publish failed, asks the user to try again, or reports a second version (0.2.0).
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

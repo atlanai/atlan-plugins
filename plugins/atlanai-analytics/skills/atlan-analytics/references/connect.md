@@ -6,7 +6,7 @@ re-check it.
 
 Connecting is always the person's own sign-in. Never ask for, print or store a warehouse
 password, key or token. The statements for each warehouse are in
-[warehouses](warehouses.md).
+[warehouses](warehouses.md); read only the section for the warehouse in question.
 
 ## 0. Reuse what state holds
 
@@ -54,7 +54,7 @@ mode) and the CLI is already installed and configured: `snow --version` with a c
 `databricks auth profiles`. Never install a CLI, and never open its config files: they can
 hold secrets. Ask which connection or profile to use when there are several.
 
-Run the check statement through it ([warehouses](warehouses.md), "Through a CLI")
+Run the check statement through it ([through a CLI](warehouses/cli.md))
 and show the person the role it ran as. A CLI does not enforce read-only access, so the
 connection must use a read-only role: ask the person to confirm it, and if they can't, don't
 use the CLI. The read-only rules apply to every statement you send.
@@ -74,7 +74,7 @@ Ask:
 - **Ask an Atlan admin to add <warehouse> from the Store (Recommended)**: everyone on the team
   reaches it through Atlan with their own sign-in. Stop with NEEDS_CONTEXT until it is added.
 - **Add one to this tool myself**: give the steps for this harness from
-  [warehouses](warehouses.md) ("Adding a server here"), then stop with
+  [adding a server here](warehouses/add-server.md), then stop with
   NEEDS_CONTEXT and ask the person to run the skill again once it is connected.
 
 In metrics mode, add **No warehouse: use a declared model, a BI file or an export** and return
@@ -92,12 +92,14 @@ without a tool when it is chosen.
      "via": "atlan | host | cli",
      "tool": "<the exact tool name, or snow | databricks>",
      "server": "<the Atlan server name, when via is atlan>",
+     "runner": "<the runner its run_with names, when via is atlan>",
      "profile": "<the CLI connection or profile name, when via is cli>",
      "bulk": {"via": "cli | tool | file", "profile": "<when via is cli>"}
    }
    ```
 
-   Through Atlan in search mode, `tool` is the name you pass to `mcp__call_tool`. Through a
+   Through Atlan in search mode, `tool` is the name you pass to a runner; record the runner its
+   `run_with` names as `runner` beside it (`mcp__call_read_tool` for a read-only query tool). Through a
    harness connector it is the full name the harness lists, with its prefix.
 3. Show `warehouse ok (<kind> via <via>)`.
 
@@ -107,8 +109,10 @@ The query-history pull can return 5,000 rows of SQL text, which should not pass 
 conversation when it can be avoided. Record `warehouse.bulk`, in this order:
 1. **`cli`**, when step 3's conditions hold (a shell, an installed and configured CLI, a
    read-only role), even if small reads go through MCP: the CLI writes the rows straight to a
-   file ([warehouses](warehouses.md), "Through a CLI").
-2. **`tool`**: the query tool above, paged 5,000 rows at a time.
+   file ([through a CLI](warehouses/cli.md)).
+2. **`tool`**: the query tool above, paged 5,000 rows at a time. Where the host saves a large
+   tool result to a file and names its path, `MINE querylog` reads that file, so the rows are
+   never copied out by hand.
 3. **`file`**: an export someone with access makes.
 
 The CLI is never required: with no shell, `tool` or `file` covers every harness.

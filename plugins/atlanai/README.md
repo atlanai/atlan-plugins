@@ -25,8 +25,8 @@ The first thing to type: *"Connect me to Atlan."*
 ## MCP server
 
 `atlan`, at `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). This is Atlan's MCP gateway in
-search mode. Three tools (`mcp__search_tools`, `mcp__describe_tools` and `mcp__call_tool`)
-reach the registry's own tools, every Atlan app's tools, and every MCP
+search mode. Five tools (`mcp__search_tools`, `mcp__describe_tools` and the runners
+`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 
@@ -53,10 +53,11 @@ gateway also serves them as MCP resources.
 
 ## Commands
 
-Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-skill <skill_…>`
-and `continue <output_…>`. Each loads the skill of the same task (`atlan-get-started`,
-`atlan-use-skill`, `atlan-continue`), and those three skills hide their own slash entries so
-the menu lists each task once. The other skills are invoked by name
+Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-skill <skill_…>`,
+`continue <output_…>` and `share`. Each loads the skill of the same task (`atlan-get-started`,
+`atlan-use-skill`, `atlan-continue`, `atlan-share`). Those four skills hide their own slash
+entries, and the commands hide themselves from the model, so the menu and the model's skill list
+each show every task once. The other skills are invoked by name
 (`/atlanai:atlan-author-skills`), or simply by asking.
 
 ## Alongside other Atlan plugins
@@ -71,7 +72,18 @@ the menu lists each task once. The other skills are invoked by name
 
 ## Privacy
 
-The plugin stores nothing and runs nothing on your machine: it has no hooks and no binaries.
+The plugin stores nothing on your machine and has no binaries. In Claude Code, Codex and Cursor
+it runs one hook, the publish helper (in Codex and Cursor a Python script, once you trust the
+plugin's hooks): when the agent publishes a skill with `files_from`, it reads that one folder in
+your working tree (never a link, a credential file or folder, or anything outside the tree) and
+sends its files only in that same call to Atlan. It says it is on with one line beside the
+conversation's first request. Other tools run no code from it.
+
+In Claude Code, the separate [Registry Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)
+changes how this plugin's calls behave: registry reads run without a prompt, writes, archives,
+approvals and moves ask first and name what they touch, a `session_id` or `rationale` put inside
+`arguments` is moved beside them, temporary gateway errors tell Claude how to retry, and a
+fitting registry skill is named beside your request. This plugin works the same without it.
 Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).

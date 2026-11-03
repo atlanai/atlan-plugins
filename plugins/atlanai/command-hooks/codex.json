@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/command-hooks/publish_hook.py\" session-start --host codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/command-hooks/publish_hook.py\" pre --host codex",
+            "timeout": 30,
+            "statusMessage": "Checking the skill folder"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/command-hooks/publish_hook.py\" post --host codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -52,8 +52,9 @@ to both.
    Pass `servers` (`["linear"]`) once you know the server, named as its tool names start.
    `mcp__describe_tools { "servers": ["linear"] }` lists every tool of a server.
 
-2. Run the match with `mcp__call_tool`, with the tool's exact name and arguments matching its
-   schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
+2. Run the match with the runner its `run_with` names (`mcp__call_read_tool`,
+   `mcp__call_write_tool` or `mcp__call_tool`), with the tool's exact name and arguments matching
+   its schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
    Never invent a name or an argument.
 
    If the search lists the product the user named under `connect` instead of as tools, stop
@@ -67,7 +68,9 @@ to both.
 Downstream tools act in real systems: sending a message, filing an issue and changing data
 are visible to other people. Confirm with the user before any tool that writes, and follow
 its annotations: a `destructiveHint` tool needs an explicit yes for that specific action.
-Approving `mcp__call_tool` once in the host does not approve every tool it can run.
+Approving a runner once in the host does not approve every tool it can run. The read runner
+refuses anything that is not a read and the write runner anything destructive, so a refusal
+names the runner to send the same call to; `mcp__call_tool` runs any tool.
 
 ## When a server needs the user's account
 
@@ -75,7 +78,7 @@ A server the user has not connected comes back from a search under `connect`, no
 Ask the user whether to connect it, then:
 
 ```
-mcp__call_tool {
+mcp__call_write_tool {
   "name": "mcp__connect_server",
   "arguments": { "server": "<exactly as the connect entry names it, such as linear-mcp>" },
   "session_id": "mcp_session_…",
@@ -83,7 +86,8 @@ mcp__call_tool {
 }
 ```
 
-`mcp__connect_server` is not listed as a tool of its own; it runs through `mcp__call_tool`.
+`mcp__connect_server` is not listed as a tool of its own. It stores a credential, so it runs
+through `mcp__call_write_tool` (or `mcp__call_tool`), never the read runner.
 The user is shown a sign-in link, and the call waits for them. `connected` means search again
 with `servers` set to it. `no_account` means the server needs no sign-in. If your tool cannot
 show the link, the call fails naming the account: ask the user to connect it in the Atlan
@@ -101,7 +105,7 @@ workspace and the name with the user first.
 3. Create it:
 
    ```
-   mcp__call_tool {
+   mcp__call_write_tool {
      "name": "registry__create_artifact",
      "arguments": {
        "kind": "mcp_server",
@@ -135,4 +139,4 @@ workspace and the name with the user first.
 
 5. Search again with `servers` set to the new name. A new server is listed live on the first
    search after it is registered; an `auth_required` one first needs `mcp__connect_server`,
-   run through `mcp__call_tool`.
+   run through `mcp__call_write_tool`.

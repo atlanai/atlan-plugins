@@ -1,0 +1,5 @@
+{
+  "env": {
+    "ATLAN_EMULATOR_LOST_REPLY": "extension__skill__create"
+  }
+}

@@ -21,12 +21,11 @@ registry__request_file_upload { "size_bytes": <zip size> }
 → { "upload_url": ..., "upload_key": ..., "is_presigned": false, "expires_in_seconds": 900 }
 ```
 
-`PUT` the whole zip to `upload_url` with your Authorization header. The URL is root-relative:
-resolve it against the API origin you called the tool on. Start within `expires_in_seconds`; an
-expired ticket answers 400, so reserve again. An older server may return `is_presigned: true`:
-that storage URL carries its own authorization, so never send your API bearer to it. If your
-client keeps its bearer private, you cannot `PUT`; use inline `files` instead of extracting the
-credential into a shell.
+`PUT` the whole zip to `upload_url` exactly as [staged upload](../../atlan-content/references/upload.md)
+step 2 says: the Authorization header, the root-relative URL, the 900-second ticket and the
+presigned case are all there, once. If your client keeps its bearer private, as Claude chat and
+Cowork do, you cannot `PUT`: use inline `files` for text, and for a binary say that it needs the
+Atlan CLI. Never extract the credential into a shell.
 
 ```
 registry__create_artifact {
@@ -52,12 +51,16 @@ extension__skill__create {
   "skills": [{
     "name": "deploy-preview",
     "workspace_id": "workspace_01J...",
+    "idempotency_key": "deploy-preview-7f3k9q2m",
     "bundle_file_id": "file_01J..."
-  }]
+  }],
+  "wait_for_release": true
 }
 ```
 
 Send exactly one of `files` or `bundle_file_id` per skill, and never base64 a bundle into the call.
+`idempotency_key` and `wait_for_release` work as for inline files: a new key per skill, the same
+call resent unchanged after a lost reply ([publishing](publish.md#3-create)).
 `registry__create_artifact` cannot create a skill: the skill kind takes no `upload_key`, and its
 properties are derived from the bundle by the create hook. Then read the slot as in
 [publishing](publish.md#4-read-the-slot).

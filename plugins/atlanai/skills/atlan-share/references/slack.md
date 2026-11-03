@@ -11,7 +11,8 @@ Use the first that is reachable:
    `slack_search_channels` and `slack_search_users`, often under a server prefix. It posts in the
    user's own Slack with no Atlan call.
 2. **Slack registered in Atlan**: `mcp__search_tools { "query": "send a Slack message", "session_id": "mcp_session_…" }`.
-   Run what it finds with `mcp__call_tool`, by its exact name and schema. When Slack comes back
+   Run what it finds with the runner its `run_with` names (a post is a write:
+   `mcp__call_write_tool`), by its exact name and schema. When Slack comes back
    under `connect` instead of as tools, ask whether to connect it and follow
    `atlan-use-mcp-servers`.
 3. **Neither**: say in one line that Slack is not connected here, and give the post as text the
@@ -21,8 +22,9 @@ Never post with a lookalike tool from another product.
 
 ## Where it goes
 
-In order: the channel or person the user named, then `slack` in `.atlan/share.json`. With
-neither, suggest one channel whose name matches the workspace when a channel search tool is
+In order: the channel or person the user named, then `slack` in `.atlan/share.json` (with no
+working folder, as in Claude chat, the channel remembered in the tool's memory or project
+instructions). With none, suggest one channel whose name matches the workspace when a channel search tool is
 available (`#platform-eng` for Platform Engineering), and ask.
 
 - **A channel**: resolve the name with the tool's channel search when it has one. Read its topic

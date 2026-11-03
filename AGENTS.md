@@ -20,7 +20,13 @@ plugins/atlanai/                    the core plugin
   skills/<name>/SKILL.md          skills, written here
   skills/<name>/agents/openai.yaml  Codex's card for the skill, from [skills] in plugin.toml (generated)
   commands/*.md                   Claude Code and Cursor commands; each command's skill sets
-                                  `user-invocable: false` so the `/` menu lists the task once
+                                  `user-invocable: false` so the `/` menu lists the task once,
+                                  and each command sets `disable-model-invocation: true` so the
+                                  model's skill list does too (claude.ai lists commands there)
+  claude-hooks/                   the publish helper, Claude Code's hooks module, and its tests;
+                                  tests/fixtures.ts generated from tools/tests/fixtures/
+  command-hooks/                  the same helper as a command hook for Codex and Cursor:
+                                  publish_hook.py and each harness's hooks file, written here
   README.md                       written by hand
 plugins/atlanai-<workload>/       add-ons: skills, commands and agents written here; manifests and
                                   README generated
@@ -67,10 +73,31 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **Search mode is the default.** Owned skills show calls as `mcp__call_tool { "name", "arguments",
   "session_id", "rationale" }`. Vendored recipes use full-mode notation; `atlan-get-started`
   explains the translation.
-- **Portable only.** No hooks, no `bin/`, no symlinks, no submodules, no paths outside the
-  plugin root, no secrets. Hooks are the least portable component, each host names their events
-  differently, and Codex keeps hook plugins out of its directory. The one exception is a mod,
-  below: a Claude Code plugin of its own, so the portable plugins stay hook-free.
+- **Portable, except the publish helper.** No other hooks, no `bin/`, no symlinks, no
+  submodules, no paths outside the plugin root, no secrets. Hooks are the least portable
+  component, each host names their events differently, and Codex keeps hook plugins out of its
+  directory, so `make codex-directory` builds the core without them for a directory submission.
+  The core's publish helper is the exception: it lets `extension__skill__create` take
+  `files_from`, a folder in the working tree it checks with `check_bundle.py`'s rules and sends
+  inline, and it announces that with one prompt line. In Claude Code that line is `prompt.submit`
+  context on a conversation's first prompt, not `prompt.compose`: Claude Code's built-in
+  `cc-plugin-sec-default`, seated for Team and Enterprise organizations and on machines with
+  managed settings, passes installed plugins over on `prompt.compose`, `prompt.context` and
+  `skill.prompt`, while their `prompt.submit` and `tool.call` hooks run. Use those two for anything
+  a hook must tell the model. The skill text does not wait for the line either: it
+  sends `files_from` whenever the skill's folder is in the working directory, and where no hook
+  expands it, the server refuses `files_from` by name before writing, and the skill sends `files`.
+  So every other host, and Claude Code under `allowManagedHooksOnly`, keeps working for one extra
+  call. It comes in two forms, each named only from its own harness's manifest and never from
+  `hooks/`, which Codex and Cursor read by default. `claude-hooks/` is a Claude Code hooks module,
+  named by `"hooks"` in `.claude-plugin/plugin.json` (`claude_hooks` in `plugin.toml`).
+  `command-hooks/` is one standard-library Python script, `publish_hook.py`, that imports
+  `check_bundle.py`, with `codex.json` named by `extensions.com.openai.hooks` in `plugin.json` and
+  the legacy Codex overlay, and `cursor.json` by `hooks` in `.cursor-plugin/plugin.json`
+  (`codex_hooks`, `cursor_hooks`). Every hook fails open: the module's `.catch`, and the script
+  exits 0 with no output on any fault, or when Python is missing. Both read only the folders the
+  call names, and variants leave both out. `make check` holds every manifest to its own file and
+  every command to the script. The other exception is a mod, below.
 - **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
   module ([Claude Code mods](https://code.claude.com/docs/en/plugins/mods/overview)) changes how
   Claude Code handles the core's tools: `atlanai-mods` guards registry writes and repairs gateway
@@ -130,6 +157,8 @@ make check       # generated-file drift, lint, unit tests
 make validate    # claude plugin validate --strict and the directory profile, and each mod's
                  # `claude plugin test`; needs the claude CLI
 make site        # dist/site/.well-known/agent-skills/: the skills as a discovery index
+make codex-directory  # dist/codex-directory/: the core without hooks, and the zip OpenAI's
+                      # plugin directory takes; names the listing fields plugin.toml still lacks
 ```
 
 CI runs `check` and `validate` on every pull request.

@@ -12,9 +12,10 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
 
 ## How you work
 
-0. **Open a registry session once.** If your only Atlan tools are `mcp__call_tool` and its
-   siblings, call each tool named here through `mcp__call_tool` with its `name` and
-   `arguments`: send `objective` (one sentence on the question) on the first call and pass the
+0. **Open a registry session once.** If your Atlan tools are `mcp__call_read_tool` and
+   `mcp__describe_tools` (search mode), call each tool named here through
+   `mcp__call_read_tool` with its `name` and `arguments`, and the warehouse query tool through
+   the runner your instructions name for it: send `objective` (one sentence on the question) on the first call and pass the
    returned `mcp_session_id` as `session_id` on every later call. Otherwise call
    `mcp__initialise` and pass the `session_id` it returns on every later registry call. Call
    only the read tools named in these instructions and the warehouse query tool, never a tool
@@ -25,7 +26,7 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
    read, explain the missing context rather than substituting its current head.">
 1. **Look up context first.** Before writing any SQL, search the registry workspace for the
    question's key terms (metric names, business nouns, the measure asked for). Open the one or
-   two most relevant eligible results. Generic search results are discovery heads, not published content. `metric__search_queries` resolves releases and returns their receipts.
+   two most relevant eligible results. Generic search results are discovery heads, not published content. `extension__metric__search_queries` resolves releases and returns their receipts.
    - For a **metric**, call `registry__get_artifact` with `artifact_id` and `channel: "latest"`,
      or the specific `release_id` the user requested (never both). Use only the definition from
      that release response, even when search shows newer edits. Keep its returned release id,
@@ -36,7 +37,7 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
      every mandatory filter; add only question-specific filters compatible with that definition.
    - A **saved query** is reusable only through a current release or an explicit release pin.
      Call `registry__get_artifact` with `channel: "latest"` or the requested `release_id`, or
-     use the release-resolved result from `metric__search_queries`. Keep the returned release
+     use the release-resolved result from `extension__metric__search_queries`. Keep the returned release
      id, channel and exact version id; never consume a bare head or fall back after a missing,
      withdrawn, archived or unreadable release. SQL, parameters and usage notes must all come
      from that exact released revision, even when newer saved edits exist. `review_status`
