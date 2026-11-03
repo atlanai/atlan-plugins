@@ -10,7 +10,8 @@ Everything in the registry is an **artifact**: a versioned item of one **kind**,
 **workspace** and optionally one **project**, with a handle shaped `<kind>_<id>`
 (`skill_01j…`, `agent_01k…`). Reads are safe: nothing here writes.
 
-Calls below are written as `mcp__call_tool` in search mode. The first call opens the session
+Calls below are written in search mode, each through the runner its tool needs: reads use
+`mcp__call_read_tool`. The first call opens the session
 by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
 and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
 Replies lead with the result: the first sentence is the answer or the step, counts rather
@@ -35,7 +36,7 @@ apology or closing offer.
 ## Search
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__search_artifacts",
   "arguments": { "query": "deploy a branch to a preview environment", "kind": "skill", "semantic": true, "limit": 10 },
   "session_id": "mcp_session_…",
@@ -112,11 +113,11 @@ unfamiliar kind, `registry__get_kind_schema { "kind": "…" }` describes it.
 When the user wants what the organization knows about a task rather than one artifact
 ("what do we have on churn?", "anything I should follow before touching billing?"),
 `mcp__retrieve_artifacts` searches skills, metrics, ontology and knowledge in one bounded call
-and returns pinned excerpts. It is an `mcp` server tool, run through `mcp__call_tool` like any
-other:
+and returns pinned excerpts. It is an `mcp` server tool and a read, so it runs through
+`mcp__call_read_tool`:
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "mcp__retrieve_artifacts",
   "arguments": {
     "query": "how we define and report monthly churn",
@@ -148,7 +149,7 @@ as `file`.
 ## Read one
 
 ```
-mcp__call_tool {
+mcp__call_read_tool {
   "name": "registry__get_artifact",
   "arguments": { "artifact_id": "skill_01j…" },
   "session_id": "mcp_session_…",

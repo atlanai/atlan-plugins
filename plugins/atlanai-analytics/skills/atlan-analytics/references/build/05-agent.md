@@ -42,10 +42,16 @@ Show it, then ask:
    - **Full mode:** `mcp__initialise`, `registry__search_artifacts`, `registry__get_artifact`
      and `registry__get_file_content`. `mcp__initialise` is required: every other registry
      tool refuses a call without the `session_id` it returns.
-   - **Search mode:** only `mcp__call_tool` (the agent calls the registry reads through it by
-     name) and `mcp__describe_tools` (to read their schemas).
+   - **Search mode:** only `mcp__call_read_tool` (the agent calls the registry reads through it
+     by name) and `mcp__describe_tools` (to read their schemas). Never `mcp__call_write_tool` or
+     `mcp__call_tool`: the read runner refuses anything that is not read-only, so the gateway
+     itself keeps the agent to reads.
    - The warehouse query tool from state. When it is reached through Atlan in search mode, it
-     goes through `mcp__call_tool` too and adds no tool of its own.
+     adds no tool of its own. Its runner is `warehouse.runner` in state; if that is missing,
+     describe the tool and read its `run_with`. If that is
+     `mcp__call_read_tool`, nothing more is needed. If it names another runner (the server
+     marks its query tool as a write, or gives no hints), the agent also needs that runner, and
+     step 2 says what that costs.
    - `registry__get_file_content` is how the agent reads a linked rule skill's `SKILL.md`;
      `registry__get_artifact` on a skill returns only its file manifest.
    - Confirm the discovered `registry__get_artifact` supports `channel` and `release_id`.
@@ -67,10 +73,13 @@ Show it, then ask:
    tools. That is what keeps the eval answers on disk structurally out of the agent's reach,
    and what makes it behave like the deployed agent.
 
-   In search mode the list is weaker: `mcp__call_tool` can run any tool the user can, writes
-   included, so the read-only limit rests on the prompt. Say so in the preview. The eval still
-   catches a breach: `EVAL record` reads the tool name inside each `mcp__call_tool` and marks a
-   run that called a write tool or touched eval data `invalid_contaminated`.
+   In search mode with only `mcp__call_read_tool`, the gateway refuses every write, so the
+   limit holds as it does in full mode. If the warehouse tool needed `mcp__call_write_tool` or
+   `mcp__call_tool`, the list is weaker: that runner can run any tool the user can at its tier,
+   writes included, so the read-only limit rests on the prompt. Say so in the preview, naming
+   the runner and why. Either way the eval catches a breach: `EVAL record` reads the tool name
+   inside each runner call and marks a run that called a write tool or touched eval data
+   `invalid_contaminated`.
 3. On a yes, write the file and record `subagent_path` in state.
 4. Check that the subagent type is available to the Agent tool. Claude Code loads new agent
    files at session start. If it isn't listed:

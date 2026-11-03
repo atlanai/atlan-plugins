@@ -29,6 +29,8 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import {
   CALL_TOOL,
+  capped,
+  runnerCap,
   FIX,
   GATEWAY_TOOL,
   probeServers,
@@ -597,7 +599,7 @@ export const register: Register = (on, options) => {
     const inner = unwrap(outer.name, outer.arguments)
     const name = inner.name
     const input: Record<string, unknown> = { ...outer, name, arguments: inner.args }
-    const effect = classify(name, await loadHints($))
+    const effect = capped(classify(name, await loadHints($)), runnerCap(e.tool), name)
 
     if (effect === 'unknown') return verdict
     if (effect === 'read') {
