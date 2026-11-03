@@ -331,6 +331,18 @@ class Proj:
     def p(self, *parts) -> pathlib.Path:
         return self.dir.joinpath(*parts)
 
+    def f(self, arg):
+        """A file argument: absolute as given; relative resolves from --dir, the way the skills write
+        it (`hillclimb/V/answers/...`, `eval/gold/...`). A path that exists only from the current
+        directory is still found there."""
+        if not arg:
+            return arg
+        path = pathlib.Path(arg).expanduser()
+        if path.is_absolute():
+            return str(path)
+        here = self.p(arg)
+        return str(here) if here.exists() or not path.exists() else str(path)
+
     def state(self) -> dict:
         return load_json(self.p("state.json"), {}) or {}
 
@@ -496,14 +508,21 @@ def cmd_refreeze(a) -> dict:
 
 
 # ====================================================================== harness integrity
+# The harness is this script and the fuzzy-case judge's instructions: an edit to either changes a score.
+GRADER_AGENT = pathlib.Path(__file__).resolve().parents[3] / "agents" / "atlan-analytics-grader.md"
+
+
 def harness_sha() -> str:
-    return hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes()).hexdigest()
+    h = hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes())
+    if GRADER_AGENT.is_file():
+        h.update(b"\0" + GRADER_AGENT.read_bytes())
+    return h.hexdigest()
 
 
 def check_harness(pr: Proj) -> None:
     approved = (load_json(pr.p("hillclimb", "_state.json"), {}) or {}).get("harness_sha")
     if approved and approved != harness_sha():
-        raise Blocked("analytics_eval.py (the grader) changed since you last approved it.",
+        raise Blocked("The grader (analytics_eval.py or the fuzzy-case judge) changed since you last approved it.",
                       "Review what changed, then run `analytics_eval.py approve-harness --dir D` yourself.")
 
 
@@ -525,6 +544,7 @@ _WRITE_TOOL = re.compile(r"__(?:create|update|patch|put|delete|archive|restore|r
                          r"|release|withdraw|upload|install|uninstall|grant|revoke|rotate|set)(?:_|$)", re.I)
 _EVAL_ID = re.compile(r"\b(?:dataset|dataset_record|experiment|experiment_result|scorer)_[0-9a-z]{10,}\b")
 _EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics|/eval/v1/|gold_results", re.I)
+_NARRATION = ("rationale", "objective", "description")
 
 
 def _blocks(content):
@@ -581,8 +601,11 @@ def parse_transcript(path) -> dict:
                 if _DISPATCH.search(name) and isinstance(inp.get("name"), str):
                     name, inp = inp["name"], inp.get("arguments") or {}
                 blob = json.dumps(inp, default=str)
+                # A rationale saying "for the analytics project" is not a read of eval data; the arguments are.
+                scan = json.dumps({k: v for k, v in inp.items() if k not in _NARRATION}, default=str) \
+                    if isinstance(inp, dict) else blob
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
-                        or _EVAL_ID.search(blob) or _EVAL_PATH.search(blob):
+                        or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
                 elif _WRITE_TOOL.search(name):
                     hits.append(f"{name}: a write tool")
@@ -626,6 +649,8 @@ def _read_answer(path) -> dict:
 def cmd_record(a) -> dict:
     pr = Proj(a.dir)
     check_harness(pr)
+    for key in ("answer_file", "gold_result", "agent_result", "transcript", "verdict"):
+        setattr(a, key, pr.f(getattr(a, key, None)))
     smoke = not a.gold_result and bool(a.question)
     if smoke:  # smoke: an ad-hoc question outside the eval set
         cases = {a.case: {"case_id": a.case, "question": a.question, "tags": ["smoke"]}}
@@ -639,6 +664,20 @@ def cmd_record(a) -> dict:
                       "leave --transcript out: the row is then marked isolation unverified.")
     if a.case not in cases:
         raise Blocked(f"Unknown case '{a.case}'.", "Use a case_id from eval/cases.jsonl.")
+    for flag, path in (("--gold-result", a.gold_result), ("--agent-result", a.agent_result)):
+        if path and not pathlib.Path(path).is_file():
+            # A missing file would grade as gold_error or a failed agent query: neither is what happened.
+            raise Blocked(f"No file at {path} ({flag}).",
+                          "Save the executed result there as {columns, rows, error}, then record again.")
+    verdict = None
+    if a.verdict:
+        if "fuzzy" not in (cases[a.case].get("tags") or []):
+            raise Blocked(f"Case '{a.case}' is not tagged fuzzy.",
+                          "A judge's verdict is only for prose answers; this case is graded by result set.")
+        verdict = load_json(a.verdict) if pathlib.Path(a.verdict).is_file() else None
+        if not isinstance(verdict, dict) or verdict.get("pass") not in (0, 1, True, False):
+            raise Blocked(f"No verdict at {a.verdict}.",
+                          "Save the grader's JSON reply, {\"pass\": 0 or 1, \"reason\": \"...\"}, there.")
     gold_sql = (pr.answers().get(a.case) or {}).get("gold_sql") or ""
     if not gold_sql and a.gold_result:
         raise Blocked(f"Case '{a.case}' has no gold SQL.", "Add it to eval/answers.jsonl.")
@@ -664,6 +703,9 @@ def cmd_record(a) -> dict:
         dump_json(vd / "results" / f"{tag}.agent.json", agent_res)
     if harness_error:  # the run failed, not the agent: out of the scored denominator
         g = {"grade": {"pass": 0, "exec_ok": 0, "extra_cols": 0}, "class": "harness_error", "reason": a.reason}
+    elif verdict is not None:  # a prose answer, judged by the grader agent; reported apart from result-set grading
+        g = {"grade": {"pass": int(bool(verdict["pass"])), "exec_ok": int(agent_res is not None), "extra_cols": 0},
+             "class": JUDGED, "reason": str(verdict.get("reason") or "")[:500]}
     elif a.gold_result:
         g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "")
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
@@ -699,13 +741,17 @@ def cmd_grade(a) -> dict:
 
 
 UNSCORED = ("harness_error", "gold_error", "incomplete")
+JUDGED = "judged"  # a fuzzy case the grader agent judged: its own rate, never mixed into the result-set rate
 
 
-def case_means(rows: list, metric: str = "pass") -> dict:
+def case_means(rows: list, metric: str = "pass", judged: bool = False) -> dict:
+    """Mean grade per case. Result-set grading by default; judged=True gives the judged fuzzy cases instead."""
     by: dict = {}
     for r in rows:
         if r.get("class") in UNSCORED:
             continue  # not the agent's fault, or not gradable: out of the scored denominator
+        if (r.get("class") == JUDGED) != judged:
+            continue
         by.setdefault(r["prompt_id"], []).append(float((r.get("grade") or {}).get(metric, 0)))
     return {k: sum(v) / len(v) for k, v in by.items()}
 
@@ -729,6 +775,7 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     hidden = set() if final else set(holdout)
     rows = [r for r in all_rows if r.get("prompt_id") not in hidden]
     means = case_means(rows)
+    judged = case_means(rows, judged=True)  # fuzzy cases the grader agent judged, out of the headline
     classes = Counter(r.get("class", "?") for r in rows)
     reps = max((int(r["rep"]) for r in rows), default=0) + 1
     lat = [r["latency_s"] for r in rows if r.get("latency_s") is not None]
@@ -738,6 +785,7 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     out = {"status": "ok", "variant": variant, "rows": len(rows), "cases": len(means), "reps": reps,
            "train": rate(means, train), "validation": rate(means, validation),
            "all": rate(means, sorted(means)), "classes": dict(classes),
+           "judged": rate(judged, sorted(judged)),
            "noise_floor_validation": round(1 / math.sqrt((len(validation) or 1) * reps), 4),
            "context_engagement": round(len(engaged) / len(scored), 4) if scored else None,
            "isolation_unverified": sum(1 for r in scored if r.get("isolation") == "unverified"),
@@ -1053,6 +1101,7 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                 "train_accuracy": s["train"]["pass_rate"], "test_accuracy": s["validation"]["pass_rate"],
                 "test_ci95": s["validation"]["ci95"], "validation_accuracy": s["validation"]["pass_rate"],
                 "context_engagement": s["context_engagement"], "isolation_unverified": s["isolation_unverified"],
+                "judged_accuracy": s["judged"]["pass_rate"], "judged_n": s["judged"]["n"],
                 "classes": s["classes"], "models": s["models"], "variant": V,
                 "scorer_id": ids["scorer_id"], "runner": "atlan-analytics-eval", "finished_at": now()}}}}], [eid]
     return "done", [], []
@@ -1105,7 +1154,7 @@ def cmd_publish_ack(a) -> dict:
     pending = pub.s.get("pending")
     if not pending or pending["step"] != a.step:
         raise Blocked(f"No `{a.step}` step is waiting for results.", "Run `publish` to see the next step.")
-    raw = load_json(a.responses)
+    raw = load_json(Proj(a.dir).f(a.responses))
     if raw is None:
         raise Blocked("The responses file is missing or not JSON.", "Save the tool results as one JSON list.")
     kind, names = STEP_KIND[a.step], pending["names"]
@@ -1385,6 +1434,7 @@ def selftest() -> dict:
         except Blocked:
             ok("changed harness blocks record", True)
     _selftest_integrity(ok)
+    _selftest_inputs(ok)
     failed = [c["check"] for c in checks if not c["ok"]]
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 
@@ -1471,6 +1521,72 @@ def _selftest_integrity(ok) -> None:
             ok("rows from two freezes do not compare", True)
 
 
+def _selftest_inputs(ok) -> None:
+    """What record accepts: paths from --dir, files that must exist, a judge's verdict for fuzzy
+    cases only, and a rationale that is not a read of eval data."""
+    narrated = {"message": {"role": "assistant", "content": [
+        {"type": "tool_use", "id": "r1", "name": "mcp__atlan__mcp__call_tool",
+         "input": {"name": "extension__metric__search_metrics", "rationale": "for the .atlan-analytics/shop project",
+                   "arguments": {"query": "revenue"}}},
+        {"type": "tool_use", "id": "r2", "name": "Read",
+         "input": {"file_path": ".atlan-analytics/shop/eval/answers.jsonl", "description": "look around"}}]}}
+    with tempfile.TemporaryDirectory() as d:
+        pr = pathlib.Path(d)
+        (pr / "n.jsonl").write_text(json.dumps(narrated))
+        hits = parse_transcript(pr / "n.jsonl")["contaminated"]
+        ok("a rationale naming the project is not contamination; reading its eval files is",
+           len(hits) == 1 and hits[0].startswith("Read"))
+        cs = [{"case_id": "c1", "question": "how many", "tags": ["a"]},
+              {"case_id": "c2", "question": "explain the drop", "tags": ["fuzzy"]}]
+        (pr / "eval").mkdir()
+        (pr / "eval" / "cases.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cs))
+        (pr / "eval" / "answers.jsonl").write_text("".join(json.dumps({"case_id": c["case_id"], "gold_sql": "select 1"})
+                                                           + "\n" for c in cs))
+        dump_json(pr / "eval" / "split.json", {"train_ids": [], "test_ids": ["c1", "c2"], "seed": 1})
+        write_freeze(Proj(d))
+        dump_json(pr / "eval" / "gold" / "c1.json", {"columns": ["n"], "rows": [[3]]})
+        dump_json(pr / "eval" / "gold" / "c2.json", {"columns": ["n"], "rows": [[3]]})
+        dump_json(pr / "hillclimb" / "v" / "agent_results" / "c1_rep0.json", {"columns": ["n"], "rows": [[3]]})
+        dump_json(pr / "hillclimb" / "v" / "answers" / "c1_rep0.json", {"answer": "3", "sql": "select 3"})
+        dump_json(pr / "hillclimb" / "v" / "answers" / "c2_rep0.json", {"answer": "it fell because...", "sql": ""})
+        dump_json(pr / "hillclimb" / "v" / "verdict.json", {"pass": 1, "reason": "same facts"})
+        (pr / "t.jsonl").write_text(json.dumps({"message": {"role": "assistant", "content": [{"type": "text", "text": "3"}]}}))
+
+        def rec(case, **kw):
+            args = {"dir": d, "variant": "v", "case": case, "rep": 0, "answer_file": f"hillclimb/v/answers/{case}_rep0.json",
+                    "gold_result": f"eval/gold/{case}.json", "agent_result": None, "transcript": str(pr / "t.jsonl"),
+                    "verdict": None, "model": None, "latency_s": None}
+            args.update(kw)
+            return cmd_record(argparse.Namespace(**args))
+
+        def blocked(fn) -> bool:
+            try:
+                fn()
+            except Blocked:
+                return True
+            return False
+        ok("a named gold result that is missing blocks the row",
+           blocked(lambda: rec("c1", gold_result="eval/gold/nope.json")))
+        ok("a named agent result that is missing blocks the row",
+           blocked(lambda: rec("c1", agent_result="hillclimb/v/agent_results/nope.json")))
+        ok("a verdict on a case not tagged fuzzy is refused",
+           blocked(lambda: rec("c1", verdict="hillclimb/v/verdict.json")))
+        cwd = os.getcwd()
+        try:
+            os.chdir(tempfile.gettempdir())  # paths are the skills' project-relative ones, not the shell's
+            first = rec("c1", agent_result="hillclimb/v/agent_results/c1_rep0.json")
+        finally:
+            os.chdir(cwd)
+        ok("relative paths resolve from --dir", first["class"] == "pass")
+        judged = rec("c2", verdict="hillclimb/v/verdict.json")
+        ok("a fuzzy case records the judge's verdict", judged["class"] == JUDGED and judged["pass"] == 1)
+        summ = summarize(Proj(d), "v")
+        ok("judged cases are reported apart from the result-set rate",
+           summ["judged"] == {"n": 1, "pass_rate": 1.0, "ci95": 0.0} and summ["validation"]["n"] == 1)
+    ok("the approved harness covers the grader agent's instructions",
+       not GRADER_AGENT.is_file() or harness_sha() != hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes()).hexdigest())
+
+
 # ====================================================================== CLI
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="analytics_eval.py", description=__doc__.split("\n\n")[0])
@@ -1523,6 +1639,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--question", help="smoke runs only: the ad-hoc question (no gold, not in the eval set)")
     c.add_argument("--agent-result")
     c.add_argument("--transcript")
+    c.add_argument("--verdict", help="fuzzy cases only: the grader agent's JSON verdict {pass, reason}")
     c.add_argument("--model")
     c.add_argument("--latency-s", type=float, default=None)
     c.set_defaults(func=cmd_record)

@@ -24,4 +24,5 @@ Goal: one short `brief.md` that every later phase drafts from.
 The sample questions guide scope and context. They are **not** the eval set: phase 4 builds
 that separately, and a sample question only reaches it when the user supplies trusted SQL for it.
 
-**STOP gate.** "Brief saved: <audience>, <n> sample questions." Set `phase` to `scope`.
+**Checkpoint.** "Brief saved: <audience>, <n> sample questions." Set `phase` to `scope` and go
+on: the user already chose the audience and questions, and scope opens with its own question.

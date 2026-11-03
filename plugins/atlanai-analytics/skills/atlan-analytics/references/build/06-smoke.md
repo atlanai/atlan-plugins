@@ -33,5 +33,6 @@ Look out for:
 
 Each of these is a note for the baseline, not a reason to stop.
 
-**STOP gate.** "3/3 answered; 3 sessions visible on the agent in the registry."
-Set `phase` to `baseline`.
+**Checkpoint.** "3/3 answered; 3 sessions visible on the agent in the registry."
+Set `phase` to `baseline` and go on. The baseline asks first to confirm the run's size, so a
+problem seen here can still stop it there.
