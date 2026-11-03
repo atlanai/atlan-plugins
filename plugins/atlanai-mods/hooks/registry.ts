@@ -1,14 +1,29 @@
 // Pure helpers for the Atlan gateway's search-mode tools. Nothing here calls `$`, so every rule
 // is tested without a session.
 
-/** The gateway's three tools as Claude Code names them: `mcp__plugin_atlanai_atlan__mcp__call_tool`
- * for the plugin's server, `mcp__atlan__mcp__call_tool` for one added by hand. A variant's plugin
- * (`atlanai-dev`) keeps the server key `atlan`, so its name matches too. */
-export const GATEWAY_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__(?:call_tool|search_tools|describe_tools)$/
-export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call_tool$/
+/** The gateway's three tools as Claude Code names them, under whatever key the server was added
+ * with: `mcp__plugin_atlanai_atlan__mcp__call_tool` for the plugin's server,
+ * `mcp__atlan__mcp__call_tool` for one added by hand, and `mcp__atlan-prod__mcp__call_tool` for a
+ * gateway someone registered under another name. The tool names are the gateway's own
+ * (`mcp__call_tool` inside the server's namespace), so they identify it without the key. */
+export const GATEWAY_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__(?:call_tool|search_tools|describe_tools)$/
+export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call_tool$/
 
 /** The servers a probe tries, as /mcp lists them: the plugin's, then one added by hand. */
 export const PROBE_SERVERS = ['plugin:atlanai:atlan', 'atlan'] as const
+
+/** The server key in a gateway tool's name: `atlan-prod` in `mcp__atlan-prod__mcp__call_tool`. */
+export function serverKeyOf(tool: string): string | undefined {
+  if (!GATEWAY_TOOL.test(tool)) return undefined
+  return tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
+}
+
+/** The servers the mod's own checks try: a gateway the model has called under a key of its own
+ * first, then the usual two. A plugin's key (`plugin_…`) is one of those two already. */
+export function probeServers(seen: string | undefined): string[] {
+  const own = seen && !seen.startsWith('plugin_') && !(PROBE_SERVERS as readonly string[]).includes(seen) ? [seen] : []
+  return [...own, ...PROBE_SERVERS]
+}
 
 /** What a call through `mcp__call_tool` does to the registry. */
 export type Effect = 'read' | 'write' | 'destructive' | 'unknown'
@@ -95,8 +110,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * the session this Claude Code session already opened.
  *
  * A rail is moved only where it cannot be the tool's own argument: `session_id` when it holds a
- * gateway session (`mcp_session_…`), and `rationale` or `objective` only for the registry's own
- * tools, which take neither. Another server's tool may have a field of the same name.
+ * gateway session (`mcp_session_…`), and `rationale` or `objective` only for the tools the gateway
+ * serves itself (`registry__…` and the apps' `extension__…`), which take neither. Another server's
+ * tool may have a field of the same name.
  */
 export function repairRails(input: CallInput, known: string, isCallTool: boolean): Repair {
   const changes: string[] = []
@@ -107,7 +123,7 @@ export function repairRails(input: CallInput, known: string, isCallTool: boolean
     for (const rail of RAILS) {
       const value = args[rail]
       const movable =
-        rail === 'session_id' ? isText(value) && value.startsWith('mcp_session_') : isText(value) && name.startsWith('registry__')
+        rail === 'session_id' ? isText(value) && value.startsWith('mcp_session_') : isText(value) && GATEWAY_OWNED.test(name)
       if (!movable) continue
       delete args[rail]
       if (!isText(next[rail as Rail])) next = { ...next, [rail]: value }
