@@ -36,7 +36,9 @@ and never touches the network: you make every registry write through the Atlan M
    - For a new variant, run one pair first as a canary.
    - Then state the count × time × tokens (from the canary's usage, never a dollar guess) and
      get a yes before the rest.
-2. **Run each pair** (up to 4 subagents in parallel; wait for a batch before starting the next):
+2. **Run each pair** in a rolling pool: keep up to 4 subagents running, and start the next pair
+   as soon as one finishes and its steps below are done. Never wait for a whole batch: the
+   slowest case would set the pace for the other three.
    1. Spawn the subagent with the question. Keep the Agent tool's `output_file` (the
       transcript path).
    2. Parse its final message as JSON `{answer, sql, used_context_ids}`. If it isn't JSON,

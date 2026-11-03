@@ -10,7 +10,8 @@
    `objective` naming the project. Keep the `session_id` for every later registry call. If no
    Atlan MCP tools are available at all, stop with BLOCKED: the user needs the `atlan` plugin
    or the Atlan MCP server connected and signed in.
-2. Call `registry__list_workspaces`. If it fails or returns nothing, stop with BLOCKED: the
+2. Call `registry__list_workspaces` with `limit: 1`: it proves access and returns the total
+   without listing every workspace. If it fails or returns nothing, stop with BLOCKED: the
    user needs to sign in to Atlan and be added to a workspace.
 3. Call `registry__get_kind_schema` for `metric`. An unknown kind means Metric Studio is not
    installed for this account: stop with BLOCKED, and ask an Atlan admin to install Metric
@@ -20,6 +21,9 @@
    one when none works, and records `warehouse` in state. From then on every skill calls it
    "the warehouse query tool recorded in state".
 5. Run `EVAL selftest` to confirm `python3` works. It needs only the standard library.
+
+Once step 2 has opened the session, steps 3 and 5 depend on nothing else: send them in the same
+turn as parallel calls, beside step 4's first search.
 
 Show one line per check (`ok` or what failed).
 
