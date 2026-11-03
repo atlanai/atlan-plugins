@@ -1,7 +1,7 @@
 # Phase 4: the eval set
 
 Goal: 20–50 real questions, each with SQL the user trusts, stored locally where the agent
-can't reach it, and split once into train and test.
+can't reach it, and split once into train, validation and a held-out final test.
 
 ## 1. Source the questions
 
@@ -44,11 +44,21 @@ Report "N cases, all gold SQL runs; M dropped (reasons)".
 
 ## 4. Split once
 
-`EVAL split --test-frac 0.5 --seed <n>` writes `eval/split.json`. It draws at random,
-stratified by the first tag, and never picks by difficulty. Tell the user what the split can
-resolve: for a pass rate, the 95% band is about `±1/sqrt(n·reps)` (25 test cases × 2 reps ≈
-±14 points). If that's too coarse, add cases or reps. **The split never changes after the
-baseline.**
+`EVAL split --holdout-frac 0.2 --test-frac 0.5 --seed <n>` writes `eval/split.json` and
+`eval/freeze.json`. It draws at random, stratified by the first tag, and never picks by
+difficulty. It makes three sets:
+- **train** (`train_ids`): the failure analyst reads these traces;
+- **validation** (`test_ids`, its name from before the holdout): scored every round, it picks
+  which round wins;
+- **holdout** (`holdout_ids`): the final test. Nothing runs on it until hand-back, so no choice
+  is ever made from it.
 
-**STOP gate.** "Eval set: N cases (train T / test S), all gold verified. Answers stay local."
+Tell the user what validation can resolve: for a pass rate, the 95% band is about
+`±1/sqrt(n·reps)` (20 validation cases × 2 reps ≈ ±16 points). If that's too coarse, add cases
+or reps before the baseline. `freeze.json` holds a digest of the cases, the gold SQL, the split
+and the grader. Once a variant has a graded row, `split` refuses to redraw, and `record`
+refuses while any of those four differ from the freeze.
+
+**STOP gate.** "Eval set: N cases (train T / validation V / holdout H), all gold verified.
+Answers stay local."
 Set `phase` to `agent`.

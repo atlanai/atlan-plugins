@@ -112,7 +112,8 @@ RECOMMENDATION`. Don't loop.
 
   The talk-to-data subagent has no file, shell or web tools, so it can't read them. Keep it
   that way.
-- **The failure analyst reads train cases only.** Nobody reads test transcripts while iterating.
+- **The failure analyst reads train cases only.** Nobody reads validation or holdout transcripts
+  while iterating, and the holdout runs only at hand-back.
 - **Every registry write is previewed first**: counts, target workspace, one sample body. It
   runs only after a yes. Never archive or rename an artifact.
 - **Strip identifying literals before anything leaves the machine.** Run `EVAL filter-querylog`

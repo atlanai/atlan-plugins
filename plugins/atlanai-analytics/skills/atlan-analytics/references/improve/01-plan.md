@@ -3,7 +3,7 @@
 ## Goal (ask first)
 
 - `<slug> · improve · what to optimise`
-- **Raise the test pass rate (Recommended when the baseline is below 80%)**
+- **Raise the validation pass rate (Recommended when the baseline is below 80%)**
 - **Cut cost per question**, keeping the pass rate within noise
 - **Cut latency**, keeping the pass rate within noise
 - **Move to another model** and recover the pass rate on it
@@ -34,7 +34,7 @@ The eval script, the grader and the eval set are **never** levers.
 
 State the cost of one pass from the baseline: "N cases × R reps ≈ X min, about $Y." Then ask:
 - `<slug> · improve · when to check back in`
-- **Until plateau (Recommended)**: stop when test moves less than δ for 3 rounds in a row, or a
+- **Until plateau (Recommended)**: stop when validation moves less than δ for 3 rounds in a row, or a
   guardrail regresses outside noise
 - **One round at a time**: propose, run, report, ask
 - **N rounds**: the user gives N
