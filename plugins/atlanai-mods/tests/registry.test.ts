@@ -2,6 +2,8 @@ import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import {
+  CALL_TOOL,
+  GATEWAY_TOOL,
   classify,
   dependentsOf,
   describeBlastRadius,
@@ -10,9 +12,11 @@ import {
   harvestHints,
   isStaleSession,
   jsonObjects,
+  probeServers,
   repairRails,
   retryOf,
   searchRows,
+  serverKeyOf,
   summaryOf,
   unwrap,
 } from '../hooks/registry'
@@ -106,6 +110,25 @@ describe('classify', () => {
   })
 })
 
+describe('gateway tool names', () => {
+  test('match under any server key, and name it', () => {
+    for (const tool of ['mcp__plugin_atlanai_atlan__mcp__call_tool', 'mcp__atlan__mcp__call_tool', 'mcp__atlan-prod__mcp__call_tool'])
+      expect(CALL_TOOL.test(tool)).toBe(true)
+    expect(GATEWAY_TOOL.test('mcp__atlan-prod__mcp__search_tools')).toBe(true)
+    expect(GATEWAY_TOOL.test('mcp__slack__send_message')).toBe(false)
+    expect(GATEWAY_TOOL.test('mcp__atlan__registry__get_artifact')).toBe(false)
+    expect(serverKeyOf('mcp__atlan-prod__mcp__call_tool')).toBe('atlan-prod')
+    expect(serverKeyOf('mcp__slack__send_message')).toBeUndefined()
+  })
+
+  test("probe a gateway the model called under its own key first, never a plugin's twice", () => {
+    expect(probeServers('atlan-prod')).toEqual(['atlan-prod', 'plugin:atlanai:atlan', 'atlan'])
+    expect(probeServers('plugin_atlanai_atlan')).toEqual(['plugin:atlanai:atlan', 'atlan'])
+    expect(probeServers('atlan')).toEqual(['plugin:atlanai:atlan', 'atlan'])
+    expect(probeServers(undefined)).toEqual(['plugin:atlanai:atlan', 'atlan'])
+  })
+})
+
 describe('repairRails', () => {
   test('moves registry rails out of arguments and reuses the open session', () => {
     const { input, changes } = repairRails(
@@ -120,6 +143,21 @@ describe('repairRails', () => {
   test("leaves another server's own rationale argument alone", () => {
     const { input } = repairRails({ name: 'review__submit', arguments: { rationale: 'LGTM' }, rationale: 'Submitting.' }, '', true)
     expect(input).toEqual({ name: 'review__submit', arguments: { rationale: 'LGTM' }, rationale: 'Submitting.' })
+  })
+
+  test("moves an app's rails out too: the gateway serves extension tools itself", () => {
+    const { input } = repairRails(
+      { name: 'extension__skill__create', arguments: { workspace_id: 'w', rationale: 'Publishing.', objective: 'Ship it.' } },
+      SESSION,
+      true,
+    )
+    expect(input).toEqual({
+      name: 'extension__skill__create',
+      arguments: { workspace_id: 'w' },
+      rationale: 'Publishing.',
+      objective: 'Ship it.',
+      session_id: SESSION,
+    })
   })
 
   test('moves a gateway session id from any tool, and keeps an explicit one', () => {
