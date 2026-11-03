@@ -2,6 +2,9 @@ import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import {
+  CALL_TOOL,
+  GATEWAY_TOOL,
+  capped,
   classify,
   dependentsOf,
   describeBlastRadius,
@@ -10,9 +13,12 @@ import {
   harvestHints,
   isStaleSession,
   jsonObjects,
+  probeServers,
   repairRails,
   retryOf,
+  runnerCap,
   searchRows,
+  serverKeyOf,
   summaryOf,
   unwrap,
 } from '../hooks/registry'
@@ -106,6 +112,30 @@ describe('classify', () => {
   })
 })
 
+describe('gateway tool names', () => {
+  test('match under any server key, and name it', () => {
+    for (const tool of ['mcp__plugin_atlanai_atlan__mcp__call_tool', 'mcp__atlan__mcp__call_tool', 'mcp__atlan-prod__mcp__call_tool'])
+      expect(CALL_TOOL.test(tool)).toBe(true)
+    expect(GATEWAY_TOOL.test('mcp__atlan-prod__mcp__search_tools')).toBe(true)
+    expect(GATEWAY_TOOL.test('mcp__slack__send_message')).toBe(false)
+    expect(GATEWAY_TOOL.test('mcp__atlan__registry__get_artifact')).toBe(false)
+    for (const tool of ['mcp__atlan__mcp__call_read_tool', 'mcp__plugin_atlanai_atlan__mcp__call_write_tool']) {
+      expect(CALL_TOOL.test(tool)).toBe(true)
+      expect(GATEWAY_TOOL.test(tool)).toBe(true)
+    }
+    expect(CALL_TOOL.test('mcp__atlan__mcp__call_other_tool')).toBe(false)
+    expect(serverKeyOf('mcp__atlan-prod__mcp__call_tool')).toBe('atlan-prod')
+    expect(serverKeyOf('mcp__slack__send_message')).toBeUndefined()
+  })
+
+  test("probe a gateway the model called under its own key first, never a plugin's twice", () => {
+    expect(probeServers('atlan-prod')).toEqual(['atlan-prod', 'plugin:atlanai:atlan', 'atlan'])
+    expect(probeServers('plugin_atlanai_atlan')).toEqual(['plugin:atlanai:atlan', 'atlan'])
+    expect(probeServers('atlan')).toEqual(['plugin:atlanai:atlan', 'atlan'])
+    expect(probeServers(undefined)).toEqual(['plugin:atlanai:atlan', 'atlan'])
+  })
+})
+
 describe('repairRails', () => {
   test('moves registry rails out of arguments and reuses the open session', () => {
     const { input, changes } = repairRails(
@@ -120,6 +150,21 @@ describe('repairRails', () => {
   test("leaves another server's own rationale argument alone", () => {
     const { input } = repairRails({ name: 'review__submit', arguments: { rationale: 'LGTM' }, rationale: 'Submitting.' }, '', true)
     expect(input).toEqual({ name: 'review__submit', arguments: { rationale: 'LGTM' }, rationale: 'Submitting.' })
+  })
+
+  test("moves an app's rails out too: the gateway serves extension tools itself", () => {
+    const { input } = repairRails(
+      { name: 'extension__skill__create', arguments: { workspace_id: 'w', rationale: 'Publishing.', objective: 'Ship it.' } },
+      SESSION,
+      true,
+    )
+    expect(input).toEqual({
+      name: 'extension__skill__create',
+      arguments: { workspace_id: 'w' },
+      rationale: 'Publishing.',
+      objective: 'Ship it.',
+      session_id: SESSION,
+    })
   })
 
   test('moves a gateway session id from any tool, and keeps an explicit one', () => {
@@ -197,7 +242,9 @@ describe('the guard', () => {
     expect(verdict).toEqual(expect.objectContaining({ decision: 'ask', reason: 'engine' }))
   })
 
-  test('asks before an archive and names what depends on it', async ($, on) => {
+  // A test's check has no approver, as under `claude -p`: an archive, move or approve is refused
+  // there, with the same blast radius a person would be asked about.
+  test('refuses an archive nobody can confirm and names what depends on it', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', (_, e) => {
@@ -205,7 +252,26 @@ describe('the guard', () => {
       return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
     })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
+    expect(verdict.reason).toContain('2 artifacts depend on it')
+    expect(verdict.reason).toContain('Nobody can confirm it here')
+  })
+
+  test('reads what depends on an artifact again after a transient failure', async ($, on) => {
+    const clock = engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    let failures = 1
+    on('mcp.call', (_, e) => {
+      const name = (e.args as { name?: string }).name
+      if (name === 'registry__get_related_artifacts' && failures-- > 0)
+        return { value: { content: [{ type: 'text', text: 'HTTP 503 Service Unavailable' }], isError: true } }
+      return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
+    })
+    const pending = $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
+    await clock.settle()
+    await clock.advance(2_000)
+    await clock.settle()
+    const verdict = await pending
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
 
@@ -218,15 +284,15 @@ describe('the guard', () => {
     expect(verdict).toEqual(expect.objectContaining({ decision: 'ask', reason: 'engine' }))
   })
 
-  test('asks before an archive spelled in another case (X1b)', async ($, on) => {
+  test('guards an archive spelled in another case (X1b)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', () => ({ value: text('{}') }))
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'Registry__Archive_Artifact ', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
   })
 
-  test('asks before an archive nested inside call_tool (X1d)', async ($, on) => {
+  test('guards an archive nested inside call_tool (X1d)', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', (_, e) => {
@@ -237,18 +303,18 @@ describe('the guard', () => {
       tool: CALL,
       input: { name: 'mcp__call_tool', arguments: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' } }, rationale: 'r' },
     })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
 
-  test('still asks before an archive when the registry cannot be read', async ($, on) => {
+  test('still guards an archive when the registry cannot be read', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('mcp.call', () => {
       throw new Error('offline')
     })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__move_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
     expect(verdict.reason).toContain('Could not read what depends on it.')
   })
 })
@@ -328,6 +394,15 @@ describe('call repair', () => {
     expect(write.context?.at(-1)).toContain('may already have run')
   })
 
+  test('leaves a lost skill publish to the publish helper: the create takes no idempotency_key', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))
+    const skills = [{ name: 'demo', workspace_id: 'workspace_01ws', files: { 'SKILL.md': '---\nname: demo\n---\n' } }]
+    const ran = await $.tool.call({ tool: CALL, name: 'extension__skill__create', arguments: { skills }, rationale: 'r' })
+    expect((ran.context ?? []).some(note => note.includes('idempotency_key'))).toBe(false)
+  })
+
   test('learns annotations from describe_tools', async ($, on) => {
     engine(on)
     on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'linear__save_issue', annotations: { readOnlyHint: false, destructiveHint: true } }] }) }))
@@ -335,7 +410,7 @@ describe('call repair', () => {
     on('mcp.call', () => ({ value: text('{}') }))
     await $.tool.call({ tool: DESCRIBE, servers: ['linear'] })
     const verdict = await $.tool.check({ tool: CALL, input: { name: 'linear__save_issue', arguments: {}, rationale: 'r' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
   })
 })
 
@@ -444,5 +519,27 @@ describe('writes and the status line', () => {
     await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
     await clock.settle()
     expect(lines).toEqual([undefined])
+  })
+})
+
+describe('runner caps', () => {
+  test('the read runner caps a gateway tool at read, the write runner at write', () => {
+    expect(runnerCap('mcp__atlan__mcp__call_read_tool')).toBe('read')
+    expect(runnerCap('mcp__atlan__mcp__call_write_tool')).toBe('write')
+    expect(runnerCap('mcp__atlan__mcp__call_tool')).toBeUndefined()
+    expect(capped('write', 'read', 'registry__create_artifact')).toBe('read')
+    expect(capped('destructive', 'write', 'registry__delete_artifact')).toBe('write')
+    expect(capped('destructive', undefined, 'registry__delete_artifact')).toBe('destructive')
+  })
+
+  test('another server stays unknown, and archive, approve and move still ask', () => {
+    expect(capped('unknown', 'read', 'slack__send_message')).toBe('unknown')
+    expect(capped('destructive', 'read', 'registry__archive_artifact')).toBe('destructive')
+    expect(capped('destructive', 'write', 'registry__move_artifact')).toBe('destructive')
+  })
+
+  test('a nested runner is unwrapped like call_tool', () => {
+    expect(unwrap('mcp__call_read_tool', { name: 'mcp__call_tool', arguments: { name: 'registry__get_artifact', arguments: {} } }).name)
+      .toBe('registry__get_artifact')
   })
 })

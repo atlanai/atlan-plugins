@@ -4,6 +4,7 @@
     python3 tools/build.py           # write the generated files
     python3 tools/build.py --check   # exit 1 if any generated file differs from plugin.toml
     python3 tools/build.py --variant variant.toml --out DIR [--check]
+    python3 tools/build.py --codex-directory DIR      # the core as a hookless package for OpenAI's directory
 
 Each tool reads a different file, so the same facts are written several times. Keeping one source
 is what stops the name, version and MCP URL drifting apart between tools.
@@ -22,6 +23,11 @@ its TOML file overrides `[plugin]`, `[marketplace]` and `[mcp]` fields and lists
 for the skills' text. `--variant` writes it into DIR: the marketplace files, and every plugin folder
 renamed after the variant, with the URLs, the plugins' names and the repository rewritten. This
 repository holds no variant of its own.
+
+`--codex-directory` writes the core as the package OpenAI's plugin directory accepts: the portable
+manifest, `mcp.json`, the skills and the assets, with no hooks, since the directory refuses a plugin
+that carries lifecycle hooks. The skills work without the publish helper: the skill app refuses
+`files_from` by name and the skill sends `files`, one call more.
 """
 
 from __future__ import annotations
@@ -32,6 +38,7 @@ import json
 import re
 import sys
 import tomllib
+import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -48,8 +55,17 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 # Where every plugin lives, and the trees a plugin may carry.
 PLUGINS = "plugins"
 TREES = ("skills", "commands", "agents")
+# The core's hooks, by plugin.toml key: each harness's file, and the folder it must sit in.
+HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cursor_hooks": "command-hooks"}
+# Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
+FIXTURES = "tools/tests/fixtures/publish-bundles.json"
 # Files every plugin folder gets a copy of, from the repository root.
 SHARED = ("assets/logo.svg", "LICENSE")
+# What the directory package takes from the core's folder, beside the manifests it writes.
+DIRECTORY_TREES = ("skills", "assets")
+DIRECTORY_FILES = ("LICENSE",)
+# A fixed timestamp for the directory package's zip entries, so one source gives one archive.
+ZIP_TIME = (2026, 1, 1, 0, 0, 0)
 # Codex's per-skill metadata, inside each skill folder: written from [skills] in plugin.toml.
 SKILL_METADATA = "agents/openai.yaml"
 # The longest starter prompt Codex shows in full.
@@ -73,6 +89,10 @@ def load(path: Path = ROOT / "plugin.toml") -> dict:
         source = tomllib.load(handle)
     validate(source)
     # Checked here, not in validate(): a variant's plugin folder does not exist in this repository.
+    for key, folder in HOOK_KEYS.items():
+        hooks = source["plugin"].get(key)
+        if hooks and not (hooks.startswith(f"./{folder}/") and (ROOT / core_dir(source) / hooks).is_file()):
+            raise SystemExit(f"plugin.{key} {hooks} must be a file under {core_dir(source)}/{folder}/")
     onboarding = source.get("codex", {}).get("onboarding_skill")
     if onboarding and not (ROOT / core_dir(source) / onboarding).is_file():
         raise SystemExit(f"codex.onboarding_skill {onboarding} is not a file in {core_dir(source)}")
@@ -101,6 +121,9 @@ def validate(source: dict) -> None:
     logo = ROOT / plugin["logo"]
     if not logo.is_file():
         raise SystemExit(f"plugin.logo {plugin['logo']} does not exist")
+    for shot in source.get("codex", {}).get("screenshots", []):
+        if not re.match(r"^\./assets/[\w.-]+\.(?:png|jpe?g|webp)$", shot):
+            raise SystemExit(f"codex.screenshots {shot} must be an image under ./assets/")
     names = set()
     for addon in source.get("addons", []):
         check_name(addon["name"], "addons.name")
@@ -146,6 +169,9 @@ def make_variant(source: dict, overrides: dict) -> dict:
     variant["rewrite"] = dict(overrides.get("rewrite", {}))
     # A mod matches the production plugin's server names, so a variant does not carry one yet.
     variant.pop("mods", None)
+    # So does the core's hooks module: the variant's plugin folder gets no claude-hooks/.
+    for key in HOOK_KEYS:
+        variant["plugin"].pop(key, None)
     variant["keep"] = list(overrides.get("keep", []))
     # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
     main, other = source["plugin"], variant["plugin"]
@@ -213,6 +239,8 @@ def codex_interface(source: dict) -> dict:
     for key, field in (("privacy_policy_url", "privacyPolicyURL"), ("terms_url", "termsOfServiceURL")):
         if key in plugin:
             interface[field] = plugin[key]
+    if codex.get("screenshots"):
+        interface["screenshots"] = list(codex["screenshots"])
     return interface
 
 
@@ -354,6 +382,20 @@ def plugin_assets(source: dict) -> dict[str, str]:
     return files
 
 
+def hook_fixtures(source: dict) -> dict[str, str]:
+    """The shared publish fixtures as a module the hooks' tests import, since a test runs with no
+    file system. check_bundle.py's tests read the JSON itself."""
+    if not source["plugin"].get("claude_hooks"):
+        return {}
+    cases = json.loads((ROOT / FIXTURES).read_text(encoding="utf-8"))["cases"]
+    body = json.dumps(cases, indent=2, ensure_ascii=True)
+    return {
+        f"{core_dir(source)}/claude-hooks/tests/fixtures.ts": f"// Written by tools/build.py from {FIXTURES}: edit that file.\n\n"
+        "import type { Case } from './case'\n\n"
+        f"export const CASES: readonly Case[] = {body}\n"
+    }
+
+
 def skill_metadata(source: dict, name: str) -> str:
     """Codex's card for one skill, and the MCP server it needs, so a skill installed without the
     plugin can still ask for Atlan's server. JSON strings are YAML double-quoted scalars."""
@@ -400,7 +442,9 @@ def outputs(source: dict) -> dict[str, dict]:
     owner = {"name": source["author"]["name"], "url": source["author"]["url"]}
 
     agent_plugin = {"$schema": AGENT_PLUGINS_SCHEMA, **core(source)}
-    agent_plugin["extensions"] = {"com.openai": {**codex_onboarding(source), "interface": codex_interface(source)}}
+    # Codex reads its plugin hooks from here; the other Agent Plugins hosts ignore this namespace.
+    codex_hooks = {"hooks": plugin["codex_hooks"]} if plugin.get("codex_hooks") else {}
+    agent_plugin["extensions"] = {"com.openai": {**codex_onboarding(source), "interface": codex_interface(source), **codex_hooks}}
 
     base = core_dir(source)
     entry = {
@@ -464,6 +508,9 @@ def outputs(source: dict) -> dict[str, dict]:
     documents = {
         # Agent Plugins 1.0: Codex, Cursor, GitHub Copilot, VS Code and other conforming hosts.
         f"{base}/plugin.json": agent_plugin,
+        # No extensions.com.openai.auth on the server: codex-cli 0.160.0 drops a server entry that
+        # carries `extensions`, so atlanai shipped no `atlan` server in Codex (atlanai 0.5.7, 0.5.8).
+        # Codex finds the OAuth sign-in through the gateway's 401 and protected resource metadata.
         f"{base}/mcp.json": {
             "$schema": AGENT_PLUGINS_MCP_SCHEMA,
             "mcpServers": {mcp["server"]: {"type": "streamable-http", "url": mcp["url"], "headers": headers}},
@@ -476,6 +523,8 @@ def outputs(source: dict) -> dict[str, dict]:
             **core(source),
             "displayName": plugin["display_name"],
             "mcpServers": "./.mcp.json",
+            # Claude Code alone runs a hooks module; no other manifest names it.
+            **({"hooks": plugin["claude_hooks"]} if plugin.get("claude_hooks") else {}),
         },
         ".claude-plugin/marketplace.json": {
             "$schema": CLAUDE_MARKETPLACE_SCHEMA,
@@ -491,6 +540,7 @@ def outputs(source: dict) -> dict[str, dict]:
             "skills": "./skills/",
             "mcpServers": "./.mcp.json",
             "interface": codex_interface(source),
+            **codex_hooks,
             **({"extensions": {"com.openai": codex_onboarding(source)}} if codex_onboarding(source) else {}),
         },
         # Codex marketplace. Codex also reads .claude-plugin/marketplace.json. Each entry is a
@@ -511,7 +561,11 @@ def outputs(source: dict) -> dict[str, dict]:
             ],
         },
         # Cursor: the full component set (skills, commands) and the listing logo.
-        f"{base}/.cursor-plugin/plugin.json": {**core(source), "logo": plugin["logo"].removeprefix("./")},
+        f"{base}/.cursor-plugin/plugin.json": {
+            **core(source),
+            "logo": plugin["logo"].removeprefix("./"),
+            **({"hooks": plugin["cursor_hooks"]} if plugin.get("cursor_hooks") else {}),
+        },
         ".cursor-plugin/marketplace.json": {
             "name": market["name"],
             "owner": owner,
@@ -527,6 +581,59 @@ def outputs(source: dict) -> dict[str, dict]:
     for mod in source.get("mods", []):
         documents.update(mod_outputs(source, mod))
     return documents
+
+
+def directory_files(source: dict) -> dict[str, bytes]:
+    """The core as OpenAI's directory takes it, by path inside the package: the portable manifest
+    without hooks, mcp.json, and the skills, assets and licence as they are in this repository.
+    Neither .codex-plugin/ (it names the hooks too) nor any other host's manifest goes in."""
+    base = core_dir(source)
+    documents = outputs(source)
+    manifest = copy.deepcopy(documents[f"{base}/plugin.json"])
+    manifest["extensions"]["com.openai"].pop("hooks", None)
+    files = {"plugin.json": render(manifest).encode(), "mcp.json": render(documents[f"{base}/mcp.json"]).encode()}
+    folder = ROOT / base
+    for tree in DIRECTORY_TREES:
+        for path in sorted((folder / tree).rglob("*")):
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
+                files[path.relative_to(folder).as_posix()] = path.read_bytes()
+    for name in DIRECTORY_FILES:
+        files[name] = (folder / name).read_bytes()
+    missing = [shot for shot in source["codex"].get("screenshots", []) if shot.removeprefix("./") not in files]
+    if missing:
+        raise SystemExit(f"codex.screenshots not in {base}/assets/: {', '.join(missing)}")
+    return files
+
+
+def directory_gaps(source: dict) -> list[str]:
+    """What the directory's listing asks for that plugin.toml does not set yet."""
+    gaps = []
+    if "terms_url" not in source["plugin"]:
+        gaps.append("plugin.terms_url (termsOfServiceURL)")
+    if not source.get("codex", {}).get("screenshots"):
+        gaps.append("codex.screenshots")
+    return gaps
+
+
+def write_directory(source: dict, out: Path) -> Path:
+    """Write the package under out/<name>/ and as out/<name>-<version>.zip, plugin.json at its root."""
+    plugin = source["plugin"]
+    folder = out / plugin["name"]
+    if folder.exists() and any(folder.iterdir()):
+        raise SystemExit(f"{folder} is not empty; remove it first")
+    files = directory_files(source)
+    for relative, data in files.items():
+        path = folder / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    archive = out / f"{plugin['name']}-{plugin['version']}.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+        for relative in sorted(files):
+            entry = zipfile.ZipInfo(relative, ZIP_TIME)
+            entry.external_attr = 0o644 << 16
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            bundle.writestr(entry, files[relative])
+    return archive
 
 
 def render(document: dict) -> str:
@@ -679,9 +786,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="fail on drift instead of writing")
     parser.add_argument("--variant", type=Path, help="a variant file: write that variant instead")
     parser.add_argument("--out", type=Path, help="with --variant: the variant repository's root")
+    parser.add_argument("--codex-directory", type=Path, metavar="DIR",
+                        help="write the core as a hookless package for OpenAI's plugin directory into DIR")
     args = parser.parse_args(argv)
 
     source = load()
+    if args.codex_directory:
+        if args.variant or args.check:
+            parser.error("--codex-directory takes no other option")
+        texts = {path: render(document) for path, document in outputs(source).items()}
+        texts.update(plugin_assets(source))
+        texts.update(skill_files(source, source))
+        if sync(texts, ROOT, check=True):
+            raise SystemExit("generated files are out of date; run python3 tools/build.py first")
+        print(f"wrote {write_directory(source, args.codex_directory)}")
+        for gap in directory_gaps(source):
+            print(f"the directory listing also asks for {gap}, which plugin.toml does not set", file=sys.stderr)
+        return 0
     if args.variant:
         if not args.out:
             parser.error("--variant needs --out")
@@ -695,6 +816,7 @@ def main(argv: list[str] | None = None) -> int:
         texts = {path: render(document) for path, document in outputs(source).items()}
         texts.update(plugin_assets(source))
         texts.update(skill_files(source, source))
+        texts.update(hook_fixtures(source))
         drift = sync(texts, ROOT, args.check)
         target = "python3 tools/build.py"
 

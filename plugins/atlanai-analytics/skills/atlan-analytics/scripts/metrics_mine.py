@@ -13,6 +13,7 @@ published the same way. Standard library only, Python 3.10+.
 Exit 0 ok, 1 error, 2 BLOCKED ({"status":"BLOCKED","reason","fix"}: something the user must fix).
 
 Run directory (<context-dir>), written by the skill:
+  querylog.jsonl         {sql, exec, users}               <- `querylog`, from the saved history pull
   querylog.clean.jsonl   {sql, exec, users}               <- after `analytics_eval.py filter-querylog`
   shapes.jsonl           one ranked shape per line        <- `shapes`
   metrics.json           [metric body]                    <- authored, or `import-run`
@@ -29,6 +30,13 @@ import json
 import pathlib
 import re
 import sys
+
+# The identifying-literal rules live in analytics_eval, beside the query-log filter that uses them
+# first: a statement that filter keeps is judged the same way here.
+# No __pycache__ is written into the installed plugin's folder.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from analytics_eval import PII as _SHARED_PII, full_name_hit  # noqa: E402
 
 VERSION = "0.1.0"
 METRIC_SPEC = "1.0-draft.4"
@@ -59,6 +67,105 @@ def dump_json(path, obj) -> None:
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, indent=1, default=str))
     tmp.replace(p)
+
+
+# ====================================================================== query log intake
+# A query-history pull can be 5,000 rows of SQL. These turn whatever holds it (a tool result the
+# host saved to a file, CLI output, an export) into querylog.jsonl without the rows passing back
+# through the conversation. Only the statement, its run count and a distinct-user count are kept:
+# user names are counted while reading and never written.
+_SQL_COLS = ("sql", "query_text", "statement_text", "query", "text")
+_EXEC_COLS = ("exec", "execs", "executions", "count", "run_count", "runs")
+_USERS_COLS = ("users", "user_count", "distinct_users")
+_USER_COLS = ("user_name", "executed_by", "executed_by_user_id", "executed_as", "user_id", "user")
+_STATUS_COLS = ("execution_status", "status", "state")
+_TYPE_COLS = ("query_type", "statement_type")
+_OK_STATUS = {"success", "succeeded", "finished"}
+
+
+def _records(value) -> list:
+    """Rows as dicts from any shape a warehouse tool, CLI or export returns them in."""
+    if isinstance(value, str):
+        try:
+            return _records(json.loads(value))
+        except ValueError:
+            return []
+    if isinstance(value, list):
+        if not all(isinstance(r, dict) for r in value):
+            return []
+        if value and all("type" in r and "text" in r for r in value):  # MCP content blocks
+            return [x for r in value for x in _records(r["text"])]
+        return value
+    if not isinstance(value, dict):
+        return []
+    result = value.get("result") if isinstance(value.get("result"), dict) else {}
+    cols = value.get("columns") or ((value.get("manifest") or {}).get("schema") or {}).get("columns")
+    rows = value.get("rows") if isinstance(value.get("rows"), list) else (value.get("data_array") or result.get("data_array"))
+    if isinstance(cols, list) and isinstance(rows, list) and all(isinstance(r, list) for r in rows):
+        names = [c.get("name") if isinstance(c, dict) else c for c in cols]
+        return [dict(zip(names, r)) for r in rows]
+    for key in ("structuredContent", "content", "data", "result", "results", "items", "rows"):
+        if key in value:
+            got = _records(value[key])
+            if got:
+                return got
+    return []
+
+
+def _pick(row: dict, names: tuple):
+    low = {str(k).lower(): v for k, v in row.items()}
+    return next((low[n] for n in names if n in low and low[n] not in (None, "")), None)
+
+
+def read_querylog_source(path: pathlib.Path) -> list:
+    text = path.read_text(encoding="utf-8-sig")
+    if path.suffix.lower() == ".csv":
+        import csv
+        import io
+        return list(csv.DictReader(io.StringIO(text)))
+    try:
+        return _records(json.loads(text))
+    except ValueError:
+        return [r for ln in text.splitlines() if ln.strip() for r in _records(ln)]
+
+
+def cmd_querylog(a) -> dict:
+    """Group a history pull into {sql, exec, users} lines; counts only, never the statements."""
+    groups: dict = {}
+    dst = pathlib.Path(a.dst)
+    if a.append:
+        for r in read_jsonl(dst):
+            groups[r["sql"]] = {"exec": int(r.get("exec") or 0), "users": int(r.get("users") or 0), "seen": set()}
+    read = skipped = 0
+    for src in a.src:
+        rows = read_querylog_source(pathlib.Path(src))
+        if not rows:
+            raise Blocked(f"No rows found in {src}.", "Pass the saved tool result, CLI output or export that holds "
+                          "the history pull, or check it is not an error message.")
+        for row in rows:
+            read += 1
+            sql = _pick(row, _SQL_COLS)
+            status = str(_pick(row, _STATUS_COLS) or "success").lower()
+            kind = str(_pick(row, _TYPE_COLS) or "select").lower()
+            if not isinstance(sql, str) or status not in _OK_STATUS or kind != "select":
+                skipped += 1
+                continue
+            g = groups.setdefault(sql, {"exec": 0, "users": 0, "seen": set()})
+            g["exec"] += int(_pick(row, _EXEC_COLS) or 1)
+            given = _pick(row, _USERS_COLS)
+            who = _pick(row, _USER_COLS)
+            if given is not None:
+                g["users"] = max(g["users"], int(given))
+            elif who is not None:
+                g["seen"].add(hashlib.sha256(str(who).encode()).hexdigest())
+                g["users"] = max(g["users"], len(g["seen"]))
+    ranked = sorted(groups.items(), key=lambda kv: -kv[1]["exec"])[: a.limit]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with dst.open("w") as f:
+        for sql, g in ranked:
+            f.write(json.dumps({"sql": sql, "exec": g["exec"], "users": g["users"]}) + "\n")
+    return {"status": "ok", "rows_read": read, "skipped": skipped, "statements": len(ranked),
+            "dropped_over_limit": max(0, len(groups) - len(ranked)), "out": str(dst)}
 
 
 # ====================================================================== SQL scanning
@@ -150,6 +257,25 @@ def normalize(sql: str) -> str:
             parts.append(_NUM.sub("?", text).lower())
     out = _WS.sub(" ", "".join(parts)).strip().rstrip(";").strip()
     return _INLIST.sub("in (?)", out)
+
+
+_DATELIKE = re.compile(r"^\d{4}-\d{2}(?:-\d{2})?(?:[ T][\d:.]+)?(?:Z|[+-]\d{2}:?\d{2})?$")
+
+
+def predicate_literals(sql: str) -> list:
+    """The quoted values that pick a population, in order: `status = 'paid'` keeps 'paid'. Dates
+    and bare numbers are left out, since a window or a limit changes when a query ran, not what it
+    measures. Shapes key on these as well as on normalize(), so paid and refunded revenue stay two
+    shapes of one family."""
+    out = []
+    for kind, text in scan(sql or ""):
+        if kind != "str":
+            continue
+        value = text[1:-1].replace("''", "'") if len(text) > 1 else ""
+        if not value.strip() or _DATELIKE.match(value.strip()) or _NUM.fullmatch(value.strip()):
+            continue
+        out.append(value)
+    return out
 
 
 def _blank(kind: str, text: str) -> str:
@@ -265,11 +391,13 @@ def cmd_shapes(a) -> dict:
         if not sql.strip():
             unreadable += 1
             continue
-        key = normalize(sql)
+        family = normalize(sql)
+        key = family + "\x00" + json.dumps(predicate_literals(sql))
         execs = int(r.get("exec") or r.get("count") or 1)
         g = groups.get(key)
         if g is None:
-            g = groups[key] = {"key": key, "rep": sql, "rep_exec": -1, "exec": 0, "users": 0, "texts": 0}
+            g = groups[key] = {"key": key, "family": family, "rep": sql, "rep_exec": -1, "exec": 0, "users": 0,
+                               "texts": 0}
         g["exec"] += execs
         g["users"] = max(g["users"], int(r.get("users") or 0))
         g["texts"] += 1
@@ -283,7 +411,8 @@ def cmd_shapes(a) -> dict:
             out_of_scope += 1
             continue
         shapes.append({"shape_id": "s-" + hashlib.sha1(g["key"].encode()).hexdigest()[:12],
-                       "sql": sql, "exec": g["exec"], "users": g["users"], "texts": g["texts"],
+                       "family": "f-" + hashlib.sha1(g["family"].encode()).hexdigest()[:12],
+                       "predicates": predicate_literals(g["rep"]), "sql": sql, "exec": g["exec"], "users": g["users"], "texts": g["texts"],
                        "has_aggregate": bool(f["aggregates"]), **f})
     shapes.sort(key=lambda s: (not s["has_aggregate"], -s["users"], -s["exec"], s["shape_id"]))
     kept = shapes[: a.top]
@@ -291,6 +420,7 @@ def cmd_shapes(a) -> dict:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(s) + "\n" for s in kept))
     return {"status": "ok", "rows": len(rows), "unreadable": unreadable, "distinct_shapes": len(groups),
+            "families": len({g["family"] for g in groups.values()}),
             "out_of_scope": out_of_scope, "in_scope": len(shapes),
             "with_aggregates": sum(1 for s in shapes if s["has_aggregate"]), "written": len(kept), "out": str(out)}
 
@@ -317,8 +447,7 @@ BODY_FIELDS = {"name", "display_name", "description", "search_text", "source_id"
                "definition", "owner_id"}
 _DATE = re.compile(r"'\d{4}-\d{2}-\d{2}")
 _PARAM = re.compile(r"\{\{\s*(\w+)\s*\}\}")
-_EMAIL = re.compile(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", re.I)
-_FULLNAME = re.compile(r"'%?[A-Z][a-z]+ [A-Z][a-z]+%?'")
+_EMAIL = _SHARED_PII["email"]
 _SQL_IN_PROSE = re.compile(r"\bselect\b[\s\S]+\bfrom\b|\b(?:count|sum)\s*\(", re.I)
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,127}$")
 
@@ -368,11 +497,123 @@ def _sql_fields(d: dict) -> list:
     return out
 
 
+# A literal compared with a person's, customer's or record's ID, whatever its length; a UUID; a
+# prefixed ID such as 'cus_8Hk2Lm9'. A heuristic, as the query-log filter is: the person still
+# reviews the preview before anything is saved.
+_ENTITY_ID = _SHARED_PII["entity_id"]
+_UUID = _SHARED_PII["uuid"]
+_PREFIXED_ID = _SHARED_PII["prefixed_id"]
+# A column whose values are people: its sample values are refused whatever they look like.
+_PERSON_COLUMN = re.compile(r"(?:^|_)(?:full_|first_|last_)?(?:name|email|phone)$", re.I)
+_NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|country|city|state|stage|status|"
+                         r"category|segment|plan|tier|team|channel|campaign|brand|store|event|file|host|"
+                         r"domain|display|field|feature|model|schema|database|source)_?(?:full_)?name$", re.I)
+
+
 def _pii(text: str):
     if _EMAIL.search(text or ""):
         return "an email address"
-    m = _FULLNAME.search(text or "")
-    return f"a person's name ({m.group(0)})" if m else None
+    name = full_name_hit(text)
+    if name:
+        return f"a person's name ({name})"
+    if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
+        return "an identifier literal: make it a parameter, or leave the row out"
+    return None
+
+
+def _pii_value(column: str, value) -> str | None:
+    """A sample value under a named column: a dimension's values, an example's result cell."""
+    if value is None or isinstance(value, bool):
+        return None
+    text = str(value)
+    if _EMAIL.search(text):
+        return "an email address"
+    if _UUID.search(text) or _PREFIXED_ID.search(f"'{text}'") or _ENTITY_ID.search(f"{column} = '{text}'"):
+        return "an identifier value"
+    if text.strip() and _PERSON_COLUMN.search(column or "") and not _NOT_PERSON.search(column or ""):
+        return f"a value of the person column {column!r}"
+    return None
+
+
+def _pii_prose(text: str) -> str | None:
+    if _EMAIL.search(text or ""):
+        return "an email address"
+    if _UUID.search(text or ""):
+        return "an identifier literal"
+    return None
+
+
+def _privacy_fields(body: dict) -> list:
+    """Every field of a metric card that is published, as (where, how, text): `sql` is checked as
+    SQL, `value` as a sample under its column, `prose` for addresses and identifiers. The fields
+    _sql_fields covers are checked there already."""
+    d = body.get("definition") or {}
+    out: list = []
+    for k in ("display_name", "description", "search_text"):
+        out.append((k, "prose", body.get(k) or ""))
+    src = d.get("source") if isinstance(d.get("source"), dict) else {}
+    for i, p in enumerate(src.get("parameters") or []):
+        if isinstance(p, dict) and isinstance(p.get("default"), str):
+            out.append((f"source.parameters[{i}].default", "sql", f"'{p['default']}'"))
+    for i, j in enumerate(d.get("joins") or []):
+        if isinstance(j, dict):
+            out.append((f"joins[{i}].sql", "sql", j.get("sql") or ""))
+    for i, dim in enumerate(d.get("dimensions") or []):
+        if not isinstance(dim, dict):
+            continue
+        col = str(dim.get("name") or "")
+        out.append((f"dimensions[{i}].sql", "sql", dim.get("sql") or ""))
+        out.append((f"dimensions[{i}].description", "prose", dim.get("description") or ""))
+        for v in dim.get("values") or []:
+            out.append((f"dimensions[{i}].values", "value", (col, v)))
+        vm = dim.get("value_map") if isinstance(dim.get("value_map"), dict) else {}
+        for k, v in vm.items():
+            out.append((f"dimensions[{i}].value_map", "value", (col, k)))
+            out.append((f"dimensions[{i}].value_map", "value", (col, v)))
+    for i, ex in enumerate(d.get("examples") or []):
+        if not isinstance(ex, dict):
+            continue
+        out.append((f"examples[{i}].sql", "sql", ex.get("sql") or ""))
+        out.append((f"examples[{i}].question", "prose", ex.get("question") or ""))
+        for f in ex.get("filters") or []:
+            out.append((f"examples[{i}].filters", "sql", f if isinstance(f, str) else json.dumps(f)))
+        params = ex.get("parameters") if isinstance(ex.get("parameters"), dict) else {}
+        for k, v in params.items():
+            out.append((f"examples[{i}].parameters.{k}", "value", (k, v)))
+        res = ex.get("result") if isinstance(ex.get("result"), dict) else {}
+        cols = [c.get("name") if isinstance(c, dict) else c for c in res.get("columns") or []]
+        for row in res.get("rows") or []:
+            for c, v in zip(cols, row if isinstance(row, list) else []):
+                out.append((f"examples[{i}].result", "value", (str(c or ""), v)))
+    return out
+
+
+def _privacy_errors(body: dict) -> list:
+    errs, seen = [], set()
+    for where, how, text in _privacy_fields(body):
+        why = _pii(text) if how == "sql" else _pii_value(*text) if how == "value" else _pii_prose(text)
+        if why and (where, why) not in seen:
+            seen.add((where, why))
+            errs.append(f"{where} holds {why}")
+    return errs
+
+
+# Statements that change data or grants. Read-only checks look for them anywhere in the code, not
+# only at the start: `WITH d AS (DELETE ... RETURNING *) SELECT ...` begins with WITH.
+# SELECT ... INTO makes a table in PostgreSQL and SQL Server.
+_WRITES = re.compile(r"\b(insert|update|delete|merge|upsert|truncate|drop|create|alter|grant|revoke|copy|call|into)\b",
+                     re.I)
+
+
+def _writes(sql: str):
+    """The first data- or grant-changing keyword in the SQL's code, outside strings, quoted names
+    and comments, or None."""
+    for kind, text in scan(sql or ""):
+        if kind == "code":
+            m = _WRITES.search(text)
+            if m:
+                return m.group(1).upper()
+    return None
 
 
 def check_metric(body: dict) -> tuple:
@@ -475,6 +716,9 @@ def check_metric(body: dict) -> tuple:
         why = _pii(text)
         if why:
             errs.append(f"{where} holds {why}")
+        if _writes(text):
+            errs.append(f"{where} holds {_writes(text)}: a metric reads, it never changes data")
+    errs += _privacy_errors(body)
     for p in sorted(used - declared):
         errs.append(f"{{{{{p}}}}} is used but not declared in source.parameters")
     for p in sorted(declared - used):
@@ -504,25 +748,41 @@ def check_query(body: dict) -> tuple:
         errs.append("definition.sql must be one SELECT or WITH statement")
     if ";" in _code_only(sql):
         errs.append("definition.sql holds more than one statement")
+    if sql and _writes(sql):
+        errs.append(f"definition.sql holds {_writes(sql)}: a saved query only reads")
     why = _pii(d.get("sql") or "")
     if why:
         errs.append(f"definition.sql holds {why}")
+    for k in ("question", "description"):
+        why = _pii_prose(d.get(k) or body.get(k) or "")
+        if why:
+            errs.append(f"{k} holds {why}")
     if d.get("review_status") not in (None, "unreviewed", "reviewed", "verified", "rejected"):
         warns.append(f"definition.review_status {d.get('review_status')!r} is unusual")
     return errs, warns
 
 
-def _norm_pred(text: str) -> str:
-    return normalize(text or "").replace(" ", "")
+def _canon(text: str) -> str:
+    """A predicate or formula as compared for identity: no comments, no spaces, code and quoted
+    names in lower case, and every literal kept as written. Unlike normalize(), which keys query
+    shapes, `status = 'paid'` and `status = 'refunded'`, or `amount > 100` and `amount > 1000`,
+    stay different: the literals are the population the metric counts."""
+    parts = []
+    for kind, text in scan(text or ""):
+        if kind == "comment":
+            continue
+        parts.append(text if kind in ("str", "dollar") else _WS.sub("", text).lower())
+    return "".join(parts).rstrip(";")
 
 
 def identity(body: dict) -> str:
-    """What a metric measures: entity, FROM clause, formula and mandatory filters. Never its name."""
+    """What a metric measures: entity, FROM clause, formula and mandatory filters, literals
+    included. Never its name."""
     d = body.get("definition") or {}
     src = d.get("source") or {}
-    parts = [_ident(src.get("entity") or ""), _norm_pred(src.get("sql") or src.get("table") or ""),
-             _norm_pred(d.get("formula") or ""),
-             "|".join(sorted(_norm_pred(f) for f in d.get("mandatory_filters") or []))]
+    parts = [_ident(src.get("entity") or ""), _canon(src.get("sql") or src.get("table") or ""),
+             _canon(d.get("formula") or ""),
+             "|".join(sorted(_canon(f) for f in d.get("mandatory_filters") or []))]
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:16]
 
 
@@ -580,6 +840,9 @@ def cmd_check(a) -> dict:
         if hit is not None:
             match = hit.get("id")
             action = "reuse" if _same(body, hit) else "revise"
+            if identity(hit) != ident:
+                warns.append(f"changes what live {hit.get('name')!r} measures (its source, formula or mandatory "
+                             "filters): show the person both definitions before it is revised")
             if hit.get("name") != body.get("name"):
                 errs.append(f"revises {hit.get('name')!r} under a new name: a name is frozen at create")
         elif ("metric", body.get("name")) in live_names:
@@ -702,6 +965,9 @@ def selftest() -> dict:
        and "note" not in strip_comments(sql))
     ok("a -- inside a string is text", "--" in strip_comments("select '--x' as a from t"))
     ok("literals normalize away", normalize(sql) == normalize(sql.replace("'paid'", "'open'").replace("2026", "2025")))
+    ok("population values are kept apart from windows",
+       predicate_literals(sql) == ["paid"] and predicate_literals("select 1 from t where s in ('a', 'b') and n = '42'")
+       == ["a", "b"])
     ok("in-lists collapse", normalize("select 1 from t where a in (1,2,3)") == normalize("select 1 from t where a in (4)"))
     f = features(strip_comments(sql))
     ok("features: table", f["tables"] == ["db.s.orders"])
@@ -726,6 +992,8 @@ def selftest() -> dict:
                            "extensions": {"atlan_analytics": {"shapes": ["s-1"]}}}}
     e, _ = check_metric(good)
     ok("a good card passes", not e)
+    ok("a business value of two capitalised words is not a person's name",
+       _pii("where stage = 'Closed Won'") is None and _pii("where rep = 'Jane Smith'"))
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
@@ -734,19 +1002,85 @@ def selftest() -> dict:
     for frag in ("retired", "disagrees", "its own cut", "fixed date", "no evidence"):
         ok(f"a bad card is refused: {frag}", any(frag in x for x in e))
     ok("identity ignores the name", identity(good) == identity({**good, "name": "other"}))
+    def variant(**changes):
+        body = json.loads(json.dumps(good))
+        body["definition"].update(changes)
+        return body
+    for what, a_def, b_def in (
+            ("paid vs refunded", {}, {"mandatory_filters": ["DB.S.ORDERS.STATUS = 'refunded'"]}),
+            ("included vs excluded", {}, {"mandatory_filters": ["DB.S.ORDERS.STATUS <> 'paid'"]}),
+            ("thresholds", {"formula": "SUM(CASE WHEN AMOUNT > 100 THEN AMOUNT END)"},
+             {"formula": "SUM(CASE WHEN AMOUNT > 1000 THEN AMOUNT END)"}),
+            ("currency", {"mandatory_filters": ["DB.S.ORDERS.CURRENCY = 'USD'"]},
+             {"mandatory_filters": ["DB.S.ORDERS.CURRENCY = 'EUR'"]}),
+            ("conditional formula", {"formula": "SUM(IFF(CHANNEL = 'web', AMOUNT, 0))"},
+             {"formula": "SUM(IFF(CHANNEL = 'store', AMOUNT, 0))"})):
+        ok(f"identity keeps literals: {what}", identity(variant(**a_def)) != identity(variant(**b_def)))
+    ok("identity ignores spacing, case and comments",
+       identity(variant(formula="sum( db.s.orders.amount ) -- gross")) == identity(good))
+    for text in ("with d as (delete from orders returning *) select count(*) from d",
+                 "with x as (select 1) insert into t select * from x",
+                 "select * into backup from orders"):
+        q = {"name": "q", "display_name": "Q", "definition": {"spec_version": QUERY_SPEC, "question": "x",
+                                                              "dialect": "postgres", "sql": text}}
+        ok(f"a writing statement is refused: {text[:24]}", any("only reads" in x for x in check_query(q)[0]))
+    q = {"name": "q", "display_name": "Q", "definition": {"spec_version": QUERY_SPEC, "question": "x", "dialect": "snowflake",
+         "sql": "select count(*) as updates, 'delete' as label from t where \"update\" > 0 -- insert"}}
+    ok("write words in names, strings and comments are not writes", not check_query(q)[0])
+    for text in ("select * from t where customer_id = 'cus_8Hk2Lm9'", "select * from t where user_id = 42",
+                 "select * from t where ref = 'ord_ab12cd'",
+                 "select * from t where k = '3f2b8c1e-9a4d-4e7b-8c2a-1d5e6f7a8b9c'"):
+        ok(f"identifier literal refused: {text[22:]}", _pii(text) is not None)
+    def leaks(**changes) -> list:
+        body = json.loads(json.dumps(good))
+        body["definition"].update(changes.pop("definition", {}))
+        body.update(changes)
+        return [x for x in check_metric(body)[0] if " holds " in x]
+    ok("an email in an example's SQL is refused",
+       leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1 from o where e = 'ann@example.com'"}]}))
+    ok("an email in an example's result is refused",
+       leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
+                                       "result": {"columns": ["contact"], "rows": [["ann@example.com"]],
+                                                  "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
+    ok("a customer's name under a person column is refused",
+       leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
+                                       "result": {"columns": ["customer_name", "revenue"], "rows": [["Ann Lee", 3]],
+                                                  "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
+    ok("an id in a join, a dimension value, a default or the description is refused", all((
+        leaks(definition={"joins": [{"name": "c", "to": "C", "cardinality": "many_to_one", "origin": "declared",
+                                     "sql": "o.c = c.id and c.id = '3f2a9c1e-5b7d-4e8a-9c21-7d4e5f6a8b90'"}]}),
+        leaks(definition={"dimensions": [{"name": "Account", "kind": "categorical", "sql": "o.account_id",
+                                          "datatype": "string", "values": ["cus_8Hk2Lm9"]}]}),
+        leaks(definition={"source": {**good["definition"]["source"],
+                                     "parameters": [{"name": "who", "datatype": "string", "default": "ann@example.com"}]}}),
+        leaks(description="Revenue for ann@example.com."))))
+    ok("business values in dimensions and results pass",
+       not leaks(definition={"dimensions": [{"name": "Region", "kind": "categorical", "sql": "DB.S.ORDERS.REGION",
+                                             "datatype": "string", "values": ["North America", "United States"]}],
+                             "examples": [{"source": "shape:s-1", "sql": "select 1", "group_by": ["Region"],
+                                           "result": {"columns": ["region_name", "rev"], "rows": [["North America", 3]],
+                                                      "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
+    ok("an allowed value does not hide a name after it",
+       _pii("where stage = 'Closed Won' and rep = 'Jane Smith'") is not None)
+    ok("joins on ids are not literals",
+       _pii("select 1 from o join c on o.customer_id = c.customer_id where o.status = 'paid'") is None)
 
     with tempfile.TemporaryDirectory() as td:
         t = pathlib.Path(td)
         (t / "log.jsonl").write_text("".join(json.dumps(r) + "\n" for r in [
             {"sql": sql, "exec": 5, "users": 2},
-            {"sql": sql.replace("'paid'", "'refunded'"), "exec": 3, "users": 3},
+            {"sql": sql.replace("2026", "2025"), "exec": 3, "users": 3},
+            {"sql": sql.replace("'paid'", "'refunded'"), "exec": 4, "users": 1},
             {"sql": "select * from other.t", "exec": 9, "users": 1}]))
         (t / "tables.txt").write_text("DB.S.ORDERS\n")
         r = cmd_shapes(argparse.Namespace(src=str(t / "log.jsonl"), dst=str(t / "run" / "shapes.jsonl"),
                                           tables=str(t / "tables.txt"), top=50))
         rows = read_jsonl(t / "run" / "shapes.jsonl")
-        ok("shapes: two texts, one shape, scope applied", r["distinct_shapes"] == 2 and r["written"] == 1
+        ok("shapes: two windows, one shape, scope applied", r["distinct_shapes"] == 3 and r["written"] == 2
            and rows[0]["exec"] == 8 and rows[0]["users"] == 3 and rows[0]["texts"] == 2)
+        ok("shapes: paid and refunded stay two shapes of one family", r["families"] == 2
+           and rows[1]["predicates"] == ["refunded"] and rows[1]["exec"] == 4
+           and rows[0]["family"] == rows[1]["family"] and rows[0]["shape_id"] != rows[1]["shape_id"])
         good["definition"]["extensions"]["atlan_analytics"]["shapes"] = [rows[0]["shape_id"]]
         dump_json(t / "run" / "metrics.json", [good])
         dump_json(t / "run" / "existing.json", [{"id": "metric_1", "kind": "metric", "name": "paid_rev",
@@ -755,6 +1089,50 @@ def selftest() -> dict:
         plan = load_json(t / "run" / "plan.json")
         ok("check adopts a live metric that measures the same", r["status"] == "ok"
            and plan["metrics"][0]["action"] == "reuse" and plan["metrics"][0]["name"] == "paid_rev")
+        refunded = variant(mandatory_filters=["DB.S.ORDERS.STATUS = 'refunded'"])
+        refunded.update({"name": "refunded_revenue", "display_name": "Refunded Revenue",
+                         "description": "Revenue from refunded orders."})
+        refunded["definition"]["output"]["alias"] = "refunded_revenue"
+        refunded.pop("source_id", None)
+        dump_json(t / "run" / "metrics.json", [refunded])
+        r = cmd_check(argparse.Namespace(dir=str(t / "run")))
+        plan = load_json(t / "run" / "plan.json")
+        ok("a different population is a new metric, never a revision", plan["metrics"][0]["action"] == "create"
+           and plan["metrics"][0]["match_id"] is None and plan["metrics"][0]["name"] == "refunded_revenue")
+        moved = json.loads(json.dumps(refunded))
+        moved.update({"name": "paid_rev", "source_id": "x"})
+        dump_json(t / "run" / "metrics.json", [moved])
+        cmd_check(argparse.Namespace(dir=str(t / "run")))
+        ok("revising a live metric's population is called out", any(
+            "changes what live 'paid_rev' measures" in w["warning"] for w in load_json(t / "run" / "plan.json")["warnings"]))
+    with tempfile.TemporaryDirectory() as d:
+        t = pathlib.Path(d)
+        (t / "tool.json").write_text(json.dumps({"isError": False, "content": [{"type": "text", "text": json.dumps(
+            {"columns": ["SQL", "EXEC", "USERS"], "rows": [["select 1 from t", 3, 2], ["select 2 from t", 1, 1]]})}]}))
+        (t / "dbx.json").write_text(json.dumps({"manifest": {"schema": {"columns": [{"name": "sql"}, {"name": "exec"},
+                                     {"name": "users"}]}}, "result": {"data_array": [["select 1 from t", "2", "1"]]}}))
+        (t / "api.json").write_text(json.dumps([
+            {"query_text": "select 3 from t", "user_name": "ann@example.com", "status": "FINISHED", "statement_type": "SELECT"},
+            {"query_text": "select 3 from t", "user_name": "bob@example.com", "status": "FINISHED", "statement_type": "SELECT"},
+            {"query_text": "delete from t", "user_name": "eve", "status": "FINISHED", "statement_type": "DELETE"},
+            {"query_text": "select 4 from t", "user_name": "eve", "status": "FAILED", "statement_type": "SELECT"}]))
+        (t / "export.csv").write_text("QUERY_TEXT,COUNT,USERS\nselect 5 from t,7,3\n")
+        out = t / "querylog.jsonl"
+        res = cmd_querylog(argparse.Namespace(src=[str(t / n) for n in ("tool.json", "dbx.json", "api.json")],
+                                              dst=str(out), append=False, limit=5000))
+        log = {r["sql"]: r for r in read_jsonl(out)}
+        ok("querylog reads a saved tool result, a Databricks statement and the history API", res["statements"] == 3
+           and log["select 1 from t"]["exec"] == 5 and log["select 3 from t"] == {"sql": "select 3 from t", "exec": 2, "users": 2})
+        ok("querylog keeps only successful SELECTs", res["skipped"] == 2 and "delete from t" not in log)
+        ok("querylog never writes a user name", "example.com" not in out.read_text() and "eve" not in out.read_text())
+        cmd_querylog(argparse.Namespace(src=[str(t / "export.csv")], dst=str(out), append=True, limit=5000))
+        ok("querylog --append merges the next page", len(read_jsonl(out)) == 4 and read_jsonl(out)[0]["exec"] == 7)
+        (t / "err.json").write_text(json.dumps({"isError": True, "content": [{"type": "text", "text": "permission denied"}]}))
+        try:
+            cmd_querylog(argparse.Namespace(src=[str(t / "err.json")], dst=str(out), append=True, limit=5000))
+            ok("an error result is refused, not read as an empty log", False)
+        except Blocked:
+            ok("an error result is refused, not read as an empty log", True)
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 
 
@@ -769,6 +1147,13 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--tables", help="tables.txt: keep shapes that read one of these tables")
     c.add_argument("--top", type=int, default=400)
     c.set_defaults(func=cmd_shapes)
+
+    c = s.add_parser("querylog", help="turn a saved history pull into querylog.jsonl without printing it")
+    c.add_argument("src", nargs="+", help="a tool result saved to a file, CLI JSON output, or a JSONL or CSV export")
+    c.add_argument("dst", help="querylog.jsonl: {sql, exec, users} per line")
+    c.add_argument("--append", action="store_true", help="merge into dst's existing lines, for the next page")
+    c.add_argument("--limit", type=int, default=5000)
+    c.set_defaults(func=cmd_querylog)
 
     c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")
     c.add_argument("--dir", required=True)

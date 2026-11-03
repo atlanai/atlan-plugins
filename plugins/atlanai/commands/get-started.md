@@ -1,5 +1,6 @@
 ---
 description: Connect to Atlan, check the sign-in, and see what your organization has.
+disable-model-invocation: true
 ---
 
 Load this plugin's `atlan-get-started` skill and follow it (in Claude Code, the Skill tool's

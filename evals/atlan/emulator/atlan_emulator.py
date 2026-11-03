@@ -22,6 +22,9 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_UNAVAILABLE=registry__get_artifact`: the first two calls of that tool fail as
   the gateway's `503` does, JSON-RPC `-32603` `service unavailable` with `retryable: true`, and
   every later call answers;
+- `ATLAN_EMULATOR_LOST_REPLY=extension__skill__create`: the first call of that tool commits, then
+  answers as the gateway does when its relay cuts a slow scan: JSON-RPC `-32603` `service
+  unavailable` with `retryable: true`. The created skill is there to read back;
 - `ATLAN_EMULATOR_CATALOG=1`: the server is the data-catalog plugin's (`mcp.atlan.com`), with
   asset search and lineage tools and none of the gateway's three;
 - `ATLAN_EMULATOR_SIGNED_OUT=1`: the user has not signed in, so the server lists no tools and
@@ -30,10 +33,12 @@ another state through its environment (`emulator.json` beside the case, read by 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -44,6 +49,7 @@ HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") 
 EMPTY = os.environ.get("ATLAN_EMULATOR_EMPTY") == "1"
 RATE_LIMIT = os.environ.get("ATLAN_EMULATOR_RATE_LIMIT")
 UNAVAILABLE = os.environ.get("ATLAN_EMULATOR_UNAVAILABLE")
+LOST_REPLY = os.environ.get("ATLAN_EMULATOR_LOST_REPLY")
 CATALOG = os.environ.get("ATLAN_EMULATOR_CATALOG") == "1"
 SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
 # Pads the catalogue to this many skills, the most recently changed of them about UI motion, so a
@@ -145,7 +151,7 @@ class Refusal(Exception):
         self.body = {"status": status, "code": code, "detail": detail}
 
 
-state = {"session": False, "rate_limited": False, "heads": {}, "moved": set()}
+state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}}
 
 
 def words(text: str) -> set[str]:
@@ -162,7 +168,7 @@ def served_tools() -> list[dict]:
 
 
 def artifacts() -> dict:
-    return {} if EMPTY else padding() | WORLD["artifacts"]
+    return ({} if EMPTY else padding() | WORLD["artifacts"]) | state["created"]
 
 
 PAD_TOPICS = [
@@ -269,9 +275,15 @@ def artifact(handle: str) -> dict:
 
 
 def head(item: dict) -> dict:
-    """An artifact as `get_artifact` returns it: a `file` carries its current etag and ordinal."""
+    """An artifact as `get_artifact` returns it: a `file` carries its current etag and ordinal, and
+    any other line its newest reconciled version, so a read-back after a write sees it."""
     if item["kind"] != "file":
-        return item
+        newer = state["versions"].get(item["id"])
+        if not newer:
+            return item
+        line = ("name", "workspace_id", "source_type", "source_id")
+        return item | {"version_ordinal": newer["version_ordinal"],
+                       "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
     state["heads"].setdefault(item["id"], {"etag": item["etag"], "version_ordinal": item["version_ordinal"],
                                            "content": WORLD["files"][item["id"]]["content"]})
     current = state["heads"][item["id"]]
@@ -308,7 +320,9 @@ def search_artifacts(a: dict) -> dict:
             hits.append((score, item))
     hits.sort(key=lambda h: -h[0])
     limit = a.get("limit", 10)
-    return {"items": [(h if a.get("full") else summary(h)) | {"score": s / 100} for s, h in hits[:limit]],
+    # Every hit here matched a query word; the gateway's fused hits say so in `match`.
+    return {"items": [(h if a.get("full") else summary(h)) | {"score": s / 100, "match": {"keyword": True}}
+                      for s, h in hits[:limit]],
             "page": {"limit": limit, "offset": 0}}
 
 
@@ -390,10 +404,76 @@ def write(kind: str, a: dict) -> dict:
         raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
     if live:
         # Any other kind reconciles: the create becomes the line's next version, under its handle.
-        return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": live["version_ordinal"] + 1,
+        ordinal = head(live)["version_ordinal"] + 1
+        state["versions"][live["id"]] = {"version_ordinal": ordinal, "metadata": meta}
+        return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": ordinal,
                 "note": "eval write recorded"}
     return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "version_ordinal": 1,
             "note": "eval write recorded"}
+
+
+FILES_FROM_REFUSAL = ("`files_from` is expanded by the atlanai publish helper, which is not running here. Send the "
+                      "folder's contents as `files` (relative paths to UTF-8 text, root `SKILL.md` required), or upload "
+                      "a ZIP and send its `bundle_file_id`.")
+
+
+def skill_create(a: dict) -> dict:
+    """`extension__skill__create` as skill 4.2.0 answers it: one slim slot per skill, a new skill
+    as ordinal 1 and a matching identity as its next version, `files_from` refused by name. A
+    skill's `idempotency_key` replays the slot its first call wrote, and `dry_run` creates nothing."""
+    items = a.get("skills") or []
+    if any("files_from" in item for item in items):
+        raise Refusal(400, "invalid_request", FILES_FROM_REFUSAL)
+    keys = [item["idempotency_key"] for item in items if "idempotency_key" in item]
+    if len(keys) != len(set(keys)):
+        raise Refusal(400, "invalid_request", "Each skill's idempotency_key must be unique within one call.")
+    receipts = state.setdefault("receipts", {})
+    slots = []
+    for index, item in enumerate(items):
+        if ("files" in item) == ("bundle_file_id" in item):
+            raise Refusal(400, "invalid_request", "Supply exactly one of files or bundle_file_id for each skill.")
+        if a.get("dry_run"):
+            slots.append({"index": index, "status_code": 200, "dry_run": True, "warnings": [],
+                          "files": [{"path": path, "sha256": hashlib.sha256(text.encode()).hexdigest(),
+                                     "size_bytes": len(text.encode())}
+                                    for path, text in sorted((item.get("files") or {}).items())]})
+            continue
+        key = item.get("idempotency_key")
+        fingerprint = json.dumps({k: v for k, v in item.items() if k != "idempotency_key"}, sort_keys=True)
+        if key in receipts:
+            if receipts[key][0] != fingerprint:
+                slots.append({"index": index, "status_code": 409, "error": {"status": 409, "code": "idempotency_conflict",
+                              "detail": "This idempotency_key was used with different content."}})
+            else:
+                slots.append({**receipts[key][1], "index": index})
+            continue
+        identity = (item["workspace_id"], item.get("source_type", "local"), item.get("source_id", item["name"]))
+        live = next((i for i in artifacts().values() if i["kind"] == "skill"
+                     and (i["workspace_id"], i.get("source_type", "local"), i.get("source_id", i["name"])) == identity), None)
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        if live:
+            ordinal = head(live)["version_ordinal"] + 1
+            state["versions"][live["id"]] = {"version_ordinal": ordinal, "metadata": {}}
+            handle = live["id"]
+            live["updated_at"] = now
+        else:
+            ordinal, handle = 1, f"skill_01evalnew{len(state['created']):014d}"
+            state["created"][handle] = {
+                "id": handle, "kind": "skill", "name": item["name"], "display_name": item.get("display_name", item["name"]),
+                "description": item.get("description") or "", "workspace_id": item["workspace_id"],
+                "source_type": identity[1], "source_id": identity[2], "artifact_status": "active", "is_released": True,
+                "released_channels": ["latest"], "version_ordinal": 1, "version_label": "0.1.0", "updated_at": now,
+                "metadata": {"files": [{"path": path} for path in sorted(item.get("files") or {})]},
+            }
+        label = "0.1.0" if ordinal == 1 else f"0.{ordinal - 1}.0"
+        slots.append({"index": index, "status_code": 201,
+                      "skill": {"id": handle, "name": item["name"], "workspace_id": item["workspace_id"],
+                                "artifact_status": "active", "version_ordinal": ordinal, "etag": f"\"eval-{handle}-{ordinal}\"",
+                                "current_releases": {"latest": {"version_label": label}}},
+                      "next": f"Active and released on `latest` as `{label}`."})
+        if key:
+            receipts[key] = (fingerprint, slots[-1])
+    return {"skills": slots}
 
 
 def dispatch(name: str, a: dict) -> dict:
@@ -416,6 +496,8 @@ def dispatch(name: str, a: dict) -> dict:
         raise Refusal(400, "invalid_arguments", f"{name} requires {', '.join(missing)}.")
     if "refuse" in tool:
         raise Refusal(**tool["refuse"])
+    if name == "extension__skill__create":
+        return skill_create(a)
     if name == "registry__list_workspaces":
         return {"items": WORLD["workspaces"], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(WORLD["workspaces"])}}
     if name == "registry__search_artifacts":
@@ -451,6 +533,8 @@ def dispatch(name: str, a: dict) -> dict:
         return WORLD["kinds"][a["kind"]]
     if name == "registry__get_file_content":
         return file_content(a)
+    if name == "registry__get_security_findings":
+        return security_findings(a)
     if name in ("extension__agent__list_session_traces",):
         return WORLD["traces"].get(a["session_id"], {"items": [], "page": {"limit": 50}})
     if name in ("extension__agent__get_trace", "registry__get_trace"):
@@ -477,6 +561,17 @@ def dispatch(name: str, a: dict) -> dict:
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
+
+
+def security_findings(a: dict) -> dict:
+    """`get_security_findings`, as the registry answers it: the fixture's findings for a scanned
+    artifact, and `not_scanned` with no findings for any other one the caller can see."""
+    found = artifact(a["artifact_id"])
+    if found["id"] in WORLD["findings"]:
+        return WORLD["findings"][found["id"]]
+    return {"artifact_id": found["id"], "artifact_status": found.get("artifact_status"), "scan_status": "not_scanned",
+            "counts": {"gating": 0, "total": 0}, "findings": [], "truncated": False,
+            "next": "No scan of this artifact has been recorded, so there are no findings to show."}
 
 
 def visible_run(name: str, a: dict) -> dict:
@@ -647,6 +742,18 @@ def handle(msg: dict) -> dict | None:
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
                     "data": {"server": "registry", "retryable": True, "retry_after_seconds": 1,
                              "code": "downstream_unavailable"}}}
+        if LOST_REPLY and params.get("name") == "mcp__call_tool" and called == LOST_REPLY and not state.get("lost"):
+            # The relay cut the call after the create committed: the write stands, the reply is lost.
+            state["lost"] = True
+            try:
+                call_tool(params.get("arguments") or {})
+            except Refusal:
+                pass
+            else:
+                log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32603}})
+                return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
+                        "data": {"server": "skill", "retryable": True, "retry_after_seconds": 1,
+                                 "code": "downstream_unavailable"}}}
         handler = HANDLERS.get(params.get("name"))
         if handler is None:
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32602, "message": "tool is unavailable; refresh tools/list"}}

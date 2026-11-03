@@ -7,32 +7,10 @@ uses its machine identity.
 
 ## Before your first call
 
-1. Open a session once, and keep the id:
-
-   ```
-   mcp__initialise {
-     "objective": "<one sentence, for a human auditor reading this later>",
-     "client": "claude-code",
-     "rationale": "<why you are opening it>"
-   }
-   → { "session_id": "mcp_session_01J..." }
-   ```
-
-   Pass that as `session_id` on every later call - it is **required**, and a call that omits
-   it is refused with a message telling you to open one. `mcp__initialise` is the only
-   tool that does not take it, which is what makes this first call possible. Do not invent a
-   value - an id that names no session of yours is refused, not ignored.
-
-2. **`rationale` is required on every tool call.** It is a first-person sentence about why
-   you are making *this* call, written for a human reading the audit trail. Not a
-   restatement of the arguments.
-
-3. Every create needs a `workspace_id`. Read it off `registry__list_workspaces`; if you can
-   reach more than one, say which you are using rather than picking.
-
-4. Before your first write to a kind you have not written to before, call
-   `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
-   as a generic 400 that does **not** name the field.
+Follow **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+a first-person `rationale` on every call, a `workspace_id` on every create, and
+`registry__get_kind_schema` before your first write to a kind.
 
 ## Read the kind first
 
@@ -139,7 +117,7 @@ the edges with `registry__get_related_artifacts`.
 
 An agent that has **never** written a manifest still carries hand-curated `uses_skill` edges
 (`registry__relate_artifact`); the first manifest replaces them. The full edge table and its
-refusals: `skills/atlan-author-agents/references/agent-edges.md`.
+refusals: `skills/atlan-get-started/references/edges.md`.
 
 ## Recording what a run produced
 

@@ -1,18 +1,23 @@
 # Build a talk-to-data agent
 
 Read [shared conventions](conventions.md) first. Work in the project directory
-`.atlan-analytics/<slug>/`. Seven phases, each ending in a STOP gate. Read the reference file when
-you enter a phase.
+`.atlan-analytics/<slug>/`. Seven phases, each ending in a STOP gate or a checkpoint. Read the
+reference file when you enter a phase.
+
+Before phase 1, show the table below and ask once to go ahead. That yes covers the local steps
+that can be redone: writing `brief.md`, `tables.txt` and the eval files, and the split. Choosing
+the workspace, trusting answers, every registry write and the cost of the baseline each keep
+their own question.
 
 | # | phase | reference | the user decides | produces |
 |---|---|---|---|---|
-| 1 | purpose | [01-purpose](build/01-purpose.md) | audience, 5–10 real questions | `brief.md` |
+| 1 | purpose | [01-purpose](build/01-purpose.md) | audience, 5–10 real questions (checkpoint) | `brief.md` |
 | 2 | scope | [02-scope](build/02-scope.md) | ≤5 tables, the workspace | `tables.txt`, `workspace_id` |
 | 3 | context | [03-context](build/03-context.md) | the source of trusted SQL, publish | metrics + saved queries in the workspace |
 | 4 | eval_set | [04-eval-set](build/04-eval-set.md) | which questions and answers are trusted | `eval/cases.jsonl`, `eval/answers.jsonl`, `eval/split.json` |
 | 5 | agent | [05-agent](build/05-agent.md) | name, model, the system prompt | registered agent + `.claude/agents/<slug>.md` |
-| 6 | smoke | [06-smoke](build/06-smoke.md) | nothing | 3 answered questions, sessions visible in the registry |
-| 7 | baseline | [07-baseline](build/07-baseline.md) | nothing (confirm the run cost) | baseline experiment in the registry |
+| 6 | smoke | [06-smoke](build/06-smoke.md) | nothing (checkpoint) | 3 answered questions, sessions visible in the registry |
+| 7 | baseline | [07-baseline](build/07-baseline.md) | nothing (confirm the run's size) | baseline experiment in the registry |
 
 ## Rules specific to building
 
@@ -33,7 +38,8 @@ you enter a phase.
 
 After phase 7:
 
-- State the baseline train and test pass rates, with the noise band `±1/sqrt(n·reps)`.
+- State the baseline validation and train pass rates, with the noise band `±1/sqrt(n·reps)`.
+  The holdout is still unscored; it is read once, when an improve loop hands back.
 - List the three most common failure classes.
 - Offer `atlan-analytics improve` as the next step (Recommended).
 - Set `phase` to `improve`.

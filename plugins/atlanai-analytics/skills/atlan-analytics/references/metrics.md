@@ -3,7 +3,7 @@
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
 trust, each one checked against the registry's contracts and previewed before it is written.
 Two entries use this file:
-- **metrics mode** (`/atlan-analytics metrics`) starts at section 0 and stops at section 6;
+- **metrics mode** (`/atlanai-analytics:atlan-analytics metrics`) starts at section 0 and stops at section 6;
 - a **full agent build** reaches it from phase 3 and starts at section 1.
 
 Everything here runs in this assistant plus one standard-library script. Nothing is cloned,
@@ -70,20 +70,26 @@ build it is used in phase 4. Eval answers never become context.
 Skip this section when no history source was chosen.
 
 1. Pull 90 days of successful SELECTs that touch the scoped tables, grouped per distinct text
-   with run and user counts, at most 5,000 rows. [Warehouse discovery](connect.md) picks how:
-   its **Query history** section in [warehouses](warehouses.md)
-   holds the statement for each warehouse, the fallbacks when access is denied, and the bulk
-   path that writes rows straight to a file.
-2. Write the rows to `<context-dir>/querylog.jsonl`, one `{sql, exec, users}` per line, and
-   record the window's absolute start and end dates in state. Never include user names.
+   with run and user counts, at most 5,000 rows, by the bulk path `warehouse.bulk` names.
+   [Query history](warehouses/query-history.md) holds the statement for each warehouse and the
+   fallbacks when access is denied.
+2. Turn the pull into `<context-dir>/querylog.jsonl` without the rows passing back through this
+   conversation: `MINE querylog <saved pull> <context-dir>/querylog.jsonl`, adding `--append`
+   for each later page. The saved pull is the CLI's output file, the export, or the file the host
+   saved a large tool result to. It reads all of these, keeps `{sql, exec, users}`, counts users
+   without writing their names, and prints only counts. Never retype rows into a file yourself:
+   when a page came back inline and the host saved no file, pull smaller pages rather than
+   copying it out. Record the window's absolute start and end dates in state.
 3. Drop identifying literals:
    `EVAL filter-querylog <context-dir>/querylog.jsonl <context-dir>/querylog.clean.jsonl`.
    Report the counts by reason in one line.
 4. Group and rank:
    `MINE shapes <context-dir>/querylog.clean.jsonl <context-dir>/shapes.jsonl --tables tables.txt`.
-   Each shape is one statement with literals folded away. It carries the most-run text, its run
-   and user counts, and hints: tables, aggregates, group-bys, filters. Report the counts in one
-   line.
+   Each shape is one statement with its dates and numbers folded away. Quoted values that pick a
+   population stay: `status = 'paid'` and `status = 'refunded'` are two shapes. Shapes that differ
+   only in those values share a `family`, and each lists its values under `predicates`. A shape
+   carries the most-run text, its run and user counts, and hints: tables, aggregates, group-bys,
+   filters. Report the shape and family counts in one line.
 5. If a database name in the SQL is a mirror of the real one (a copy or a benchmark prefix),
    normalise it to the real name and say so.
 
@@ -98,7 +104,7 @@ Read [authoring](metrics/authoring.md) and follow its four passes:
 Declared metrics skip the first pass. By-hand metrics start at the third pass.
 
 Split big passes into chunks. Where this harness has subagents (Claude Code), give each chunk
-to a fork worker with the authoring rules. Elsewhere, work through the chunks in turn. Workers
+to a worker, a fresh subagent from the Agent tool, with the authoring rules. Elsewhere, work through the chunks in turn. Workers
 write their answer files only. You run every `MINE` command and every registry call. Workers
 never read eval files.
 
@@ -113,8 +119,14 @@ connected, and otherwise mark it untested.
    `registry__get_artifact` for the metrics whose tables overlap this run's.
 2. Run `MINE check --dir <context-dir>`. It checks every body against the registry's contract
    and the card rules. It refuses duplicates, and matches each metric to a live one that
-   measures the same thing. It then writes `plan.json`, which marks each item `create`, `revise`
-   or `reuse` and lists every refusal by item and field.
+   measures the same thing: the same source, formula and mandatory filters, literals included,
+   so `STATUS = 'paid'` never matches `STATUS = 'refunded'`. It then writes `plan.json`, which
+   marks each item `create`, `revise` or `reuse` and lists every refusal by item and field.
+   It also edits `metrics.json` in two ways: it fills a missing `source_id`, and a metric that
+   matches one live metric takes that metric's `source_id`, `name` and `display_name`, since a
+   name is frozen at create. It changes nothing else there. A
+   warning that a revision "changes what live … measures" means its population changes: show
+   the person both definitions in the preview before it is sent.
 3. On REFUSED, fix exactly the named fields of the refused items and run it again. Never touch
    items that passed. After three rounds, hold what is still refused and report it.
 4. **Test against the warehouse** when a query tool is recorded. For each metric, run one read

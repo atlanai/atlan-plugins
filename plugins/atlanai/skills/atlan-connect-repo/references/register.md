@@ -27,7 +27,8 @@ name the missing capability.
 From the user's checkout, read:
 
 - the remote: `git remote get-url origin` (ask which remote when there are several and none is
-  `origin`; a checkout with no remote cannot be registered);
+  `origin`; a checkout with no remote cannot be registered). With no shell or checkout, as in
+  Claude chat, ask the user for the repository URL;
 - the default branch: `git symbolic-ref --short refs/remotes/origin/HEAD`, without the `origin/`
   prefix, when it resolves;
 - candidate artifacts: `SKILL.md` directories, `.atlan/agents/*.yaml` declarations and scorer

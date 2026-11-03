@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.3.20"
+version = "0.5.15"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -31,6 +31,17 @@ brand_color = "#2026D2"
 # Plugin-relative. The build copies assets/logo.svg into every plugin folder.
 logo = "./assets/logo.svg"
 privacy_policy_url = "https://atlan.com/privacy-policy/"
+# Claude Code's hooks module, plugin-relative: the publish helper, which lets the skill create take
+# `files_from` (see claude-hooks/register.ts). Named only in .claude-plugin/plugin.json and kept out
+# of hooks/, the folder Codex and Cursor read by default, since only Claude Code runs a module. A
+# variant leaves it out, as it leaves out the mods.
+claude_hooks = "./claude-hooks/hooks.json"
+# The same helper as a command hook for Codex and Cursor (command-hooks/publish_hook.py), named from
+# each one's own manifest field: Codex's `extensions.com.openai.hooks` in plugin.json (and the legacy
+# .codex-plugin overlay), Cursor's `hooks` in .cursor-plugin/plugin.json. Setting each turns off that
+# harness's hooks/hooks.json discovery. A variant leaves them out too.
+codex_hooks = "./command-hooks/codex.json"
+cursor_hooks = "./command-hooks/cursor.json"
 # terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
 
 [author]
@@ -49,7 +60,7 @@ description = "Atlan's plugins for coding agents: the Atlan registry's MCP serve
 # The server key every Atlan plugin uses, the registry's own umbrella plugin included.
 server = "atlan"
 # The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
-# URL is search mode: three tools that reach the whole catalogue (see
+# URL is search mode: five tools that reach the whole catalogue (see
 # plugins/atlanai/skills/atlan-get-started/references/calling-tools.md).
 url = "https://api.atlan.com/mcp"
 # Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
@@ -68,6 +79,9 @@ default_prompts = [
   "Find an Atlan skill for this task and install it",
   "Publish the skill in this folder to Atlan",
 ]
+# The directory listing's screenshots: images placed by hand in the core's own assets/ folder
+# (plugins/atlanai/assets/), plugin-relative. `make codex-directory` says when none are set.
+# screenshots = ["./assets/screenshot-search.png"]
 
 # Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
 # marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through
@@ -76,17 +90,19 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.4.4"
+version = "0.4.17"
 description = "Answer data questions from governed metrics, use and draft your business ontology, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry."
 short_description = "Metrics and talk-to-data agents on Atlan Trident"
 long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection; building and evaluating an agent needs Claude Code."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "evals"]
 category = "Data & Analytics"
 claude_category = "data"
+# Codex shows these as starters. Each runs in Codex as well as Claude Code; building and
+# evaluating an agent needs Claude Code's subagents, so it is not offered as a starter.
 default_prompts = [
   "What was revenue last quarter, by region, from our published metrics?",
   "Build metrics and saved queries for our support tables from the warehouse's query history",
-  "Build a talk-to-data agent for our revenue questions",
+  "How do customers join to orders in our business ontology, and which tables hold them?",
 ]
 
 # Mods: Claude Code plugins whose hooks module changes how Claude Code handles the core's tools,
@@ -99,8 +115,8 @@ default_prompts = [
 [[mods]]
 name = "atlanai-mods"
 display_name = "Registry Mods"
-version = "0.3.0"
-description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, and the status line reports a broken or degraded Atlan connection."
+version = "0.4.3"
+description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection."
 keywords = ["atlan", "registry", "mods", "permissions"]
 claude_category = "development"
 
@@ -108,6 +124,12 @@ claude_category = "development"
 type = "boolean"
 title = "Ask before registry writes"
 description = "Ask before Claude creates or changes anything in Atlan. Archive, approve and move always ask."
+default = true
+
+[mods.user_config.suggest_skills]
+type = "boolean"
+title = "Suggest registry skills"
+description = "Search your organization's Atlan skills with each request, and name one to Claude when it clearly fits. The first 300 characters of the request are sent to Atlan's search."
 default = true
 
 # Codex's card for each skill in every plugin above: tools/build.py

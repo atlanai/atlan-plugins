@@ -13,7 +13,8 @@ repository
 
 The workflow runs `atlanai/ai-registry-action@v1`, which runs `aireg` with the
 Atlan adapter. `aireg` records the repository and each folder with every version
-it publishes, so there is no separate repository registration step.
+it publishes, so CI needs no separate repository registration step. Linking a repository by
+hand, before CI or without it, is [registering](register.md).
 
 ## Rules
 
@@ -164,8 +165,15 @@ new reports `published 0`.
 - **An agent Atlan already holds**, for example one `atlan-author-agents` created
   with a `.atlan/agents/<slug>.yaml` declaration: export a folder whose
   `AGENT.md` carries the same `name`. CI finds the agent by name in the
-  workspace and updates it; it does not create a second one. If its current
-  version is a plain number, see
+  workspace and updates it; it does not create a second one. A name is not an
+  identity, so before the setup pull request merges, read that agent's source:
+  - bound to this repository and folder: CI's update is the right one;
+  - no source: link it to this folder first
+    ([register, step 4](register.md#4-link-the-artifacts)), then let CI update it;
+  - bound to another repository or folder: it is a collision. Leave the folder
+    out of the manifest and report it; never let a name match take it over.
+
+  If its current version is a plain number, see
   [Plain-number versions](#plain-number-versions).
 
 ## Plain-number versions

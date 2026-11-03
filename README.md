@@ -106,7 +106,10 @@ In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-sk
 `/atlanai:continue <output_…>` and `/atlanai:share` run `atlan-get-started`, `atlan-use-skill`,
 `atlan-continue` and `atlan-share`; those four skills hide their own slash entries, so each task is
 listed once. In Codex, the plugin
-runs `atlan-get-started` right after install.
+runs `atlan-get-started` right after install, which offers to check Atlan for a fitting skill
+at the start of each task: on a yes it adds a short, marked note to `~/.codex/AGENTS.md`, and
+"stop checking Atlan for skills" removes it. In Claude Code, Registry Mods does the same. Run
+`codex plugin marketplace upgrade atlan` to take a new version in Codex.
 
 ### Registry Mods
 
@@ -171,10 +174,13 @@ and point at live tools instead of copying reference data that would go stale.
 
 ## Privacy and security
 
-- **Nothing runs on your machine, except the mod you choose.** `atlanai` and the add-ons have
-  no hooks, no binaries and no local storage: they are Markdown files and an MCP server URL.
-  `atlanai-mods` is code that runs inside Claude Code; its [README](plugins/atlanai-mods) lists
-  every call it makes.
+- **Little runs on your machine.** The add-ons are Markdown files: no hooks, no binaries, no
+  local storage. `atlanai` adds one hook, the publish helper, in Claude Code, Codex and Cursor
+  (in Codex and Cursor only once you trust its hooks, and only where `python3` is installed):
+  when the agent publishes a skill with `files_from`, it reads that one folder in your working
+  tree, refuses links, credential files and folders, and anything outside the tree, and sends
+  the files only in that same call to Atlan. It reads nothing otherwise. `atlanai-mods` is code
+  that runs inside Claude Code; its [README](plugins/atlanai-mods) lists every call it makes.
 - **Your sign-in, your permissions.** Every call carries your own OAuth sign-in, and Atlan
   enforces your organization's permissions on it. The plugins hold no credentials.
 - **Every call is recorded.** Atlan keeps each call in a session you can review in the

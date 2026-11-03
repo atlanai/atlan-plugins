@@ -15,6 +15,13 @@ resolvable at its own ordinal.
 
 For small text bundles, send the complete `files` map to `extension__skill__create`
 as in [publishing](publish.md#3-create).
+
+`files` has two shapes, and they are not interchangeable. What you **send** to
+`extension__skill__create` is an object of path to file text
+(`{"SKILL.md": "---\nname: …"}`). What a read **returns** is `metadata.files`, an array of
+manifest entries (`path`, `file_id`, `file_version_ordinal`, `size_bytes`, `media_type`), with
+no text in it. Never send the manifest back as `files`: read each file's text with
+`registry__get_file_content` and send the map.
 For larger bundles, binaries or executable files, use [the ZIP path](publish-zip.md):
 
 ```
@@ -24,10 +31,11 @@ registry__request_file_upload → PUT → registry__create_artifact kind:file �
 with the identity unchanged. Check `version_ordinal` in the returned slot to confirm it
 appended rather than started a new line.
 
-**A byte-identical re-upload is an idempotent no-op.** It returns the existing head with
-**no** new version. So "nothing changed" has two causes worth telling apart:
+**A byte-identical re-upload is refused with a `409`** whose slot carries
+`existing_artifact_id`, the head it matches, and writes **no** new version. So "nothing changed"
+has two causes worth telling apart:
 
-- the bytes were identical - nothing needed to change;
+- the bytes were identical (that `409`) - nothing needed to change;
 - the `name` or `source_id` differed - you started a *new* line and the old skill is
   untouched.
 

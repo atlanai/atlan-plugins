@@ -5,43 +5,27 @@ For binary content or text above the inline ceiling, content arrives out of band
 
 ## Before your first call
 
-1. Open a session once, and keep the id. How depends on the mode your client connected in:
+Follow **Before your first call** in
+`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+a first-person `rationale` on every call, a `workspace_id` on every create, and
+`registry__get_kind_schema` before your first write to a kind.
 
-   - **Search mode**, the default, lists `mcp__search_tools`, `mcp__describe_tools` and
-     `mcp__call_tool`. Send `objective`, one sentence for a human auditor reading this later,
-     on your first search or call; it returns the id (`session_id` from a search,
-     `mcp_session_id` from a call). Run each tool this procedure names with `mcp__call_tool`:
-     its `name` and `arguments`, with `session_id` and `rationale` at the top level beside
-     `arguments`, never inside it. Search mode does not list `mcp__initialise`.
-   - **Full mode** lists every tool by name. Open the session with `mcp__initialise`:
+Uploads use the authenticated API host. Storage placement remains registry-owned. Do not copy
+connector credentials into tool arguments.
 
-     ```
-     mcp__initialise {
-       "objective": "<one sentence, for a human auditor reading this later>",
-       "client": "claude-code",
-       "rationale": "<why you are opening it>"
-     }
-     → { "session_id": "mcp_session_01J..." }
-     ```
+## Without a shell or a bearer
 
-   Pass that id as `session_id` on every later call. Full mode refuses a call without it;
-   search mode opens a second session, splitting the audit trail. Do not invent a value - an
-   id that names no session of yours is refused, not ignored.
+Claude chat, Cowork and other hosts that sign in to Atlan for you never hand you the bearer the
+`PUT` in step 2 needs, and often give you no shell. Check this before asking the user to
+approve an upload, not after. Without both:
 
-2. **`rationale` is required on every tool call.** It is a first-person sentence about why
-   you are making *this* call, written for a human reading the audit trail. Not a
-   restatement of the arguments.
-
-3. Every create needs a `workspace_id`. Read it off `registry__list_workspaces`; if you can
-   reach more than one, say which you are using rather than picking.
-
-4. Before your first write to a kind you have not written to before, call
-   `registry__get_kind_schema { "kind": "<kind>" }`. A missing required property comes back
-   as a generic 400 that does **not** name the field.
-
-Uploads use the authenticated API host. Storage placement remains registry-owned. If your
-connector does not expose a bearer for shell HTTP requests, use the skill create tool's inline
-`files` input for small text skills. Do not copy connector credentials into tool arguments.
+- **Text up to 64 KiB:** send it inline as `content` on the `file` create
+  ([write and append](write-and-version.md)), or as inline `files` on a skill or knowledge
+  create.
+- **Something hosted elsewhere:** record an `output` in `mode: "link"` with its `external_url`.
+- **Binary content or larger text:** say in one sentence that it needs the Atlan CLI or an
+  upload in the Atlan dashboard, and write nothing until it is there. Never ask for a token in
+  chat.
 
 ## The three steps
 
@@ -67,9 +51,11 @@ over-size upload is refused before the transfer rather than after it.
 
 ### 2. `PUT` the bytes
 
-Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is always
-`false`; `upload_url` is root-relative (`/file/v1/...`). Resolve it against the API origin you
-called `registry__request_file_upload` on. A missing bearer returns 401.
+Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is `false`
+on today's gateway; if a server ever answers `true`, the URL carries its own authorization, so
+send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`):
+resolve it against the API origin you called `registry__request_file_upload` on. A missing bearer
+returns 401.
 
 Start the PUT within `expires_in_seconds` (900 seconds). Expired or unissued tickets return
 400 with instructions to request a fresh ticket. A transfer started in time may finish after
@@ -101,7 +87,8 @@ place it is handed to you without a second read.
 - **`upload_key` or bytes, never both.** Both is a 400; neither is a 400. For small UTF-8,
   use top-level `content` instead, following [write and append](write-and-version.md).
 - **`path` is the file's identity in its workspace.** A second file at the same `path` is a
-  409 naming it. Give each upload a distinct path - `bundles/deploy-preview-2026-09-04.zip`
+  409 naming it. So is a second file create with a live file's `source_type` and `source_id`,
+  whatever its path: append to that file instead. Give each upload a distinct path - `bundles/deploy-preview-2026-09-04.zip`
   rather than `bundle.zip`.
 - **`max_bytes` is enforced during streaming and at step 3.** Check the size before sending.
 - **Upload tickets expire.** Reserve when ready to send; request a fresh ticket after expiry.
@@ -130,7 +117,7 @@ skill's `metadata.files` manifest. Uploading a file next to a skill and hoping t
 leaves you with an orphan.
 
 For what the other kinds may join, and which end declares it:
-`skills/atlan-author-skills/references/skill-edges.md`.
+`skills/atlan-get-started/references/edges.md`.
 
 ## Reading content back out
 

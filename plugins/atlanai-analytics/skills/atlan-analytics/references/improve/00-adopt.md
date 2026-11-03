@@ -6,7 +6,8 @@ or a talk-to-data bot running elsewhere.
 1. **Find it.** Call `registry__list_artifacts` (kind `agent`), or `registry__search_artifacts`
    by name. Open it with `registry__get_artifact`. Note its workspace, instructions and model,
    and its linked context via `registry__get_related_artifacts`. Create
-   `.atlan-analytics/<slug>/state.json` with `agent_id`, `workspace_id` and `adopted: true`.
+   the project with `EVAL init --dir .atlan-analytics/<slug> --agent-id <agent_…> --workspace-id
+   <workspace_…>`, which keeps both under `ids`, where publish reads them, and marks it adopted.
 2. **How will it run under eval?** Ask:
    - `<slug> · adopt · how the agent runs`
    - **Run it here as a Claude Code subagent (Recommended when its context lives in the

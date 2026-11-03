@@ -12,6 +12,11 @@
 //   skill publish to its end; the `atlan-skills` pane picks a skill to load.
 // session.start: checks the connection without opening an audit session, and puts a problem,
 //   never a success, on the status line. /atlan reports it; /atlan search, skills and pane.
+// prompt.submit: clears a finished publish band, and searches the registry's skills with the
+//   person's prompt: one that clearly fits is named beside the prompt, as context the model reads.
+//   It rides prompt.submit because Claude Code's built-in cc-plugin-sec-default, seated for Team
+//   and Enterprise organizations and on machines with managed settings, passes installed plugins
+//   over on prompt.compose and prompt.context. A slow or failed search adds nothing.
 //
 // What the session learned lives in this module, one copy per session. It is not kept in the
 // host's plugin state, which needs a types contract named in plugin.json: a key the desktop app
@@ -24,9 +29,11 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import {
   CALL_TOOL,
+  capped,
+  runnerCap,
   FIX,
   GATEWAY_TOOL,
-  PROBE_SERVERS,
+  probeServers,
   artifactOf,
   classify,
   dependentsOf,
@@ -41,6 +48,7 @@ import {
   retryNote,
   retryOf,
   searchRows,
+  serverKeyOf,
   summaryOf,
   unwrap,
   type AtlanHealth,
@@ -64,6 +72,7 @@ import {
   type SkillRow,
   type Touch,
 } from './view'
+import { HINT_MS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, type HintPrompt, type SkillMatch } from './hint'
 
 const HINTS_KEY = 'hints'
 const LOOKUP_MS = 6000
@@ -74,9 +83,13 @@ const PICKER = 'atlan-skills'
 const DASHBOARD = 'https://app.atlan.com'
 const PUBLISH = 'extension__skill__create'
 const GROUP_ROWS = 6
+const HINT_RATIONALE = "Looking for a published skill in the organization's registry that fits the user's request."
+/** Searches kept per session, for a prompt sent again. */
+const HINT_CACHE = 50
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
+const NO_APPROVER = 'Nobody can confirm it here (as under claude -p), so the Atlan mod refused it. Run it in a session where you can answer the prompt.'
 const GUARD_FAILED = 'The Atlan registry guard could not check this call, so it needs your confirmation.'
 const USAGE =
   'Usage: /atlan (connection status), /atlan search <words>, /atlan skills [words] (pick a skill to load) or /atlan pane (what this session touched)'
@@ -98,16 +111,24 @@ type Memory = {
   checked: Set<string>
   /** Registry writes that ran while another plugin answered the permission check first. */
   unguarded: number
+  /** Registry reads the same way: they asked again or ran on another plugin's verdict, not this
+   * mod's allow. Counted for /atlan only; a read changes nothing, so it raises no warning. */
+  unguardedReads: number
   /** Artifacts this session read or changed, newest first. */
   touches: Touch[]
   /** Confirmation cards for calls waiting on the person, by tool_use_id. */
   cards: Map<string, Card>
   /** Skill publishes this turn, for the band. */
   publishes: Publish[]
+  /** The server key of the gateway the model last called, when it is not one the mod probes
+   * anyway (a gateway added as `atlan-prod`). */
+  seenServer?: string
   isBandHidden: boolean
   /** The pane opens by itself once a session, at its first write or question. */
   hasOpenedPane: boolean
   picker: Picker
+  /** The skill hint's state, for the conversation `hintSession` names: a /clear starts a new one. */
+  hint: { session: string; named: Set<string>; searches: Map<string, Promise<SkillMatch[]>> }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -220,8 +241,8 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
   const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
-    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why)).then(valueOf),
-    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_artifact', { artifact_id: id }, why)).then(valueOf),
+    lookupWithRetry($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why, LOOKUP_MS).then(valueOf),
+    lookupWithRetry($, mem, server, 'registry__get_artifact', { artifact_id: id }, why, LOOKUP_MS).then(valueOf),
   ])
   const summary = artifact && !artifact.isError ? summaryOf(artifact.text) : undefined
   const dependents = related && !related.isError ? dependentsOf(related.text) : undefined
@@ -229,10 +250,10 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
 }
 
 /** Checks the connection with `mcp__describe_tools`, which opens no audit session. */
-async function probe($: Dollar): Promise<AtlanHealth> {
+async function probe($: Dollar, mem: Memory): Promise<AtlanHealth> {
   let detail = 'no Atlan server answered'
   let state: AtlanHealth['state'] = 'missing'
-  for (const server of PROBE_SERVERS) {
+  for (const server of probeServers(mem.seenServer)) {
     try {
       const outcome = await within($, PROBE_MS, $.mcp.call(server, 'mcp__describe_tools', { servers: ['registry'], detail: 'summary' }))
       if (outcome.kind === 'timeout') {
@@ -275,19 +296,21 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
   if (health.state === 'ready') {
     lines.push(
       confirmWrites
-        ? 'Writes ask first. Archive, approve and move always ask, with what depends on the artifact.'
-        : 'Writes follow your permission rules. Archive, approve and move always ask.',
+        ? 'Writes ask first. Archive, approve and move always ask, with what depends on the artifact, and are refused where nobody can answer.'
+        : 'Writes follow your permission rules. Archive, approve and move always ask, and are refused where nobody can answer.',
     )
     lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
   }
   if (mem.unguarded > 0) lines.push(`${UNGUARDED} Writes this session: ${mem.unguarded}. Check which plugins answer permission prompts with /plugin.`)
+  if (mem.unguardedReads > 0)
+    lines.push(`Another plugin answered the permission check for ${mem.unguardedReads} registry read${mem.unguardedReads === 1 ? '' : 's'} before this mod could, so reads may ask. Check which plugins answer permission prompts with /plugin.`)
   return lines.join('\n')
 }
 
 /** Runs a registry search through the server that answered last, or each one in turn. */
 async function searchRegistry($: Dollar, mem: Memory, args: Record<string, unknown>, rationale: string): Promise<Lookup | undefined> {
   const health = mem.health
-  const servers = health?.state === 'ready' && health.server ? [health.server] : [...PROBE_SERVERS]
+  const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   for (const server of servers) {
     const found = valueOf(await lookupWithRetry($, mem, server, 'registry__search_artifacts', args, rationale, PROBE_MS))
     if (found) return found
@@ -328,6 +351,59 @@ async function pickerSearch($: Dollar, mem: Memory, words: string): Promise<void
   redraw($)
 }
 
+/** Connection states in which the hint searches nothing: the search could only fail. */
+const NO_HINT: ReadonlySet<AtlanHealth['state']> = new Set(['sign-in', 'missing', 'unreachable'])
+
+/** The first answer a registry search gets from `servers`, tried in turn. */
+async function firstAnswer($: Dollar, mem: Memory, servers: readonly string[], args: Record<string, unknown>, rationale: string): Promise<Lookup> {
+  let last: Lookup = { text: '', isError: true }
+  for (const server of servers) {
+    last = await lookup($, mem, server, 'registry__search_artifacts', args, rationale).catch(() => last)
+    if (!last.isError) return last
+  }
+  return last
+}
+
+/**
+ * The context lines that name registry skills which clearly fit the prompt, or none. Searched once
+ * per prompt text a conversation, through the server the connection check found (or each one in
+ * turn while the check has not settled, as on a session's first prompt); signed out, missing or
+ * offline, nothing is searched. Each skill is named once a conversation, and never when a skill
+ * of that name is installed here. Never throws.
+ */
+async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<string[]> {
+  if (!isHintable(prompt)) return []
+  const health = mem.health
+  if (health && NO_HINT.has(health.state)) return []
+  const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
+  const session = await $.session.id()
+  if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
+  const hint = mem.hint
+  const query = hintQuery(prompt.text)
+  let pending = hint.searches.get(query)
+  if (!pending) {
+    pending = firstAnswer($, mem, servers, { query, kind: 'skill', semantic: true, limit: 3 }, HINT_RATIONALE).then(
+      found => {
+        if (found.isError) hint.searches.delete(query)
+        return found.isError ? [] : skillMatches(found.text)
+      },
+      () => {
+        hint.searches.delete(query)
+        return []
+      },
+    )
+    hint.searches.set(query, pending)
+    if (hint.searches.size > HINT_CACHE) hint.searches.delete(hint.searches.keys().next().value as string)
+  }
+  // A search that outlasts the wait still finishes, and answers the same prompt sent again.
+  const matches = (valueOf(await within($, HINT_MS, pending)) ?? []).filter(match => !hint.named.has(match.id))
+  if (matches.length === 0) return []
+  const installed = valueOf(await within($, HINT_MS, $.command.list()))?.map(command => command.name) ?? []
+  const fresh = matches.filter(match => !isInstalled(match.name, installed))
+  for (const match of fresh) hint.named.add(match.id)
+  return fresh.map(hintLine)
+}
+
 /** Puts the chosen skill in the prompt as the atlanai plugin's command, for the person to send. */
 async function pickSkill($: Dollar, row: SkillRow): Promise<void> {
   await $.prompt.fill({ text: `/atlanai:use-skill ${row.id} ` })
@@ -345,17 +421,20 @@ const MARK: Record<Publish['state'], string> = {
 
 export const register: Register = (on, options) => {
   const confirmWrites = options.confirm_writes !== false
+  const suggestSkills = options.suggest_skills !== false
   const mem: Memory = {
     session: '',
     housekeeping: '',
     checked: new Set(),
     unguarded: 0,
+    unguardedReads: 0,
     touches: [],
     cards: new Map(),
     publishes: [],
     isBandHidden: false,
     hasOpenedPane: false,
     picker: { query: '', state: 'idle', rows: [], total: 0, note: '' },
+    hint: { session: '', named: new Set(), searches: new Map() },
   }
 
   on('session.start', async ($, e, next) => {
@@ -366,12 +445,12 @@ export const register: Register = (on, options) => {
       immediate: true,
     })
     const check = async (): Promise<void> => {
-      const health = await probe($)
+      const health = await probe($, mem)
       // MCP servers can still be connecting at start: report a problem only if it outlasts a retry.
       if (health.state === 'ready') setHealth($, mem, health)
       else
         $.clock.after(RETRY_MS, async () => {
-          setHealth($, mem, await probe($))
+          setHealth($, mem, await probe($, mem))
         })
     }
     void check().catch(() => undefined)
@@ -393,24 +472,26 @@ export const register: Register = (on, options) => {
       return { text: opened.isPlaced ? 'The Atlan pane lists what this session read and changed.' : 'The Atlan pane opens once the window is wide enough.' }
     }
     if (sub !== '' && sub !== 'status' && sub !== 'doctor') return { text: USAGE }
-    const health = await probe($)
+    const health = await probe($, mem)
     setHealth($, mem, health)
     return { text: report(mem, health, confirmWrites) }
   })
 
-  on('prompt.submit', ($, e, next) => {
+  on('prompt.submit', async ($, e, next) => {
     // A new request starts with a clean band: finished publishes leave it, running ones stay.
     if (mem.publishes.length > 0 && mem.publishes.every(one => SETTLED.has(one.state))) {
       mem.publishes = []
       mem.isBandHidden = false
       redraw($)
     }
-    return next(e)
+    const hints = suggestSkills ? await skillHints($, mem, e).catch(() => []) : []
+    return hints.length > 0 ? next({ ...e, context: [...(e.context ?? []), ...hints] }) : next(e)
   }).catch(($, e, next) => next(e))
 
   on('tool.call', { tool: GATEWAY_TOOL }, async ($, e, next) => {
     const call = e as unknown as CallInput & { tool: string; tool_use_id?: string }
     const isCallTool = CALL_TOOL.test(call.tool)
+    mem.seenServer = serverKeyOf(call.tool) ?? mem.seenServer
     const known = mem.session
     const { input } = repairRails(call, known, isCallTool)
     if (isCallTool && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
@@ -457,6 +538,8 @@ export const register: Register = (on, options) => {
         mem.unguarded += 1
         if (mem.unguarded === 1) $.ui.toast(`Atlan: ${UNGUARDED}`)
         paint($, mem)
+      } else if (!wasChecked && effect === 'read') {
+        mem.unguardedReads += 1
       }
     }
 
@@ -494,8 +577,10 @@ export const register: Register = (on, options) => {
       setHealth($, mem, { state: 'degraded', server: health?.server ?? '', detail: 'a registry call failed with a temporary error', checkedAt: await $.clock.now() })
     }
     // A transient failure tells the model how to recover: repeat a read after a wait, read back
-    // before repeating a write. The engine never runs a call twice for a hook.
-    if (retry && ran.result !== undefined) {
+    // before repeating a write. The engine never runs a call twice for a hook. A lost skill create
+    // is left to atlanai's publish helper and atlan-author-skills' read-back: it takes no
+    // idempotency_key, so this note's advice would be wrong for it, and two notes would disagree.
+    if (retry && ran.result !== undefined && !(isCallTool && inner.name === PUBLISH)) {
       return { ...ran, context: [...(ran.context ?? []), retryNote(effect === 'read' ? 'read' : 'write', retry)] }
     }
     return ran
@@ -514,7 +599,7 @@ export const register: Register = (on, options) => {
     const inner = unwrap(outer.name, outer.arguments)
     const name = inner.name
     const input: Record<string, unknown> = { ...outer, name, arguments: inner.args }
-    const effect = classify(name, await loadHints($))
+    const effect = capped(classify(name, await loadHints($)), runnerCap(e.tool), name)
 
     if (effect === 'unknown') return verdict
     if (effect === 'read') {
@@ -529,6 +614,7 @@ export const register: Register = (on, options) => {
     }
     // Archive, approve and move: asked wherever someone can answer, refused where nobody can.
     const { reason, card } = await blastRadius($, mem, e.tool_use_id ?? '', e.tool, name, input)
+    if (e.approver === undefined) return { decision: 'deny', reason: `${reason} ${NO_APPROVER}` }
     if (card && e.tool_use_id && e.approver !== undefined) {
       mem.cards.set(e.tool_use_id, card)
       offerPane($, mem, true)

@@ -1,6 +1,6 @@
 # Propose a metric from this conversation
 
-`/atlan-analytics propose` turns a gap this conversation found into a proposal that the
+`/atlanai-analytics:atlan-analytics propose` turns a gap this conversation found into a proposal that the
 metric's owners review in Metric Studio:
 - a **new metric** when an answer had no published metric for what was asked;
 - a **fix** when the person said a published metric's number was wrong, and why.
@@ -48,7 +48,8 @@ Run `EVAL session-run`, that is
 trace this session becomes once the desktop app syncs it. Add one
 `evidence.runs` entry per question: `{trace_id, agent, question, asked_by, at}`, where `agent`
 is the talk-to-data agent that answered, or the harness when the person asked directly,
-`asked_by` is the person's name, and `at` is when they asked, in UTC, or the time of this
+`asked_by` is the person's name when the conversation shows it, or `"unknown"` (don't ask just
+for this), and `at` is when they asked, in UTC, or the time of this
 propose run when the conversation does not show it. Tell
 the person that the trace opens in Atlan only after this session is synced; the question, who
 asked and when show in Metric Studio either way.

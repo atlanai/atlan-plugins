@@ -71,4 +71,5 @@ locally before running a script. MCP does not expand plugin-local includes.
 
 Never expose credentials or identifying query literals. Gold SQL and results stay local and
 out of agent context; the failure analyst sees train traces only. Keep the two specialist
-agents, `atlan-analytics-grader` and `atlan-analytics-failure-analyst`, isolated as documented.
+agents, `atlan-analytics-grader` and `atlan-analytics-failure-analyst` (listed with the
+`atlanai-analytics:` prefix in Claude Code), isolated as documented.

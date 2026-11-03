@@ -5,7 +5,7 @@ Each round N writes to `H/vN/`.
 ## Analyse
 
 Skip the analyst only when the fix is already clear: the user named it, or the last round
-points straight at it. Otherwise spawn **one fresh `atlan-analytics-failure-analyst`** and give it:
+points straight at it. Otherwise spawn **one fresh failure analyst** (`atlanai-analytics:atlan-analytics-failure-analyst`) and give it:
 - the exact list of **train** trace paths, `H/<prev>/traces/<id>_rep<k>.json` for ids in
   `eval/split.json` `train_ids`, with the instruction to read nothing else;
 - the train rows of `H/<prev>/results.jsonl`;
@@ -52,30 +52,16 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
    - **Prompt, model or effort**: edit `.claude/agents/<slug>.md`, and mirror the prompt to
      the registered agent with `registry__patch_artifact` (`instructions`, `model_id`). The
      subagent file is re-read by new sessions. If the edit doesn't take effect in this session,
-     tell the user to restart and resume with `/atlan-analytics`.
+     tell the user to restart and resume with `/atlanai-analytics:atlan-analytics`.
 5. Write `H/vN/change.patch` (the diff of the definition JSON or the subagent file) and
    `H/vN/receipt.json` (the artifact id, before/after version ids and ordinals, and any release
    ids actually consumed by the run). Record a proposed change as proposed, never as saved.
 
 ### Saving and undoing a definition change
 
-Metric and saved-query definitions are immutable within a revision. `registry__patch_artifact`
-cannot edit either definition. Use `registry__get_artifact` to read the current head and its
-`etag`, then `registry__append_artifact_version` with:
-
-- `artifact_id`: the existing metric or saved-query ID;
-- `if_match`: the exact head ETag reviewed;
-- `metadata`: the complete `definition`, preserved `source_version` and `source_metadata`,
-  and `auto_release: false`; omit line fields such as `name` and `workspace_id`;
-- `idempotency_key`: one unique key for this reviewed change, reused with identical arguments
-  only to recover an uncertain write.
-
-Do not copy server-owned hashes or validation receipts. Confirm the head still matches the
-proposal's base before appending. A metric's positive-integer `definition.version` must never
-decrease; execution-input changes require a higher value. A usage-note-only query change
-needs no metric semantic version. Read back the same artifact ID and new ordinal, and
-record before/after version IDs and ordinals in the receipt. A stale token refuses the write;
-re-read and reconcile instead of blindly retrying.
+Follow [appending a revision](../metrics/publish.md#appending-a-revision) with
+`auto_release: false`, so the round's change waits for a person's release. Record before and
+after version IDs and ordinals in the receipt.
 
 Undo follows the same procedure: restore the intended full definition into a new version,
 using the latest observed ETag and a valid metric semantic version. Never mutate history.
@@ -147,27 +133,32 @@ as a hidden part of an edit or undo.
 
 ## Run
 
-Run variant `vN` over **all** cases at the baseline's rep count via `atlan-analytics eval`. Then
+Run variant `vN` over the train and validation cases (`EVAL todo --ids all`, which leaves the
+holdout out) at the baseline's rep count via `atlan-analytics eval`. Then
 publish it with `--baseline baseline`, as [Publish in the eval procedure](../eval.md#publish)
 describes, so the registry records the round as an experiment linked to the baseline.
 
 ## Record and decide
 
-- `EVAL compare --a baseline --b vN` gives test and train pass rates with their bands, the
-  context-engagement rate, tokens and cost.
-- Update `H/_state.json` (`current_round`, and `best` when test beats it). Rewrite
+- `EVAL compare --a baseline --b vN` gives the paired validation and train deltas, each with
+  its band and an exact sign-test p-value, and `guardrails` with each variant's p50 and p95
+  time and tokens per run. `EVAL summary --variant vN` gives context engagement and unverified
+  isolation.
+- Update `H/_state.json` (`current_round`, and `best` when validation beats it). Rewrite
   `H/narrative.md` with the status table on top:
 
-  | round | change | test | train | used context | out toks | $/run | spend |
+  | round | change | validation | train | p | used context | p95 s | tokens/run |
   |---|---|---|---|---|---|---|---|
 
+  Leave cost out: the script measures tokens, not money.
+
   Under the table, one paragraph on what's winning and why.
-- In chat, one line: `v3 test 52% → 61% (±18), change: <one line>`, then the path to
+- In chat, one line: `v3 validation 52% → 61% (±18, p 0.04), change: <one line>`, then the path to
   `narrative.md`.
 - **Keep or revert:**
-  - train up and test flat: it overfit. Revert it and try another angle.
+  - train up and validation flat: it overfit. Revert it and try another angle.
   - train down: revert.
-  - train down but test up: treat it as noise until a rerun confirms.
+  - train down but validation up: treat it as noise until a rerun confirms.
   - a tie: keep the later round.
 - Check the stopping condition. After 2–3 rounds flat within noise, go to
   `skills/atlan-analytics/references/improve/04-stall.md`.
