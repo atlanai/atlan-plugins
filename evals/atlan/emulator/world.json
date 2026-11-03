@@ -567,6 +567,28 @@
           "type": "string"
          },
          "description": "Text files, including root SKILL.md; batch maximum 256 KiB and 128 files."
+        },
+        "display_name": {
+         "type": "string"
+        },
+        "description": {
+         "type": "string"
+        },
+        "project_id": {
+         "type": "string"
+        },
+        "source_id": {
+         "type": "string"
+        },
+        "source_type": {
+         "type": "string",
+         "enum": [
+          "local",
+          "git",
+          "atlan",
+          "external"
+         ],
+         "default": "local"
         }
        },
        "required": [
@@ -596,6 +618,15 @@
         }
        ]
       }
+     },
+     "wait_for_release": {
+      "type": "boolean",
+      "default": false,
+      "description": "Wait, up to 20 seconds and never past the call's own deadline, for each created skill's scan to settle, and report its final status and releases. A slot still `pending_review` is saved: read it back rather than creating it again."
+     },
+     "verbose": {
+      "type": "boolean",
+      "default": false
      }
     },
     "required": [
