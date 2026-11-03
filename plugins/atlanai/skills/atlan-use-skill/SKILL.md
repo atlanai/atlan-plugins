@@ -193,7 +193,8 @@ Then, for **every** entry in `metadata.files`:
 
 1. Read it with `registry__get_file_content` (`file_id`, and `version_ordinal` set to the
    entry's `file_version_ordinal`, so every file comes from the same version). `SKILL.md`
-   already came back as `included_file`, so it needs no second read.
+   already came back as `included_file`, so it needs no second read. The reads do not depend
+   on each other: send them as parallel calls, up to 10 in one turn, not one file per turn.
 2. Write the returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
    any path that is absolute or contains `..`.
 
