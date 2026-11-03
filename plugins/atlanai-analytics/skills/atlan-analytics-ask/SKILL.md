@@ -20,18 +20,31 @@ otherwise take the narrowest reasonable reading and say so in the answer.
 ## 2. Find the definitions
 
 1. Open a registry session as **Registry calls** in the conventions describes, with the question
-   as the `objective`.
-2. Pick the workspace. Call `registry__list_workspaces`; with one, use it. With several, search
-   each for the measure (step 3) and ask which one, recommending the one whose metrics match.
-3. Search the workspace for the question's key terms: the measure, its business nouns and the
-   likely metric names. Use `extension__metric__search_metrics` with `workspace_id`, `query` and
-   `include_definition: true`, and `extension__metric__search_queries` with `workspace_id` and
-   `query`, when they are listed. Without `include_definition`, the metric search returns heads,
-   which may be unreleased drafts. With it, the search returns released revisions with their
-   receipts and definitions. The query search returns only released revisions. An empty
-   published result is the answer "no published metric"; never fall back to the head search
-   for a definition. When those tools aren't listed, use `registry__search_artifacts` with kind
-   `metric`, then `sql_query`, and read each hit at a release as step 4 says.
+   as the `objective`. Its first call is step 2's search.
+2. Find where the metrics live before searching any one workspace. Call
+   `registry__search_artifacts` with `kind` `metric`, the measure as `query` and no
+   `workspace_id`: it searches every workspace you can read, and each hit names its workspace.
+   Use the workspace that holds the best hit. When good hits sit in several workspaces, ask which
+   one, recommending the one whose metric name matches the measure. With no hit, call
+   `registry__get_artifact_counts` with `kind` `metric` and `group_by` `workspace_id` and use the
+   workspace it ranks first; when it counts no metrics at all, go to **Nothing found** below.
+   Never search workspaces one by one, and never pick a workspace from its description alone:
+   descriptions can point the wrong way.
+3. Search that workspace for the question's key terms: the measure, its business nouns and the
+   likely metric names. Use `extension__metric__search_metrics` with `workspace_id`, `query`,
+   `include_definition: true` and `definition_limit: 1` (2 when the top two names both fit the
+   measure). Each definition is up to 16 KiB, so never ask for more. Without
+   `include_definition`, the metric search returns heads, which may be unreleased drafts. With
+   it, the search returns released revisions with their receipts and definitions. An empty
+   published result is the answer "no published metric"; never fall back to the head search for
+   a definition. When those tools aren't listed, read step 2's metric hit at a release as
+   step 4 says.
+
+   Search saved queries only when no released metric answers the question, or when the person
+   asks for one: `extension__metric__search_queries` with `workspace_id`, `query`, `limit: 5`
+   and `include_sql: false`. Then fetch the SQL of the one query you will use by `name` (with
+   `include_sql` left on). The query search returns only released revisions. Without those
+   tools, use `registry__search_artifacts` with kind `sql_query` and that workspace.
 4. Read the one or two most relevant results exactly as step 1 and the **Rules** of
    [the agent template](../atlan-analytics/references/eval/agent-template.md) say: only a
    released revision counts, a rejected query is skipped, an unreviewed one is a caveat, and a
@@ -43,7 +56,7 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    context mode for entity names and join paths. A released metric still decides the formula,
    population and filters.
 
-Nothing found is an answer too: say the workspace has no published definition for the measure,
+**Nothing found** is an answer too: say the workspace has no published definition for the measure,
 then continue with your own SQL and its assumptions spelled out (step 5 labels it).
 
 ## 3. Reach the data
