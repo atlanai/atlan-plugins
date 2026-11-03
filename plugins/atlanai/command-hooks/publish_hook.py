@@ -229,11 +229,32 @@ def response_text(event: dict) -> tuple[str, bool | None]:
     return (value if isinstance(value, str) else json.dumps(value)), is_error
 
 
-def post_note(text: str, is_error: bool | None) -> str | None:
+def keyed(tool_input: dict) -> bool:
+    """Whether every skill in the create carries an idempotency_key, so a resend is safe."""
+    args = tool_input.get("arguments")
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except ValueError:
+            return False
+    skills = args.get("skills") if isinstance(args, dict) else None
+    return isinstance(skills, list) and bool(skills) and all(
+        isinstance(item, dict) and isinstance(item.get("idempotency_key"), str) and item["idempotency_key"] for item in skills
+    )
+
+
+def post_note(text: str, is_error: bool | None, with_key: bool = False) -> str | None:
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     if is_error is not False and (re.search(r'"may_have_run"\s*:\s*true', text) or (not re.search(r'"retryable"\s*:\s*false', text) and LOST.search(text))):
+        if with_key:
+            return (
+                f"The skill create may have committed before its reply was lost (answered at {now}). Every skill carried an "
+                "idempotency_key, so send the same call again, unchanged: the same keys and the same files. The server returns "
+                "the version the first call saved, or creates it if nothing landed. A new key, or changed files under the same "
+                "key, would write a second version or be refused."
+            )
         return (
-            f"The skill create may have committed before its reply was lost (answered at {now}). It takes no idempotency_key, "
+            f"The skill create may have committed before its reply was lost (answered at {now}). It carried no idempotency_key, "
             'so do not send it again yet: find the skill with registry__search_artifacts (kind "skill", the workspace_id and name), '
             "read it with registry__get_artifact, and count the version as landed when its version_ordinal is the one expected and "
             "its updated_at is no earlier than 10 seconds before you sent the create. If nothing landed, wait 5 seconds and read "
@@ -268,7 +289,7 @@ def answer(entry: str, host: str, event: dict):
             return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "updatedInput": new_input}}
         return {"permission": "allow", "updated_input": new_input}
     if entry == "post":
-        note = post_note(*response_text(event))
+        note = post_note(*response_text(event), with_key=keyed(tool_input))
         if note is None:
             return None
         return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": note}} if codex else {"additional_context": note}

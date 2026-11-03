@@ -189,10 +189,28 @@ export function isLostReply(text: string): boolean {
   return /"retryable"\s*:\s*true/.test(text) || /\b(?:502|503|504)\b|bad gateway|service unavailable|gateway time-?out/i.test(text)
 }
 
-/** What the model reads after a lost reply: publish.md's read-back, with the time the call went. */
-export function readBackNote(sentAt: number): string {
+/** Whether every skill in the create carries an idempotency_key, so resending it unchanged is safe. */
+export function isKeyed(args: Record<string, unknown>): boolean {
+  const skills = args.skills
   return (
-    `The skill create may have committed before its reply was lost. It takes no idempotency_key, so do not send it again yet. ` +
+    Array.isArray(skills) &&
+    skills.length > 0 &&
+    skills.every(item => isRecord(item) && typeof item.idempotency_key === 'string' && item.idempotency_key !== '')
+  )
+}
+
+/** What the model reads after a lost reply: a keyed resend, or publish.md's read-back with the time the call went. */
+export function readBackNote(sentAt: number, withKey = false): string {
+  if (withKey) {
+    return (
+      'The skill create may have committed before its reply was lost. Every skill carried an idempotency_key, so send the ' +
+      'same call again, unchanged: the same keys and the same files_from or files. The server returns the version the first ' +
+      'call saved, or creates it if nothing landed. A new key, or changed files under the same key, would write a second ' +
+      'version or be refused.'
+    )
+  }
+  return (
+    `The skill create may have committed before its reply was lost. It carried no idempotency_key, so do not send it again yet. ` +
     `It was sent at ${new Date(sentAt).toISOString()}: find the skill with registry__search_artifacts (kind "skill", the workspace_id and name), ` +
     'read it with registry__get_artifact, and count the version as landed when its version_ordinal is the one expected and its updated_at ' +
     'is no earlier than 10 seconds before that time. If nothing landed, wait 5 seconds and read once more; only then send the create again, once.'
@@ -234,7 +252,7 @@ export const register: Register = on => {
     const ran = await next({ ...e, arguments: sent } as typeof e)
     try {
       if (ran.deny !== undefined || ran.isError !== true || !isLostReply(resultText(ran))) return ran
-      return { ...ran, context: [...(ran.context ?? []), readBackNote(sentAt)] }
+      return { ...ran, context: [...(ran.context ?? []), readBackNote(sentAt, isKeyed(args))] }
     } catch {
       return ran
     }
