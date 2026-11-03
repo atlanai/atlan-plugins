@@ -40,7 +40,9 @@ T tokens." Give no dollar figure: the script has no pricing data. Then ask:
 - **One round at a time**: propose, run, report, ask
 - **N rounds**: the user gives N
 
-Set δ above the noise floor from `skills/atlan-analytics/references/improve/02-baseline-check.md`. If there's a budget, show
+Set δ above the noise floor, the validation `ci95` from
+`skills/atlan-analytics/references/improve/02-baseline-check.md`. A round counts as a win only
+when `EVAL compare` also reports the change as significant on its sign test. If there's a budget, show
 `(rounds + 1) × T` tokens and treat it as a guide, not a wall.
 
 ## Sign-off (required before any change)
