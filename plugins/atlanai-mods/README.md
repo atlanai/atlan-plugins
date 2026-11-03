@@ -1,15 +1,16 @@
 # Registry Mods
 
-A Claude Code mod for the `atlanai` plugin. Every Atlan registry call goes through one tool,
-`mcp__call_tool`, so Claude Code's own permission rules cannot tell a search from an archive. The
-mod knows the gateway by its tool names, so a gateway added by hand under another name
+A Claude Code mod for the `atlanai` plugin. Every Atlan registry call goes through one of three
+runners (`mcp__call_read_tool`, `mcp__call_write_tool` or `mcp__call_tool`), so Claude Code's own
+permission rules see the runner, not the tool: they cannot tell a create from an archive run
+through `mcp__call_tool`. The mod knows the gateway by its tool names, so a gateway added by hand under another name
 (`claude mcp add atlan-prod …`) is covered too. This mod can:
 
 | What | How |
 |---|---|
 | Registry reads run without a prompt | Searches, reads and listings are allowed at the permission check. Your deny rules and your organization's limits still apply. |
 | Writes ask first | A create, patch, append or relate asks, and the prompt names the write. Turn this off with the `confirm_writes` option. |
-| Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`). Where nobody can answer, as under `claude -p`, the call is refused. A name in another case, with spaces around it, or wrapped in a nested `mcp__call_tool` asks the same way. |
+| Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`). Where nobody can answer, as under `claude -p`, the call is refused. A name in another case, with spaces around it, or wrapped in a nested runner asks the same way. |
 | Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them, for the registry's tools and the apps' (`extension__…`) alike; another server's tool keeps an argument of the same name. The session's audit session is reused, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A call with no rationale is refused with the fix. |
 | Outages are absorbed | When Atlan answers 502, 503 or 504, or a server behind it is briefly unavailable, Claude is told to repeat a read after the gateway's wait (2 seconds when it names none), at most 3 tries, and to read back before repeating a write; a lost skill publish is left to `atlanai`'s publish helper and the publish skill's read-back. The mod's own lookups retry once. |
 | Connection problems show | The status line says when Atlan needs a sign-in, cannot be reached, is not connected or is answering with temporary errors (`Atlan: degraded, retrying reads`). A failed check is diagnosed from its error, not reported as a timeout. It shows nothing while the connection works. |
@@ -27,9 +28,12 @@ Other servers reached through Atlan (Slack, Linear and the rest) are left to you
 rules, whatever their tool annotations say: a server's own read-only claim is not trusted to skip
 a prompt. A tool its server marks destructive always asks, and is refused where nobody can answer.
 
-An allow rule you set on `mcp__call_tool` is not enough to skip a write's prompt while
-`confirm_writes` is on: the mod asks anyway. Turn `confirm_writes` off to let your rules decide
-writes. Archive, approve and move ask in every case.
+A call through `mcp__call_read_tool` is treated as a read, because the gateway refuses any tool
+through it that is not read-only; one through `mcp__call_write_tool` never counts as destructive,
+for the same reason. Archive, approve and move ask in every case, whichever runner carries them.
+
+An allow rule you set on a runner is not enough to skip a write's prompt while `confirm_writes`
+is on: the mod asks anyway. Turn `confirm_writes` off to let your rules decide writes.
 
 ### When another plugin answers first
 
@@ -77,7 +81,7 @@ See Claude Code's [Manage mods for your organization](https://code.claude.com/do
 It runs inside Claude Code with your permissions. `claude plugin validate plugins/atlanai-mods`
 lists every call it makes. It:
 
-- reads the input of the three Atlan gateway tools, and their results, to move rails and learn
+- reads the input of the five Atlan gateway tools, and their results, to move rails and learn
   the session id and tool annotations;
 - calls the `atlan` server you signed in to, as you: `mcp__describe_tools` at session start
   (opens no audit session), `registry__get_artifact` and `registry__get_related_artifacts` before
