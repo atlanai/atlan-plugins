@@ -191,7 +191,14 @@ CLAUDE_MANIFEST_KEYS = frozenset({
 # The core's hooks module, named only from its Claude manifest: Codex and Cursor read hooks/ by
 # default, and only Claude Code runs a module (AGENTS.md, "Portable, except one hooks module").
 CORE_HOOKS = "./claude-hooks/hooks.json"
-OTHER_MANIFESTS = ("plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json")
+# The command hook each other harness may name, by manifest, and where in it: Codex reads plugin
+# hooks from `extensions.com.openai` in plugin.json (or the legacy overlay), Cursor from its own.
+COMMAND_HOOKS = {
+    "plugin.json": ("extensions.com.openai.hooks", "./command-hooks/codex.json"),
+    ".codex-plugin/plugin.json": ("hooks", "./command-hooks/codex.json"),
+    ".cursor-plugin/plugin.json": ("hooks", "./command-hooks/cursor.json"),
+}
+HOOK_SCRIPT = "command-hooks/publish_hook.py"
 
 
 def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
@@ -227,10 +234,36 @@ def lint_core_hooks(root: Path) -> list[str]:
         errors.append(f"{relative}/hooks.json: the core has no settings hooks, only `modules`")
     if not (isinstance(modules, list) and len(modules) == 1 and (folder / str(modules[0])).is_file()):
         errors.append(f"{relative}/hooks.json: `modules` names exactly one file in claude-hooks/")
-    for name in OTHER_MANIFESTS:
-        other = root / name
-        if other.is_file() and "hooks" in json.loads(other.read_text(encoding="utf-8")):
-            errors.append(f"{other.relative_to(ROOT)}: only Claude Code runs the hooks module; no other manifest names it")
+    return errors
+
+
+def lint_command_hooks(root: Path) -> list[str]:
+    """Each other harness's manifest names only its own command-hooks file, and every command in
+    one runs the publish hook script: no other command, and never claude-hooks/."""
+    errors = []
+    for name, (field, expected) in COMMAND_HOOKS.items():
+        manifest = root / name
+        if not manifest.is_file():
+            continue
+        document = json.loads(manifest.read_text(encoding="utf-8"))
+        relative = manifest.relative_to(ROOT)
+        if name == "plugin.json" and "hooks" in document:
+            errors.append(f"{relative}: Agent Plugins has no top-level `hooks`; Codex's go under extensions.com.openai")
+        value = document
+        for key in field.split("."):
+            value = value.get(key) if isinstance(value, dict) else None
+        if value is not None and value != expected:
+            errors.append(f"{relative}: `{field}` may only name {expected!r}")
+        if value is not None and not (root / expected).is_file():
+            errors.append(f"{relative}: `{field}` names {expected}, which does not exist")
+    folder = root / "command-hooks"
+    for path in sorted(folder.glob("*.json")) if folder.is_dir() else []:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        handlers = [h for groups in document.get("hooks", {}).values() for group in groups for h in group.get("hooks", [group])]
+        for handler in handlers:
+            command = handler.get("command", "")
+            if HOOK_SCRIPT not in command or "claude-hooks" in command or handler.get("type", "command") != "command":
+                errors.append(f"{path.relative_to(ROOT)}: every hook runs {HOOK_SCRIPT}, and nothing else")
     return errors
 
 
@@ -329,6 +362,8 @@ def lint_repository(files: list[Path]) -> list[str]:
             errors.append(f"{relative}/hooks/ is out of scope for these plugins; see AGENTS.md before adding one")
         if (root / "claude-hooks").exists() and root != plugin_roots()[0]:
             errors.append(f"{relative}/claude-hooks/ belongs to the core alone; a mod keeps its module in hooks/")
+        if (root / "command-hooks").exists() and root != plugin_roots()[0]:
+            errors.append(f"{relative}/command-hooks/ belongs to the core alone")
     for path in files:
         if path.is_symlink():
             errors.append(f"{path.relative_to(ROOT)}: symlinks do not survive every host's install")
@@ -379,6 +414,8 @@ def main() -> int:
     for root in roots:
         errors += lint_claude_manifest(root, root == roots[0])
     errors += lint_core_hooks(roots[0])
+    for root in roots:
+        errors += lint_command_hooks(root)
     errors += lint_repository(tracked_files())
 
     for error in errors:

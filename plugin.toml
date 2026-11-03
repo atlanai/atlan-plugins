@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.4.1"
+version = "0.5.0"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -36,6 +36,12 @@ privacy_policy_url = "https://atlan.com/privacy-policy/"
 # of hooks/, the folder Codex and Cursor read by default, since only Claude Code runs a module. A
 # variant leaves it out, as it leaves out the mods.
 claude_hooks = "./claude-hooks/hooks.json"
+# The same helper as a command hook for Codex and Cursor (command-hooks/publish_hook.py), named from
+# each one's own manifest field: Codex's `extensions.com.openai.hooks` in plugin.json (and the legacy
+# .codex-plugin overlay), Cursor's `hooks` in .cursor-plugin/plugin.json. Setting each turns off that
+# harness's hooks/hooks.json discovery. A variant leaves them out too.
+codex_hooks = "./command-hooks/codex.json"
+cursor_hooks = "./command-hooks/cursor.json"
 # terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
 
 [author]
