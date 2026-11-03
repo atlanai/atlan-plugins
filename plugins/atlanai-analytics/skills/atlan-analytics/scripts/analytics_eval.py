@@ -102,14 +102,25 @@ _FULL_NAME_OK = re.compile(r"'%?(?:Pending Ruling|Not Applicable|Closed Won|Clos
                            r"New York|Human Assisted|First Response)%?'")
 
 
+PII = dict(PII_RULES)  # metrics_mine checks cards with these same rules: one policy, not two copies
+
+
+def full_name_hit(text: str):
+    """The first quoted two-word capitalised literal that is not a known business value, or None.
+    Every match is tried: an allowed value earlier in the text does not hide a name after it."""
+    for m in PII["full_name"].finditer(text or ""):
+        if not _FULL_NAME_OK.search(m.group(0)):
+            return m.group(0)
+    return None
+
+
 def pii_reason(sql: str):
     for name, pat in PII_RULES:
-        m = pat.search(sql or "")
-        if not m:
-            continue
-        if name == "full_name" and _FULL_NAME_OK.search(m.group(0)):
-            continue
-        return name
+        if name == "full_name":
+            if full_name_hit(sql):
+                return name
+        elif pat.search(sql or ""):
+            return name
     return None
 
 
@@ -170,10 +181,37 @@ def is_ordered(gold_sql: str) -> bool:
     return bool(_ORDERED.search((gold_sql or "").strip()))
 
 
+_MORE_FLAGS = ("truncated", "has_more", "hasMore", "more_rows", "partial", "is_truncated")
+_MORE_CURSORS = ("next_page_token", "nextPageToken", "next_cursor", "nextCursor", "next_chunk_index", "continuation")
+
+
+def _more(obj: dict) -> bool:
+    """Whether a response says it holds only part of the result: a flag, a cursor to a next page,
+    or `complete: false`. Every wrapper on the way down is asked, not only the innermost."""
+    if any(obj.get(k) is True for k in _MORE_FLAGS):
+        return True
+    if any(obj.get(k) not in (None, "", False) for k in _MORE_CURSORS):
+        return True
+    return obj.get("complete") is False or obj.get("is_complete") is False
+
+
 def normalize_result(obj) -> dict:
     """Accept {columns, rows}, a list of row dicts, {"data"|"rows"|"results"|"resultSet": ...},
     {"error": ...} or a Databricks statement {manifest, result.data_array} (the shapes warehouse MCP
-    tools return) and give {columns, rows} or {error}."""
+    tools return) and give {columns, rows} or {error}. A wrapper that says more pages exist marks
+    what it wraps truncated, however deep the rows sit."""
+    res = _normalize_result(obj)
+    if isinstance(obj, str):
+        try:
+            obj = json.loads(obj)
+        except json.JSONDecodeError:
+            return res
+    if isinstance(obj, dict) and not res.get("error") and _more(obj):
+        res["truncated"] = True
+    return res
+
+
+def _normalize_result(obj) -> dict:
     if isinstance(obj, str):
         try:
             obj = json.loads(obj)
@@ -567,8 +605,10 @@ def _text_of(content) -> str:
 
 def parse_transcript(path) -> dict:
     """A Claude Code subagent transcript (JSONL; each line carries a `message` with role + content blocks)
-    -> {turns, tool_calls, usage, model, contaminated}. Tolerant of unknown line shapes."""
+    -> {turns, tool_calls, usage, model, contaminated, assistant_messages}. Tolerant of unknown line
+    shapes; a file with no line it recognises reads as zero assistant messages, which record refuses."""
     turns, tool_calls, usage, model, hits = [], 0, {"input_tokens": 0, "output_tokens": 0}, None, []
+    assistant = 0
     seen_msg_ids: set = set()
     for line in pathlib.Path(path).read_text().splitlines() if path and pathlib.Path(path).exists() else []:
         try:
@@ -581,6 +621,7 @@ def parse_transcript(path) -> dict:
             continue
         mid = msg.get("id")
         if role == "assistant":
+            assistant += 1
             model = msg.get("model") or model
             u = msg.get("usage") or {}
             if u and mid not in seen_msg_ids:  # a streamed message repeats its usage per content line
@@ -614,12 +655,38 @@ def parse_transcript(path) -> dict:
             elif t == "tool_result":
                 turns.append({"role": "tool_result", "name": b.get("tool_use_id"), "tool_use_id": b.get("tool_use_id"),
                               "content": _text_of(b.get("content"))[:20000]})
-    return {"turns": turns, "tool_calls": tool_calls, "usage": usage, "model": model, "contaminated": hits}
+    return {"turns": turns, "tool_calls": tool_calls, "usage": usage, "model": model, "contaminated": hits,
+            "assistant_messages": assistant}
 
 
 # ====================================================================== record / todo / scores
+# A pair whose latest row is one of these is recorded again once the cause is fixed: every page
+# fetched, the gold re-run, the tool back. The new row supersedes the old; both stay in the file.
+RETRYABLE = ("incomplete", "gold_error", "harness_error")
+MAX_ATTEMPTS = 3  # after this many, the pair stays unresolved and is reported, not offered again
+
+
+def latest_rows(rows: list) -> list:
+    """The latest attempt per (case, rep), in the order the pairs were first recorded."""
+    last: dict = {}
+    for r in rows:
+        last[(r["prompt_id"], int(r["rep"]))] = r
+    return list(last.values())
+
+
+def read_results(path) -> list:
+    return latest_rows(read_jsonl(path))
+
+
+def _attempts(res_path) -> Counter:
+    return Counter((r["prompt_id"], int(r["rep"])) for r in read_jsonl(res_path))
+
+
 def _done(res_path) -> set:
-    return {(r["prompt_id"], int(r["rep"])) for r in read_jsonl(res_path)}
+    """Pairs that need no further run: graded, or retried MAX_ATTEMPTS times."""
+    tries = _attempts(res_path)
+    return {(r["prompt_id"], int(r["rep"])) for r in read_results(res_path)
+            if r.get("class") not in RETRYABLE or tries[(r["prompt_id"], int(r["rep"]))] >= MAX_ATTEMPTS}
 
 
 def cmd_todo(a) -> dict:
@@ -630,10 +697,16 @@ def cmd_todo(a) -> dict:
     else:
         train, validation, holdout = split_sets(pr.split())
         ids = sorted({"train": train, "validation": validation, "test": validation, "holdout": holdout}[a.ids])
-    done = _done(pr.vdir(a.variant) / "results.jsonl")
-    todo = [{"case_id": i, "rep": k, "question": cases[i]["question"], "tags": cases[i].get("tags") or []}
+    res_path = pr.vdir(a.variant) / "results.jsonl"
+    done = _done(res_path)
+    latest = {(r["prompt_id"], int(r["rep"])): r for r in read_results(res_path)}
+    todo = [{"case_id": i, "rep": k, "question": cases[i]["question"], "tags": cases[i].get("tags") or [],
+             **({"retry": latest[(i, k)]["class"]} if (i, k) in latest else {})}
             for i in ids for k in range(a.reps) if (i, k) not in done]
-    return {"status": "ok", "variant": a.variant, "remaining": len(todo), "done": len(done), "todo": todo}
+    unresolved = sorted(f"{i}_rep{k}" for (i, k), r in latest.items()
+                        if r.get("class") in RETRYABLE and (i, k) in done)
+    return {"status": "ok", "variant": a.variant, "remaining": len(todo), "done": len(done), "todo": todo,
+            "retries": sum(1 for t in todo if "retry" in t), "unresolved": unresolved}
 
 
 def _read_answer(path) -> dict:
@@ -662,6 +735,13 @@ def cmd_record(a) -> dict:
         raise Blocked(f"No transcript at {a.transcript}.",
                       "Pass the subagent's output_file. For an answer made outside this harness (an adopted agent), "
                       "leave --transcript out: the row is then marked isolation unverified.")
+    tr = parse_transcript(a.transcript) if a.transcript else {"turns": [], "tool_calls": None,
+                                                              "usage": {}, "model": None, "contaminated": []}
+    if a.transcript and not tr["assistant_messages"]:
+        # A file is not evidence: one this parser cannot read shows no session, so no isolation.
+        raise Blocked(f"No agent messages in the transcript at {a.transcript}.",
+                      "Pass the subagent's output_file, the JSONL transcript of its run. For an answer made "
+                      "outside this harness, leave --transcript out: the row is then marked isolation unverified.")
     if a.case not in cases:
         raise Blocked(f"Unknown case '{a.case}'.", "Use a case_id from eval/cases.jsonl.")
     for flag, path in (("--gold-result", a.gold_result), ("--agent-result", a.agent_result)):
@@ -683,8 +763,11 @@ def cmd_record(a) -> dict:
         raise Blocked(f"Case '{a.case}' has no gold SQL.", "Add it to eval/answers.jsonl.")
     vd = pr.vdir(a.variant)
     res_path = vd / "results.jsonl"
-    if (a.case, a.rep) in _done(res_path):
+    if (a.case, int(a.rep)) in _done(res_path):
         return {"status": "ok", "exists": True, "case": a.case, "rep": a.rep}
+    prior = next((r for r in reversed(read_jsonl(res_path))
+                  if r["prompt_id"] == a.case and int(r["rep"]) == int(a.rep)), None)
+    attempt = _attempts(res_path)[(a.case, int(a.rep))] + 1
     harness_error = getattr(a, "cls", None) == "harness_error"
     if harness_error and not getattr(a, "reason", None):
         raise Blocked("A harness error needs --reason.", "Say what failed: the tool, the timeout or the crash.")
@@ -711,8 +794,6 @@ def cmd_record(a) -> dict:
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
         g = {"grade": {"pass": 0, "exec_ok": int(agent_res is not None), "extra_cols": 0}, "class": "ungraded",
              "reason": "no gold result (smoke run)"}
-    tr = parse_transcript(a.transcript) if a.transcript else {"turns": [], "tool_calls": None,
-                                                              "usage": {}, "model": None, "contaminated": []}
     if tr["contaminated"]:
         g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
              "class": "invalid_contaminated",
@@ -726,11 +807,12 @@ def cmd_record(a) -> dict:
            "tool_calls": tr["tool_calls"], "usage": tr["usage"], "answer": ans.get("answer", ""),
            "sql": ans.get("sql") or "", "used_context_ids": ans.get("used_context_ids") or [],
            "used_context_refs": ans.get("used_context_refs") or [], "ts": now(),
-           "isolation": "verified" if a.transcript else "unverified", **({"freeze": frozen} if frozen else {})}
+           "isolation": "verified" if a.transcript else "unverified", **({"freeze": frozen} if frozen else {}),
+           "attempt": attempt, **({"supersedes": prior.get("class")} if prior else {})}
     with res_path.open("a") as fh:
         fh.write(json.dumps(row, default=str) + "\n")
     return {"status": "ok", "case": a.case, "rep": a.rep, "class": g["class"], "pass": g["grade"]["pass"],
-            "reason": g.get("reason")}
+            "reason": g.get("reason"), **({"attempt": attempt, "supersedes": prior.get("class")} if prior else {})}
 
 
 def cmd_grade(a) -> dict:
@@ -757,19 +839,28 @@ def case_means(rows: list, metric: str = "pass", judged: bool = False) -> dict:
 
 
 def rate(means: dict, ids) -> dict:
+    """Pass rate over cases with its 95% Wilson interval. The normal approximation gives one passing
+    case, or ten, an interval of zero width; Wilson stays wide when n is small or the rate is 0 or 1.
+    `ci95` is half the interval's width, kept for readers of the older field; `ci95_low` and
+    `ci95_high` are its edges."""
     vals = [means[i] for i in ids if i in means]
     n = len(vals)
-    p = sum(vals) / n if n else None
-    half = 1.96 * math.sqrt(p * (1 - p) / n) if n and p is not None else None
-    return {"n": n, "pass_rate": round(p, 4) if p is not None else None,
-            "ci95": round(half, 4) if half is not None else None}
+    if not n:
+        return {"n": 0, "pass_rate": None, "ci95": None, "ci95_low": None, "ci95_high": None}
+    p = sum(vals) / n
+    z = 1.96
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    spread = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    low, high = max(0.0, centre - spread), min(1.0, centre + spread)
+    return {"n": n, "pass_rate": round(p, 4), "ci95": round((high - low) / 2, 4),
+            "ci95_low": round(low, 4), "ci95_high": round(high, 4)}
 
 
 def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     """Pass rates for one variant. Validation is the headline while iterating; the holdout (the
     final test) is reported only with final=True, once, at hand-back."""
     vd = pr.vdir(variant)
-    all_rows = read_jsonl(vd / "results.jsonl")
+    all_rows = read_results(vd / "results.jsonl")
     sp = load_json(pr.p("eval", "split.json")) or {"train_ids": [], "test_ids": sorted(case_means(all_rows))}
     train, validation, holdout = split_sets(sp)
     hidden = set() if final else set(holdout)
@@ -842,7 +933,7 @@ def cmd_compare(a) -> dict:
     pr = Proj(a.dir)
     sp = pr.split()
     train, validation, holdout = split_sets(sp)
-    ra, rb = read_jsonl(pr.vdir(a.a) / "results.jsonl"), read_jsonl(pr.vdir(a.b) / "results.jsonl")
+    ra, rb = read_results(pr.vdir(a.a) / "results.jsonl"), read_results(pr.vdir(a.b) / "results.jsonl")
     fa, fb = {r["freeze"] for r in ra if r.get("freeze")}, {r["freeze"] for r in rb if r.get("freeze")}
     if fa and fb and fa != fb:
         raise Blocked(f"{a.a} and {a.b} ran against different eval sets or graders.",
@@ -989,7 +1080,7 @@ def _context(pr: Proj, a) -> dict:
     agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
     if not ws or not agent_id:
         raise Blocked("state.json has no workspace_id / agent_id.", "Register the agent first (build phase 5).")
-    rows = read_jsonl(pr.vdir(a.variant) / "results.jsonl")
+    rows = read_results(pr.vdir(a.variant) / "results.jsonl")
     if not rows:
         raise Blocked(f"No recorded results for {a.variant}.", "Record cases with `analytics_eval.py record` first.")
     return {"ids": ids, "ws": ws, "agent_id": agent_id, "rows": rows, "slug": st.get("slug") or pr.dir.name,
@@ -1435,6 +1526,7 @@ def selftest() -> dict:
             ok("changed harness blocks record", True)
     _selftest_integrity(ok)
     _selftest_inputs(ok)
+    _selftest_review_probes(ok)
     failed = [c["check"] for c in checks if not c["ok"]]
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 
@@ -1582,9 +1674,65 @@ def _selftest_inputs(ok) -> None:
         ok("a fuzzy case records the judge's verdict", judged["class"] == JUDGED and judged["pass"] == 1)
         summ = summarize(Proj(d), "v")
         ok("judged cases are reported apart from the result-set rate",
-           summ["judged"] == {"n": 1, "pass_rate": 1.0, "ci95": 0.0} and summ["validation"]["n"] == 1)
+           summ["judged"]["n"] == 1 and summ["judged"]["pass_rate"] == 1.0 and summ["validation"]["n"] == 1)
     ok("the approved harness covers the grader agent's instructions",
        not GRADER_AGENT.is_file() or harness_sha() != hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes()).hexdigest())
+
+
+def _selftest_review_probes(ok) -> None:
+    """The 3 November review's probes: an unreadable transcript, a truncation flag on a wrapper,
+    re-recording a pair that was incomplete, and the interval of a one-case rate."""
+    rows = {"columns": ["n"], "rows": [[3]]}
+    for label, wrapped in (("data wrapper", {"data": rows, "truncated": True}),
+                           ("result wrapper with a next page", {"result": rows, "next_page_token": "p2"}),
+                           ("MCP text envelope", {"content": [{"type": "text",
+                                                              "text": json.dumps({"rows": [{"n": 3}], "has_more": True})}]}),
+                           ("complete: false", {"results": [{"n": 3}], "complete": False})):
+        ok(f"truncation on a {label} reaches the grade",
+           grade(rows, wrapped, "select 1", "select 3")["class"] == "incomplete")
+    ok("a wrapper with no more pages grades", grade(rows, {"data": rows, "truncated": False}, "select 1",
+                                                     "select 3")["class"] == "pass")
+    one = rate({"c1": 1.0}, ["c1"])
+    ok("one passing case has a wide interval, not zero", one["ci95_low"] < 0.25 and one["ci95_high"] == 1.0
+       and one["ci95"] > 0.35)
+    with tempfile.TemporaryDirectory() as d:
+        pr = pathlib.Path(d)
+        (pr / "eval").mkdir()
+        (pr / "eval" / "cases.jsonl").write_text(json.dumps({"case_id": "c1", "question": "how many", "tags": []}) + "\n")
+        (pr / "eval" / "answers.jsonl").write_text(json.dumps({"case_id": "c1", "gold_sql": "select 1"}) + "\n")
+        dump_json(pr / "eval" / "split.json", {"train_ids": [], "test_ids": ["c1"], "seed": 1})
+        write_freeze(Proj(d))
+        dump_json(pr / "eval" / "gold" / "c1.json", rows)
+        dump_json(pr / "v" / "cut.json", {"data": rows, "truncated": True})
+        dump_json(pr / "v" / "full.json", rows)
+        dump_json(pr / "v" / "answer.json", {"answer": "3", "sql": "select 3"})
+        (pr / "t.jsonl").write_text(json.dumps({"message": {"role": "assistant", "content": [{"type": "text", "text": "3"}]}}))
+        (pr / "junk.jsonl").write_text("not a transcript\n{\"unrelated\": true}\n")
+
+        def rec(**kw):
+            args = {"dir": d, "variant": "v", "case": "c1", "rep": 0, "answer_file": "v/answer.json",
+                    "gold_result": "eval/gold/c1.json", "agent_result": "v/full.json", "transcript": "t.jsonl",
+                    "verdict": None, "model": None, "latency_s": None}
+            args.update(kw)
+            return cmd_record(argparse.Namespace(**args))
+
+        try:
+            rec(transcript="junk.jsonl")
+            ok("a transcript with no agent messages is refused", False)
+        except Blocked:
+            ok("a transcript with no agent messages is refused", True)
+        first = rec(agent_result="v/cut.json")
+        todo = cmd_todo(argparse.Namespace(dir=d, variant="v", reps=1, ids="all"))
+        ok("an incomplete pair is listed again", first["class"] == "incomplete" and todo["remaining"] == 1
+           and todo["todo"][0].get("retry") == "incomplete")
+        again = rec()
+        ok("re-recording it supersedes the incomplete row", again["class"] == "pass" and again.get("attempt") == 2
+           and again.get("supersedes") == "incomplete")
+        ok("then nothing remains", cmd_todo(argparse.Namespace(dir=d, variant="v", reps=1, ids="all"))["remaining"] == 0)
+        ok("a graded pair is still never re-recorded", rec().get("exists") is True)
+        summ = summarize(Proj(d), "v")
+        ok("the summary reads the latest attempt", summ["rows"] == 1 and summ["validation"]["pass_rate"] == 1.0
+           and len(read_jsonl(pr / "hillclimb" / "v" / "results.jsonl")) == 2)
 
 
 # ====================================================================== CLI
