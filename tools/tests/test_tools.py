@@ -45,7 +45,8 @@ class BuildTest(unittest.TestCase):
         documents = build.outputs(self.source)
         server, url = self.source["mcp"]["server"], self.source["mcp"]["url"]
         headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
-        self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
+        auth = {"com.openai": {"auth": {"type": "oauth", "client": {"mode": "dcr"}}}}
+        self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers, "extensions": auth})
         self.assertEqual(documents["plugins/atlanai/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
 
     def test_agent_plugins_manifests_keep_to_the_closed_schema(self) -> None:
@@ -935,6 +936,68 @@ class PublishHookTest(unittest.TestCase):
         variant = build.make_variant(build.load(), copy.deepcopy(VariantTest.OVERRIDES))
         files = build.variant_files(build.load(), variant, "variant.toml")
         self.assertFalse(any("command-hooks" in path for path in files))
+
+
+class CodexDirectoryTest(unittest.TestCase):
+    """The hookless package for OpenAI's plugin directory, which refuses lifecycle hooks."""
+
+    def test_the_package_carries_no_hooks_and_no_other_hosts_files(self) -> None:
+        source = build.load()
+        files = build.directory_files(source)
+        manifest = json.loads(files["plugin.json"])
+        self.assertNotIn("hooks", manifest["extensions"]["com.openai"])
+        self.assertEqual(manifest["extensions"]["com.openai"]["onboardingSkill"], "./skills/atlan-get-started/SKILL.md")
+        self.assertIn("skills/atlan-get-started/SKILL.md", files)
+        self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
+        self.assertEqual(json.loads(files["mcp.json"]), build.outputs(source)["plugins/atlanai/mcp.json"])
+        tops = {path.split("/")[0] for path in files}
+        self.assertEqual(tops, {"plugin.json", "mcp.json", "skills", "assets", "LICENSE"})
+        self.assertFalse([path for path in files if "hooks" in path.split("/")[0] or path.endswith(".pyc")])
+
+    def test_the_zip_is_the_same_for_the_same_source_and_has_the_manifest_at_its_root(self) -> None:
+        source = build.load()
+        with tempfile.TemporaryDirectory() as one, tempfile.TemporaryDirectory() as two:
+            first = build.write_directory(source, Path(one))
+            second = build.write_directory(source, Path(two))
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            import zipfile
+            with zipfile.ZipFile(first) as bundle:
+                self.assertIn("plugin.json", bundle.namelist())
+            with self.assertRaises(SystemExit):
+                build.write_directory(source, Path(one))
+
+    def test_the_build_names_what_the_listing_still_needs(self) -> None:
+        source = copy.deepcopy(build.load())
+        source["plugin"].pop("terms_url", None)
+        source["codex"].pop("screenshots", None)
+        self.assertEqual(len(build.directory_gaps(source)), 2)
+        source["plugin"]["terms_url"] = "https://example.com/terms"
+        source["codex"]["screenshots"] = ["./assets/missing.png"]
+        self.assertEqual(build.directory_gaps(source), [])
+        with self.assertRaises(SystemExit):
+            build.directory_files(source)
+        source["codex"]["screenshots"] = ["../outside.png"]
+        with self.assertRaises(SystemExit):
+            build.validate(source)
+
+    def test_only_known_oauth_client_modes_are_declared(self) -> None:
+        source = copy.deepcopy(build.load())
+        source["mcp"]["oauth_client"] = "provided"
+        with self.assertRaises(SystemExit):
+            build.validate(source)
+
+
+class SkillChecksTest(unittest.TestCase):
+    """The opt-in that atlan-get-started writes is the one the selection rules read."""
+
+    def test_the_opt_in_block_and_the_rules_name_the_same_section(self) -> None:
+        skills = CORE / "skills"
+        started = (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8")
+        block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
+        self.assertIn("## Atlan registry skills", block)
+        self.assertIn("atlan-use-skill", block)
+        for name in ("atlan-use-skill", "atlan-find-artifacts", "atlan-get-started"):
+            self.assertIn("**Atlan registry skills**", (skills / name / "SKILL.md").read_text(encoding="utf-8"), name)
 
 
 class EvalCasesTest(unittest.TestCase):
