@@ -98,7 +98,7 @@ Read [authoring](metrics/authoring.md) and follow its four passes:
 Declared metrics skip the first pass. By-hand metrics start at the third pass.
 
 Split big passes into chunks. Where this harness has subagents (Claude Code), give each chunk
-to a fork worker with the authoring rules. Elsewhere, work through the chunks in turn. Workers
+to a worker, a fresh subagent from the Agent tool, with the authoring rules. Elsewhere, work through the chunks in turn. Workers
 write their answer files only. You run every `MINE` command and every registry call. Workers
 never read eval files.
 
@@ -115,7 +115,10 @@ connected, and otherwise mark it untested.
    and the card rules. It refuses duplicates, and matches each metric to a live one that
    measures the same thing: the same source, formula and mandatory filters, literals included,
    so `STATUS = 'paid'` never matches `STATUS = 'refunded'`. It then writes `plan.json`, which
-   marks each item `create`, `revise` or `reuse` and lists every refusal by item and field. A
+   marks each item `create`, `revise` or `reuse` and lists every refusal by item and field.
+   It also edits `metrics.json` in two ways: it fills a missing `source_id`, and a metric that
+   matches one live metric takes that metric's `source_id`, `name` and `display_name`, since a
+   name is frozen at create. It changes nothing else there. A
    warning that a revision "changes what live … measures" means its population changes: show
    the person both definitions in the preview before it is sent.
 3. On REFUSED, fix exactly the named fields of the refused items and run it again. Never touch
