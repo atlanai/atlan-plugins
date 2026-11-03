@@ -23,7 +23,10 @@ back.
    - the pass rate on validation (the headline) and on train, with the band;
    - the class counts: pass, wrong result, SQL error, no SQL, harness error, incomplete;
    - context engagement (the share of scored runs that cited a registry definition), runs
-     whose isolation is unverified, tokens and latency.
+     whose isolation is unverified, and p50 and p95 time and tokens per run (`latency_s`,
+     `tokens_per_run`). A run timed by neither its transcript nor `--latency-s` is left out of
+     the time, not counted as 0;
+   - the age of the oldest gold (`gold`), with `gold_next` when it is past 30 days.
 
    Triage every zero before quoting a number. A harness error (tool failure, timeout) is not an
    agent failure, and it leaves the denominator: record a run that failed that way with
