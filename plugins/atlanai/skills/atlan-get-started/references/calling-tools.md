@@ -106,3 +106,18 @@ create without an `idempotency_key`: those are writes a lost response does not u
   (see `atlan-content`). `registry__get_file_content` returns at most 256 KiB of UTF-8.
 - **Batches.** `registry__create_artifacts` takes up to 100 items and reports each in its own
   slot. Read the slots, retry only the failed ones.
+
+## Source keys
+
+A create whose workspace, kind, `source_type` and `source_id` match a live artifact appends a
+version to it instead of making a second one. Each recipe keeps to one convention:
+
+| What | `source_type` | `source_id` | Recipe |
+|---|---|---|---|
+| A skill published from this computer | `local` (the default) | the skill's `name` (the default) | `atlan-author-skills` |
+| An agent declared in a repository | as the recipe sets it | the declaration path, such as `.atlan/agents/reviewer.yaml` | `atlan-author-agents` |
+| A shared or recorded file and its output | `local` | `<repository or folder name>/<path from its root>`, at most 512 characters | `atlan-share`, `atlan-record-outputs` |
+| An output with no file | `local` | `claude/<title in kebab case>` | `atlan-record-outputs` |
+
+To add a version to something that exists, read it and send its stored `workspace_id`,
+`source_type` and `source_id` unchanged. A matching name alone is not the same artifact.
