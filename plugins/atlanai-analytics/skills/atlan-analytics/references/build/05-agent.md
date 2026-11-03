@@ -11,7 +11,8 @@ Draft it from the brief:
 - `name`: the slug
 - `display_name`
 - `description`: one line on who it serves
-- `model`: default `claude-opus-5-5`, the current most capable model. Offer a cheaper model only
+- `model`: default to the most capable model the agent kind accepts, as its schema or the
+  workspace's model list names it, not a name assumed from this file. Offer a cheaper model only
   if the user asks about cost.
 - **System prompt**: fill in `skills/atlan-analytics/references/eval/agent-template.md` with the
   brief's audience, domain, out-of-scope list, the table scope, and the workspace name.
