@@ -5,8 +5,8 @@ the server builds the bundle. Pick the route in this order:
 
 | Route | When |
 |---|---|
-| `files_from`, a folder the publish helper reads | Only when your context holds the line `Atlan publish helper is on: extension__skill__create accepts files_from.` ([below](#when-the-publish-helper-is-on)) |
-| Inline `files` | Text, at most 256 KiB and 128 files in the call. The default |
+| `files_from`, the skill's folder | The folder is on disk inside the working directory. Try it first; if the server refuses it, send `files` ([below](#sending-files_from)) |
+| Inline `files` | Text, at most 256 KiB and 128 files in the call. A tool without files, or after `files_from` is refused |
 | [A ZIP](publish-zip.md) | Binaries, executable files, a larger bundle, or a server whose create schema has no `files` |
 | CI from GitHub (`atlan-connect-repo`) | The skill lives in a repository and should publish on every merge |
 
@@ -67,21 +67,24 @@ extension__skill__create {
       "SKILL.md": "---\nname: deploy-preview\ndescription: Deploy a branch to a preview environment and report the URL. Use when asked to put a branch somewhere reviewable.\n---\nFollow references/deploy.md.\n",
       "references/deploy.md": "Build, deploy, and report the preview URL."
     }
-  }]
+  }],
+  "wait_for_release": true
 }
 ```
 
-When the create tool's schema lists `wait_for_release`, add `"wait_for_release": true` beside
-`skills`: the call then waits, up to 20 seconds, for the scan and release, so step 4 needs no
-second read. A newer skill app stops waiting before the gateway's own limit and answers
-`pending_review` with a `next` that says the version is saved: read it back later, never send it
-again. An older skill app refuses arguments it does not list.
+Always send `"wait_for_release": true` beside `skills`: the call then waits, up to 20 seconds,
+for the scan and release, so step 4 needs no second read. A newer skill app stops waiting before
+the gateway's own limit and answers `pending_review` with a `next` that says the version is saved:
+read it back later, never send it again. A skill app older than 3.6.0 refuses the argument by
+name before it writes anything: send the call again without it.
 
 Leave `description` out: the frontmatter's is used. A `description` argument that differs is
 stored beside it, so the skill describes itself two ways (the slot warns when it does).
 
 In search mode this runs through `mcp__call_tool`, with `session_id` and a `rationale` beside
-`name` and `arguments`, never inside them.
+`name` and `arguments`, never inside them. Call it by this name directly: it needs no
+`mcp__describe_tools` first, and `mcp__call_tool` runs it whatever `run_with` a search answer
+names.
 
 ## 4. Read the slot
 
@@ -116,11 +119,9 @@ Read back first:
 Then report the version and its `artifact_status`, and go on from step 4. The skill create takes
 no `idempotency_key`, so a resend is never safe without this read.
 
-## When the publish helper is on
+## Sending files_from
 
-Some harnesses run the `atlanai` publish helper as a hook. It adds one line to your context at
-session start: `Atlan publish helper is on: extension__skill__create accepts files_from.` Only
-then, name the skill's folder in place of its files:
+When the skill's folder is on disk inside the working directory, name it in place of its files:
 
 ```json
 extension__skill__create {
@@ -129,13 +130,19 @@ extension__skill__create {
 }
 ```
 
-The hook reads the folder, checks it as step 2 does, and sends its files. A refused check comes
+Where the `atlanai` publish helper runs as a hook, it reads the folder, checks it as step 2 does,
+and sends its files, so the bytes never pass through your output. A refused check comes
 back as a list of problems with file, line and column, and nothing was sent: fix those files and
 call again. `files_from` is a folder inside the working directory, relative to it; the hook
 refuses links, credential folders and anything outside it. When the reply is lost, the hook adds
 the time the call went out to the result: use it for [the read-back](#when-the-reply-is-lost).
-Send `files` or `files_from` per skill, never both. Without the line, never send `files_from`:
-the server refuses it, and its message says to send `files` instead.
+Send `files` or `files_from` per skill, never both.
+
+Where the hook does not run, the server refuses `files_from` by name before it writes anything,
+and says to send `files`: send the same call once more with `files`, and keep sending `files` for
+the rest of the session. Do not wait for the line `Atlan publish helper is on:
+extension__skill__create accepts files_from.` before trying: the helper adds it at session start,
+but some hosts drop it while the helper still runs.
 
 ## When the scan blocks it
 

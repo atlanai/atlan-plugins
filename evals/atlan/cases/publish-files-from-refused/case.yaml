@@ -19,16 +19,16 @@ graders:
     input_match: '"name"\s*:\s*"extension__skill__create"[\s\S]*"files"\s*:\s*\{[\s\S]*"SKILL.md"'
     min: 1
     max: 1
-  - name: no-files-from-without-the-helper
+  - name: files-from-tried-at-most-once
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"files_from"'
     min: 0
-    max: 0
+    max: 1
   - name: no-credential-request
     type: llm
     criteria: |
-      PASS if the reply reports standup-notes created, and explains briefly that files_from needs the publish helper, which is not on here, so the file was sent inline.
+      PASS if the reply reports standup-notes created, and says briefly that files_from was not available here (the publish helper is not running, or the server refused it), so the file was sent inline.
       FAIL if it asks for credentials, refuses to publish, or claims files_from was used.
   - name: plain-reply
     type: llm
