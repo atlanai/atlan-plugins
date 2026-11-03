@@ -44,8 +44,15 @@ and never touches the network: you make every registry write through the Atlan M
    2. Parse its final message as JSON `{answer, sql, used_context_ids}`. If it isn't JSON,
       still record it; the script classes it `no_sql`.
    3. Save the answer as `hillclimb/V/answers/<case_id>_rep<k>.json`.
-   4. Run the agent's `sql` with the warehouse query tool (the read-only rules apply, LIMIT
-      10000). Save `{columns, rows, error}` to `hillclimb/V/agent_results/<case_id>_rep<k>.json`.
+   4. Read the agent's own result from its transcript, so its SQL runs once, not twice:
+      ```
+      EVAL agent-result --transcript <output_file> --answer-file hillclimb/V/answers/<case_id>_rep<k>.json --out hillclimb/V/agent_results/<case_id>_rep<k>.json
+      ```
+      With `"source": "transcript"` the file is written. With `"source": "replay"` the transcript
+      doesn't hold the whole result (the call failed, the rows were cut or capped, or the agent
+      never ran its final SQL), and `reason` says which. Run the agent's `sql` yourself with the
+      warehouse query tool then (the read-only rules apply, LIMIT 10000), and save
+      `{columns, rows, error}` to that same path.
    5. Gold results are cached in `eval/gold/<case_id>.json` (phase 4). Re-run the gold SQL only
       if that file is missing.
    6. Record the pair:
@@ -55,7 +62,9 @@ and never touches the network: you make every registry write through the Atlan M
       A gold or agent result file that is named but missing blocks the row, as a missing
       transcript does. Save the file, then record again.
       `record` grades by result set and parses the transcript into the trace, tool calls,
-      model and usage. It appends one row to `results.jsonl` and writes
+      model, usage and the run's time, from its first message to its last. `--latency-s` overrides
+      that time. A run with neither stays untimed: it is never published as 0. The row also notes
+      when its gold ran and whether the agent's result came from the transcript or a replay. It appends one row to `results.jsonl` and writes
       `traces/<case_id>_rep<k>.json`. A graded pair is skipped, never overwritten. A pair listed
       with `retry` gets a new row, `attempt` 2 or more, that supersedes the last; the old rows
       stay in the file and `summary`, `compare` and `publish` read the latest.
@@ -67,6 +76,9 @@ and never touches the network: you make every registry write through the Atlan M
 5. **Compare** (for rounds): `EVAL compare --a baseline --b V` gives the paired per-case delta
    on validation (the headline) and on train, each with its band and an exact sign-test
    p-value; `significant` is p < 0.05. `--final` adds the holdout, once, at hand-back.
+   `guardrails` gives each variant's p50 and p95 time and tokens per run beside the deltas, so a
+   gain that doubles p95 latency is named as a trade. `compare` refuses two variants that graded a
+   case against different gold results: re-record the older variant's answers first.
 
 ## Publish
 
@@ -114,7 +126,10 @@ person's Atlan sign-in.
 ## Grading, in one paragraph
 
 A case passes when the agent's result set matches the gold one:
-- numbers are compared at 4 significant figures;
+- whole numbers are compared exactly, so a count or an id that is off by one fails
+  (`1000040.00` matches `1000040`, and float noise such as `1234567.9999999998` reads as whole);
+- other numbers are compared at 4 significant figures, or at the `sig` the case sets in
+  `answers.jsonl` (1 to 15) for a value that needs more or less;
 - column names and order are ignored, with columns matched by their values;
 - row order is ignored unless the gold SQL sorts and limits;
 - extra agent columns are allowed.
@@ -140,7 +155,7 @@ Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the gra
 `summary` reports judged cases under `judged`, apart from the result-set rates, and a report
 gives them on their own line. The grader's instructions are part of the approved harness: an
 edit to them blocks `record` until the user approves it again.
-To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.json> --gold-sql <sql>`.
+To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.json> --gold-sql <sql> [--sig N]`.
 
 ## Files
 

@@ -5,7 +5,7 @@
 - `<slug> · improve · what to optimise`
 - **Raise the validation pass rate (Recommended when the baseline is below 80%)**
 - **Cut tokens per question**, keeping the pass rate within noise
-- **Cut latency**, keeping the pass rate within noise
+- **Cut latency** (p95 time per run, from `compare`'s guardrails), keeping the pass rate within noise
 - **Move to another model** and recover the pass rate on it
 
 Record it in `H/_state.json` as `goal: {target, direction, hold[]}`. Every other recorded
