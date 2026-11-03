@@ -10,8 +10,8 @@ on stdout, or nothing. It is claude-hooks/register.ts for the harnesses that run
 
 - session-start adds the line atlan-author-skills' publish.md waits for before it sends files_from;
 - pre, on the gateway's call_tool naming extension__skill__create, reads each `files_from` folder
-  in the working tree, checks it with check_bundle.py's rules and sends its files inline, or
-  refuses the call with the problems, by file, line and column;
+  in the working tree, checks it with check_bundle.py's rules and sends its files inline with each
+  file's sha256, or refuses the call with the problems, by file, line and column;
 - post, when that create's reply was lost or the scan blocked it, says what to read before
   sending it again.
 
@@ -22,6 +22,7 @@ with no output, so the call goes on unchanged and the skill app refuses files_fr
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -209,8 +210,12 @@ def expand(tool_input: dict, event: dict):
         return None, f"{text}\n{NOT_SENT}"
     out = list(skills)
     for index, folder in zip(slots, folders):
-        rest = {k: v for k, v in out[index].items() if k != "files_from"}
-        out[index] = {**rest, "files": {rel: data.decode("utf-8") for rel, data in folder[1]}}
+        rest = {k: v for k, v in out[index].items() if k not in ("files_from", "sha256")}
+        files = {rel: data.decode("utf-8") for rel, data in folder[1]}
+        # The digest of each file's text as sent, so the skill app (4.2.0 on) refuses the call if
+        # any of it changed on the way. It replaces any `sha256` the call carried: the hook made the files.
+        digests = {rel: hashlib.sha256(text.encode("utf-8")).hexdigest() for rel, text in files.items()}
+        out[index] = {**rest, "files": files, "sha256": digests}
     new_args = {**args, "skills": out}
     sent = json.dumps(new_args) if isinstance(tool_input.get("arguments"), str) else new_args
     return {**tool_input, "arguments": sent}, None

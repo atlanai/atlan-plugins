@@ -193,6 +193,9 @@ describe('the shared bundle fixtures', () => {
       const expected = one.sent ?? [...disk.nodes.keys()].filter(path => path.startsWith(`${CWD}/demo/`) && disk.nodes.get(path)?.kind === 'file').map(path => path.slice(`${CWD}/demo/`.length))
       expect(Object.keys(files).sort()).toEqual([...expected].sort())
       for (const [rel, body] of Object.entries(one.files ?? {})) if (rel in files) expect(files[rel]).toBe(body)
+      const digests = (skill?.sha256 ?? {}) as Record<string, string>
+      expect(Object.keys(digests).sort()).toEqual(Object.keys(files).sort())
+      for (const digest of Object.values(digests)) expect(/^[0-9a-f]{64}$/.test(digest)).toBe(true)
     })
   }
 })
@@ -265,6 +268,34 @@ describe('files_from', () => {
     expect(sent.length).toBe(1)
     const args = JSON.parse(String(sent[0]?.arguments)) as { skills: Record<string, unknown>[] }
     expect(Object.keys(args.skills[0]?.files as object)).toEqual(['SKILL.md'])
+  })
+
+  test("sends each file's sha256 with its text, replacing any the call carried", async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    disk.file(`${CWD}/demo/SKILL.md`, SKILL)
+    disk.file(`${CWD}/demo/notes.md`, 'abc')
+    disk.file(`${CWD}/demo/empty.md`, '')
+    await $.tool.call(publish({ files_from: 'demo', sha256: { 'notes.md': '0'.repeat(64), 'gone.md': '1'.repeat(64) } }) as never)
+    expect(sent.length).toBe(1)
+    const [skill] = skillsOf(sent[0])
+    const digests = skill?.sha256 as Record<string, string>
+    expect(Object.keys(digests).sort()).toEqual(['SKILL.md', 'empty.md', 'notes.md'])
+    // The FIPS 180-2 vectors for "abc" and the empty string.
+    expect(digests['notes.md']).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+    expect(digests['empty.md']).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+  })
+
+  test('sends no sha256 for a skill that names files itself', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    disk.file(`${CWD}/demo/SKILL.md`, SKILL)
+    const call = publish({ files_from: 'demo' })
+    call.arguments.skills.push({ name: 'two', workspace_id: 'workspace_01ws', files: { 'SKILL.md': SKILL } } as never)
+    await $.tool.call(call as never)
+    const skills = skillsOf(sent[0])
+    expect(Object.keys(skills[0]?.sha256 as object)).toEqual(['SKILL.md'])
+    expect(skills[1]?.sha256).toBe(undefined)
   })
 
   test('leaves a call without files_from as it was', async ($, on) => {
