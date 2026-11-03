@@ -95,6 +95,8 @@ Everything about the content: `summary`, `license`, `skill_version`, `when_to_us
 (`file_count`, `total_bytes`, `largest_file_bytes`, `max_depth`, `code_file_count`,
 `doc_file_count`, `asset_file_count`, `has_executable_files`, `executable_file_count`).
 
-`extension__skill__create` takes only the envelope: `name`, `workspace_id`, `bundle_file_id`, and
-optionally `display_name`, `description`, `project_id`, `source_type`, `source_id`. That is the whole
-writable surface.
+`extension__skill__create` takes only the envelope: `name`, `workspace_id`, either
+`bundle_file_id` or inline `files`, and optionally `display_name`, `description`, `project_id`,
+`source_type`, `source_id`; `wait_for_release` sits beside `skills` for the whole call. That is
+the whole writable surface. Check the live tool's schema: an older skill app lists neither
+`files` nor `wait_for_release`.

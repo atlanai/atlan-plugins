@@ -23,10 +23,12 @@ registry__request_file_upload { "size_bytes": <zip size> }
 
 `PUT` the whole zip to `upload_url` with your Authorization header. The URL is root-relative:
 resolve it against the API origin you called the tool on. Start within `expires_in_seconds`; an
-expired ticket answers 400, so reserve again. An older server may return `is_presigned: true`:
-that storage URL carries its own authorization, so never send your API bearer to it. If your
-client keeps its bearer private, you cannot `PUT`; use inline `files` instead of extracting the
-credential into a shell.
+expired ticket answers 400, so reserve again. `is_presigned` is `false` on today's gateway; if a
+server ever answers `true`, the URL carries its own authorization, so never send your API bearer
+to it. If your client keeps its bearer private, as Claude chat and Cowork do, you cannot `PUT`:
+use inline `files` for text, and for a binary say that it needs the Atlan CLI
+([without a shell or a bearer](../../atlan-content/references/upload.md#without-a-shell-or-a-bearer)).
+Never extract the credential into a shell.
 
 ```
 registry__create_artifact {

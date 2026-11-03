@@ -25,6 +25,9 @@ outside a mod (see AGENTS.md), and no credential-shaped strings in any tracked t
 Voice (every Markdown file at the root and under plugins/, and plugin.toml): no em dash, no
 exclamation mark ending a sentence, and none of the filler words AGENTS.md's Voice section bans,
 outside code. The words a user reads should say what happens, not how to feel about it.
+Drift (every Markdown file under plugins/, code included): spellings the live gateway does not
+serve and that a release once shipped by mistake: an app tool without its `extension__` prefix,
+a `wrk_` workspace handle, and an `mcp__initialise` example that names one host as the client.
 """
 
 from __future__ import annotations
@@ -76,6 +79,15 @@ FILLER = re.compile(
     re.IGNORECASE,
 )
 INLINE_CODE = re.compile(r"`[^`\n]*`")
+# Drift: spellings the gateway does not serve. Checked in code too, where tool names live.
+APP_TOOL_PREFIXES = ("metric", "ontology", "agent", "knowledge", "repo", "skill", "file", "scorer", "experiment")
+DRIFT = [
+    (re.compile(r"(?<![A-Za-z0-9_])(?:" + "|".join(APP_TOOL_PREFIXES) + r")__[a-z][a-z_]*"),
+     "an app's tools are served as `extension__<app>__<tool>`"),
+    (re.compile(r"\bwrk_01"), "workspace handles start `workspace_`"),
+    (re.compile(r'"client":\s*"claude-code"'),
+     "name the client as a placeholder; the recipe runs in other tools too"),
+]
 # What the voice check reads: the Markdown people and models read, and the manifest strings.
 VOICE_SUFFIXES = {".md", ".toml"}
 VOICE_SKIPPED = ("evals/", ".github/", "assets/")
@@ -257,6 +269,17 @@ def lint_voice(path: Path, text: str) -> list[str]:
     return errors
 
 
+def lint_drift(path: Path, text: str) -> list[str]:
+    """Spellings of tool names and handles the live gateway does not serve."""
+    relative = path.relative_to(ROOT)
+    return [
+        f"{relative}:{number}: {match.group(0)!r}: {why}"
+        for number, line in enumerate(text.splitlines(), 1)
+        for pattern, why in DRIFT
+        for match in pattern.finditer(line)
+    ]
+
+
 def lint_repository(files: list[Path]) -> list[str]:
     errors = [
         f"{name}: plugin content lives in plugins/<plugin>/; the root is the marketplace"
@@ -287,6 +310,8 @@ def lint_repository(files: list[Path]) -> list[str]:
                 errors.append(f"{path.relative_to(ROOT)}: looks like it contains a {label}")
         if voice_scope(path):
             errors += lint_voice(path, text)
+        if path.suffix == ".md" and path.is_relative_to(PLUGINS):
+            errors += lint_drift(path, text)
     return errors
 
 

@@ -6,8 +6,8 @@ license: Apache-2.0
 
 # Author skill bundles
 
-Pass a `session_id` on every tool call, and a first-person `rationale` on every write (on a read,
-when the tool's schema requires one). In search mode, the default, the first
+Pass a `session_id` and a first-person `rationale` on every tool call, reads included: the
+gateway accepts a read without one, but the audit trail needs it. In search mode, the default, the first
 `mcp__search_tools` or `mcp__call_tool` opens the session by sending `objective`, and each
 `registry__…` tool named here runs through `mcp__call_tool` with `session_id` and `rationale`
 beside `name` and `arguments`. In full mode, call `mcp__initialise` first. Replies lead with the

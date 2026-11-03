@@ -51,7 +51,8 @@ extension__skill__create {
 
 When the create tool's schema lists `wait_for_release`, add `"wait_for_release": true` beside
 `skills`: the call then waits, up to 20 seconds, for the scan and release, so step 4 needs no
-second read. An older skill app refuses arguments it does not list.
+second read. That wait comes after the create's own 15-second processing budget
+([batching](bundle-format.md)), not out of it. An older skill app refuses arguments it does not list.
 
 Leave `description` out: the frontmatter's is used. A `description` argument that differs is
 stored beside it, so the skill describes itself two ways (the slot warns when it does).

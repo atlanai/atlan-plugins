@@ -25,13 +25,16 @@ and you create it there.
 | `agent` | `sub_agent` | `agent` |
 | `agent` | `uses_file` | `file` |
 | `agent` | `uses_mcp_server` | `mcp_server` |
+| `agent` | `uses_knowledge` | `knowledge` |
 | `agent` | `sourced_from` | `repo` |
 | `output` | `used_skill` | `skill` |
+| `knowledge_concept` | `documents` | `output` |
 | `experiment` | `uses_context` | `skill`, `file`, `agent` |
 | `scorer` | `applies_to` | `skill`, `agent` |
 | `scorer` | `sourced_from` | `repo` |
 
-That is the whole vocabulary of every kind that declares one. So:
+That is the vocabulary of every kind that declares one; `registry__get_kind_schema` is the
+live answer when an app adds a kind. So:
 
 - **to join an agent to a skill**, the source is the **agent**: `uses_skill`.
 - **to say a deliverable drew on a skill**, the source is the **output**: `used_skill`.
@@ -80,7 +83,7 @@ window where the new artifact exists unattached and no second call to forget.
 ```
 registry__create_artifact_linked {
   "kind": "agent",
-  "metadata": { "name": "deck-builder", "workspace_id": "wrk_01J...", ... },
+  "metadata": { "name": "deck-builder", "workspace_id": "workspace_01J...", ... },
   "subject_id": "skill_01K...",
   "rel_type": "uses_skill",
   "session_id": "...",

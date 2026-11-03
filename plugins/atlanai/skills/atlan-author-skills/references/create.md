@@ -37,7 +37,7 @@ writing another.
 |---|---|
 | A tool that lists a skill creator among its skills, such as Claude Code, Claude chat or Cowork with `skill-creator` (often listed as `anthropic-skills:skill-creator`) | That skill |
 | Codex | `$skill-creator`, which Codex ships |
-| Cursor, or any tool with no skill creator listed | Write it yourself, from step 2 of [publishing](publish.md) |
+| Cursor, or any tool with no skill creator listed | Write it yourself: a `SKILL.md` whose frontmatter follows [bundle format](bundle-format.md), with a description that says when to use it, then publish it with [publishing](publish.md) |
 
 Do not install a skill creator to get one; draft it yourself instead.
 

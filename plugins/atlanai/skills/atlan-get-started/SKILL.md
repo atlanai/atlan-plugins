@@ -19,8 +19,9 @@ tools rather than answering from memory or from these files.
 ## 1. Check the connection
 
 Look for the `atlan` server's tools. In the default search mode there are three:
-`mcp__search_tools`, `mcp__describe_tools` and `mcp__call_tool` (your host may prefix them, for
-example `mcp__plugin_atlanai_atlan__mcp__call_tool` in Claude Code). Connecting a downstream
+`mcp__search_tools`, `mcp__describe_tools` and `mcp__call_tool` (your host may prefix them:
+`mcp__plugin_atlanai_atlan__mcp__call_tool` in Claude Code, `mcp__atlan__mcp__call_tool` for a
+connector added in Claude chat or Cowork). Connecting a downstream
 server's account is not a fourth tool: it runs through `mcp__call_tool` as `mcp__connect_server`.
 
 - **`atlan` tools, but not these three** (tools named for search, lineage or glossary): that is
@@ -152,7 +153,10 @@ Load the skill the row names and follow it; it opens the session itself.
 The registry also serves its authoring recipes as MCP prompts (`prompts/list`), for metrics and
 analytics agents among others. The list is filtered to the apps the organization has
 installed: a recipe that is missing means the app is not installed, not that the recipe was
-removed. When a task is about a kind no skill above covers, list the prompts before guessing. If a skill named above is missing, this one was
+removed. When a task is about a kind no skill above covers, list the prompts before guessing.
+Hosts that show you no MCP prompts, such as Claude chat and Cowork, cannot list them: read the
+kind with `registry__get_kind_schema` and existing examples with `registry__list_artifacts`
+instead. If a skill named above is missing, this one was
 installed on its own: the registry's recipes are still there as prompts, and the rest come
 with the Atlan plugin (`references/install-and-sign-in.md`).
 
