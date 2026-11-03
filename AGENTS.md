@@ -76,18 +76,21 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   component, each host names their events differently, and Codex keeps hook plugins out of its
   directory. The core's publish helper is the exception: it lets `extension__skill__create` take
   `files_from`, a folder in the working tree it checks with `check_bundle.py`'s rules and sends
-  inline, and it announces that with one prompt line; without that line the skill text sends
-  `files`, so every other host, and Claude Code under `allowManagedHooksOnly`, keeps working. It
-  comes in two forms, each named only from its own harness's manifest and never from `hooks/`,
-  which Codex and Cursor read by default. `claude-hooks/` is a Claude Code hooks module, named by
-  `"hooks"` in `.claude-plugin/plugin.json` (`claude_hooks` in `plugin.toml`). `command-hooks/`
-  is one standard-library Python script, `publish_hook.py`, that imports `check_bundle.py`, with
-  `codex.json` named by `extensions.com.openai.hooks` in `plugin.json` and the legacy Codex
-  overlay, and `cursor.json` by `hooks` in `.cursor-plugin/plugin.json` (`codex_hooks`,
-  `cursor_hooks`). Every hook fails open: the module's `.catch`, and the script exits 0 with no
-  output on any fault, or when Python is missing. Both read only the folders the call names, and
-  variants leave both out. `make check` holds every manifest to its own file and every command to
-  the script. The other exception is a mod, below.
+  inline, and it announces that with one prompt line. The skill text does not wait for that line,
+  because some hosts drop a plugin's `prompt.compose` section while its `tool.call` hook runs: it
+  sends `files_from` whenever the skill's folder is in the working directory, and where no hook
+  expands it, the server refuses `files_from` by name before writing, and the skill sends `files`.
+  So every other host, and Claude Code under `allowManagedHooksOnly`, keeps working for one extra
+  call. It comes in two forms, each named only from its own harness's manifest and never from
+  `hooks/`, which Codex and Cursor read by default. `claude-hooks/` is a Claude Code hooks module,
+  named by `"hooks"` in `.claude-plugin/plugin.json` (`claude_hooks` in `plugin.toml`).
+  `command-hooks/` is one standard-library Python script, `publish_hook.py`, that imports
+  `check_bundle.py`, with `codex.json` named by `extensions.com.openai.hooks` in `plugin.json` and
+  the legacy Codex overlay, and `cursor.json` by `hooks` in `.cursor-plugin/plugin.json`
+  (`codex_hooks`, `cursor_hooks`). Every hook fails open: the module's `.catch`, and the script
+  exits 0 with no output on any fault, or when Python is missing. Both read only the folders the
+  call names, and variants leave both out. `make check` holds every manifest to its own file and
+  every command to the script. The other exception is a mod, below.
 - **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
   module ([Claude Code mods](https://code.claude.com/docs/en/plugins/mods/overview)) changes how
   Claude Code handles the core's tools: `atlanai-mods` guards registry writes and repairs gateway

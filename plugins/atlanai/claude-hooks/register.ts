@@ -14,7 +14,7 @@ import { CREDENTIAL_DIRS, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, is
 export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call_tool$/
 export const PUBLISH = 'extension__skill__create'
 export const SECTION = 'atlanai:publish-helper'
-/** The line atlan-author-skills' publish.md waits for before it sends `files_from`. */
+/** The line that tells the model the helper is on. publish.md sends `files_from` without waiting for it: some hosts drop it. */
 export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create accepts files_from.'
 
 const NOT_SENT = 'Nothing was sent. Fix what is listed and call extension__skill__create again.'
