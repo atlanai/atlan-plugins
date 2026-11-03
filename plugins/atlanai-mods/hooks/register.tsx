@@ -77,6 +77,7 @@ const GROUP_ROWS = 6
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
+const NO_APPROVER = 'Nobody can confirm it here (as under claude -p), so the Atlan mod refused it. Run it in a session where you can answer the prompt.'
 const GUARD_FAILED = 'The Atlan registry guard could not check this call, so it needs your confirmation.'
 const USAGE =
   'Usage: /atlan (connection status), /atlan search <words>, /atlan skills [words] (pick a skill to load) or /atlan pane (what this session touched)'
@@ -98,6 +99,9 @@ type Memory = {
   checked: Set<string>
   /** Registry writes that ran while another plugin answered the permission check first. */
   unguarded: number
+  /** Registry reads the same way: they asked again or ran on another plugin's verdict, not this
+   * mod's allow. Counted for /atlan only; a read changes nothing, so it raises no warning. */
+  unguardedReads: number
   /** Artifacts this session read or changed, newest first. */
   touches: Touch[]
   /** Confirmation cards for calls waiting on the person, by tool_use_id. */
@@ -220,8 +224,8 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
   const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
-    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why)).then(valueOf),
-    within($, LOOKUP_MS, lookup($, mem, server, 'registry__get_artifact', { artifact_id: id }, why)).then(valueOf),
+    lookupWithRetry($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why, LOOKUP_MS).then(valueOf),
+    lookupWithRetry($, mem, server, 'registry__get_artifact', { artifact_id: id }, why, LOOKUP_MS).then(valueOf),
   ])
   const summary = artifact && !artifact.isError ? summaryOf(artifact.text) : undefined
   const dependents = related && !related.isError ? dependentsOf(related.text) : undefined
@@ -275,12 +279,14 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
   if (health.state === 'ready') {
     lines.push(
       confirmWrites
-        ? 'Writes ask first. Archive, approve and move always ask, with what depends on the artifact.'
-        : 'Writes follow your permission rules. Archive, approve and move always ask.',
+        ? 'Writes ask first. Archive, approve and move always ask, with what depends on the artifact, and are refused where nobody can answer.'
+        : 'Writes follow your permission rules. Archive, approve and move always ask, and are refused where nobody can answer.',
     )
     lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
   }
   if (mem.unguarded > 0) lines.push(`${UNGUARDED} Writes this session: ${mem.unguarded}. Check which plugins answer permission prompts with /plugin.`)
+  if (mem.unguardedReads > 0)
+    lines.push(`Another plugin answered the permission check for ${mem.unguardedReads} registry read${mem.unguardedReads === 1 ? '' : 's'} before this mod could, so reads may ask. Check which plugins answer permission prompts with /plugin.`)
   return lines.join('\n')
 }
 
@@ -350,6 +356,7 @@ export const register: Register = (on, options) => {
     housekeeping: '',
     checked: new Set(),
     unguarded: 0,
+    unguardedReads: 0,
     touches: [],
     cards: new Map(),
     publishes: [],
@@ -457,6 +464,8 @@ export const register: Register = (on, options) => {
         mem.unguarded += 1
         if (mem.unguarded === 1) $.ui.toast(`Atlan: ${UNGUARDED}`)
         paint($, mem)
+      } else if (!wasChecked && effect === 'read') {
+        mem.unguardedReads += 1
       }
     }
 
@@ -529,6 +538,7 @@ export const register: Register = (on, options) => {
     }
     // Archive, approve and move: asked wherever someone can answer, refused where nobody can.
     const { reason, card } = await blastRadius($, mem, e.tool_use_id ?? '', e.tool, name, input)
+    if (e.approver === undefined) return { decision: 'deny', reason: `${reason} ${NO_APPROVER}` }
     if (card && e.tool_use_id && e.approver !== undefined) {
       mem.cards.set(e.tool_use_id, card)
       offerPane($, mem, true)
