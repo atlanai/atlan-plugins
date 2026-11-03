@@ -639,11 +639,81 @@ class VoiceTest(unittest.TestCase):
         self.assertEqual(errors, [])
 
 
+# Built here, never written whole, so the repository's own secret lint stays quiet. The shared
+# fixtures carry it as `{{fake_aws_key}}`; a hook's own tests substitute the same string.
+FAKE_AWS_KEY = "AKIA" + "ABCDEFGHIJKLMNOP"
+
+
+class CheckBundleTest(unittest.TestCase):
+    """`check_bundle.py` reaches each shared fixture's verdict, at the line and column it names."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import importlib.util
+
+        path = CORE / "skills" / "atlan-author-skills" / "scripts" / "check_bundle.py"
+        spec = importlib.util.spec_from_file_location("check_bundle", path)
+        cls.check = importlib.util.module_from_spec(spec)
+        # No __pycache__ beside the script: the build copies a skill's folder as text.
+        written, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+        try:
+            spec.loader.exec_module(cls.check)
+        finally:
+            sys.dont_write_bytecode = written
+        fixtures = ROOT / "tools" / "tests" / "fixtures" / "publish-bundles.json"
+        cls.cases = json.loads(fixtures.read_text(encoding="utf-8"))["cases"]
+
+    @staticmethod
+    def build(case: dict, root: Path) -> None:
+        for rel, text in case.get("files", {}).items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY)
+            (root / rel).write_bytes(text.encode("utf-8"))
+        for rel, data in case.get("binary", {}).items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_bytes(bytes.fromhex(data))
+        for rel, target in case.get("links", {}).items():
+            (root / rel).symlink_to(target)
+        generate = case.get("generate", {})
+        for n in range(generate.get("files", 0)):
+            (root / "filler").mkdir(exist_ok=True)
+            (root / "filler" / f"{n:03d}.md").write_text("filler\n", encoding="utf-8")
+        if "pad_to_bytes" in generate:
+            used = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
+            (root / "pad.md").write_text("x" * (generate["pad_to_bytes"] - used), encoding="utf-8")
+
+    def test_every_folder_case_reaches_its_verdict(self) -> None:
+        for case in self.cases:
+            if "hook" in case.get("applies_to", ["check"]):
+                continue
+            with self.subTest(case["name"]), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp) / "demo"
+                root.mkdir()
+                self.build(case, root)
+                result = self.check.check([root])
+                self.assertEqual(result["ok"], case["expect"] == "send", result["problems"])
+                rules = {p["rule"] for p in result["problems"]}
+                self.assertEqual(rules, set(case.get("rules", [])), result["problems"])
+                where = {(p["path"], p["line"], p["column"]) for p in result["problems"]}
+                for path, line, column in case.get("at", []):
+                    self.assertIn((path, line, column), where)
+
+    def test_a_credential_is_never_printed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "SKILL.md").write_text(f"---\nname: demo\ndescription: d\n---\n{FAKE_AWS_KEY}\n", encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(self.check.main([str(root)]), 1)
+            self.assertNotIn(FAKE_AWS_KEY, out.getvalue())
+            self.assertIn("SKILL.md:5:1: credential", out.getvalue())
+
+
 class EvalCasesTest(unittest.TestCase):
     """The core plugin's eval cases and their `emulator.json` sidecars (evals/atlan/cases/)."""
 
     CASES = ROOT / "evals" / "atlan" / "cases"
-    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
+    SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_LOST_REPLY", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
                 "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE"}
 
     @classmethod
