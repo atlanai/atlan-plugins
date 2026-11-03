@@ -42,7 +42,7 @@ whatever `run_with` a search answer names.
    mcp__call_tool {
      "name": "extension__skill__create",
      "arguments": {
-       "skills": [{ "name": "startup-jokes", "workspace_id": "workspace_01J...", "files": { "SKILL.md": "---\nname: startup-jokes\n..." } }],
+       "skills": [{ "name": "startup-jokes", "workspace_id": "workspace_01J...", "idempotency_key": "startup-jokes-q8w2m4z1", "files": { "SKILL.md": "---\nname: startup-jokes\n..." } }],
        "wait_for_release": true
      },
      "session_id": "mcp_session_…",
@@ -54,12 +54,15 @@ whatever `run_with` a search answer names.
    `"files_from": "<the folder, relative to the working directory>"` in place of `files`, so the
    publish helper sends the bytes. If the server refuses `files_from` and says to send `files`,
    nothing was written: send `files` instead, and keep to `files` for the rest of the session.
-   Inline `files` copy each file's bytes as they are on disk, never retyped from memory.
+   Inline `files` copy each file's bytes as they are on disk, never retyped from memory. The
+   `idempotency_key` is the skill's name and eight random letters or digits, new for each
+   publish; if the server refuses it by name, nothing was written: send the call without it.
 6. **Report** the slot in a few lines: `active` with its release (a new skill ships to `latest`
    as `0.1.0`), its `id`, and that the local folder is a copy that reaches Atlan only as a new
    version. Any other answer (`pending_review`, `blocked`, `409`, or a `502`, `503`, `504` or
    "service unavailable" that may have committed): follow [publishing](references/publish.md),
-   step 4 and "When the reply is lost", before sending anything again.
+   step 4 and "When the reply is lost". A call that carried an `idempotency_key` is resent
+   unchanged; one without it is read back before anything is sent again.
 
 ## Everything else
 

@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { CAPABILITY, isLostReply } from '../register'
+import { CAPABILITY, isKeyed, isLostReply } from '../register'
 import type { Case } from './case'
 import { CASES } from './fixtures'
 
@@ -306,6 +306,27 @@ describe('a lost reply', () => {
     const note = (ran.context ?? []).join('\n')
     expect(note).toContain('registry__search_artifacts')
     expect(note).toContain('no idempotency_key')
+  })
+
+  test('tells the model to resend unchanged when every skill carried a key', async ($, on) => {
+    const disk = new Disk()
+    disk.hook(on)
+    disk.file(`${CWD}/demo/SKILL.md`, SKILL)
+    on('tool.call', () => ({ result: 'error', isError: true, text: '503 service unavailable' }))
+    const ran = (await $.tool.call(publish({ files_from: 'demo', idempotency_key: 'demo-q8w2m4z1' }) as never)) as {
+      context?: readonly string[]
+    }
+    const note = (ran.context ?? []).join('\n')
+    expect(note).toContain('send the same call again, unchanged')
+    expect(note).not.toContain('registry__search_artifacts')
+  })
+
+  test('counts a call as keyed only when every skill has a key', () => {
+    expect(isKeyed({ skills: [{ idempotency_key: 'a-1' }, { idempotency_key: 'b-1' }] })).toBe(true)
+    expect(isKeyed({ skills: [{ idempotency_key: 'a-1' }, {}] })).toBe(false)
+    expect(isKeyed({ skills: [{ idempotency_key: '' }] })).toBe(false)
+    expect(isKeyed({ skills: [] })).toBe(false)
+    expect(isKeyed({})).toBe(false)
   })
 
   test('is a may-have-run or an unavailable answer, never a refusal', () => {

@@ -97,7 +97,9 @@ Everything about the content: `summary`, `license`, `skill_version`, `when_to_us
 
 `extension__skill__create` takes only the envelope: `name`, `workspace_id`, either
 `bundle_file_id` or inline `files`, and optionally `display_name`, `description`, `project_id`,
-`source_type`, `source_id`; `wait_for_release` sits beside `skills` for the whole call. That is
-the whole writable surface. An older skill app refuses an argument it does not take, by name,
-before it writes anything: without `wait_for_release` (added in 3.6.0), send the call again
-without it; without `files`, send the bundle as [a ZIP](publish-zip.md).
+`source_type`, `source_id`, `idempotency_key` (a retry key) and `sha256` (a map of path to the
+hex sha256 of that inline file's text, checked on arrival); `wait_for_release` and `dry_run` sit
+beside `skills` for the whole call. That is the whole writable surface. An older skill app refuses
+an argument it does not take, by name, before it writes anything: without `wait_for_release`
+(added in 3.6.0) or `idempotency_key`, `sha256` and `dry_run` (added in 4.2.0), send the call
+again without them; without `files`, send the bundle as [a ZIP](publish-zip.md).
