@@ -1,6 +1,6 @@
 # Full-agent preflight and routing
 
-## 1. Preflight (every run, quietly)
+## 1. Preflight (once per conversation, quietly)
 
 0. Check the harness first. Build, eval and improve run `scripts/analytics_eval.py` and a
    Claude Code subagent, so they need a shell and the Agent tool. Without either, as in
@@ -26,6 +26,11 @@ Once step 2 has opened the session, steps 3 and 5 depend on nothing else: send t
 turn as parallel calls, beside step 4's first search.
 
 Show one line per check (`ok` or what failed).
+
+The preflight runs once per conversation. When this conversation already passed it, skip it on a
+later run: reuse the session, the metric schema's answer and the warehouse tool in state. Run it
+again only after a check failed, a call was refused for sign-in or access, or the user says they
+connected or changed something.
 
 ## 2. Resume or start
 
