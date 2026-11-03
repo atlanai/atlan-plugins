@@ -1,7 +1,7 @@
 // The atlanai publish helper, for Claude Code only. It lets `extension__skill__create` take
 // `files_from`, a folder in the working tree, in place of the skill's files: the hook reads that
 // folder, checks it with the rules of skills/atlan-author-skills/scripts/check_bundle.py, and sends
-// its files inline in the same call. It reads nothing else and sends nowhere else.
+// its files inline in the same call, each with its sha256. It reads nothing else and sends nowhere else.
 //
 // Every hook here fails open: a bug passes the call on as the model wrote it, and the skill app
 // refuses `files_from` by name, saying to send `files`. So a fault costs speed, never a publish.
@@ -175,11 +175,27 @@ export async function expand($: Dollar, args: Record<string, unknown>): Promise<
   const problems = [...walked, ...checked.problems]
   if (problems.length > 0) return { deny: `${render({ ...checked, ok: false, problems })}\n${NOT_SENT}` }
   const out = [...skills]
-  slots.forEach((index, k) => {
-    const { files_from: _, ...rest } = out[index] as Record<string, unknown>
-    out[index] = { ...rest, files: checked.byFolder[k] }
-  })
+  for (const [k, index] of slots.entries()) {
+    const { files_from: _, sha256: __, ...rest } = out[index] as Record<string, unknown>
+    const files = checked.byFolder[k]
+    out[index] = { ...rest, files, sha256: await digests(files) }
+  }
   return { args: { ...args, skills: out } }
+}
+
+/**
+ * The lowercase hex sha256 of each file's UTF-8 text as sent, so the skill app (4.2.0 on) refuses
+ * the call if any of it changed on the way. It replaces any `sha256` the call carried: the hook
+ * made the files.
+ */
+export async function digests(files: Record<string, string>): Promise<Record<string, string>> {
+  const encoder = new TextEncoder()
+  const out: Record<string, string> = {}
+  for (const [path, text] of Object.entries(files)) {
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(text)))
+    out[path] = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')
+  }
+  return out
 }
 
 /** Whether a failed create may have committed: the reply was lost, not refused. */
