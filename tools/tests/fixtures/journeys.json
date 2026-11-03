@@ -1779,7 +1779,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-ontology",
    "title": "Draft an OWL ontology for Studio",
-   "route": "Target ontology and release, governed metrics, existing context, import preview",
+   "route": "Target ontology; its release beside the released metrics and saved queries; existing context beside the schemas; import preview",
    "calls": {
     "cold": [
      {
@@ -1794,14 +1794,28 @@
       "runner": "call_read_tool",
       "args": {
        "artifact_id": "<ontology>"
-      }
+      },
+      "group": "g1"
      },
      {
-      "tool": "registry__list_artifacts",
+      "tool": "extension__metric__search_metrics",
       "runner": "call_read_tool",
       "args": {
-       "kind": "metric",
-       "workspace_id": "<ws>"
+       "workspace_id": "<ws>",
+       "query": "<domain>",
+       "include_definition": true,
+       "definition_limit": 2
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__metric__search_queries",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<domain>",
+       "limit": 5,
+       "include_sql": false
       },
       "group": "g1"
      },
@@ -1812,14 +1826,15 @@
        "release_id": "<current>",
        "query": "<domain>"
       },
-      "group": "g1"
+      "group": "g2"
      },
      {
       "tool": "warehouse.query",
       "runner": "warehouse",
       "args": {
        "sql": "<information_schema columns and keys>"
-      }
+      },
+      "group": "g2"
      },
      {
       "tool": "extension__ontology__get_import_preview",
@@ -1840,7 +1855,7 @@
     ]
    },
    "budget": {
-    "cold": 6,
+    "cold": 7,
     "warm": 1
    },
    "targets": null,
