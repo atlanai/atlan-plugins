@@ -6,8 +6,10 @@ license: Apache-2.0
 
 # Author skill bundles
 
-In search mode, the default, run each tool named here through `mcp__call_tool`, with
-`session_id` and a first-person `rationale` beside `name` and `arguments`; your first call opens
+In search mode, the default, run each tool named here through the runner for what it does
+(`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
+`mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
+beside `name` and `arguments`; your first call opens
 the session by sending `objective`. **Before your first call** in
 `skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
 and the kind schema. Replies lead with the result in a few lines, and ask before every write.
@@ -16,8 +18,9 @@ and the kind schema. Replies lead with the result in a few lines, and ask before
 
 Most requests are one new skill of a few text files. Run these steps without reading the
 references first. The tool names and arguments below are exact: run them through
-`mcp__call_tool` without `mcp__describe_tools` first, and without loading another runner,
-whatever `run_with` a search answer names.
+`mcp__call_tool` without `mcp__describe_tools` first. It runs any tool, so the skill create
+goes through it whatever `run_with` a search answer names; the searches and reads may use
+`mcp__call_read_tool`.
 
 1. **Search** with the user's words: `registry__search_artifacts` with `query`, `kind: "skill"`
    and `limit: 3`. Judge each hit by its name and description; a hit with `match.keyword` false
