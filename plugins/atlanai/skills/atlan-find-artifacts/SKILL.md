@@ -63,7 +63,9 @@ mcp__call_tool {
   every hit, and say which, rather than offering every hit as ready.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
   and workspace, and let the user pick before anything loads. Never load a skill because it
-  ranked first.
+  ranked first. The one exception is the user's own standing instruction to check Atlan before
+  each task (an **Atlan registry skills** section in `AGENTS.md`): then `atlan-use-skill` loads
+  a single clear match and names it in one line, and still asks when more than one fits.
 - **Same name, different skill.** Two artifacts can share a `name` in different workspaces
   (a team's skill and someone's personal copy). Show the workspace and handle of each so the
   user can tell them apart.
