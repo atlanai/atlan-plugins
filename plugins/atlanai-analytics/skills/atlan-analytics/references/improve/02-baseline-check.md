@@ -3,7 +3,9 @@
 Do these before round 1. Each has quietly wrecked a hill-climb.
 
 1. **Noise floor vs headroom.** Put three numbers in front of the user:
-   - the noise floor: the band on validation, about `±1/sqrt(n_validation·reps)`;
+   - the noise floor: the validation `ci95` that `EVAL summary` reports for the baseline (half
+     the width of its Wilson interval, over validation cases). Quote that number, not a formula
+     of your own: every later step, the δ in the plan included, uses it;
    - the headroom: 100% minus the validation baseline;
    - the smallest gain they would act on.
 
@@ -28,7 +30,8 @@ Do these before round 1. Each has quietly wrecked a hill-climb.
    registry search tool before writing SQL in most cases. If it almost never does, fix the
    prompt first. That becomes round 1, because context changes can't help an agent that never
    looks.
-5. **Train and validation agree.** The two pass rates should be within noise of each other.
+5. **Train and validation agree.** The two pass rates should be within noise of each other:
+   their `ci95` intervals overlap.
    If they aren't, tell the user: the sets are small or unevenly hard. Add cases or reps, which
    needs a refreeze and a new baseline. Never redraw the split: a draw chosen after seeing
    scores is no longer held out, and `split` refuses it.

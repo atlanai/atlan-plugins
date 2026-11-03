@@ -70,12 +70,16 @@ build it is used in phase 4. Eval answers never become context.
 Skip this section when no history source was chosen.
 
 1. Pull 90 days of successful SELECTs that touch the scoped tables, grouped per distinct text
-   with run and user counts, at most 5,000 rows. [Warehouse discovery](connect.md) picks how:
-   its **Query history** section in [warehouses](warehouses.md)
-   holds the statement for each warehouse, the fallbacks when access is denied, and the bulk
-   path that writes rows straight to a file.
-2. Write the rows to `<context-dir>/querylog.jsonl`, one `{sql, exec, users}` per line, and
-   record the window's absolute start and end dates in state. Never include user names.
+   with run and user counts, at most 5,000 rows, by the bulk path `warehouse.bulk` names.
+   [Query history](warehouses/query-history.md) holds the statement for each warehouse and the
+   fallbacks when access is denied.
+2. Turn the pull into `<context-dir>/querylog.jsonl` without the rows passing back through this
+   conversation: `MINE querylog <saved pull> <context-dir>/querylog.jsonl`, adding `--append`
+   for each later page. The saved pull is the CLI's output file, the export, or the file the host
+   saved a large tool result to. It reads all of these, keeps `{sql, exec, users}`, counts users
+   without writing their names, and prints only counts. Never retype rows into a file yourself:
+   when a page came back inline and the host saved no file, pull smaller pages rather than
+   copying it out. Record the window's absolute start and end dates in state.
 3. Drop identifying literals:
    `EVAL filter-querylog <context-dir>/querylog.jsonl <context-dir>/querylog.clean.jsonl`.
    Report the counts by reason in one line.

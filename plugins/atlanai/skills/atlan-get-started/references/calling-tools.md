@@ -204,7 +204,9 @@ create without an `idempotency_key`: those are writes a lost response does not u
   larger, and every binary such as a skill `.zip`, goes through `registry__request_file_upload`
   (see `atlan-content`). `registry__get_file_content` returns at most 256 KiB of UTF-8.
 - **Batches.** `registry__create_artifacts` takes up to 100 items and reports each in its own
-  slot. Read the slots, retry only the failed ones.
+  slot. Read the slots, retry only the failed ones. Keep one call's items under about 256 KB of
+  JSON as well: small items fill 100, but large bodies, such as full metric definitions of up to
+  16 KiB each, go about 25 to a call.
 
 ## Source keys
 

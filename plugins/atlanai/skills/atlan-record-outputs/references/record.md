@@ -104,13 +104,9 @@ a value from one to the other.
 "external_url": "https://dashboards.example.com/release-notes"
 ```
 
-and **no** pin fields. Rules:
-
-- Absolute `http` or `https`.
-- **No userinfo**, and **no credential-bearing query or fragment parameter.** A presigned
-  URL is refused - so is anything with a token in the query string.
-- The gateway **never fetches** what an output links to. It is validated for shape and then
-  stored and echoed.
+and **no** pin fields. The URL must pass the rules in
+[`external_url` validation](output-modes.md#external_url-validation): absolute `http(s)`, no
+userinfo, and no credential in its query or fragment. The gateway never fetches it.
 
 ## Attributing the producer
 

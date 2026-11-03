@@ -53,8 +53,9 @@ over-size upload is refused before the transfer rather than after it.
 
 Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is `false`
 on today's gateway; if a server ever answers `true`, the URL carries its own authorization, so
-send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`). Resolve it against the API origin you
-called `registry__request_file_upload` on. A missing bearer returns 401.
+send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`):
+resolve it against the API origin you called `registry__request_file_upload` on. A missing bearer
+returns 401.
 
 Start the PUT within `expires_in_seconds` (900 seconds). Expired or unissued tickets return
 400 with instructions to request a fresh ticket. A transfer started in time may finish after
