@@ -16,8 +16,11 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { CREDENTIAL_DIRS, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
 
-/** The gateway's `call_tool`, under the plugin's server or one added by hand. */
-export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call_tool$/
+/**
+ * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
+ * under the plugin's server or one added by hand. Never another server's tool of a like name.
+ */
+export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$/
 export const PUBLISH = 'extension__skill__create'
 /** The line that tells the model the helper is on, once a conversation. publish.md sends `files_from` without waiting for it. */
 export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create accepts files_from.'
@@ -143,6 +146,31 @@ async function walk($: Dollar, label: string, base: string, sep: string): Promis
 }
 
 /**
+ * One budget for the call: the expanded folders' files and the other skills' inline `files`
+ * together, as the skill app counts them.
+ */
+export function overBudget(skills: readonly unknown[], slots: readonly number[], checked: { count: number; bytes: number }): Problem[] {
+  let count = 0
+  let bytes = 0
+  const encoder = new TextEncoder()
+  for (const [index, skill] of skills.entries()) {
+    if (slots.includes(index) || !isRecord(skill) || !isRecord(skill.files)) continue
+    for (const text of Object.values(skill.files)) {
+      count += 1
+      if (typeof text === 'string') bytes += encoder.encode(text).length
+    }
+  }
+  if (count === 0) return []
+  count += checked.count
+  bytes += checked.bytes
+  if (count > MAX_FILES)
+    return [problem('', 'too-many-files', `the call holds ${count} files with its inline \`files\`; a call takes at most ${MAX_FILES}, so split it or use the ZIP route`)]
+  if (bytes > MAX_BYTES)
+    return [problem('', 'too-large', `the call holds ${bytes} bytes with its inline \`files\`; a call takes at most ${MAX_BYTES}, so split it or use the ZIP route`)]
+  return []
+}
+
+/**
  * The create's arguments with every `files_from` replaced by the folder's `files`, or the text that
  * refuses the call, or undefined when no skill names `files_from`.
  */
@@ -172,7 +200,7 @@ export async function expand($: Dollar, args: Record<string, unknown>): Promise<
   )
   // A folder that could not be placed has nothing to check, and would only add a missing SKILL.md.
   const checked = check(folders.filter(folder => folder.problems.length === 0 || folder.entries.length > 0))
-  const problems = [...walked, ...checked.problems]
+  const problems = [...walked, ...checked.problems, ...overBudget(skills, slots, checked)]
   if (problems.length > 0) return { deny: `${render({ ...checked, ok: false, problems })}\n${NOT_SENT}` }
   const out = [...skills]
   for (const [k, index] of slots.entries()) {
@@ -227,7 +255,8 @@ export function readBackNote(sentAt: number, withKey = false): string {
   }
   return (
     `The skill create may have committed before its reply was lost. It carried no idempotency_key, so do not send it again yet. ` +
-    `It was sent at ${new Date(sentAt).toISOString()}: find the skill with registry__search_artifacts (kind "skill", the workspace_id and name), ` +
+    `It was sent at ${new Date(sentAt).toISOString()}: find the skill with registry__search_artifacts (kind "skill", the workspace_id, name ` +
+    'and include_unreviewed: true, since a version still under scan is left out otherwise), ' +
     'read it with registry__get_artifact, and count the version as landed when its version_ordinal is the one expected and its updated_at ' +
     'is no earlier than 10 seconds before that time. If nothing landed, wait 5 seconds and read once more; only then send the create again, once.'
   )
