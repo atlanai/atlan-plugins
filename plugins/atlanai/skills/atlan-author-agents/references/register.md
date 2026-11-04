@@ -5,10 +5,9 @@ the native Atlan runtime; local and custom providers can remain catalog-only. Re
 is a JSON create and does not by itself deploy or start the agent. Runtime authentication
 uses its machine identity.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
 `registry__get_kind_schema` only after a write to a kind is refused.
 
