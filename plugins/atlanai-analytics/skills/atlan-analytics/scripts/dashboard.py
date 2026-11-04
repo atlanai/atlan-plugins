@@ -97,6 +97,25 @@ def run(args):
     if args.command == "prepare-context":
         with service.lock():
             return prepare_context(service, args.job, args.context)
+    if args.command == "registry-inspect":
+        from registry_inspection import ReadCLI, inspect_contract
+        selected = load(args.target)
+        try:
+            observed = inspect_contract(ReadCLI(), selected)
+        except ValueError as exc:
+            code = str(exc)
+            allowed = {'registry_not_installed','registry_response_limits','registry_invalid_response',
+                       'registry_kind_contract_mismatch','registry_workspace_contract_mismatch',
+                       'registry_metric_unsupported','registry_auth_required','registry_permission_denied',
+                       'registry_call_failed','registry_target_changed','invalid_arguments'}
+            return {'status': 'error', 'code': code if code in allowed else 'registry_call_failed',
+                    'remote_writes': False, 'next': 'Resolve this specific inspection error; do not infer a login or permission failure from a schema mismatch.'}
+        root = Path(args.output).absolute()
+        require(not any(p.is_symlink() for p in (root, *root.parents)), 'Use an ordinary inspection file.')
+        service.write(root, observed)
+        return {**{k:v for k,v in observed.items() if k != '_manifest'},
+                'status':'ok','schema_file':str(root),'remote_writes':False,
+                'next':'Read the complete metric inventory and prepare the publication plan. This read grants no new access and writes nothing to Registry.'}
     if args.command.startswith("registry-"):
         from dashboard_publish import Publisher
         publisher = Publisher(Path(args.context))
@@ -121,6 +140,9 @@ def main():
     context = commands.add_parser("prepare-context")
     context.add_argument("--job", required=True)
     context.add_argument("--context", required=True)
+    inspect = commands.add_parser("registry-inspect")
+    inspect.add_argument("--target", required=True)
+    inspect.add_argument("--output", required=True)
     for name in ("registry-plan", "registry-next", "registry-ack", "registry-recover"):
         sub = commands.add_parser(name)
         sub.add_argument("--context", required=True)
@@ -134,7 +156,7 @@ def main():
     try:
         result = run(args)
         print(json.dumps(result, allow_nan=False))
-        return 0
+        return 2 if result.get("status") == "error" else 0
     except (ValueError, OSError, KeyError, TypeError):
         # Payloads and filesystem errors may contain SQL or private source values.
         print(json.dumps({"status": "BLOCKED", "reason": "Dashboard operation could not be completed.",
