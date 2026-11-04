@@ -246,4 +246,3 @@ def validate_definition(definition: dict) -> dict:
             warn("experimental_fields", "definition.extensions", "Experimental fields are preserved without validating their meaning.")
     return {"valid": not errors, "errors": errors, "warnings": warnings,
             "profile": PROFILE, "sql_validation": "not_performed"}
-
