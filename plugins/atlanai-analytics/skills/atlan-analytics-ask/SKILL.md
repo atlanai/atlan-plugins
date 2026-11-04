@@ -23,13 +23,24 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    as the `objective`. Its first call is step 2's search.
 2. Search released metrics in every workspace at once: call
    `extension__metric__search_metrics` with the measure and its business nouns as `query`,
-   `include_definition: true`, `definition_limit: 1` (2 when the top two names both fit the
-   measure) and no `workspace_id`. Each item names its workspace and carries its release
-   receipt; the first carries its definition (up to 16 KiB, so never ask for more). When good
-   hits sit in several workspaces, ask which one, recommending the one whose metric name
-   matches the measure. An empty result is the answer "no published metric": go to **Nothing
-   found** below, and never fall back to a search without `include_definition`, which returns
-   unreleased heads.
+   `semantic: true`, `include_definition: true`, `definition_view: "compact"`,
+   `definition_limit: 1` (2 when the top two names both fit the measure) and no
+   `workspace_id`. Each item names its workspace and carries its release receipt; the first
+   carries its definition, which compact cuts to the calculation (formula, aggregation,
+   filters, exclusions, source, joins, dimensions, output). If the call refuses
+   `definition_view` or `semantic` by name, send it again without that argument and leave it
+   out for the rest of the session. When good hits sit in several workspaces, ask which one,
+   recommending the one whose metric name matches the measure. An empty result is the answer
+   "no published metric": go to **Nothing found** below, and never fall back to a search
+   without `include_definition`, which returns unreleased heads.
+
+   **A hit is a candidate, not an answer.** The search ranks by wording and returns no score
+   you can trust, so it always returns something: "revenue by region" has come back with two
+   cabin-crew metrics. Keep a hit only when its name, display name or definition's formula
+   measures what the question asks (revenue is a sum of money; a count of crew is not
+   revenue), allowing the synonyms its description lists. Sharing a dimension word such as
+   "region" is not a match. When no hit measures it, the answer is "no published metric", as
+   for an empty result; say in the answer which near misses you set aside, by name, in one line.
 
    If the call is refused because `workspace_id` is required (an older metric app), find the
    workspace first: `registry__search_artifacts` with `kind` `metric`, the measure as `query`
@@ -108,7 +119,8 @@ Offer the propose flow once, when either happened:
 On a yes, follow [propose mode](../atlan-analytics/references/propose.md) from its step 1. It
 previews before writing and never changes a metric itself. Never propose without asking.
 
-When the person wants the answer kept or shared as a document, chart or link, the core
-plugin's `atlan-record-outputs` skill records it as an Atlan output; name the metric it used.
+When the person wants the answer shared with colleagues, the core plugin's `atlan-share`
+skill records it and posts the hand-off; to keep it without an audience, `atlan-record-outputs`
+records it as an Atlan output. Either way, name the metric it used.
 
 End with one status line from the conventions.

@@ -275,6 +275,24 @@ describe('the guard', () => {
     expect(verdict.reason).toContain('2 artifacts depend on it')
   })
 
+  test('waits at most 3 seconds before that retry, whatever retry_after_seconds says', async ($, on) => {
+    const clock = engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    let failures = 1
+    on('mcp.call', (_, e) => {
+      const name = (e.args as { name?: string }).name
+      if (name === 'registry__get_related_artifacts' && failures-- > 0)
+        return { value: { content: [{ type: 'text', text: JSON.stringify({ code: 'downstream_unavailable', retryable: true, retry_after_seconds: 60 }) }], isError: true } }
+      return { value: text(name === 'registry__get_related_artifacts' ? RELATED : `${ARTIFACT}${RECEIPT}`) }
+    })
+    const pending = $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' } })
+    await clock.settle()
+    await clock.advance(3_000)
+    await clock.settle()
+    const verdict = await pending
+    expect(verdict.reason).toContain('2 artifacts depend on it')
+  })
+
   test("does not let another server's read-only hint allow its tool (X2)", async ($, on) => {
     engine(on)
     on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'slack__send_message', annotations: { readOnlyHint: true } }] }) }))
