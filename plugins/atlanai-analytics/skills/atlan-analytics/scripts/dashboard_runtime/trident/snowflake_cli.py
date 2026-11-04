@@ -86,7 +86,7 @@ def scripting(sql, parameters):
     return 'EXECUTE IMMEDIATE $$\nDECLARE\n'+'\n'.join(declarations)+'\nBEGIN\nrows_result := (EXECUTE IMMEDIATE :query_text'+using+');\nRETURN TABLE(rows_result);\nEND;\n$$;'
 
 
-def command(config):
+def connection_arguments(config):
     if config.get('account') and not re.fullmatch(r'[A-Za-z0-9_.-]{1,256}',config['account']):
         raise CLIError('Invalid Snowflake account.')
     for key in ('role','warehouse'):
@@ -94,11 +94,7 @@ def command(config):
             raise CLIError('An explicit approved role and warehouse are required.')
     if config['role'].upper() in ('ACCOUNTADMIN','SECURITYADMIN','ORGADMIN'):
         raise CLIError('Use the report’s approved query role, not an administrator role.')
-    cli=[discover()]
-    if config.get('_managed_profile'):
-        from .snowflake_discovery import prefix, profile_home
-        cli=prefix(profile_home(config))
-    args=cli+['sql','--stdin','--role',config['role'],'--warehouse',config['warehouse'],
+    args=['sql','--stdin','--role',config['role'],'--warehouse',config['warehouse'],
           '--secondary-roles','NONE','--enable-templating','NONE','--local-only','--format','JSON','--silent',
           '--enhanced-exit-codes']
     if config.get('connection'):
@@ -125,6 +121,14 @@ def command(config):
             if not re.fullmatch(r'[A-Za-z0-9_.$-]{1,256}',config[key]):raise CLIError('Invalid database or schema name.')
             args+=['--'+key,config[key]]
     return args
+
+
+def command(config):
+    args = connection_arguments(config)
+    if config.get('_managed_profile'):
+        from .snowflake_discovery import prefix, profile_home
+        return prefix(profile_home(config)) + args
+    return [discover()] + args
 
 
 def execute(config, sql, parameters):

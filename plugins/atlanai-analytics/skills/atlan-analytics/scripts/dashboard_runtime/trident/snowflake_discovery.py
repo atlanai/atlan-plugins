@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from .snowflake_cli import CLIError, ConnectionPaused, command, discover
+from .snowflake_cli import CLIError, ConnectionPaused, connection_arguments, discover
 
 
 FIELDS = ('account', 'user', 'role', 'warehouse', 'database', 'schema', 'authenticator')
@@ -111,10 +111,10 @@ def resolve(config, previous=None, before_login=None):
     if previous and all(previous.get(k) == v for k, v in config.items()):
         return dict(previous)
     if config.get('connection') or config.get('user'):
-        command(config)  # Validate scope without opening a connection.
+        connection_arguments(config)  # Validate scope without opening a connection.
         return config
     # Validate dashboard-derived scope before looking up profiles or invoking OAuth.
-    command({**config, 'user': 'discovery_validation'})
+    connection_arguments({**config, 'user': 'discovery_validation'})
     selected = choose(connections(), config)
     if selected:
         return selected
@@ -123,7 +123,7 @@ def resolve(config, previous=None, before_login=None):
         user = os.environ.get('SNOWFLAKE_USER')
         if user:
             selected = {**config, 'user': user}
-            command(selected)
+            connection_arguments(selected)
             return selected
     home = profile_home(config)
     if home.exists():

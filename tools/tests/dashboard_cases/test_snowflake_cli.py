@@ -202,6 +202,8 @@ class ConnectionDiscovery(unittest.TestCase):
         patcher=patch.object(discovery,'profile_home',return_value=self.home)
         patcher.start();self.addCleanup(patcher.stop)
         self.scope={k:v for k,v in CONFIG.items() if k!='user'}
+        patcher=patch('trident.snowflake_cli.discover',side_effect=AssertionError('validation must not discover an executable'))
+        patcher.start();self.addCleanup(patcher.stop)
 
     def row(self,name='example',**values):
         return {'connection':name,'account':CONFIG['account'],'role':CONFIG['role'],
@@ -285,7 +287,7 @@ class ConnectionDiscovery(unittest.TestCase):
             self.discovery.resolve(self.scope,before_login=lambda:self.fail('unexpected login'))
         self.assertFalse(self.home.exists())
 
-    @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
+    @patch('trident.snowflake_discovery.discover',return_value='/approved/bin/snow')
     def test_managed_queries_explicitly_select_the_isolated_cli_config(self,_):
         args=command({**self.scope,'connection':'signed_in','_managed_profile':True})
         self.assertEqual(args[1:3],['--config-file',str(self.home/'config.toml')])
