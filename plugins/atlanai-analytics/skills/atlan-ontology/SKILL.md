@@ -28,6 +28,11 @@ request, and ask once only when two modes fit equally well.
 
 ## 1. Preflight
 
+Records mode runs steps 1 and 3 only, then section 3: `extension__ontology__get_records` takes
+no release id (each record it returns names the release it came from), and an uninstalled app
+shows as that call being refused as an unknown tool (stop with BLOCKED as step 2 says). Context and draft
+modes run every step.
+
 1. Open a registry session as the conventions describe, with an `objective` naming the domain.
 2. Confirm the Ontology app is installed: `mcp__describe_tools` (or the full tool list) shows
    `extension__ontology__get_context`, and `registry__get_kind_schema` knows `ontology`. If not,
@@ -91,6 +96,20 @@ check it; you never save it.
    the tables in scope with the warehouse query tool (`information_schema` columns and primary
    and foreign keys), then documents the person names. Read schemas only; never query business
    rows to draft a model.
+
+   Read the metrics with `extension__metric__search_metrics` through `mcp__call_read_tool`:
+   `workspace_id` of the ontology's workspace, the domain's business nouns as `query`,
+   `include_definition: true` and `definition_limit: 2`. With `include_definition` it returns
+   only released revisions, and each definition is up to 16 KiB, so never ask for more; search
+   again with a narrower `query` for another one. For saved queries use
+   `extension__metric__search_queries` with the same `workspace_id` and `query`, `limit: 5` and
+   `include_sql: false`: their names and descriptions are enough here. When those tools are not
+   listed, use `registry__search_artifacts` with kind `metric`, then `sql_query`, and that
+   `workspace_id`, and count only rows with a released version. Send both searches in the
+   same turn as step 1.4's release lookup. No published metrics is fine: say so and draft from
+   the schemas. When step 1.4 found a release, read what is already modelled with
+   `extension__ontology__get_context` (the domain's nouns as `query`, `max_resources` 20 or
+   less), so the draft reuses its names instead of duplicating them.
 3. **Write the document** as OWL in Turtle, in the subset Atlan imports:
    - `owl:Class` for each object type, with `rdfs:label` and `rdfs:comment`;
    - `owl:DatatypeProperty` for each property, with `rdfs:domain` and an XSD `rdfs:range`;

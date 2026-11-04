@@ -76,6 +76,10 @@ import { HINT_MS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, ty
 
 const HINTS_KEY = 'hints'
 const LOOKUP_MS = 6000
+/** The most a permission prompt waits on the blast-radius reads, a retry included, and the most
+ * it sleeps before that retry whatever `retry_after_seconds` says. */
+const BLAST_BUDGET_MS = 8000
+const BLAST_RETRY_MAX_S = 3
 const PROBE_MS = 15000
 const RETRY_MS = 20000
 const PANE = 'atlan'
@@ -86,6 +90,10 @@ const GROUP_ROWS = 6
 const HINT_RATIONALE = "Looking for a published skill in the organization's registry that fits the user's request."
 /** Searches kept per session, for a prompt sent again. */
 const HINT_CACHE = 50
+/** Hint searches that may time out in a row before the hint pauses, and how long it pauses (also
+ * how long a degraded connection keeps it off). */
+const HINT_TIMEOUTS = 2
+const HINT_PAUSE_MS = 5 * 60 * 1000
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
@@ -129,6 +137,9 @@ type Memory = {
   picker: Picker
   /** The skill hint's state, for the conversation `hintSession` names: a /clear starts a new one. */
   hint: { session: string; named: Set<string>; searches: Map<string, Promise<SkillMatch[]>> }
+  /** The hint's circuit breaker, kept across conversations: it is about the gateway, not the
+   * prompt. `timeouts` in a row, the time the pause ends, and whether a search is still out. */
+  hintBreaker: { timeouts: number; pausedUntil: number; isSearching: boolean }
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -225,14 +236,29 @@ async function within<T>($: Dollar, ms: number, work: Promise<T>): Promise<Outco
 /** The value of a bounded wait that worked, else `undefined`. */
 const valueOf = <T,>(outcome: Outcome<T>): T | undefined => (outcome.kind === 'ok' ? outcome.value : undefined)
 
-/** A read the mod makes for itself, tried again once after a transient failure. */
-async function lookupWithRetry($: Dollar, mem: Memory, server: string, name: string, args: Record<string, unknown>, rationale: string, ms: number): Promise<Outcome<Lookup>> {
-  const first = await within($, ms, lookup($, mem, server, name, args, rationale))
+/** A deadline for a read and its retry together, and the longest wait before the retry. */
+type Budget = { totalMs: number; maxWaitSeconds: number }
+
+/** A read the mod makes for itself, tried again once after a transient failure. With a budget, the
+ * wait is capped and the retry runs only when it can finish inside the deadline, so a gateway
+ * asking for `retry_after_seconds: 60` never holds a permission prompt for a minute. */
+async function lookupWithRetry($: Dollar, mem: Memory, server: string, name: string, args: Record<string, unknown>, rationale: string, ms: number, budget?: Budget): Promise<Outcome<Lookup>> {
+  const started = await $.clock.now()
+  const first = await within($, budget ? Math.min(ms, budget.totalMs) : ms, lookup($, mem, server, name, args, rationale))
   const transient = first.kind === 'ok' ? first.value.isError && retryOf(first.value.text) : first.kind === 'error' && retryOf(first.message)
   if (!transient) return first
-  await $.clock.sleep(transient.afterSeconds * 1000)
-  return within($, ms, lookup($, mem, server, name, args, rationale))
+  if (!budget) {
+    await $.clock.sleep(transient.afterSeconds * 1000)
+    return within($, ms, lookup($, mem, server, name, args, rationale))
+  }
+  const waitMs = Math.min(transient.afterSeconds, budget.maxWaitSeconds) * 1000
+  const left = budget.totalMs - ((await $.clock.now()) - started) - waitMs
+  if (left < 1000) return first
+  await $.clock.sleep(waitMs)
+  return within($, Math.min(ms, left), lookup($, mem, server, name, args, rationale))
 }
+
+const BLAST: Budget = { totalMs: BLAST_BUDGET_MS, maxWaitSeconds: BLAST_RETRY_MAX_S }
 
 /** The permission prompt's text for an archive, move or approve, and the pane's card for it. */
 async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string, name: string, input: Record<string, unknown>): Promise<{ reason: string; card?: Card }> {
@@ -241,8 +267,8 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
   const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
-    lookupWithRetry($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why, LOOKUP_MS).then(valueOf),
-    lookupWithRetry($, mem, server, 'registry__get_artifact', { artifact_id: id }, why, LOOKUP_MS).then(valueOf),
+    lookupWithRetry($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why, LOOKUP_MS, BLAST).then(valueOf),
+    lookupWithRetry($, mem, server, 'registry__get_artifact', { artifact_id: id }, why, LOOKUP_MS, BLAST).then(valueOf),
   ])
   const summary = artifact && !artifact.isError ? summaryOf(artifact.text) : undefined
   const dependents = related && !related.isError ? dependentsOf(related.text) : undefined
@@ -375,6 +401,12 @@ async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<s
   if (!isHintable(prompt)) return []
   const health = mem.health
   if (health && NO_HINT.has(health.state)) return []
+  const breaker = mem.hintBreaker
+  const now = await $.clock.now()
+  // A degraded gateway, or two searches in a row that outlasted the wait, pause the hint for a
+  // while: each search would only add its wait to the prompt and load a struggling gateway.
+  if (health?.state === 'degraded' && now - health.checkedAt < HINT_PAUSE_MS) return []
+  if (now < breaker.pausedUntil) return []
   const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   const session = await $.session.id()
   if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
@@ -382,7 +414,12 @@ async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<s
   const query = hintQuery(prompt.text)
   let pending = hint.searches.get(query)
   if (!pending) {
-    pending = firstAnswer($, mem, servers, { query, kind: 'skill', semantic: true, limit: 3 }, HINT_RATIONALE).then(
+    // One search out at a time: a new prompt while one is still running goes without a hint.
+    if (breaker.isSearching) return []
+    breaker.isSearching = true
+    pending = firstAnswer($, mem, servers, { query, kind: 'skill', semantic: true, limit: 3 }, HINT_RATIONALE).finally(() => {
+      breaker.isSearching = false
+    }).then(
       found => {
         if (found.isError) hint.searches.delete(query)
         return found.isError ? [] : skillMatches(found.text)
@@ -396,7 +433,17 @@ async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<s
     if (hint.searches.size > HINT_CACHE) hint.searches.delete(hint.searches.keys().next().value as string)
   }
   // A search that outlasts the wait still finishes, and answers the same prompt sent again.
-  const matches = (valueOf(await within($, HINT_MS, pending)) ?? []).filter(match => !hint.named.has(match.id))
+  const outcome = await within($, HINT_MS, pending)
+  if (outcome.kind === 'timeout') {
+    breaker.timeouts += 1
+    if (breaker.timeouts >= HINT_TIMEOUTS) {
+      breaker.timeouts = 0
+      breaker.pausedUntil = now + HINT_PAUSE_MS
+    }
+  } else {
+    breaker.timeouts = 0
+  }
+  const matches = (valueOf(outcome) ?? []).filter(match => !hint.named.has(match.id))
   if (matches.length === 0) return []
   const installed = valueOf(await within($, HINT_MS, $.command.list()))?.map(command => command.name) ?? []
   const fresh = matches.filter(match => !isInstalled(match.name, installed))
@@ -435,6 +482,7 @@ export const register: Register = (on, options) => {
     hasOpenedPane: false,
     picker: { query: '', state: 'idle', rows: [], total: 0, note: '' },
     hint: { session: '', named: new Set(), searches: new Map() },
+    hintBreaker: { timeouts: 0, pausedUntil: 0, isSearching: false },
   }
 
   on('session.start', async ($, e, next) => {
@@ -569,6 +617,7 @@ export const register: Register = (on, options) => {
 
     const health = mem.health
     const retry = isError ? retryOf(text) : undefined
+    if (!isError) mem.hintBreaker.pausedUntil = 0
     if (!isError && health?.state !== 'ready') {
       setHealth($, mem, { state: 'ready', server: health?.server ?? '', detail: 'a registry call succeeded', checkedAt: await $.clock.now() })
     } else if (isError && diagnose(text) === 'sign-in') {

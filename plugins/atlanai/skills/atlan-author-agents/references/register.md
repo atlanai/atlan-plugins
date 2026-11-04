@@ -5,26 +5,17 @@ the native Atlan runtime; local and custom providers can remain catalog-only. Re
 is a JSON create and does not by itself deploy or start the agent. Runtime authentication
 uses its machine identity.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
-`registry__get_kind_schema` before your first write to a kind.
+`registry__get_kind_schema` only after a write to a kind is refused.
 
-## Read the kind first
+## What an agent requires
 
-```
-registry__get_kind_schema {
-  "kind": "agent",
-  "session_id": "mcp_session_01J...",
-  "rationale": "checking what an agent requires before creating one"
-}
-```
-
-You will find that almost nothing is required. `name` and `workspace_id` are it -
-everything about what the agent *does* is optional, so a catalogue entry with nothing but a
-name is valid and useful.
+Almost nothing. `name` and `workspace_id` are it - everything about what the agent *does* is
+optional, so a catalogue entry with nothing but a name is valid and useful. Create directly;
+read `registry__get_kind_schema` for `agent` only if the create is refused over a property.
 
 ## One agent
 
@@ -112,8 +103,9 @@ moves on its own - a skill publishing a new release changes no agent until you w
 pin, and on a released agent that write is a new agent version.
 
 The `uses_skill` edges follow the manifest: the registry derives one per pinned skill and
-archives the rest, shortly after the write. Confirm the pins with `registry__get_artifact` and
-the edges with `registry__get_related_artifacts`.
+archives the rest, shortly after the write. The write's result carries the pins, with the
+ordinal and digest the registry filled in, so report from it. Read the derived edges with
+`registry__get_related_artifacts` only when someone needs the graph itself.
 
 An agent that has **never** written a manifest still carries hand-curated `uses_skill` edges
 (`registry__relate_artifact`); the first manifest replaces them. The full edge table and its
