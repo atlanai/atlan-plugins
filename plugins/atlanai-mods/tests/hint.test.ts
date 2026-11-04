@@ -4,6 +4,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import { HINT_SIMILARITY, hintLine, hintQuery, isHintable, isInstalled, skillMatches } from '../hooks/hint'
 
 const SESSION = 'mcp_session_01m6cb39bcesgadrp1h8b69m74'
+const CALL = 'mcp__plugin_atlanai_atlan__mcp__call_tool'
 const RECEIPT = JSON.stringify({ 'com.atlan/receipt': { mcp_session_id: SESSION, next: 'Pass this id as top-level session_id.' } })
 const DESCRIBED = JSON.stringify({ tools: [{ name: 'registry__search_artifacts', annotations: { readOnlyHint: true } }] })
 
@@ -199,6 +200,48 @@ describe('the prompt-time skill hint', () => {
     await $.prompt.submit(prompt('tell me a great startup joke'))
     expect(seen.searches).toHaveLength(1)
     expect(seen.contexts[1]?.[0]).toContain(JOKES.id)
+  })
+
+  test('runs one search at a time: a new prompt while one is out goes without a hint', async ($, on) => {
+    const { seen, clock } = engine(on, () => new Promise(() => undefined))
+    await connect($, clock)
+    const first = $.prompt.submit(prompt('tell me a great startup joke'))
+    await clock.settle()
+    await clock.advance(800)
+    await first
+    await $.prompt.submit(prompt('draft the weekly revenue report for finance'))
+    expect(seen.searches).toHaveLength(1)
+    expect(seen.contexts).toEqual([undefined, undefined])
+  })
+
+  test('pauses for five minutes after two searches in a row outlast the wait', async ($, on) => {
+    const releases: ((value: unknown) => void)[] = []
+    const { seen, clock } = engine(on, () => new Promise(resolve => releases.push(resolve)))
+    await connect($, clock)
+    for (const words of ['tell me a great startup joke', 'draft the weekly revenue report for finance']) {
+      const sent = $.prompt.submit(prompt(words))
+      await clock.settle()
+      await clock.advance(800)
+      await sent
+      releases.shift()?.({ value: text(NOTHING) })
+      await clock.settle()
+    }
+    await $.prompt.submit(prompt('summarise the incident review from last night'))
+    expect(seen.searches).toHaveLength(2)
+    await clock.advance(5 * 60 * 1000)
+    void $.prompt.submit(prompt('summarise the incident review from last night'))
+    await clock.settle()
+    expect(seen.searches).toHaveLength(3)
+  })
+
+  test('searches nothing while a registry call has just failed with a temporary error', async ($, on) => {
+    const { seen, clock } = engine(on)
+    on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))
+    await connect($, clock)
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' }, rationale: 'r' })
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    expect(seen.searches).toEqual([])
+    expect(seen.contexts).toEqual([undefined])
   })
 
   test('is off with the suggest_skills option', { options: { suggest_skills: false } }, async ($, on) => {

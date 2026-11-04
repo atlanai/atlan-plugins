@@ -28,6 +28,11 @@ request, and ask once only when two modes fit equally well.
 
 ## 1. Preflight
 
+Records mode runs steps 1 and 3 only, then section 3: `extension__ontology__get_records` takes
+no release id (each record it returns names the release it came from), and an uninstalled app
+shows as that call being refused as an unknown tool (stop with BLOCKED as step 2 says). Context and draft
+modes run every step.
+
 1. Open a registry session as the conventions describe, with an `objective` naming the domain.
 2. Confirm the Ontology app is installed: `mcp__describe_tools` (or the full tool list) shows
    `extension__ontology__get_context`, and `registry__get_kind_schema` knows `ontology`. If not,

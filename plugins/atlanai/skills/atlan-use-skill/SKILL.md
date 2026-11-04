@@ -48,8 +48,10 @@ and nothing is written.
 - **Given a handle** (`skill_…`), read exactly that artifact. Do not search by name, not even
   to check: a search result is a ranked guess and can be a different skill with different
   instructions.
-- **Given only a name or a description**, search with `kind: "skill"` and `limit: 10` (see
-  `atlan-find-artifacts`), with `semantic: true` for a description. Show the results that fit,
+- **Given only a name or a description**, search with `registry__search_artifacts` and
+  `{"query": "<the user's words>", "kind": "skill", "limit": 10}`, adding `"semantic": true`
+  for a description. A hit with `match.keyword` false and `match.similarity` under 0.45 is
+  noise: drop it, and when none is left, say no skill in Atlan fits. Show the results that fit,
   each with its name, version and workspace, and let the user pick, even when only one fits.
   Go straight to it only when the user named that exact skill and one hit has that name, or
   when automatic checks are on and one hit is a clear match (below). Never load a hit because
