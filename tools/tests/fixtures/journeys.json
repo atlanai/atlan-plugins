@@ -822,7 +822,9 @@
       "args": {
        "query": "<terms>",
        "definition_limit": 1,
-       "include_definition": true
+       "include_definition": true,
+       "semantic": true,
+       "definition_view": "compact"
       }
      },
      {
@@ -847,7 +849,8 @@
       "args": {
        "workspace_id": "<ws>",
        "query": "<terms>",
-       "definition_limit": 1
+       "definition_limit": 1,
+       "semantic": true
       }
      },
      {
@@ -887,7 +890,9 @@
       "args": {
        "query": "<terms>",
        "definition_limit": 1,
-       "include_definition": true
+       "include_definition": true,
+       "semantic": true,
+       "definition_view": "compact"
       }
      },
      {
@@ -922,7 +927,8 @@
       "args": {
        "workspace_id": "<ws>",
        "query": "<terms>",
-       "definition_limit": 1
+       "definition_limit": 1,
+       "semantic": true
       }
      },
      {
@@ -1581,7 +1587,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-ontology",
    "title": "Find the policy in force on a date",
-   "route": "Ontology and its release, then records as of the date",
+   "route": "Find the ontology, then records as of the date",
    "calls": {
     "cold": [
      {
@@ -1590,32 +1596,6 @@
       "args": {
        "kind": "ontology"
       }
-     },
-     {
-      "tool": "mcp__describe_tools",
-      "runner": "direct",
-      "args": {
-       "servers": [
-        "extension__ontology"
-       ]
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "ontology"
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "registry__list_releases",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<ontology>"
-      },
-      "group": "g1"
      },
      {
       "tool": "extension__ontology__get_records",
@@ -1636,7 +1616,7 @@
     ]
    },
    "budget": {
-    "cold": 5,
+    "cold": 2,
     "warm": 1
    },
    "targets": null,
