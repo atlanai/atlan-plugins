@@ -639,7 +639,11 @@ def harness_digest(source: str, judge: bytes | None) -> str:
 
 def harness_sha() -> str:
     source = pathlib.Path(__file__).resolve().read_text(encoding="utf-8")
-    return harness_digest(source, GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else None)
+    base = harness_digest(source, GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else None)
+    digest = hashlib.sha256(base.encode())
+    for name in ("analytics_transcript.py", "analytics_case.py"):
+        digest.update(b"\0" + pathlib.Path(__file__).with_name(name).read_bytes())
+    return digest.hexdigest()
 
 
 def check_harness(pr: Proj) -> None:
@@ -689,8 +693,18 @@ def _text_of(content) -> str:
     return "\n".join(x for x in out if x)
 
 
+def transcript_objects(path):
+    from analytics_transcript import normalize
+    for line in pathlib.Path(path).read_text().splitlines() if path and pathlib.Path(path).exists() else []:
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        yield from normalize(obj)
+
+
 def parse_transcript(path) -> dict:
-    """A Claude Code subagent transcript (JSONL; each line carries a `message` with role + content blocks)
+    """A Claude Code or Codex transcript (JSONL, native message and event formats)
     -> {turns, tool_calls, usage, model, contaminated, assistant_messages, elapsed_s}. Tolerant of unknown
     line shapes; a file with no line it recognises reads as zero assistant messages, which record refuses.
     `elapsed_s` runs from the first message's timestamp to the last, None without two of them."""
@@ -698,11 +712,7 @@ def parse_transcript(path) -> dict:
     assistant = 0
     stamps: list = []
     seen_msg_ids: set = set()
-    for line in pathlib.Path(path).read_text().splitlines() if path and pathlib.Path(path).exists() else []:
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    for obj in transcript_objects(path):
         msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
         role = msg.get("role") or obj.get("type")
         if role not in ("user", "assistant"):
@@ -739,7 +749,7 @@ def parse_transcript(path) -> dict:
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
                         or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
-                elif _WRITE_TOOL.search(name):
+                elif _WRITE_TOOL.search(name) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")
                 turns.append({"role": "tool_call", "name": name, "content": blob, "id": b.get("id"),
                               "message_id": mid})
@@ -982,11 +992,7 @@ def transcript_result(path, sql: str) -> tuple:
         return None, "the answer has no SQL"
     calls: dict = {}
     results: dict = {}
-    for line in pathlib.Path(path).read_text().splitlines():
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    for obj in transcript_objects(path):
         msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
         for b in _blocks(msg.get("content")):
             if b.get("type") == "tool_use":

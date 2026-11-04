@@ -3,7 +3,8 @@
 The agent is both of these:
 - a **registered agent** in the workspace (the identity its sessions, traces and eval
   experiments hang off);
-- a **Claude Code subagent** `.claude/agents/<slug>.md` in the user's project (how it runs).
+- a host runner: a **Claude Code subagent** `.claude/agents/<slug>.md`, or the isolated
+  **Codex/Claude CLI runner** described in [host execution](../eval/hosts.md).
 
 ## 1. Propose the spec
 
@@ -37,7 +38,16 @@ Show it, then ask:
    Read back the manifest and fill the template's rule release id from that pin. Do not
    substitute the rule's discovery head if the pinned release cannot be resolved.
 
-## 3. Write the subagent file
+## 3. Choose the host runner
+
+In Codex, or when Claude's project subagent is unavailable, use
+[the question-only runner](../eval/hosts.md). Keep the registered agent ID, its approved
+instructions and the released context snapshot in the project. Set `runner` to
+`codex-question-only` or `claude-question-only`, then continue to smoke. No new MCP server
+or privileged host configuration is installed. The remaining file steps apply to Claude's
+Agent-tool runner only.
+
+### Write the Claude subagent file
 
 1. Discover the exact tool names this session exposes, as their full prefixed names. Don't
    hard-code prefixes. Read them from the session.
