@@ -1463,7 +1463,9 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                           **({"dataset_record_id": records[r["prompt_id"]]} if records.get(r["prompt_id"]) else {}),
                           "session_id": pub.s["sessions"][_tag(r)]["id"],
                           "input": {"question": r["prompt"]},
-                          "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class")},
+                          "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class"),
+                                     "used_context_ids": r.get("used_context_ids") or [],
+                                     "used_context_refs": r.get("used_context_refs") or []},
                           "scores": {"result_match": float((r.get("grade") or {}).get("pass", 0))},
                           # an untimed run has no duration: 0 would read as instant
                           **({"duration_ms": int(float(r["latency_s"]) * 1000)}
