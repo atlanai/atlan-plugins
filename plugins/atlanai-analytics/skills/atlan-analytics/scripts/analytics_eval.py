@@ -1373,11 +1373,12 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     if full and not ids.get("scorer_id"):
         return "scorer", [_create("scorer", {
             "name": SCORER_NAME, "workspace_id": ws, "display_name": "Result-set match", "scorer_kind": "code",
-            "scope": "result", "spec": {"type": "result_set_match", "source": "atlan-analytics/analytics_eval.py",
-                                        "rules": "gold and agent SQL on the same warehouse; 4 significant figures; "
-                                                 "column order/names ignored; row order only for ORDER BY … LIMIT; "
-                                                 "extra columns allowed"},
-            "outputs": {"result_match": {"type": "number", "range": [0, 1]}}}, _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
+            "output_type": "score",
+            "description": "External result-set comparison by atlan-analytics/analytics_eval.py: "
+                           "gold and agent SQL on the same warehouse; 4 significant figures; "
+                           "column order/names ignored; row order only for ORDER BY with LIMIT; "
+                           "extra columns allowed. Scores are recorded as result_match (0 or 1)."},
+            _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
     if full and not ids.get("eval_dataset_id"):
         name = f"{slug}-eval"
         return "dataset", [_create("dataset", {
@@ -1420,7 +1421,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
             calls.append(_create("session", {
                 "name": conv, "workspace_id": ws, "subject_kind": "agent", "subject_id": c["agent_id"],
                 "session_status": "completed" if r.get("answer") else "failed", "external_session_id": conv,
-                "model_id": r.get("model"), "title": ("[eval] " + r["prompt"])[:200],
+                **({"model_id": r["model"]} if r.get("model") else {}),
+                "title": ("[eval] " + r["prompt"])[:200],
                 "message_count": len(session_messages(r, turns)),
                 "stop_reason": "final_answer" if r.get("answer") else "no_answer",
                 "usage": {"input_tokens": int(u.get("input_tokens") or 0),
