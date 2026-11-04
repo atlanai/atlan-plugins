@@ -144,11 +144,19 @@ class Service:
             require(args.get('expected_revision') == state['revision'], 'Dashboard changed; read its current revision before continuing.')
             if name == 'dashboard_snowflake_connect':
                 from .snowflake_cli import probe
-                connection = clean(args['connection'])
+                from .snowflake_discovery import resolve
                 previous = state.get('snowflake_connection')
+                def before_login():
+                    require(not state.get('snowflake_login_attempted') or args.get('retry_login') is True,
+                            'Browser sign-in was already attempted. Pause setup; retry_login is only for a user-requested retry, never a per-metric loop.')
+                    state['snowflake_login_attempted'] = True
+                    state['revision'] += 1
+                    self.write(self.path(state['job_id'], 'state.json'), state)
+                connection = resolve(clean(args['connection']), previous, before_login)
                 if previous != connection or state.get('snowflake_connection_paused'):
                     probe(connection)
                 state.pop('snowflake_connection_paused', None)
+                state.pop('snowflake_login_attempted', None)
                 scope_keys = ('account','connection','user','role','warehouse','database','schema')
                 changed_scope = previous and any(previous.get(k) != connection.get(k) for k in scope_keys)
                 state['snowflake_connection'] = connection

@@ -41,7 +41,9 @@ Follow [metric authoring](dashboard/metric-authoring.md) and
 [SQL conversion](dashboard/sql-conversion.md). Ground physical table mappings and import
 transformations in source evidence. Use `dashboard_translate`; unsupported DAX stays a gap.
 For Snowflake follow [CLI connection](dashboard/snowflake-cli.md), using the helper's
-`dashboard_snowflake_connect` and `dashboard_snowflake_execute` operations.
+`dashboard_snowflake_connect` and `dashboard_snowflake_execute` operations. Pass the
+dashboard-derived account, role and warehouse first; the helper discovers profiles or
+opens browser sign-in. Do not ask for a Snowflake username before that discovery.
 
 Run `DASH prepare-context --job <job> --context .atlan-analytics/<slug>/context`.
 It adapts supported scalar queries to native metric formula/source composition, preserves

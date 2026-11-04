@@ -33,6 +33,7 @@ TOKEN = re.compile(r"--[^\n]*|/\*.*?\*/|'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"|:[p][
 FORBIDDEN = set('INSERT UPDATE DELETE MERGE DROP CREATE ALTER GRANT REVOKE CALL COPY PUT GET REMOVE TRUNCATE USE EXECUTE INTO SYSTEM$SEND_EMAIL'.split())
 FUNCTIONS = set('TO_JSON OBJECT_CONSTRUCT_KEEP_NULL COUNT SUM AVG MIN MAX COALESCE NULLIF UPPER LOWER POSITION INSTR CAST TRY_CAST TO_DATE TO_TIMESTAMP DATEADD DATEDIFF DATE_TRUNC CURRENT_DATE CURRENT_ROLE CURRENT_WAREHOUSE CURRENT_DATABASE CURRENT_SCHEMA CURRENT_SECONDARY_ROLES ROW_NUMBER RANK DENSE_RANK ROUND ABS LEAST GREATEST LEAST_IGNORE_NULLS GREATEST_IGNORE_NULLS IFF CONCAT TRIM LTRIM RTRIM SUBSTRING SUBSTR LENGTH REPLACE REGEXP_REPLACE REGEXP_LIKE TRY_TO_NUMBER TO_NUMBER TO_VARCHAR TO_CHAR NUMBER VARCHAR DECIMAL FLOAT BOOLEAN DATE TIMESTAMP_NTZ SPLIT_PART BOOLOR_AGG BOOLAND_AGG'.split())
 CLAUSES = set('AS IN OVER PARTITION SELECT FROM WHERE AND OR NOT VALUES WHEN THEN ELSE CASE HAVING ON QUALIFY'.split())
+FUNCTIONS.update(('CURRENT_USER','CURRENT_ACCOUNT','CURRENT_ACCOUNT_NAME','CURRENT_ORGANIZATION_NAME'))
 
 
 def bound_query(sql, parameters):
@@ -86,23 +87,31 @@ def scripting(sql, parameters):
 
 
 def command(config):
+    if config.get('account') and not re.fullmatch(r'[A-Za-z0-9_.-]{1,256}',config['account']):
+        raise CLIError('Invalid Snowflake account.')
     for key in ('role','warehouse'):
         if not isinstance(config.get(key),str) or not re.fullmatch(r'[A-Za-z0-9_.$-]{1,256}',config[key]):
             raise CLIError('An explicit approved role and warehouse are required.')
     if config['role'].upper() in ('ACCOUNTADMIN','SECURITYADMIN','ORGADMIN'):
         raise CLIError('Use the report’s approved query role, not an administrator role.')
-    args=[discover(),'sql','--stdin','--role',config['role'],'--warehouse',config['warehouse'],
+    cli=[discover()]
+    if config.get('_managed_profile'):
+        from .snowflake_discovery import prefix, profile_home
+        cli=prefix(profile_home(config))
+    args=cli+['sql','--stdin','--role',config['role'],'--warehouse',config['warehouse'],
           '--secondary-roles','NONE','--enable-templating','NONE','--local-only','--format','JSON','--silent',
           '--enhanced-exit-codes']
     if config.get('connection'):
         if not re.fullmatch(r'[A-Za-z0-9_.-]{1,128}',config['connection']):raise CLIError('Invalid connection name.')
         args+=['--connection',config['connection']]
+        if config.get('account'):
+            args+=['--account',config['account']]
     else:
         if not re.fullmatch(r'[A-Za-z0-9_.-]{1,256}',config.get('account','')):raise CLIError('Supply the source account or a named connection.')
         auth=config.get('authenticator','OAUTH_AUTHORIZATION_CODE')
         if auth not in ('OAUTH_AUTHORIZATION_CODE','externalbrowser'):raise CLIError('Use browser-based authentication.')
         if not config.get('user'):
-            raise CLIError('Supply the non-secret Snowflake login name once as user. Browser authentication without a stable user cannot reuse the CLI credential cache; do not start per-query sign-ins.')
+            raise CLIError('Resolve this connection through dashboard_snowflake_connect first. It discovers existing profiles or uses browser sign-in without asking for a username.')
         args+=['--temporary-connection','--account',config['account'],'--authenticator',auth]
         # Let the official CLI own secure storage. Never read or serialize tokens here.
         args+=['--client-store-temporary-credential']
@@ -123,8 +132,12 @@ def execute(config, sql, parameters):
     # Preserve server-side scalar types; the CLI may stringify NUMBER/BOOLEAN columns.
     wrapped='SELECT TO_JSON(OBJECT_CONSTRUCT_KEEP_NULL(*)) AS "__trident_row" FROM ('+sql.strip().rstrip(';')+')'
     script=scripting(wrapped,parameters)
+    options={}
+    if config.get('_managed_profile'):
+        from .snowflake_discovery import environment, profile_home
+        options['env']=environment(profile_home(config))
     try:
-        run=subprocess.run(command(config), input=script, capture_output=True, text=True, timeout=120)
+        run=subprocess.run(command(config), input=script, capture_output=True, text=True, timeout=120, **options)
     except subprocess.TimeoutExpired:
         raise ConnectionPaused('Snowflake operation timed out; the warehouse checks are paused. A timeout does not prove the login expired. Resolve the connection or query timeout, then explicitly reconnect once.') from None
     except OSError:
@@ -148,7 +161,15 @@ def execute(config, sql, parameters):
 
 
 def probe(config):
-    rows=execute(config,'SELECT CURRENT_ROLE() AS ROLE, CURRENT_WAREHOUSE() AS WAREHOUSE',{})
+    rows=execute(config,'SELECT CURRENT_ROLE() AS ROLE, CURRENT_WAREHOUSE() AS WAREHOUSE, CURRENT_USER() AS SESSION_USER, CURRENT_ACCOUNT() AS ACCOUNT_LOCATOR, CURRENT_ACCOUNT_NAME() AS ACCOUNT_NAME, CURRENT_ORGANIZATION_NAME() AS ORGANIZATION',{})
     if len(rows)!=1 or rows[0].get('ROLE')!=config['role'] or rows[0].get('WAREHOUSE')!=config['warehouse']:
         raise CLIError('Connected role or warehouse does not match the selected scope.')
+    if config.get('account'):
+        from .snowflake_discovery import account_key
+        expected=account_key(config['account'])
+        aliases={account_key(rows[0].get('ACCOUNT_LOCATOR','')),
+                 account_key(str(rows[0].get('ORGANIZATION',''))+'-'+str(rows[0].get('ACCOUNT_NAME','')))}
+        if expected not in aliases and expected.split('.')[0] not in aliases:
+            raise CLIError('Connected Snowflake account does not match the dashboard source.')
+    # SESSION_USER is an observation, not a guessed LOGIN_NAME for future commands.
     return {'connected':True,'transport':'snowflake_cli','role':config['role'],'warehouse':config['warehouse']}

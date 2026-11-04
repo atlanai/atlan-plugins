@@ -1,38 +1,74 @@
 # Snowflake CLI connectivity
 
-Use the installed Snowflake CLI for this workflow. `dashboard_snowflake_connect` discovers `snow` on PATH, in the usual user bin, or in existing uv tool environments. It never installs a dependency, reads credential files, exports tokens or prints raw authentication diagnostics.
+Use the installed Snowflake CLI. Credentials, browser OAuth and secure storage remain
+inside that CLI. Do not read credential files, tokens, callback URLs, browser storage or
+Keychain. A dashboard supplies the destination and data scope; its author or service
+identity does not identify the person running the agent.
 
-1. Resolve account, warehouse and approved query role from source evidence or the user's selected connection. Prefer an explicit non-admin role and disable secondary roles. Reuse the job's existing connection. Never assume ACCOUNTADMIN is acceptable because OAuth defaulted to it.
-2. Call `dashboard_snowflake_connect` with either a named `connection` plus role/warehouse, or source `account`, role/warehouse and optional database/schema. Temporary OAuth is the default when there is no profile. For either temporary OAuth or `externalbrowser`, resolve the non-secret Snowflake login name once and pass it as `connection.user`; a display name may differ from the login name. A stable user is required for credential reuse. The adapter refuses a missing user before opening the browser. Empty `snow connection list` output does not prove lack of connectivity. If login is needed, the CLI opens its own browser; the user signs in there, never in chat. Do not create credentials or persistent connection profiles yourself. Temporary browser connections enable the official CLI temporary-credential cache; OAuth also enables silent refresh. The CLI owns secure storage and renewal, subject to the account policy. Never inspect, export or copy its tokens. Named profiles retain their existing authentication and cache policy.
-3. A successful read-only probe stores only non-secret connection metadata in private job state. Reconnecting with unchanged settings reuses that state without another probe. Do not reconnect before each metric or eval case. `dashboard_snowflake_execute` then executes the stored metric SQL with its exact context. Parameters are typed Snowflake Scripting variables used by `EXECUTE IMMEDIATE ... USING`; `-D` text substitution is disabled. The query and values are encoded separately. Only bounded read-only SELECT statements and supported functions are admitted. SQL and raw auth output are not logged by the helper.
-4. A captured native import SELECT can be supplied as `rowset_sql` on a translation mapping. `relation` supplies a logical name for that mapped rowset. Preserve joins, transformations, aliases and source security semantics; a table with a similar name is not a substitute. There is no CREATE VIEW or warehouse write.
-5. Returned scalar values are fresh warehouse observations, not proof of matched source refresh time. Independently establish the warehouse data cutoff and historical availability. If the source's snapshot is absent, record `snapshot_mismatch` for parity. Current-data queries may still be executable; state their data date and keep historical parity unmeasured.
+## Discover before asking
 
-The helper supports existing CLI versions exposing `snow sql --stdin`, temporary connections, browser OAuth, secondary-role control and JSON output. Unknown/missing options are an explicit compatibility issue, not permission to install or silently use another credential path.
+1. Extract account, approved query role, warehouse and available database/schema from the
+   downloaded model's source evidence. Keep secondary roles disabled; never select an
+   administrator role because it is the CLI default. Do not guess a username from an email,
+   operating-system account, report author, service principal or `CURRENT_USER()`.
+2. Call `dashboard_snowflake_connect` with those destination fields. **Do not ask for a
+   profile or username first.** The helper reuses this job's connection, then reads
+   `snow connection list --all --format JSON` through a strict non-secret field allowlist.
+   It matches the account and role/warehouse, uses an unambiguous matching profile or its
+   matching default, and considers an account-matched environment identity. Unknown fields
+   and credential material are never returned or persisted.
+3. If no connection matches, the helper checks its private Analytics profile for that
+   account and role. If needed, it invokes the installed CLI's `auth login` command using
+   only the account and requested scope. Tell the user: **Connect to Snowflake to validate
+   your dashboard. Your browser will open if sign-in is needed.** The user authenticates
+   there; the CLI discovers and stores the identity. No typed username is required.
+4. Browser-created profiles live under `~/.atlan/analytics/snowflake/<scope-hash>/`.
+   Both `SNOWFLAKE_HOME` and `--config-file` are scoped to that directory for login and
+   later queries, so the CLI's default-connection change does not affect the user's global
+   configuration. The CLI owns its configuration and credential cache; helpers never read
+   these files or include them in metric, agent or eval exports. Named existing profiles
+   keep their configured authentication policy.
+5. Ask a short profile-choice question only when multiple matching profiles remain and
+   no matching default resolves them. Unsupported CLI login capabilities are a compatibility
+   issue, not a reason to guess identity, install dependencies, enable hidden feature flags,
+   or fall back to one new temporary login per query. Explicit user-supplied profiles or
+   login names remain supported, but are not the default setup path.
 
-References: [Snowflake EXECUTE IMMEDIATE and USING](https://docs.snowflake.com/en/sql-reference/sql/execute-immediate), [Snowflake CLI SQL command](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/sql-commands/sql).
+The successful read-only probe checks the actual account, role and warehouse. Job state
+stores only non-secret connection metadata. `CURRENT_USER()` is an observed user-object
+name and can differ from a login name; never copy it into a guessed login configuration.
+Repeated connects with unchanged scope reuse the successful probe.
 
-Connecting or retrying authentication preserves the frozen plan generation. Retry unavailable cases by case ID. A change to the existing connection scope invalidates warehouse comparisons, preserves historical evidence privately, and retains the original questions.
+## Execute and resume
 
-## Stop repeated login prompts
+`dashboard_snowflake_execute` executes stored metric SQL with its exact context. Parameters
+are typed Snowflake Scripting variables used by `EXECUTE IMMEDIATE ... USING`; `-D`
+substitution is disabled. Only bounded read-only SELECT statements and supported functions
+are admitted. Use this adapter for supplemental queries too, with the resolved connection;
+do not reconstruct ad hoc temporary-connection commands. Keep warehouse calls sequential.
 
-Use this adapter for every Snowflake operation; ad hoc `snow sql --temporary-connection`
-commands without the same user and reuse flags restart the login problem. Supplemental
-read-only queries must use `snowflake_cli.execute` with the same approved connection scope.
-Keep warehouse calls sequential so refresh-token renewal cannot race.
+A native import SELECT can be supplied as `rowset_sql` on a translation mapping; `relation`
+names the logical mapped rowset. Preserve joins, transformations, aliases and source
+security semantics. No view or warehouse object is created.
 
-SQL failures are query or object-access issues, not evidence that login expired. Do not
-ask for a new login to repair SQL. Connection failures and timeouts pause warehouse checks
-persistently, so remaining cases cannot launch another login. Read the job's new revision,
-report the issue once, and wait for the user to resolve it before one explicit reconnect.
-Preserve completed checks and retry pending case IDs. A successful reconnect clears the pause.
-Never put reconnect in a per-case retry loop.
+SQL failures are query or object-access issues, not evidence that login expired. Keep the
+connection and fix the query. Connection failures and timeouts persist a pause that blocks
+further warehouse checks. Report the issue once and wait for resolution before one explicit
+reconnect. A failed browser-login attempt also persists across helper restarts: set
+`retry_login: true` only after the user requests a retry or says sign-in is resolved.
+Never put reconnect or `retry_login` in a per-metric loop.
 
-If the browser still opens repeatedly after reuse is enabled, stop the warehouse phase.
-Check whether the CLI supports these options and secure credential storage is available;
-account policy can require reauthentication. Do not silently remove caching flags, switch
-identities, extend server session lifetimes, or change Snowflake account policy. Do not claim
-that saving connection metadata alone proves login reuse.
+Preserve frozen questions and completed results. Resume pending case IDs. Changing the
+connection scope invalidates prior warehouse comparisons while retaining historical
+receipts privately. If sign-in still repeats with caching enabled, stop the warehouse
+phase and check CLI cache availability and account policy; never disable caching, switch
+identities, extend server sessions or change account policy to make checks pass.
 
-[Snowflake CLI connection options](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections)
-document temporary-credential storage and OAuth refresh.
+Warehouse values are fresh observations, not proof of the dashboard's source refresh time.
+Establish the cutoff and historical availability independently. If the source snapshot is
+absent, record `snapshot_mismatch`; keep historical parity unmeasured even when current-data
+queries execute successfully.
+
+References: [CLI connection options](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections),
+[SQL command](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/sql-commands/sql),
+[EXECUTE IMMEDIATE bindings](https://docs.snowflake.com/en/sql-reference/sql/execute-immediate).
