@@ -17,7 +17,7 @@ first-person `rationale` on every later call.
 - `registry__search_artifacts`, `registry__list_artifacts` and `registry__get_artifact` to find
   the skills, agents and scorers to link.
 - `registry__relate_artifact` to write each `sourced_from` relationship.
-- `registry__get_related_artifacts` on the repo to read the links back.
+- `registry__get_related_artifacts` on the repo, only to see links that existed before.
 
 Do not reach for `curl` or raw HTTP when one of these covers the step. If none does, stop and
 name the missing capability.
@@ -67,10 +67,10 @@ For each chosen skill, agent or scorer, call `registry__relate_artifact` with:
 Only `skill`, `agent` and `scorer` declare `sourced_from`. Any other kind refuses it; report that
 rather than choosing another relationship. Writing the same link again is harmless.
 
-## 5. Read back and report
+## 5. Report
 
-Call `registry__get_related_artifacts` on the repo and confirm every link you wrote appears as
-an incoming `sourced_from`. Report the repo's name and id, the workspace, and each linked
+Each `registry__relate_artifact` result is the link it stored, so report from those results
+rather than reading the links back. Report the repo's name and id, the workspace, and each linked
 artifact with its path. Say plainly which links failed and why.
 
 ## Continue with publication

@@ -1066,7 +1066,7 @@ class SkillChecksTest(unittest.TestCase):
 
     def test_the_opt_in_block_and_the_rules_name_the_same_section(self) -> None:
         skills = CORE / "skills"
-        started = (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8")
+        started = (skills / "atlan-get-started" / "references" / "codex-skill-checks.md").read_text(encoding="utf-8")
         block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
         self.assertIn("## Atlan registry skills", block)
         self.assertIn("atlan-use-skill", block)
