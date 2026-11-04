@@ -8,10 +8,9 @@ what returns the content.
 Do not infer what a skill does from its file names, and do not substitute a different skill
 that happens to be in your toolset. If you cannot read it, say so.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 and a first-person `rationale` on every call, reads included.
 
 ## Reading a skill
