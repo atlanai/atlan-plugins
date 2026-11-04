@@ -92,7 +92,7 @@ class Regression051(unittest.TestCase):
 
     @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
     def test_external_browser_requires_and_passes_login_name(self,_):
-        with self.assertRaisesRegex(CLIError,'login name'):
+        with self.assertRaisesRegex(CLIError,'dashboard_snowflake_connect'):
             command({k:v for k,v in {**CONFIG,'authenticator':'externalbrowser'}.items() if k!='user'})
         cmd=command({**CONFIG,'authenticator':'externalbrowser','user':'analyst@example.test'})
         self.assertEqual(cmd[cmd.index('--user')+1],'analyst@example.test')
@@ -101,7 +101,7 @@ class Regression051(unittest.TestCase):
 
     @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
     def test_oauth_without_user_refused_before_login(self,_):
-        with self.assertRaisesRegex(CLIError,'login name once'):
+        with self.assertRaisesRegex(CLIError,'dashboard_snowflake_connect'):
             command({k:v for k,v in CONFIG.items() if k!='user'})
 
     @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
@@ -190,3 +190,149 @@ class Reconnect051(unittest.TestCase):
         second=self.call('dashboard_read',{'job_id':self.job,'include_definitions':True,'definition_offset':1})
         self.assertEqual(first['definition_page']['next_offset'],1)
         self.assertNotEqual(first['definitions'][0]['id'],second['definitions'][0]['id'])
+
+class ConnectionDiscovery(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from trident import snowflake_discovery as discovery
+        self.discovery=discovery
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        self.home=Path(self.temp.name)/'scoped'
+        patcher=patch.object(discovery,'profile_home',return_value=self.home)
+        patcher.start();self.addCleanup(patcher.stop)
+        self.scope={k:v for k,v in CONFIG.items() if k!='user'}
+
+    def row(self,name='example',**values):
+        return {'connection':name,'account':CONFIG['account'],'role':CONFIG['role'],
+                'warehouse':CONFIG['warehouse'],'user':'example_identity',**values}
+
+    @patch('trident.snowflake_discovery.connections')
+    def test_unambiguous_profile_reused_without_login_or_user_prompt(self,listing):
+        listing.return_value=[self.row()]
+        result=self.discovery.resolve(self.scope,before_login=lambda:self.fail('unexpected login'))
+        self.assertEqual(result['connection'],'example')
+        self.assertNotIn('user',result)
+        self.assertNotIn('_managed_profile',result)
+
+    @patch('trident.snowflake_discovery.connections')
+    def test_scope_matches_exact_account_role_and_warehouse(self,listing):
+        listing.return_value=[self.row('wrong_account',account='another-account'),
+                              self.row('wrong_role',role='OTHER_ROLE'),
+                              self.row('wrong_warehouse',warehouse='OTHER_WH'),self.row('right')]
+        self.assertEqual(self.discovery.resolve(self.scope)['connection'],'right')
+
+    @patch('trident.snowflake_discovery.connections')
+    def test_default_is_preferred_but_ambiguity_never_tries_each_identity(self,listing):
+        listing.return_value=[self.row('first'),self.row('chosen',is_default=True)]
+        self.assertEqual(self.discovery.resolve(self.scope)['connection'],'chosen')
+        listing.return_value=[self.row('first'),self.row('second')]
+        with self.assertRaisesRegex(CLIError,'Multiple matching'):
+            self.discovery.resolve(self.scope,before_login=lambda:self.fail('unexpected login'))
+
+    @patch('trident.snowflake_discovery.connections',side_effect=AssertionError('no new discovery'))
+    def test_current_job_is_reused_without_listing(self,_):
+        previous={**self.scope,'connection':'known','_managed_profile':True}
+        self.assertEqual(self.discovery.resolve(self.scope,previous),previous)
+
+    @patch('trident.snowflake_discovery.run_cli')
+    def test_nested_cli_metadata_is_allowlisted(self,run):
+        row={'connection_name':'example','parameters':{'account':'example-account','user':'example_identity',
+             'password':'synthetic-private-value','private_key':'synthetic-key','new_secret_field':'withheld'},'is_default':True}
+        run.return_value=json.dumps([row])
+        result=self.discovery.connections()
+        self.assertEqual(result,[{'connection':'example','is_default':True,'account':'example-account','user':'example_identity'}])
+        self.assertIn('--all',run.call_args.args[0])
+
+    @patch.dict('os.environ',{'SNOWFLAKE_ACCOUNT':'example-account','SNOWFLAKE_USER':'environment_identity'},clear=True)
+    @patch('trident.snowflake_discovery.connections',return_value=[])
+    def test_matching_environment_identity_is_used_without_guessing(self,_):
+        self.assertEqual(self.discovery.resolve(self.scope)['user'],'environment_identity')
+
+    @patch.dict('os.environ',{'SNOWFLAKE_ACCOUNT':'other-account','SNOWFLAKE_USER':'wrong_identity'},clear=True)
+    @patch('trident.snowflake_discovery.run_cli',return_value='')
+    @patch('trident.snowflake_discovery.connections')
+    def test_username_free_browser_login_stays_in_private_cli_home(self,listing,run):
+        listing.side_effect=[[],[self.row('signed_in')]]
+        attempted=[]
+        result=self.discovery.resolve(self.scope,before_login=lambda:attempted.append(True))
+        self.assertEqual(attempted,[True])
+        self.assertEqual(result['connection'],'signed_in')
+        self.assertTrue(result['_managed_profile'])
+        args=run.call_args.args[0]
+        self.assertEqual(args[:3],['auth','login','example-account'])
+        self.assertNotIn('--user',args)
+        self.assertEqual(run.call_args.args[1],self.home)
+        self.assertEqual((self.home/'config.toml').stat().st_mode & 0o777,0o600)
+        env=self.discovery.environment(self.home)
+        self.assertEqual(env['SNOWFLAKE_HOME'],str(self.home))
+        self.assertNotIn('SNOWFLAKE_USER',env)
+
+    @patch('trident.snowflake_discovery.run_cli')
+    @patch('trident.snowflake_discovery.connections')
+    def test_prior_managed_profile_reused_across_jobs(self,listing,run):
+        self.home.mkdir()
+        listing.side_effect=[[],[self.row('already_signed_in')]]
+        result=self.discovery.resolve(self.scope)
+        self.assertEqual(result['connection'],'already_signed_in')
+        run.assert_not_called()
+
+    @patch('trident.snowflake_discovery.run_cli',side_effect=CLIError('Unsupported CLI'))
+    @patch('trident.snowflake_discovery.connections',return_value=[])
+    @patch.dict('os.environ',{},clear=True)
+    def test_old_cli_does_not_attempt_login_or_fall_back_to_username(self,listing,run):
+        with self.assertRaisesRegex(CLIError,'Unsupported CLI'):
+            self.discovery.resolve(self.scope,before_login=lambda:self.fail('unexpected login'))
+        self.assertFalse(self.home.exists())
+
+    @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
+    def test_managed_queries_explicitly_select_the_isolated_cli_config(self,_):
+        args=command({**self.scope,'connection':'signed_in','_managed_profile':True})
+        self.assertEqual(args[1:3],['--config-file',str(self.home/'config.toml')])
+        self.assertEqual(args[args.index('--connection')+1],'signed_in')
+
+
+class BrowserLoginWorkflow(unittest.TestCase):
+    setUp=flow.EvalFlow.setUp
+    call=flow.EvalFlow.call
+    mutate=flow.EvalFlow.mutate
+
+    @patch('trident.snowflake_cli.probe',return_value={'connected':True})
+    @patch('trident.snowflake_discovery.resolve')
+    def test_failed_login_is_not_repeated_without_explicit_retry(self,resolve,probe):
+        def failed(config,previous,before_login):
+            before_login()
+            raise CLIError('Sign-in cancelled')
+        resolve.side_effect=failed
+        scope={k:v for k,v in CONFIG.items() if k!='user'}
+        with self.assertRaisesRegex(CLIError,'cancelled'):
+            self.mutate('dashboard_snowflake_connect',connection=scope)
+        self.p=self.call('dashboard_read',{'job_id':self.job})
+        with self.assertRaisesRegex(ValueError,'already attempted'):
+            self.mutate('dashboard_snowflake_connect',connection=scope)
+        probe.assert_not_called()
+        with self.assertRaisesRegex(CLIError,'cancelled'):
+            self.mutate('dashboard_snowflake_connect',connection=scope,retry_login=True)
+
+class DiscoveredAccountProbe(unittest.TestCase):
+    @patch('trident.snowflake_cli.execute')
+    def test_probe_refuses_a_different_account_even_when_role_matches(self,execute):
+        from trident.snowflake_cli import probe
+        execute.return_value=[{'ROLE':'ANALYST','WAREHOUSE':'EXAMPLE_WH','SESSION_USER':'USER_OBJECT_NAME',
+                               'ACCOUNT_LOCATOR':'XY12345','ORGANIZATION':'example','ACCOUNT_NAME':'account'}]
+        self.assertTrue(probe(CONFIG)['connected'])
+        with self.assertRaisesRegex(CLIError,'account does not match'):
+            probe({**CONFIG,'account':'another-account'})
+        self.assertNotIn('user',probe(CONFIG))
+
+class DiscoveryEnvironmentSafety(unittest.TestCase):
+    @patch.dict('os.environ',{'SNOWFLAKE_USER':'wrong_scope','SNOWFLAKE_PASSWORD':'synthetic_secret',
+                            'SNOWFLAKE_CONNECTIONS_EXAMPLE_PASSWORD':'synthetic_secret',
+                            'SNOWFLAKE_CLI_ENFORCE_STRICT_CONFIG_PERMISSIONS':'true'},clear=True)
+    def test_scoped_login_keeps_security_settings_but_removes_connection_overrides(self):
+        from pathlib import Path
+        from trident.snowflake_discovery import environment
+        env=environment(Path('/private/example'))
+        self.assertNotIn('SNOWFLAKE_PASSWORD',env)
+        self.assertNotIn('SNOWFLAKE_CONNECTIONS_EXAMPLE_PASSWORD',env)
+        self.assertEqual(env['SNOWFLAKE_CLI_ENFORCE_STRICT_CONFIG_PERMISSIONS'],'true')
