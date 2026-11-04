@@ -121,11 +121,45 @@ class EvalFlow(unittest.TestCase):
         self.record(self.task(),17,17)
         self.assertEqual(self.p['agent_readiness']['state'],'not_ready')
         self.record(self.task(),40,None,actual={'unavailable':'snapshot_mismatch'})
-        self.assertEqual(self.p['agent_readiness']['state'],'partial')
-        self.assertEqual(len(self.p['answerable_questions']),1)
+        self.assertEqual(self.p['agent_readiness']['state'],'ready_with_warnings')
+        self.assertEqual(len(self.p['answerable_questions']),2)
         self.mutate('dashboard_translate',dialect='sqlite',mappings=[])
         self.assertEqual(self.p['agent_readiness']['state'],'not_ready')
         self.assertEqual(self.p['answerable_questions'],[])
+
+    def test_snapshot_gaps_continue_to_context_and_fresh_questions_without_a_score(self):
+        for _ in range(2):
+            self.record(self.task(),17,None,actual={'unavailable':'snapshot_mismatch'})
+        self.assertEqual(self.p['next_action'],'save_context_and_ask')
+        self.assertEqual(self.p['agent_readiness']['state'],'ready_with_warnings')
+        self.assertFalse(self.p['agent_readiness']['validation_complete'])
+        self.assertEqual(len(self.p['answerable_questions']),2)
+        self.assertEqual(self.p['summary']['passed_cases'],0)
+        self.assertEqual(self.p['summary']['warehouse_portable'],0)
+        self.assertIsNone(self.p['summary']['parity_percent'])
+        import dashboard
+        context=Path(self.tmp.name).resolve()/'context'
+        dashboard.prepare_context(self.service,self.job,context)
+        saved=json.loads((context/'metrics.json').read_text())
+        self.assertEqual(len(saved),2)
+        validation=saved[0]['definition']['extensions']['atlan_analytics']['dashboard_validation']
+        self.assertEqual(validation['parity'],'unmeasured')
+        self.assertEqual(validation['reasons'],['snapshot_mismatch'])
+        question=self.p['suggested_questions'][0]
+        answer=self.call('dashboard_answer_plan',{'job_id':self.job,'metric_id':question['metric_id'],
+                         'context_hash':self.p['context_hash']})['answer_plan']
+        self.assertEqual(answer['state'],'execute_warehouse')
+        self.assertEqual(answer['data_policy'],'fresh_warehouse_result')
+        self.assertEqual(answer['validation'],'unverified')
+        self.assertNotIn('reference',answer)
+
+    def test_source_gaps_allow_questions_but_execution_and_scope_gaps_do_not(self):
+        for reason, count in [('source_value_unavailable',2),('source_connection_required',2),
+                              ('warehouse_connection_required',0),('safe_binding_unavailable',0)]:
+            self.mutate('dashboard_plan_evals')
+            for _ in range(2):
+                self.record(self.task(),17,None,actual={'unavailable':reason})
+            self.assertEqual(len(self.p['answerable_questions']),count,reason)
 
     def test_failed_retry_preserves_other_cases_and_denominator(self):
         first=self.task();self.record(first,17,16)

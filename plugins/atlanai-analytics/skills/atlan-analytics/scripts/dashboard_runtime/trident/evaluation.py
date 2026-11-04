@@ -82,13 +82,35 @@ def next_task(state, case_id=None):
             'instruction': 'Use existing authorized host source and warehouse tools. Execute with separate bindings. Submit real values or explicit unavailable reasons. Do not substitute gold for warehouse execution.'}
 
 
+# These limit the comparison, not execution of an otherwise scoped SQL metric.
+PARITY_LIMITATIONS = {'snapshot_mismatch', 'source_value_unavailable', 'source_connection_required'}
+
+
+def validation_status(state, metric):
+    verdicts = [c['verdict'] for c in results(state) if c['metric_id'] == metric['id']]
+    passed = bool(verdicts) and all(v == 'pass' for v in verdicts)
+    failed = any(v in ('wrong_result', 'execution_error') for v in verdicts)
+    return {'parity': 'passed' if passed else 'failed' if failed else 'unmeasured',
+            'reasons': sorted(set(v for v in verdicts if v != 'pass')),
+            'dashboard_data_as_of': state.get('context', {}).get('data_as_of'),
+            'heldout_accuracy': 'not_run'}
+
+
+def usable_metric(state, metric):
+    if not state['scope_complete'] or metric['runtime'] != 'warehouse':
+        return False
+    verdicts = [c['verdict'] for c in results(state) if c['metric_id'] == metric['id']]
+    return bool(verdicts) and all(v == 'pass' or v in PARITY_LIMITATIONS for v in verdicts)
+
+
 def suggestions(state):
     if state['status'] != 'evaluated':
         return []
     questions = {c['metric_id']: c['question'] for c in state.get('eval_plan', {}).get('cases', [])}
     return [{'metric_id': m['id'], 'label': questions.get(m['id'], 'Show ' + m['name']),
-             'question': questions.get(m['id'], 'Show me ' + m['name'] + ' using the current dashboard filters.')}
-            for m in state['metrics'] if m['warehouse_portable'] and m['id'] in questions]
+             'question': questions.get(m['id'], 'Show me ' + m['name'] + ' using the current dashboard filters.'),
+             'validation': validation_status(state, m)}
+            for m in state['metrics'] if usable_metric(state, m) and m['id'] in questions]
 
 
 def readiness(state):
@@ -97,8 +119,11 @@ def readiness(state):
     ready = bool(metrics and state.get('eval_plan') and state['scope_complete']) and all(
         m['runtime'] == 'warehouse' and m['warehouse_portable'] for m in metrics) and bool(cases) and all(
         c['verdict'] == 'pass' for c in cases)
-    return {'state': 'ready' if ready else 'partial' if suggestions(state) else 'not_ready',
+    usable = suggestions(state)
+    return {'state': 'ready' if ready else 'ready_with_warnings' if usable else 'not_ready',
             'scope': 'captured_dashboard_scope', 'evaluation_kind': 'dashboard_parity',
+            'usable_metrics': len(usable), 'remaining_metrics': len(metrics) - len(usable),
+            'validation_complete': ready, 'deployment': 'local_context',
             'heldout_accuracy': 'not_run'}
 
 
@@ -112,6 +137,8 @@ def answer_plan(state, metric_id, context_hash):
         return {'state': 'needs_sql', 'metric_id': metric_id, 'reason': metric.get('translation', {}).get('gap', 'Physical mapping and SQL conversion are required.')}
     return {'state': 'execute_warehouse', 'metric_id': metric_id, 'name': metric['name'],
             'validation': 'passed_at_captured_scope' if metric['warehouse_portable'] else 'unverified',
+            'validation_details': validation_status(state, metric),
+            'data_policy': 'fresh_warehouse_result',
             'context': copy.deepcopy(state['context']), 'context_hash': state['context_hash'],
             'query': copy.deepcopy(metric['translation']), 'read_only': True,
-            'instruction': 'Execute through the authorized warehouse with separate bindings. Answer from this fresh result, not the eval references. State filters/data cutoff and validation limits. A changed warehouse snapshot needs fresh parity checks.'}
+            'instruction': 'Execute through the authorized warehouse with separate bindings. Answer from this fresh result, not the eval references. State filters/data cutoff and validation limits. A snapshot mismatch does not block this query. Report the actual warehouse cutoff when known; never present it as the historical dashboard result. Parity can be checked later against aligned snapshots.'}

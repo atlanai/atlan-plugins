@@ -22,4 +22,15 @@ Start with one useful page. After source reconciliation, grow toward 20–50 rea
 
 `dashboard_next_check` returns source and warehouse execution requests. The host executes them using authorized connectors/browser tools and supplies results through `dashboard_record_check`. Each check is accumulated; retries replace one case. Unconverted, unrun and unavailable cases remain visible. Planned source references require the Power BI executor; SQL results require the warehouse executor and exact query hash. These are host-reported bindings, not independently signed receipts.
 
-`dashboard_answer_plan` returns a fresh warehouse query and scoped validation state, without reference values. The question picker draws from the frozen questions of metrics that passed their planned checks once the run has no executable pending cases. Full agent readiness requires a plan, complete scope, warehouse SQL for every captured metric, and every planned check passing. Partial success is labelled as such. New filters, data cutoffs or semantics invalidate the applicability of those checks.
+`dashboard_answer_plan` returns a fresh warehouse query and scoped validation state, without
+reference values. After the check loop, the picker includes passing metrics and SQL metrics
+whose comparisons are unmeasured because report values are missing, the source connection
+is unavailable, or snapshots differ. Each question carries its validation status. Failed SQL,
+known wrong results, incomplete security/filter scope and unconverted DAX are not suggested.
+
+`ready_with_warnings` permits continuing to Registry save/release, agent registration and
+questions. It never asserts publication or a passing score. Carry validation reasons and
+the report cutoff with each saved metric. Answer using fresh authorized warehouse results
+and disclose their cutoff when known; do not describe current results as historical report
+parity. Full validation still requires complete scope and every planned check passing.
+Aligning snapshots is optional follow-up validation, not a prerequisite for using the agent.

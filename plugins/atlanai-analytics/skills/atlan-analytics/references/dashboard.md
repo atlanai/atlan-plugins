@@ -57,10 +57,20 @@ Author questions from the dashboard's own labels and business context. Run
 `dashboard_next_check`, independently execute the Power BI reference and warehouse SQL,
 then `dashboard_record_check`. Match filters, caller security and refresh cutoff. Missing
 reference access or stale snapshots are unmeasured, not incorrect answers or 0% accuracy.
+Snapshot mismatch is a validation warning, never a stop for saving metrics, creating the
+agent or asking questions. Use current warehouse data for answers, preserve the report's
+cutoff as provenance, and state that historical parity is unmeasured. Do not refresh the
+report or wait for aligned snapshots just to continue. Missing report reference values
+also leave parity unmeasured. Continue with the usable SQL subset; unfinished translations
+stay in coverage and do not hold up other metrics.
 Always finish with `dashboard_review`, including partial runs. Keep all captured measures
 in coverage. A passing dashboard check is not held-out agent accuracy.
 
 ## 4. Save and release context
+
+Rerun `DASH prepare-context` after review, before planning Registry writes. This refreshes
+validation metadata and holds metrics with execution or scope errors. Snapshot/reference
+gaps remain in the publishable subset with their unmeasured status.
 
 Use the existing Registry session and the [metric publication contract](metrics/publish.md).
 Before saving, read the current session identity, then fetch the selected workspace and your
@@ -96,6 +106,11 @@ optional `source_metadata`. A failed or truncated inventory is never an empty in
 Read `published.json` for actual IDs and released revisions. Do not call a local export or
 an unreleased head published. The bridge never obtains tokens or calls REST itself.
 
+Register the agent against the saved/released usable context even when dashboard parity is
+unmeasured. Carry each metric's `extensions.atlan_analytics.dashboard_validation` into the
+agent context, including its reasons and source cutoff. Release means available to consume;
+it does not certify parity. Keep warehouse access and actual save/release receipts explicit.
+
 ## 5. Independent agent evals
 
 Initialize the Analytics project, register the approved agent identity using
@@ -109,6 +124,8 @@ For each case use [the host runner](eval/hosts.md), then the existing `EVAL reco
 and [eval publication](eval.md#publish) flow. Store the dataset, experiment and per-case
 sessions/results on the registered agent. Keep the question-only runner's scope explicit:
 it measures answers from supplied released context, not Registry retrieval quality.
+If independent gold or a runner is unavailable, record Not run and continue to questions;
+benchmark availability does not block the registered agent. Do not fabricate a score.
 Run the frozen holdout only at hand-back, not to choose improvements. Never replace a
 failed runner with the current conversation, which has already seen the gold.
 
@@ -116,9 +133,13 @@ failed runner with the current conversation, which has already seen the gold.
 
 Show one result: dashboard checks passed/compared, coverage and unresolved items; independent
 agent results with scored/unmeasured counts, test-set size and runner. Offer up to three
-questions demonstrated by passing checks. Claim full readiness only when required metric
-scope is complete, intended definitions are released and required evals have actually run.
-Otherwise say what is usable and what remains unmeasured. No second chat interface.
+questions from the usable SQL subset. `ready_with_warnings` means ready to try with validation
+limitations; it is not a parity pass or proof of deployment. After the agent and intended
+context have actually been saved/released, say "Your agent is ready to try" and name the
+usable count. Show "Dashboard parity unmeasured: source and warehouse dates differ" when
+applicable. Mention unfinished metrics once and continue to questions. Before publication,
+say "Local agent ready to try" and continue the authorized Registry flow. Full validation
+requires complete scope and passing checks. No second chat interface.
 
 For subsequent questions use this plugin's `atlan-analytics-ask`: resolve the relevant
 released definitions again and execute fresh read-only SQL with typed bindings. For a local
