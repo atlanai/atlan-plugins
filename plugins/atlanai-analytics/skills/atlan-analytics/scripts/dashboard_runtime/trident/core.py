@@ -116,12 +116,19 @@ class Service:
                 return self.view(state)
             state = self.load(args['job_id'])
             if name == 'dashboard_snowflake_execute':
-                from .snowflake_cli import execute
+                from .snowflake_cli import execute, ConnectionPaused
                 require(bool(state.get('snowflake_connection')), 'Connect Snowflake CLI for this job first.')
+                require(not state.get('snowflake_connection_paused'), 'Warehouse checks are paused. Resolve the connection issue and explicitly reconnect once; do not retry sign-in for every metric.')
                 plan = answer_plan(state, args['metric_id'], args['context_hash'])
                 require(plan['state'] == 'execute_warehouse' and plan['query']['dialect'] == 'snowflake', 'A Snowflake SQL plan at the exact scope is required.')
                 query = plan['query']
-                rows = execute(state['snowflake_connection'], query['sql'], query['parameters'])
+                try:
+                    rows = execute(state['snowflake_connection'], query['sql'], query['parameters'])
+                except ConnectionPaused:
+                    state['snowflake_connection_paused'] = True
+                    state['revision'] += 1
+                    self.write(self.path(state['job_id'], 'state.json'), state)
+                    raise
                 require(len(rows) == 1 and len(rows[0]) == 1, 'Expected exactly one scalar warehouse result.')
                 observation = {'executor':'warehouse','value':next(iter(rows[0].values())), 'context_hash':state['context_hash'],
                                'query_hash':query['query_hash'], 'evidence_ref':'snowflake-cli:' + secrets.token_hex(12)}
@@ -138,8 +145,10 @@ class Service:
             if name == 'dashboard_snowflake_connect':
                 from .snowflake_cli import probe
                 connection = clean(args['connection'])
-                probe(connection)
                 previous = state.get('snowflake_connection')
+                if previous != connection or state.get('snowflake_connection_paused'):
+                    probe(connection)
+                state.pop('snowflake_connection_paused', None)
                 scope_keys = ('account','connection','user','role','warehouse','database','schema')
                 changed_scope = previous and any(previous.get(k) != connection.get(k) for k in scope_keys)
                 state['snowflake_connection'] = connection
@@ -402,7 +411,8 @@ class Service:
             'evals': [{k:v for k,v in c.items() if k in ('case_id','metric_id','question','verdict','basis')} for c in cases], 'suggested_questions': suggestions(state)[:3],
             'answerable_questions': suggestions(state), 'agent_readiness': readiness(state),
             'metric_contract': {'app': 'metric', 'kind': 'metric', 'spec_version': '1.0-draft.4'},
-            'warehouse_connection': {'connected':bool(state.get('snowflake_connection')),'transport':'snowflake_cli'},
+            'warehouse_connection': {'connected':bool(state.get('snowflake_connection')) and not state.get('snowflake_connection_paused',False),
+                                     'paused':state.get('snowflake_connection_paused',False),'transport':'snowflake_cli'},
             'eval_plan': {k:v for k,v in state['eval_plan'].items() if k != 'cases'} if state.get('eval_plan') else None, 'registry_status': 'local_drafts_not_uploaded',
             'next_action': ('capture_source' if not state['metrics']
                             else 'map_and_translate_to_sql' if not all('translation' in m for m in state['metrics'])
