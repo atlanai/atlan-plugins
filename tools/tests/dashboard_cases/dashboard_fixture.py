@@ -39,4 +39,3 @@ class Workflow(unittest.TestCase):
 
     def evaluate(self, result, case):
         return self.call('dashboard_evaluate', {'job_id': self.job, 'expected_revision': result['revision'], 'cases': [case]})
-
