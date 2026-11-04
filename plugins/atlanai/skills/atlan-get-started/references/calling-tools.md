@@ -106,14 +106,15 @@ Every Atlan skill starts here; its own references add only what differs.
    you are following, leave the offer to it.
 
 4. **Write first, and read `registry__get_kind_schema { "kind": "<kind>" }` only when a write
-   is refused.** The skill you follow lists what each kind takes, and kind schemas are closed,
-   so a wrong property is refused, not stored. A refusal that carries `field` names the
-   argument to fix. An unknown property, a missing required one or a value a check rejects comes
-   back as a 400 or 422 `validation_failed` that does **not** name the field. Then read the
-   schema once (`required` lists what a create must send, `properties` what
-   each field takes, `relationships` the edges the kind may start, see `references/edges.md`,
-   and `body` whether it takes content), fix the call and send it once more. Read it before the
-   write only for a kind no skill describes.
+   is refused without a field.** The skill you follow lists what each kind takes, and kind
+   schemas are closed, so a wrong property is refused, not stored. A refusal that carries
+   `field` names the argument or property to fix: a missing required property, one the kind
+   lacks, or a value outside its set (with `allowed_values`). Fix it and send the call once
+   more. A refusal that names no field, such as a type mismatch or a 400 from an older
+   gateway, means reading the schema once (`required` lists what a create must send,
+   `properties` what each field takes, `relationships` the edges the kind may start, see
+   `references/edges.md`, and `body` whether it takes content), then fixing the call and
+   sending it once more. Read it before the write only for a kind no skill describes.
 
 5. **Independent reads go out together.** When two or more reads do not need each other's
    results, such as a workspace listing and a tool description before a write, or the files
