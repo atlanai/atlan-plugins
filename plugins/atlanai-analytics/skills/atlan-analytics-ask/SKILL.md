@@ -82,6 +82,12 @@ No warehouse is a fallback, not a stop. Ask for the smallest thing that answers 
 
 The published definition still decides the formula and filters, whatever the data source.
 
+A released dashboard metric may carry
+`extensions.atlan_analytics.dashboard_validation.parity: unmeasured`. Snapshot mismatch
+or missing report references do not prevent a fresh warehouse answer. Preserve the metric
+scope and state this limitation once; never call the result dashboard-validated or reuse
+the report cutoff as the current warehouse cutoff. A recorded failed check needs correction.
+
 ## 4. Query and check
 
 1. Write one SELECT or WITH statement that keeps the definition's formula, population, mandatory
