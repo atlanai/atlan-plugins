@@ -639,7 +639,11 @@ def harness_digest(source: str, judge: bytes | None) -> str:
 
 def harness_sha() -> str:
     source = pathlib.Path(__file__).resolve().read_text(encoding="utf-8")
-    return harness_digest(source, GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else None)
+    base = harness_digest(source, GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else None)
+    digest = hashlib.sha256(base.encode())
+    for name in ("analytics_transcript.py", "analytics_case.py"):
+        digest.update(b"\0" + pathlib.Path(__file__).with_name(name).read_bytes())
+    return digest.hexdigest()
 
 
 def check_harness(pr: Proj) -> None:
@@ -689,8 +693,18 @@ def _text_of(content) -> str:
     return "\n".join(x for x in out if x)
 
 
+def transcript_objects(path):
+    from analytics_transcript import normalize
+    for line in pathlib.Path(path).read_text().splitlines() if path and pathlib.Path(path).exists() else []:
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        yield from normalize(obj)
+
+
 def parse_transcript(path) -> dict:
-    """A Claude Code subagent transcript (JSONL; each line carries a `message` with role + content blocks)
+    """A Claude Code or Codex transcript (JSONL, native message and event formats)
     -> {turns, tool_calls, usage, model, contaminated, assistant_messages, elapsed_s}. Tolerant of unknown
     line shapes; a file with no line it recognises reads as zero assistant messages, which record refuses.
     `elapsed_s` runs from the first message's timestamp to the last, None without two of them."""
@@ -698,11 +712,7 @@ def parse_transcript(path) -> dict:
     assistant = 0
     stamps: list = []
     seen_msg_ids: set = set()
-    for line in pathlib.Path(path).read_text().splitlines() if path and pathlib.Path(path).exists() else []:
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    for obj in transcript_objects(path):
         msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
         role = msg.get("role") or obj.get("type")
         if role not in ("user", "assistant"):
@@ -739,7 +749,7 @@ def parse_transcript(path) -> dict:
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
                         or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
-                elif _WRITE_TOOL.search(name):
+                elif _WRITE_TOOL.search(name) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")
                 turns.append({"role": "tool_call", "name": name, "content": blob, "id": b.get("id"),
                               "message_id": mid})
@@ -755,6 +765,10 @@ def _stamp(value):
     """An ISO 8601 timestamp as an aware datetime, or None."""
     if not isinstance(value, str) or not value:
         return None
+    # Python 3.9/3.10 accept only three or six fractional-second digits.
+    # Hosts emit other precisions too; normalize to microseconds on every host.
+    value = re.sub(r"([T ]\d{2}:\d{2}:\d{2})[.,](\d+)",
+                   lambda m: m[1] + "." + m[2][:6].ljust(6, "0"), value)
     try:
         t = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -982,11 +996,7 @@ def transcript_result(path, sql: str) -> tuple:
         return None, "the answer has no SQL"
     calls: dict = {}
     results: dict = {}
-    for line in pathlib.Path(path).read_text().splitlines():
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
+    for obj in transcript_objects(path):
         msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
         for b in _blocks(msg.get("content")):
             if b.get("type") == "tool_use":
@@ -1367,11 +1377,12 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     if full and not ids.get("scorer_id"):
         return "scorer", [_create("scorer", {
             "name": SCORER_NAME, "workspace_id": ws, "display_name": "Result-set match", "scorer_kind": "code",
-            "scope": "result", "spec": {"type": "result_set_match", "source": "atlan-analytics/analytics_eval.py",
-                                        "rules": "gold and agent SQL on the same warehouse; 4 significant figures; "
-                                                 "column order/names ignored; row order only for ORDER BY … LIMIT; "
-                                                 "extra columns allowed"},
-            "outputs": {"result_match": {"type": "number", "range": [0, 1]}}}, _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
+            "output_type": "score",
+            "description": "External result-set comparison by atlan-analytics/analytics_eval.py: "
+                           "gold and agent SQL on the same warehouse; 4 significant figures; "
+                           "column order/names ignored; row order only for ORDER BY with LIMIT; "
+                           "extra columns allowed. Scores are recorded as result_match (0 or 1)."},
+            _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
     if full and not ids.get("eval_dataset_id"):
         name = f"{slug}-eval"
         return "dataset", [_create("dataset", {
@@ -1414,7 +1425,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
             calls.append(_create("session", {
                 "name": conv, "workspace_id": ws, "subject_kind": "agent", "subject_id": c["agent_id"],
                 "session_status": "completed" if r.get("answer") else "failed", "external_session_id": conv,
-                "model_id": r.get("model"), "title": ("[eval] " + r["prompt"])[:200],
+                **({"model_id": r["model"]} if r.get("model") else {}),
+                "title": ("[eval] " + r["prompt"])[:200],
                 "message_count": len(session_messages(r, turns)),
                 "stop_reason": "final_answer" if r.get("answer") else "no_answer",
                 "usage": {"input_tokens": int(u.get("input_tokens") or 0),
@@ -1455,7 +1467,9 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                           **({"dataset_record_id": records[r["prompt_id"]]} if records.get(r["prompt_id"]) else {}),
                           "session_id": pub.s["sessions"][_tag(r)]["id"],
                           "input": {"question": r["prompt"]},
-                          "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class")},
+                          "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class"),
+                                     "used_context_ids": r.get("used_context_ids") or [],
+                                     "used_context_refs": r.get("used_context_refs") or []},
                           "scores": {"result_match": float((r.get("grade") or {}).get("pass", 0))},
                           # an untimed run has no duration: 0 would read as instant
                           **({"duration_ms": int(float(r["latency_s"]) * 1000)}
