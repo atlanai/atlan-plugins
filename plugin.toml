@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.17"
+version = "0.5.18"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -61,7 +61,7 @@ description = "Atlan's plugins for coding agents: the Atlan registry's MCP serve
 server = "atlan"
 # The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
 # URL is search mode: five tools that reach the whole catalogue (see
-# plugins/atlanai/skills/atlan-get-started/references/calling-tools.md).
+# plugins/atlanai/skills/atlan-get-started/references/full-mode.md).
 url = "https://api.atlan.com/mcp"
 # Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
 # a session came from; a server added by hand sends none (app-mcp decision
