@@ -3,7 +3,9 @@
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
 trust, each one checked against the registry's contracts and previewed before it is written.
 Two entries use this file:
-- **metrics mode** (`/atlanai-analytics:atlan-analytics metrics`) starts at section 0 and stops at section 6;
+- **metrics mode** (`/atlanai:atlan-analytics metrics` from the public Atlan marketplace,
+  or `/atlanai-analytics:atlan-analytics metrics` from the separate add-on) starts at section 0
+  and stops at section 6;
 - a **full agent build** reaches it from phase 3 and starts at section 1.
 
 Everything here runs in this assistant plus one standard-library script. Nothing is cloned,
