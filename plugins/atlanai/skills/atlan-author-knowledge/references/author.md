@@ -5,10 +5,9 @@ frontmatter block. Every property the registry shows you - the file manifest, th
 count, the byte total - is derived from the archive by the create hook. None of it is yours to
 send. Create from inline UTF-8 files, or zip and upload a local tree. Edit existing memory with `apply_changes`.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
 `registry__get_kind_schema` only after a write to a kind is refused.
 

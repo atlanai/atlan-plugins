@@ -4,10 +4,9 @@ An `output` is the deliverable itself, kept separately from the run that made it
 can go looking *for the deliverable*. It either pins bytes uploaded to Atlan or points at
 something hosted elsewhere.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
 `registry__get_kind_schema` only after a write to a kind is refused.
 
