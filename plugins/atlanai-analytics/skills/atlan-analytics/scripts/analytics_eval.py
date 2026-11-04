@@ -765,6 +765,10 @@ def _stamp(value):
     """An ISO 8601 timestamp as an aware datetime, or None."""
     if not isinstance(value, str) or not value:
         return None
+    # Python 3.9/3.10 accept only three or six fractional-second digits.
+    # Hosts emit other precisions too; normalize to microseconds on every host.
+    value = re.sub(r"([T ]\d{2}:\d{2}:\d{2})[.,](\d+)",
+                   lambda m: m[1] + "." + m[2][:6].ljust(6, "0"), value)
     try:
         t = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
