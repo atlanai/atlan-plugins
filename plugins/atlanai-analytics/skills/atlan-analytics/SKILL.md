@@ -8,6 +8,12 @@ description: Set up governed metrics and saved queries from a warehouse, build a
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
 publication approval, privacy and status reporting.
 
+This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
+Use the namespace of the installed skill throughout this run: `atlanai` for that bundle,
+or `atlanai-analytics` for the separate add-on. Replace the `atlanai-analytics:` prefix in
+examples and specialist-agent names below with the installed namespace. Do not install the
+separate add-on or clone a repository to use this bundled workflow.
+
 ## 0. Dispatch the requested mode first
 
 If the first argument is `dashboard`, or the person supplies a Power BI report link/file
