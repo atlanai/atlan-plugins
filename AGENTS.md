@@ -239,3 +239,30 @@ repository holds no variant of its own.
 
 Before a release that changes install or sign-in, install from a clean profile in each tool
 and run the first prompt in the README.
+
+## Security
+
+Repo-specific rules for atlan-plugins. Full guide (patterns, anti-patterns, pre-PR checklist):
+[`SECURITY.md`](SECURITY.md)
+
+- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`;
+  variant rewrites stay HTTPS. `tools/build.py:118`
+- **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
+  tree, never through a link, never from a credential folder or key file, within 128 files and
+  256 KiB. `plugins/atlanai/command-hooks/publish_hook.py:108`, `:142`, `:161`
+- **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
+  change all three together, with tests.
+- **[MUST]** A hook fails open to the call as sent, never to a wider one. `publish_hook.py:405`
+- **[MUST]** `atlanai-mods` keeps archive, approve and move confirming, and refuses them where
+  nobody can answer. `plugins/atlanai-mods/hooks/registry.ts:61`
+- **[MUST]** Add-ons and mods declare no MCP server and no `bin/`; hooks stay in the core's helper
+  and the mod. `tools/lint.py:291`, `tools/lint.py:305`
+- **[REDLINE]** Skill or command text that tells an agent to read, print or send credentials, env
+  vars or files outside its task, or to call a non-Atlan server with Atlan data.
+- **[REDLINE]** A real token, handle or tenant name in any tracked file; `tools/lint.py:383` fails on
+  credential shapes.
+
+Severity: CRITICAL/HIGH block merge; MEDIUM flag with a fix; LOW note briefly.
+Ask `#bu-security-and-it` before merging changes to `plugins/atlanai/command-hooks/`,
+`plugins/atlanai/claude-hooks/`, `check_bundle.py`, `plugins/atlanai-mods/hooks/`, the `[mcp]`
+table in `plugin.toml`, or `.github/workflows/`.
