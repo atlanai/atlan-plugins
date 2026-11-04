@@ -74,10 +74,27 @@ gaps remain in the publishable subset with their unmeasured status.
 
 Use the existing Registry session and the [metric publication contract](metrics/publish.md).
 Before saving, read the current session identity, then fetch the selected workspace and your
-membership through that same connection. Confirm its organization and write access. A 403 or
+membership through that same connection. If the installed Analytics inspector reports
+`registry_invalid_response`, do not label it a broken login or denied permission. Use the
+bundled read-only CLI inspection below to diagnose the current API contract. Confirm its organization and write access. A 403 or
 404 after a login change requires resolving the workspace in the current session; do not
 change grants or treat an inaccessible workspace as empty. Record this identity with the
 private run. Recheck it after reconnecting before executing any pending write.
+
+When core Registry read tools are absent, use the already authenticated Atlan CLI:
+write a private target JSON with the selected `gateway_origin` and `workspace_id`, then run
+`DASH registry-inspect --target <target.json> --output <inspection.json>`. It checks the
+CLI's existing gateway, reads only `/kinds/metric` and the selected workspace with explicit
+permissions, and saves the live schema. It never signs in, reads credentials or writes
+Registry data. `observed_allowed` verifies create permission; an ordinary workspace lookup
+alone cannot. The schema uses `status`, and can be deeper than a small candidate payload.
+Never fetch the entire kind catalog just to discover metric support.
+
+Keep the local question flow usable if publication inspection fails. Name the specific
+publication problem once. Inspection success is not publication: use the existing Registry
+write runner and readback flow below. If that runner is absent, identify the missing core
+Atlan connection instead of repeatedly retrying the older inspector or requesting Snowflake
+login. Never treat a failed inventory as an empty inventory.
 
 Resolve one workspace and read the live metric schema and all matching workspace metrics,
 including current head definitions and ETags. Normalize the read results into a private
