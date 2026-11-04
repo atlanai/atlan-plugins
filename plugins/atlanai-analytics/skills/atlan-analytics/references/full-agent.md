@@ -2,10 +2,11 @@
 
 ## 1. Preflight (once per conversation, quietly)
 
-0. Check the harness first. Build, eval and improve run `scripts/analytics_eval.py` and a
-   Claude Code subagent, so they need a shell and the Agent tool. Without either, as in
-   Claude chat or Cowork, stop with BLOCKED before any registry call: say these modes need
-   Claude Code, and that `ask` and `connect` work here.
+0. Check the harness first. Build, eval and improve need a shell and either Claude Code's
+   isolated Agent tool or the installed Claude/Codex CLI for the
+   [question-only runner](eval/hosts.md). Record the selected runner in state. Without either,
+   stop with BLOCKED before Registry calls; ask and connect remain available. Never replace
+   an unavailable isolated runner with the current conversation.
 1. Open a registry session as the conventions' **Registry calls** describes, with an
    `objective` naming the project. Keep the `session_id` for every later registry call. If no
    Atlan MCP tools are available at all, stop with BLOCKED: the user needs the `atlan` plugin
@@ -68,9 +69,10 @@ An explicit argument (`/atlanai-analytics:atlan-analytics improve`) wins over th
 - A **registry workspace** holding the agent's context: metrics, saved SQL queries
   (`sql_query`) and any rule skills.
 - A **registered agent** and a **Claude Code subagent** `.claude/agents/<slug>.md` that is that
-  agent. It can read only the registry and the warehouse. Running it, and so the eval and
-  improve phases, needs Claude Code's subagents. Metrics and propose modes need a shell for
-  their scripts, not subagents; only ask and connect work in any harness.
+  agent when Claude's Agent tool is used. In Codex, keep the registered identity and run
+  isolated cases through the question-only CLI runner. Its context contains released
+  definitions; the parent validates and executes its proposed SQL. Record which execution
+  mode was evaluated. Metrics and propose modes need a shell, not subagents.
 - A **local eval set**: questions, plus gold SQL kept out of the agent's reach.
 - **Experiments in the registry**: every run's score and session, visible in the
   agent's Evals and Sessions tabs.
