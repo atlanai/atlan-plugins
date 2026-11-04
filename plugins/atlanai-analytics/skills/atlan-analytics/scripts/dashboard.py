@@ -15,6 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent / "dashboard_runtime"))
 from trident.core import Service, clean, digest, require
 from trident.contracts import SCHEMAS, DESCRIPTIONS, validate
+from trident.evaluation import validation_status, readiness, usable_metric
 
 
 def load(path):
@@ -64,13 +65,19 @@ def prepare_context(service, job_id, destination):
         if metric.get("runtime") != "warehouse":
             held.append({"metric_id": metric["id"], "reason": "needs_sql"})
             continue
+        if state['status'] == 'evaluated' and not usable_metric(state, metric):
+            held.append({'metric_id': metric['id'], 'reason': 'requires_correction',
+                         'validation': validation_status(state, metric)})
+            continue
         body = portable_metric(metric)
+        body['definition']['extensions']['atlan_analytics']['dashboard_validation'] = validation_status(state, metric)
         body["source_version"] = state["capture_hash"]
         metrics.append(body)
     require(bool(metrics), "No warehouse metrics are ready to prepare.")
     for name, value in {"metrics.json": metrics, "queries.json": [], "links.json": [],
                         "dashboard-source.json": {"job_id": job_id, "capture_hash": state["capture_hash"],
-                        "context_hash": state["context_hash"], "held": held}}.items():
+                        "context_hash": state["context_hash"], "held": held,
+                        "readiness": readiness(state), "validation": service.view(state)["summary"]}}.items():
         require(not (root / name).is_symlink(), "Use ordinary context files.")
         service.write(root / name, value)
     return {"status": "ok", "metrics": len(metrics), "held": held, "context_dir": str(root),

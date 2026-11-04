@@ -427,7 +427,7 @@ class Service:
                             else 'create_eval_plan' if not state.get('eval_plan')
                             else 'map_and_translate_to_sql' if not any(m['runtime']=='warehouse' for m in state['metrics'])
                             else 'run_next_check' if any(c['verdict']=='pending' for c in cases)
-                            else 'ask_questions' if any(m['warehouse_portable'] for m in state['metrics']) else 'resolve_check_gaps'),
+                            else 'save_context_and_ask' if suggestions(state) else 'resolve_check_gaps'),
             'capture_request': {'vendor': 'powerbi', 'report_url': state['source']['url'],
                 'read_only': True, 'prefer': 'authorized_file_download_then_targeted_metadata_and_reference_queries',
                 'required': ['source measure identities and types', 'complete selected filters including virtualized options',

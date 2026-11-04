@@ -66,7 +66,7 @@ identities, extend server sessions or change account policy to make checks pass.
 
 Warehouse values are fresh observations, not proof of the dashboard's source refresh time.
 Establish the cutoff and historical availability independently. If the source snapshot is
-absent, record `snapshot_mismatch`; keep historical parity unmeasured even when current-data
+absent, record `snapshot_mismatch`; continue saving context, registering the agent and asking questions; keep historical parity unmeasured even when current-data
 queries execute successfully.
 
 References: [CLI connection options](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections),

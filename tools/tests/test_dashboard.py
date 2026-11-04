@@ -44,6 +44,21 @@ class DashboardPublication(unittest.TestCase):
     def mutate(self, name, **args):
         self.view = self.service.dispatch(name, {"job_id": self.job, "expected_revision": self.view["revision"], **args})
 
+    def test_snapshot_warning_survives_registry_plan_and_does_not_prevent_save(self):
+        self.mutate('dashboard_plan_evals')
+        task=self.service.dispatch('dashboard_next_check',{'job_id':self.job})['task']
+        self.mutate('dashboard_record_check',
+                    **{k:task[k] for k in ('case_id','plan_generation','capture_hash','definition_hash')},
+                    reference={'unavailable':'source_value_unavailable'},
+                    actual={'unavailable':'snapshot_mismatch'})
+        dashboard.prepare_context(self.service,self.job,self.context)
+        plan=self.pub.plan(self.snapshot)
+        operation=self.pub.next(plan['plan_id'])
+        self.assertEqual(operation['name'],'registry__create_artifact')
+        body=json.loads((self.context/'metrics.json').read_text())[0]
+        self.assertEqual(body['definition']['extensions']['atlan_analytics']['dashboard_validation']['parity'],'unmeasured')
+        self.assertEqual(self.view['agent_readiness']['state'],'ready_with_warnings')
+
     def artifact(self):
         body = json.loads((self.context / "metrics.json").read_text())[0]
         return {**body, "id": "metric_demo", "kind": "metric", "workspace_id": "workspace_demo", "etag": "head-v1"}
