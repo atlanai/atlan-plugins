@@ -53,8 +53,7 @@ Use the highest-level surface available for each job:
 - **Registry MCP tools** for workspace and schema discovery, exact artifact reads,
   relationships, and read-back. Open one audited session and pass its
   `session_id` and a concrete first-person `rationale` on every later call, as
-  **Before your first call** in `skills/atlan-get-started/references/calling-tools.md`
-  describes.
+  the calling rules at the top of this skill say.
 - **`aireg`, the CLI installed with the Atlan desktop app,** for publishing local
   skills with `aireg publish`, and for creating the agent with `aireg atlan api`, the
   safe creation path: it writes the reveal-once credential to a new private file
