@@ -28,8 +28,9 @@ Show it, then ask:
 ## 2. Register it
 
 1. Call `registry__create_artifact` with `kind` `agent`, `metadata.workspace_id` = the project
-   workspace, and the spec. `instructions` and `model_id` must be non-blank; omit a field
-   rather than sending an empty string. Required fields vary by deployment: when the create is
+   workspace, and the spec. Keep `instructions` non-blank. Supply `model_id` only when the
+   agent uses a fixed model; a host-selected model can omit it when the live schema permits.
+   Required fields vary by deployment: when the create is
    refused over a property, read `registry__get_kind_schema` for `agent`, fix it and send it
    once more. Keep the returned id as `ids.agent_id` in state.
 2. Link the context the agent relies on. Pin every rule skill it should always load in the

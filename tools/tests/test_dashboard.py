@@ -153,3 +153,27 @@ class HostTranscripts(unittest.TestCase):
             with self.assertRaises(ValueError):
                 analytics_case.run_case("codex", data, "Question", Path("/not-created"))
 
+
+class LivePublicationContracts(unittest.TestCase):
+    def planned(self, sessions_only):
+        import analytics_eval as ev
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder:
+            pr = ev.Proj(folder)
+            ev.dump_json(pr.p("state.json"), {"slug": "synthetic", "ids": {
+                "workspace_id": "workspace_example", "agent_id": "agent_example"}})
+            (pr.vdir("codex") / "results.jsonl").write_text(json.dumps({
+                "prompt_id": "one", "rep": 0, "prompt": "Question", "answer": "Answer", "model": None}) + "\n")
+            return ev.cmd_publish(SimpleNamespace(dir=folder, variant="codex", sessions_only=sessions_only,
+                workspace=None, agent_id=None, resend=False, baseline=None))
+
+    def test_scorer_uses_current_definition_contract(self):
+        body = self.planned(False)["calls"][0]["arguments"]["metadata"]
+        self.assertEqual(body["scorer_kind"], "code")
+        self.assertEqual(body["output_type"], "score")
+        self.assertFalse(set(body) & {"spec", "scope", "outputs"})
+
+    def test_unknown_host_model_is_omitted_from_nonnullable_session_field(self):
+        body = self.planned(True)["calls"][0]["arguments"]["metadata"]
+        self.assertNotIn("model_id", body)
+        self.assertEqual(body["subject_kind"], "agent")
