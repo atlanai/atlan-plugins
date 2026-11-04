@@ -16,6 +16,10 @@ class CLIError(ValueError):
     pass
 
 
+class ConnectionPaused(CLIError):
+    """Stop the check loop until the caller explicitly reconnects."""
+
+
 def discover():
     candidates = [shutil.which('snow'), str(Path.home()/'.local/bin/snow')]
     candidates += [str(p) for p in sorted((Path.home()/'.cache/uv/archive-v0').glob('*/bin/snow'))]
@@ -88,7 +92,8 @@ def command(config):
     if config['role'].upper() in ('ACCOUNTADMIN','SECURITYADMIN','ORGADMIN'):
         raise CLIError('Use the report’s approved query role, not an administrator role.')
     args=[discover(),'sql','--stdin','--role',config['role'],'--warehouse',config['warehouse'],
-          '--secondary-roles','NONE','--enable-templating','NONE','--local-only','--format','JSON','--silent']
+          '--secondary-roles','NONE','--enable-templating','NONE','--local-only','--format','JSON','--silent',
+          '--enhanced-exit-codes']
     if config.get('connection'):
         if not re.fullmatch(r'[A-Za-z0-9_.-]{1,128}',config['connection']):raise CLIError('Invalid connection name.')
         args+=['--connection',config['connection']]
@@ -96,9 +101,13 @@ def command(config):
         if not re.fullmatch(r'[A-Za-z0-9_.-]{1,256}',config.get('account','')):raise CLIError('Supply the source account or a named connection.')
         auth=config.get('authenticator','OAUTH_AUTHORIZATION_CODE')
         if auth not in ('OAUTH_AUTHORIZATION_CODE','externalbrowser'):raise CLIError('Use browser-based authentication.')
-        if auth == 'externalbrowser' and not config.get('user'):
-            raise CLIError('External-browser sign-in requires the Snowflake login name (user), or use OAUTH_AUTHORIZATION_CODE.')
+        if not config.get('user'):
+            raise CLIError('Supply the non-secret Snowflake login name once as user. Browser authentication without a stable user cannot reuse the CLI credential cache; do not start per-query sign-ins.')
         args+=['--temporary-connection','--account',config['account'],'--authenticator',auth]
+        # Let the official CLI own secure storage. Never read or serialize tokens here.
+        args+=['--client-store-temporary-credential']
+        if auth == 'OAUTH_AUTHORIZATION_CODE':
+            args+=['--oauth-enable-refresh-tokens']
     if config.get('user'):
         if not re.fullmatch(r'[A-Za-z0-9_.@+\-]{1,256}',config['user']):raise CLIError('Invalid Snowflake login name.')
         args+=['--user',config['user']]
@@ -117,12 +126,18 @@ def execute(config, sql, parameters):
     try:
         run=subprocess.run(command(config), input=script, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
-        raise CLIError('Snowflake CLI timed out. Complete browser sign-in if prompted, then retry this operation.') from None
+        raise ConnectionPaused('Snowflake operation timed out; the warehouse checks are paused. A timeout does not prove the login expired. Resolve the connection or query timeout, then explicitly reconnect once.') from None
     except OSError:
         raise CLIError('Snowflake CLI could not start.') from None
     if run.returncode:
         # Never emit raw auth diagnostics, login URLs, query values or credential material.
-        raise CLIError('Snowflake CLI failed. Check browser authentication, the selected role and warehouse, then retry. No raw authentication output was exposed.')
+        if run.returncode == 5:
+            raise CLIError('Snowflake rejected the SQL. Check the translation and object permissions; do not reconnect or request another login for this query error.')
+        if run.returncode == 2:
+            raise CLIError('Snowflake CLI options are unsupported or invalid. Check CLI compatibility; do not retry with credential reuse disabled.')
+        if re.search(r'\b(?:390303|390318)\b|(?:oauth|access|refresh) token (?:expired|invalid)|authentication failed', run.stderr or '', re.I):
+            raise ConnectionPaused('Snowflake authentication needs attention. Warehouse checks are paused; reconnect once after sign-in is resolved, then resume the pending cases.')
+        raise ConnectionPaused('Snowflake CLI could not complete the operation. Warehouse checks are paused; inspect connection availability and scope before an explicit reconnect. No authentication failure was confirmed.')
     try:
         rows=json.loads(run.stdout)
         if isinstance(rows,list) and len(rows)==1 and isinstance(rows[0],list):rows=rows[0]

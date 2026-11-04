@@ -3,12 +3,12 @@ import json
 import subprocess
 import unittest
 from unittest.mock import patch
-from trident.snowflake_cli import bound_query, scripting, command, execute, CLIError
+from trident.snowflake_cli import bound_query, scripting, command, execute, CLIError, ConnectionPaused
 from trident.dax_sql import translate, TranslationGap
 import test_eval_flow as flow
 from test_dax_sql import mapping
 
-CONFIG={'account':'example-account','role':'ANALYST','warehouse':'EXAMPLE_WH'}
+CONFIG={'account':'example-account','user':'example_analyst','role':'ANALYST','warehouse':'EXAMPLE_WH'}
 
 class SnowflakeCLI(unittest.TestCase):
     def test_bindings_skip_quoted_text_and_preserve_repetition(self):
@@ -35,10 +35,14 @@ class SnowflakeCLI(unittest.TestCase):
     def test_temporary_oauth_needs_no_saved_connection(self,_):
         args=command(CONFIG)
         self.assertIn('--temporary-connection',args);self.assertIn('OAUTH_AUTHORIZATION_CODE',args)
+        self.assertIn('--client-store-temporary-credential',args)
+        self.assertIn('--oauth-enable-refresh-tokens',args)
         self.assertNotIn('-D',args);self.assertIn('NONE',args)
         with self.assertRaises(CLIError):command({**CONFIG,'role':'ACCOUNTADMIN'})
         named=command({'connection':'example','role':'ANALYST','warehouse':'EXAMPLE_WH'})
         self.assertIn('--connection',named);self.assertNotIn('--temporary-connection',named)
+        self.assertNotIn('--client-store-temporary-credential',named)
+        self.assertNotIn('--oauth-enable-refresh-tokens',named)
 
     @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
     @patch('trident.snowflake_cli.subprocess.run')
@@ -89,9 +93,37 @@ class Regression051(unittest.TestCase):
     @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
     def test_external_browser_requires_and_passes_login_name(self,_):
         with self.assertRaisesRegex(CLIError,'login name'):
-            command({**CONFIG,'authenticator':'externalbrowser'})
+            command({k:v for k,v in {**CONFIG,'authenticator':'externalbrowser'}.items() if k!='user'})
         cmd=command({**CONFIG,'authenticator':'externalbrowser','user':'analyst@example.test'})
         self.assertEqual(cmd[cmd.index('--user')+1],'analyst@example.test')
+        self.assertIn('--client-store-temporary-credential',cmd)
+        self.assertNotIn('--oauth-enable-refresh-tokens',cmd)
+
+    @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
+    def test_oauth_without_user_refused_before_login(self,_):
+        with self.assertRaisesRegex(CLIError,'login name once'):
+            command({k:v for k,v in CONFIG.items() if k!='user'})
+
+    @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
+    @patch('trident.snowflake_cli.subprocess.run')
+    def test_sql_failure_does_not_ask_for_authentication(self,run,_):
+        run.return_value=subprocess.CompletedProcess([],5,stdout='',stderr='SQL compilation error: private query text')
+        with self.assertRaises(CLIError) as exc:
+            execute(CONFIG,'SELECT 1',{})
+        self.assertNotIsInstance(exc.exception,ConnectionPaused)
+        self.assertIn('do not reconnect',str(exc.exception))
+        self.assertNotIn('private query text',str(exc.exception))
+
+    @patch('trident.snowflake_cli.discover',return_value='/approved/bin/snow')
+    @patch('trident.snowflake_cli.subprocess.run')
+    def test_auth_failure_and_timeout_pause_without_leaking_diagnostics(self,run,_):
+        run.return_value=subprocess.CompletedProcess([],3,stdout='',stderr='390318 OAuth access token expired: private diagnostic')
+        with self.assertRaises(ConnectionPaused) as exc:
+            execute(CONFIG,'SELECT 1',{})
+        self.assertNotIn('private diagnostic',str(exc.exception))
+        run.side_effect=subprocess.TimeoutExpired([],120)
+        with self.assertRaisesRegex(ConnectionPaused,'does not prove'):
+            execute(CONFIG,'SELECT 1',{})
 
 class Reconnect051(unittest.TestCase):
     setUp=flow.EvalFlow.setUp
@@ -100,17 +132,53 @@ class Reconnect051(unittest.TestCase):
     task=flow.EvalFlow.task
     record=flow.EvalFlow.record
     @patch('trident.snowflake_cli.probe',return_value={'connected':True})
-    def test_reconnect_retains_generation_questions_and_results(self,_):
+    def test_reconnect_retains_generation_questions_and_results(self,probe):
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
+        self.assertEqual(probe.call_count,1)
         task=self.task();self.record(task,17,17)
         generation=self.p['eval_plan']['generation'];before=copy.deepcopy(self.p['evals'])
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
+        self.assertEqual(probe.call_count,1)
         self.assertEqual(self.p['eval_plan']['generation'],generation)
         self.assertEqual(self.p['evals'],before)
         self.mutate('dashboard_snowflake_connect',connection={**CONFIG,'role':'OTHER_ANALYST'})
         self.assertEqual(self.p['eval_plan']['generation'],generation)
         self.assertEqual(self.p['summary']['checked_cases'],0)
         self.assertEqual(self.p['summary']['warehouse_portable'],0)
+
+    @patch('trident.snowflake_cli.probe',return_value={'connected':True})
+    @patch('trident.snowflake_cli.execute')
+    def test_auth_failure_blocks_remaining_metrics_until_explicit_reconnect(self,execute,probe):
+        self.mutate('dashboard_snowflake_connect',connection=CONFIG)
+        self.mutate('dashboard_translate',dialect='snowflake',mappings=[mapping()])
+        execute.side_effect=ConnectionPaused('Authentication needs attention')
+        args={'job_id':self.job,'metric_id':self.p['metrics'][0]['id'],'context_hash':self.p['context_hash']}
+        with self.assertRaises(ConnectionPaused):
+            self.call('dashboard_snowflake_execute',args)
+        self.service=type(self.service)(self.service.root)
+        for _ in range(30):
+            with self.assertRaisesRegex(ValueError,'paused'):
+                self.call('dashboard_snowflake_execute',args)
+        self.assertEqual(execute.call_count,1)
+        self.p=self.call('dashboard_read',{'job_id':self.job})
+        self.assertFalse(self.p['warehouse_connection']['connected'])
+        self.mutate('dashboard_snowflake_connect',connection=CONFIG)
+        self.assertEqual(probe.call_count,2)
+        execute.side_effect=None;execute.return_value=[{'value':17}]
+        self.call('dashboard_snowflake_execute',args)
+        self.assertEqual(execute.call_count,2)
+
+    @patch('trident.snowflake_cli.probe',return_value={'connected':True})
+    @patch('trident.snowflake_cli.execute',side_effect=CLIError('SQL rejected; do not reconnect'))
+    def test_sql_error_does_not_invalidate_connection(self,execute,probe):
+        self.mutate('dashboard_snowflake_connect',connection=CONFIG)
+        self.mutate('dashboard_translate',dialect='snowflake',mappings=[mapping()])
+        with self.assertRaises(CLIError):
+            self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':self.p['metrics'][0]['id'],'context_hash':self.p['context_hash']})
+        state=self.call('dashboard_read',{'job_id':self.job})
+        self.assertTrue(state['warehouse_connection']['connected'])
+        self.mutate('dashboard_snowflake_connect',connection=CONFIG)
+        self.assertEqual(probe.call_count,1)
 
     def test_default_view_does_not_repeat_sql_and_definitions_are_paged(self):
         state=self.service.load(self.job)
