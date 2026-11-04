@@ -177,3 +177,13 @@ class LivePublicationContracts(unittest.TestCase):
         body = self.planned(True)["calls"][0]["arguments"]["metadata"]
         self.assertNotIn("model_id", body)
         self.assertEqual(body["subject_kind"], "agent")
+
+class ReleasedContextEvidence(unittest.TestCase):
+    def test_host_citations_are_pinned_to_supplied_releases_and_deduplicated(self):
+        from analytics_case import released_references
+        context = [{"id": "metric_example", "release_id": "rel_reviewed"}]
+        answer = {"used_context_ids": ["metric_example", "metric_example"]}
+        self.assertEqual(released_references(answer, context),
+                         [{"artifact_id": "metric_example", "release_id": "rel_reviewed"}])
+        with self.assertRaises(KeyError):
+            released_references({"used_context_ids": ["metric_other"]}, context)

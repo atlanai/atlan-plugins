@@ -55,6 +55,13 @@ def command(host, folder, output, instructions=""):
     return args + ["-"]
 
 
+def released_references(answer, context):
+    """Attach exact releases from the trusted snapshot, never model-invented revisions."""
+    by_id = {item["id"]: item["release_id"] for item in context}
+    return [{"artifact_id": ident, "release_id": by_id[ident]}
+            for ident in dict.fromkeys(answer["used_context_ids"])]
+
+
 def run_case(host, context, question, out, instructions=""):
     if not isinstance(context, list) or not context:
         raise ValueError("Supply a nonempty released context snapshot.")
@@ -126,6 +133,7 @@ def run_case(host, context, question, out, instructions=""):
             seen_parameters.add(name)
         if not set(answer["used_context_ids"]) <= {a["id"] for a in context}:
             raise ValueError("Host cited context outside the supplied release snapshot.")
+        answer["used_context_refs"] = released_references(answer, context)
         (out / "answer.json").write_text(json.dumps(answer))
         (out / "run.json").write_text(json.dumps({"host": host, "runner": "question-only-released-context",
             "context_sha256": hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest(),
