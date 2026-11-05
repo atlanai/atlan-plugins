@@ -97,7 +97,12 @@ changes nothing.
 **If you are creating the source artifact anyway, create it linked.**
 `registry__create_artifact_linked` takes the same `kind` and `metadata` as a create plus
 `subject_id` and `rel_type`, and makes the artifact and the edge in one call, so there is no
-window where the new artifact exists unattached and no second call to forget.
+window where the new artifact exists unattached and no second call to forget. The gateway writes
+both in one transaction: a refused edge leaves no artifact behind, so fix what the refusal names
+and call again. An older gateway wrote them in two steps; there, a result that carries the new
+handle beside an edge error is fixed with `registry__relate_artifact` on that handle, never by
+calling again. An `output` is recorded with `registry__publish_output`, whose `edges` does the
+same for its file and output.
 
 ```
 registry__create_artifact_linked {
