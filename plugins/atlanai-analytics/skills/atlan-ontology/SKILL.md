@@ -6,7 +6,7 @@ description: "Use the organization's business ontology in Atlan: explain a busin
 # Business ontology
 
 Read [shared conventions](../atlan-analytics/references/conventions.md) first; its
-**Registry calls**, **Asking questions**, **Status protocol** and **Safety** sections apply.
+**Registry calls**, **Safety** and **Status line** sections apply.
 This skill reads ontology releases and prepares drafts. It never saves a definition, creates a
 binding or publishes a release: Atlan reserves those for a person in Ontology Studio.
 
@@ -73,12 +73,15 @@ override a metric's formula, population or filters.
 ## 3. Records mode
 
 1. Call `extension__ontology__get_records` with `ontology_id`, `as_of` (the date the question is
-   about, as a UTC instant; omit it for "now"), an optional `query` and
-   `record_type_artifact_id`, and `include_knowledge_references: true` when the answer needs its
-   evidence.
+   about, as a UTC instant; omit it for "now"), `limit: 10` (the default, 50 unranked records,
+   can overflow a host), the `record_type_artifact_id` when known, and
+   `include_knowledge_references: true` only when the answer needs its evidence. `query` is one
+   or two key words, since every word must match: "on-time" finds records where "on-time
+   performance definition" finds none.
 2. Answer with each record that was in force, its validity interval and lifecycle state, and
-   the exact document version it cites. If the response says `scan_truncated: true`, say the
-   list may be incomplete and narrow the query.
+   the exact document version it cites. Results are unranked, so with 10 back, narrow by record
+   type or a more specific word. If the response says `scan_truncated: true`, say the list may
+   be incomplete and narrow the query.
 3. Never substitute a document's current text for the pinned version a record cites. When the
    person needs the text, read that exact version with the core `atlanai` plugin's content
    skill, or say it is unavailable.

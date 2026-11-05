@@ -14,6 +14,7 @@ Calls below are written in search mode, each through the runner its tool needs: 
 `mcp__call_read_tool`. The first call opens the session
 by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
 and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
+Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 Replies lead with the result: the first sentence is the answer or the step, counts rather
 than lists, handles only when asked, one next step rather than a menu, and no greeting,
 apology or closing offer.

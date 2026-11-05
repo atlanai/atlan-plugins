@@ -44,7 +44,7 @@ Open a registry session as **Registry calls** in the conventions describes, then
 ## 4. Attach this conversation as the run
 
 Run `EVAL session-run`, that is
-`python3 "<skill-dir>/scripts/analytics_eval.py" session-run`, with `<skill-dir>` as the conventions say
+`python3 "<skill-dir>/scripts/analytics_eval.py" session-run`, with `<skill-dir>` as the project conventions say
 (from Codex, add `--harness codex --session-id <its session id>`). Its `trace_id` names the
 trace this session becomes once the desktop app syncs it. Add one
 `evidence.runs` entry per question: `{trace_id, agent, question, asked_by, at}`, where `agent`
