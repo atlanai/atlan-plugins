@@ -1,0 +1,44 @@
+schema_version: "1.1"
+name: negative-near-miss-skill-md
+tags: [negative,routing]
+execution:
+  prompt: |
+    In one sentence, what is a SKILL.md file?
+  max_turns: 4
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-no-atlan-skill
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-[\w-]+"'
+    min: 0
+    max: 0
+  - name: no-call-tool
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: no-call-read-tool
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-call-write-tool
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-search-tools
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__search_tools
+    min: 0
+    max: 0
+  - name: answers-without-atlan
+    type: llm
+    criteria: |
+      PASS if the reply explains in about one sentence that SKILL.md is the instructions file of an Agent Skill, from general knowledge, without searching or reading Atlan. FAIL if it calls Atlan, lists registry skills, or asks the user to sign in.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

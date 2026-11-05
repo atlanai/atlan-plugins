@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Set up governed metrics and saved queries from a warehouse, build a talk-to-data agent on them, evaluate or improve it with isolated held-out evaluation, connect a warehouse, or propose a metric fix from a conversation. Use for analytics setup, turning a Power BI dashboard into a data agent, and agent work on Atlan. A one-off data question goes to atlan-analytics-ask, and business objects, joins and policies to atlan-ontology.
+description: Set up governed metrics and saved queries from a warehouse, connect a warehouse, build, evaluate or improve a talk-to-data agent, turn a Power BI dashboard into one, or propose a metric fix. Use for analytics setup and agent work on Atlan. Not for a one-off data question (atlan-analytics-ask) or business objects and policies (atlan-ontology).
 ---
 
 # Metrics and talk-to-data agents

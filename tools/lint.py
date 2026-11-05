@@ -12,7 +12,8 @@ Skills (every plugins/<plugin>/skills/<dir>/SKILL.md):
     reads to decide whether to load the skill);
   * a non-empty body.
 Every skill is also held to:
-  * at most 500 lines in SKILL.md (longer material goes in references/);
+  * at most 500 lines and 9 KiB in SKILL.md (longer material goes in references/);
+  * a description of at most 370 characters, since every session carries it;
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
 Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`; commands
@@ -51,6 +52,11 @@ XML_TAG = re.compile(r"<[A-Za-z/][^>]*>")
 CITED_PATH = re.compile(r"`((?:skills|references)/[A-Za-z0-9_./-]+\.md)`")
 CITED_SKILL = re.compile(r"`(atlan-[a-z0-9-]+)`")
 WHEN = re.compile(r"\bUse (?:when|for)\b")
+# Every installed skill's description sits in every session's context, so owned skills keep it
+# short; and SKILL.md is read whole whenever the skill loads, so detail goes in references/ that
+# the skill names with the condition for opening them. Lower these as skills get leaner.
+MAX_OWNED_DESCRIPTION = 370
+MAX_SKILL_BYTES = 9 * 1024
 # Backticked `atlan-…` words that are not skills in this plugin.
 NOT_SKILLS = {
     "atlan-plugins",  # this repository's marketplace name
@@ -153,9 +159,14 @@ def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT
         # ranks, so it says when to use the skill, not only what the skill is.
         if description and not WHEN.search(description):
             errors.append(f"{relative}/SKILL.md: description does not say when to use the skill (\"Use when\" or \"Use for\")")
+        if len(description) > MAX_OWNED_DESCRIPTION:
+            errors.append(f"{relative}/SKILL.md: description is {len(description)} chars (max {MAX_OWNED_DESCRIPTION} for an owned skill)")
         line_count = text.count("\n") + 1
         if line_count > 500:
             errors.append(f"{relative}/SKILL.md: {line_count} lines; move material to references/")
+        size = len(text.encode("utf-8"))
+        if size > MAX_SKILL_BYTES:
+            errors.append(f"{relative}/SKILL.md: {size} bytes (max {MAX_SKILL_BYTES}); move material to references/")
         for path in directory.rglob("*.md"):
             content = path.read_text(encoding="utf-8")
             for cited in CITED_PATH.findall(content):
