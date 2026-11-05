@@ -18,7 +18,7 @@ claude plugin install atlanai --marketplace atlanai/atlan-plugins
 ```
 
 Then run `/mcp`, pick `plugin:atlanai:atlan` and choose **Authenticate**. For Claude chat, Codex,
-Cursor and VS Code, see the [repository README](../../README.md#install).
+Cursor and VS Code, see the [repository README](https://github.com/atlanai/atlan-plugins#install).
 
 The first thing to type: *"Connect me to Atlan."*
 

@@ -20,48 +20,45 @@ otherwise take the narrowest reasonable reading and say so in the answer.
 ## 2. Find the definitions
 
 1. Open a registry session as **Registry calls** in the conventions describes, with the question
-   as the `objective`. Its first call is step 2's search.
+   as the `objective`. Its first call is step 2's search; send nothing else until it returns the
+   session id.
 2. Search released metrics in every workspace at once: call
    `extension__metric__search_metrics` with the measure and its business nouns as `query`,
    `semantic: true`, `include_definition: true`, `definition_view: "compact"`,
    `definition_limit: 1` (2 when the top two names both fit the measure) and no
    `workspace_id`. Each item names its workspace and carries its release receipt; the first
-   carries its definition, which compact cuts to the calculation (formula, aggregation,
-   filters, exclusions, source, joins, dimensions, output). If the call refuses
-   `definition_view` or `semantic` by name, send it again without that argument and leave it
-   out for the rest of the session. When good hits sit in several workspaces, ask which one,
-   recommending the one whose metric name matches the measure. An empty result is the answer
-   "no published metric": go to **Nothing found** below, and never fall back to a search
-   without `include_definition`, which returns unreleased heads.
+   carries its definition, which compact cuts to the calculation. If the call refuses
+   `definition_view` or `semantic` by name, send it again without that argument for the rest of
+   the session. An empty result is the answer "no published metric": go to **Nothing found**,
+   and never fall back to a search without `include_definition`, which returns unreleased heads.
 
-   **A hit is a candidate, not an answer.** The search ranks by wording and returns no score
-   you can trust, so it always returns something: "revenue by region" has come back with two
-   cabin-crew metrics. Keep a hit only when its name, display name or definition's formula
-   measures what the question asks (revenue is a sum of money; a count of crew is not
-   revenue), allowing the synonyms its description lists. Sharing a dimension word such as
-   "region" is not a match. When no hit measures it, the answer is "no published metric", as
-   for an empty result; say in the answer which near misses you set aside, by name, in one line.
+   **A hit is a candidate, not an answer.** Search ranks by wording, so it always returns
+   something, and the right metric can rank low: "on-time departure rate" has put `otp_d15`
+   eighth, under a turnaround metric. Read every hit's name and display name, not only the
+   first, and keep the one whose name or formula measures what the question asks (revenue is a
+   sum of money; a count of crew is not revenue), allowing the synonyms its description lists.
+   Sharing a dimension word such as "region" is not a match. When no hit measures it, the answer
+   is "no published metric"; name the near misses you set aside in one line of the answer.
+3. Send these together, in the turn after the search:
+   - **The kept hit's definition, when it is not the first**: `extension__metric__search_metrics`
+     with its exact `name`, the `workspace_id` that hit carries (an exact name is refused
+     without one), `include_definition: true` and `definition_view: "compact"`. Never answer
+     from the definition attached to another hit.
+   - **The warehouse**, unless this conversation already holds it: step 3 below.
+   - **Saved queries**, only when no released metric answers or the person asks for one:
+     `extension__metric__search_queries` with `query`, `limit: 5`, `include_sql: false` and the
+     metric's `workspace_id` when you have one. Then fetch the SQL of the one query you will use
+     by `name` and its `workspace_id`. Without the metric tools, use `registry__search_artifacts`
+     with kind `metric` or `sql_query` and read the hit at a release, as step 4 says.
 
-   If the call is refused because `workspace_id` is required (an older metric app), find the
-   workspace first: `registry__search_artifacts` with `kind` `metric`, the measure as `query`
-   and no `workspace_id`, then use the workspace of the best hit (with no hit,
-   `registry__get_artifact_counts` with `kind` `metric` and `group_by` `workspace_id`, and its
-   first). Then repeat this step's search with that `workspace_id`. Never search workspaces
-   one by one, and never pick a workspace from its description alone. When the metric tools
-   aren't listed at all, read the `search_artifacts` hit at a release as step 4 says.
-3. Search saved queries only when no released metric answers the question, or when the person
-   asks for one: `extension__metric__search_queries` with `query`, `limit: 5` and
-   `include_sql: false`, and the metric's `workspace_id` when you have one (omit it otherwise;
-   an older metric app needs it, as step 2 says). Then fetch the SQL of the one query you will
-   use by `name` and its `workspace_id` (with `include_sql` left on). The query search returns
-   only released revisions. Without those tools, use `registry__search_artifacts` with kind
-   `sql_query`.
-4. Read the one or two most relevant results exactly as step 1 and the **Rules** of
-   [the agent template](../atlan-analytics/references/eval/agent-template.md) say: only a
-   released revision counts, a rejected query is skipped, an unreviewed one is a caveat, and a
-   usage note or rule skill is followed. Keep each returned id, `version_id`, `release_id` and
-   `channel`.
-
+   An older metric app refuses a search with no `workspace_id`: take the workspace of the best
+   `registry__search_artifacts` hit (kind `metric`, the measure as `query`), or the first of
+   `registry__get_artifact_counts` (kind `metric`, `group_by` `workspace_id`), and repeat the
+   search there. Never search workspaces one by one.
+4. Use only released revisions: a rejected query is skipped, an unreviewed one is a caveat, and
+   a usage note or rule is followed. Read a metric or query that came without its release with
+   `registry__get_artifact` and `channel: "latest"`; a missing or withdrawn release never falls
+   back to a head. Keep each returned id, `version_id`, `release_id` and `channel`.
 5. When the question's business terms need resolving (which table holds a customer, how orders
    join to accounts) and the Ontology app is installed, use the `atlan-ontology` skill's
    context mode for entity names and join paths. A released metric still decides the formula,
@@ -72,15 +69,21 @@ then continue with your own SQL and its assumptions spelled out (step 5 labels i
 
 ## 3. Reach the data
 
-Find the warehouse query tool with [warehouse discovery](../atlan-analytics/references/connect.md) (`atlan-analytics connect`). With no project, hold
-its record in this conversation instead of a state file.
+Find the warehouse query tool with steps 0 to 2 of
+[warehouse discovery](../atlan-analytics/references/connect.md): a record this conversation
+or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
+connectors. Hold what you find, or that there is none, for the rest of the conversation.
 
-No warehouse is a fallback, not a stop. Ask for the smallest thing that answers the question:
-- **Paste or attach the result** of a query, or a CSV export;
-- **Run the SQL yourself**: write the statement from the definition for the person to run, then
-  answer from what they paste back.
+With no warehouse tool, do not stop and do not run the rest of discovery for a one-off
+question. Open the answer by saying no warehouse is reachable through Atlan, and that an Atlan
+admin can add it from the Store. Then offer the smallest thing that answers the question:
+- **Run the SQL yourself**: write the statement from the definition, in the dialect it names
+  (that dialect's section of [warehouses](../atlan-analytics/references/warehouses.md)), for the
+  person to run, and answer from what they paste back;
+- **Paste or attach the result** of a query, or a CSV export.
 
-The published definition still decides the formula and filters, whatever the data source.
+End that turn with `NEEDS_CONTEXT`. The published definition still decides the formula and
+filters, whatever the data source.
 
 A released dashboard metric may carry
 `extensions.atlan_analytics.dashboard_validation.parity: unmeasured`. Snapshot mismatch

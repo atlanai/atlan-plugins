@@ -1,6 +1,6 @@
 # Build a talk-to-data agent
 
-Read [shared conventions](conventions.md) first. Work in the project directory
+Read [shared conventions](conventions.md) and [project conventions](project-conventions.md) first. Work in the project directory
 `.atlan-analytics/<slug>/`. Seven phases, each ending in a STOP gate or a checkpoint. Read the
 reference file when you enter a phase.
 

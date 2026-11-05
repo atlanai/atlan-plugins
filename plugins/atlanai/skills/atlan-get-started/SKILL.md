@@ -41,8 +41,7 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
 - **Tools are there, and the user named a task**: skip the check and load that task's skill
   (section 3); its first call opens the session.
 - **Tools are there, and the user is connecting or asked what they have**: prove it works with
-  one small read. You know this tool's name and arguments, so call it directly; the call opens
-  the session:
+  one small read, which opens the session:
 
   ```
   mcp__call_read_tool {
@@ -54,8 +53,8 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
   → { "mcp_session_id": "mcp_session_…", "personal_workspace_id": "workspace_…", "items": [ { "display_name": "Dana's Workspace", … } ] }
   ```
 
-  Reuse the returned `mcp_session_id` as `session_id`. Keep the `kind` filter: organizations
-  have dozens of workspaces, many of them tests, so never list or page through them all.
+  Reuse the returned `mcp_session_id` as `session_id`. Keep the `kind` filter: never list or
+  page through every workspace.
 
   Then learn what the organization has with three small reads, sent as parallel calls in one
   turn, each carrying the session id and, like every call, a `rationale`:
@@ -66,13 +65,14 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
   mcp__call_read_tool { "name": "registry__get_artifact_counts", "arguments": { "group_by": "workspace_id", "limit": 5 }, … }
   ```
 
-  They name the organization's workspace, count each kind and name the busiest workspaces.
+  They name the organization's workspace, count each kind (fold the `ontology_…` sub-kinds into
+  one ontology count) and name the busiest workspaces.
   Report what the user can use, not raw lists: their workspace and the organization's first,
   then the few busiest. Ask which workspace to use only when a write is coming.
 
   When the counts include skills, offer to find the ones that fit their work
-  (`atlan-find-artifacts`); when there are none, a search would find nothing, so offer to
-  publish a skill from this project (`atlan-author-skills`) or sync a repository's skills from
+  (`atlan-find-artifacts`); when there are none, offer to publish a skill from this project
+  (`atlan-author-skills`) or sync a repository's skills from
   GitHub (`atlan-connect-repo`). Mention that the Atlan dashboard at
   https://app.atlan.com shows the same registry in the browser.
 
@@ -96,7 +96,8 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
   When you do search for one, pass `servers: ["registry"]`.
 - **Runner by tier:** `mcp__call_read_tool` for a get, list or search, `mcp__call_write_tool`
   for a create, update, append, relate or move, `mcp__call_tool` for anything destructive. A
-  runner that refuses names the one to use.
+  runner that refuses names the one to use. A `registry__` read the host also lists by name
+  skips the runner once the session is open (`references/calling-tools.md`).
 - **Every call carries a `rationale`**, one first-person sentence for the person who audits it.
   `session_id`, `objective` and `rationale` go beside `name` and `arguments`, never inside.
 - **A failed call is not a broken plugin.** Read `references/calling-tools.md` for a failed
