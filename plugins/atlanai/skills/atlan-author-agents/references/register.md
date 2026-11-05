@@ -15,7 +15,8 @@ a first-person `rationale` on every call, a `workspace_id` on every create, and
 
 Almost nothing. `name` and `workspace_id` are it - everything about what the agent *does* is
 optional, so a catalogue entry with nothing but a name is valid and useful. Create directly;
-read `registry__get_kind_schema` for `agent` only if the create is refused over a property.
+if the create is refused over a property, fix the `field` it names, and read
+`registry__get_kind_schema` for `agent` only when it names none.
 
 ## One agent
 

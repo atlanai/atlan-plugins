@@ -49,10 +49,11 @@ mcp__call_read_tool {                       ← the runner for what the tool doe
    workspace the file does not name, offer once to save `workspace_id` and `workspace` there,
    keeping its other keys (unless `atlan-share` loaded the skill you follow; it makes the offer).
 7. **Write first; read `registry__get_kind_schema { "kind": "<kind>" }` only when a write is
-   refused.** A refusal with `field` names what to fix. A 400 or 422 `validation_failed` with no
-   field means: read the schema once (`required`, `properties`, `relationships` as in
-   `edges.md`, `body`), fix the call, send it once more. Read it first only for a kind no skill
-   describes.
+   refused.** A 422 with `field` names the property to fix (with `allowed_values` for a fixed
+   set): fix it and send it once more. Read the schema once (`required`, `properties`,
+   `relationships` as in `edges.md`, `body`) only when a 400 or 422 names no field (an
+   older gateway) or you cannot tell the type or limit the field takes, then fix the call and send
+   it once more. Read it first only for a kind no skill describes.
 8. **Know what the host can do before a long task**: a shell (to install, zip or run), a bearer
    for an upload's `PUT` (Claude chat and Cowork never hand you one), and the app tools the task
    calls. When a route cannot finish here, say so before the user approves anything, and offer
