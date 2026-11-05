@@ -189,7 +189,9 @@ class LivePublicationContracts(unittest.TestCase):
         self.assertFalse(set(body) & {"spec", "scope", "outputs"})
 
     def test_unknown_host_model_is_omitted_from_nonnullable_session_field(self):
-        body = self.planned(True)["calls"][0]["arguments"]["metadata"]
+        call = self.planned(True)["calls"][0]
+        self.assertEqual(call["tool"], "registry__create_artifacts")
+        body = call["arguments"]["items"][0]
         self.assertNotIn("model_id", body)
         self.assertEqual(body["subject_kind"], "agent")
 
