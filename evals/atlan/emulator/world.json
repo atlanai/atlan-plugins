@@ -394,6 +394,102 @@
    }
   },
   {
+   "name": "registry__publish_output",
+   "description": "Record a deliverable as an `output` by its source key, in two commits: the `file` (when `file` carries text) gains a version or is created, then the output and its `edges` are written together; a create under the same key becomes the output's next version. Give exactly one of `file` (text up to 64 KiB), `file_pin` or `external_url`. `metadata` carries `name`, `workspace_id` and producer fields, never `mode`, the pin fields, `external_url`, the source key or `edges`. Safe to repeat: unchanged text writes no new file version.",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "metadata": {
+      "type": "object"
+     },
+     "source_type": {
+      "type": "string",
+      "enum": [
+       "local",
+       "git",
+       "atlan",
+       "external"
+      ]
+     },
+     "source_id": {
+      "type": "string"
+     },
+     "file": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "content": {
+        "type": "string"
+       },
+       "media_type": {
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "path",
+       "content"
+      ]
+     },
+     "file_pin": {
+      "type": "object",
+      "properties": {
+       "file_artifact_id": {
+        "type": "string"
+       },
+       "version_ordinal": {
+        "type": "integer"
+       }
+      },
+      "required": [
+       "file_artifact_id",
+       "version_ordinal"
+      ]
+     },
+     "external_url": {
+      "type": "string"
+     },
+     "edges": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "rel_type": {
+         "type": "string"
+        },
+        "to_id": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "rel_type",
+        "to_id"
+       ]
+      }
+     },
+     "idempotency_key": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "metadata",
+     "source_type",
+     "source_id"
+    ]
+   }
+  },
+  {
    "name": "registry__archive_artifact",
    "description": "Archive an artifact: it stops appearing in searches and listings. Needs admin. Do it only when asked to.",
    "annotations": {

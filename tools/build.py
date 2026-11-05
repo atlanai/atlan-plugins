@@ -735,7 +735,8 @@ def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, s
     pairs = rewrites(source, variant)
     for ours, theirs in zip(plugin_dirs(source), plugin_dirs(variant)):
         base = ROOT / ours
-        copied = [p for top in TREES for p in sorted((base / top).rglob("*")) if p.is_file()]
+        copied = [p for top in TREES for p in sorted((base / top).rglob("*"))
+                  if p.is_file() and "__pycache__" not in p.parts and p.suffix not in (".pyc", ".pyo")]
         for path in copied:
             texts[f"{theirs}/{path.relative_to(base).as_posix()}"] = rewrite(path.read_text(encoding="utf-8"), pairs)
         if ours == core_dir(source):

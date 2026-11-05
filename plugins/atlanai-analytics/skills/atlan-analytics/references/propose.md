@@ -33,10 +33,11 @@ Open a registry session as **Registry calls** in the conventions describes, then
 
 ## 3. Draft
 
-- **New metric:** draft the complete definition (`registry__get_kind_schema` for `metric`),
-  reusing the population, filters and tables of related metrics in the workspace. Test its SQL
-  with the warehouse query tool when it is connected; otherwise say in the proposal's
-  `rationale` that it is untested, and name any table or column you assumed.
+- **New metric:** draft the complete definition, following the metric body in
+  `skills/atlan-analytics/references/metrics/authoring.md` and reusing the population, filters
+  and tables of related metrics in the workspace. Test its SQL with the warehouse query tool
+  when it is connected; otherwise say in the proposal's `rationale` that it is untested, and
+  name any table or column you assumed.
 - **Fix:** read the metric's head with `registry__get_artifact` (no release selector) and
   change only the fields the correction needs.
 

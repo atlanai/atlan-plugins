@@ -67,9 +67,11 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `make check` fails on a description without `Use when` or `Use for`. The description is the
   retrieval signal twice over: the harness matches requests against it, and the registry's
   search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
-  a task loads one skill, not `atlan-get-started` first. Keep `SKILL.md` under 500 lines and put
-  detail in `references/`. Teach decisions and point at live tools; do not paste reference data
-  that will go stale.
+  a task loads one skill, not `atlan-get-started` first. Every session carries every
+  description, so `make check` fails on one over 370 characters, and on a `SKILL.md` over 500
+  lines or 9 KiB. Keep the workflow in `SKILL.md` and move material only some requests need to
+  `references/`, each file cited with the condition for opening it. Teach decisions and point
+  at live tools; do not paste reference data that will go stale.
 - **Search mode is the default.** Owned skills show calls as `mcp__call_tool { "name", "arguments",
   "session_id", "rationale" }`. Vendored recipes use full-mode notation; `atlan-get-started`
   explains the translation.
@@ -176,7 +178,22 @@ data-catalog server in the plugin's place, or a skill already installed from
 `evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`
 with the emulator's environment switches; the runner groups cases by that file, one Claude Code
 run per group, because the emulator starts once per run. `make check` validates every case
-and sidecar.
+and sidecar. Cases tagged `negative` are prompts the plugin must leave alone (a rewrite, a sum,
+a code task, a question that only names a skill file): they fail if any Atlan skill loads or
+any Atlan tool is called, which keeps a description change from widening what a skill claims.
+`python3 evals/atlan/run.py --baseline` runs every case again without the plugin and prints
+both scores, so a case the plugin does not improve shows up; under the baseline, graders on
+the `Skill` tool count as a plugin-fired indicator rather than score.
+
+`tools/tests/fixtures/journeys.json` holds the golden journeys: the route each use case should
+take, cold (a new session) and warm (later in the same session), as the calls it makes and its
+budget. `tools/tests/test_journeys.py` runs in `make check` and checks those routes against the
+skills: every tool a journey calls is one its skill names, a read goes through `call_read_tool`
+and anything destructive through `call_tool`, the counts match the budget, and warm never costs
+more than cold. Change a skill's route and its journey together. A call marked `workaround_for`
+exists only until that tool ask ships; `python3 tools/tests/test_journeys.py --report` lists
+them with each journey's calls and turns. A live run in a sandbox tenant records what it
+measured under the journey's `measured`, with the date and the plugin versions.
 
 ## Prompts other products send
 
@@ -229,3 +246,32 @@ repository holds no variant of its own.
 
 Before a release that changes install or sign-in, install from a clean profile in each tool
 and run the first prompt in the README.
+
+## Security
+
+Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR checklist, is
+[docs/secure-coding.md](docs/secure-coding.md); reporting is in [SECURITY.md](SECURITY.md).
+
+- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`;
+  variant rewrites stay HTTPS (`tools/build.py`).
+- **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
+  tree, never through a link, never from a credential folder or key file, within 128 files and
+  256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
+  their counterparts in `claude-hooks/register.ts`).
+- **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
+  change all three together, with tests.
+- **[MUST]** A hook fails open to the call as sent, never to a wider one (`main` in
+  `publish_hook.py`, each handler's `.catch` in `register.ts`).
+- **[MUST]** `atlanai-mods` keeps archive, approve and move confirming, and refuses them where
+  nobody can answer (`ALWAYS_CONFIRM` in `plugins/atlanai-mods/hooks/registry.ts`).
+- **[MUST]** Add-ons and mods declare no MCP server and no `bin/`; hooks stay in the core's helper
+  and the mod (`lint_addon` and `lint_mod` in `tools/lint.py`).
+- **[REDLINE]** Skill or command text that tells an agent to read, print or send credentials, env
+  vars or files outside its task, or to call a non-Atlan server with Atlan data.
+- **[REDLINE]** A real token, handle or tenant name in any tracked file; the `SECRETS` scan in
+  `tools/lint.py` fails on credential shapes.
+
+Severity: CRITICAL and HIGH block merge; MEDIUM is flagged with a fix; LOW gets a brief note.
+Ask `#bu-security-and-it` before merging changes to `plugins/atlanai/command-hooks/`,
+`plugins/atlanai/claude-hooks/`, `check_bundle.py`, `plugins/atlanai-mods/hooks/`, the `[mcp]`
+table in `plugin.toml`, or `.github/workflows/`.

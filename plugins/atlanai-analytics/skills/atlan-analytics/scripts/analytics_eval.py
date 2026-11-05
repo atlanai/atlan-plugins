@@ -102,14 +102,25 @@ _FULL_NAME_OK = re.compile(r"'%?(?:Pending Ruling|Not Applicable|Closed Won|Clos
                            r"New York|Human Assisted|First Response)%?'")
 
 
+PII = dict(PII_RULES)  # metrics_mine checks cards with these same rules: one policy, not two copies
+
+
+def full_name_hit(text: str):
+    """The first quoted two-word capitalised literal that is not a known business value, or None.
+    Every match is tried: an allowed value earlier in the text does not hide a name after it."""
+    for m in PII["full_name"].finditer(text or ""):
+        if not _FULL_NAME_OK.search(m.group(0)):
+            return m.group(0)
+    return None
+
+
 def pii_reason(sql: str):
     for name, pat in PII_RULES:
-        m = pat.search(sql or "")
-        if not m:
-            continue
-        if name == "full_name" and _FULL_NAME_OK.search(m.group(0)):
-            continue
-        return name
+        if name == "full_name":
+            if full_name_hit(sql):
+                return name
+        elif pat.search(sql or ""):
+            return name
     return None
 
 
@@ -139,30 +150,54 @@ _NUM = re.compile(r"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$")
 _ORDERED = re.compile(r"\border\s+by\b[\s\S]*\blimit\s+\d+\s*;?\s*$", re.I)
 
 
-def _round_sig(x: float) -> float:
-    """Half-up to SIG significant figures (round() is half-to-even: 12345 -> 12340)."""
+def _round_sig(x: float, sig: int = SIG) -> float:
+    """Half-up to `sig` significant figures (round() is half-to-even: 12345 -> 12340)."""
     if x == 0 or not math.isfinite(x):
         return 0.0 if x == 0 else x
     d = decimal.Decimal(repr(x))
-    exp = d.adjusted() - (SIG - 1)
+    exp = d.adjusted() - (sig - 1)
     return float(d.quantize(decimal.Decimal(1).scaleb(exp), rounding=decimal.ROUND_HALF_UP))
 
 
-def norm(v):
+_WHOLE_SLACK = 1e-9  # a float this close to a whole number is that number: 1234567.9999999998 is 1234568
+_INT = re.compile(r"^[+-]?\d+$")
+
+
+def _whole(n: int):
+    return float(n) if abs(n) < 2 ** 53 else str(n)  # past 2**53 a float loses digits: keep the id exact
+
+
+def _num(x: float, sig: int):
+    """A whole number exactly, so a count or an id off by one fails; any other number at `sig`
+    significant figures, the tolerance its case declares (4 unless the case says otherwise)."""
+    if not math.isfinite(x):
+        return str(x)
+    whole = round(x)
+    if abs(x - whole) <= _WHOLE_SLACK * max(1.0, abs(x)):
+        return _whole(whole)
+    return _round_sig(x, sig)
+
+
+def norm(v, sig: int = SIG):
     if v is None:
         return None
     if isinstance(v, bool):
         return float(int(v))
-    if isinstance(v, (int, float, decimal.Decimal)):
-        f = float(v)
-        return _round_sig(f) if math.isfinite(f) else str(f)
+    if isinstance(v, int):
+        return _whole(v)
+    if isinstance(v, decimal.Decimal) and v.is_finite() and v == v.to_integral_value():
+        return _whole(int(v))
+    if isinstance(v, (float, decimal.Decimal)):
+        return _num(float(v), sig)
     if isinstance(v, (dt.datetime, dt.date, dt.time)):
         return v.isoformat()
     if isinstance(v, bytes):
         return v.hex()
     s = str(v).strip()
+    if _INT.match(s):  # an integer literal stays exact however long: a count, an id
+        return _whole(int(s))
     if _NUM.match(s):
-        return _round_sig(float(s))
+        return _num(float(s), sig)
     return s
 
 
@@ -170,10 +205,37 @@ def is_ordered(gold_sql: str) -> bool:
     return bool(_ORDERED.search((gold_sql or "").strip()))
 
 
+_MORE_FLAGS = ("truncated", "has_more", "hasMore", "more_rows", "partial", "is_truncated")
+_MORE_CURSORS = ("next_page_token", "nextPageToken", "next_cursor", "nextCursor", "next_chunk_index", "continuation")
+
+
+def _more(obj: dict) -> bool:
+    """Whether a response says it holds only part of the result: a flag, a cursor to a next page,
+    or `complete: false`. Every wrapper on the way down is asked, not only the innermost."""
+    if any(obj.get(k) is True for k in _MORE_FLAGS):
+        return True
+    if any(obj.get(k) not in (None, "", False) for k in _MORE_CURSORS):
+        return True
+    return obj.get("complete") is False or obj.get("is_complete") is False
+
+
 def normalize_result(obj) -> dict:
     """Accept {columns, rows}, a list of row dicts, {"data"|"rows"|"results"|"resultSet": ...},
     {"error": ...} or a Databricks statement {manifest, result.data_array} (the shapes warehouse MCP
-    tools return) and give {columns, rows} or {error}."""
+    tools return) and give {columns, rows} or {error}. A wrapper that says more pages exist marks
+    what it wraps truncated, however deep the rows sit."""
+    res = _normalize_result(obj)
+    if isinstance(obj, str):
+        try:
+            obj = json.loads(obj)
+        except json.JSONDecodeError:
+            return res
+    if isinstance(obj, dict) and not res.get("error") and _more(obj):
+        res["truncated"] = True
+    return res
+
+
+def _normalize_result(obj) -> dict:
     if isinstance(obj, str):
         try:
             obj = json.loads(obj)
@@ -224,10 +286,10 @@ def normalize_result(obj) -> dict:
     return {"error": "unrecognised result shape"}
 
 
-def _cols(res: dict) -> list:
+def _cols(res: dict, sig: int = SIG) -> list:
     rows = res.get("rows") or []
     width = len(res.get("columns") or (rows[0] if rows else []))
-    return [[norm(r[j]) if j < len(r) else None for r in rows] for j in range(width)]
+    return [[norm(r[j], sig) if j < len(r) else None for r in rows] for j in range(width)]
 
 
 def _key(vec, ordered):
@@ -256,10 +318,10 @@ def _assignments(cands):
     yield from rec(0)
 
 
-def compare(gold: dict, agent: dict, gold_sql: str = "") -> dict:
+def compare(gold: dict, agent: dict, gold_sql: str = "", sig: int = SIG) -> dict:
     ordered = is_ordered(gold_sql)
     g_rows, a_rows = gold.get("rows") or [], agent.get("rows") or []
-    g_cols, a_cols = _cols(gold), _cols(agent)
+    g_cols, a_cols = _cols(gold, sig), _cols(agent, sig)
     if not g_rows:
         ok = not a_rows
         return {"pass": int(ok), "extra_cols": 0,
@@ -297,7 +359,16 @@ def compare(gold: dict, agent: dict, gold_sql: str = "") -> dict:
             "reason": "columns match individually but the rows do not line up" if tried else "no mapping"}
 
 
-def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x") -> dict:
+def case_sig(answer: dict) -> int:
+    """The significant figures a case's approximate values are compared at: its `sig`, else 4."""
+    sig = (answer or {}).get("sig", SIG)
+    if isinstance(sig, bool) or not isinstance(sig, int) or not 1 <= sig <= 15:
+        raise Blocked(f"Case '{(answer or {}).get('case_id')}' has sig {sig!r}.",
+                      "Set `sig` in eval/answers.jsonl to a whole number from 1 to 15, or leave it out for 4.")
+    return sig
+
+
+def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x", sig: int = SIG) -> dict:
     """Both results already executed (by the skill, through the warehouse MCP). -> {grade, class, reason}."""
     zero = {"pass": 0, "exec_ok": 0, "extra_cols": 0}
     gold = normalize_result(gold_res)
@@ -318,7 +389,7 @@ def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x") -> dict
         which = "gold and agent results are" if len(cut) == 2 else f"{cut[0]} result is"
         return {"grade": {**zero, "exec_ok": 1}, "class": "incomplete",
                 "reason": f"the {which} truncated: fetch every page, or bound the query, and grade again"}
-    cmp = compare(gold, agent, gold_sql)
+    cmp = compare(gold, agent, gold_sql, sig)
     return {"grade": {"pass": cmp["pass"], "exec_ok": 1, "extra_cols": cmp["extra_cols"]},
             "class": "pass" if cmp["pass"] else "wrong_result", "reason": cmp["reason"]}
 
@@ -466,7 +537,7 @@ def cmd_split(a) -> dict:
     out = make_split(pr.cases(), a.test_frac, a.seed, a.holdout_frac)
     dump_json(path, out)
     freeze = write_freeze(pr)
-    return {"status": "ok", **out, "freeze": freeze["digest"]}
+    return {"status": "ok", **out, "freeze": freeze["digest"], **dates_next(freeze["dates"])}
 
 
 # ====================================================================== freeze
@@ -478,12 +549,50 @@ def freeze_parts(pr: Proj) -> dict:
             "split": digest(pr.p("eval", "split.json")), "harness": harness_sha()}
 
 
+# Gold SQL that reads the clock gives a different answer each day it runs, and a question that names
+# a window relative to today ("last quarter") means a different window once the calendar moves on.
+# Either way the cached gold stops being the answer to the question.
+_CLOCK = re.compile(r"\b(?:current_date|current_timestamp|current_time|localtimestamp|sysdate|systimestamp|"
+                    r"getdate|getutcdate|sysdatetime|now\s*\(|today\s*\()", re.I)
+_RELATIVE = re.compile(r"\b(?:today|yesterday|tonight|this\s+(?:week|month|quarter|year)|"
+                       r"(?:last|past|previous|prior|trailing|next)\s+(?:\d+\s+|few\s+|couple\s+of\s+)?"
+                       r"(?:days?|weeks?|months?|quarters?|years?)|year[\s-]to[\s-]date|month[\s-]to[\s-]date|"
+                       r"ytd|mtd|qtd|so\s+far|lately|recently)\b", re.I)
+
+
+def gold_ran_at(path: pathlib.Path, res=None):
+    """When a cached gold result was run: its own `ran_at`, else the file's modification time."""
+    if isinstance(res, dict) and isinstance(res.get("ran_at"), str):
+        return res["ran_at"]
+    if path.is_file():
+        return dt.datetime.fromtimestamp(path.stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds")
+    return None
+
+
+def date_risks(pr: Proj) -> dict:
+    """Cases whose gold moves with the calendar, and questions that name a window relative to today."""
+    answers = pr.answers()
+    moving = sorted(c for c, r in answers.items() if _CLOCK.search(r.get("gold_sql") or ""))
+    relative = sorted(c["case_id"] for c in pr.cases() if _RELATIVE.search(c.get("question") or ""))
+    ran = [t for t in (gold_ran_at(pr.p("eval", "gold", f"{c}.json")) for c in answers) if t]
+    return {"moving_gold": moving, "relative_questions": relative, "gold_oldest_ran_at": min(ran) if ran else None}
+
+
 def write_freeze(pr: Proj, reason: str = "") -> dict:
     parts = freeze_parts(pr)
     out = {"digest": hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:16], "parts": parts,
-           "frozen_at": now(), **({"reason": reason} if reason else {})}
+           "frozen_at": now(), **({"reason": reason} if reason else {}), "dates": date_risks(pr)}
     dump_json(pr.p("eval", "freeze.json"), out)
     return out
+
+
+def dates_next(dates: dict) -> dict:
+    """The advice a freeze returns when a case's answer depends on the day it runs."""
+    if not (dates["moving_gold"] or dates["relative_questions"]):
+        return {}
+    return {"dates": dates, "dates_next": "These cases depend on the day they run. Put the window in the question "
+            "and in the gold SQL as fixed dates (\"in Q3 2026\", not \"last quarter\"; a literal, not CURRENT_DATE), "
+            "re-run their gold, then run `refreeze`. Until then a later run is graded against an older answer."}
 
 
 def check_freeze(pr: Proj):
@@ -504,19 +613,37 @@ def cmd_refreeze(a) -> dict:
     pr = Proj(a.dir)
     pr.split()
     out = write_freeze(pr, a.reason)
+    out.update(dates_next(out["dates"]))
     return {"status": "ok", **out, "next": "Re-run the baseline: rows from before this freeze do not compare."}
 
 
 # ====================================================================== harness integrity
-# The harness is this script and the fuzzy-case judge's instructions: an edit to either changes a score.
+# The harness is the part of this script that decides a score, from grading through record, summary
+# and compare, plus the fuzzy-case judge's instructions: an edit to either changes a score.
+# Publishing, the selftests and the command line sit after HARNESS_END, so a plugin upgrade that
+# only touches them does not ask for a new approval. Score-deciding code goes above that marker.
 GRADER_AGENT = pathlib.Path(__file__).resolve().parents[3] / "agents" / "atlan-analytics-grader.md"
+HARNESS_START = "# " + "=" * 70 + " grading (the trust anchor)\n"
+HARNESS_END = "# " + "=" * 70 + " publishing (registry MCP)\n"
+
+
+def harness_digest(source: str, judge: bytes | None) -> str:
+    """sha256 of the score-deciding span of `source` and the judge. Without both markers, all of it."""
+    i, j = source.find(HARNESS_START), source.find(HARNESS_END)
+    span = source[i:j] if 0 <= i < j else source
+    h = hashlib.sha256(span.encode())
+    if judge is not None:
+        h.update(b"\0" + judge)
+    return h.hexdigest()
 
 
 def harness_sha() -> str:
-    h = hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes())
-    if GRADER_AGENT.is_file():
-        h.update(b"\0" + GRADER_AGENT.read_bytes())
-    return h.hexdigest()
+    source = pathlib.Path(__file__).resolve().read_text(encoding="utf-8")
+    base = harness_digest(source, GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else None)
+    digest = hashlib.sha256(base.encode())
+    for name in ("analytics_transcript.py", "analytics_case.py"):
+        digest.update(b"\0" + pathlib.Path(__file__).with_name(name).read_bytes())
+    return digest.hexdigest()
 
 
 def check_harness(pr: Proj) -> None:
@@ -531,7 +658,8 @@ def cmd_approve_harness(a) -> dict:
     sp = pr.p("hillclimb", "_state.json")
     st = load_json(sp, {}) or {}
     st["harness_sha"] = harness_sha()
-    st["harness_paths"] = ["skills/atlan-analytics/scripts/analytics_eval.py"]
+    st["harness_paths"] = ["skills/atlan-analytics/scripts/analytics_eval.py (grading through compare)",
+                           "agents/atlan-analytics-grader.md"]
     dump_json(sp, st)
     return {"status": "ok", "harness_sha": st["harness_sha"]}
 
@@ -565,22 +693,36 @@ def _text_of(content) -> str:
     return "\n".join(x for x in out if x)
 
 
-def parse_transcript(path) -> dict:
-    """A Claude Code subagent transcript (JSONL; each line carries a `message` with role + content blocks)
-    -> {turns, tool_calls, usage, model, contaminated}. Tolerant of unknown line shapes."""
-    turns, tool_calls, usage, model, hits = [], 0, {"input_tokens": 0, "output_tokens": 0}, None, []
-    seen_msg_ids: set = set()
+def transcript_objects(path):
+    from analytics_transcript import normalize
     for line in pathlib.Path(path).read_text().splitlines() if path and pathlib.Path(path).exists() else []:
         try:
             obj = json.loads(line)
         except json.JSONDecodeError:
             continue
+        yield from normalize(obj)
+
+
+def parse_transcript(path) -> dict:
+    """A Claude Code or Codex transcript (JSONL, native message and event formats)
+    -> {turns, tool_calls, usage, model, contaminated, assistant_messages, elapsed_s}. Tolerant of unknown
+    line shapes; a file with no line it recognises reads as zero assistant messages, which record refuses.
+    `elapsed_s` runs from the first message's timestamp to the last, None without two of them."""
+    turns, tool_calls, usage, model, hits = [], 0, {"input_tokens": 0, "output_tokens": 0}, None, []
+    assistant = 0
+    stamps: list = []
+    seen_msg_ids: set = set()
+    for obj in transcript_objects(path):
         msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
         role = msg.get("role") or obj.get("type")
         if role not in ("user", "assistant"):
             continue
+        when = _stamp(obj.get("timestamp"))
+        if when is not None:
+            stamps.append(when)
         mid = msg.get("id")
         if role == "assistant":
+            assistant += 1
             model = msg.get("model") or model
             u = msg.get("usage") or {}
             if u and mid not in seen_msg_ids:  # a streamed message repeats its usage per content line
@@ -607,19 +749,61 @@ def parse_transcript(path) -> dict:
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
                         or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
-                elif _WRITE_TOOL.search(name):
+                elif _WRITE_TOOL.search(name) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")
                 turns.append({"role": "tool_call", "name": name, "content": blob, "id": b.get("id"),
                               "message_id": mid})
             elif t == "tool_result":
                 turns.append({"role": "tool_result", "name": b.get("tool_use_id"), "tool_use_id": b.get("tool_use_id"),
                               "content": _text_of(b.get("content"))[:20000]})
-    return {"turns": turns, "tool_calls": tool_calls, "usage": usage, "model": model, "contaminated": hits}
+    elapsed = round((max(stamps) - min(stamps)).total_seconds(), 3) if len(stamps) > 1 else None
+    return {"turns": turns, "tool_calls": tool_calls, "usage": usage, "model": model, "contaminated": hits,
+            "assistant_messages": assistant, "elapsed_s": elapsed}
+
+
+def _stamp(value):
+    """An ISO 8601 timestamp as an aware datetime, or None."""
+    if not isinstance(value, str) or not value:
+        return None
+    # Python 3.9/3.10 accept only three or six fractional-second digits.
+    # Hosts emit other precisions too; normalize to microseconds on every host.
+    value = re.sub(r"([T ]\d{2}:\d{2}:\d{2})[.,](\d+)",
+                   lambda m: m[1] + "." + m[2][:6].ljust(6, "0"), value)
+    try:
+        t = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=dt.timezone.utc)
 
 
 # ====================================================================== record / todo / scores
+# A pair whose latest row is one of these is recorded again once the cause is fixed: every page
+# fetched, the gold re-run, the tool back. The new row supersedes the old; both stay in the file.
+RETRYABLE = ("incomplete", "gold_error", "harness_error")
+MAX_ATTEMPTS = 3  # after this many, the pair stays unresolved and is reported, not offered again
+
+
+def latest_rows(rows: list) -> list:
+    """The latest attempt per (case, rep), in the order the pairs were first recorded."""
+    last: dict = {}
+    for r in rows:
+        last[(r["prompt_id"], int(r["rep"]))] = r
+    return list(last.values())
+
+
+def read_results(path) -> list:
+    return latest_rows(read_jsonl(path))
+
+
+def _attempts(res_path) -> Counter:
+    return Counter((r["prompt_id"], int(r["rep"])) for r in read_jsonl(res_path))
+
+
 def _done(res_path) -> set:
-    return {(r["prompt_id"], int(r["rep"])) for r in read_jsonl(res_path)}
+    """Pairs that need no further run: graded, or retried MAX_ATTEMPTS times."""
+    tries = _attempts(res_path)
+    return {(r["prompt_id"], int(r["rep"])) for r in read_results(res_path)
+            if r.get("class") not in RETRYABLE or tries[(r["prompt_id"], int(r["rep"]))] >= MAX_ATTEMPTS}
 
 
 def cmd_todo(a) -> dict:
@@ -630,10 +814,16 @@ def cmd_todo(a) -> dict:
     else:
         train, validation, holdout = split_sets(pr.split())
         ids = sorted({"train": train, "validation": validation, "test": validation, "holdout": holdout}[a.ids])
-    done = _done(pr.vdir(a.variant) / "results.jsonl")
-    todo = [{"case_id": i, "rep": k, "question": cases[i]["question"], "tags": cases[i].get("tags") or []}
+    res_path = pr.vdir(a.variant) / "results.jsonl"
+    done = _done(res_path)
+    latest = {(r["prompt_id"], int(r["rep"])): r for r in read_results(res_path)}
+    todo = [{"case_id": i, "rep": k, "question": cases[i]["question"], "tags": cases[i].get("tags") or [],
+             **({"retry": latest[(i, k)]["class"]} if (i, k) in latest else {})}
             for i in ids for k in range(a.reps) if (i, k) not in done]
-    return {"status": "ok", "variant": a.variant, "remaining": len(todo), "done": len(done), "todo": todo}
+    unresolved = sorted(f"{i}_rep{k}" for (i, k), r in latest.items()
+                        if r.get("class") in RETRYABLE and (i, k) in done)
+    return {"status": "ok", "variant": a.variant, "remaining": len(todo), "done": len(done), "todo": todo,
+            "retries": sum(1 for t in todo if "retry" in t), "unresolved": unresolved}
 
 
 def _read_answer(path) -> dict:
@@ -662,6 +852,13 @@ def cmd_record(a) -> dict:
         raise Blocked(f"No transcript at {a.transcript}.",
                       "Pass the subagent's output_file. For an answer made outside this harness (an adopted agent), "
                       "leave --transcript out: the row is then marked isolation unverified.")
+    tr = parse_transcript(a.transcript) if a.transcript else {"turns": [], "tool_calls": None, "usage": {},
+                                                              "model": None, "contaminated": [], "elapsed_s": None}
+    if a.transcript and not tr["assistant_messages"]:
+        # A file is not evidence: one this parser cannot read shows no session, so no isolation.
+        raise Blocked(f"No agent messages in the transcript at {a.transcript}.",
+                      "Pass the subagent's output_file, the JSONL transcript of its run. For an answer made "
+                      "outside this harness, leave --transcript out: the row is then marked isolation unverified.")
     if a.case not in cases:
         raise Blocked(f"Unknown case '{a.case}'.", "Use a case_id from eval/cases.jsonl.")
     for flag, path in (("--gold-result", a.gold_result), ("--agent-result", a.agent_result)):
@@ -678,13 +875,18 @@ def cmd_record(a) -> dict:
         if not isinstance(verdict, dict) or verdict.get("pass") not in (0, 1, True, False):
             raise Blocked(f"No verdict at {a.verdict}.",
                           "Save the grader's JSON reply, {\"pass\": 0 or 1, \"reason\": \"...\"}, there.")
-    gold_sql = (pr.answers().get(a.case) or {}).get("gold_sql") or ""
+    answer_row = pr.answers().get(a.case) or {}
+    gold_sql = answer_row.get("gold_sql") or ""
+    sig = case_sig(answer_row)
     if not gold_sql and a.gold_result:
         raise Blocked(f"Case '{a.case}' has no gold SQL.", "Add it to eval/answers.jsonl.")
     vd = pr.vdir(a.variant)
     res_path = vd / "results.jsonl"
-    if (a.case, a.rep) in _done(res_path):
+    if (a.case, int(a.rep)) in _done(res_path):
         return {"status": "ok", "exists": True, "case": a.case, "rep": a.rep}
+    prior = next((r for r in reversed(read_jsonl(res_path))
+                  if r["prompt_id"] == a.case and int(r["rep"]) == int(a.rep)), None)
+    attempt = _attempts(res_path)[(a.case, int(a.rep))] + 1
     harness_error = getattr(a, "cls", None) == "harness_error"
     if harness_error and not getattr(a, "reason", None):
         raise Blocked("A harness error needs --reason.", "Say what failed: the tool, the timeout or the crash.")
@@ -707,12 +909,10 @@ def cmd_record(a) -> dict:
         g = {"grade": {"pass": int(bool(verdict["pass"])), "exec_ok": int(agent_res is not None), "extra_cols": 0},
              "class": JUDGED, "reason": str(verdict.get("reason") or "")[:500]}
     elif a.gold_result:
-        g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "")
+        g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "", sig)
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
         g = {"grade": {"pass": 0, "exec_ok": int(agent_res is not None), "extra_cols": 0}, "class": "ungraded",
              "reason": "no gold result (smoke run)"}
-    tr = parse_transcript(a.transcript) if a.transcript else {"turns": [], "tool_calls": None,
-                                                              "usage": {}, "model": None, "contaminated": []}
     if tr["contaminated"]:
         g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
              "class": "invalid_contaminated",
@@ -722,22 +922,129 @@ def cmd_record(a) -> dict:
     dump_json(vd / "traces" / f"{tag}.json", turns)
     row = {"prompt_id": a.case, "rep": a.rep, "prompt": cases[a.case]["question"],
            "tags": cases[a.case].get("tags") or [], "grade": g["grade"], "class": g["class"],
-           "reason": g.get("reason"), "model": tr["model"] or a.model, "latency_s": a.latency_s,
+           "reason": g.get("reason"), "model": tr["model"] or a.model, **_latency(a.latency_s, tr["elapsed_s"]),
            "tool_calls": tr["tool_calls"], "usage": tr["usage"], "answer": ans.get("answer", ""),
            "sql": ans.get("sql") or "", "used_context_ids": ans.get("used_context_ids") or [],
            "used_context_refs": ans.get("used_context_refs") or [], "ts": now(),
-           "isolation": "verified" if a.transcript else "unverified", **({"freeze": frozen} if frozen else {})}
+           "isolation": "verified" if a.transcript else "unverified", **({"freeze": frozen} if frozen else {}),
+           **_provenance(a, gold_res, agent_res),
+           "attempt": attempt, **({"supersedes": prior.get("class")} if prior else {})}
     with res_path.open("a") as fh:
         fh.write(json.dumps(row, default=str) + "\n")
     return {"status": "ok", "case": a.case, "rep": a.rep, "class": g["class"], "pass": g["grade"]["pass"],
-            "reason": g.get("reason")}
+            "reason": g.get("reason"), **({"attempt": attempt, "supersedes": prior.get("class")} if prior else {})}
+
+
+def _provenance(a, gold_res, agent_res) -> dict:
+    """Which gold the row was graded against, and when it ran; whether the agent's result is the one
+    its own run returned (read from the transcript) or the parent's replay of its SQL."""
+    out: dict = {}
+    if gold_res is not None:
+        out["gold_sha"] = hashlib.sha256(json.dumps(gold_res, sort_keys=True, default=str).encode()).hexdigest()[:16]
+        ran = gold_ran_at(pathlib.Path(a.gold_result), gold_res)
+        if ran:
+            out["gold_ran_at"] = ran
+    if agent_res is not None:
+        out["agent_result_source"] = "transcript" if isinstance(agent_res, dict) and \
+            agent_res.get("source") == "transcript" else "replay"
+    return out
+
+
+def _latency(given, elapsed) -> dict:
+    """The run's time: --latency-s when given, else the transcript's first-to-last span. Unknown stays
+    None, never 0, so a run nobody timed cannot pull a median down."""
+    if given is not None:
+        return {"latency_s": float(given), "latency_source": "given"}
+    if elapsed is not None:
+        return {"latency_s": elapsed, "latency_source": "transcript"}
+    return {"latency_s": None}
 
 
 def cmd_grade(a) -> dict:
     gold = load_json(a.gold)
     agent = load_json(a.agent) if a.agent else None
     return {"status": "ok", **grade(gold, agent, pathlib.Path(a.gold_sql).read_text() if a.gold_sql and
-                                    pathlib.Path(a.gold_sql).exists() else (a.gold_sql or ""), "x")}
+                                    pathlib.Path(a.gold_sql).exists() else (a.gold_sql or ""), "x",
+                                    case_sig({"case_id": "--sig", "sig": a.sig}))}
+
+
+# One execution per answer: the agent already ran its SQL, and its transcript holds what came back.
+# The parent runs the SQL again only when that result cannot be read whole from the transcript.
+_ROW_CAPS = ("limit", "max_rows", "maxRows", "row_limit", "rowLimit", "max_results", "maxResults")
+
+
+def _sql_key(sql: str) -> str:
+    return re.sub(r"\s+", " ", (sql or "").strip().rstrip(";").strip())
+
+
+def _strings(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _strings(v)
+
+
+def transcript_result(path, sql: str) -> tuple:
+    """The result of the agent's last tool call that ran `sql`, from its own transcript.
+    -> ({columns, rows, error: None, source, tool_use_id}, None) or (None, why it must be replayed)."""
+    key = _sql_key(sql)
+    if not key:
+        return None, "the answer has no SQL"
+    calls: dict = {}
+    results: dict = {}
+    for obj in transcript_objects(path):
+        msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
+        for b in _blocks(msg.get("content")):
+            if b.get("type") == "tool_use":
+                inp = b.get("input") or {}
+                if _DISPATCH.search(b.get("name") or "") and isinstance(inp.get("arguments"), dict):
+                    inp = inp["arguments"]
+                if any(_sql_key(x) == key for x in _strings(inp)):
+                    calls[b.get("id")] = inp
+            elif b.get("type") == "tool_result":
+                results[b.get("tool_use_id")] = b
+    ran = [c for c in calls if c in results]
+    if not ran:
+        return None, "no tool call in the transcript ran the answer's SQL and got a result"
+    cid = ran[-1]
+    block = results[cid]
+    if block.get("is_error"):
+        return None, "the agent's run of its SQL failed; run it again to tell a broken query from a passing fault"
+    text = _text_of(block.get("content"))
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError:
+        return None, "the tool's result is not JSON (a rendered table or a pointer to a saved file)"
+    res = normalize_result(raw)
+    if res.get("error"):
+        return None, f"the tool's result could not be read as rows ({res['error'][:80]})"
+    if res.get("truncated"):
+        return None, "the tool's result is truncated"
+    args = calls[cid] if isinstance(calls[cid], dict) else {}
+    caps = [v for k, v in args.items() if k in _ROW_CAPS and isinstance(v, int) and not isinstance(v, bool)]
+    if caps and len(res.get("rows") or []) >= min(caps):
+        return None, f"the tool capped the rows at {min(caps)}, so more may exist"
+    return {"columns": res.get("columns") or [], "rows": res.get("rows") or [], "error": None,
+            "source": "transcript", "tool_use_id": cid}, None
+
+
+def cmd_agent_result(a) -> dict:
+    pr = Proj(a.dir)
+    transcript, answer, out = pr.f(a.transcript), pr.f(a.answer_file), pr.f(a.out)
+    if not (pathlib.Path(transcript).is_file() and pathlib.Path(answer).is_file()):
+        raise Blocked("The transcript or the answer file is missing.",
+                      "Pass the subagent's output_file and the answer saved from its final message.")
+    res, why = transcript_result(transcript, _read_answer(answer).get("sql") or "")
+    if res is None:
+        return {"status": "ok", "source": "replay", "reason": why,
+                "next": f"Run the answer's SQL with the warehouse query tool (LIMIT 10000) and save "
+                        f"{{columns, rows, error}} to {a.out}."}
+    dump_json(pathlib.Path(out), res)
+    return {"status": "ok", "source": "transcript", "rows": len(res["rows"]), "out": a.out}
 
 
 UNSCORED = ("harness_error", "gold_error", "incomplete")
@@ -757,19 +1064,59 @@ def case_means(rows: list, metric: str = "pass", judged: bool = False) -> dict:
 
 
 def rate(means: dict, ids) -> dict:
+    """Pass rate over cases with its 95% Wilson interval. The normal approximation gives one passing
+    case, or ten, an interval of zero width; Wilson stays wide when n is small or the rate is 0 or 1.
+    `ci95` is half the interval's width, kept for readers of the older field; `ci95_low` and
+    `ci95_high` are its edges."""
     vals = [means[i] for i in ids if i in means]
     n = len(vals)
-    p = sum(vals) / n if n else None
-    half = 1.96 * math.sqrt(p * (1 - p) / n) if n and p is not None else None
-    return {"n": n, "pass_rate": round(p, 4) if p is not None else None,
-            "ci95": round(half, 4) if half is not None else None}
+    if not n:
+        return {"n": 0, "pass_rate": None, "ci95": None, "ci95_low": None, "ci95_high": None}
+    p = sum(vals) / n
+    z = 1.96
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    spread = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    low, high = max(0.0, centre - spread), min(1.0, centre + spread)
+    return {"n": n, "pass_rate": round(p, 4), "ci95": round((high - low) / 2, 4),
+            "ci95_low": round(low, 4), "ci95_high": round(high, 4)}
+
+
+GOLD_STALE_DAYS = 30  # older gold is flagged: re-run it if the tables under it changed
+
+
+def pcts(values) -> dict:
+    """n, p50 and p95 by nearest rank; None for each with no values."""
+    v = sorted(x for x in values if x is not None)
+    if not v:
+        return {"n": 0, "p50": None, "p95": None}
+
+    def at(q):
+        return v[max(0, math.ceil(q * len(v)) - 1)]
+    return {"n": len(v), "p50": round(at(0.5), 2), "p95": round(at(0.95), 2)}
+
+
+def run_costs(rows: list) -> dict:
+    """Time and tokens per run, over runs that reached the agent (not harness errors)."""
+    ran = [r for r in rows if r.get("class") != "harness_error"]
+    used = [int((r.get("usage") or {}).get("input_tokens") or 0) + int((r.get("usage") or {}).get("output_tokens") or 0)
+            for r in ran]
+    return {"latency_s": pcts(r.get("latency_s") for r in ran), "tokens_per_run": pcts(u for u in used if u)}
+
+
+def gold_age(rows: list) -> dict:
+    ran = [_stamp(r.get("gold_ran_at")) for r in rows]
+    ran = [t for t in ran if t]
+    if not ran:
+        return {"oldest_ran_at": None, "age_days": None, "stale": False}
+    days = (dt.datetime.now(dt.timezone.utc) - min(ran)).days
+    return {"oldest_ran_at": min(ran).isoformat(timespec="seconds"), "age_days": days, "stale": days > GOLD_STALE_DAYS}
 
 
 def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     """Pass rates for one variant. Validation is the headline while iterating; the holdout (the
     final test) is reported only with final=True, once, at hand-back."""
     vd = pr.vdir(variant)
-    all_rows = read_jsonl(vd / "results.jsonl")
+    all_rows = read_results(vd / "results.jsonl")
     sp = load_json(pr.p("eval", "split.json")) or {"train_ids": [], "test_ids": sorted(case_means(all_rows))}
     train, validation, holdout = split_sets(sp)
     hidden = set() if final else set(holdout)
@@ -792,7 +1139,12 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
            "tokens": {"input": sum(int((r.get("usage") or {}).get("input_tokens") or 0) for r in rows),
                       "output": sum(int((r.get("usage") or {}).get("output_tokens") or 0) for r in rows)},
            "latency_s_median": round(statistics.median(lat), 2) if lat else None,
+           **run_costs(rows), "gold": gold_age(rows),
+           "agent_result_source": dict(Counter(r["agent_result_source"] for r in rows if r.get("agent_result_source"))),
            "models": sorted({r["model"] for r in rows if r.get("model")})}
+    if out["gold"]["stale"]:
+        out["gold_next"] = (f"The oldest gold ran {out['gold']['age_days']} days ago. If the tables under it were "
+                            f"backfilled or corrected since, re-run the gold, refreeze and re-run the baseline.")
     if final:
         out["holdout"] = rate(means, holdout)
     elif holdout and any(r.get("prompt_id") in holdout for r in all_rows):
@@ -842,16 +1194,29 @@ def cmd_compare(a) -> dict:
     pr = Proj(a.dir)
     sp = pr.split()
     train, validation, holdout = split_sets(sp)
-    ra, rb = read_jsonl(pr.vdir(a.a) / "results.jsonl"), read_jsonl(pr.vdir(a.b) / "results.jsonl")
+    ra, rb = read_results(pr.vdir(a.a) / "results.jsonl"), read_results(pr.vdir(a.b) / "results.jsonl")
     fa, fb = {r["freeze"] for r in ra if r.get("freeze")}, {r["freeze"] for r in rb if r.get("freeze")}
     if fa and fb and fa != fb:
         raise Blocked(f"{a.a} and {a.b} ran against different eval sets or graders.",
                       f"Re-run {a.a} under the current freeze, then compare.")
+    ga = {r["prompt_id"]: r["gold_sha"] for r in ra if r.get("gold_sha")}
+    gb = {r["prompt_id"]: r["gold_sha"] for r in rb if r.get("gold_sha")}
+    moved = sorted(c for c in set(ga) & set(gb) if ga[c] != gb[c])
+    if moved:
+        raise Blocked(f"{a.a} and {a.b} graded {len(moved)} case(s) against different gold results: "
+                      f"{', '.join(moved[:5])}.",
+                      f"Re-record {a.a}'s stored answers against the current gold into a fresh variant, then compare.")
     ma, mb = case_means(ra), case_means(rb)
     out = {"status": "ok", "a": a.a, "b": a.b, "headline": "validation",
            "validation": paired_delta(ma, mb, validation), "train": paired_delta(ma, mb, train)}
     if a.final:
         out["holdout"] = paired_delta(ma, mb, holdout)
+    # Time and tokens beside accuracy: a round that gains a point and doubles p95 latency is a trade
+    # to name, not a win. Over the same sets as the deltas.
+    seen = set(train) | set(validation) | (set(holdout) if a.final else set())
+    ca = run_costs([r for r in ra if r["prompt_id"] in seen])
+    cb = run_costs([r for r in rb if r["prompt_id"] in seen])
+    out["guardrails"] = {k: {"a": ca[k], "b": cb[k]} for k in ca}
     return out
 
 
@@ -861,7 +1226,7 @@ def cmd_compare(a) -> dict:
 # batch of tool calls, and `publish-ack` reads back what the registry returned. Trace spans have no
 # MCP write, so each case is published as a session with its full message list instead.
 BATCH = 100        # create_artifacts takes at most 100 items
-SESSION_BATCH = 20  # session creates per step: each needs its own create_artifact call
+BATCH_BYTES = 256 * 1024  # one create_artifacts call's items, as JSON: transcripts make messages large
 LIST_TOOLS = ("registry__list_artifacts", "registry__search_artifacts")
 
 
@@ -989,7 +1354,7 @@ def _context(pr: Proj, a) -> dict:
     agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
     if not ws or not agent_id:
         raise Blocked("state.json has no workspace_id / agent_id.", "Register the agent first (build phase 5).")
-    rows = read_jsonl(pr.vdir(a.variant) / "results.jsonl")
+    rows = read_results(pr.vdir(a.variant) / "results.jsonl")
     if not rows:
         raise Blocked(f"No recorded results for {a.variant}.", "Record cases with `analytics_eval.py record` first.")
     return {"ids": ids, "ws": ws, "agent_id": agent_id, "rows": rows, "slug": st.get("slug") or pr.dir.name,
@@ -1011,11 +1376,12 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     if full and not ids.get("scorer_id"):
         return "scorer", [_create("scorer", {
             "name": SCORER_NAME, "workspace_id": ws, "display_name": "Result-set match", "scorer_kind": "code",
-            "scope": "result", "spec": {"type": "result_set_match", "source": "atlan-analytics/analytics_eval.py",
-                                        "rules": "gold and agent SQL on the same warehouse; 4 significant figures; "
-                                                 "column order/names ignored; row order only for ORDER BY … LIMIT; "
-                                                 "extra columns allowed"},
-            "outputs": {"result_match": {"type": "number", "range": [0, 1]}}}, _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
+            "output_type": "score",
+            "description": "External result-set comparison by atlan-analytics/analytics_eval.py: "
+                           "gold and agent SQL on the same warehouse; 4 significant figures; "
+                           "column order/names ignored; row order only for ORDER BY with LIMIT; "
+                           "extra columns allowed. Scores are recorded as result_match (0 or 1)."},
+            _idem_key(ws, "scorer", SCORER_NAME))], [SCORER_NAME]
     if full and not ids.get("eval_dataset_id"):
         name = f"{slug}-eval"
         return "dataset", [_create("dataset", {
@@ -1047,34 +1413,48 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
         if a.baseline and exps.get(a.baseline):
             body["baseline_experiment_id"] = exps[a.baseline]
         return "experiment", [_create("experiment", body, _idem_key(ws, "experiment", name))], [name]
-    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:SESSION_BATCH]
+    # Every session in one create_artifacts call (the session batch hook takes 100), so a
+    # 64-run variant takes one step here rather than 64 single creates.
+    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:BATCH]
     if todo:
-        calls, names = [], []
+        items, names = [], []
         for r in todo:
             tag = _tag(r)
             conv = f"analytics-eval-{slug}-{V}-{tag}"
             turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
             u = r.get("usage") or {}
-            calls.append(_create("session", {
+            items.append({
                 "name": conv, "workspace_id": ws, "subject_kind": "agent", "subject_id": c["agent_id"],
                 "session_status": "completed" if r.get("answer") else "failed", "external_session_id": conv,
-                "model_id": r.get("model"), "title": ("[eval] " + r["prompt"])[:200],
+                **({"model_id": r["model"]} if r.get("model") else {}),
+                "title": ("[eval] " + r["prompt"])[:200],
                 "message_count": len(session_messages(r, turns)),
                 "stop_reason": "final_answer" if r.get("answer") else "no_answer",
                 "usage": {"input_tokens": int(u.get("input_tokens") or 0),
-                          "output_tokens": int(u.get("output_tokens") or 0)}}, _idem_key(ws, "session", conv)))
+                          "output_tokens": int(u.get("output_tokens") or 0)}})
             names.append(tag)
-        return "sessions", calls, names
+        return "sessions", [_create_many("session", items)], names
+    # One create_artifacts call carries as many sessions' messages as fit, so a 40-case variant
+    # takes a handful of steps rather than one step per session.
+    items, names, size = [], [], 0
     for r in rows:
         tag = _tag(r)
         sent = set(pub.s["messages"].get(tag) or [])
         turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
-        msgs = session_messages(r, turns)
-        if len(sent) < len(msgs):
-            sess = pub.s["sessions"][tag]
-            items = [{"name": f"{sess['conversation_id']}-msg-{i}", "workspace_id": ws, "session_id": sess["id"],
-                      "sequence_number": i, **m} for i, m in enumerate(msgs) if i not in sent][:BATCH]
-            return "messages", [_create_many("session_message", items)], [f"{tag}#{it['sequence_number']}" for it in items]
+        sess = pub.s["sessions"][tag]
+        for i, m in enumerate(session_messages(r, turns)):
+            if i in sent:
+                continue
+            item = {"name": f"{sess['conversation_id']}-msg-{i}", "workspace_id": ws, "session_id": sess["id"],
+                    "sequence_number": i, **m}
+            n = len(json.dumps(item, ensure_ascii=False).encode())
+            if items and (len(items) >= BATCH or size + n > BATCH_BYTES):
+                return "messages", [_create_many("session_message", items)], names
+            items.append(item)
+            names.append(f"{tag}#{i}")
+            size += n
+    if items:
+        return "messages", [_create_many("session_message", items)], names
     if not full:
         return "done", [], []
     eid = exps[V]
@@ -1088,9 +1468,13 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                           **({"dataset_record_id": records[r["prompt_id"]]} if records.get(r["prompt_id"]) else {}),
                           "session_id": pub.s["sessions"][_tag(r)]["id"],
                           "input": {"question": r["prompt"]},
-                          "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class")},
+                          "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class"),
+                                     "used_context_ids": r.get("used_context_ids") or [],
+                                     "used_context_refs": r.get("used_context_refs") or []},
                           "scores": {"result_match": float((r.get("grade") or {}).get("pass", 0))},
-                          "duration_ms": int(float(r.get("latency_s") or 0) * 1000)})
+                          # an untimed run has no duration: 0 would read as instant
+                          **({"duration_ms": int(float(r["latency_s"]) * 1000)}
+                             if r.get("latency_s") is not None else {})})
         return "results", [_create_many("experiment_result", items)], [it["case_id"] for it in items]
     if not pub.s.get("completed"):
         s = summarize(pr, V)
@@ -1103,12 +1487,16 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                 "context_engagement": s["context_engagement"], "isolation_unverified": s["isolation_unverified"],
                 "judged_accuracy": s["judged"]["pass_rate"], "judged_n": s["judged"]["n"],
                 "classes": s["classes"], "models": s["models"], "variant": V,
+                "latency_s_p50": s["latency_s"]["p50"], "latency_s_p95": s["latency_s"]["p95"],
+                "tokens_per_run_p50": s["tokens_per_run"]["p50"], "tokens_per_run_p95": s["tokens_per_run"]["p95"],
                 "scorer_id": ids["scorer_id"], "runner": "atlan-analytics-eval", "finished_at": now()}}}}], [eid]
     return "done", [], []
 
 
 # Single creates carry idempotency keys and the completion patch is idempotent, so these can be resent.
-RESENDABLE = ("scorer", "dataset", "experiment", "sessions", "complete")
+# Batched steps (records, sessions, messages, results) are reconciled from a listing instead.
+RESENDABLE = ("scorer", "dataset", "experiment", "complete")
+BATCHED = ("records", "sessions", "messages", "results")
 STEP_KIND = {"scorer": "scorer", "dataset": "dataset", "records": "dataset_record", "experiment": "experiment",
              "sessions": "session", "messages": "session_message", "results": "experiment_result",
              "complete": "experiment"}
@@ -1142,9 +1530,9 @@ def cmd_publish(a) -> dict:
                 "results": len(pub.s["results"]), "traces": "sessions only: trace spans have no MCP write"}
     pub.s["pending"] = {"step": step, "names": names, "calls": len(calls), "at": now()}
     pub.save()
+    how = "Send each call in order, save the results as a JSON list"
     return {"status": "ok", "step": step, "workspace_id": c["ws"], "calls": calls,
-            "next": f"Send each call in order, save the results as a JSON list, then run "
-                    f"`publish-ack --variant {a.variant} --step {step} --responses <file>`."}
+            "next": f"{how}, then run `publish-ack --variant {a.variant} --step {step} --responses <file>`."}
 
 
 def cmd_publish_ack(a) -> dict:
@@ -1166,7 +1554,8 @@ def cmd_publish_ack(a) -> dict:
         failed = {}
     else:
         resps = raw if isinstance(raw, list) else [raw]
-        if a.step in ("records", "messages", "results"):
+        # A sessions step an older release left pending sent one create_artifact call per session.
+        if a.step in BATCHED and not (a.step == "sessions" and pending.get("calls", 1) > 1):
             slots = _slots(resps[0] if resps else {})
             if len(slots) != len(names):
                 raise Blocked(f"Expected {len(names)} result slots, got {len(slots)}.",
@@ -1238,7 +1627,8 @@ def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
 # ====================================================================== selftest
 
 def _selftest_publish(pr: pathlib.Path) -> bool:
-    """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot and one lost step."""
+    """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot, one lost
+    single create (resent) and one lost batch (reconciled from a listing)."""
     proj = Proj(str(pr))
     proj.set_id("workspace_id", "workspace_t")
     proj.set_id("agent_id", "agent_t")
@@ -1255,7 +1645,7 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
                     sessions_only=False, resend=False, reconcile=False)
         return argparse.Namespace(**{**base, **kw})
 
-    calls_seen, failed_once, lost_once = [], False, False
+    calls_seen, failed_once, lost_once, reconciled = [], False, False, False
     for _ in range(40):
         out = cmd_publish(ns())
         if out.get("step") == "done":
@@ -1275,20 +1665,47 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
                 resps.append(made(kind))
             else:
                 resps.append({"id": call["arguments"]["artifact_id"]})
-        if step == "sessions" and not lost_once:
+        if step == "experiment" and not lost_once:
             lost_once = True
             if cmd_publish(ns()).get("status") != "BLOCKED":
                 return False
             if not cmd_publish(ns(resend=True)).get("resent"):
                 return False
+        if step == "sessions" and not reconciled:
+            reconciled = True
+            if cmd_publish(ns()).get("status") != "BLOCKED" or cmd_publish(ns(resend=True)).get("resent"):
+                return False  # a lost batch is never resent
+            call = out["calls"][0]
+            listing = {"items": [{"name": it["name"], "id": sl["artifact"]["id"]}
+                                 for it, sl in zip(call["arguments"]["items"], resps[0]["items"])]}
+            dump_json(resp_path, [listing])
+            cmd_publish_ack(ns(step=step, responses=str(resp_path), reconcile=True))
+            continue
         dump_json(resp_path, resps)
         cmd_publish_ack(ns(step=step, responses=str(resp_path)))
     pub = load_json(pr / "hillclimb" / "cited" / "publish.json")
     st = proj.state()["ids"]
-    return (out.get("step") == "done" and failed_once and lost_once and pub.get("completed")
+    return (out.get("step") == "done" and failed_once and lost_once and reconciled and pub.get("completed")
             and st.get("scorer_id") and st.get("eval_dataset_id") and st["experiments"]["cited"]
             and len(pub["results"]) == 1 and len(pub["sessions"]) == 1
             and all(t.startswith("registry__") for t in calls_seen))
+
+def _selftest_message_fill(d: pathlib.Path) -> tuple:
+    """(filled, capped): one messages step carries several sessions' messages, and splits at the byte cap."""
+    pr = Proj(str(d))
+    rows = [{"prompt_id": f"c{i}", "rep": 0, "prompt": f"q{i}", "answer": "1", "model": "m"} for i in range(3)]
+    pub = Publication(pr, "fill")
+    pub.s["sessions"] = {_tag(r): {"id": f"session_{i}", "conversation_id": f"conv-{i}"} for i, r in enumerate(rows)}
+    c = {"ids": {}, "ws": "workspace_t", "slug": "t", "rows": rows, "agent_id": "agent_t"}
+    a = argparse.Namespace(variant="fill", sessions_only=True)
+    step, calls, names = _next_step(pr, pub, c, a)
+    filled = (step == "messages" and len(calls) == 1 and len(names) == 6
+              and {n.split("#")[0] for n in names} == {_tag(r) for r in rows})
+    rows[1]["answer"] = "x" * (BATCH_BYTES - 200)  # with the three before it, over the cap
+    step, calls, names = _next_step(pr, pub, c, a)
+    capped = step == "messages" and names == ["c0_rep0#0", "c0_rep0#1", "c1_rep0#0"]
+    return filled, capped
+
 
 def selftest() -> dict:
     checks = []
@@ -1424,6 +1841,9 @@ def selftest() -> dict:
         ok("record retains exact published and query revision citations", cited["used_context_refs"] == refs
            and cited["used_context_ids"] == [r["artifact_id"] for r in refs])
         ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
+        filled, capped = _selftest_message_fill(pathlib.Path(d) / "fill")
+        ok("one messages step fills its batch across sessions", filled)
+        ok("a messages step stops at the byte cap", capped)
         cmd_approve_harness(argparse.Namespace(dir=d))
         st = load_json(pr / "hillclimb" / "_state.json")
         st["harness_sha"] = "0" * 64
@@ -1435,6 +1855,8 @@ def selftest() -> dict:
             ok("changed harness blocks record", True)
     _selftest_integrity(ok)
     _selftest_inputs(ok)
+    _selftest_review_probes(ok)
+    _selftest_measurement(ok)
     failed = [c["check"] for c in checks if not c["ok"]]
     return {"status": "ok" if not failed else "ERROR", "checks": len(checks), "failed": failed}
 
@@ -1582,9 +2004,180 @@ def _selftest_inputs(ok) -> None:
         ok("a fuzzy case records the judge's verdict", judged["class"] == JUDGED and judged["pass"] == 1)
         summ = summarize(Proj(d), "v")
         ok("judged cases are reported apart from the result-set rate",
-           summ["judged"] == {"n": 1, "pass_rate": 1.0, "ci95": 0.0} and summ["validation"]["n"] == 1)
-    ok("the approved harness covers the grader agent's instructions",
-       not GRADER_AGENT.is_file() or harness_sha() != hashlib.sha256(pathlib.Path(__file__).resolve().read_bytes()).hexdigest())
+           summ["judged"]["n"] == 1 and summ["judged"]["pass_rate"] == 1.0 and summ["validation"]["n"] == 1)
+    source = pathlib.Path(__file__).resolve().read_text(encoding="utf-8")
+    judge = GRADER_AGENT.read_bytes() if GRADER_AGENT.is_file() else b"judge"
+    base = harness_digest(source, judge)
+    ok("the approved harness covers the grader agent's instructions", base != harness_digest(source, judge + b" "))
+    ok("both harness markers are in this script, in order",
+       0 <= source.find(HARNESS_START) < source.find(HARNESS_END))
+    ok("an edit to publishing, selftests or the CLI keeps the harness digest",
+       harness_digest(source.replace("def build_parser()", "def build_parser( )", 1), judge) == base)
+    ok("an edit to grading changes the harness digest",
+       harness_digest(source.replace("SIG = 4", "SIG = 3", 1), judge) != base)
+    ok("an edit to record or summary changes the harness digest",
+       harness_digest(source.replace("MAX_ATTEMPTS = 3", "MAX_ATTEMPTS = 4", 1), judge) != base)
+    unmarked = source.replace(HARNESS_END, "", 1)
+    ok("without its markers the whole script is the harness",
+       harness_digest(unmarked, None) == hashlib.sha256(unmarked.encode()).hexdigest())
+
+
+def _selftest_review_probes(ok) -> None:
+    """The 3 November review's probes: an unreadable transcript, a truncation flag on a wrapper,
+    re-recording a pair that was incomplete, and the interval of a one-case rate."""
+    rows = {"columns": ["n"], "rows": [[3]]}
+    for label, wrapped in (("data wrapper", {"data": rows, "truncated": True}),
+                           ("result wrapper with a next page", {"result": rows, "next_page_token": "p2"}),
+                           ("MCP text envelope", {"content": [{"type": "text",
+                                                              "text": json.dumps({"rows": [{"n": 3}], "has_more": True})}]}),
+                           ("complete: false", {"results": [{"n": 3}], "complete": False})):
+        ok(f"truncation on a {label} reaches the grade",
+           grade(rows, wrapped, "select 1", "select 3")["class"] == "incomplete")
+    ok("a wrapper with no more pages grades", grade(rows, {"data": rows, "truncated": False}, "select 1",
+                                                     "select 3")["class"] == "pass")
+    one = rate({"c1": 1.0}, ["c1"])
+    ok("one passing case has a wide interval, not zero", one["ci95_low"] < 0.25 and one["ci95_high"] == 1.0
+       and one["ci95"] > 0.35)
+    with tempfile.TemporaryDirectory() as d:
+        pr = pathlib.Path(d)
+        (pr / "eval").mkdir()
+        (pr / "eval" / "cases.jsonl").write_text(json.dumps({"case_id": "c1", "question": "how many", "tags": []}) + "\n")
+        (pr / "eval" / "answers.jsonl").write_text(json.dumps({"case_id": "c1", "gold_sql": "select 1"}) + "\n")
+        dump_json(pr / "eval" / "split.json", {"train_ids": [], "test_ids": ["c1"], "seed": 1})
+        write_freeze(Proj(d))
+        dump_json(pr / "eval" / "gold" / "c1.json", rows)
+        dump_json(pr / "v" / "cut.json", {"data": rows, "truncated": True})
+        dump_json(pr / "v" / "full.json", rows)
+        dump_json(pr / "v" / "answer.json", {"answer": "3", "sql": "select 3"})
+        (pr / "t.jsonl").write_text(json.dumps({"message": {"role": "assistant", "content": [{"type": "text", "text": "3"}]}}))
+        (pr / "junk.jsonl").write_text("not a transcript\n{\"unrelated\": true}\n")
+
+        def rec(**kw):
+            args = {"dir": d, "variant": "v", "case": "c1", "rep": 0, "answer_file": "v/answer.json",
+                    "gold_result": "eval/gold/c1.json", "agent_result": "v/full.json", "transcript": "t.jsonl",
+                    "verdict": None, "model": None, "latency_s": None}
+            args.update(kw)
+            return cmd_record(argparse.Namespace(**args))
+
+        try:
+            rec(transcript="junk.jsonl")
+            ok("a transcript with no agent messages is refused", False)
+        except Blocked:
+            ok("a transcript with no agent messages is refused", True)
+        first = rec(agent_result="v/cut.json")
+        todo = cmd_todo(argparse.Namespace(dir=d, variant="v", reps=1, ids="all"))
+        ok("an incomplete pair is listed again", first["class"] == "incomplete" and todo["remaining"] == 1
+           and todo["todo"][0].get("retry") == "incomplete")
+        again = rec()
+        ok("re-recording it supersedes the incomplete row", again["class"] == "pass" and again.get("attempt") == 2
+           and again.get("supersedes") == "incomplete")
+        ok("then nothing remains", cmd_todo(argparse.Namespace(dir=d, variant="v", reps=1, ids="all"))["remaining"] == 0)
+        ok("a graded pair is still never re-recorded", rec().get("exists") is True)
+        summ = summarize(Proj(d), "v")
+        ok("the summary reads the latest attempt", summ["rows"] == 1 and summ["validation"]["pass_rate"] == 1.0
+           and len(read_jsonl(pr / "hillclimb" / "v" / "results.jsonl")) == 2)
+
+
+def _selftest_measurement(ok) -> None:
+    """Milestone 3: exact whole numbers with a tolerance per case, runs timed from the transcript,
+    the agent's own result read once, and gold that moves with the calendar."""
+    one = {"columns": ["n"], "rows": [[1000000]]}
+    ok("a count off by 40 fails", not compare(one, {"columns": ["n"], "rows": [[1000040]]})["pass"])
+    ok("a whole number matches its decimal text", compare({"columns": ["n"], "rows": [[1000040]]},
+                                                           {"columns": ["n"], "rows": [["1000040.00"]]})["pass"])
+    ok("float noise on a whole number is that number", compare({"columns": ["n"], "rows": [[1234568]]},
+                                                                {"columns": ["n"], "rows": [[1234567.9999999998]]})["pass"])
+    ok("a long id stays exact", not compare({"columns": ["id"], "rows": [["12345678901234567"]]},
+                                            {"columns": ["id"], "rows": [[12345678901234568]]})["pass"])
+    ok("a decimal whole number is exact", norm(decimal.Decimal("1000040.000")) == 1000040.0)
+    ok("an approximate value uses 4 figures by default", compare({"columns": ["x"], "rows": [[0.123449]]},
+                                                                  {"columns": ["y"], "rows": [[0.1234]]})["pass"])
+    ok("a case's sig tightens it", not compare({"columns": ["x"], "rows": [[0.123449]]},
+                                               {"columns": ["y"], "rows": [[0.1234]]}, "", 6)["pass"])
+    try:
+        case_sig({"case_id": "c", "sig": 0})
+        ok("a bad sig is refused", False)
+    except Blocked:
+        ok("a bad sig is refused", case_sig({}) == SIG and case_sig({"sig": 7}) == 7)
+    ok("percentiles by nearest rank", pcts([5, 1, 3, None, 2, 4]) == {"n": 5, "p50": 3, "p95": 5}
+       and pcts([]) == {"n": 0, "p50": None, "p95": None})
+    with tempfile.TemporaryDirectory() as d:
+        pr = pathlib.Path(d)
+        (pr / "eval").mkdir()
+        (pr / "eval" / "cases.jsonl").write_text(
+            json.dumps({"case_id": "c1", "question": "Revenue last quarter?", "tags": []}) + "\n"
+            + json.dumps({"case_id": "c2", "question": "Orders in March 2026?", "tags": []}) + "\n")
+        (pr / "eval" / "answers.jsonl").write_text(
+            json.dumps({"case_id": "c1", "gold_sql": "select sum(x) from t where d >= current_date - 90"}) + "\n"
+            + json.dumps({"case_id": "c2", "gold_sql": "select count(*) from o where d between '2026-03-01' and '2026-03-31'"}) + "\n")
+        dump_json(pr / "eval" / "split.json", {"train_ids": [], "test_ids": ["c1", "c2"], "seed": 1})
+        frozen = write_freeze(Proj(d))
+        ok("a freeze names gold that reads the clock and relative questions",
+           frozen["dates"]["moving_gold"] == ["c1"] and frozen["dates"]["relative_questions"] == ["c1"]
+           and "refreeze" in dates_next(frozen["dates"]).get("dates_next", ""))
+        rows = {"columns": ["n"], "rows": [[3]]}
+        dump_json(pr / "eval" / "gold" / "c2.json", {**rows, "ran_at": "2026-01-01T00:00:00+00:00"})
+        dump_json(pr / "v" / "answer.json", {"answer": "3", "sql": "select count(*)\n from o;"})
+        q = "select count(*) from o"
+
+        def line(role, content, ts, **msg):
+            return json.dumps({"type": role, "timestamp": ts, "message": {"role": role, "content": content, **msg}})
+        call = {"type": "tool_use", "id": "tu1", "name": "mcp__atlan__mcp__call_read_tool",
+                "input": {"name": "snowflake__query", "arguments": {"sql": q, "limit": 100}}}
+        (pr / "t.jsonl").write_text("\n".join([
+            line("user", "Orders in March 2026?", "2026-11-03T10:00:00Z"),
+            line("assistant", [call], "2026-11-03T10:00:04.5Z", id="m1", model="claude-opus-5-5"),
+            line("user", [{"type": "tool_result", "tool_use_id": "tu1",
+                           "content": [{"type": "text", "text": json.dumps({"columns": ["n"], "rows": [[3]]})}]}],
+                 "2026-11-03T10:00:09Z"),
+            line("assistant", [{"type": "text", "text": "3"}], "2026-11-03T10:00:12.25Z", id="m2")]) + "\n")
+        ok("a transcript's first-to-last span is its latency", parse_transcript(pr / "t.jsonl")["elapsed_s"] == 12.25)
+        got = cmd_agent_result(argparse.Namespace(dir=d, transcript="t.jsonl", answer_file="v/answer.json",
+                                                  out="v/agent.json"))
+        ok("the agent's own result is read from its transcript", got["source"] == "transcript" and got["rows"] == 1)
+
+        def variant(text, sql=q):
+            (pr / "t2.jsonl").write_text(text)
+            return transcript_result(pr / "t2.jsonl", sql)[1]
+        base = (pr / "t.jsonl").read_text()
+        ok("a failed run is replayed", variant(base.replace('"tool_use_id": "tu1"',
+                                                             '"tool_use_id": "tu1", "is_error": true')) is not None)
+        ok("a truncated result is replayed", variant(base.replace('\\"rows\\": [[3]]}',
+                                                                   '\\"rows\\": [[3]], \\"truncated\\": true}')) is not None)
+        ok("rows at the tool's cap are replayed", variant(base.replace('"limit": 100', '"limit": 1')) is not None)
+        ok("SQL the agent never ran is replayed", variant(base, "select 2") is not None)
+        ok("a result that is not JSON is replayed", variant(base.replace(
+            json.dumps(json.dumps({"columns": ["n"], "rows": [[3]]})), json.dumps("| n |\n| 3 |"))) is not None)
+
+        def rec(variant_name, **kw):
+            args = {"dir": d, "variant": variant_name, "case": "c2", "rep": 0, "answer_file": "v/answer.json",
+                    "gold_result": "eval/gold/c2.json", "agent_result": "v/agent.json", "transcript": "t.jsonl",
+                    "verdict": None, "model": None, "latency_s": None}
+            args.update(kw)
+            cmd_record(argparse.Namespace(**args))
+            return read_jsonl(pr / "hillclimb" / variant_name / "results.jsonl")[-1]
+        timed = rec("a")
+        ok("an untimed run takes the transcript's time", timed["latency_s"] == 12.25
+           and timed["latency_source"] == "transcript" and timed["agent_result_source"] == "transcript"
+           and timed["gold_ran_at"].startswith("2026-01-01") and timed["gold_sha"])
+        ok("--latency-s overrides it", rec("b", latency_s=3.0)["latency_s"] == 3.0)
+        (pr / "bare.jsonl").write_text(json.dumps({"message": {"role": "assistant", "content": "3"}}) + "\n")
+        bare = rec("c", transcript="bare.jsonl")
+        ok("no timestamps and no flag leave latency unknown, not 0", bare["latency_s"] is None)
+        summ = summarize(Proj(d), "a")
+        ok("the summary gives p50 and p95 time and tokens, and gold age",
+           summ["latency_s"]["p50"] == 12.25 and summ["gold"]["stale"] and "gold_next" in summ
+           and summ["agent_result_source"] == {"transcript": 1})
+        cmp = cmd_compare(argparse.Namespace(dir=d, a="a", b="b", final=False))
+        ok("compare reports time and tokens beside accuracy",
+           cmp["guardrails"]["latency_s"]["a"]["p50"] == 12.25 and cmp["guardrails"]["latency_s"]["b"]["p50"] == 3.0)
+        dump_json(pr / "eval" / "gold" / "c2.json", {"columns": ["n"], "rows": [[4]]})
+        rec("d")
+        try:
+            cmd_compare(argparse.Namespace(dir=d, a="a", b="d", final=False))
+            ok("variants graded against different gold do not compare", False)
+        except Blocked:
+            ok("variants graded against different gold do not compare", True)
 
 
 # ====================================================================== CLI
@@ -1616,7 +2209,16 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--gold", required=True)
     c.add_argument("--agent")
     c.add_argument("--gold-sql", default="", help="the gold SQL text or a file holding it (for ORDER BY … LIMIT)")
+    c.add_argument("--sig", type=int, default=SIG, help="significant figures for numbers that are not whole (default 4)")
     c.set_defaults(func=cmd_grade)
+
+    c = s.add_parser("agent-result", help="read the result the agent's own run of its SQL returned, from its "
+                                          "transcript, so the parent need not run it again")
+    c.add_argument("--dir", required=True)
+    c.add_argument("--transcript", required=True)
+    c.add_argument("--answer-file", required=True)
+    c.add_argument("--out", required=True)
+    c.set_defaults(func=cmd_agent_result)
 
     c = s.add_parser("todo", help="(case, rep) pairs still to run, with the question only")
     c.add_argument("--dir", required=True)

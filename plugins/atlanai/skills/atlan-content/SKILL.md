@@ -1,6 +1,6 @@
 ---
 name: atlan-content
-description: Upload, read and version file content in Atlan, including small UTF-8 text, staged binary uploads and pinned skill files. Use when someone wants to put a file, document or dataset into Atlan, read a file or a skill's bundled files by handle, or add a new version of an existing file. Not for publishing a skill bundle (atlan-author-skills) or editing knowledge (atlan-author-knowledge).
+description: Upload, read and version file content in Atlan, including text, staged binary uploads and a skill's pinned files. Use when someone wants to put a file, document or dataset into Atlan, read a file or a skill's files by handle, or add a new version of a file. Not for publishing a skill (atlan-author-skills) or editing knowledge (atlan-author-knowledge).
 license: Apache-2.0
 ---
 
@@ -10,9 +10,12 @@ In search mode, the default, run each tool named here through the runner for wha
 (`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
-the session by sending `objective`. **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
-and the kind schema. Replies lead with the result: the first sentence is the answer or the step,
+the session by sending `objective`. Send independent reads
+together in one turn. A create names its `workspace_id`: the one the user names, else
+`.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
+`{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
+refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
+a failed call, a limit, a source key or full mode. Replies lead with the result: the first sentence is the answer or the step,
 counts rather than lists, handles only when asked, one next step rather than a menu, and no
 greeting, apology or closing offer.
 

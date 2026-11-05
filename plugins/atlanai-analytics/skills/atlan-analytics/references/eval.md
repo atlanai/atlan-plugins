@@ -26,22 +26,41 @@ and never touches the network: you make every registry write through the Atlan M
 - Don't read validation or holdout transcripts while choosing changes. That's the analyst's
   train-only job in `atlan-analytics improve`.
 
+## Host selection
+
+For Codex or Claude Code without a registered subagent, use [host runners](eval/hosts.md).
+The question-only runner replaces step 2.1 and produces the answer and transcript files.
+Its SQL is executed by the parent in step 2.4; all grading and publication steps stay the same.
+Report the runner alongside the score: this measures answering with a supplied released
+context snapshot, not the separate ability to retrieve that context from Registry.
+
 ## Procedure
 
 1. **Plan.** Run `EVAL todo --variant V --reps R [--ids all|train|validation|holdout]`. It
    returns the (case_id, rep) pairs not yet recorded, so a stopped run resumes where it left
-   off. `all` is train and validation; the holdout runs only at hand-back.
+   off. `all` is train and validation; the holdout runs only at hand-back. A pair whose last row
+   is `incomplete`, `gold_error` or `harness_error` is listed again with `retry` naming that class,
+   up to 3 attempts; after that it is under `unresolved`, and you report it.
    - For a new variant, run one pair first as a canary.
    - Then state the count × time × tokens (from the canary's usage, never a dollar guess) and
      get a yes before the rest.
-2. **Run each pair** (up to 4 subagents in parallel; wait for a batch before starting the next):
+2. **Run each pair** in a rolling pool: keep up to 4 subagents running, and start the next pair
+   as soon as one finishes and its steps below are done. Never wait for a whole batch: the
+   slowest case would set the pace for the other three.
    1. Spawn the subagent with the question. Keep the Agent tool's `output_file` (the
       transcript path).
    2. Parse its final message as JSON `{answer, sql, used_context_ids}`. If it isn't JSON,
       still record it; the script classes it `no_sql`.
    3. Save the answer as `hillclimb/V/answers/<case_id>_rep<k>.json`.
-   4. Run the agent's `sql` with the warehouse query tool (the read-only rules apply, LIMIT
-      10000). Save `{columns, rows, error}` to `hillclimb/V/agent_results/<case_id>_rep<k>.json`.
+   4. Read the agent's own result from its transcript, so its SQL runs once, not twice:
+      ```
+      EVAL agent-result --transcript <output_file> --answer-file hillclimb/V/answers/<case_id>_rep<k>.json --out hillclimb/V/agent_results/<case_id>_rep<k>.json
+      ```
+      With `"source": "transcript"` the file is written. With `"source": "replay"` the transcript
+      doesn't hold the whole result (the call failed, the rows were cut or capped, or the agent
+      never ran its final SQL), and `reason` says which. Run the agent's `sql` yourself with the
+      warehouse query tool then (the read-only rules apply, LIMIT 10000), and save
+      `{columns, rows, error}` to that same path.
    5. Gold results are cached in `eval/gold/<case_id>.json` (phase 4). Re-run the gold SQL only
       if that file is missing.
    6. Record the pair:
@@ -51,15 +70,23 @@ and never touches the network: you make every registry write through the Atlan M
       A gold or agent result file that is named but missing blocks the row, as a missing
       transcript does. Save the file, then record again.
       `record` grades by result set and parses the transcript into the trace, tool calls,
-      model and usage. It appends one row to `results.jsonl` and writes
-      `traces/<case_id>_rep<k>.json`. A pair that is already recorded is skipped, never
-      overwritten.
+      model, usage and the run's time, from its first message to its last. `--latency-s` overrides
+      that time. A run with neither stays untimed: it is never published as 0. The row also notes
+      when its gold ran and whether the agent's result came from the transcript or a replay. It appends one row to `results.jsonl` and writes
+      `traces/<case_id>_rep<k>.json`. A graded pair is skipped, never overwritten. A pair listed
+      with `retry` gets a new row, `attempt` 2 or more, that supersedes the last; the old rows
+      stay in the file and `summary`, `compare` and `publish` read the latest.
+      A transcript with no agent message in it is refused, as a missing one is: a file the
+      script cannot read is no evidence the run was isolated.
 3. **Check it's complete.** `EVAL summary --variant V` must show N×R rows. If rows are short,
    run `todo` again and finish the missing pairs. Never quote a partial run.
 4. **Publish** the variant as [Publish](#publish) describes.
 5. **Compare** (for rounds): `EVAL compare --a baseline --b V` gives the paired per-case delta
    on validation (the headline) and on train, each with its band and an exact sign-test
    p-value; `significant` is p < 0.05. `--final` adds the holdout, once, at hand-back.
+   `guardrails` gives each variant's p50 and p95 time and tokens per run beside the deltas, so a
+   gain that doubles p95 latency is named as a trade. `compare` refuses two variants that graded a
+   case against different gold results: re-record the older variant's answers first.
 
 ## Publish
 
@@ -93,9 +120,9 @@ their span views stay empty.
    The next `publish` resends only those items. Fix a named field before you resend; after
    three failures of the same item, stop and report it.
 4. **A lost result.** If a call's result never came back, `publish` refuses to go on. For
-   `scorer`, `dataset`, `experiment`, `sessions` and `complete`, run `EVAL publish --resend`
-   and send the same calls again: their idempotency keys return what already landed. For
-   `records`, `messages` and `results`, list that kind in the workspace with
+   `scorer`, `dataset`, `experiment` and `complete`, run `EVAL publish --resend` and send the
+   same calls again: their idempotency keys return what already landed. For `records`,
+   `sessions`, `messages` and `results`, each one bulk call, list that kind in the workspace with
    `registry__list_artifacts`, save the listing, and run `publish-ack --reconcile`. Never
    resend a batch blindly: it duplicates every item that worked.
 5. **Check it landed.** Open one session with `registry__get_artifact` and confirm its
@@ -107,7 +134,10 @@ person's Atlan sign-in.
 ## Grading, in one paragraph
 
 A case passes when the agent's result set matches the gold one:
-- numbers are compared at 4 significant figures;
+- whole numbers are compared exactly, so a count or an id that is off by one fails
+  (`1000040.00` matches `1000040`, and float noise such as `1234567.9999999998` reads as whole);
+- other numbers are compared at 4 significant figures, or at the `sig` the case sets in
+  `answers.jsonl` (1 to 15) for a value that needs more or less;
 - column names and order are ignored, with columns matched by their values;
 - row order is ignored unless the gold SQL sorts and limits;
 - extra agent columns are allowed.
@@ -115,9 +145,12 @@ A case passes when the agent's result set matches the gold one:
 Classes: `pass`, `wrong_result`, `agent_sql_error`, `no_sql`, `gold_error`, `harness_error`,
 `incomplete`, `invalid_contaminated`, `judged`. `harness_error` is the one class you set yourself, for a run
 that failed outside the agent (a tool failure, a timeout): `record --class harness_error --reason "…"`,
-with no answer file. `incomplete` means the gold or the agent result was truncated, so matching rows
+with no answer file. `incomplete` means the gold or the agent result was truncated, at any level of
+the response (a `truncated` or `has_more` flag, a next-page cursor, `complete: false`), so matching rows
 prove nothing: fetch every page, or bound the gold query, and record the case again. It,
 `harness_error` and `gold_error` leave the scored denominator; report their counts beside the rate.
+Each rate carries `n` and a 95% Wilson interval (`ci95_low`, `ci95_high`; `ci95` is half its width).
+Quote the interval with the rate: one passing case is 100%, between 21% and 100%.
 Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the grader agent
 (`atlanai-analytics:atlan-analytics-grader` in Claude Code):
 1. Write its one input file, `hillclimb/V/judge/<case_id>_rep<k>.json`, holding `question`,
@@ -130,7 +163,7 @@ Cases tagged `fuzzy` (the answer is prose, not a table) can be judged by the gra
 `summary` reports judged cases under `judged`, apart from the result-set rates, and a report
 gives them on their own line. The grader's instructions are part of the approved harness: an
 edit to them blocks `record` until the user approves it again.
-To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.json> --gold-sql <sql>`.
+To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.json> --gold-sql <sql> [--sig N]`.
 
 ## Files
 

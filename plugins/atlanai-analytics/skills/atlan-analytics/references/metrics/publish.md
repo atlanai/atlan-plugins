@@ -27,18 +27,39 @@ names every create. If the person drops some, rerun `MINE check` without them be
 
 ## 2. Metrics
 
-- **Create:** `registry__create_artifacts` with kind `metric`, in chunks of about 25, each body
-  exactly as checked. Save each returned id against its `source_id` in
-  `<context-dir>/published.json`.
-- **Revise:** append a new version to the matched artifact (`match_id`) with the registry's
-  update tool. Find it with `mcp__search_tools` ("append a new version of a registry artifact")
-  and never invent one. Keep its `name` and `display_name`. Raise `definition.version` by one
-  over the live one.
+- **Create:** `registry__create_artifacts` with kind `metric`, each body exactly as checked, in
+  calls of at most 100 items and about 256 KB of JSON (the core plugin's **Batches** rule in
+  `calling-tools.md`): about 25 full metric definitions to a call. Save each returned id against
+  its `source_id` in `<context-dir>/published.json`.
+- **Revise:** append a new version to the matched artifact (`match_id`), as
+  [appending a revision](#appending-a-revision) below says. Keep its `name` and `display_name`.
+  Raise `definition.version` by one over the live one.
 - **Reuse:** nothing to write. Record the live id.
 - A `409` on create means the name is taken. Report it and hold the item. Never rename to get
   around it.
 
 Never archive, and never rename.
+
+### Appending a revision
+
+The one procedure for every new version of a metric or saved query, here and in an improve
+round. Definitions are immutable within a revision, and `registry__patch_artifact` cannot edit
+either one. Read the current head with `registry__get_artifact` (no release selector) and keep
+its `etag`, then call `registry__append_artifact_version` with:
+
+- `artifact_id`: the existing metric or saved-query ID;
+- `if_match`: the exact head ETag reviewed;
+- `metadata`: the complete `definition`, preserved `source_version` and `source_metadata`, and
+  `auto_release` as the caller says (an improve round sends `false`); omit line fields such as
+  `name` and `workspace_id`;
+- `idempotency_key`: one unique key for this reviewed change, reused with identical arguments
+  only to recover an uncertain write.
+
+Do not copy server-owned hashes or validation receipts. Confirm the head still matches the
+reviewed base before appending. A metric's positive-integer `definition.version` must never
+decrease; execution-input changes require a higher value. A usage-note-only query change needs
+no metric semantic version. Read back the same artifact ID and new ordinal. A stale token
+refuses the write: re-read and reconcile instead of blindly retrying.
 
 ## 3. Saved queries
 

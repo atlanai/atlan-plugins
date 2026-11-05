@@ -60,6 +60,12 @@ saved SQL examples in the Atlan registry workspace "<workspace display name>".
 
 ## Rules
 
+- Read `extensions.atlan_analytics.dashboard_validation` when present. Unmeasured parity
+  from mismatched snapshots or missing report references permits fresh warehouse answers
+  with that limitation stated. Report the warehouse cutoff when known; the report cutoff
+  is provenance, not evidence of current freshness. Never turn unmeasured into passed or
+  an accuracy score. A failed comparison needs correction for that metric.
+
 - Prefer published metric definitions over your own. If a metric exists for what was asked, use it,
   even when a simpler formula seems obvious.
 - If nothing in the registry covers the question, say so in the answer and give your best SQL

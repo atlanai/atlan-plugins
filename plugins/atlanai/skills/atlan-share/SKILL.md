@@ -1,6 +1,6 @@
 ---
 name: atlan-share
-description: Share something made in this session with colleagues through Atlan, and tell them in Slack. Records a report, document, notebook, dataset, HTML page or other result where the team can open it, then posts the hand-off to a channel or person. Use when the user says share, send, hand off or post this to their team, a colleague, a workspace or a Slack channel, or "share the new version". Not for publishing a skill folder (atlan-author-skills), recording a run's output with no audience in mind (atlan-record-outputs) or calling Slack for anything else (atlan-use-mcp-servers).
+description: Share a result from this session with colleagues through Atlan and tell them in Slack. Use when the user says share, send, hand off or post this to their team, a colleague or Slack, or "share the new version". Not for publishing a skill (atlan-author-skills), recording an output for no audience (atlan-record-outputs) or other Slack calls (atlan-use-mcp-servers).
 license: Apache-2.0
 user-invocable: false
 ---
@@ -48,9 +48,10 @@ Every share carries a source key (`source_type` `local`, `source_id` the file's
 again makes a new version of one output instead of a copy. Look for an earlier share first, show
 the user what will be written in at most four lines, and write only on their yes:
 
-- **a first share** writes the bytes as a `file`, then the `output` that pins it;
-- **a new version** appends to the earlier share's file and records the output again under the
-  same source key, unless the text is unchanged, when it writes nothing.
+- **one call,** `registry__publish_output`, writes the bytes as a `file`, then the `output` that
+  pins it and its edges;
+- **a new version** is the same call with the same source key: it appends to the earlier share's
+  file and makes the output's next version, and unchanged text writes no new file version.
 
 [Recording a share](references/write.md) has the calls, the chat fallback for large or binary
 files, and what each refusal means.

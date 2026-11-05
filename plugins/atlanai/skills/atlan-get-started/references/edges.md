@@ -6,7 +6,7 @@ The one edges reference for every Atlan skill: skills, agents, outputs, knowledg
 
 Creating two artifacts in one conversation creates two unrelated rows. Uploading a skill and
 an agent together does not link them; neither does creating a file "as part of" a skill. An
-edge exists because you asked for one, and you confirm it by reading it back.
+edge exists because you asked for one, and the write's result is the edge it made.
 
 ## An edge is declared by its **source** kind
 
@@ -97,7 +97,12 @@ changes nothing.
 **If you are creating the source artifact anyway, create it linked.**
 `registry__create_artifact_linked` takes the same `kind` and `metadata` as a create plus
 `subject_id` and `rel_type`, and makes the artifact and the edge in one call, so there is no
-window where the new artifact exists unattached and no second call to forget.
+window where the new artifact exists unattached and no second call to forget. The gateway writes
+both in one transaction: a refused edge leaves no artifact behind, so fix what the refusal names
+and call again. An older gateway wrote them in two steps; there, a result that carries the new
+handle beside an edge error is fixed with `registry__relate_artifact` on that handle, never by
+calling again. An `output` is recorded with `registry__publish_output`, whose `edges` does the
+same for its file and output.
 
 ```
 registry__create_artifact_linked {
@@ -142,10 +147,13 @@ costs no lookup and tells you about the typo rather than about a missing artifac
 registry__get_related_artifacts { "artifact_id": "agent_01J...", ... }
 ```
 
-Returns both directions: what this artifact points at and what points back at it. That second
-half is how you confirm an `agent` or an `output` you linked to a skill actually landed, since
-the edge does not live on the skill. Call it after any multi-artifact create: it is the only
-way to know the join happened rather than assuming it did.
+Returns both directions: what this artifact points at and what points back at it.
+
+You do not need it to confirm an edge you wrote: `registry__relate_artifact` returns the edge
+it stored, and a refusal means nothing was stored. Read edges for what no result of yours
+shows: links that existed before you started, and edges the registry derives after a write,
+such as an agent's `uses_skill` edges from its `skills` manifest or a metric's `depends_on`
+edges.
 
 ## The opposite footgun
 

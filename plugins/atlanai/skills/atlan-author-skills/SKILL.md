@@ -1,6 +1,6 @@
 ---
 name: atlan-author-skills
-description: Publish a skill to Atlan as a versioned bundle or a new version of one, or make a new skill for the team and publish it. Use when the user wants to publish, upload, share, push or release a skill to Atlan or the registry, update a skill already there, or create a skill for their team or organization. Not for loading or installing a registry skill here (atlan-use-skill), reading a skill's files (atlan-content), publishing from GitHub CI (atlan-connect-repo) or a skill kept only on this computer (your tool's own skill creator).
+description: Publish a skill to Atlan, or a new version of one, or write a new skill for the team and publish it. Use when the user wants to publish, upload, push or release a skill to Atlan, or update one already there. Not for loading or installing a registry skill (atlan-use-skill), publishing from GitHub CI (atlan-connect-repo) or a skill kept only on this computer.
 license: Apache-2.0
 ---
 
@@ -10,9 +10,12 @@ In search mode, the default, run each tool named here through the runner for wha
 (`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
-the session by sending `objective`. **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
-and the kind schema. Replies lead with the result in a few lines, and ask before every write.
+the session by sending `objective`. Send independent reads
+together in one turn. A create names its `workspace_id`: the one the user names, else
+`.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
+`{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
+refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
+a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines, and ask before every write.
 
 ## Quick path: one new text skill
 

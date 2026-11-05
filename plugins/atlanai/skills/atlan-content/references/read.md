@@ -8,10 +8,9 @@ what returns the content.
 Do not infer what a skill does from its file names, and do not substitute a different skill
 that happens to be in your toolset. If you cannot read it, say so.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 and a first-person `rationale` on every call, reads included.
 
 ## Reading a skill
@@ -57,7 +56,12 @@ registry__get_file_content {
 **Read the entry point first and stop.** A bundle lists its files together but they are not
 one document: `SKILL.md` is the instructions, and the files under `references/` are material
 it points at when it needs them. Pulling all four up front spends context on pages you may never reach.
-Open a reference when `SKILL.md` tells you to.
+Open a reference when `SKILL.md` tells you to. When it names several you need now, read them
+together: `registry__get_artifact` with `include_files` (up to 8 `path`s of that artifact), or
+`registry__get_file_content`'s batch twin `registry__get_file_contents` (up to 8
+`{file_id, version_ordinal}` entries across artifacts). An entry past the call's 512 KiB budget
+comes back as `code: "budget_exceeded"` with no content: read it in another call. Ask only for
+what you need; a batch is not a reason to read the whole bundle.
 
 **Pass the ordinal the manifest gave you.** A manifest is a snapshot of exact versions. Omit
 `version_ordinal` and you get the file's latest, which may be bytes that snapshot never

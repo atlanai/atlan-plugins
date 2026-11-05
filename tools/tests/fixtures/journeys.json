@@ -1,0 +1,1630 @@
+{
+ "about": "Golden journeys: the route each use case in the 3 November Registry and Analytics review should take, cold (a new session) and warm (later in the same session). tools/tests/test_journeys.py checks every call against the skills offline; a live run in a sandbox tenant fills `measured`.",
+ "measured_shape": {
+  "date": "YYYY-MM-DD",
+  "versions": {
+   "atlanai": "x.y.z",
+   "atlanai-analytics": "x.y.z"
+  },
+  "tenant": "<sandbox name>",
+  "cold": {
+   "calls": 0,
+   "turns": 0,
+   "p50_s": 0,
+   "p95_s": 0,
+   "kb": 0
+  },
+  "warm": {
+   "calls": 0,
+   "turns": 0,
+   "p50_s": 0,
+   "p95_s": 0,
+   "kb": 0
+  }
+ },
+ "journeys": [
+  {
+   "id": "registry-get-started",
+   "plugin": "atlanai",
+   "skill": "atlan-get-started",
+   "title": "Connect and see what the organization has",
+   "route": "Own workspace (opens the session), then the org workspace and two counts in parallel",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "user_default"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "org_default"
+      },
+      "group": "g1",
+      "workaround_for": "T14"
+     },
+     {
+      "tool": "registry__get_artifact_counts",
+      "runner": "call_read_tool",
+      "args": {
+       "group_by": "kind"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__get_artifact_counts",
+      "runner": "call_read_tool",
+      "args": {
+       "group_by": "workspace_id",
+       "limit": 5
+      },
+      "group": "g1"
+     }
+    ],
+    "warm": []
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 0
+   },
+   "targets": {
+    "max_kb": 10
+   },
+   "warm_note": "A routed task skips the check: its own first call opens the session.",
+   "measured": null
+  },
+  {
+   "id": "registry-find-artifacts",
+   "plugin": "atlanai",
+   "skill": "atlan-find-artifacts",
+   "title": "Find an existing skill and read the one picked",
+   "route": "Scoped search, then the selected artifact",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "skill",
+       "query": "<task>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "skill",
+       "query": "<next task>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 2,
+    "warm": 1
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-gather-context",
+   "plugin": "atlanai",
+   "skill": "atlan-find-artifacts",
+   "title": "Gather context for a task",
+   "route": "One bounded retrieve across kinds, then the authoritative file of the one that answers",
+   "calls": {
+    "cold": [
+     {
+      "tool": "mcp__retrieve_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<task>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     },
+     {
+      "tool": "registry__get_file_content",
+      "runner": "call_read_tool",
+      "args": {
+       "file_id": "<pinned>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "mcp__retrieve_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<task>"
+      }
+     },
+     {
+      "tool": "registry__get_file_content",
+      "runner": "call_read_tool",
+      "args": {
+       "file_id": "<pinned>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-use-skill",
+   "plugin": "atlanai",
+   "skill": "atlan-use-skill",
+   "title": "Use a registry skill now, found by description",
+   "route": "Search, then manifest and pinned SKILL.md in one read",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "skill",
+       "query": "<words>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>",
+       "include_file": "SKILL.md"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>",
+       "include_file": "SKILL.md"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 2,
+    "warm": 1
+   },
+   "warm_note": "Warm: the handle is known (dashboard prompt or earlier search).",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-install-skill",
+   "plugin": "atlanai",
+   "skill": "atlan-use-skill",
+   "title": "Install a skill with two reference files through MCP",
+   "route": "Manifest and SKILL.md together, then the other pinned files in one include_files read",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>",
+       "include_file": "SKILL.md"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>",
+       "include_files": [
+        "<ref 1>",
+        "<ref 2>"
+       ]
+      }
+     }
+    ],
+    "warm": null
+   },
+   "budget": {
+    "cold": 2,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-continue",
+   "plugin": "atlanai",
+   "skill": "atlan-continue",
+   "title": "Continue an output handed over by its handle",
+   "route": "The artifact, then its primary file and its neighbours in parallel",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<output_...>"
+      }
+     },
+     {
+      "tool": "registry__get_file_content",
+      "runner": "call_read_tool",
+      "args": {
+       "file_id": "<primary>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__get_related_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<output_...>"
+      },
+      "group": "g1"
+     }
+    ],
+    "warm": null
+   },
+   "budget": {
+    "cold": 3,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-content-create",
+   "plugin": "atlanai",
+   "skill": "atlan-content",
+   "title": "Store a small text file",
+   "route": "Workspace, inline create (schema only after a refusal), read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "user_default"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "file",
+       "content": "<= 64 KiB"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<new>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "file",
+       "content": "<= 64 KiB"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<new>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-publish-skill",
+   "plugin": "atlanai",
+   "skill": "atlan-author-skills",
+   "title": "Publish a new one-file skill",
+   "route": "Search for an existing one, pick the workspace, create with wait_for_release",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "skill",
+       "query": "<words>",
+       "limit": 3
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "limit": 1
+      }
+     },
+     {
+      "tool": "extension__skill__create",
+      "runner": "call_tool",
+      "args": {
+       "wait_for_release": true,
+       "idempotency_key": "<name>-<8>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "skill",
+       "query": "<words>",
+       "limit": 3
+      }
+     },
+     {
+      "tool": "extension__skill__create",
+      "runner": "call_tool",
+      "args": {
+       "wait_for_release": true,
+       "idempotency_key": "<name>-<8>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "warm_note": "Warm: a second skill in the same session; the workspace is known.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-register-agent",
+   "plugin": "atlanai",
+   "skill": "atlan-author-agents",
+   "title": "Register an agent and link the skill it uses",
+   "route": "Find it by source and workspace, create, relate; the relate result is the edge",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "agent",
+       "query": "<name>"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "user_default"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "agent"
+      }
+     },
+     {
+      "tool": "registry__relate_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "relationship": "uses_skill"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "agent",
+       "query": "<name>"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "agent"
+      }
+     },
+     {
+      "tool": "registry__relate_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "relationship": "uses_skill"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 3
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-author-knowledge",
+   "plugin": "atlanai",
+   "skill": "atlan-author-knowledge",
+   "title": "Create a knowledge bundle",
+   "route": "Check for an existing bundle and the workspace, create, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "knowledge",
+       "query": "<topic>"
+      }
+     },
+     {
+      "tool": "extension__knowledge__create",
+      "runner": "call_write_tool",
+      "args": {
+       "files": "<inline>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<new>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__knowledge__create",
+      "runner": "call_write_tool",
+      "args": {
+       "files": "<inline>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<new>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-connect-repo",
+   "plugin": "atlanai",
+   "skill": "atlan-connect-repo",
+   "title": "Register a repository and bind its artifacts",
+   "route": "Register, relate the artifacts to it and report from each result; Git and CI steps run outside the gateway",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "user_default"
+      }
+     },
+     {
+      "tool": "extension__repo__register_repo",
+      "runner": "call_write_tool",
+      "args": {
+       "remote": "<origin>"
+      }
+     },
+     {
+      "tool": "registry__relate_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "relationship": "<source>"
+      }
+     }
+    ],
+    "warm": null
+   },
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "budget_note": "Crosses Git and CI: no useful fixed total.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-record-output",
+   "plugin": "atlanai",
+   "skill": "atlan-record-outputs",
+   "title": "Record a small text report as an output",
+   "route": "One publish_output call: the file, then the output and its edge, by source key",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__publish_output",
+      "runner": "call_write_tool",
+      "args": {
+       "source_id": "<source_id>",
+       "file": "<text>",
+       "edges": "used_skill"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__publish_output",
+      "runner": "call_write_tool",
+      "args": {
+       "source_id": "<source_id>",
+       "file": "<text>",
+       "edges": "used_skill"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 1,
+    "warm": 1
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-share",
+   "plugin": "atlanai",
+   "skill": "atlan-share",
+   "title": "Share a report with the team in Slack",
+   "route": "Look up an earlier share, publish_output, find the send tool, send after the user's yes",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "output",
+       "query": "<source_id>"
+      }
+     },
+     {
+      "tool": "registry__publish_output",
+      "runner": "call_write_tool",
+      "args": {
+       "source_id": "<source_id>",
+       "file": "<text>"
+      }
+     },
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "send a Slack message"
+      }
+     },
+     {
+      "tool": "slack__send_message",
+      "runner": "call_write_tool",
+      "args": {
+       "channel": "<agreed>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__publish_output",
+      "runner": "call_write_tool",
+      "args": {
+       "source_id": "<source_id>",
+       "file": "<text>"
+      }
+     },
+     {
+      "tool": "slack__send_message",
+      "runner": "call_write_tool",
+      "args": {
+       "channel": "<agreed>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 2
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-use-mcp-server",
+   "plugin": "atlanai",
+   "skill": "atlan-use-mcp-servers",
+   "title": "Read from a downstream server through the gateway",
+   "route": "Search the product's tool, call it",
+   "calls": {
+    "cold": [
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "read a Slack channel"
+      }
+     },
+     {
+      "tool": "slack__read_channel",
+      "runner": "call_read_tool",
+      "args": {
+       "channel": "<named>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "slack__read_channel",
+      "runner": "call_read_tool",
+      "args": {
+       "channel": "<named>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 2,
+    "warm": 1
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-troubleshoot-session",
+   "plugin": "atlanai",
+   "skill": "atlan-troubleshoot",
+   "title": "Recover from an expired session",
+   "route": "Open a new session once, repeat the read that failed",
+   "calls": {
+    "cold": [
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "<same task>"
+      }
+     },
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "skill",
+       "query": "<same>"
+      }
+     }
+    ],
+    "warm": null
+   },
+   "budget": {
+    "cold": 2,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-ask-governed",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics-ask",
+   "title": "Answer a number from a released metric",
+   "route": "One metric search across workspaces with one definition (opens the session), warehouse check, query",
+   "calls": {
+    "cold": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<terms>",
+       "definition_limit": 1,
+       "include_definition": true,
+       "semantic": true,
+       "definition_view": "compact"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement>"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<SELECT ... LIMIT>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "definition_limit": 1,
+       "semantic": true
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<SELECT ... LIMIT>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "targets": {
+    "max_kb": 20,
+    "gateway_calls_51_workspaces": [
+     4,
+     6
+    ],
+    "governed_metric_rank": 1
+   },
+   "measured": null
+  },
+  {
+   "id": "analytics-ask-ungoverned",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics-ask",
+   "title": "Answer with no published definition",
+   "route": "One metric search across workspaces, saved queries without SQL, then ad hoc SQL labelled not governed",
+   "calls": {
+    "cold": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<terms>",
+       "definition_limit": 1,
+       "include_definition": true,
+       "semantic": true,
+       "definition_view": "compact"
+      }
+     },
+     {
+      "tool": "extension__metric__search_queries",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "limit": 5,
+       "include_sql": false
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement>"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<SELECT ... LIMIT>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "definition_limit": 1,
+       "semantic": true
+      }
+     },
+     {
+      "tool": "extension__metric__search_queries",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "limit": 5,
+       "include_sql": false
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<SELECT ... LIMIT>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 3
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-connect-warehouse",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Find and prove the warehouse query tool",
+   "route": "Reuse the tool in state, else search Atlan for a SQL tool and run its check",
+   "calls": {
+    "cold": [
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "run a read-only SQL query on the data warehouse"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 2,
+    "warm": 1
+   },
+   "mode": "connect",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-bootstrap-metrics",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Bootstrap metrics and saved queries from query history",
+   "route": "Workspace, overlap check, batched creates, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "limit": 1
+      }
+     },
+     {
+      "tool": "registry__get_artifact_counts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "group_by": "kind"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "metric",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "sql_query",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "metric",
+       "workspace_id": "<ws>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "metric",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "metric",
+       "workspace_id": "<ws>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 5,
+    "warm": 2
+   },
+   "mode": "metrics",
+   "budget_note": "Shell needed; mining and checks run locally and are not counted.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-hand-author",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Hand-author a small metric set",
+   "route": "Workspace, one batched create, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "limit": 1
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "metric",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "metric",
+       "workspace_id": "<ws>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "metric",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "metric",
+       "workspace_id": "<ws>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "mode": "metrics",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-propose",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Propose a corrected metric to its owners",
+   "route": "Find the definition, read it, save the proposal",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "metric",
+       "query": "<measure>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<metric>"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "<proposal kind>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<metric>"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "<proposal kind>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "mode": "propose",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-build-agent",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Build an answering agent (preflight and registration)",
+   "route": "Preflight once per conversation, then register the agent; the phases between are gated by the user",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "limit": 1
+      }
+     },
+     {
+      "tool": "registry__get_kind_schema",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "metric"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "run a read-only SQL query on the data warehouse"
+      }
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement>"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "agent"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "agent"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "mode": "build",
+   "budget_note": "Phase-gated over hours; the preflight runs once per conversation.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-eval-publish",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Publish a 40-case eval (32 run, 2 reps)",
+   "route": "Scorer, dataset, records, experiment, 64 sessions in one bulk call, filled message batches, results, completion",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "scorer"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset_record",
+       "items": 40
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "experiment"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "session",
+       "items": 64
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "session_message",
+       "items": "<= 100, <= 256 KB"
+      },
+      "repeat": 5
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "experiment_result",
+       "items": 64
+      }
+     },
+     {
+      "tool": "registry__patch_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "experiment_status": "completed"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "experiment"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "session",
+       "items": 64
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "session_message",
+       "items": "<= 100, <= 256 KB"
+      },
+      "repeat": 5
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "experiment_result",
+       "items": 64
+      }
+     },
+     {
+      "tool": "registry__patch_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "experiment_status": "completed"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 12,
+    "warm": 9
+   },
+   "mode": "eval",
+   "targets": {
+    "message_steps": 5,
+    "publish_steps_after_T10": 8
+   },
+   "measured": null
+  },
+  {
+   "id": "analytics-improve",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics",
+   "title": "Adopt an agent and run one improve round",
+   "route": "Adopt by exact identity, then per round: a context change, an eval run and its publish",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<agent>"
+      }
+     },
+     {
+      "tool": "registry__get_related_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<agent>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<metric>"
+      }
+     },
+     {
+      "tool": "registry__append_artifact_version",
+      "runner": "call_write_tool",
+      "args": {
+       "artifact_id": "<metric>"
+      }
+     }
+    ],
+    "warm": null
+   },
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "mode": "improve",
+   "budget_note": "Each round adds an eval run and its publish.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-ontology-explain",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-ontology",
+   "title": "Explain an object and its joins",
+   "route": "Ontologies across workspaces (opens the session), app check and release in parallel, context, binding release and context",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "ontology"
+      }
+     },
+     {
+      "tool": "mcp__describe_tools",
+      "runner": "direct",
+      "args": {
+       "servers": [
+        "extension__ontology"
+       ]
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__get_kind_schema",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "ontology"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__list_releases",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<ontology>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__ontology__get_context",
+      "runner": "call_read_tool",
+      "args": {
+       "release_id": "<current>",
+       "query": "<object>"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "ontology_binding"
+      }
+     },
+     {
+      "tool": "registry__list_releases",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<binding>"
+      }
+     },
+     {
+      "tool": "extension__ontology__get_binding_context",
+      "runner": "call_read_tool",
+      "args": {
+       "release_id": "<latest>",
+       "query": "<object>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__ontology__get_context",
+      "runner": "call_read_tool",
+      "args": {
+       "release_id": "<current>",
+       "query": "<object>"
+      }
+     },
+     {
+      "tool": "extension__ontology__get_binding_context",
+      "runner": "call_read_tool",
+      "args": {
+       "release_id": "<latest>",
+       "query": "<object>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 8,
+    "warm": 2
+   },
+   "targets": {
+    "preflight_max_kb": 2
+   },
+   "measured": null
+  },
+  {
+   "id": "analytics-ontology-records",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-ontology",
+   "title": "Find the policy in force on a date",
+   "route": "Find the ontology, then records as of the date",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "ontology"
+      }
+     },
+     {
+      "tool": "extension__ontology__get_records",
+      "runner": "call_read_tool",
+      "args": {
+       "as_of": "<date>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__ontology__get_records",
+      "runner": "call_read_tool",
+      "args": {
+       "as_of": "<date>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 2,
+    "warm": 1
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-ontology-draft",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-ontology",
+   "title": "Draft an OWL ontology for Studio",
+   "route": "Target ontology; its release beside the released metrics and saved queries; existing context beside the schemas; import preview",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "ontology"
+      }
+     },
+     {
+      "tool": "registry__list_releases",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<ontology>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<domain>",
+       "include_definition": true,
+       "definition_limit": 2
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__metric__search_queries",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<domain>",
+       "limit": 5,
+       "include_sql": false
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__ontology__get_context",
+      "runner": "call_read_tool",
+      "args": {
+       "release_id": "<current>",
+       "query": "<domain>"
+      },
+      "group": "g2"
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<information_schema columns and keys>"
+      },
+      "group": "g2"
+     },
+     {
+      "tool": "extension__ontology__get_import_preview",
+      "runner": "call_read_tool",
+      "args": {
+       "document": "<turtle>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__ontology__get_import_preview",
+      "runner": "call_read_tool",
+      "args": {
+       "document": "<turtle>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 7,
+    "warm": 1
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "flow-review-15",
+   "plugin": "both",
+   "skill": null,
+   "title": "The flow review's 15-step live flow",
+   "route": "Connect, find metrics across 51 workspaces, ontology preflight, a governed ask, publish a 40-case eval",
+   "includes": [
+    "registry-get-started",
+    "analytics-ask-governed",
+    "analytics-ontology-explain",
+    "analytics-eval-publish"
+   ],
+   "calls": null,
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "targets": {
+    "ask_max_kb": 20,
+    "ask_gateway_calls_51_workspaces": [
+     4,
+     6
+    ],
+    "ontology_preflight_max_kb": 2,
+    "partial_searches": 0,
+    "eval_message_steps": 5,
+    "eval_publish_steps_after_T10": 8,
+    "governed_metric_rank": 1
+   },
+   "measured": null
+  }
+ ]
+}

@@ -3,12 +3,11 @@
 For binary content or text above the inline ceiling, content arrives out of band: reserve a destination, `PUT` the bytes there, then create a
 `file` artifact that names them.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
-`registry__get_kind_schema` before your first write to a kind.
+`registry__get_kind_schema` only after a write to a kind is refused.
 
 Uploads use the authenticated API host. Storage placement remains registry-owned. Do not copy
 connector credentials into tool arguments.
@@ -53,8 +52,9 @@ over-size upload is refused before the transfer rather than after it.
 
 Send the whole body, unencoded, with your **Authorization header**. `is_presigned` is `false`
 on today's gateway; if a server ever answers `true`, the URL carries its own authorization, so
-send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`). Resolve it against the API origin you
-called `registry__request_file_upload` on. A missing bearer returns 401.
+send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`):
+resolve it against the API origin you called `registry__request_file_upload` on. A missing bearer
+returns 401.
 
 Start the PUT within `expires_in_seconds` (900 seconds). Expired or unissued tickets return
 400 with instructions to request a fresh ticket. A transfer started in time may finish after

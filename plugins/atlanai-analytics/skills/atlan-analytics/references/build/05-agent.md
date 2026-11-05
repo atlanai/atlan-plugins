@@ -3,7 +3,8 @@
 The agent is both of these:
 - a **registered agent** in the workspace (the identity its sessions, traces and eval
   experiments hang off);
-- a **Claude Code subagent** `.claude/agents/<slug>.md` in the user's project (how it runs).
+- a host runner: a **Claude Code subagent** `.claude/agents/<slug>.md`, or the isolated
+  **Codex/Claude CLI runner** described in [host execution](../eval/hosts.md).
 
 ## 1. Propose the spec
 
@@ -11,7 +12,8 @@ Draft it from the brief:
 - `name`: the slug
 - `display_name`
 - `description`: one line on who it serves
-- `model`: default `claude-opus-5-5`, the current most capable model. Offer a cheaper model only
+- `model`: default to the most capable model the agent kind accepts, as its schema or the
+  workspace's model list names it, not a name assumed from this file. Offer a cheaper model only
   if the user asks about cost.
 - **System prompt**: fill in `skills/atlan-analytics/references/eval/agent-template.md` with the
   brief's audience, domain, out-of-scope list, the table scope, and the workspace name.
@@ -25,17 +27,29 @@ Show it, then ask:
 
 ## 2. Register it
 
-1. Call `registry__get_kind_schema` for `agent`. Required fields vary by deployment.
-2. Call `registry__create_artifact` with `kind` `agent`, `metadata.workspace_id` = the project
-   workspace, and the spec. `instructions` and `model_id` must be non-blank; omit a field
-   rather than sending an empty string. Keep the returned id as `ids.agent_id` in state.
-3. Link the context the agent relies on. Pin every rule skill it should always load in the
+1. Call `registry__create_artifact` with `kind` `agent`, `metadata.workspace_id` = the project
+   workspace, and the spec. Keep `instructions` non-blank. Supply `model_id` only when the
+   agent uses a fixed model; a host-selected model can omit it when the live schema permits.
+   Required fields vary by deployment: when the create is
+   refused over a property, fix the `field` it names (or read `registry__get_kind_schema` for
+   `agent` when it names none) and send it once more. Keep the returned id as
+   `ids.agent_id` in state.
+2. Link the context the agent relies on. Pin every rule skill it should always load in the
    agent's `skills` manifest (`[{"skill_id": "skill_…"}]`, in the create or a patch); the
    registry pins the current release and derives the `uses_skill` edge.
    Read back the manifest and fill the template's rule release id from that pin. Do not
    substitute the rule's discovery head if the pinned release cannot be resolved.
 
-## 3. Write the subagent file
+## 3. Choose the host runner
+
+In Codex, or when Claude's project subagent is unavailable, use
+[the question-only runner](../eval/hosts.md). Keep the registered agent ID, its approved
+instructions and the released context snapshot in the project. Set `runner` to
+`codex-question-only` or `claude-question-only`, then continue to smoke. No new MCP server
+or privileged host configuration is installed. The remaining file steps apply to Claude's
+Agent-tool runner only.
+
+### Write the Claude subagent file
 
 1. Discover the exact tool names this session exposes, as their full prefixed names. Don't
    hard-code prefixes. Read them from the session.
