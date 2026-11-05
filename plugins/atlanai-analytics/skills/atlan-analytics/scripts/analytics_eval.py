@@ -1226,7 +1226,6 @@ def cmd_compare(a) -> dict:
 # batch of tool calls, and `publish-ack` reads back what the registry returned. Trace spans have no
 # MCP write, so each case is published as a session with its full message list instead.
 BATCH = 100        # create_artifacts takes at most 100 items
-SESSION_BATCH = 20  # session creates per step: each needs its own create_artifact call
 BATCH_BYTES = 256 * 1024  # one create_artifacts call's items, as JSON: transcripts make messages large
 LIST_TOOLS = ("registry__list_artifacts", "registry__search_artifacts")
 
@@ -1414,15 +1413,17 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
         if a.baseline and exps.get(a.baseline):
             body["baseline_experiment_id"] = exps[a.baseline]
         return "experiment", [_create("experiment", body, _idem_key(ws, "experiment", name))], [name]
-    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:SESSION_BATCH]
+    # Every session in one create_artifacts call (the session batch hook takes 100), so a
+    # 64-run variant takes one step here rather than 64 single creates.
+    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:BATCH]
     if todo:
-        calls, names = [], []
+        items, names = [], []
         for r in todo:
             tag = _tag(r)
             conv = f"analytics-eval-{slug}-{V}-{tag}"
             turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
             u = r.get("usage") or {}
-            calls.append(_create("session", {
+            items.append({
                 "name": conv, "workspace_id": ws, "subject_kind": "agent", "subject_id": c["agent_id"],
                 "session_status": "completed" if r.get("answer") else "failed", "external_session_id": conv,
                 **({"model_id": r["model"]} if r.get("model") else {}),
@@ -1430,9 +1431,9 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                 "message_count": len(session_messages(r, turns)),
                 "stop_reason": "final_answer" if r.get("answer") else "no_answer",
                 "usage": {"input_tokens": int(u.get("input_tokens") or 0),
-                          "output_tokens": int(u.get("output_tokens") or 0)}}, _idem_key(ws, "session", conv)))
+                          "output_tokens": int(u.get("output_tokens") or 0)}})
             names.append(tag)
-        return "sessions", calls, names
+        return "sessions", [_create_many("session", items)], names
     # One create_artifacts call carries as many sessions' messages as fit, so a 40-case variant
     # takes a handful of steps rather than one step per session.
     items, names, size = [], [], 0
@@ -1493,7 +1494,9 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
 
 
 # Single creates carry idempotency keys and the completion patch is idempotent, so these can be resent.
-RESENDABLE = ("scorer", "dataset", "experiment", "sessions", "complete")
+# Batched steps (records, sessions, messages, results) are reconciled from a listing instead.
+RESENDABLE = ("scorer", "dataset", "experiment", "complete")
+BATCHED = ("records", "sessions", "messages", "results")
 STEP_KIND = {"scorer": "scorer", "dataset": "dataset", "records": "dataset_record", "experiment": "experiment",
              "sessions": "session", "messages": "session_message", "results": "experiment_result",
              "complete": "experiment"}
@@ -1527,9 +1530,7 @@ def cmd_publish(a) -> dict:
                 "results": len(pub.s["results"]), "traces": "sessions only: trace spans have no MCP write"}
     pub.s["pending"] = {"step": step, "names": names, "calls": len(calls), "at": now()}
     pub.save()
-    how = ("Send these calls as parallel tool calls in one turn (they do not depend on each other), then save "
-           "the results as a JSON list in the order of `calls`" if step == "sessions" and len(calls) > 1
-           else "Send each call in order, save the results as a JSON list")
+    how = "Send each call in order, save the results as a JSON list"
     return {"status": "ok", "step": step, "workspace_id": c["ws"], "calls": calls,
             "next": f"{how}, then run `publish-ack --variant {a.variant} --step {step} --responses <file>`."}
 
@@ -1553,7 +1554,8 @@ def cmd_publish_ack(a) -> dict:
         failed = {}
     else:
         resps = raw if isinstance(raw, list) else [raw]
-        if a.step in ("records", "messages", "results"):
+        # A sessions step an older release left pending sent one create_artifact call per session.
+        if a.step in BATCHED and not (a.step == "sessions" and pending.get("calls", 1) > 1):
             slots = _slots(resps[0] if resps else {})
             if len(slots) != len(names):
                 raise Blocked(f"Expected {len(names)} result slots, got {len(slots)}.",
@@ -1625,7 +1627,8 @@ def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
 # ====================================================================== selftest
 
 def _selftest_publish(pr: pathlib.Path) -> bool:
-    """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot and one lost step."""
+    """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot, one lost
+    single create (resent) and one lost batch (reconciled from a listing)."""
     proj = Proj(str(pr))
     proj.set_id("workspace_id", "workspace_t")
     proj.set_id("agent_id", "agent_t")
@@ -1642,7 +1645,7 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
                     sessions_only=False, resend=False, reconcile=False)
         return argparse.Namespace(**{**base, **kw})
 
-    calls_seen, failed_once, lost_once = [], False, False
+    calls_seen, failed_once, lost_once, reconciled = [], False, False, False
     for _ in range(40):
         out = cmd_publish(ns())
         if out.get("step") == "done":
@@ -1662,17 +1665,27 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
                 resps.append(made(kind))
             else:
                 resps.append({"id": call["arguments"]["artifact_id"]})
-        if step == "sessions" and not lost_once:
+        if step == "experiment" and not lost_once:
             lost_once = True
             if cmd_publish(ns()).get("status") != "BLOCKED":
                 return False
             if not cmd_publish(ns(resend=True)).get("resent"):
                 return False
+        if step == "sessions" and not reconciled:
+            reconciled = True
+            if cmd_publish(ns()).get("status") != "BLOCKED" or cmd_publish(ns(resend=True)).get("resent"):
+                return False  # a lost batch is never resent
+            call = out["calls"][0]
+            listing = {"items": [{"name": it["name"], "id": sl["artifact"]["id"]}
+                                 for it, sl in zip(call["arguments"]["items"], resps[0]["items"])]}
+            dump_json(resp_path, [listing])
+            cmd_publish_ack(ns(step=step, responses=str(resp_path), reconcile=True))
+            continue
         dump_json(resp_path, resps)
         cmd_publish_ack(ns(step=step, responses=str(resp_path)))
     pub = load_json(pr / "hillclimb" / "cited" / "publish.json")
     st = proj.state()["ids"]
-    return (out.get("step") == "done" and failed_once and lost_once and pub.get("completed")
+    return (out.get("step") == "done" and failed_once and lost_once and reconciled and pub.get("completed")
             and st.get("scorer_id") and st.get("eval_dataset_id") and st["experiments"]["cited"]
             and len(pub["results"]) == 1 and len(pub["sessions"]) == 1
             and all(t.startswith("registry__") for t in calls_seen))
