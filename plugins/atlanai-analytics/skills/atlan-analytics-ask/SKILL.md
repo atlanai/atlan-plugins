@@ -110,8 +110,8 @@ Lead with the answer in one or two sentences: the number, its definition and win
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
 - **Source**: each metric or saved query used, by name, with its release, then its id and
   release id in code (`metric_… · rel_…`, `sql_query_… · rel_…`), so Atlan can count the
-  answer toward it. Write the ids as they are, without explaining them; or **Not governed: no
-  published metric covers this**, followed by the formula and filters you assumed;
+  answer toward it; or **Not governed: no published metric covers this**, followed by the
+  formula and filters you assumed. Write the ids as they are, without explaining them;
 - **Caveats**: an unreviewed query, a partial window, an assumption about the question;
 - the SQL, only when the person asks to see it.
 
