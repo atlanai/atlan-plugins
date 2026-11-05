@@ -1,6 +1,6 @@
 ---
 name: atlan-troubleshoot
-description: Diagnose a failing, refused, missing or duplicated Atlan tool call - sign-in errors, refused sessions, generic 400s, 409 conflicts, rate limits, uploads that fail, files that will not read, servers stuck behind connect, or tools that appear twice. Use when any `atlan` MCP call errors or returns something unexpected.
+description: Diagnose a failing, refused or duplicated Atlan tool call, such as a sign-in error, a refused session, a 400, 409 or rate limit, a failed upload, a file that will not read or a server stuck behind connect. Use when any `atlan` MCP call errors or returns something unexpected.
 license: Apache-2.0
 ---
 
@@ -45,29 +45,11 @@ fixes it, without apology.
 | `403` "Only a project's Claw … can use the Claw session tools" | `extension__agent__session_read` and `session_list` serve a project's Claw, not a person's agent. Read a session through its traces instead (`atlan-continue`, step 2). |
 | JSON-RPC `-32003`, `rate_limited` | The organization's call budget is spent for the moment. Wait, then retry reads. Retry a write only by reusing its `idempotency_key` with identical arguments. |
 
-## Writes
+## Writes, uploads and content
 
-| Symptom | Cause and fix |
-|---|---|
-| A generic `400` or `422` `validation_failed` on create or update that names no field | A property is missing, unknown or out of range for the kind. Call `registry__get_kind_schema` and fix it. |
-| `409` creating a `file` | That `path` is taken in the workspace. Use a unique path, for example dated. |
-| `409` with `existing_artifact_id` from `extension__skill__create` | The bundle is byte-identical to the current version. Nothing to do. |
-| `409` on a skill name | A skill with that name has a different source identity. Reuse the existing skill's `workspace_id`, `source_type` and `source_id` to add a version, or pick another name. |
-| A batch call succeeded but items are missing | Batches report per slot. Read each slot and retry only the failed ones. |
-| `create_artifact_linked` created the artifact but not the edge | Fix the edge with `registry__relate_artifact` on the returned handle. Do not call it again. |
-| A relationship type is refused | Edges are declared by the source kind. An agent-to-skill edge is created from the agent (`uses_skill`), an output-to-skill edge from the output (`used_skill`). |
-
-## Uploads and content
-
-| Symptom | Cause and fix |
-|---|---|
-| `PUT` to `upload_url` returns `401` | `is_presigned` was `false`: that URL needs the user's bearer token, which an MCP sign-in does not hand to you. Tell the user the upload needs a direct API token. Never ask for one in chat. |
-| `PUT` returns `403` or the URL expired | Upload URLs expire (`expires_in_seconds`). Reserve a new one with `registry__request_file_upload`. |
-| `registry__get_file_content` refuses over the byte ceiling or as not UTF-8 | The tool returns text up to 256 KiB only. Say which file you could not read; do not guess its content. |
-| A skill has no `metadata.files` | Its `artifact_status` is `blocked`: it failed a security scan and its content is withdrawn. `registry__get_security_findings` says why: each finding's rule, file, lines and fix. |
-| A skill's `SKILL.md` answers `not found`, or lists `size_bytes: 0` | Its `artifact_status` is `pending_review`: that version waits for a reviewer and cannot be read until it is approved. |
-| A handle such as `out_…` answers `not found` | Outputs are `output_…`. Ask for the handle as the dashboard shows it rather than guessing another. |
-| `not found` on a file you just saw listed | The file is withdrawn, or the version you asked for is not readable. Pass the `file_version_ordinal` the manifest gave you. |
+A refused or incomplete create, update, relate, upload or file read (a `400`, `409` or
+`422`, a failed `PUT`, a file that will not read, a skill with no files): read
+`references/writes-and-uploads.md`, which has each symptom and its fix.
 
 ## MCP servers behind the gateway
 
