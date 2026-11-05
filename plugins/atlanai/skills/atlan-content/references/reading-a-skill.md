@@ -22,6 +22,10 @@ registry__get_file_content { "file_id": "file_01A", "version_ordinal": 3, ... }
 
   ... then, only if SKILL.md sends you there:
 registry__get_file_content { "file_id": "file_01C", "version_ordinal": 1, ... }
+
+  ... or, when it sends you to two references at once, both in one call:
+registry__get_artifact { "artifact_id": "skill_01m1pb66fxek99t3fxjv0mqeg2",
+                         "include_files": ["references/anti-patterns.md", "references/frameworks.md"], ... }
 ```
 
 Four files, ~39 KB. Reading all four costs about ten thousand tokens for material the entry
