@@ -3,7 +3,7 @@
 Goal: prove the agent answers end to end, and that its sessions appear in the registry.
 
 1. Pick three questions from the brief's samples. Never use eval cases.
-2. For each, spawn the subagent with the Agent tool: `subagent_type` = the slug, and a prompt
+2. For a question-only runner, follow [host runners](../eval/hosts.md) and retain its real transcript. Otherwise, for each, spawn the subagent with the Agent tool: `subagent_type` = the slug, and a prompt
    holding only the question. Run the three in parallel.
 3. For each result:
    - Parse the final JSON (`answer`, `sql`, `used_context_ids`). If the final message isn't

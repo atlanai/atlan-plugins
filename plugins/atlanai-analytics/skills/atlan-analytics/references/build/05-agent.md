@@ -3,7 +3,8 @@
 The agent is both of these:
 - a **registered agent** in the workspace (the identity its sessions, traces and eval
   experiments hang off);
-- a **Claude Code subagent** `.claude/agents/<slug>.md` in the user's project (how it runs).
+- a host runner: a **Claude Code subagent** `.claude/agents/<slug>.md`, or the isolated
+  **Codex/Claude CLI runner** described in [host execution](../eval/hosts.md).
 
 ## 1. Propose the spec
 
@@ -27,8 +28,9 @@ Show it, then ask:
 ## 2. Register it
 
 1. Call `registry__create_artifact` with `kind` `agent`, `metadata.workspace_id` = the project
-   workspace, and the spec. `instructions` and `model_id` must be non-blank; omit a field
-   rather than sending an empty string. Required fields vary by deployment: when the create is
+   workspace, and the spec. Keep `instructions` non-blank. Supply `model_id` only when the
+   agent uses a fixed model; a host-selected model can omit it when the live schema permits.
+   Required fields vary by deployment: when the create is
    refused over a property, read `registry__get_kind_schema` for `agent`, fix it and send it
    once more. Keep the returned id as `ids.agent_id` in state.
 2. Link the context the agent relies on. Pin every rule skill it should always load in the
@@ -37,7 +39,16 @@ Show it, then ask:
    Read back the manifest and fill the template's rule release id from that pin. Do not
    substitute the rule's discovery head if the pinned release cannot be resolved.
 
-## 3. Write the subagent file
+## 3. Choose the host runner
+
+In Codex, or when Claude's project subagent is unavailable, use
+[the question-only runner](../eval/hosts.md). Keep the registered agent ID, its approved
+instructions and the released context snapshot in the project. Set `runner` to
+`codex-question-only` or `claude-question-only`, then continue to smoke. No new MCP server
+or privileged host configuration is installed. The remaining file steps apply to Claude's
+Agent-tool runner only.
+
+### Write the Claude subagent file
 
 1. Discover the exact tool names this session exposes, as their full prefixed names. Don't
    hard-code prefixes. Read them from the session.
