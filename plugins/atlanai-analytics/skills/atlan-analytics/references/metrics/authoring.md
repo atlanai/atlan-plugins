@@ -96,8 +96,9 @@ Input: every proposal, grouped by table family (one worker per family). Output:
 
 Write `metrics.json` (one registry body per merged, declared or by-hand metric) and
 `queries.json` (one per kept shape). This file defines both bodies and `MINE check` enforces
-everything below. When a create is refused over a property, read `registry__get_kind_schema`
-for that kind once and follow it where it differs from this file.
+everything below. When a create is refused over a property, fix the `field` it names; when it
+names none, read `registry__get_kind_schema` for that kind once and follow it where it differs
+from this file.
 
 **A metric body:**
 - `name`: a slug.
