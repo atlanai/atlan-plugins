@@ -55,6 +55,9 @@ SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
 # Pads the catalogue to this many skills, the most recently changed of them about UI motion, so a
 # browse of the newest rows is a misleading sample of the whole.
 SKILLS = int(os.environ.get("ATLAN_EMULATOR_SKILLS") or 0)
+# Tools this connection leaves out, as a gateway older than them would: `registry__publish_output`
+# for one that predates it.
+HIDE_TOOLS = {t for t in os.environ.get("ATLAN_EMULATOR_HIDE_TOOLS", "").split(",") if t}
 
 # The data-catalog plugin named `atlan` (Anthropic's directory, atlanhq/agent-toolkit) serves
 # `https://mcp.atlan.com/mcp`: asset tools, no registry and no search mode.
@@ -164,7 +167,7 @@ def tool_server(name: str) -> str:
 
 def served_tools() -> list[dict]:
     """The tools this connection serves: the world's, less the hidden servers'."""
-    return [t for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE]
+    return [t for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE and t["name"] not in HIDE_TOOLS]
 
 
 def artifacts() -> dict:
@@ -522,6 +525,8 @@ def dispatch(name: str, a: dict) -> dict:
         return retrieve(a)
     if name == "registry__append_artifact_version":
         return append_version(a)
+    if name == "registry__publish_output":
+        return publish_output(a)
     if name == "registry__list_traces":
         return list_traces(a)
     if name == "registry__get_related_artifacts":
@@ -688,6 +693,109 @@ def append_version(a: dict) -> dict:
                   "version_ordinal": heads["version_ordinal"] + 1, "content": a.get("content", heads["content"])})
     return {"status": "created", "id": item["id"], "kind": "file", "version_ordinal": heads["version_ordinal"],
             "etag": heads["etag"], "path": item["metadata"]["path"]}
+
+
+PUBLISH_RESERVED = ("mode", "file_artifact_id", "file_version_ordinal", "external_url", "source_type", "source_id", "edges")
+
+
+def publish_output(a: dict) -> dict:
+    """`registry__publish_output` as the gateway answers it: the file by its source key
+    (appended, created, or unchanged when the text matches), then the output and its edges in one
+    commit. An output refused after its file was written is a success naming the saved file."""
+    meta = dict(a["metadata"])
+    reserved = next((k for k in PUBLISH_RESERVED if k in meta), None)
+    if reserved:
+        raise Refusal(400, "invalid_arguments", f"`metadata.{reserved}` is set by this tool from its own arguments; leave it out")
+    workspace = meta.get("workspace_id")
+    if not workspace:
+        raise Refusal(400, "invalid_arguments", "`metadata.workspace_id` is required")
+    given = [k for k in ("file", "file_pin", "external_url") if k in a]
+    if len(given) != 1:
+        raise Refusal(400, "invalid_arguments", "give exactly one of `file` (text to store), `file_pin` (bytes already "
+                      "uploaded) or `external_url` (a link)")
+    key = (workspace, a["source_type"], a["source_id"])
+
+    def holder(kind: str) -> dict | None:
+        return next((i for i in artifacts().values() if i["kind"] == kind
+                     and (i["workspace_id"], i.get("source_type"), i.get("source_id")) == key), None)
+
+    written = None
+    if "file" in a:
+        text = a["file"]["content"]
+        if not text or len(text.encode()) > 65536:
+            raise Refusal(400, "invalid_arguments", "`file.content` is 1 byte to 64 KiB of UTF-8 text; upload larger or "
+                          "binary content and pass `file_pin`")
+        live = holder("file")
+        if live:
+            current = head(live)
+            heads = state["heads"][live["id"]]
+            if heads["content"] == text:
+                written = (live["id"], current["version_ordinal"], "unchanged")
+            else:
+                heads.update({"etag": f'W/"v{heads["version_ordinal"] + 1}-pub"', "version_ordinal": heads["version_ordinal"] + 1,
+                              "content": text})
+                written = (live["id"], heads["version_ordinal"], "appended")
+        else:
+            handle = f"file_01evalpub{len(state['created']):014d}"
+            state["created"][handle] = {
+                "id": handle, "kind": "file", "name": a["file"].get("name") or meta.get("name"),
+                "display_name": a["file"]["path"], "description": None, "workspace_id": workspace, "artifact_status": "active",
+                "version_ordinal": 1, "etag": 'W/"v1-pub"', "source_type": key[1], "source_id": key[2],
+                "metadata": {"path": a["file"]["path"], "media_type": a["file"].get("media_type", "text/plain")},
+            }
+            state["heads"][handle] = {"etag": 'W/"v1-pub"', "version_ordinal": 1, "content": text}
+            WORLD["files"][handle] = {"path": a["file"]["path"], "media_type": a["file"].get("media_type", "text/plain"),
+                                      "content": text}
+            written = (handle, 1, "created")
+    file_view = {"file_artifact_id": written[0], "version_ordinal": written[1], "written": written[2]} if written else None
+    edges = a.get("edges") or []
+    refused = None
+    for edge in edges:
+        if edge.get("rel_type") != "used_skill":
+            refused = (422, "unprocessable", f"`{edge.get('rel_type')}` is not an edge type `output` declares; it declares used_skill")
+        elif edge.get("to_id") not in artifacts() or artifacts()[edge["to_id"]]["kind"] != "skill":
+            refused = (404, "not_found", "No such resource, or it is not visible to you.")
+        if refused:
+            break
+    if refused:
+        if written and written[2] != "unchanged":
+            return {"output": None, "file": file_view,
+                    "output_error": {"code": refused[1], "error": refused[2]},
+                    "committed": {"file": True, "output": False},
+                    "next_step": "The file was saved; the output and its edges were not. Fix what the error names and "
+                                 "call publish_output again with the same source key: it pins the saved file rather "
+                                 "than writing it again."}
+        raise Refusal(*refused)
+    if written:
+        meta |= {"mode": "upload", "file_artifact_id": written[0], "file_version_ordinal": written[1]}
+    elif "file_pin" in a:
+        meta |= {"mode": "upload", "file_artifact_id": a["file_pin"]["file_artifact_id"],
+                 "file_version_ordinal": a["file_pin"]["version_ordinal"]}
+    else:
+        meta |= {"mode": "link", "external_url": a["external_url"]}
+    meta |= {"source_type": key[1], "source_id": key[2]}
+    live = holder("output")
+    pin = ("file_artifact_id", "file_version_ordinal", "external_url")
+    if live and not edges and all(head(live)["metadata"].get(k) == meta.get(k) for k in pin):
+        # The same pin is no change: the registry's append answers the current version.
+        ordinal, handle = head(live)["version_ordinal"], live["id"]
+    elif live:
+        ordinal = head(live)["version_ordinal"] + 1
+        state["versions"][live["id"]] = {"version_ordinal": ordinal, "metadata": meta}
+        handle = live["id"]
+    else:
+        ordinal, handle = 1, f"output_01evalpub{len(state['created']):014d}"
+        state["created"][handle] = {
+            "id": handle, "kind": "output", "name": meta.get("name"), "display_name": meta.get("display_name", meta.get("name")),
+            "description": meta.get("description"), "workspace_id": workspace, "artifact_status": "active",
+            "version_ordinal": 1, "source_type": key[1], "source_id": key[2],
+            "metadata": {k: v for k, v in meta.items() if k in ("mode", "file_artifact_id", "file_version_ordinal", "external_url")},
+        }
+    WORLD["edges"].setdefault(handle, []).extend(
+        {"rel_type": e["rel_type"], "direction": "outgoing", "to": {"id": e["to_id"]}} for e in edges)
+    return {"output": {"id": handle, "kind": "output", "name": meta.get("name"), "workspace_id": workspace,
+                       "version_ordinal": ordinal, "artifact_status": "active", "metadata": meta},
+            "file": file_view, "edges": edges, "created": live is None}
 
 
 def call_tool(args: dict) -> dict:

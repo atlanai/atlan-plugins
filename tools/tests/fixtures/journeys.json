@@ -583,78 +583,34 @@
    "plugin": "atlanai",
    "skill": "atlan-record-outputs",
    "title": "Record a small text report as an output",
-   "route": "Look up its source key, file, linked output, read back",
+   "route": "One publish_output call: the file, then the output and its edge, by source key",
    "calls": {
     "cold": [
      {
-      "tool": "registry__search_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "output",
-       "query": "<source_id>"
-      }
-     },
-     {
-      "tool": "registry__create_artifact",
+      "tool": "registry__publish_output",
       "runner": "call_write_tool",
       "args": {
-       "kind": "file",
-       "content": "<text>"
-      }
-     },
-     {
-      "tool": "registry__create_artifact_linked",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "output",
-       "relationship": "used_skill"
-      }
-     },
-     {
-      "tool": "registry__get_artifact",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<output>"
+       "source_id": "<source_id>",
+       "file": "<text>",
+       "edges": "used_skill"
       }
      }
     ],
     "warm": [
      {
-      "tool": "registry__search_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "output",
-       "query": "<source_id>"
-      }
-     },
-     {
-      "tool": "registry__create_artifact",
+      "tool": "registry__publish_output",
       "runner": "call_write_tool",
       "args": {
-       "kind": "file",
-       "content": "<text>"
-      }
-     },
-     {
-      "tool": "registry__create_artifact_linked",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "output",
-       "relationship": "used_skill"
-      }
-     },
-     {
-      "tool": "registry__get_artifact",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<output>"
+       "source_id": "<source_id>",
+       "file": "<text>",
+       "edges": "used_skill"
       }
      }
     ]
    },
    "budget": {
-    "cold": 4,
-    "warm": 4
+    "cold": 1,
+    "warm": 1
    },
    "targets": null,
    "measured": null
@@ -664,7 +620,7 @@
    "plugin": "atlanai",
    "skill": "atlan-share",
    "title": "Share a report with the team in Slack",
-   "route": "Record it as above, find the send tool, send after the user's yes",
+   "route": "Look up an earlier share, publish_output, find the send tool, send after the user's yes",
    "calls": {
     "cold": [
      {
@@ -676,17 +632,11 @@
       }
      },
      {
-      "tool": "registry__create_artifact",
+      "tool": "registry__publish_output",
       "runner": "call_write_tool",
       "args": {
-       "kind": "output"
-      }
-     },
-     {
-      "tool": "registry__get_artifact",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<output>"
+       "source_id": "<source_id>",
+       "file": "<text>"
       }
      },
      {
@@ -706,10 +656,11 @@
     ],
     "warm": [
      {
-      "tool": "registry__create_artifact",
+      "tool": "registry__publish_output",
       "runner": "call_write_tool",
       "args": {
-       "kind": "output"
+       "source_id": "<source_id>",
+       "file": "<text>"
       }
      },
      {
@@ -722,7 +673,7 @@
     ]
    },
    "budget": {
-    "cold": 5,
+    "cold": 4,
     "warm": 2
    },
    "targets": null,
