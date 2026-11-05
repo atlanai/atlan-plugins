@@ -7,7 +7,8 @@ incomplete. Key on the error's `code` and status, as in `SKILL.md`.
 
 | Symptom | Cause and fix |
 |---|---|
-| A generic `400` or `422` `validation_failed` on create or update that names no field | A property is missing, unknown or out of range for the kind. Call `registry__get_kind_schema` and fix it. |
+| A `422` `validation_failed` on create or update that names a `field` | Fix that property (`allowed_values` lists the set when given) and send the call once more. Call `registry__get_kind_schema` only when the type or limit it takes is unclear. |
+| A `400` or `422` on create or update that names no field (`validation_failed` or `unprocessable`, from an older gateway) | A property is missing, unknown, the wrong type or out of range for the kind. Call `registry__get_kind_schema` and fix it. |
 | `409` creating a `file` | That `path` is taken in the workspace. Use a unique path, for example dated. |
 | `409` with `existing_artifact_id` from `extension__skill__create` | The bundle is byte-identical to the current version. Nothing to do. |
 | `409` on a skill name | A skill with that name has a different source identity. Reuse the existing skill's `workspace_id`, `source_type` and `source_id` to add a version, or pick another name. |

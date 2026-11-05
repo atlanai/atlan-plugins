@@ -31,8 +31,8 @@ Show it, then ask:
    workspace, and the spec. Keep `instructions` non-blank. Supply `model_id` only when the
    agent uses a fixed model; a host-selected model can omit it when the live schema permits.
    Required fields vary by deployment: when the create is
-   refused over a property, read `registry__get_kind_schema` for `agent`, fix it and send it
-   once more. Keep the returned id as `ids.agent_id` in state.
+   refused over a property, fix the `field` it names (or read `registry__get_kind_schema` for
+   `agent` when it names none) and send it once more. Keep the returned id as `ids.agent_id` in state.
 2. Link the context the agent relies on. Pin every rule skill it should always load in the
    agent's `skills` manifest (`[{"skill_id": "skill_…"}]`, in the create or a patch); the
    registry pins the current release and derives the `uses_skill` edge.
