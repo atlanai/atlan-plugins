@@ -1,6 +1,6 @@
 ---
 name: atlan-continue
-description: Catch up on and continue an Atlan artifact where someone left off - an output, skill, agent, knowledge bundle, file or other item named by its handle, usually handed over by an "Open in Claude", "Continue in" or "Copy agent prompt" button in the Atlan dashboard. Use when a prompt asks to continue, catch up on, open or resume something in Atlan and names a handle such as `output_…` or `skill_…`, as in `/atlanai:continue output_…` or the dashboard's "Catch me up on Atlan artifact … (output_…)".
+description: Catch up on and continue an Atlan artifact someone handed over, named by its handle. Use when a prompt asks to continue, catch up on, open or resume something in Atlan and names a handle, as in `/atlanai:continue output_…` or the dashboard's "Catch me up on Atlan artifact … (output_…)". Not for searching (atlan-find-artifacts).
 license: Apache-2.0
 user-invocable: false
 ---

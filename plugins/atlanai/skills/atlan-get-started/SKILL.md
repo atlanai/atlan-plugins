@@ -1,6 +1,6 @@
 ---
 name: atlan-get-started
-description: Connect to the Atlan registry, check the sign-in and show what the organization has, or route an Atlan request no other Atlan skill fits. Use when the user has just installed the plugin, asks whether they are connected or what they can do with Atlan, when the `atlan` MCP server's tools are missing, not signed in or are not the five search-mode tools. A request that another Atlan skill's description covers goes straight to that skill, without this one first.
+description: Connect to the Atlan registry, check the sign-in and show what the organization has. Use when the user has just installed the plugin, asks whether they are connected or what they can do with Atlan, or when the `atlan` tools are missing, signed out or not the five search-mode tools. Not for a task another Atlan skill covers, which goes straight to that skill.
 license: Apache-2.0
 user-invocable: false
 ---
