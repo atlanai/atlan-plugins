@@ -1,6 +1,6 @@
 ---
 name: atlan-find-artifacts
-description: Search and browse the Atlan registry for skills, agents, knowledge, MCP servers, files, outputs, datasets and other artifacts, and explain what each one is and how they relate. Use when the user asks what exists in Atlan, what a project or workspace holds, whether their organization already has a skill or agent for something, who owns an artifact, or what depends on it.
+description: Search and browse the Atlan registry for skills, agents, knowledge, MCP servers, files and outputs, and say how they relate. Use when the user asks what exists in Atlan, what a workspace or project holds, whether the organization already has a skill or agent for something, who owns an artifact or what depends on it.
 license: Apache-2.0
 ---
 

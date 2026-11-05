@@ -1,6 +1,6 @@
 ---
 name: atlan-author-agents
-description: "Register an agent in Atlan or update one: link an agent that lives in a repository with the skills it uses, register the coding tool running this session as a harness, or prepare an agent's private runtime credential. Use when the user wants to add, register, catalogue or update an agent in Atlan, record which skills an agent uses, or issue an agent's runtime credential. Not for publishing skills (atlan-author-skills) or setting up GitHub CI publication (atlan-connect-repo)."
+description: "Register or update an agent in Atlan: link a repository's agent and the skills it uses, register this coding tool as a harness, or prepare an agent's runtime credential. Use when the user wants to add, register or update an agent in Atlan or record its skills. Not for publishing skills (atlan-author-skills) or GitHub CI publication (atlan-connect-repo)."
 license: Apache-2.0
 ---
 
