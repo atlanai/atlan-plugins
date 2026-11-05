@@ -11,11 +11,13 @@ import os
 from pathlib import Path
 import re
 import sys
+from contextlib import nullcontext
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "dashboard_runtime"))
 from trident.core import Service, clean, digest, require
 from trident.contracts import SCHEMAS, DESCRIPTIONS, validate
 from trident.evaluation import validation_status, readiness, usable_metric
+from dashboard_errors import FlowError, public_error
 
 
 def load(path):
@@ -86,12 +88,30 @@ def prepare_context(service, job_id, destination):
 
 
 def run(args):
+    if args.command in ('start', 'status', 'stage-begin', 'stage-ack'):
+        from dashboard_run import Run
+        if not args.run_dir:
+            raise FlowError('invalid_request')
+        tracker = Run(args.run_dir)
+        if args.command == 'start':
+            return tracker.start(args.url)
+        if args.command == 'status':
+            return tracker.status()
+        if args.command == 'stage-begin':
+            return tracker.begin_stage(args.stage, load(args.request))
+        return tracker.acknowledge(args.stage, load(args.receipt))
     if args.command == "schema":
         require(args.operation in SCHEMAS, "Unknown dashboard operation.")
         return {"name": args.operation, "description": DESCRIPTIONS[args.operation], "inputSchema": SCHEMAS[args.operation]}
     service = Service(args.workspace)
     if args.command == "call":
         payload = load(args.request)
+        if args.run_dir:
+            from dashboard_run import Run
+            job = Run(args.run_dir).manifest()['job_id']
+            if args.operation == 'dashboard_begin' or payload.get('job_id', job) != job:
+                raise FlowError('run_mismatch')
+            payload['job_id'] = job
         validate(args.operation, payload)
         return service.dispatch(args.operation, payload)
     if args.command == "prepare-context":
@@ -131,21 +151,29 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace", default=str(Path.home() / ".trident/dashboard-jobs"))
+    parser.add_argument('--run-dir', help='One private dashboard run directory; overrides the legacy workspace.')
     commands = parser.add_subparsers(dest="command", required=True)
+    start = commands.add_parser('start')
+    start.add_argument('--url', required=True)
+    commands.add_parser('status')
+    for name in ('stage-begin', 'stage-ack'):
+        stage = commands.add_parser(name)
+        stage.add_argument('--stage', choices=['agent', 'heldout_eval'], required=True)
+        stage.add_argument('--request' if name == 'stage-begin' else '--receipt', required=True)
     schema = commands.add_parser("schema")
     schema.add_argument("operation", choices=SCHEMAS)
     call = commands.add_parser("call")
     call.add_argument("operation", choices=SCHEMAS)
     call.add_argument("--request", required=True)
     context = commands.add_parser("prepare-context")
-    context.add_argument("--job", required=True)
-    context.add_argument("--context", required=True)
+    context.add_argument("--job")
+    context.add_argument("--context")
     inspect = commands.add_parser("registry-inspect")
     inspect.add_argument("--target", required=True)
     inspect.add_argument("--output", required=True)
     for name in ("registry-plan", "registry-next", "registry-ack", "registry-recover"):
         sub = commands.add_parser(name)
-        sub.add_argument("--context", required=True)
+        sub.add_argument("--context")
         if name == "registry-plan":
             sub.add_argument("--snapshot", required=True)
         elif name == "registry-next":
@@ -153,14 +181,47 @@ def main():
         else:
             sub.add_argument("--receipt", required=True)
     args = parser.parse_args()
+    operation = args.command + ':' + getattr(args, 'operation', '')
+    tracker = None
     try:
-        result = run(args)
+        if args.run_dir:
+            from dashboard_run import Run
+            tracker = Run(args.run_dir)
+            args.workspace = str(tracker.jobs)
+            if hasattr(args, 'context'):
+                if args.context and Path(args.context).absolute() != tracker.context:
+                    raise FlowError('run_mismatch')
+                args.context = str(tracker.context)
+            if hasattr(args, 'job'):
+                job = tracker.manifest()['job_id']
+                if args.job and args.job != job:
+                    raise FlowError('run_mismatch')
+                args.job = job
+        if args.command == 'prepare-context' and (not args.job or not args.context):
+            raise FlowError('invalid_request')
+        if args.command.startswith('registry-') and args.command != 'registry-inspect' and not args.context:
+            raise FlowError('invalid_request')
+        with tracker.store.lock() if tracker else nullcontext():
+            result = run(args)
+            if tracker and tracker.path.exists() and args.command not in ('start', 'status', 'schema'):
+                if result.get('status') not in ('error', 'needs_attention', 'BLOCKED'):
+                    tracker.resolve_issue(operation)
+                progress = tracker.status()['workflow']
+                result['workflow'] = progress
+                if 'registry_status' in result:
+                    result['registry_status'] = progress['publication']['state']
         print(json.dumps(result, allow_nan=False))
-        return 2 if result.get("status") == "error" else 0
-    except (ValueError, OSError, KeyError, TypeError):
-        # Payloads and filesystem errors may contain SQL or private source values.
-        print(json.dumps({"status": "BLOCKED", "reason": "Dashboard operation could not be completed.",
-                          "fix": "Check the command schema and saved job; preserve the input and retry only after resolving the cause."}))
+        return 2 if result.get("status") in ('error', 'needs_attention', 'BLOCKED') else 0
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        result = public_error(exc)
+        result['operation'] = operation
+        if tracker:
+            try:
+                with tracker.store.lock():
+                    tracker.issue(result)
+            except (ValueError, OSError, KeyError, TypeError):
+                pass
+        print(json.dumps(result))
         return 2
 
 
