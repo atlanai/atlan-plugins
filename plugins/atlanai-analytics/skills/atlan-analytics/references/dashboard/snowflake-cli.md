@@ -41,7 +41,9 @@ Repeated connects with unchanged scope reuse the successful probe.
 
 ## Execute and resume
 
-`dashboard_snowflake_execute` executes stored metric SQL with its exact context. Parameters
+`dashboard_snowflake_execute` executes stored metric SQL with its exact context. For checks,
+pass `purpose:validation`, `case_id` and `plan_generation` from `dashboard_next_check`, including
+repair reruns. Ordinary questions use the default answer purpose and require a usable metric. Parameters
 are typed Snowflake Scripting variables used by `EXECUTE IMMEDIATE ... USING`; `-D`
 substitution is disabled. Only bounded read-only SELECT statements and supported functions
 are admitted. Use this adapter for supplemental queries too, with the resolved connection;

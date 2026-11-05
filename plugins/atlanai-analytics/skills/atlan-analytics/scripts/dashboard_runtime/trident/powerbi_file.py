@@ -29,7 +29,7 @@ def inspect_file(path):
     if not inventory.get('model_metadata_available'):
         reason=inventory.get('binary_status')
         if reason:
-            raise ValueError('Binary model could not be decoded ('+str(reason)+'). Use a compatible model export or bulk metadata query; do not infer measures from visuals.')
+            raise ValueError('Local PBIX extraction failed. Check the file and installed parser; existing job state is unchanged.')
         raise ValueError('This file has no embedded readable model. Retrieve the linked semantic model through the existing authorized connection.')
     return inventory
 

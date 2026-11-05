@@ -13,7 +13,9 @@ from pathlib import Path
 
 
 class CLIError(ValueError):
-    pass
+    def __init__(self, message, code=None):
+        self.code = code
+        super().__init__(message)
 
 
 class ConnectionPaused(CLIError):

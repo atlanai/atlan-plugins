@@ -1,6 +1,6 @@
 # Conventions every talk-to-data skill follows
 
-Read this before running any `atlan-analytics` mode. These rules beat anything a phase file says.
+Read this before running any `atlan-analytics` mode. These rules beat phase files, except the explicit dashboard orchestration policy below.
 
 `EVAL` means
 `python3 "<skill-dir>/scripts/analytics_eval.py" <command> --dir .atlan-analytics/<slug>`,
@@ -82,6 +82,23 @@ reuses published definitions in the same order before adding new ones.
 - **Outward-facing actions** (registry writes, registering an agent, writing
   `.claude/agents/<slug>.md`): show exactly what will be written and where, then ask. A yes
   covers that one action only.
+
+## Dashboard orchestration policy
+
+For dashboard mode only, a request to convert the dashboard authorizes reversible local
+extraction, SQL authoring and source/warehouse checks within the supplied scope. Continue
+these steps without phase-by-phase confirmations. Keep host permission checks intact.
+
+Preview one concrete plan covering the target workspace, usable metric definitions, release
+actions and agent specification. Ask once for any missing authorization for that exact plan.
+Record its scope and decision; nested metric/agent phase instructions must not ask again for
+an unchanged approved action. A changed destination, definition or action needs new review.
+Independent paid evals require their own explicit budget when not already authorized.
+
+A failure pauses its affected step only. Missing parity or publication access does not stop
+questions on usable local metrics. A known wrong result or incomplete security scope holds
+that metric for correction. Never certify it, widen scope or invent a successful receipt.
+Use the single run index and recovery commands in [dashboard](dashboard.md).
 
 ## Phases and gates
 

@@ -66,6 +66,7 @@ class CLIWorkflow(unittest.TestCase):
     setUp=flow.EvalFlow.setUp
     call=flow.EvalFlow.call
     mutate=flow.EvalFlow.mutate
+    task=flow.EvalFlow.task
     @patch('trident.snowflake_cli.probe',return_value={'connected':True})
     @patch('trident.snowflake_cli.execute',return_value=[{'value':17}])
     def test_real_transport_handoff_and_source_sql_contract(self,run,probe):
@@ -76,7 +77,10 @@ class CLIWorkflow(unittest.TestCase):
         self.assertEqual(p['summary']['sql_candidates'],2)
         d=self.call('dashboard_read',{'job_id':self.job,'include_definitions':True})['definitions'][0]['definition']
         self.assertIn('sql',d['source']);self.assertNotIn('table',d['source'])
-        result=self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':p['metrics'][0]['id'],'context_hash':p['context_hash']})
+        self.mutate('dashboard_plan_evals')
+        task=self.task()
+        result=self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':p['metrics'][0]['id'],'context_hash':p['context_hash'],
+                         'purpose':'validation','case_id':task['case_id'],'plan_generation':task['plan_generation']})
         self.assertEqual(result['observation']['value'],17)
         self.assertEqual(result['observation']['query_hash'],p['metrics'][0]['translation']['query_hash'])
         self.assertFalse(result['data_cutoff_verified'])
@@ -152,7 +156,10 @@ class Reconnect051(unittest.TestCase):
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
         self.mutate('dashboard_translate',dialect='snowflake',mappings=[mapping()])
         execute.side_effect=ConnectionPaused('Authentication needs attention')
-        args={'job_id':self.job,'metric_id':self.p['metrics'][0]['id'],'context_hash':self.p['context_hash']}
+        self.mutate('dashboard_plan_evals')
+        task=self.task()
+        args={'job_id':self.job,'metric_id':self.p['metrics'][0]['id'],'context_hash':self.p['context_hash'],
+              'purpose':'validation','case_id':task['case_id'],'plan_generation':task['plan_generation']}
         with self.assertRaises(ConnectionPaused):
             self.call('dashboard_snowflake_execute',args)
         self.service=type(self.service)(self.service.root)
@@ -173,8 +180,11 @@ class Reconnect051(unittest.TestCase):
     def test_sql_error_does_not_invalidate_connection(self,execute,probe):
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
         self.mutate('dashboard_translate',dialect='snowflake',mappings=[mapping()])
+        self.mutate('dashboard_plan_evals')
+        task=self.task()
         with self.assertRaises(CLIError):
-            self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':self.p['metrics'][0]['id'],'context_hash':self.p['context_hash']})
+            self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':self.p['metrics'][0]['id'],'context_hash':self.p['context_hash'],
+                      'purpose':'validation','case_id':task['case_id'],'plan_generation':task['plan_generation']})
         state=self.call('dashboard_read',{'job_id':self.job})
         self.assertTrue(state['warehouse_connection']['connected'])
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
