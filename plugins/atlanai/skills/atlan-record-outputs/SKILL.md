@@ -17,17 +17,15 @@ together in one turn. A create names its `workspace_id`: the one the user names,
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
 a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines, and ask before every write.
 
-- **Register a deliverable:** [recording](references/record.md).
+- **Register a deliverable or publish its next version:** [recording](references/record.md).
 - **Choose upload or link mode:** [mode rules](references/output-modes.md).
-- **Publish another version:** [recording](references/record.md#publishing-a-new-version).
 
-Give the file and the output the same source key (`source_type` and `source_id`, see
-[recording](references/record.md#the-source-key)), so recording the same deliverable again
-appends a version instead of creating a second output.
-
-A new version is one route: append the new bytes to the earlier output's file, then create
-the output again with the same source key and the new file ordinal; the registry makes it
-the next version under the same handle. Only an output recorded without a source key is
-appended to directly, with its head ETag. Pin exact file ordinals in upload mode; read the
-result back. If an edge write fails after creation, repair that edge using the returned ID
-instead of creating again.
+Record with one call, `registry__publish_output`: the output's `metadata` (`name`,
+`workspace_id`, producer fields), a source key (`source_type` and `source_id`, see
+[recording](references/record.md#the-source-key)), and exactly one of `file` (text up to
+64 KiB), `file_pin` (a file already uploaded) or `external_url`, plus `edges` such as
+`used_skill`. It writes the file, then the output and its edges together. The same call with the
+same source key publishes the next version, and unchanged text writes no new file version, so
+there is nothing to look up first. When it answers `output: null` with `output_error`, the
+file was saved: fix what the error names and send the same call again. When the gateway answers
+that the tool does not exist, follow [the older route](references/record.md#when-publish_output-is-not-served).
