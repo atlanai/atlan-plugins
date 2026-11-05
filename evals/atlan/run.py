@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the `atlanai` plugin's evals against the gateway emulator.
 
-    python3 evals/atlan/run.py [--plugin plugins/atlanai] [-- <claude plugin eval options>]
+    python3 evals/atlan/run.py [--plugin plugins/atlanai] [--baseline] [-- <claude plugin eval options>]
 
 `claude plugin eval` mocks cannot stand in for the Atlan gateway (its tool names contain `__`,
 which a mock's name may not), so this copies the plugin to a temporary folder, points its
@@ -9,7 +9,12 @@ which a mock's name may not), so this copies the plugin to a temporary folder, p
 runs `claude plugin eval` on the copy with real servers on. Results land in
 evals/atlan/results/. Each case is a full Claude Code run on your own credential: it costs
 money and is not part of `make check`. `--plugin` evaluates another checkout of the plugin,
-for a before-and-after comparison.
+for a before-and-after comparison. `--baseline` adds a no-plugin arm (`--ablation
+with-without`): each case runs again without the plugin, and the summary prints both scores,
+so a skill that does no better than no skill at all shows up. Run it before a release.
+
+Cases tagged `negative` are prompts the plugin must leave alone: no Atlan skill loads and no
+Atlan tool is called. They keep shorter descriptions from widening what the skills claim.
 
 A case that needs the emulator in another state carries an `emulator.json` beside its
 `case.yaml`:
@@ -92,6 +97,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--plugin", default=str(ROOT / "plugins" / PLUGIN), help="the plugin folder to evaluate")
     parser.add_argument("--label", default="", help="a name for this run's results folder")
+    parser.add_argument("--baseline", action="store_true", help="also run every case without the plugin")
     parser.add_argument("extra", nargs="*", help="options passed to `claude plugin eval`, after --")
     args = parser.parse_args()
 
@@ -107,14 +113,14 @@ def main() -> int:
     for number, (settings, cases) in enumerate(selected.values()):
         group_out = out if len(selected) == 1 else out / f"group-{number}"
         group_out.mkdir(exist_ok=True)
-        code = run_group(args.plugin, settings, cases, group_out, args.extra) or code
+        code = run_group(args.plugin, settings, cases, group_out, args.extra, args.baseline) or code
         results.append(group_out / "result.json")
     for path in results:
         summarize(path)
     return code
 
 
-def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: list[str]) -> int:
+def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: list[str], baseline: bool = False) -> int:
     name = settings.get("plugin_name", PLUGIN)
     with tempfile.TemporaryDirectory(prefix="atlan-eval-") as tmp:
         plugin = Path(tmp) / name
@@ -137,7 +143,7 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
             "claude", "plugin", "eval", str(plugin),
             "--trust-plugin", "--mocks", "off",
             "--allow-tools", tools_pattern(name), *settings.get("allow_tools", []), "Write",
-            "--ablation", "none", "--no-publish",
+            "--ablation", ablation(baseline), "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
             "--output-dir", str(out), *without_case_filters(extra),
         ]
@@ -145,18 +151,37 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
         return subprocess.run(command, check=False).returncode
 
 
-def summarize(path: Path) -> None:
-    if not path.is_file():
-        return
-    data = json.loads(path.read_text(encoding="utf-8"))
-    print(f"\noverall {data['aggregates'].get('overallScore', 0):.2f}, "
-          f"{data['aggregates'].get('casesPassed', 0)}/{data['aggregates'].get('casesTotal', 0)} cases passed")
-    for case in data.get("cases", []):
+def ablation(baseline: bool) -> str:
+    """`claude plugin eval`'s arms: the plugin alone, or the plugin and a no-plugin baseline."""
+    return "with-without" if baseline else "none"
+
+
+def arm_score(runs: list[dict]) -> float:
+    return sum(r.get("score", 0) for r in runs) / max(len(runs), 1)
+
+
+def summary_lines(data: dict) -> list[str]:
+    """One line for the run, then one per case: its score, the baseline's when there is one, and
+    the graders and errors that failed."""
+    cases = data.get("cases", [])
+    baseline = any(case.get("arms", {}).get("without") for case in cases)
+    aggregates = data.get("aggregates", {})
+    lines = [f"overall {aggregates.get('overallScore', 0):.2f}, "
+             f"{aggregates.get('casesPassed', 0)}/{aggregates.get('casesTotal', 0)} cases passed"
+             + (", second column is the no-plugin baseline" if baseline else "")]
+    for case in cases:
         runs = case["arms"]["with"]
         failed = sorted({g["name"] for r in runs for g in r.get("graders", []) if not g.get("passed")})
         errors = sorted({r["error"] for r in runs if r.get("error")})
-        score = sum(r.get("score", 0) for r in runs) / max(len(runs), 1)
-        print(f"  {score:4.2f}  {case['name']:<30} {', '.join(failed + errors)}")
+        without = f"  {arm_score(case['arms']['without']):4.2f}" if case["arms"].get("without") else ("     -" if baseline else "")
+        lines.append(f"  {arm_score(runs):4.2f}{without}  {case['name']:<30} {', '.join(failed + errors)}")
+    return lines
+
+
+def summarize(path: Path) -> None:
+    if not path.is_file():
+        return
+    print("\n" + "\n".join(summary_lines(json.loads(path.read_text(encoding="utf-8")))))
 
 
 if __name__ == "__main__":
