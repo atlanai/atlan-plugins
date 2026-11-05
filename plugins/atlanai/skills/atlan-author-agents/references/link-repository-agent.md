@@ -158,8 +158,9 @@ the evidence does not support rather than inventing one.
 
 Read workspaces with `registry__list_workspaces` and select the one the user
 named. If several writable workspaces remain plausible, ask one concise question.
-Never guess from a workspace name. If the first agent write is refused over a property, read
-`registry__get_kind_schema` for `agent`, fix it and send it once more.
+Never guess from a workspace name. If the first agent write is refused over a property, fix the
+`field` it names, or read `registry__get_kind_schema` for `agent` when it names none, and send
+it once more.
 
 For a local agent, use `atlan-connect-repo` to resolve the checkout's canonical remote to one `repo`
 artifact in the selected workspace. A Git-backed agent that CI publishes needs no separate
