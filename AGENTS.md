@@ -246,3 +246,32 @@ repository holds no variant of its own.
 
 Before a release that changes install or sign-in, install from a clean profile in each tool
 and run the first prompt in the README.
+
+## Security
+
+Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR checklist, is
+[docs/secure-coding.md](docs/secure-coding.md); reporting is in [SECURITY.md](SECURITY.md).
+
+- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`;
+  variant rewrites stay HTTPS (`tools/build.py`).
+- **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
+  tree, never through a link, never from a credential folder or key file, within 128 files and
+  256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
+  their counterparts in `claude-hooks/register.ts`).
+- **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
+  change all three together, with tests.
+- **[MUST]** A hook fails open to the call as sent, never to a wider one (`main` in
+  `publish_hook.py`, each handler's `.catch` in `register.ts`).
+- **[MUST]** `atlanai-mods` keeps archive, approve and move confirming, and refuses them where
+  nobody can answer (`ALWAYS_CONFIRM` in `plugins/atlanai-mods/hooks/registry.ts`).
+- **[MUST]** Add-ons and mods declare no MCP server and no `bin/`; hooks stay in the core's helper
+  and the mod (`lint_addon` and `lint_mod` in `tools/lint.py`).
+- **[REDLINE]** Skill or command text that tells an agent to read, print or send credentials, env
+  vars or files outside its task, or to call a non-Atlan server with Atlan data.
+- **[REDLINE]** A real token, handle or tenant name in any tracked file; the `SECRETS` scan in
+  `tools/lint.py` fails on credential shapes.
+
+Severity: CRITICAL and HIGH block merge; MEDIUM is flagged with a fix; LOW gets a brief note.
+Ask `#bu-security-and-it` before merging changes to `plugins/atlanai/command-hooks/`,
+`plugins/atlanai/claude-hooks/`, `check_bundle.py`, `plugins/atlanai-mods/hooks/`, the `[mcp]`
+table in `plugin.toml`, or `.github/workflows/`.
