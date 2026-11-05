@@ -1,6 +1,6 @@
 ---
 name: atlan-record-outputs
-description: Record a deliverable an agent produced as an Atlan output, by uploading its file or linking where it is hosted, and publish new versions of it. Use when the user wants a report, dashboard, document, dataset or other result of an agent run saved, registered or recorded in Atlan, or a recorded output updated. Not for sharing it with colleagues or posting it to Slack (atlan-share), uploading a file that no agent run produced (atlan-content) or finding outputs (atlan-find-artifacts).
+description: Record a deliverable an agent produced as an Atlan output, by uploading its file or linking where it is hosted, and publish new versions of it. Use when a report, dashboard, document or dataset from an agent run should be saved or recorded in Atlan. Not for sharing it with colleagues (atlan-share) or uploading a file no run produced (atlan-content).
 license: Apache-2.0
 ---
 

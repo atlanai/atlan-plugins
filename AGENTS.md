@@ -67,9 +67,11 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `make check` fails on a description without `Use when` or `Use for`. The description is the
   retrieval signal twice over: the harness matches requests against it, and the registry's
   search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
-  a task loads one skill, not `atlan-get-started` first. Keep `SKILL.md` under 500 lines and put
-  detail in `references/`. Teach decisions and point at live tools; do not paste reference data
-  that will go stale.
+  a task loads one skill, not `atlan-get-started` first. Every session carries every
+  description, so `make check` fails on one over 370 characters, and on a `SKILL.md` over 500
+  lines or 9 KiB. Keep the workflow in `SKILL.md` and move material only some requests need to
+  `references/`, each file cited with the condition for opening it. Teach decisions and point
+  at live tools; do not paste reference data that will go stale.
 - **Search mode is the default.** Owned skills show calls as `mcp__call_tool { "name", "arguments",
   "session_id", "rationale" }`. Vendored recipes use full-mode notation; `atlan-get-started`
   explains the translation.
@@ -176,7 +178,12 @@ data-catalog server in the plugin's place, or a skill already installed from
 `evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`
 with the emulator's environment switches; the runner groups cases by that file, one Claude Code
 run per group, because the emulator starts once per run. `make check` validates every case
-and sidecar.
+and sidecar. Cases tagged `negative` are prompts the plugin must leave alone (a rewrite, a sum,
+a code task, a question that only names a skill file): they fail if any Atlan skill loads or
+any Atlan tool is called, which keeps a description change from widening what a skill claims.
+`python3 evals/atlan/run.py --baseline` runs every case again without the plugin and prints
+both scores, so a case the plugin does not improve shows up; under the baseline, graders on
+the `Skill` tool count as a plugin-fired indicator rather than score.
 
 `tools/tests/fixtures/journeys.json` holds the golden journeys: the route each use case should
 take, cold (a new session) and warm (later in the same session), as the calls it makes and its
