@@ -1,6 +1,6 @@
 ---
 name: atlan-ontology
-description: "Use the organization's business ontology in Atlan: explain what a business object is and how it joins to others, with the tables each one is bound to; answer which policy, control or rule was in force on a date from governed records; or draft an ontology from warehouse tables, published metrics, documents or an OWL or SKOS file for a person to review and save in Ontology Studio. Use when a question names business entities, relationships, terminology or policies, or when someone wants to model their business before building metrics or a talk-to-data agent."
+description: "Use the organization's business ontology in Atlan: explain a business object, its joins and the tables bound to it, answer which policy or rule was in force on a date, or draft an ontology for review in Ontology Studio. Use when a question names business entities, relationships, terminology or policies, or someone wants to model their business."
 ---
 
 # Business ontology
