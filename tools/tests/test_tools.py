@@ -485,6 +485,15 @@ class SkillLintTest(unittest.TestCase):
         self.assertTrue(self.lint("a", f"---\nname: a\ndescription: {'x' * 1025}\n---\nbody\n"))
         self.assertTrue(self.lint("a", "---\nname: a\ndescription: Use <b>now</b>\n---\nbody\n"))
 
+    def test_an_owned_skill_keeps_its_description_short_and_its_skill_md_small(self) -> None:
+        long = "Use when testing. " + "x" * lint.MAX_OWNED_DESCRIPTION
+        errors = self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n")
+        self.assertTrue(any("max 370" in e for e in errors), errors)
+        self.assertEqual(self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n", owned=False), [])
+        big = "---\nname: a\ndescription: Use when testing.\n---\n" + "word " * (lint.MAX_SKILL_BYTES // 5)
+        errors = self.lint("a", big)
+        self.assertTrue(any("move material to references/" in e and "bytes" in e for e in errors), errors)
+
     def test_an_owned_skills_description_says_when_to_use_it(self) -> None:
         what_only = "---\nname: a\ndescription: Create and publish skill bundles.\n---\nbody\n"
         self.assertTrue(any("when to use the skill" in e for e in self.lint("a", what_only)))
