@@ -6,7 +6,8 @@ description: Set up governed metrics and saved queries from a warehouse, connect
 # Metrics and talk-to-data agents
 
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
-publication approval, privacy and status reporting.
+publication approval, privacy and status reporting. Every mode but `connect`, `ask` and
+`ontology` also reads [project conventions](references/project-conventions.md).
 
 This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
 Use the namespace of the installed skill throughout this run: `atlanai` for that bundle,
