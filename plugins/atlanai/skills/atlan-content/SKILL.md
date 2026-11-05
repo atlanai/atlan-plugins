@@ -1,6 +1,6 @@
 ---
 name: atlan-content
-description: Upload, read and version file content in Atlan, including small UTF-8 text, staged binary uploads and pinned skill files. Use when someone wants to put a file, document or dataset into Atlan, read a file or a skill's bundled files by handle, or add a new version of an existing file. Not for publishing a skill bundle (atlan-author-skills) or editing knowledge (atlan-author-knowledge).
+description: Upload, read and version file content in Atlan, including text, staged binary uploads and a skill's pinned files. Use when someone wants to put a file, document or dataset into Atlan, read a file or a skill's files by handle, or add a new version of a file. Not for publishing a skill (atlan-author-skills) or editing knowledge (atlan-author-knowledge).
 license: Apache-2.0
 ---
 

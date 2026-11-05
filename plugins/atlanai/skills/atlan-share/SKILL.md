@@ -1,6 +1,6 @@
 ---
 name: atlan-share
-description: Share something made in this session with colleagues through Atlan, and tell them in Slack. Records a report, document, notebook, dataset, HTML page or other result where the team can open it, then posts the hand-off to a channel or person. Use when the user says share, send, hand off or post this to their team, a colleague, a workspace or a Slack channel, or "share the new version". Not for publishing a skill folder (atlan-author-skills), recording a run's output with no audience in mind (atlan-record-outputs) or calling Slack for anything else (atlan-use-mcp-servers).
+description: Share a result from this session with colleagues through Atlan and tell them in Slack. Use when the user says share, send, hand off or post this to their team, a colleague or Slack, or "share the new version". Not for publishing a skill (atlan-author-skills), recording an output for no audience (atlan-record-outputs) or other Slack calls (atlan-use-mcp-servers).
 license: Apache-2.0
 user-invocable: false
 ---

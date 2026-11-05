@@ -1,6 +1,6 @@
 ---
 name: atlan-author-knowledge
-description: "Create or edit a knowledge bundle in Atlan, the organization's curated Markdown that agents read: a glossary, table and column documentation, metric definitions, runbooks or other reference notes. Use when the user wants to turn notes or documents into Atlan knowledge, add or change a term or concept in a bundle, or read a bundle in order to edit it. Not for uploading a single file (atlan-content) or finding what knowledge exists (atlan-find-artifacts)."
+description: Create or edit a knowledge bundle in Atlan, the curated Markdown agents read, such as a glossary, table docs or runbooks. Use when the user wants to turn notes into Atlan knowledge, change a term in a bundle, or read a bundle to edit it. Not for uploading a single file (atlan-content) or finding what knowledge exists (atlan-find-artifacts).
 license: Apache-2.0
 ---
 
