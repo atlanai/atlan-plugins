@@ -6,7 +6,8 @@
 The same setup as evals/atlan/run.py, with two differences. The plugin's `atlan` dependency is
 removed from the copy, because `claude plugin eval` loads one plugin and silently skips one whose
 dependency it cannot resolve. In its place the copy gets an `atlan` server pointed at the core
-plugin's emulator, which is the connection the dependency would have supplied. Results land in
+plugin's emulator, which is the connection the dependency would have supplied, with the Metrics
+and Ontology apps of the 5 November review's airline sandbox loaded (`ATLAN_EMULATOR_ANALYTICS`). Results land in
 evals/atlan-analytics/results/. Each case is a full Claude Code run on your own credential: it
 costs money and is not part of `make check`.
 """
@@ -51,7 +52,7 @@ def main() -> int:
         data.pop("dependencies", None)
         manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         server = {"type": "stdio", "command": sys.executable, "args": [str(EMULATOR)],
-                  "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl")}}
+                  "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), "ATLAN_EMULATOR_ANALYTICS": "1"}}
         (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n", encoding="utf-8")
         shutil.copytree(HERE / "cases", plugin / "evals")
         command = [

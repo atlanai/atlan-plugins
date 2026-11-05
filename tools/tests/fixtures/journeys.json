@@ -902,6 +902,70 @@
    "measured": null
   },
   {
+   "id": "analytics-ask-low-rank",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics-ask",
+   "title": "Answer when the right metric ranks low and no warehouse is registered",
+   "route": "One metric search (opens the session); then, together, the kept hit's definition by name and its workspace, and the warehouse search; no warehouse, so SQL to run and NEEDS_CONTEXT",
+   "calls": {
+    "cold": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<terms>",
+       "definition_limit": 1,
+       "include_definition": true,
+       "semantic": true,
+       "definition_view": "compact"
+      }
+     },
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "name": "<kept hit>",
+       "workspace_id": "<its workspace>",
+       "include_definition": true,
+       "definition_view": "compact"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "mcp__search_tools",
+      "runner": "direct",
+      "args": {
+       "query": "run a read-only SQL query on the data warehouse"
+      },
+      "group": "g1"
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "name": "<kept metric>",
+       "workspace_id": "<its workspace>",
+       "include_definition": true,
+       "definition_view": "compact"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 1
+   },
+   "targets": {
+    "max_kb": 24,
+    "governed_metric_rank": 8,
+    "turns_cold": 2
+   },
+   "warm_note": "The metric's workspace and the absence of a warehouse are held for the conversation, so a follow-up reads the definition by name and searches for nothing.",
+   "measured": null
+  },
+  {
    "id": "analytics-connect-warehouse",
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics",
@@ -1473,7 +1537,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-ontology",
    "title": "Find the policy in force on a date",
-   "route": "Find the ontology, then records as of the date",
+   "route": "Find the ontology, then records as of the date, 10 at a time",
    "calls": {
     "cold": [
      {
@@ -1487,7 +1551,9 @@
       "tool": "extension__ontology__get_records",
       "runner": "call_read_tool",
       "args": {
-       "as_of": "<date>"
+       "as_of": "<date>",
+       "limit": 10,
+       "query": "<one or two key words>"
       }
      }
     ],
@@ -1496,7 +1562,9 @@
       "tool": "extension__ontology__get_records",
       "runner": "call_read_tool",
       "args": {
-       "as_of": "<date>"
+       "as_of": "<date>",
+       "limit": 10,
+       "query": "<one or two key words>"
       }
      }
     ]
@@ -1505,7 +1573,9 @@
     "cold": 2,
     "warm": 1
    },
-   "targets": null,
+   "targets": {
+    "max_kb": 24
+   },
    "measured": null
   },
   {
