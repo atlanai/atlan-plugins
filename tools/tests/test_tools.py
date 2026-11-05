@@ -1134,6 +1134,29 @@ class EvalCasesTest(unittest.TestCase):
         self.assertEqual(self.runner.without_case_filters(["--runs", "1", "--case", "a", "--case", "b*", "-j", "4"]),
                          ["--runs", "1", "-j", "4"])
 
+    def test_negative_cases_forbid_every_atlan_skill_and_runner(self) -> None:
+        negative = [case for case in self.cases() if "tags: [negative," in (case / "case.yaml").read_text(encoding="utf-8")]
+        self.assertGreaterEqual(len(negative), 4)
+        for case in negative:
+            text = (case / "case.yaml").read_text(encoding="utf-8")
+            self.assertIn("atlan-[\\w-]+", text, case.name)
+            for runner in ("call_tool", "call_read_tool", "call_write_tool", "search_tools"):
+                self.assertIn(f"tool: mcp__plugin_atlanai_atlan__mcp__{runner}\n", text, f"{case.name}: {runner}")
+
+    def test_the_baseline_flag_adds_the_no_plugin_arm_and_the_summary_shows_it(self) -> None:
+        self.assertEqual(self.runner.ablation(False), "none")
+        self.assertEqual(self.runner.ablation(True), "with-without")
+        run = {"score": 1.0, "graders": [{"name": "plain-reply", "passed": True}]}
+        data = {"aggregates": {"overallScore": 0.75, "casesPassed": 1, "casesTotal": 2},
+                "cases": [{"name": "a", "arms": {"with": [run], "without": [{"score": 0.5}]}},
+                          {"name": "b", "arms": {"with": [{"score": 0.5, "graders": [{"name": "x", "passed": False}]}]}}]}
+        lines = self.runner.summary_lines(data)
+        self.assertIn("no-plugin baseline", lines[0])
+        self.assertRegex(lines[1], r"^  1\.00  0\.50  a ")
+        self.assertRegex(lines[2], r"^  0\.50     -  b +x$")
+        del data["cases"][0]["arms"]["without"]
+        self.assertNotIn("baseline", self.runner.summary_lines(data)[0])
+
     def test_the_runner_refuses_an_unknown_sidecar_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             case = Path(tmp) / "odd"
