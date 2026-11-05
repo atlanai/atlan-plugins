@@ -49,7 +49,7 @@ fixes it, without apology.
 
 | Symptom | Cause and fix |
 |---|---|
-| A `422` `validation_failed` on create or update | With `field`, fix that property (`allowed_values` lists the set when given). With no field, the value has the wrong type or the gateway is older: call `registry__get_kind_schema` and fix it. |
+| A `422` `validation_failed` on create or update | With `field`, fix that property (`allowed_values` lists the set when given). When it names no field (an older gateway), or the type or limit the field takes is unclear, call `registry__get_kind_schema` and fix it. |
 | `409` creating a `file` | That `path` is taken in the workspace. Use a unique path, for example dated. |
 | `409` with `existing_artifact_id` from `extension__skill__create` | The bundle is byte-identical to the current version. Nothing to do. |
 | `409` on a skill name | A skill with that name has a different source identity. Reuse the existing skill's `workspace_id`, `source_type` and `source_id` to add a version, or pick another name. |
