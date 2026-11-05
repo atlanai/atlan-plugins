@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-ask
-description: "Answer a data question now from the organization's published metrics and saved queries in Atlan, run against the warehouse: a single number, a trend, a segment comparison or what drove a change. Says which definition it used, labels an answer no published metric covers, and offers to propose the missing or corrected metric to its owners. Use for questions such as “what was revenue last quarter by region” or “why did weekly active users drop”, when no talk-to-data agent should be built."
+description: Answer a data question now from the organization's published metrics and saved queries in Atlan, run against the warehouse, and say which definition it used. Use for questions such as "what was revenue last quarter by region" or "why did weekly active users drop". Not for building a talk-to-data agent or setting up metrics (atlan-analytics).
 ---
 
 # Answer a data question from governed context
