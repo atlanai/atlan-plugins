@@ -87,7 +87,8 @@ the `source_id`, and continue from step 2 of a new version. The same `path` with
 key is a different file: give this one a distinct path, such as the `source_id`'s own path.
 
 Read the result: a `version_ordinal` above 1 on the output means an earlier share was updated,
-and the reply says so. A `400` or `422` that names no field means the metadata does not match the kind:
-read `registry__get_kind_schema` for that kind and fix it. A stale `if_match` means someone else
-added a version: read the file again and start the new version over. Any other refusal goes to
+and the reply says so. A `422` with `field` names the property to fix. A `400` or `422` that
+names no field means the metadata does not match the kind: read `registry__get_kind_schema` for
+that kind and fix it. A stale `if_match` means someone else added a version: read the file
+again and start the new version over. Any other refusal goes to
 `atlan-troubleshoot`; never retry a create with a new source key to get past it.
