@@ -41,13 +41,21 @@ folder name, under the folder the user's tool loads skills from:
 If the folder already holds a skill of that name, show the difference and ask before
 replacing it.
 
-Then, for **every** entry in `metadata.files`:
+Then read **every** other entry in `metadata.files` (`SKILL.md` already came back as
+`included_file` in the skill's step 2):
 
-1. Read it with `registry__get_file_content` (`file_id`, and `version_ordinal` set to the
-   entry's `file_version_ordinal`, so every file comes from the same version). `SKILL.md`
-   already came back as `included_file` in the skill's step 2, so it needs no second read. The reads do not depend
-   on each other: send them as parallel calls, up to 10 in one turn, not one file per turn.
-2. Write the returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
+1. Call `registry__get_artifact` on the same version with `include_files`, a list of up to 8
+   `path`s. Group the paths by the manifest's `size_bytes` so each call carries at most about
+   64 KiB: many hosts cut a long tool result short, and the gateway stops at 512 KiB. A bundle
+   that needs more calls sends them as parallel calls in one turn. Each file comes back in
+   `included_files`, in the order asked, at the version the manifest pins.
+2. An entry with `code: "budget_exceeded"` has no content: read it in a further call. An entry
+   with any other `error` is handled as **When a file will not come through** says.
+3. If `get_artifact` refuses `include_files`, the gateway predates it: read each file with
+   `registry__get_file_content` (`file_id`, and `version_ordinal` set to the entry's
+   `file_version_ordinal`), as parallel calls, up to 8 in one turn, and leave `include_files`
+   out for the rest of the session.
+4. Write each returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
    any path that is absolute or contains `..`.
 
 Before writing, show the user the file list. Point out any script (`*.sh`, `*.py`, `*.js`,
