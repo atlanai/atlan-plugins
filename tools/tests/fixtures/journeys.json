@@ -222,7 +222,7 @@
    "plugin": "atlanai",
    "skill": "atlan-use-skill",
    "title": "Install a skill with two reference files through MCP",
-   "route": "Manifest and SKILL.md together, then the other pinned files in parallel",
+   "route": "Manifest and SKILL.md together, then the other pinned files in one include_files read",
    "calls": {
     "cold": [
      {
@@ -234,28 +234,21 @@
       }
      },
      {
-      "tool": "registry__get_file_content",
+      "tool": "registry__get_artifact",
       "runner": "call_read_tool",
       "args": {
-       "file_id": "<ref 1>"
-      },
-      "group": "files",
-      "workaround_for": "T7"
-     },
-     {
-      "tool": "registry__get_file_content",
-      "runner": "call_read_tool",
-      "args": {
-       "file_id": "<ref 2>"
-      },
-      "group": "files",
-      "workaround_for": "T7"
+       "artifact_id": "<handle>",
+       "include_files": [
+        "<ref 1>",
+        "<ref 2>"
+       ]
+      }
      }
     ],
     "warm": null
    },
    "budget": {
-    "cold": 3,
+    "cold": 2,
     "warm": null
    },
    "targets": null,
