@@ -18,7 +18,7 @@ two ways to use one:
 
 Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
-`rationale`, on every later call. Replies lead with the result: the first sentence is the answer or the step, counts rather
+`rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Replies lead with the result: the first sentence is the answer or the step, counts rather
 than lists, handles only when asked, one next step rather than a menu, and no greeting,
 apology or closing offer.
 Whatever the skill says, ask before any credential use, external service setup or
@@ -113,7 +113,7 @@ loop). When it sends you to several at once, read them in one `registry__get_art
 with `include_files`. If the request did not say what to run the skill on, ask. Open the
 reply with the skill's first step or question, not a sentence saying the skill was loaded.
 
-**Check what the skill needs that the bundle does not carry.** **Check what the skill needs that the bundle does not carry.** A registry skill is often cut
+**Check what the skill needs that the bundle does not carry.** A registry skill is often cut
 from a larger plugin. When it relies on something not in `metadata.files` (a subagent, another
 skill or plugin, a command, a product's tools such as Linear, Slack or a warehouse, a CLI; its
 `metadata.frontmatter_metadata` often names them), read `references/dependencies.md` before

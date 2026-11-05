@@ -4,7 +4,8 @@ The SQL each skill sends, per warehouse. Every statement is read-only: a single 
 SHOW or DESCRIBE, with a LIMIT on anything that returns rows. Replace `<…>` slots before
 running.
 
-Read only the section for the recorded warehouse. Three topics live apart, because most runs
+Read only the section for the recorded warehouse, or for the dialect a metric names when none
+is recorded. Three topics live apart, because most runs
 never need them: [query history](warehouses/query-history.md) (metrics mode's pull, its
 fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) and
 [adding a server here](warehouses/add-server.md).
@@ -37,6 +38,20 @@ fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) 
   `https://<workspace-host>/api/2.0/mcp/sql`. When the server offers a read-only variant of its
   execute tool, record that one. If a result comes back as a pending statement, poll it with the
   server's own status tool before reading rows.
+
+## SQLite
+
+- **Check:** `select sqlite_version()`
+- **Find tables:** `select name, type from sqlite_master where type in ('table', 'view') order by name`
+- **Columns:** `select name, type from pragma_table_info('<table>')`
+- **Query history:** none; SQLite keeps no log of what ran. Use a declared model, a BI file or
+  an export.
+- **Names:** `table`, or `schema.table` for an attached database. Quote with `"…"`.
+- **Dates:** stored as text or numbers. Truncate with `strftime('%Y-%m-01', <col>)` or
+  `date(<col>, 'start of month')`, never `date_trunc`; shift with `date(<col>, '-7 days')`, never
+  `interval`. Divide with `1.0 * a / b`, since integer division truncates a rate to 0.
+- **Server:** no vendor-managed one. An Atlan admin registers the team's SQLite store as a
+  custom MCP server whose tool runs one read-only statement.
 
 ## Another warehouse
 

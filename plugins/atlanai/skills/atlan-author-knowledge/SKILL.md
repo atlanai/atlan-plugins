@@ -10,7 +10,7 @@ In search mode, the default, run each tool named here through the runner for wha
 (`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
-the session by sending `objective`. Send independent reads
+the session by sending `objective`. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads
 together in one turn. A create names its `workspace_id`: the one the user names, else
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
