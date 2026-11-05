@@ -26,6 +26,14 @@ and never touches the network: you make every registry write through the Atlan M
 - Don't read validation or holdout transcripts while choosing changes. That's the analyst's
   train-only job in `atlan-analytics improve`.
 
+## Host selection
+
+For Codex or Claude Code without a registered subagent, use [host runners](eval/hosts.md).
+The question-only runner replaces step 2.1 and produces the answer and transcript files.
+Its SQL is executed by the parent in step 2.4; all grading and publication steps stay the same.
+Report the runner alongside the score: this measures answering with a supplied released
+context snapshot, not the separate ability to retrieve that context from Registry.
+
 ## Procedure
 
 1. **Plan.** Run `EVAL todo --variant V --reps R [--ids all|train|validation|holdout]`. It
