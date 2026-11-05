@@ -1258,7 +1258,7 @@
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics",
    "title": "Publish a 40-case eval (32 run, 2 reps)",
-   "route": "Scorer, dataset, records, experiment, 64 sessions in parallel batches, filled message batches, results, completion",
+   "route": "Scorer, dataset, records, experiment, 64 sessions in one bulk call, filled message batches, results, completion",
    "calls": {
     "cold": [
      {
@@ -1291,40 +1291,12 @@
       }
      },
      {
-      "tool": "registry__create_artifact",
+      "tool": "registry__create_artifacts",
       "runner": "call_write_tool",
       "args": {
-       "kind": "session"
-      },
-      "group": "sessions-1",
-      "repeat": 20
-     },
-     {
-      "tool": "registry__create_artifact",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "session"
-      },
-      "group": "sessions-2",
-      "repeat": 20
-     },
-     {
-      "tool": "registry__create_artifact",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "session"
-      },
-      "group": "sessions-3",
-      "repeat": 20
-     },
-     {
-      "tool": "registry__create_artifact",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "session"
-      },
-      "group": "sessions-4",
-      "repeat": 4
+       "kind": "session",
+       "items": 64
+      }
      },
      {
       "tool": "registry__create_artifacts",
@@ -1360,40 +1332,12 @@
       }
      },
      {
-      "tool": "registry__create_artifact",
+      "tool": "registry__create_artifacts",
       "runner": "call_write_tool",
       "args": {
-       "kind": "session"
-      },
-      "group": "sessions-1",
-      "repeat": 20
-     },
-     {
-      "tool": "registry__create_artifact",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "session"
-      },
-      "group": "sessions-2",
-      "repeat": 20
-     },
-     {
-      "tool": "registry__create_artifact",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "session"
-      },
-      "group": "sessions-3",
-      "repeat": 20
-     },
-     {
-      "tool": "registry__create_artifact",
-      "runner": "call_write_tool",
-      "args": {
-       "kind": "session"
-      },
-      "group": "sessions-4",
-      "repeat": 4
+       "kind": "session",
+       "items": 64
+      }
      },
      {
       "tool": "registry__create_artifacts",
@@ -1422,16 +1366,14 @@
     ]
    },
    "budget": {
-    "cold": 75,
-    "warm": 72
+    "cold": 12,
+    "warm": 9
    },
    "mode": "eval",
    "targets": {
     "message_steps": 5,
     "publish_steps_after_T10": 8
    },
-   "budget_note": "Calls, not steps: session creates go out as parallel calls, and the review's T10 batched ingest would replace them.",
-   "workaround_for": "T10",
    "measured": null
   },
   {

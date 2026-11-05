@@ -120,9 +120,9 @@ their span views stay empty.
    The next `publish` resends only those items. Fix a named field before you resend; after
    three failures of the same item, stop and report it.
 4. **A lost result.** If a call's result never came back, `publish` refuses to go on. For
-   `scorer`, `dataset`, `experiment`, `sessions` and `complete`, run `EVAL publish --resend`
-   and send the same calls again: their idempotency keys return what already landed. For
-   `records`, `messages` and `results`, list that kind in the workspace with
+   `scorer`, `dataset`, `experiment` and `complete`, run `EVAL publish --resend` and send the
+   same calls again: their idempotency keys return what already landed. For `records`,
+   `sessions`, `messages` and `results`, each one bulk call, list that kind in the workspace with
    `registry__list_artifacts`, save the listing, and run `publish-ack --reconcile`. Never
    resend a batch blindly: it duplicates every item that worked.
 5. **Check it landed.** Open one session with `registry__get_artifact` and confirm its
