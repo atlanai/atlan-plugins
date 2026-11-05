@@ -1,0 +1,67 @@
+# Installing a registry skill
+
+Open this only when the user asked to install, add, download or keep a skill, and the skill's
+step 3 says this surface can hold the files. You have already read the artifact (step 2): its
+`artifact_status` is `active` and `metadata.files` is the pinned file list. Prefer aireg on the
+user's own computer; use the MCP route when aireg is missing or the user declines it.
+
+## With aireg
+
+aireg is Atlan's registry CLI. Its installer currently names the command `brain`; the two take
+the same commands. It verifies every file against the registry's digests and keeps a user-scope
+install current in the background, so prefer it for a lasting install on the user's computer.
+It is an upgrade, never a requirement.
+
+1. Check for it: `command -v aireg || command -v brain`. If neither is there, offer the
+   installer or the MCP route below, and wait for the user to choose. Offer the
+   installer as a download the user reads before running, never piped into a shell:
+   `curl -fsSL -o install.sh https://app.atlan.com/brain/cli/install.sh`, then `sh install.sh`.
+   Where the user's or their organization's rules forbid running downloaded installers, offer
+   only the MCP route. Never run the installer without a yes.
+2. Find the Atlan registry's local name: `aireg registry list -g --json`, the entry whose
+   source is `https://api.atlan.com`. If there is none, connecting the CLI is the user's own
+   sign-in step; offer the MCP route instead.
+3. Install: `aireg add -g <registry>/skill/<name> --yes --json`, with `<name>` the skill's
+   frontmatter `name`. If the CLI reports more than one match, `aireg registry show <registry>`
+   tags each skill with its workspace; use `<registry>/<workspace>/skill/<name>`.
+4. Report what the JSON says was installed, and tell the user their tool may need a new
+   session to load it.
+
+## Through MCP
+
+**Confirm the destination with the user first.** Use the skill's frontmatter `name` as the
+folder name, under the folder the user's tool loads skills from:
+
+| Tool | Project (shared through the repo) | Just this user |
+|---|---|---|
+| Claude Code | `.claude/skills/<name>/` | `~/.claude/skills/<name>/` |
+| Codex, and most Agent Skills tools | `.agents/skills/<name>/` | `~/.agents/skills/<name>/` |
+| Cursor | `.cursor/skills/<name>/` | `~/.cursor/skills/<name>/` |
+
+If the folder already holds a skill of that name, show the difference and ask before
+replacing it.
+
+Then, for **every** entry in `metadata.files`:
+
+1. Read it with `registry__get_file_content` (`file_id`, and `version_ordinal` set to the
+   entry's `file_version_ordinal`, so every file comes from the same version). `SKILL.md`
+   already came back as `included_file` in the skill's step 2, so it needs no second read. The reads do not depend
+   on each other: send them as parallel calls, up to 10 in one turn, not one file per turn.
+2. Write the returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
+   any path that is absolute or contains `..`.
+
+Before writing, show the user the file list. Point out any script (`*.sh`, `*.py`, `*.js`,
+anything under `scripts/`) and say you have not run it. Never run a downloaded script as
+part of installing.
+
+**When a file will not come through the tool.** `registry__get_file_content` returns text only,
+up to 256 KiB. An image, an archive or a larger file is refused with a message naming the
+HTTP route `GET /file/v1/files/{file_id}/content`. Your MCP connection's sign-in does not give
+you a token for that route, so do not try to obtain one. Tell the user which files are
+missing, and install without them only if they agree: a skill that references a missing file
+will misbehave when it reaches that step. aireg, where it is installed, fetches every file.
+
+Then say which skill and version you installed (`name`, handle, `version_ordinal` of
+`SKILL.md`), where, and how many files. Tell the user their tool may need a new session to
+load it. To update later, read the artifact again and compare versions; reinstall only on a
+newer one.
