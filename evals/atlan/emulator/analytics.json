@@ -1,0 +1,1723 @@
+{
+ "about": "The airline sandbox of the 5 November 2026 flow review, loaded with ATLAN_EMULATOR_ANALYTICS=1: ten released metrics in sqlite, three saved queries (one rejected), one ontology release with 89 records, and no warehouse SQL tool.",
+ "workspaces": [
+  {
+   "id": "workspace_01evalindigo",
+   "name": "indigo",
+   "display_name": "Indigo",
+   "kind": "default",
+   "workspace_status": "active",
+   "visibility": "public"
+  }
+ ],
+ "tools": [
+  {
+   "name": "extension__metric__search_metrics",
+   "description": "Find metric definitions in one workspace, or released ones across all of yours, ranked by relevance to `query` (or resolved exactly by `name`, which needs `workspace_id`). With include_definition=true, rank published revisions with release receipts and bounded native definitions, including opaque formula, filters, source SQL and unit. No SQL is executed.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "workspace_id": {
+      "type": "string"
+     },
+     "query": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "offset": {
+      "type": "integer"
+     },
+     "semantic": {
+      "type": "boolean"
+     },
+     "include_definition": {
+      "type": "boolean"
+     },
+     "definition_limit": {
+      "type": "integer"
+     },
+     "definition_view": {
+      "type": "string",
+      "enum": [
+       "full",
+       "compact"
+      ]
+     },
+     "channel": {
+      "type": "string"
+     },
+     "release_id": {
+      "type": "string"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "extension__metric__search_queries",
+   "description": "Find published saved SQL queries in one workspace, or across all of yours when workspace_id is omitted. Rank released queries by question; a ranked call without include_sql carries SQL for the top result only. An exact `name` needs `workspace_id`.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "workspace_id": {
+      "type": "string"
+     },
+     "query": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "include_sql": {
+      "type": "boolean"
+     },
+     "semantic": {
+      "type": "boolean"
+     }
+    },
+    "required": []
+   }
+  },
+  {
+   "name": "extension__ontology__get_records",
+   "description": "Retrieve caller-visible records that were valid at a business-time instant. Results retain exact ontology, type, relationship, and document-version evidence. The tool does not query warehouse rows and reports when its bounded scan is truncated.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "ontology_id": {
+      "type": "string"
+     },
+     "as_of": {
+      "type": "string"
+     },
+     "record_type_artifact_id": {
+      "type": "string"
+     },
+     "query": {
+      "type": "string"
+     },
+     "lifecycle_states": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "limit": {
+      "type": "integer"
+     },
+     "offset": {
+      "type": "integer"
+     },
+     "include_relationships": {
+      "type": "boolean"
+     },
+     "include_knowledge_references": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ontology_id"
+    ]
+   }
+  },
+  {
+   "name": "extension__ontology__get_context",
+   "description": "Return the smallest relevant subgraph from one exact immutable ontology release.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "ontology_id": {
+      "type": "string"
+     },
+     "release_id": {
+      "type": "string"
+     },
+     "query": {
+      "type": "string"
+     },
+     "include": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "max_resources": {
+      "type": "integer"
+     },
+     "max_depth": {
+      "type": "integer"
+     },
+     "max_tokens": {
+      "type": "integer"
+     },
+     "diagnostics": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "ontology_id",
+     "release_id",
+     "query"
+    ]
+   }
+  },
+  {
+   "name": "registry__list_releases",
+   "description": "List an artifact's releases, newest first, each with its release_id, channel and whether it is current.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "artifact_id": {
+      "type": "string"
+     },
+     "limit": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "artifact_id"
+    ]
+   }
+  }
+ ],
+ "artifacts": {
+  "metric_01evalm01": {
+   "id": "metric_01evalm01",
+   "kind": "metric",
+   "name": "turnaround_time",
+   "display_name": "Turnaround time",
+   "description": "Average minutes between a leg's on-block arrival and the next departure of the same aircraft, for scheduled departures on time-critical rotations.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm01v2",
+   "release_id": "rel_01evalm01",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "duration",
+      "unit": "minutes"
+     },
+     "formula": "avg(next_off_block - on_block) in minutes",
+     "aggregation": {
+      "measure": "next_off_block - on_block"
+     },
+     "filters": [
+      "service_type = 'scheduled'"
+     ],
+     "exclusions": [
+      "the aircraft's last leg of the day"
+     ],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT avg((julianday(fl.next_off_block) - julianday(fl.on_block)) * 1440) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Turnaround time for March 2026",
+       "sql": "SELECT avg((julianday(fl.next_off_block) - julianday(fl.on_block)) * 1440) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm02": {
+   "id": "metric_01evalm02",
+   "kind": "metric",
+   "name": "block_time_variance",
+   "display_name": "Block time variance",
+   "description": "Actual block time minus scheduled block time per departure, in minutes; positive means slower than planned.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm02v2",
+   "release_id": "rel_01evalm02",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "duration",
+      "unit": "minutes"
+     },
+     "formula": "avg(actual_block - scheduled_block)",
+     "aggregation": {
+      "measure": "actual_block - scheduled_block"
+     },
+     "filters": [],
+     "exclusions": [
+      "diverted legs"
+     ],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT avg(fl.actual_block_minutes - fl.scheduled_block_minutes) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Block time variance for March 2026",
+       "sql": "SELECT avg(fl.actual_block_minutes - fl.scheduled_block_minutes) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm03": {
+   "id": "metric_01evalm03",
+   "kind": "metric",
+   "name": "departure_delay_minutes",
+   "display_name": "Departure delay minutes",
+   "description": "Average minutes a departure left after its scheduled time, counting early departures as zero.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm03v2",
+   "release_id": "rel_01evalm03",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "duration",
+      "unit": "minutes"
+     },
+     "formula": "avg(max(off_block - scheduled_departure, 0))",
+     "aggregation": {
+      "measure": "delay minutes"
+     },
+     "filters": [],
+     "exclusions": [],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT avg(max((julianday(fl.off_block) - julianday(fl.scheduled_departure)) * 1440, 0)) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Departure delay minutes for March 2026",
+       "sql": "SELECT avg(max((julianday(fl.off_block) - julianday(fl.scheduled_departure)) * 1440, 0)) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm04": {
+   "id": "metric_01evalm04",
+   "kind": "metric",
+   "name": "arrival_delay_minutes",
+   "display_name": "Arrival delay minutes",
+   "description": "Average minutes an arrival came in after its scheduled time, early arrivals counted as zero.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm04v2",
+   "release_id": "rel_01evalm04",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "duration",
+      "unit": "minutes"
+     },
+     "formula": "avg(max(on_block - scheduled_arrival, 0))",
+     "aggregation": {
+      "measure": "delay minutes"
+     },
+     "filters": [],
+     "exclusions": [],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT avg(max((julianday(fl.on_block) - julianday(fl.scheduled_arrival)) * 1440, 0)) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Arrival delay minutes for March 2026",
+       "sql": "SELECT avg(max((julianday(fl.on_block) - julianday(fl.scheduled_arrival)) * 1440, 0)) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm05": {
+   "id": "metric_01evalm05",
+   "kind": "metric",
+   "name": "taxi_out_time",
+   "display_name": "Taxi-out time",
+   "description": "Minutes from off-block to wheels-off per departure.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm05v2",
+   "release_id": "rel_01evalm05",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "duration",
+      "unit": "minutes"
+     },
+     "formula": "avg(wheels_off - off_block)",
+     "aggregation": {
+      "measure": "taxi minutes"
+     },
+     "filters": [],
+     "exclusions": [],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT avg((julianday(fl.wheels_off) - julianday(fl.off_block)) * 1440) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Taxi-out time for March 2026",
+       "sql": "SELECT avg((julianday(fl.wheels_off) - julianday(fl.off_block)) * 1440) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm06": {
+   "id": "metric_01evalm06",
+   "kind": "metric",
+   "name": "crew_duty_utilisation",
+   "display_name": "Crew duty utilisation",
+   "description": "Share of rostered crew duty time spent on scheduled departures and block time.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm06v2",
+   "release_id": "rel_01evalm06",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "ratio",
+      "unit": "percent"
+     },
+     "formula": "sum(block_minutes) / sum(duty_minutes)",
+     "aggregation": {
+      "numerator": "block minutes",
+      "denominator": "duty minutes"
+     },
+     "filters": [],
+     "exclusions": [],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT 1.0 * sum(fl.block_minutes) / sum(fl.crew_duty_minutes) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Crew duty utilisation for March 2026",
+       "sql": "SELECT 1.0 * sum(fl.block_minutes) / sum(fl.crew_duty_minutes) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm07": {
+   "id": "metric_01evalm07",
+   "kind": "metric",
+   "name": "load_factor",
+   "display_name": "Load factor",
+   "description": "Seats sold over seats offered on scheduled departures.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm07v2",
+   "release_id": "rel_01evalm07",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "ratio",
+      "unit": "percent"
+     },
+     "formula": "sum(pax) / sum(seats)",
+     "aggregation": {
+      "numerator": "passengers",
+      "denominator": "seats"
+     },
+     "filters": [],
+     "exclusions": [],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT 1.0 * sum(fl.pax) / sum(fl.seats) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Load factor for March 2026",
+       "sql": "SELECT 1.0 * sum(fl.pax) / sum(fl.seats) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm08": {
+   "id": "metric_01evalm08",
+   "kind": "metric",
+   "name": "otp_d15",
+   "display_name": "OTP D15",
+   "description": "Departure punctuality: share of scheduled departures that leave within 15 minutes of schedule.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm08v2",
+   "release_id": "rel_01evalm08",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "ratio",
+      "unit": "percent"
+     },
+     "formula": "count(off_block <= scheduled_departure + 15 min) / count(departures)",
+     "aggregation": {
+      "numerator": "departures within 15 minutes",
+      "denominator": "scheduled departures"
+     },
+     "filters": [
+      "service_type = 'scheduled'"
+     ],
+     "exclusions": [
+      "cancelled legs",
+      "diverted legs"
+     ],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT 1.0 * sum(CASE WHEN (julianday(fl.off_block) - julianday(fl.scheduled_departure)) * 1440 <= 15 THEN 1 ELSE 0 END) / count(*) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "OTP D15 for March 2026",
+       "sql": "SELECT 1.0 * sum(CASE WHEN (julianday(fl.off_block) - julianday(fl.scheduled_departure)) * 1440 <= 15 THEN 1 ELSE 0 END) / count(*) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm09": {
+   "id": "metric_01evalm09",
+   "kind": "metric",
+   "name": "otp_a15",
+   "display_name": "OTP A15",
+   "description": "Arrival punctuality: share of scheduled arrivals within 15 minutes of schedule.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm09v2",
+   "release_id": "rel_01evalm09",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "ratio",
+      "unit": "percent"
+     },
+     "formula": "count(on_block <= scheduled_arrival + 15 min) / count(arrivals)",
+     "aggregation": {
+      "numerator": "arrivals within 15 minutes",
+      "denominator": "scheduled arrivals"
+     },
+     "filters": [
+      "service_type = 'scheduled'"
+     ],
+     "exclusions": [
+      "cancelled legs",
+      "diverted legs"
+     ],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT 1.0 * sum(CASE WHEN (julianday(fl.on_block) - julianday(fl.scheduled_arrival)) * 1440 <= 15 THEN 1 ELSE 0 END) / count(*) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "OTP A15 for March 2026",
+       "sql": "SELECT 1.0 * sum(CASE WHEN (julianday(fl.on_block) - julianday(fl.scheduled_arrival)) * 1440 <= 15 THEN 1 ELSE 0 END) / count(*) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "metric_01evalm10": {
+   "id": "metric_01evalm10",
+   "kind": "metric",
+   "name": "cancellation_rate",
+   "display_name": "Cancellation rate",
+   "description": "Share of scheduled legs cancelled.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_id": "ver_01evalm10v2",
+   "release_id": "rel_01evalm10",
+   "channel": "latest",
+   "updated_at": "2026-10-28T09:00:00Z",
+   "owner_id": "user_01evalops",
+   "metadata": {
+    "definition": {
+     "spec_version": "1.0-draft.4",
+     "version": "2.0.0",
+     "population": "Scheduled passenger flight legs operated by the airline",
+     "grain": "flight_leg",
+     "output": {
+      "type": "ratio",
+      "unit": "percent"
+     },
+     "formula": "count(cancelled) / count(scheduled)",
+     "aggregation": {
+      "numerator": "cancelled legs",
+      "denominator": "scheduled legs"
+     },
+     "filters": [],
+     "exclusions": [],
+     "source": {
+      "dialect": "sqlite",
+      "tables": [
+       "flight_leg",
+       "station"
+      ],
+      "sql": "SELECT 1.0 * sum(CASE WHEN fl.status = 'cancelled' THEN 1 ELSE 0 END) / count(*) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled'"
+     },
+     "joins": [
+      {
+       "from": "flight_leg.departure_station_id",
+       "to": "station.station_id",
+       "cardinality": "many_to_one"
+      }
+     ],
+     "dimensions": [
+      {
+       "name": "station",
+       "allowed_values": [
+        "BLR",
+        "BOM",
+        "DEL",
+        "HYD",
+        "MAA",
+        "CCU"
+       ]
+      },
+      {
+       "name": "aircraft_type",
+       "allowed_values": [
+        "A320neo",
+        "A321neo",
+        "ATR72"
+       ]
+      },
+      {
+       "name": "route_type",
+       "allowed_values": []
+      }
+     ],
+     "examples": [
+      {
+       "question": "Cancellation rate for March 2026",
+       "sql": "SELECT 1.0 * sum(CASE WHEN fl.status = 'cancelled' THEN 1 ELSE 0 END) / count(*) FROM flight_leg fl JOIN station s ON fl.departure_station_id = s.station_id WHERE fl.status <> 'cancelled' AND fl.service_type = 'scheduled' AND strftime('%Y-%m', scheduled_departure) = '2026-03'",
+       "result": [
+        {
+         "value": 0.0
+        }
+       ]
+      }
+     ],
+     "provenance": {
+      "observed_from": "query history, 412 runs",
+      "authored_by": "Airline Ops analytics"
+     },
+     "extensions": {
+      "atlan_analytics": {
+       "dashboard_validation": {
+        "parity": "measured"
+       }
+      }
+     }
+    },
+    "validation_warnings": [
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     },
+     {
+      "code": "dimension_values_unbounded",
+      "field": "dimensions[2].allowed_values",
+      "message": "A dimension lists no allowed values, so an answer can group by values the metric was never checked against. Name its allowed values or mark it open."
+     }
+    ]
+   }
+  },
+  "sql_query_01evalq01": {
+   "id": "sql_query_01evalq01",
+   "kind": "sql_query",
+   "name": "daily_departures_by_station_old",
+   "display_name": "Daily departures by station (old)",
+   "description": "How many flights left each station per day?",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 1,
+   "version_id": "ver_01evalq01v1",
+   "release_id": "rel_01evalq01",
+   "channel": "latest",
+   "updated_at": "2026-10-20T09:00:00Z",
+   "metadata": {
+    "review_status": "rejected",
+    "definition": {
+     "question": "How many flights left each station per day?",
+     "paraphrases": [
+      "How many flights left each station per day?"
+     ],
+     "dialect": "sqlite",
+     "usage_note": "How many flights left each station per day?",
+     "sql": "SELECT 1 FROM flight_leg LIMIT 100"
+    }
+   }
+  },
+  "sql_query_01evalq02": {
+   "id": "sql_query_01evalq02",
+   "kind": "sql_query",
+   "name": "crew_roster_gaps",
+   "display_name": "Crew roster gaps",
+   "description": "Which crew pairings had gaps over 12 hours?",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 1,
+   "version_id": "ver_01evalq02v1",
+   "release_id": "rel_01evalq02",
+   "channel": "latest",
+   "updated_at": "2026-10-20T09:00:00Z",
+   "metadata": {
+    "review_status": "verified",
+    "definition": {
+     "question": "Which crew pairings had gaps over 12 hours?",
+     "paraphrases": [
+      "Which crew pairings had gaps over 12 hours?"
+     ],
+     "dialect": "sqlite",
+     "usage_note": "Which crew pairings had gaps over 12 hours?",
+     "sql": "SELECT 1 FROM flight_leg LIMIT 100"
+    }
+   }
+  },
+  "sql_query_01evalq03": {
+   "id": "sql_query_01evalq03",
+   "kind": "sql_query",
+   "name": "fuel_burn_by_tail",
+   "display_name": "Fuel burn by tail",
+   "description": "How much fuel did each aircraft burn per block hour?",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 1,
+   "version_id": "ver_01evalq03v1",
+   "release_id": "rel_01evalq03",
+   "channel": "latest",
+   "updated_at": "2026-10-20T09:00:00Z",
+   "metadata": {
+    "review_status": "unreviewed",
+    "definition": {
+     "question": "How much fuel did each aircraft burn per block hour?",
+     "paraphrases": [
+      "How much fuel did each aircraft burn per block hour?"
+     ],
+     "dialect": "sqlite",
+     "usage_note": "How much fuel did each aircraft burn per block hour?",
+     "sql": "SELECT 1 FROM flight_leg LIMIT 100"
+    }
+   }
+  },
+  "ontology_01evalairline": {
+   "id": "ontology_01evalairline",
+   "kind": "ontology",
+   "name": "airline-operations",
+   "display_name": "Airline Operations",
+   "description": "Flight legs, stations, aircraft, crew and delay events, with the punctuality and turnaround policies that govern them.",
+   "workspace_id": "workspace_01evalindigo",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 4,
+   "release_id": "rel_01evalairline200",
+   "updated_at": "2026-10-30T09:00:00Z"
+  }
+ },
+ "rankings": [
+  {
+   "words": [
+    "revenue",
+    "sales",
+    "income"
+   ],
+   "order": []
+  },
+  {
+   "words": [
+    "time",
+    "punctual",
+    "punctuality",
+    "departure",
+    "departures",
+    "delay",
+    "late",
+    "otp",
+    "on"
+   ],
+   "order": [
+    "turnaround_time",
+    "block_time_variance",
+    "departure_delay_minutes",
+    "arrival_delay_minutes",
+    "taxi_out_time",
+    "crew_duty_utilisation",
+    "load_factor",
+    "otp_d15",
+    "otp_a15",
+    "cancellation_rate"
+   ]
+  }
+ ],
+ "records": {
+  "ontology_id": "ontology_01evalairline",
+  "release_id": "rel_01evalairline200",
+  "total": 89,
+  "on_time": 49,
+  "types": {
+   "ontology_object_type_01evalpolicy": "Punctuality policy",
+   "ontology_object_type_01evalcontrol": "Operational control",
+   "ontology_object_type_01evalproc": "Ground procedure"
+  }
+ },
+ "context": {
+  "release_id": "rel_01evalairline200",
+  "resources": [
+   {
+    "id": "ontology_object_type_01evalleg",
+    "name": "FlightLeg",
+    "description": "One scheduled departure and arrival of one aircraft.",
+    "properties": [
+     {
+      "name": "scheduled_departure",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#FlightLeg.scheduled_departure"
+     },
+     {
+      "name": "off_block",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#FlightLeg.off_block"
+     },
+     {
+      "name": "on_block",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#FlightLeg.on_block"
+     },
+     {
+      "name": "status",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#FlightLeg.status"
+     },
+     {
+      "name": "service_type",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#FlightLeg.service_type"
+     },
+     {
+      "name": "departure_station_id",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#FlightLeg.departure_station_id"
+     }
+    ]
+   },
+   {
+    "id": "ontology_object_type_01evalstation",
+    "name": "Station",
+    "description": "An airport the airline operates from.",
+    "properties": [
+     {
+      "name": "station_id",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#Station.station_id"
+     },
+     {
+      "name": "iata_code",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#Station.iata_code"
+     },
+     {
+      "name": "region",
+      "source_iri": "https://ontology.indigo.example/airline-ops/2.0.0#Station.region"
+     }
+    ]
+   },
+   {
+    "id": "ontology_link_type_01evaldeparts",
+    "name": "departs_from",
+    "source": "FlightLeg",
+    "target": "Station",
+    "cardinality": "many_to_one"
+   }
+  ]
+ }
+}

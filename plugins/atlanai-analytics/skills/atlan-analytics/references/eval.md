@@ -1,7 +1,7 @@
 # Run an eval
 
-Read [shared conventions](conventions.md) first. `EVAL` is the bundled script
-`../scripts/analytics_eval.py`, run as in the conventions. It uses only the standard library
+Read [shared conventions](conventions.md) and [project conventions](project-conventions.md) first. `EVAL` is the bundled script
+`../scripts/analytics_eval.py`, run as in the project conventions. It uses only the standard library
 and never touches the network: you make every registry write through the Atlan MCP server, as
 [Publish](#publish) describes. A run is one
 **variant**: `baseline`, `v1`, `v2`… Everything it writes goes under

@@ -1,0 +1,40 @@
+schema_version: "1.1"
+name: ask-low-ranked-metric
+tags: [analytics, ask, ranking]
+execution:
+  prompt: |
+    What was our on-time departure rate last month, by station?
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-ask
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-analytics-ask"'
+  - name: reads-the-low-ranked-metric-by-name-and-workspace
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    input_match: '^(?=[\s\S]*"extension__metric__search_metrics")(?=[\s\S]*"name"\s*:\s*"otp_d15")(?=[\s\S]*"workspace_id"\s*:\s*"workspace_01evalindigo")'
+    min: 1
+  - name: never-sends-a-name-without-workspace
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    input_match: '^(?=[\s\S]*"extension__metric__search_metrics")(?=[\s\S]*"name"\s*:\s*"otp_d15")(?![\s\S]*"workspace_id")'
+    min: 0
+    max: 0
+  - name: no-recovery-searches
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    input_match: '"extension__metric__search_metrics"'
+    min: 2
+    max: 2
+  - name: answers-from-otp-not-turnaround
+    type: llm
+    criteria: |
+      PASS if the reply uses OTP D15 (otp_d15: share of scheduled departures leaving within 15 minutes of schedule, cancelled and diverted legs excluded) as the definition, names it as the source, says no warehouse query tool is reachable through Atlan, and offers SQL for the person to run or asks them to paste a result. The SQL, if shown, is SQLite: strftime or date() for the month, not date_trunc or interval.
+      FAIL if it answers with turnaround time or any other metric, invents a number, or says no published metric exists.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
