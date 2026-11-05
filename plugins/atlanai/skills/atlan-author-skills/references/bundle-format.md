@@ -15,7 +15,10 @@ bundle missing SKILL.md at root", and that is the single most common rejection.
 ## Frontmatter
 
 A terminated `---` block at the very start of `SKILL.md`. Real YAML, so `>` and `|` block
-scalars work for a long `description` and `~` means null.
+scalars work for a long `description` and `~` means null. Being real YAML, it refuses what a line
+reader lets through: a plain value holding `: ` (`description: Use when: …`), an unclosed quote or
+bracket, a tab used to indent, and a key given twice. Put a value with a colon in double quotes,
+or write it as a `>` block. `check_bundle.py` catches each before the call.
 
 ### Required
 
@@ -67,11 +70,12 @@ second half.
 | Entries | 10,000 |
 | Path length | 1024 |
 | Directory depth | 8 |
-| `SKILL.md` read cap | 16 KiB |
+| `SKILL.md` | 4 MiB, body 500,000 characters |
+| Inline `files`, one call | 128 files, 256 KiB |
 
-The `SKILL.md` cap is the one worth internalising: 16 KiB is the *frontmatter and body* the
-registry reads. It is generous for a well-shaped skill and tight for one that inlined its
-references, which is the shape it is meant to discourage.
+The registry stores a long `SKILL.md` whole, but its analysis (summary, use cases, triggers) reads
+only the first 6,000 characters. Put what the skill does and when to use it first, and move
+detail into `references/`.
 
 ## Batching, and why the item cap is not the real limit
 

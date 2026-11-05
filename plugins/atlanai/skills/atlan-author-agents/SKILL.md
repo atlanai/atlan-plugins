@@ -1,6 +1,6 @@
 ---
 name: atlan-author-agents
-description: Register an agent in Atlan or update one: link an agent that lives in a repository with the skills it uses, register the coding tool running this session as a harness, or prepare an agent's private runtime credential. Use when the user wants to add, register, catalogue or update an agent in Atlan, record which skills an agent uses, or issue an agent's runtime credential. Not for publishing skills (atlan-author-skills) or setting up GitHub CI publication (atlan-connect-repo).
+description: "Register or update an agent in Atlan: link a repository's agent and the skills it uses, register this coding tool as a harness, or prepare an agent's runtime credential. Use when the user wants to add, register or update an agent in Atlan or record its skills. Not for publishing skills (atlan-author-skills) or GitHub CI publication (atlan-connect-repo)."
 license: Apache-2.0
 ---
 
@@ -21,9 +21,12 @@ In search mode, the default, run each tool named here through the runner for wha
 (`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
-the session by sending `objective`. **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
-and the kind schema. Replies lead with the result in a few lines, and ask before every write.
+the session by sending `objective`. Send independent reads
+together in one turn. A create names its `workspace_id`: the one the user names, else
+`.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
+`{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
+refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
+a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines, and ask before every write.
 
 A coding harness is distinct from the autonomous agent the repository implements.
 Read back workspace, exact repository and declaration path before reusing an agent;

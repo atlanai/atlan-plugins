@@ -1,6 +1,6 @@
 ---
 name: atlan-connect-repo
-description: Connect a GitHub repository to Atlan so the skills and agents in it publish automatically: register the repository, link existing artifacts to their source, or add the GitHub Actions workflow that previews changes on pull requests and publishes on merge. Use when the user wants a repository's skills or agents kept in sync with Atlan, CI or GitHub Actions publication, or to record where an artifact's source lives. Not for a one-off publish from a local folder (atlan-author-skills).
+description: "Connect a GitHub repository to Atlan so its skills and agents publish automatically: register it, link artifacts to their source, or add the workflow that previews on pull requests and publishes on merge. Use when the user wants a repository kept in sync with Atlan or CI publication. Not for a one-off publish from a local folder (atlan-author-skills)."
 license: Apache-2.0
 ---
 
@@ -16,9 +16,12 @@ In search mode, the default, run each tool named here through the runner for wha
 (`mcp__call_read_tool` for a read, `mcp__call_write_tool` for a create or update,
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
-the session by sending `objective`. **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md` covers the rest: full mode, the workspace
-and the kind schema. Replies lead with the result in a few lines.
+the session by sending `objective`. Send independent reads
+together in one turn. A create names its `workspace_id`: the one the user names, else
+`.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
+`{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
+refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
+a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines.
 
 Registration and provenance alone do not prove that a publishing workflow ran.
 Use the checkout's canonical remote, verify the returned repository's workspace and remote,

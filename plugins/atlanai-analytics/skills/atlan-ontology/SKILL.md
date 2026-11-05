@@ -1,6 +1,6 @@
 ---
 name: atlan-ontology
-description: "Use the organization's business ontology in Atlan: explain what a business object is and how it joins to others, with the tables each one is bound to; answer which policy, control or rule was in force on a date from governed records; or draft an ontology from warehouse tables, published metrics, documents or an OWL or SKOS file for a person to review and save in Ontology Studio. Use when a question names business entities, relationships, terminology or policies, or when someone wants to model their business before building metrics or a talk-to-data agent."
+description: "Use the organization's business ontology in Atlan: explain a business object, its joins and the tables bound to it, answer which policy or rule was in force on a date, or draft an ontology for review in Ontology Studio. Use when a question names business entities, relationships, terminology or policies, or someone wants to model their business."
 ---
 
 # Business ontology
@@ -28,18 +28,26 @@ request, and ask once only when two modes fit equally well.
 
 ## 1. Preflight
 
+Records mode runs steps 1 and 3 only, then section 3: `extension__ontology__get_records` takes
+no release id (each record it returns names the release it came from), and an uninstalled app
+shows as that call being refused as an unknown tool (stop with BLOCKED as step 2 says). Context and draft
+modes run every step.
+
 1. Open a registry session as the conventions describe, with an `objective` naming the domain.
 2. Confirm the Ontology app is installed: `mcp__describe_tools` (or the full tool list) shows
    `extension__ontology__get_context`, and `registry__get_kind_schema` knows `ontology`. If not,
    stop with BLOCKED: an Atlan admin installs **Ontology** from the Store.
-3. Pick the workspace with `registry__list_workspaces`, then find ontologies with
-   `registry__list_artifacts` (kind `ontology`). With several, ask which one, recommending the
-   one whose name or description matches the request.
-4. Resolve the **release**: `registry__get_artifact` on the ontology with `channel` `latest`,
-   and keep the `rel_…` release handle it resolves to. Every read below names that exact
-   release. With no release, say the ontology has no published version yet: context and
-   records modes stop there, and draft mode still works. Never read draft definitions as if
-   they were published.
+3. Find ontologies with `registry__list_artifacts` (kind `ontology`, no `workspace_id`): it
+   lists every workspace you can read, and each row names its workspace, so you need no
+   workspace listing first. With several, ask which one, recommending the one whose name or
+   description matches the request.
+4. Resolve the **release**: `registry__list_releases` with the ontology's `artifact_id` and
+   `limit: 5`, and keep the `release_id` of the item whose `channel` is `latest` and
+   `is_current` is true. It is under 1 KB. Never call `registry__get_artifact` on an ontology
+   for this: it returns the whole model, which can be hundreds of thousands of characters, more
+   than a host shows in one tool result. Every read below names that exact release. With no
+   release, say the ontology has no published version yet: context and records modes stop
+   there, and draft mode still works. Never read draft definitions as if they were published.
 
 ## 2. Context mode
 
@@ -47,7 +55,8 @@ request, and ask once only when two modes fit equally well.
    person's business terms, not SQL). Keep `max_resources` at 20 or less and raise
    `max_depth` to 2 only when the answer needs a second hop.
 2. When the question is about tables or joins, find the binding: `registry__list_artifacts`
-   (kind `ontology_binding`), resolve its `latest` release the same way, and call
+   (kind `ontology_binding`), resolve its `latest` release with `registry__list_releases` the
+   same way, and call
    `extension__ontology__get_binding_context` with `binding_id`, `release_id`, the same `query`
    and, when the binding was released against an older ontology release, `ontology_release_id`
    set to the one from step 1.4. A refusal there means a logical definition changed since the
@@ -87,6 +96,20 @@ check it; you never save it.
    the tables in scope with the warehouse query tool (`information_schema` columns and primary
    and foreign keys), then documents the person names. Read schemas only; never query business
    rows to draft a model.
+
+   Read the metrics with `extension__metric__search_metrics` through `mcp__call_read_tool`:
+   `workspace_id` of the ontology's workspace, the domain's business nouns as `query`,
+   `include_definition: true` and `definition_limit: 2`. With `include_definition` it returns
+   only released revisions, and each definition is up to 16 KiB, so never ask for more; search
+   again with a narrower `query` for another one. For saved queries use
+   `extension__metric__search_queries` with the same `workspace_id` and `query`, `limit: 5` and
+   `include_sql: false`: their names and descriptions are enough here. When those tools are not
+   listed, use `registry__search_artifacts` with kind `metric`, then `sql_query`, and that
+   `workspace_id`, and count only rows with a released version. Send both searches in the
+   same turn as step 1.4's release lookup. No published metrics is fine: say so and draft from
+   the schemas. When step 1.4 found a release, read what is already modelled with
+   `extension__ontology__get_context` (the domain's nouns as `query`, `max_resources` 20 or
+   less), so the draft reuses its names instead of duplicating them.
 3. **Write the document** as OWL in Turtle, in the subset Atlan imports:
    - `owl:Class` for each object type, with `rdfs:label` and `rdfs:comment`;
    - `owl:DatatypeProperty` for each property, with `rdfs:domain` and an XSD `rdfs:range`;

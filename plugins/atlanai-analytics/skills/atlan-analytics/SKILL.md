@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Set up governed metrics and saved queries from a warehouse, build a talk-to-data agent on them, evaluate or improve it with isolated held-out evaluation, connect a warehouse, or propose a metric fix from a conversation. Use for analytics setup and agent work on Atlan. A one-off data question goes to atlan-analytics-ask, and business objects, joins and policies to atlan-ontology.
+description: Set up governed metrics and saved queries from a warehouse, connect a warehouse, build, evaluate or improve a talk-to-data agent, turn a Power BI dashboard into one, or propose a metric fix. Use for analytics setup and agent work on Atlan. Not for a one-off data question (atlan-analytics-ask) or business objects and policies (atlan-ontology).
 ---
 
 # Metrics and talk-to-data agents
@@ -8,7 +8,20 @@ description: Set up governed metrics and saved queries from a warehouse, build a
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
 publication approval, privacy and status reporting.
 
+This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
+Use the namespace of the installed skill throughout this run: `atlanai` for that bundle,
+or `atlanai-analytics` for the separate add-on. Replace the `atlanai-analytics:` prefix in
+examples and specialist-agent names below with the installed namespace. Do not install the
+separate add-on or clone a repository to use this bundled workflow.
+
 ## 0. Dispatch the requested mode first
+
+If the first argument is `dashboard`, or the person supplies a Power BI report link/file
+and asks to turn it into an agent, follow [dashboard to agent](references/dashboard.md)
+and return. This route runs in Claude Code and Codex with a shell, using the local helper
+and the core Atlan connection. An explicit `metrics` request still follows metrics-only mode.
+Keep all progress in native chat. Use existing inline dashboard cards only when their tools
+are already installed; never register another MCP server as part of this workflow.
 
 If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
 arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from

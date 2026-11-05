@@ -5,12 +5,11 @@ frontmatter block. Every property the registry shows you - the file manifest, th
 count, the byte total - is derived from the archive by the create hook. None of it is yours to
 send. Create from inline UTF-8 files, or zip and upload a local tree. Edit existing memory with `apply_changes`.
 
-## Before your first call
+## Calling rules
 
-Follow **Before your first call** in
-`skills/atlan-get-started/references/calling-tools.md`: one session and its id on every call,
+One session and its id on every call,
 a first-person `rationale` on every call, a `workspace_id` on every create, and
-`registry__get_kind_schema` before your first write to a kind.
+`registry__get_kind_schema` only after a write to a kind is refused.
 
 ## 1. Write the tree
 
@@ -82,11 +81,10 @@ registry__request_file_upload { "size_bytes": <zip size>, "session_id": "...", "
 → { "upload_url": ..., "upload_key": ..., "is_presigned": false, ... }
 ```
 
-`PUT` the whole zip to `upload_url` with your `Authorization` header; the URL is root-relative,
-so resolve it against the origin you called the tool on. `is_presigned` is `false` on today's
-gateway; if a server ever answers `true`, send no `Authorization` header to that URL. A host
-that never gives you the bearer, as Claude chat and Cowork do, cannot `PUT`: use inline `files`
-above, and say that a tree too large for them needs the Atlan CLI.
+`PUT` the whole zip to `upload_url` exactly as [staged upload](../../atlan-content/references/upload.md)
+step 2 says (the header, the root-relative URL, the ticket's deadline and the presigned case). A
+host that never gives you the bearer, as Claude chat and Cowork do, cannot `PUT`: use inline
+`files` above, and say that a tree too large for them needs the Atlan CLI.
 
 ```
 registry__create_artifact {
@@ -103,7 +101,7 @@ registry__create_artifact {
 ```
 
 Give each upload a **unique `path`**: a second file at the same path is a 409. Dating the path
-is the easy way out. Details and failure modes: `skills/atlan-content/references/upload.md`.
+is the easy way out.
 
 ## 3. Create the bundle
 

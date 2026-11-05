@@ -485,6 +485,15 @@ class SkillLintTest(unittest.TestCase):
         self.assertTrue(self.lint("a", f"---\nname: a\ndescription: {'x' * 1025}\n---\nbody\n"))
         self.assertTrue(self.lint("a", "---\nname: a\ndescription: Use <b>now</b>\n---\nbody\n"))
 
+    def test_an_owned_skill_keeps_its_description_short_and_its_skill_md_small(self) -> None:
+        long = "Use when testing. " + "x" * lint.MAX_OWNED_DESCRIPTION
+        errors = self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n")
+        self.assertTrue(any("max 370" in e for e in errors), errors)
+        self.assertEqual(self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n", owned=False), [])
+        big = "---\nname: a\ndescription: Use when testing.\n---\n" + "word " * (lint.MAX_SKILL_BYTES // 5)
+        errors = self.lint("a", big)
+        self.assertTrue(any("move material to references/" in e and "bytes" in e for e in errors), errors)
+
     def test_an_owned_skills_description_says_when_to_use_it(self) -> None:
         what_only = "---\nname: a\ndescription: Create and publish skill bundles.\n---\nbody\n"
         self.assertTrue(any("when to use the skill" in e for e in self.lint("a", what_only)))
@@ -925,6 +934,20 @@ class PublishHookTest(unittest.TestCase):
         landed = {**base, "tool_response": {"isError": False, "content": [{"type": "text", "text": '{"created":[{"artifact_status":"active"}]}'}]}}
         self.assertIsNone(self.run_hook("post", "codex", landed))
 
+    def test_post_reads_a_status_code_inside_a_successful_result_as_data(self) -> None:
+        base = {"cwd": "/", "tool_name": "MCP:mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
+        # Cursor passes no isError flag: a created skill with 503 files must not read as a lost 503.
+        landed = {**base, "tool_output": json.dumps({"created": [{"artifact_status": "active", "file_count": 503}]})}
+        self.assertIsNone(self.run_hook("post", "cursor", landed))
+        codex_landed = {**base, "tool_name": "mcp__atlan__mcp__call_tool",
+                        "tool_response": {"content": [{"type": "text", "text": '{"created":[{"file_count":503}]}'}]}}
+        self.assertIsNone(self.run_hook("post", "codex", codex_landed))
+        for output in ("HTTP 503 Service Unavailable", json.dumps({"error": "upstream answered 503"}),
+                       json.dumps({"status": 503, "message": "service unavailable"})):
+            with self.subTest(output=output):
+                note = self.run_hook("post", "cursor", {**base, "tool_output": output})
+                self.assertIn("may have committed", note["additional_context"])
+
     def test_only_the_atlan_servers_runners_expand_files_from(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
@@ -1052,7 +1075,7 @@ class SkillChecksTest(unittest.TestCase):
 
     def test_the_opt_in_block_and_the_rules_name_the_same_section(self) -> None:
         skills = CORE / "skills"
-        started = (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8")
+        started = (skills / "atlan-get-started" / "references" / "codex-skill-checks.md").read_text(encoding="utf-8")
         block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
         self.assertIn("## Atlan registry skills", block)
         self.assertIn("atlan-use-skill", block)
@@ -1065,7 +1088,8 @@ class EvalCasesTest(unittest.TestCase):
 
     CASES = ROOT / "evals" / "atlan" / "cases"
     SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_LOST_REPLY", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
-                "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE"}
+                "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE",
+                "ATLAN_EMULATOR_HIDE_TOOLS"}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1110,6 +1134,29 @@ class EvalCasesTest(unittest.TestCase):
         self.assertEqual(self.runner.case_filters(["--runs", "1", "--case", "a", "--case", "b*"]), ["a", "b*"])
         self.assertEqual(self.runner.without_case_filters(["--runs", "1", "--case", "a", "--case", "b*", "-j", "4"]),
                          ["--runs", "1", "-j", "4"])
+
+    def test_negative_cases_forbid_every_atlan_skill_and_runner(self) -> None:
+        negative = [case for case in self.cases() if "tags: [negative," in (case / "case.yaml").read_text(encoding="utf-8")]
+        self.assertGreaterEqual(len(negative), 4)
+        for case in negative:
+            text = (case / "case.yaml").read_text(encoding="utf-8")
+            self.assertIn("atlan-[\\w-]+", text, case.name)
+            for runner in ("call_tool", "call_read_tool", "call_write_tool", "search_tools"):
+                self.assertIn(f"tool: mcp__plugin_atlanai_atlan__mcp__{runner}\n", text, f"{case.name}: {runner}")
+
+    def test_the_baseline_flag_adds_the_no_plugin_arm_and_the_summary_shows_it(self) -> None:
+        self.assertEqual(self.runner.ablation(False), "none")
+        self.assertEqual(self.runner.ablation(True), "with-without")
+        run = {"score": 1.0, "graders": [{"name": "plain-reply", "passed": True}]}
+        data = {"aggregates": {"overallScore": 0.75, "casesPassed": 1, "casesTotal": 2},
+                "cases": [{"name": "a", "arms": {"with": [run], "without": [{"score": 0.5}]}},
+                          {"name": "b", "arms": {"with": [{"score": 0.5, "graders": [{"name": "x", "passed": False}]}]}}]}
+        lines = self.runner.summary_lines(data)
+        self.assertIn("no-plugin baseline", lines[0])
+        self.assertRegex(lines[1], r"^  1\.00  0\.50  a ")
+        self.assertRegex(lines[2], r"^  0\.50     -  b +x$")
+        del data["cases"][0]["arms"]["without"]
+        self.assertNotIn("baseline", self.runner.summary_lines(data)[0])
 
     def test_the_runner_refuses_an_unknown_sidecar_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

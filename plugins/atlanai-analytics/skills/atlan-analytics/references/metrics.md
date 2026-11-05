@@ -3,7 +3,9 @@
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
 trust, each one checked against the registry's contracts and previewed before it is written.
 Two entries use this file:
-- **metrics mode** (`/atlanai-analytics:atlan-analytics metrics`) starts at section 0 and stops at section 6;
+- **metrics mode** (`/atlanai:atlan-analytics metrics` from the public Atlan marketplace,
+  or `/atlanai-analytics:atlan-analytics metrics` from the separate add-on) starts at section 0
+  and stops at section 6;
 - a **full agent build** reaches it from phase 3 and starts at section 1.
 
 Everything here runs in this assistant plus one standard-library script. Nothing is cloned,
@@ -70,20 +72,26 @@ build it is used in phase 4. Eval answers never become context.
 Skip this section when no history source was chosen.
 
 1. Pull 90 days of successful SELECTs that touch the scoped tables, grouped per distinct text
-   with run and user counts, at most 5,000 rows. [Warehouse discovery](connect.md) picks how:
-   its **Query history** section in [warehouses](warehouses.md)
-   holds the statement for each warehouse, the fallbacks when access is denied, and the bulk
-   path that writes rows straight to a file.
-2. Write the rows to `<context-dir>/querylog.jsonl`, one `{sql, exec, users}` per line, and
-   record the window's absolute start and end dates in state. Never include user names.
+   with run and user counts, at most 5,000 rows, by the bulk path `warehouse.bulk` names.
+   [Query history](warehouses/query-history.md) holds the statement for each warehouse and the
+   fallbacks when access is denied.
+2. Turn the pull into `<context-dir>/querylog.jsonl` without the rows passing back through this
+   conversation: `MINE querylog <saved pull> <context-dir>/querylog.jsonl`, adding `--append`
+   for each later page. The saved pull is the CLI's output file, the export, or the file the host
+   saved a large tool result to. It reads all of these, keeps `{sql, exec, users}`, counts users
+   without writing their names, and prints only counts. Never retype rows into a file yourself:
+   when a page came back inline and the host saved no file, pull smaller pages rather than
+   copying it out. Record the window's absolute start and end dates in state.
 3. Drop identifying literals:
    `EVAL filter-querylog <context-dir>/querylog.jsonl <context-dir>/querylog.clean.jsonl`.
    Report the counts by reason in one line.
 4. Group and rank:
    `MINE shapes <context-dir>/querylog.clean.jsonl <context-dir>/shapes.jsonl --tables tables.txt`.
-   Each shape is one statement with literals folded away. It carries the most-run text, its run
-   and user counts, and hints: tables, aggregates, group-bys, filters. Report the counts in one
-   line.
+   Each shape is one statement with its dates and numbers folded away. Quoted values that pick a
+   population stay: `status = 'paid'` and `status = 'refunded'` are two shapes. Shapes that differ
+   only in those values share a `family`, and each lists its values under `predicates`. A shape
+   carries the most-run text, its run and user counts, and hints: tables, aggregates, group-bys,
+   filters. Report the shape and family counts in one line.
 5. If a database name in the SQL is a mirror of the real one (a copy or a benchmark prefix),
    normalise it to the real name and say so.
 

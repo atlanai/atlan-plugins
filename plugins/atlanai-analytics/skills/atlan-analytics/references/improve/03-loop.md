@@ -37,8 +37,8 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
      metric's owner (below) and leave the round pending until they apply and release it.
    - **New metric**: when train failures come from a concept no metric covers, first check
      that no proposal already covers it (below). Then draft its complete definition
-     (`registry__get_kind_schema` for `metric`) and test its SQL with the
-     warehouse query tool. When `metric_access.create` is true and the user approved this
+     (the metric body in `metrics/authoring.md`) and test its SQL with the warehouse query
+     tool. When `metric_access.create` is true and the user approved this
      round, create it as metrics mode does by hand
      ([publish](../metrics/publish.md)). Otherwise propose it for
      the workspace's metric owners (below) and leave the round pending until they create and
@@ -59,23 +59,9 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
 
 ### Saving and undoing a definition change
 
-Metric and saved-query definitions are immutable within a revision. `registry__patch_artifact`
-cannot edit either definition. Use `registry__get_artifact` to read the current head and its
-`etag`, then `registry__append_artifact_version` with:
-
-- `artifact_id`: the existing metric or saved-query ID;
-- `if_match`: the exact head ETag reviewed;
-- `metadata`: the complete `definition`, preserved `source_version` and `source_metadata`,
-  and `auto_release: false`; omit line fields such as `name` and `workspace_id`;
-- `idempotency_key`: one unique key for this reviewed change, reused with identical arguments
-  only to recover an uncertain write.
-
-Do not copy server-owned hashes or validation receipts. Confirm the head still matches the
-proposal's base before appending. A metric's positive-integer `definition.version` must never
-decrease; execution-input changes require a higher value. A usage-note-only query change
-needs no metric semantic version. Read back the same artifact ID and new ordinal, and
-record before/after version IDs and ordinals in the receipt. A stale token refuses the write;
-re-read and reconcile instead of blindly retrying.
+Follow [appending a revision](../metrics/publish.md#appending-a-revision) with
+`auto_release: false`, so the round's change waits for a person's release. Record before and
+after version IDs and ordinals in the receipt.
 
 Undo follows the same procedure: restore the intended full definition into a new version,
 using the latest observed ETag and a valid metric semantic version. Never mutate history.
@@ -155,13 +141,14 @@ describes, so the registry records the round as an experiment linked to the base
 ## Record and decide
 
 - `EVAL compare --a baseline --b vN` gives the paired validation and train deltas, each with
-  its band and an exact sign-test p-value. `EVAL summary --variant vN` gives context
-  engagement, unverified isolation and tokens.
+  its band and an exact sign-test p-value, and `guardrails` with each variant's p50 and p95
+  time and tokens per run. `EVAL summary --variant vN` gives context engagement and unverified
+  isolation.
 - Update `H/_state.json` (`current_round`, and `best` when validation beats it). Rewrite
   `H/narrative.md` with the status table on top:
 
-  | round | change | validation | train | p | used context | out toks |
-  |---|---|---|---|---|---|---|
+  | round | change | validation | train | p | used context | p95 s | tokens/run |
+  |---|---|---|---|---|---|---|---|
 
   Leave cost out: the script measures tokens, not money.
 
