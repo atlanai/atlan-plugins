@@ -109,7 +109,8 @@ its environment notes; when unsure, ask the user where they are running.
 carries an `error`, read it with `registry__get_file_content`, passing the `file_id` and the
 `file_version_ordinal` from the manifest as `version_ordinal`. Follow it for this task, and
 open a file under `references/` only when `SKILL.md` sends you there (`atlan-content` has the
-loop). If the request did not say what to run the skill on, ask. Open the
+loop). When it sends you to several at once, read them in one `registry__get_artifact` call
+with `include_files`. If the request did not say what to run the skill on, ask. Open the
 reply with the skill's first step or question, not a sentence saying the skill was loaded.
 
 **Check what the skill needs that the bundle does not carry.** **Check what the skill needs that the bundle does not carry.** A registry skill is often cut

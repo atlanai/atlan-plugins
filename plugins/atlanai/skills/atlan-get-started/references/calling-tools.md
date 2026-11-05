@@ -69,7 +69,7 @@ Within one session these do not change, so read each once and reuse it:
 | The workspace the user chose | Every create that names no other |
 | A kind's schema | Every write to that kind |
 | A tool's exact name, `inputSchema` and runner | Every call to it, with no second search or describe. When a runner refused it and named another, use that one from then on |
-| An optional argument the schema does not list, or a call refused by name (`include_file`, `files_from`, `wait_for_release`, `idempotency_key`) | Leave it out for the rest of the session. Never send a call you expect to be refused to find out what the app takes |
+| An optional argument the schema does not list, or a call refused by name (`include_file`, `include_files`, `files_from`, `wait_for_release`, `idempotency_key`) | Leave it out for the rest of the session. Never send a call you expect to be refused to find out what the app takes |
 | A handle you found by name | The handle, not a second search |
 
 Read again only what can move under you:
