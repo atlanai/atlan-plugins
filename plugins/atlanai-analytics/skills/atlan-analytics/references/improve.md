@@ -1,6 +1,6 @@
 # Improve a talk-to-data agent
 
-Read [shared conventions](conventions.md) first. This follows the eval hill-climb
+Read [shared conventions](conventions.md) and [project conventions](project-conventions.md) first. This follows the eval hill-climb
 discipline:
 - the split is frozen before round 1 and never redrawn (`split` refuses once a row is graded);
 - the analyst reads train traces only;

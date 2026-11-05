@@ -39,6 +39,12 @@ mcp__call_read_tool {                       ← the runner for what the tool doe
    `mcp__describe_tools { "names": [ … ] }` for a schema. An empty search does not prove a tool
    is missing: describe it by name first. A server you have not connected comes back under
    `connect`: ask, then run `mcp__connect_server` through `mcp__call_write_tool`.
+   Some hosts also list the most used `registry__` reads by name beside the five tools
+   (`registry__search_artifacts`, `registry__get_artifact`, `registry__get_artifact_counts`,
+   `registry__get_file_content`, `registry__get_related_artifacts`,
+   `registry__list_workspaces`). Once the session is open, call one of those directly, with
+   `session_id` and `rationale` as its own arguments and no `name` or `arguments` wrapper. The
+   call that opens the session still goes through a runner, which takes `objective`.
 5. **Independent reads go out together**, as parallel calls in one turn. Only the call that
    opens the session goes first and alone; writes go one at a time unless a recipe says otherwise.
 6. **A `workspace_id` on every create**: the one the user names, else `workspace_id` in

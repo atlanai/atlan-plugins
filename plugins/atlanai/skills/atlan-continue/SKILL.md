@@ -27,7 +27,7 @@ No handle, only a title: search for it (`registry__search_artifacts`, `semantic:
 
 The first runner call opens the session: send `objective` beside `name`, such as
 `Catch up on "<title>" handed over from the Atlan dashboard`, and reuse the `mcp_session_id` it
-returns as `session_id` on every later call, with a `rationale` on each.
+returns as `session_id` on every later call, with a `rationale` on each. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 
 ## 1. Read the artifact and its files
 

@@ -28,7 +28,15 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_CATALOG=1`: the server is the data-catalog plugin's (`mcp.atlan.com`), with
   asset search and lineage tools and none of the gateway's three;
 - `ATLAN_EMULATOR_SIGNED_OUT=1`: the user has not signed in, so the server lists no tools and
-  refuses every call as unauthenticated, the way a host shows an OAuth server before its login.
+  refuses every call as unauthenticated, the way a host shows an OAuth server before its login;
+- `ATLAN_EMULATOR_ANALYTICS=1`: the organization also has the Metrics and Ontology apps, with
+  the airline sandbox the 5 November flow review ran against (`analytics.json`): the metric
+  search ranks `otp_d15` eighth for an on-time question, an exact `name` needs `workspace_id`,
+  records come back unranked and 50 at a time, and no warehouse SQL tool is registered.
+
+The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
+`mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
+tool's tier refuses it and names the one to use, and search results name it in `run_with`.
 """
 
 from __future__ import annotations
@@ -58,6 +66,13 @@ SKILLS = int(os.environ.get("ATLAN_EMULATOR_SKILLS") or 0)
 # Tools this connection leaves out, as a gateway older than them would: `registry__publish_output`
 # for one that predates it.
 HIDE_TOOLS = {t for t in os.environ.get("ATLAN_EMULATOR_HIDE_TOOLS", "").split(",") if t}
+ANALYTICS = os.environ.get("ATLAN_EMULATOR_ANALYTICS") == "1"
+if ANALYTICS:
+    _EXTRA = json.loads((HERE / "analytics.json").read_text(encoding="utf-8"))
+    WORLD["tools"] = WORLD["tools"] + _EXTRA["tools"]
+    WORLD["artifacts"] = WORLD["artifacts"] | _EXTRA["artifacts"]
+    WORLD["workspaces"] = WORLD["workspaces"] + _EXTRA["workspaces"]
+    WORLD["analytics"] = _EXTRA
 
 # The data-catalog plugin named `atlan` (Anthropic's directory, atlanhq/agent-toolkit) serves
 # `https://mcp.atlan.com/mcp`: asset tools, no registry and no search mode.
@@ -148,6 +163,23 @@ META_TOOLS = [
 ]
 
 
+RUNNERS = {"mcp__call_read_tool": 0, "mcp__call_write_tool": 1, "mcp__call_tool": 2}
+RUNNER_OF = {tier: name for name, tier in RUNNERS.items()}
+for _runner, _what in (("mcp__call_read_tool", "a read-only tool"), ("mcp__call_write_tool", "any tool that is not destructive, reads included")):
+    _base = next(t for t in META_TOOLS if t["name"] == "mcp__call_tool")
+    META_TOOLS.append(_base | {"name": _runner, "description": f"Run {_what} by its exact `name` and `arguments`, "
+                               "with `session_id` (or `objective` on the first call) and `rationale` beside them. "
+                               "A tool above this runner's tier is refused with the runner that runs it."})
+
+
+def tier(tool: dict) -> int:
+    """0 read, 1 write, 2 destructive: the runner a tool needs, from its annotations."""
+    annotations = tool.get("annotations", {})
+    if annotations.get("readOnlyHint"):
+        return 0
+    return 2 if annotations.get("destructiveHint") else 1
+
+
 class Refusal(Exception):
     def __init__(self, status: int, code: str, detail: str):
         super().__init__(detail)
@@ -211,6 +243,7 @@ def public(tool: dict, detail: str = "schema") -> dict:
            "annotations": tool.get("annotations", {})}
     if detail == "schema":
         out["input_schema"] = tool["input_schema"]
+    out["run_with"] = RUNNER_OF[tier(tool)]
     return out
 
 
@@ -563,9 +596,144 @@ def dispatch(name: str, a: dict) -> dict:
         hidden = {"content", "error_message"} - {"content" if "content" in include else "", "error_message" if "errors" in include else ""}
         spans = [{k: v for k, v in s.items() if k not in hidden} for s in spans]
         return {"items": spans[: a.get("limit", 20)], "page": {"limit": a.get("limit", 20), "total_spans": run["span_count"]}}
+    if name in ANALYTICS_HANDLERS:
+        return ANALYTICS_HANDLERS[name](a)
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
+
+
+COMPACT_OMITS = ("examples", "provenance", "extensions")
+
+
+def metric_item(item: dict, definition: str | None) -> dict:
+    """A search_metrics item as metric service projects it: the choosing fields, the release receipt,
+    every stored validation warning, and the definition only for the items it is attached to."""
+    d = item["metadata"]["definition"]
+    out = {k: item.get(k) for k in ("id", "name", "display_name", "description", "workspace_id", "version_ordinal",
+                                     "version_id", "is_released", "updated_at", "owner_id")}
+    out |= {"version": d["version"], "population": d["population"], "grain": d["grain"], "output": d["output"],
+            "dimensions": [x["name"] for x in d["dimensions"]], "release_id": item["release_id"], "channel": "latest",
+            "validation_warnings": item["metadata"]["validation_warnings"]}
+    if definition:
+        out["definition"] = d if definition == "full" else {k: v for k, v in d.items() if k not in COMPACT_OMITS}
+    return out
+
+
+def analytics_items(kind: str, a: dict) -> list[dict]:
+    items = [i for i in artifacts().values() if i["kind"] == kind]
+    if a.get("workspace_id"):
+        items = [i for i in items if i["workspace_id"] == a["workspace_id"]]
+    if a.get("name"):
+        return [i for i in items if i["name"] == a["name"]]
+    query = words(a.get("query", ""))
+    for rule in WORLD["analytics"]["rankings"] if kind == "metric" else []:
+        if query & set(rule["words"]):
+            by_name = {i["name"]: i for i in items}
+            return [by_name[n] for n in rule["order"] if n in by_name]
+    scored = [(len(query & words(" ".join(str(i.get(k, "")) for k in ("name", "display_name", "description")))), i) for i in items]
+    return [i for score, i in sorted(scored, key=lambda x: (-x[0], x[1]["name"])) if score]
+
+
+def search_metrics(a: dict) -> dict:
+    """metric service's search_metrics on 5 November 2026: wording-ranked, and an exact `name` refused
+    without `workspace_id`."""
+    if "workspace_id" in a and not str(a["workspace_id"]).strip():
+        raise Refusal(400, "bad_request", "`workspace_id` must name a workspace; omit it to search every workspace.")
+    if not a.get("workspace_id") and (a.get("name") or not a.get("include_definition")):
+        raise Refusal(400, "bad_request", "`workspace_id` is required for an exact `name` and for head discovery.")
+    if not a.get("query") and not a.get("name"):
+        raise Refusal(400, "bad_request", "Give `query` (ranked search) or `name` (exact resolution).")
+    hits = analytics_items("metric", a)[: a.get("limit", 10)]
+    view = (a.get("definition_view") or "full") if a.get("include_definition") else None
+    attach = min(int(a.get("definition_limit", 1)), 3)
+    items = [metric_item(i, view if n < attach else None) for n, i in enumerate(hits)]
+    out = {"items": items, "page": {"limit": a.get("limit", 10), "offset": 0}}
+    if view:
+        out["definition_view"] = view
+    return out
+
+
+def search_queries(a: dict) -> dict:
+    if a.get("name") and not a.get("workspace_id"):
+        raise Refusal(400, "bad_request", "`workspace_id` is required for an exact `name` and for head discovery.")
+    hits = analytics_items("sql_query", a)[: a.get("limit", 10)] if a.get("name") else \
+        [i for i in artifacts().values() if i["kind"] == "sql_query"][: a.get("limit", 10)]
+    items = []
+    for n, i in enumerate(hits):
+        d = i["metadata"]["definition"]
+        row = {k: i.get(k) for k in ("id", "name", "display_name", "description", "workspace_id", "version_id", "release_id", "channel")}
+        row |= {"question": d["question"], "paraphrases": d["paraphrases"], "dialect": d["dialect"],
+                "usage_note": d["usage_note"], "review_status": i["metadata"]["review_status"]}
+        if a.get("include_sql") or a.get("name") or n == 0:
+            row["sql"] = d["sql"]
+        else:
+            row["sql_omitted"] = True
+        items.append(row)
+    return {"items": items}
+
+
+POLICY_TEXT = ("A departure counts as on time when it leaves the gate within the tolerance the policy names. The "
+               "policy applies to scheduled passenger legs; charter and positioning legs are out of scope. Delays "
+               "the airport authority attributes to air traffic control are reported but not excluded. ")
+
+
+def records() -> list[dict]:
+    spec = WORLD["analytics"]["records"]
+    types = list(spec["types"].items())
+    out = []
+    for n in range(spec["total"]):
+        type_id, type_name = types[n % len(types)]
+        on_time = n < spec["on_time"]
+        subject = "On-time departure" if on_time else ["Turnaround", "Crew rest", "Fuel uplift", "De-icing"][n % 4]
+        out.append({
+            "record_id": f"ontology_record_01eval{n:04d}", "record_type_artifact_id": type_id, "record_type": type_name,
+            "name": f"{subject} {type_name.lower()} {2024 + n % 3}.{n % 12 + 1}",
+            "values": {"tolerance_minutes": 15 if n % 3 else 5, "scope": "scheduled passenger legs",
+                       "statement": (POLICY_TEXT if on_time else "Ground handling rule for the station network. ") * 3},
+            "valid_from": f"202{4 + n % 3}-{n % 12 + 1:02d}-01T00:00:00Z", "valid_to": None if n % 5 else "2026-12-31T00:00:00Z",
+            "lifecycle_state": "active", "release_id": spec["release_id"],
+            "evidence": {"ontology_release_id": spec["release_id"], "type_version_id": f"ver_01evaltype{n % 3}",
+                         "document_version_id": f"ver_01evaldoc{n:04d}"},
+        })
+    return out
+
+
+def get_records(a: dict) -> dict:
+    """ontology service's get_records: every query word must appear (no score), 50 by default."""
+    if a["ontology_id"] != WORLD["analytics"]["records"]["ontology_id"]:
+        raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+    limit = int(a.get("limit", 50))
+    if not 1 <= limit <= 100:
+        raise Refusal(400, "bad_request", "`limit` must be between 1 and 100.")
+    terms = [t for t in re.findall(r"[a-z0-9-]+", (a.get("query") or "").lower()) if t not in STOP]
+    rows = [r for r in records() if not a.get("record_type_artifact_id") or r["record_type_artifact_id"] == a["record_type_artifact_id"]]
+    rows = [r for r in rows if all(t in json.dumps(r).lower() for t in terms)]
+    page = rows[int(a.get("offset", 0)):][:limit]
+    if not a.get("include_knowledge_references"):
+        page = [{k: v for k, v in r.items() if k != "evidence"} | {"evidence": {"ontology_release_id": r["release_id"]}} for r in page]
+    return {"items": page, "total_matched": len(rows), "scan_truncated": False}
+
+
+def get_context(a: dict) -> dict:
+    ctx = WORLD["analytics"]["context"]
+    if a["release_id"] != ctx["release_id"]:
+        raise Refusal(404, "not_found", "No release with that id on this ontology.")
+    keep = ctx["resources"][: a.get("max_resources", 15)]
+    return {"release_id": ctx["release_id"], "resources": keep, "truncated": False}
+
+
+def list_releases(a: dict) -> dict:
+    found = artifact(a["artifact_id"])
+    if not found.get("release_id"):
+        return {"items": []}
+    return {"items": [{"release_id": found["release_id"], "channel": "latest", "is_current": True,
+                       "version_ordinal": found.get("version_ordinal", 1)}]}
+
+
+ANALYTICS_HANDLERS = {"extension__metric__search_metrics": search_metrics, "extension__metric__search_queries": search_queries,
+                      "extension__ontology__get_records": get_records, "extension__ontology__get_context": get_context,
+                      "registry__list_releases": list_releases}
 
 
 def security_findings(a: dict) -> dict:
@@ -798,7 +966,11 @@ def publish_output(a: dict) -> dict:
             "file": file_view, "edges": edges, "created": live is None}
 
 
-def call_tool(args: dict) -> dict:
+def call_tool(args: dict, runner: str = "mcp__call_tool") -> dict:
+    tool = next((t for t in served_tools() if t["name"] == args.get("name")), None)
+    if tool is not None and tier(tool) > RUNNERS[runner]:
+        need = RUNNER_OF[tier(tool)]
+        raise Refusal(403, "runner_tier", f"{args['name']} is above what {runner} runs; send the same call with {need}.")
     if not args.get("rationale"):
         raise Refusal(400, "rationale_required", "Add `rationale` beside `name`: one first-person sentence on why you are making this call.")
     new = open_session(args)
@@ -808,7 +980,9 @@ def call_tool(args: dict) -> dict:
     return result
 
 
-HANDLERS = {"mcp__search_tools": search_tools, "mcp__describe_tools": describe_tools, "mcp__call_tool": call_tool}
+HANDLERS = {"mcp__search_tools": search_tools, "mcp__describe_tools": describe_tools, "mcp__call_tool": call_tool,
+            "mcp__call_read_tool": lambda a: call_tool(a, "mcp__call_read_tool"),
+            "mcp__call_write_tool": lambda a: call_tool(a, "mcp__call_write_tool")}
 
 
 def log(entry: dict) -> None:
@@ -839,22 +1013,22 @@ def handle(msg: dict) -> dict | None:
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": body})
             return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": json.dumps(body)}], "isError": True}}
         called = (params.get("arguments") or {}).get("name")
-        if RATE_LIMIT and params.get("name") == "mcp__call_tool" and called == RATE_LIMIT and not state["rate_limited"]:
+        if RATE_LIMIT and params.get("name") in RUNNERS and called == RATE_LIMIT and not state["rate_limited"]:
             state["rate_limited"] = True
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32003}})
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32003, "message": "rate_limited: the organization's "
                     "call budget is spent for the moment; retry after 2 seconds", "data": {"retry_after_seconds": 2}}}
-        if UNAVAILABLE and params.get("name") == "mcp__call_tool" and called == UNAVAILABLE and state.get("unavailable", 0) < 2:
+        if UNAVAILABLE and params.get("name") in RUNNERS and called == UNAVAILABLE and state.get("unavailable", 0) < 2:
             state["unavailable"] = state.get("unavailable", 0) + 1
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32603}})
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
                     "data": {"server": "registry", "retryable": True, "retry_after_seconds": 1,
                              "code": "downstream_unavailable"}}}
-        if LOST_REPLY and params.get("name") == "mcp__call_tool" and called == LOST_REPLY and not state.get("lost"):
+        if LOST_REPLY and params.get("name") in RUNNERS and called == LOST_REPLY and not state.get("lost"):
             # The relay cut the call after the create committed: the write stands, the reply is lost.
             state["lost"] = True
             try:
-                call_tool(params.get("arguments") or {})
+                HANDLERS[params["name"]](params.get("arguments") or {})
             except Refusal:
                 pass
             else:
