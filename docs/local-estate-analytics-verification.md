@@ -1,6 +1,89 @@
 # Analytics setup: implementation and verification
 
-## Current version: 0.6.0
+## Sign-in recovery and final preview: 0.6.2
+
+The next participant run showed five draft metrics and saved SQL in commentary, then ended
+with a file link. A host that collapses progress messages hid the useful preview. Setup now
+repeats the actual metric table and saved SQL in the final answer, including when publication
+is blocked by access. Links supplement that content. Local candidates remain clearly distinct
+from released Registry context.
+
+The same run searched a generic app directory and treated absent results as missing Registry
+access. It did not inspect the coding host's installed connection or attempt recovery.
+The Analytics task now discovers deferred host tools, attempts a small Registry read and
+distinguishes a missing plugin, disabled connection, required OAuth, unloaded tools,
+permission denial and transport errors. No identity or host setting is changed automatically.
+
+When OAuth is required, the parent starts the existing client's login as a native background
+or yielding task, opens its issued authorization URL in Chrome and watches the retained task
+handle for at most ten minutes. Successful login alone is not readiness: a successful Registry
+read from the current host is required before resuming the saved stage. The private
+`auth-recovery.json` records only allowed host observations and opaque task identifiers.
+The helper neither authenticates nor verifies network access itself. It does not implement
+an OS daemon or promise to wake a closed chat.
+
+Timeout, cancellation and permission denial stop only the owned login task. Resumption
+preserves candidates and prior authorization. An expired attempt returns its original task
+for cleanup before another attempt begins. When automatic recovery is unavailable, the
+response includes copyable core `atlanai` plugin install/sign-in instructions and the saved-run
+resume prompt. Installing the separate Registry CLI does not substitute for current-host tools.
+
+Verification: `make check` passed 263 unit/integration tests, 116 analytics helper checks,
+52 metrics helper checks, generated-file drift and lint. Eleven new tests exercise the
+recovery states, actual controlled-child completion, read-before-resume requirement, stale
+events, deadline cleanup, duplicate-task prevention, disabled/denied states, private state
+permissions, input rejection and CLI dispatch. Strict Analytics manifest, skill and command
+validation passed. The child-process test simulates login completion; no OAuth was performed.
+
+The two new Claude checkpoint cases cover final-answer content/install fallback and the
+bounded sign-in/reload/resume procedure. They use supplied synthetic evidence and do not
+perform browser login or publish Registry content. Both passed all three graders in their
+latest targeted runs. Earlier attempts exposed verbose recovery narration and ambiguity
+between checkpoint evidence and fresh SQL execution; instructions now address both.
+These are single-run behavior checks, not a stability claim. Claude Code and Codex have
+0.6.2 installed for manual testing; all 94 source files match both installed copies.
+The existing reuse-ordering issue below remains a release gate; this version stays draft.
+
+Security-relevant: the change does not read credentials, save authorization URLs or raw login
+output, register another MCP server, change disabled connections or introduce dependencies.
+Fresh Chrome OAuth and automatic continuation in an interactive host remain unverified.
+
+## Preview follow-up: 0.6.1
+
+A participant's 0.6.0 run combined dashboard definitions and query history correctly, but
+the generated preview stayed in tool output and a linked HTML file. The workspace question
+arrived before the preview link; two prose examples did not show the extracted definitions
+or SQL. Reusing existing releases then allowed the run to finish without a visible preview.
+
+The setup route now requires actual content in an assistant message before destination
+selection or publication/reuse, including resumed runs. `project.py preview --format chat`
+renders up to five metrics with their meaning, calculation, source and check status, plus
+an actual history-derived saved SQL example when available. Existing detailed Markdown and
+HTML views remain available. Large HTML results retain their snapshot path and point back
+to the chat preview instead of only returning an opaque result-file reference.
+
+The presentation rules also require stage/remaining-step updates in chat, explain changes
+between draft and released counts, and preserve candidates retained only for validation.
+Question suggestions must use evidenced dimensions and date semantics; a reuse checkpoint
+test caught unsupported time-based suggestions, so the handoff now prefers saved questions.
+Before CSV preparation, test the selected runtime with the same isolated import used by the
+worker. Runtime discovery stays within the active/supplied context, not unrelated projects
+or home caches. These are workflow instructions; the host still controls execution and UI.
+
+Verification includes 252 unit/integration tests, 116 analytics helper checks, 52 metrics
+helper checks and strict local marketplace, Analytics manifest and skill validation. The
+new tests cover combined model/history text, exact saved SQL, read-only preview behavior,
+empty/query-only candidates, source-text escaping and large HTML result handling.
+Claude checkpoint cases cover a missing visible preview before workspace selection and a
+reuse-only handoff with changed query counts. These use synthetic supplied checkpoint
+evidence, not a new full interactive setup or live Trident publication rehearsal.
+The final focused run passed the initial preview and missing-run cases. The reuse-only
+case passed skill invocation, reconciliation and reply-style checks but failed its visible
+preview ordering grader. Its reply included both metric definitions and saved SQL, yet
+still opened with Ready before that preview. Keep this follow-up draft until that ordering
+is stable; the focused suite is not fully green.
+
+## Earlier version: 0.6.0
 
 The current implementation uses the existing Analytics plugin for links, ordinary local
 folders and BI exports. It follows Inspect, Scope, Build, Check, Preview, Publish and Ready

@@ -63,3 +63,7 @@ End every run with exactly one: `DONE`; `DONE_WITH_CONCERNS` and what to double-
 `BLOCKED` with the reason, what you tried and the fix; or `NEEDS_CONTEXT` naming the answer or
 file only the person has. After 3 failed attempts at one step, stop and report it that way.
 Keep updates short: what ran, the number, what's next.
+Required metric previews are an exception to short-reply limits: show the actual definitions
+in the final answer as well as useful progress updates. A preview helper call, collapsed
+commentary or linked file alone is not the final user-visible preview. During a live sign-in
+watch keep the task active; use BLOCKED only once recovery cannot proceed or the watch ends.
