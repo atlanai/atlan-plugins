@@ -1,4 +1,68 @@
-# Local project analytics: implementation and verification
+# Analytics setup: implementation and verification
+
+## Current version: 0.6.0
+
+The current implementation uses the existing Analytics plugin for links, ordinary local
+folders and BI exports. It follows Inspect, Scope, Build, Check, Preview, Publish and Ready
+to ask. The harness plus Trident MCP answers questions; this route creates no separate agent
+or product eval. The accelerator is an input fixture, with no special runtime path.
+
+Generic context state now lives in `context_state.py`, independent of dashboard-agent jobs.
+`project.py` keeps the existing CLI and run format compatible while delegating discovery,
+page scope, previews, progress and release validation to focused helpers. Existing explicit
+dashboard, metrics, agent-build and eval modes remain available.
+
+The revised flow adds page selection and All with separate page/visual filters, retained
+supporting-measure dependencies, and held unresolved references. Report-only exports retain
+page choices while missing model definitions stay held. Acquisitions reuse matching
+revision/access-scope/hash receipts; host tools still own downloads and permission prompts.
+Run storage uses an explicit or already-permitted location, with an in-workspace fallback.
+
+Local candidate previews precede an unknown workspace choice. Show five and Show all render
+actual metric/SQL content immediately, including an explicit zero/fewer outcome. Rich
+rendering failures return text. Publication reconciles against the selected workspace before
+reporting create/revise/reuse counts or obtaining missing authorization. No local candidate
+is described as an authoritative Trident definition.
+
+Progress uses seven durable stages, factual counters, bounded events and an optional escaped
+HTML snapshot. The snapshot has real details/refresh controls; it is not a live custom pane.
+Inspect/check work checkpoints its results. Ordinary helper output is bounded, with large
+results in private artifacts; the parent retains semantic decisions and authenticated calls.
+
+Released saved queries can execute locally or produce a validated warehouse plan for the
+existing read-only host tool. An ordinary Ask request requires no local setup run or receipt.
+DuckDB now handles identifier case and CTE column lists correctly. Failed parameter samples
+remain held across later checks and the publication planner excludes them. Metric example
+execution is revision-bound and is labeled separately from formula equivalence and parity.
+
+| Verification on 0.6.0 | Result |
+| --- | --- |
+| `make check` with Python 3.12 and the existing DuckDB runtime | 249 tests passed, plus 116 analytics helper checks and 52 metrics helper checks; generated files and lint passed |
+| Claude Code 2.1.296, print mode with auto permissions, Show five choice | Five actual samples displayed without a destination or Registry writes |
+| Same host, unrelated synthetic shipment folder | Surveyed model, history and CSV; authored two metrics and three queries; prepared DuckDB and executed SQL; inputs preserved |
+| Metric-example follow-up | Both examples executed; all five candidates retained checked status |
+| Accelerator intake | Report/model and history discovered together; four measures resolved; 110 history records became 108 privacy-filtered records and 84 query shapes, not 84 verified metrics |
+| Preview browser checks | Details and refresh worked, source content escaped, no overflow at the tested desktop size |
+| Strict Claude validation | Analytics manifest, skills, commands, agents and marketplace passed; the installed CLI lacks `--profile directory` |
+| Manual-test installations | Claude Code and Codex enabled 0.6.0; all 92 plugin source files matched each installed copy |
+
+The two new Claude rehearsals were non-interactive print-mode runs with auto permissions.
+They do not prove a human-clicked interactive session. A complete interactive Claude/Codex
+rehearsal through live publication and a fresh warehouse answer remains a release gate for
+0.6.0. No new live Registry content was published in this revision's tests. The tester's
+precise older version/transcript was unavailable, so no exact historical no-op reproduction
+is claimed. The older live publication evidence below applies to 0.5.14, not this new flow.
+
+Security-relevant boundaries remain explicit: selected read-only database bindings are
+independent of input location, writes stay in owned private run files, path escapes and
+symlinks are refused, SQL uses bound parameters and scoped tables, and no new dependency,
+MCP server or credential is introduced. Format detection is not a parsing guarantee;
+unsupported readers and translations retain visible held status.
+
+Current entry: [shared setup](../plugins/atlanai-analytics/skills/atlan-analytics/references/setup.md).
+New regression coverage: [context setup tests](../tools/tests/test_context_setup.py).
+
+## Earlier 0.5.14 verification
 
 6 November 2026. Implemented in the existing `atlanai-analytics` source in `atlan-plugins`.
 Claude Code loaded the source plugins for this rehearsal without changing the globally

@@ -10,10 +10,10 @@ truth**, read-only SQL and safety rules apply. This skill answers in this conver
 creates no project, eval, agent or registry write, and needs no subagents, so it works in any
 harness.
 
-Reuse the selected project run, or find this project's `.atlan-metrics/*/run.json`; ask if
-ambiguous. Follow [project retrieval](../atlan-analytics/references/project.md#6-retrieval-contract-for-every-question)
-and return. It replaces the generic discovery and fallback below with fresh MCP releases,
-receipt checks and the recorded data binding. Local drafts are never the definition source.
+If a setup run was selected, follow [setup retrieval](../atlan-analytics/references/retrieval.md)
+and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
+below using existing Trident context. Ordinary questions require no local run, publication
+receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
 
 ## 1. Frame the question
 

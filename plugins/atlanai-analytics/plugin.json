@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
-  "version": "0.5.14",
-  "description": "Set up a repository for talk-to-data in Claude or Codex: combine dashboards and query history, publish metrics and saved SQL to Trident, and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent build, eval and improve workflows.",
+  "version": "0.6.0",
+  "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Trident and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -34,7 +34,7 @@
         ],
         "websiteURL": "https://atlan.com",
         "defaultPrompt": [
-          "Help me set up this repository so I can ask questions about its data",
+          "Help me use this dashboard, folder or BI export to ask questions about my data",
           "Build and test a talk-to-data agent from this Power BI dashboard",
           "Build metrics and saved queries for our support tables from the warehouse's query history",
           "How do customers join to orders in our business ontology, and which tables hold them?"

@@ -15,10 +15,10 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'atlan-analytics'
-  - name: reads-project-route
+  - name: reads-shared-setup-route
     type: tool_used
     tool: Read
-    input_match: 'references/project\.md'
+    input_match: 'references/setup\.md'
     min: 1
   - name: avoids-agent-preflight
     type: tool_used

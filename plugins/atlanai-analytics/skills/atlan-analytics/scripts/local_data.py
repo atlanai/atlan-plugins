@@ -38,6 +38,12 @@ def check_functions(sql):
     from metrics_mine import scan
     code = ''.join(text if kind == 'code' else text[1:-1] if kind == 'ident' else ' '
                    for kind, text in scan(sql))
+    # CTE column declarations are names, not calls. Mask only the declaration
+    # occurrence, never every occurrence of its alias (which could hide a macro).
+    code = re.sub(r'(\bwith\s+(?:recursive\s+)?|,)\s*([A-Za-z_][A-Za-z_0-9]*)\s*'
+                  r'\(\s*[A-Za-z_][A-Za-z_0-9]*(?:\s*,\s*[A-Za-z_][A-Za-z_0-9]*)*\s*\)'
+                  r'\s*(?=as\s+(?:(?:not\s+)?materialized\s+)?\()',
+                  lambda m: m[1] + ' cte_columns ', code, flags=re.I)
     calls = set(re.findall(r'([A-Za-z_][A-Za-z_0-9]*)\s*\(', code.lower()))
     if calls - FUNCTIONS:
         raise DataError('SQL uses an unsupported function. Use reviewed analytical functions and base tables.')
@@ -160,6 +166,10 @@ def worker(request):
                 return tuple(p[1:-1].replace('""', '"') if p.startswith('"') else p
                              for p in re.findall(r'"(?:[^"]|"")*"|[^.]+', match[1]))
             referenced = {parts(n) for n in con.get_table_names(scope_sql, qualified=True)}
+            # DuckDB folds ASCII identifier case, including quoted identifiers.
+            fold = lambda part: part.translate(str.maketrans('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'))
+            allowed = {tuple(fold(p) for p in name) for name in allowed}
+            referenced = {tuple(fold(p) for p in name) for name in referenced}
             if not referenced <= allowed:
                 raise DataError('Query tables are outside the selected scope. Use schema-qualified base tables.')
             started = time.monotonic()

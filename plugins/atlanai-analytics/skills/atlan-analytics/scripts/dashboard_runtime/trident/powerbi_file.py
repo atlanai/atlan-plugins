@@ -8,7 +8,7 @@ import tempfile
 VERSION='0.15.5'
 RUNTIME=Path.home()/'.trident/runtimes'/('pbixray-'+VERSION)/'bin/python'
 
-def inspect_file(path):
+def inspect_file(path, allow_report_only=False):
     source=Path(path).expanduser()
     if not source.is_absolute() or source.is_symlink() or not source.is_file() or source.suffix.lower() not in ('.pbix','.pbit','.bim'):
         raise ValueError('Supply the absolute path to the downloaded PBIX, PBIT or BIM file.')
@@ -25,7 +25,7 @@ def inspect_file(path):
         if target.stat().st_size>4_000_000:
             raise ValueError('Extracted metadata exceeds the local bundle limit; narrow the selected source.')
         inventory=json.loads(target.read_text())
-    if not inventory.get('model_metadata_available'):
+    if not inventory.get('model_metadata_available') and not allow_report_only:
         reason=inventory.get('binary_status')
         if reason == 'runtime_not_installed':
             raise ValueError('Binary Power BI metadata needs the approved PBIXRay runtime. Text PBIT and BIM metadata need no extra dependency.')
