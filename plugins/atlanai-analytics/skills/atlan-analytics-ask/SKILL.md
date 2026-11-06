@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-ask
-description: Answer a data question now from the organization's published metrics and saved queries in Atlan, run against the warehouse, and say which definition it used. Use for questions such as "what was revenue last quarter by region" or "why did weekly active users drop". Not for building a talk-to-data agent or setting up metrics (atlan-analytics).
+description: Answer data questions in this chat using published Trident metrics and saved SQL, including a prepared local project and DuckDB. Use for follow-up questions after Analytics setup or questions about totals, rates, trends and breakdowns. Not for repo setup, metric authoring or a separate agent build (atlan-analytics).
 ---
 
 # Answer a data question from governed context
@@ -9,6 +9,11 @@ Read [shared conventions](../atlan-analytics/references/conventions.md) first; i
 truth**, read-only SQL and safety rules apply. This skill answers in this conversation. It
 creates no project, eval, agent or registry write, and needs no subagents, so it works in any
 harness.
+
+If a setup run was selected, follow [setup retrieval](../atlan-analytics/references/retrieval.md)
+and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
+below using existing Trident context. Ordinary questions require no local run, publication
+receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
 
 ## 1. Frame the question
 
@@ -69,6 +74,11 @@ then continue with your own SQL and its assumptions spelled out (step 5 labels i
 
 ## 3. Reach the data
 
+For a selected project run with `execution.kind: duckdb`, use its recorded Python runtime
+and `project.py execute` as [project setup](../atlan-analytics/references/project.md) describes.
+This is an available data connection; do not ask for Snowflake or a new MCP server. Keep
+the binding across turns and use fresh released definitions and fresh query results.
+
 Find the warehouse query tool with steps 0 to 2 of
 [warehouse discovery](../atlan-analytics/references/connect.md): a record this conversation
 or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
@@ -123,15 +133,7 @@ conventions' **Source of truth** says.
 
 ## 6. Close the gap
 
-Offer the propose flow once, when either happened:
-- the answer is **Not governed**: offer to propose a new metric to the workspace's owners;
-- the person **corrects** a published metric's number or definition: offer to propose the fix.
-
-On a yes, follow [propose mode](../atlan-analytics/references/propose.md) from its step 1. It
-previews before writing and never changes a metric itself. Never propose without asking.
-
-When the person wants the answer shared with colleagues, the core plugin's `atlan-share`
-skill records it and posts the hand-off; to keep it without an audience, `atlan-record-outputs`
-records it as an Atlan output. Either way, name the metric it used.
+For missing definitions, corrections or a request to save/share the answer, follow
+[answer follow-ups](../atlan-analytics/references/ask-followups.md).
 
 End with one status line from the conventions.

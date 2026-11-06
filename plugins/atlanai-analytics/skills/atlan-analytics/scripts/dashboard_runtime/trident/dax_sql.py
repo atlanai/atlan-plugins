@@ -103,8 +103,8 @@ def identifier(value):
 
 class Compiler:
     def __init__(self, mapping, context, dialect):
-        if dialect not in ('snowflake', 'postgres', 'sqlite'):
-            raise TranslationGap('This translator supports Snowflake, Postgres and SQLite SQL.')
+        if dialect not in ('snowflake', 'postgres', 'sqlite', 'duckdb'):
+            raise TranslationGap('This translator supports Snowflake, Postgres, SQLite and DuckDB SQL.')
         if not mapping.get('rowset_equivalent') or not mapping.get('security_preserved'):
             raise TranslationGap('Resolve source transformations, row grain and row-level security before SQL translation.')
         self.table = mapping['semantic_table']
@@ -132,7 +132,7 @@ class Compiler:
 
     def bind(self, value):
         name = 'p' + str(len(self.params)); self.params[name] = value
-        return ':' + name
+        return ('$' if self.dialect == 'duckdb' else ':') + name
 
     def column(self, ast):
         if ast[0] != 'column' or ast[1] != self.table or ast[2] not in self.columns:
@@ -254,9 +254,9 @@ class Compiler:
         self.root_context = context
         sql = 'SELECT ' + self.scalar(ast, context) + ' AS "value"'
         # CALCULATE can remove already-bound context predicates; remove unused parameters.
-        used = set(re.findall(r':(p\d+)\b', sql))
+        used = set(re.findall(r'\$(p\d+)\b' if self.dialect == 'duckdb' else r':(p\d+)\b', sql))
         parameters = {name: value for name, value in self.params.items() if name in used}
-        return {'sql': sql, 'parameters': parameters, 'binding_style': 'named_colon', 'dialect': self.dialect,
+        return {'sql': sql, 'parameters': parameters, 'binding_style': 'named_dollar' if self.dialect == 'duckdb' else 'named_colon', 'dialect': self.dialect,
                 'relation': self.relation, 'source_sql': self.source_sql, 'warnings': self.warnings, 'compiler': 'dax-scalar-ast/1'}
 
 
