@@ -5,11 +5,13 @@ repository of queries and models the person wants to ask questions about. Claude
 the `/atlanai-analytics:start` shortcut. Keep the existing plugin name and namespace.
 Other hosts can invoke the skill with the same mode arguments or use a natural prompt.
 
-For a supplied project folder, or "Set up this project for analytics" in the current project,
+For a supplied repository URL or project folder, or "Set up this project for analytics" in the current project,
 follow [local project setup](project.md) and return. Its survey uses models, saved SQL and
 query history together when available. It publishes both context types and suggests questions;
 it waits for a question when the user has not supplied one. Explicit query-history-only and
 metrics-only requests retain their routes below.
+"Build an analytics agent from this repo" uses the same project route: this harness answers
+with context in Trident. A Power BI file discovered inside the repo stays in that survey.
 
 ## Select the source, not an agent project
 

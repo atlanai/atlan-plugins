@@ -2,14 +2,17 @@
 
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
 trust, each one checked against the registry's contracts and previewed before it is written.
-Two entries use this file:
+Three entries use this file:
 - **metrics mode** (`/atlanai:atlan-analytics metrics` from the public Atlan marketplace,
   or `/atlanai-analytics:atlan-analytics metrics` from the separate add-on) starts at section 0
   and stops at section 6;
-- a **full agent build** reaches it from phase 3 and starts at section 1.
+- a **full agent build** reaches it from phase 3 and starts at section 1;
+- **project setup** arrives after its combined repo survey. Preserve that route's state,
+  use both model and history evidence, and return to its publication receipts and questions.
 
-Everything here runs in this assistant plus one standard-library script. Nothing is cloned,
-installed or downloaded. Below:
+Everything here runs in this assistant plus one standard-library script. This phase needs no
+additional clone, installation or download. Project setup may already have cloned the source
+repository the user supplied. Below:
 - `MINE` means `python3 "<skill-dir>/scripts/metrics_mine.py"`. `<skill-dir>` is this skill's
   directory: `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics` in Claude Code, and otherwise the
   directory that holds this file's `references/`.
@@ -40,7 +43,9 @@ A full build already has its workspace, `tables.txt` and state from phases 1 and
 
 Read the workspace's existing `metric` and `sql_query` artifacts first
 (`registry__list_artifacts`). When they already cover the request, say so and stop rather than
-create duplicates.
+create duplicates. In project setup, reconcile every scoped source first, then carry reused
+released artifacts through receipts and suggestions; existing context is not a reason to end
+the user's setup before the question handoff.
 
 Then find which sources are in reach, using [sources](metrics/sources.md). Use every one that
 is, in the order the conventions' **Source of truth** sets: a declared model's metric is taken
@@ -64,7 +69,8 @@ Ask once, with the options that are actually in reach:
 - **Import a finished metrics-agent run**: the run directory's `registry_payloads/`.
 - **We write a few definitions together**: section 3, by hand.
 
-Skip this choice when the request already selected a source, including `query-history`.
+Skip this choice when the request already selected a source, including `query-history`, or
+project setup has surveyed the repository. That survey selects both model and history when usable.
 Use a supplied query export before asking for warehouse history access. Discover a data
 connection only when needed for checks or fresh answers, and explain that purpose first.
 

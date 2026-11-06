@@ -3,10 +3,11 @@ name: routing-project-natural
 tags: [analytics, routing]
 execution:
   prompt: |
-    Set up this project so I can ask questions about its data. I have a cloned local
-    folder with Power BI files, query history and DuckDB. Survey what is available,
-    use both models and history, publish metrics and useful SQL to Trident, and then
-    show me questions I can ask. Skip evals and agent registration.
+    Help me set up this repo:
+    https://github.com/atlanai/analytics-agent-accelerator
+
+    Once it's ready, use Atlan Analytics to help me build an analytics agent from
+    the dashboards, query history and data included in it.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -28,8 +29,16 @@ graders:
   - name: preserves-simplified-flow
     type: llm
     criteria: |
-      PASS when the reply asks only for the missing folder or explains the survey,
-      treats model and query history as complementary sources, and does not require
-      evals, a new agent or a new plugin. If suggestions are shown, they must be
-      described as provisional until published context is available. Do not claim
-      discovery, publication or execution without corresponding tool evidence.
+      This routing test has no shell and cannot clone a repo or execute the survey.
+      PASS if it truthfully reports that limit and describes continuing from repo
+      survey of dashboards AND query history to metrics/saved SQL in Trident and
+      questions in the current chat. Missing shell or an unselected workspace is
+      not a failure. FAIL if it routes to hosted-report capture, asks the user to
+      choose dashboard OR history, creates/requires a separate agent package, or
+      claims discovery, publication or execution without tool evidence.
+  - name: avoids-dashboard-url-route
+    type: tool_used
+    tool: Read
+    input_match: 'references/dashboard\.md'
+    min: 0
+    max: 0
