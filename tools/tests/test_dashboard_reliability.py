@@ -173,6 +173,21 @@ class DurableRun(unittest.TestCase):
         self.assertEqual(self.run.status()['workflow']['last_issue']['code'],'revision_conflict')
         self.assertTrue(self.run.status()['workflow']['questions_available'])
 
+    def test_translation_change_invalidates_evaluation_before_another_export(self):
+        request = {'agent_id': 'agent_demo', 'runner': 'claude-question-only',
+                   'dataset_hash': 'example-dataset', 'context_snapshot_hash': 'example-context'}
+        op = self.run.begin_stage('heldout_eval', request)
+        self.run.acknowledge('heldout_eval', {'operation_id': op['operation_id'], 'read_succeeded': True,
+                            **request, 'passed': 1, 'scored': 1, 'unmeasured': 0, 'evidence_ref': 'private:example'})
+        original = self.run.fingerprint()
+        changed = mapping()
+        changed['relation'] = ['another_table']
+        self.change('dashboard_translate', dialect='sqlite', mappings=[changed])
+        self.assertNotEqual(self.run.fingerprint(), original)
+        status = self.run.status()
+        self.assertEqual(status['workflow']['stages']['heldout_eval']['state'], 'stale')
+        self.assertIsNone(status['dashboard']['summary']['heldout_accuracy_percent'])
+
     def test_resolved_error_is_archived_only_after_the_same_operation_succeeds(self):
         issue={**public_error(ValueError('Record the release selector returned by the latest read.')),
                'operation':'registry-ack:'}
