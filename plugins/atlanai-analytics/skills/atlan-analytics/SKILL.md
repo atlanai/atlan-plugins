@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Prepare links, local folders and BI exports for talk-to-data using dashboards, models and query history. Use when asked to set up analytics or build an analytics agent from existing context. Publishes metrics and SQL to Trident, then suggests questions. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
+description: Prepare links, local folders and BI exports for talk-to-data using dashboards, models and query history. Use when asked to set up or resume analytics or build an analytics agent from existing context. Publishes metrics and SQL to Trident, then suggests questions. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
 ---
 
 # Analytics context and talk-to-data
@@ -29,7 +29,11 @@ uses that route unless the person explicitly requests a separate deployed agent.
 is an ordinary source input; its name and layout never select a special workflow.
 
 Survey before choosing inputs. Combine relevant declared models, dashboards, saved SQL and
-query history; preview actual definitions before asking for a publication destination.
+query history. Render actual metric names, meanings, calculations, sources and check status
+in chat before asking for a publication destination or proceeding to publish/reuse. Run
+`project.py preview --format chat` for the first five metrics and a saved SQL example.
+A helper result, counts, a file link or a generated HTML page alone does not show a preview.
+This visible checkpoint also applies on resume and when all definitions can be reused.
 Finish with released context in Trident and supported questions in this conversation.
 The current harness plus Trident MCP is the talk-to-data interface. No agent package,
 registration, custom chat or eval is required. Reuse the selected run when resuming.

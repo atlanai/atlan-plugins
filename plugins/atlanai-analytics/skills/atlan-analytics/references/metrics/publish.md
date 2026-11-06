@@ -6,6 +6,11 @@ calls the registry's REST API, holds a token or runs a push script. Publish only
 
 ## 1. Preview
 
+For setup runs, first show `project.py preview --format chat` in an assistant message if
+actual candidates have not yet been displayed. A file link, tool result or counts alone
+does not count. This also applies when every artifact is being reused; no extra approval
+is required for read-only reuse. Show changed definitions again after reconciliation.
+
 Show the plan from `plan.json`, then ask:
 - the counts to create, revise and reuse, for metrics and for saved queries, and the number of
   links;
