@@ -1,0 +1,35 @@
+schema_version: "1.1"
+name: routing-project-natural
+tags: [analytics, routing]
+execution:
+  prompt: |
+    Set up this project so I can ask questions about its data. I have a cloned local
+    folder with Power BI files, query history and DuckDB. Survey what is available,
+    use both models and history, publish metrics and useful SQL to Trident, and then
+    show me questions I can ask. Skip evals and agent registration.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: reads-project-route
+    type: tool_used
+    tool: Read
+    input_match: 'references/project\.md'
+    min: 1
+  - name: avoids-agent-preflight
+    type: tool_used
+    tool: Read
+    input_match: 'references/full-agent\.md'
+    min: 0
+    max: 0
+  - name: preserves-simplified-flow
+    type: llm
+    criteria: |
+      PASS when the reply asks only for the missing folder or explains the survey,
+      treats model and query history as complementary sources, and does not require
+      evals, a new agent or a new plugin. If suggestions are shown, they must be
+      described as provisional until published context is available. Do not claim
+      discovery, publication or execution without corresponding tool evidence.

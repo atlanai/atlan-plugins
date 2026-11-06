@@ -98,6 +98,11 @@ def _records(value) -> list:
         return value
     if not isinstance(value, dict):
         return []
+    # A JSONL line is itself a row, not a result envelope. Prefer explicit SQL
+    # fields so an MCP {type: text, text: ...} block remains an envelope.
+    low = {str(k).lower(): v for k, v in value.items()}
+    if any(isinstance(low.get(k), str) for k in _SQL_COLS[:-1]):
+        return [value]
     result = value.get("result") if isinstance(value.get("result"), dict) else {}
     cols = value.get("columns") or ((value.get("manifest") or {}).get("schema") or {}).get("columns")
     rows = value.get("rows") if isinstance(value.get("rows"), list) else (value.get("data_array") or result.get("data_array"))

@@ -10,6 +10,11 @@ truth**, read-only SQL and safety rules apply. This skill answers in this conver
 creates no project, eval, agent or registry write, and needs no subagents, so it works in any
 harness.
 
+For a selected local setup run, follow [project retrieval](../atlan-analytics/references/project.md#6-retrieval-contract-for-every-question).
+It scopes searches to its workspace, requires fresh Trident releases, retains the data binding
+and shows executed SQL. Its missing-context rule replaces the ungoverned fallback below;
+all formula, scope and result checks still apply.
+
 ## 1. Frame the question
 
 From the question, write down the measure, the time window, the population and the grain, and
@@ -69,6 +74,11 @@ then continue with your own SQL and its assumptions spelled out (step 5 labels i
 
 ## 3. Reach the data
 
+For a selected project run with `execution.kind: duckdb`, use its recorded Python runtime
+and `project.py execute` as [project setup](../atlan-analytics/references/project.md) describes.
+This is an available data connection; do not ask for Snowflake or a new MCP server. Keep
+the binding across turns and use fresh released definitions and fresh query results.
+
 Find the warehouse query tool with steps 0 to 2 of
 [warehouse discovery](../atlan-analytics/references/connect.md): a record this conversation
 or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
@@ -123,15 +133,7 @@ conventions' **Source of truth** says.
 
 ## 6. Close the gap
 
-Offer the propose flow once, when either happened:
-- the answer is **Not governed**: offer to propose a new metric to the workspace's owners;
-- the person **corrects** a published metric's number or definition: offer to propose the fix.
-
-On a yes, follow [propose mode](../atlan-analytics/references/propose.md) from its step 1. It
-previews before writing and never changes a metric itself. Never propose without asking.
-
-When the person wants the answer shared with colleagues, the core plugin's `atlan-share`
-skill records it and posts the hand-off; to keep it without an audience, `atlan-record-outputs`
-records it as an Atlan output. Either way, name the metric it used.
+For missing definitions, corrections or a request to save/share the answer, follow
+[answer follow-ups](../atlan-analytics/references/ask-followups.md).
 
 End with one status line from the conventions.
