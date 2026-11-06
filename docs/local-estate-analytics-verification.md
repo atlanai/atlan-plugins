@@ -29,6 +29,11 @@ empty/query-only candidates, source-text escaping and large HTML result handling
 Claude checkpoint cases cover a missing visible preview before workspace selection and a
 reuse-only handoff with changed query counts. These use synthetic supplied checkpoint
 evidence, not a new full interactive setup or live Trident publication rehearsal.
+The final focused run passed the initial preview and missing-run cases. The reuse-only
+case passed skill invocation, reconciliation and reply-style checks but failed its visible
+preview ordering grader. Its reply included both metric definitions and saved SQL, yet
+still opened with Ready before that preview. Keep this follow-up draft until that ordering
+is stable; the focused suite is not fully green.
 
 ## Earlier version: 0.6.0
 
