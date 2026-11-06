@@ -5,7 +5,7 @@ Claude Code loaded the source plugins for this rehearsal without changing the gl
 installed plugin versions. Synthetic metrics and SQL queries were published to the explicitly
 approved live workspace. The PR isolates project setup from unrelated dashboard edits and
 builds on the dashboard run infrastructure in PR #85. The corrected repository entry is
-Analytics 0.5.13. Creating the PR does not release that version to marketplace main.
+Analytics 0.5.14. Creating the PR does not release that version to marketplace main.
 
 ## Repository entry correction
 
@@ -33,7 +33,7 @@ and timeout cleanup.
 The regression prompt is now the exact short repository request that failed, without telling
 the model which route to take. Its Claude routing test passed all five graders. The test has
 no shell, so it verifies truthful capability reporting and routing, not data execution. The
-full live rehearsal is separate. `make check` passed 218 unit/integration tests, 116 analytics
+full live rehearsal is separate. `make check` passed 220 unit/integration tests, 116 analytics
 self-checks and 52 metrics self-checks; strict manifest, skill and command validation passed.
 The full validation target still stops on this Claude CLI's unsupported `--profile` option.
 
@@ -51,6 +51,13 @@ as 0.2.0. Every observed job type and a missing value was checked: commercial/mi
 NULL, while populated rates are unchanged. NULL means no qualifying completed jobs, not zero
 performance. The workflow now requires representative parameter and empty-population checks
 before publishing; the executor continues refusing non-finite answers.
+
+Saved-query answers now use `project.py answer` to validate complete released readbacks and
+execute their SQL in one operation. It selects SQL from the retrieved artifact, binds user
+parameters natively and returns the exact release plus `retrieval_check: passed`. This removes
+the separate receipt-check step that a host had skipped while still returning a numerical
+answer with a caveat. Additional tests cover changed definitions, unknown query IDs, native
+bindings and template-like text inside quoted SQL literals.
 
 The corrected plugin is installed in Claude Code and Codex for manual testing. All 83
 installed plugin files matched source. The user approved disabling the older Codex prototype;
@@ -77,6 +84,14 @@ questions in the setup chat; in a new chat, explicitly select Atlan Analytics. I
 alone cannot force every harness to invoke the skill. The final question test uses that
 explicit plugin selection and fresh MCP reads. Earlier in-flight sessions carried the old
 receipt format while the helper was being corrected; their receipt warnings are not passes.
+
+The final fresh Claude chat explicitly selected Atlan Analytics and asked about P03 gross
+margin and commercial-job on-time delivery. It fetched both complete released saved queries
+through native MCP and used `project.py answer` for each. Both returned `retrieval_check:
+passed`: gross margin was GBP -6,360 and the commercial rate was NULL. A deterministic audit
+matched both input definitions and release envelopes exactly to their native MCP responses.
+The first command used macOS's `/tmp` symlink and was refused; it retried the canonical
+`/private/tmp` path successfully without weakening the file checks.
 
 ## Starting experience
 
@@ -213,7 +228,7 @@ studio successfully. This is a platform presentation issue, not a failed Registr
 ## Remaining gaps and limits
 
 1. The original full live test used Claude Code with session-loaded source plugins. The
-   corrected 0.5.13 is now installed locally in Claude Code and Codex. Marketplace main,
+   corrected 0.5.14 is now installed locally in Claude Code and Codex. Marketplace main,
    customer installation and Claude Desktop/Cowork are not verified.
    The local helper validates normalized MCP evidence but does not independently contact or
    authenticate Trident. The actual host MCP transcript supplies remote evidence.

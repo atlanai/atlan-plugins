@@ -232,13 +232,28 @@ published IDs. Search saved queries for detail questions or where no metric fits
 complete definition/SQL and release receipt for each kept hit through MCP. Local authoring
 files and remembered setup answers are never the retrieval source.
 
-Wrap those complete fresh MCP artifact responses in the same input shape and run
-`PROJECT retrieved "<fresh-readbacks.json>"`. It refuses mismatched workspaces, unknown IDs,
+For a saved-query answer, use **one checked operation**, `PROJECT answer "<request.json>"`:
+
+```json
+{"readbacks": {"workspace_id": "workspace_example", "artifacts": ["complete MCP response objects"]},
+ "artifact_id": "sql_query_example", "parameters": {"project_id": "example_id"}}
+```
+
+Replace the illustrative array with the complete raw MCP objects. The helper validates their
+full definitions against the publication receipt, takes SQL directly from the selected
+released saved query, converts Registry templates to native bindings and executes read-only.
+It returns `retrieval_check: passed`, the executed SQL, the release used and fresh results.
+Do not rewrite the retrieved SQL into another file, call the repository's query script, or
+skip this check and present a governed answer with a caveat. A failed check stops the answer.
+
+For a metric with no suitable saved query, wrap the complete fresh MCP responses in the same
+readback shape and run `PROJECT retrieved "<fresh-readbacks.json>"` before constructing SQL.
+Both paths refuse mismatched workspaces, unknown IDs,
 changed definitions and missing/different releases. If a new release or another relevant
 artifact should be used, review its source mapping and checks, then refresh the publication
 receipt from MCP before using it. A withdrawn release cannot fall back to its head or a draft.
 
-Use the retrieved definition to construct SQL preserving formula, scope, grain, joins and
+For that metric path, use the retrieved definition to construct SQL preserving formula, scope, grain, joins and
 mandatory filters. Run `PROJECT execute` for DuckDB or the recorded warehouse tool, then
 answer with results, executed SQL and artifact links/revisions. Include truncation and
 unmeasured parity where relevant. Use artifact UI links returned by the service or observed

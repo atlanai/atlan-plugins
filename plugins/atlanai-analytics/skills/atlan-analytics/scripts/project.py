@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from types import SimpleNamespace
 
@@ -213,6 +214,22 @@ class Project(Run):
         return local_data.call(state['execution'], 'execute', request['sql'], request.get('parameters'),
                                request.get('limit', 100))
 
+    def answer(self, request):
+        """Validate full release readbacks and execute the selected released saved SQL."""
+        checked = self.retrieved(request['readbacks'])
+        query = next((a for a in checked['artifacts'] if a['id'] == request.get('artifact_id')), None)
+        if not query or query['kind'] != 'sql_query':
+            raise ProjectError('Select a saved query from these fresh released MCP responses.')
+        sql = query['definition']['sql']
+        # Registry templates become native bindings only outside quoted SQL and comments.
+        sql = ''.join(re.sub(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', r'$\1', text)
+                      if kind == 'code' else text for kind, text in mine.scan(sql))
+        result = self.execute({'sql': sql, 'parameters': request.get('parameters', {}),
+                               'limit': request.get('limit', 100)})
+        return {**result, 'retrieval_check': 'passed', 'sql': sql,
+                'used_release': {k: query[k] for k in
+                                 ('id', 'name', 'kind', 'release_id', 'version_id', 'channel')}}
+
     def releases(self, payload):
         """Normalize complete MCP released-artifact responses without truncating definitions."""
         if not isinstance(payload, dict):
@@ -285,7 +302,7 @@ def main():
     sub.add_parser('history')
     sub.add_parser('status')
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+')
-    for name in ('prepare', 'execute', 'publication', 'retrieved'):
+    for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

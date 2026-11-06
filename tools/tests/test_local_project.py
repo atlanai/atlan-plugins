@@ -271,6 +271,29 @@ class DuckDBFlow(unittest.TestCase):
             con.execute("INSERT INTO site.work VALUES ('build', 10, DATE '2026-01-04')")
         self.assertEqual(restarted.execute({'sql': query})['rows'], [['44.75']])
 
+    def test_answer_checks_release_and_runs_its_sql_in_one_operation(self):
+        remote = readbacks("SELECT SUM(cost) AS value FROM site.work WHERE kind={{kind}}")
+        remote['artifacts'][0]['metadata']['definition']['parameters'] = [
+            {'name': 'kind', 'data_type': 'string', 'description': 'Selected work kind'}]
+        self.run.publication(remote)
+        request = {'readbacks': remote, 'artifact_id': 'sql_query_example', 'parameters': {'kind': 'rework'}}
+        result = self.run.answer(request)
+        self.assertEqual(result['rows'], [['14.75']])
+        self.assertEqual(result['retrieval_check'], 'passed')
+        self.assertIn('$kind', result['sql'])
+        self.assertEqual(result['used_release']['release_id'], 'rel_example')
+        request['readbacks'] = copy.deepcopy(remote)
+        request['readbacks']['artifacts'][0]['metadata']['definition']['sql'] = 'SELECT 999'
+        with self.assertRaises(ValueError): self.run.answer(request)
+        request['readbacks'] = remote; request['artifact_id'] = 'sql_query_other'
+        with self.assertRaises(ValueError): self.run.answer(request)
+
+    def test_answer_does_not_substitute_templates_inside_literals(self):
+        remote = readbacks("SELECT '{{not_a_parameter}}' AS value")
+        self.run.publication(remote)
+        result = self.run.answer({'readbacks': remote, 'artifact_id': 'sql_query_example'})
+        self.assertEqual(result['rows'], [['{{not_a_parameter}}']])
+
     def test_truncation_date_null_and_injection_are_bound(self):
         result = self.run.execute({'sql': 'SELECT day, NULL AS missing FROM site.work ORDER BY day', 'limit': 1})
         self.assertEqual(result['rows'], [['2026-01-01', None]])
