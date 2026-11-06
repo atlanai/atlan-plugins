@@ -1,0 +1,40 @@
+schema_version: "1.1"
+name: setup-auth-watch-resume
+tags: [analytics, setup, auth, resume]
+execution:
+  prompt: |
+    Use the Atlan Analytics skill to explain the next actions for this synthetic recovery
+    checkpoint. Do not start a real sign-in, access a registry or run commands in this test.
+    We are in Claude Code, with the core plugin installed and enabled. Its observed
+    plugin:atlanai:atlan server explicitly requires OAuth. The current run is saved at
+    /workspace/.atlan-metrics/example-run and should resume at publication. Shell, Chrome
+    control and native background-task tools are available in the described host.
+
+    Explain how you will open Chrome and watch sign-in, what you do when the login task
+    exits successfully, and how you continue without waiting for me to type 'done'. Also
+    explain what changes if the selected connection is disabled or the watcher times out.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: bounded-host-watch
+    type: llm
+    criteria: |
+      PASS if the plan uses the existing host login command/task, opens its actual issued
+      authorization URL in Chrome, retains/polls the real task handle with a finite timeout,
+      and requires a successful current-host Registry read after CLI completion before
+      resuming the same saved stage automatically. It must not require 'done', claim the
+      helper alone runs the watcher, schedule an automation/daemon, read credentials, or
+      claim the hypothetical browser/task actually started in this test.
+  - name: disabled-and-timeout-are-distinct
+    type: llm
+    criteria: |
+      PASS if disabled state requires host enablement rather than overriding controls or
+      retrying login, and timeout ends the owned watch, preserves the run, and provides
+      a manual sign-in/installation fallback. A signed-in CLI with unloaded host tools must
+      trigger supported reload/reconnect or a saved-run handoff, not a claim of Registry access.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if it leads with the recovery actions, uses plain language, and avoids greetings,
+      apologies, em dashes and generic closing offers. A list explaining this requested
+      hypothetical flow may exceed the usual short-reply limit.

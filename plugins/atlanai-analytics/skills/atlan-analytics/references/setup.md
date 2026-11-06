@@ -8,6 +8,22 @@ sample schema or database name. Explicit agent and evaluation modes remain separ
 `PROJECT` means `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>"`.
 Use an existing approved Python runtime; DuckDB execution needs one with DuckDB installed.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.
+Missing Registry access follows [connection recovery](auth-recovery.md): inspect the current
+host, start Chrome sign-in when required, watch its native task and resume after a successful
+Registry read. Continue independent local work while waiting; do not simply ask for "continue".
+
+**Visible preview is a required conversation step.** Before a destination question or
+publication/reuse, show actual candidates in an assistant message. Tool output, counts and
+an HTML link alone do not satisfy this step. This applies on resume and when everything
+already exists in Trident. It is a presentation checkpoint, not another approval prompt.
+If the previous turn only linked a file, resume at Preview and render its content before
+announcing Ready. Do not label the run complete while that visible step is still missing.
+
+On resume, reuse a readable run or candidate output already supplied in the conversation.
+If neither is available, ask only for the existing run directory. Do not search unrelated
+folders or home caches, request the original source again, or restart extraction to satisfy
+a preview choice. With no shell, read existing candidate/preview files through the host's
+file tool and show them directly. If the path is missing, name that one missing input.
 
 ## 1. Inspect what is available
 
@@ -74,6 +90,11 @@ Use [local source procedures](project.md#2-bind-data-once) to select an executor
 of the input: existing DuckDB, approved CSV preparation, or an existing read-only warehouse
 through [connect](connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
+Before CSV preparation, test the selected interpreter with `-I -c 'import duckdb'`, matching
+the preparation worker's isolation. A normal import is not sufficient. Check only the active
+runtime, the supplied project's environment and an explicitly supplied approved runtime;
+do not search unrelated projects or home caches. If none works, give one scoped runtime
+setup option subject to host policy, or continue with untested definitions and a preview.
 
 For new supported metrics, use [the metrics module](metrics-engine.md), preserving this setup
 run, scope and preview/publication order. Reuse the interview decisions; do not run another.
@@ -90,6 +111,8 @@ Keep `context/metrics.json`, `queries.json` and `links.json` in existing formats
 grain, units, dimensions, mandatory filters, time semantics and provenance. Reconcile declared
 and history evidence; detail SQL remains a saved query. Unsupported formulas remain held.
 Write coherent candidate batches atomically and show a first draft preview as soon as useful.
+Run `PROJECT preview --limit 5 --format chat` and put its actual content in chat before long
+SQL checks. Keep the current Build stage; a draft preview is useful before Check completes.
 
 ## 4. Check the actual revisions
 
@@ -108,8 +131,18 @@ candidate files and clear publication receipts; re-author/reconcile before conti
 
 ## 5. Show the metrics before asking where to publish
 
-Automatically show a compact real preview with `PROJECT preview --limit 1`, plus a history
-query when available using `--kind sql_query`. Say that candidates are provisional.
+Automatically run `PROJECT preview --limit 5 --format chat`. Display its metric table and
+saved SQL in an assistant message before asking the next question. Include up to five actual
+metrics (all if fewer): name, meaning, calculation, model/history source and check status.
+The helper includes a history-derived SQL example when available. With only queries, show
+those as saved queries. Preserve SQL, filters and parameters; do not invent a metric or result.
+This preview may exceed the usual short reply limit. An HTML view is supplementary.
+Repeat the actual metric table and saved SQL in the final assistant answer, even if they
+were shown in commentary. This applies to success, Keep local and blocked sign-in outcomes.
+The final answer must be useful when the host collapses all intermediate progress messages.
+If a draft preview was already displayed, show changed definitions or check status before
+continuing. If none was displayed, render the full first preview now. Never infer that the
+user saw tool output. Rendering or linking a file does not complete this conversation step.
 Offer Publish, Show five, Show all and Keep local, using native choices when available.
 If publication was requested already, continue toward the destination and final plan without
 another intent question. Available preview actions still work immediately.
@@ -130,13 +163,24 @@ for the concrete plan, missing authorization, idempotency, release policy and un
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
 release and full MCP readback. Record receipts with `PROJECT publication` as the local
 procedures describe. A draft or local plan is not publication.
+Reusing everything still requires the visible preview before marking Ready. Explain count
+changes: name any candidate kept only for validation, deduplicated, held or replaced by a
+released definition, with its reason. Preserve those local candidates and coverage decisions;
+do not silently drop SQL merely to avoid a publication decision. Reuse requires equivalent
+meaning, population, dimensions and parameters, not just a similar metric name.
 
 ## 7. Ready to ask here
 
 Show actual released metric/query counts and verified artifact links, then three to five
 supported questions (fewer if needed), including history-derived questions where useful.
 Preserve data-connection and unmeasured-parity limitations. Do not invent a time basis or
-dimension. Continue to a question already supplied; otherwise wait for the user's selection.
+dimension. Prefer the actual question stored on a released saved query. Add a period,
+grouping or comparison only when its date basis, dimension and join are evidenced in the
+retrieved definition; do not suggest an unsupported question with a caveat. Two supported
+questions are better than filling the list with unverified ones.
+Continue to a question already supplied; otherwise wait for the user's selection.
+End with the supported questions and any material limitation; do not append a generic offer
+or invite arbitrary questions whose coverage has not been checked.
 Use [retrieval](retrieval.md) for fresh Trident context and fresh execution on every question.
 
 ## Progress, workers and presentation
@@ -158,6 +202,10 @@ Normal structured helper results over 4 KiB become private result files. Read re
 from them instead of dumping logs. `--full` is for targeted diagnosis, not normal chat.
 At phase changes, first previews and useful count changes, show concise progress. For long
 work, consume `progress.json` and provide a truthful heartbeat every 30 to 60 seconds.
+Put the stage and remaining steps in the assistant message, not only helper output, for
+example `Check, step 4 of 7; 3 steps remain`, followed by actual counts. Report schema checks,
+SQL examples, parameter samples and formula comparisons separately. Do not call their sum
+"SQL checks" when some checks did not execute SQL.
 Keep diagnostics private and give one recovery step on failure.
 
 When the host has a panel API, open one surface and update it. `PROJECT preview --format html`

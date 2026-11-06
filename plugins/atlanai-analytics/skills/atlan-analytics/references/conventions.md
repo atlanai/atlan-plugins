@@ -73,3 +73,8 @@ Keep updates short: what ran, the number, what's next.
 
 An explanation-only request is complete once answered: end with DONE. Do not ask the person
 to say go or grant permission to execute a procedure they only asked you to explain.
+
+Required metric previews are an exception to short-reply limits: show the actual definitions
+in the final answer as well as useful progress updates. A preview helper call, collapsed
+commentary or linked file alone is not the final user-visible preview. During a live sign-in
+watch keep the task active; use BLOCKED only once recovery cannot proceed or the watch ends.
