@@ -68,6 +68,60 @@ def sql_block(value):
     return fence + 'sql\n' + text + '\n' + fence
 
 
+def source_label(candidate):
+    evidence = candidate['evidence']
+    declared = evidence.get('declared') or {}
+    parts = []
+    if declared:
+        parts.append(str(declared.get('kind') or 'Model') + ': '
+                     + str(declared.get('name') or declared.get('ref') or 'declared measure'))
+    if evidence.get('shapes'):
+        count = len(evidence['shapes'])
+        parts.append(f'Query history: {count} ' + ('pattern' if count == 1 else 'patterns'))
+    return '; '.join(parts) or 'Source needs review'
+
+
+def chat(run, limit=5):
+    """Visible first preview, including both model meaning and history SQL when present."""
+    items = candidates(run)
+    metrics = [c for c in items if c['kind'] == 'metric']
+    queries = [c for c in items if c['kind'] == 'sql_query']
+    selected = choose(metrics, limit)
+    if not items:
+        return 'No metrics or saved queries are ready to preview. Author candidates from the surveyed sources first.\n'
+    metrics_label = 'metric' if len(metrics) == 1 else 'metrics'
+    query_label = 'saved query' if len(queries) == 1 else 'saved queries'
+    lines = [f'Preview: {len(metrics)} {metrics_label} and {len(queries)} {query_label}.', '',
+             'Local candidates are provisional until reconciled. Checks do not establish business certification or dashboard parity.', '']
+    if selected:
+        lines += [f'Showing {len(selected)} of {len(metrics)} metrics.', '',
+                  '| Metric | Meaning | Calculation | Population / filters | Source | Check status |',
+                  '| --- | --- | --- | --- | --- | --- |']
+        for item in selected:
+            body, definition = item['body'], item['body']['definition']
+            cells = [body.get('display_name') or body['name'],
+                     body.get('description') or 'Meaning needs review',
+                     definition.get('formula') or definition.get('sql') or 'Not authored',
+                     definition.get('mandatory_filters', definition.get('filters')) or 'None declared; inspect source population',
+                     source_label(item), STATUS_LABELS[item['status']]]
+            lines.append('| ' + ' | '.join(display(c) for c in cells) + ' |')
+        lines.append('')
+    # Prefer actual history evidence for the accompanying SQL, not a guessed query.
+    history = [q for q in queries if q['evidence'].get('shapes')]
+    chosen_queries = choose(history or queries, 1 if metrics else limit)
+    for item in chosen_queries:
+        body, definition = item['body'], item['body']['definition']
+        lines += ['Saved SQL: ' + display(definition.get('question') or body.get('display_name') or body['name']), '',
+                  'Source: ' + display(source_label(item)) + '. Status: ' + STATUS_LABELS[item['status']] + '.', '',
+                  sql_block(definition.get('sql') or 'Not authored'), '']
+        if definition.get('parameters'):
+            lines += ['Parameters: ' + display(', '.join(p['name'] for p in definition['parameters'])), '']
+    if not queries:
+        lines += ['No saved SQL queries authored yet; the calculations above are metric expressions.', '']
+    lines += ['You can inspect all definitions or a specific metric before continuing.', '']
+    return '\n'.join(lines)
+
+
 def markdown(run, limit=5, kind='metric'):
     items = [c for c in candidates(run) if c['kind'] == kind]
     selected = choose(items, limit)

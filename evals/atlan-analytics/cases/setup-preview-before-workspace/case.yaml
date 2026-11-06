@@ -1,0 +1,50 @@
+schema_version: "1.1"
+name: setup-preview-before-workspace
+tags: [analytics, setup, preview]
+execution:
+  prompt: |
+    Continue Atlan Analytics setup from this checkpoint. No destination workspace is selected.
+    The previous assistant ran the preview helper but only linked preview.html in chat.
+    We have not called any Registry write tools. The candidates below are the complete
+    local preview output; no source access or new SQL execution is needed in this turn.
+
+    Five metric candidates, all schema checked with SQL still untested:
+    - Shipped units: units on shipped orders, SUM(s.units), shipments model.
+    - Returned units: units returned, SUM(r.units), returns model.
+    - Return rate: returned units divided by shipped units, SUM(r.units) / NULLIF(SUM(s.units), 0), query history.
+    - Shipping cost: cost of dispatched orders, SUM(s.shipping_cost), shipments model and query history.
+    - Late shipments: shipments arriving after the promised date, SUM(CASE WHEN s.arrived_at > s.promised_at THEN 1 ELSE 0 END), query history.
+    One history-derived saved query, schema checked and execution untested:
+    Question: How many units shipped by region?
+    SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' GROUP BY region LIMIT 100
+
+    Continue the setup from here.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: visible-before-destination
+    type: llm
+    criteria: |
+      PASS only if the assistant renders all five supplied metric candidates in an assistant
+      message, with their actual names, meaning, calculation, model/history evidence and
+      untested status, AND the exact supplied saved SQL, before any workspace or publish
+      question. A table or concise cards are both fine. Tool outputs and an HTML link alone
+      do not count. The preview may exceed the normal short-reply limit. FAIL if the
+      assistant only lists names/counts, repeats a preview link, says preview was already
+      shown, invents results or publication, or requires workspace selection before rendering.
+  - name: no-extra-approval-to-preview
+    type: llm
+    criteria: |
+      PASS if it shows the supplied candidates directly without first asking whether to
+      display them or requesting approval to run a read-only preview. A subsequent
+      destination/continuation choice is fine; no Registry writes should be claimed.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the reply leads with the preview or current stage, uses plain language and
+      has no greeting, apology, em dash or generic closing offer. Actual preview content
+      may exceed 80 words. A concrete next choice after the visible preview is appropriate.

@@ -1,0 +1,47 @@
+schema_version: "1.1"
+name: setup-auth-final-preview
+tags: [analytics, setup, auth, preview]
+execution:
+  prompt: |
+    Use the Atlan Analytics skill to finish this setup update in Codex. The previous
+    commentary displayed a draft preview, but this UI collapses commentary after the final
+    answer. The local run is /workspace/.atlan-metrics/example-run, pending publication.
+    The core atlanai plugin is not installed. This host has no shell, browser control or
+    background-task capability this turn, so automatic sign-in cannot be started.
+    Do not make Registry calls or try to execute SQL; the following is the supplied checkpoint.
+
+    Two local metric candidates, schema checked with example SQL executed:
+    - Shipped units: sum of units on shipped orders, SUM(s.units), mandatory filter
+      s.status = 'shipped', source shipments model.
+    - Shipping cost: sum of cost on shipped orders, SUM(s.shipping_cost), same mandatory
+      filter, source shipments model and query history.
+    One locally executed saved query from history:
+    Question: How many units shipped by region?
+    SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' GROUP BY region LIMIT 100
+    Nothing was published. The full preview is also in preview.md in the run directory.
+    Show me the result and what to do next.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: visible-final-content
+    type: llm
+    criteria: |
+      PASS only if the final assistant answer itself includes both metric definitions,
+      calculations, shipped-only population, sources and checked status, plus the supplied
+      saved SQL. A link or a reference to earlier commentary alone fails. It must distinguish
+      unpublished local candidates from released Trident context and not claim this turn
+      executed SQL. Fewer than five candidates is not a failure.
+  - name: actionable-registry-install-fallback
+    type: llm
+    criteria: |
+      PASS if it gives copyable Codex commands to add marketplace atlanai/atlan-plugins,
+      install atlanai@atlan, and sign in with codex mcp login atlan, plus a resume prompt
+      containing /workspace/.atlan-metrics/example-run. FAIL if it only says enable Registry,
+      substitutes aireg or a different catalog plugin, claims Chrome/a watcher was started,
+      or says these commands guarantee tools appear in this already-open chat.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if it leads with the saved local result or connection blocker, uses plain language,
+      and has no greeting, apology, em dash or generic closing offer. The mandatory final
+      preview and copyable recovery commands may exceed the usual short-reply limit.
