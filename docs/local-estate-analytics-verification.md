@@ -1,6 +1,36 @@
 # Analytics setup: implementation and verification
 
-## Current version: 0.6.0
+## Preview follow-up: 0.6.1
+
+A participant's 0.6.0 run combined dashboard definitions and query history correctly, but
+the generated preview stayed in tool output and a linked HTML file. The workspace question
+arrived before the preview link; two prose examples did not show the extracted definitions
+or SQL. Reusing existing releases then allowed the run to finish without a visible preview.
+
+The setup route now requires actual content in an assistant message before destination
+selection or publication/reuse, including resumed runs. `project.py preview --format chat`
+renders up to five metrics with their meaning, calculation, source and check status, plus
+an actual history-derived saved SQL example when available. Existing detailed Markdown and
+HTML views remain available. Large HTML results retain their snapshot path and point back
+to the chat preview instead of only returning an opaque result-file reference.
+
+The presentation rules also require stage/remaining-step updates in chat, explain changes
+between draft and released counts, and preserve candidates retained only for validation.
+Question suggestions must use evidenced dimensions and date semantics; a reuse checkpoint
+test caught unsupported time-based suggestions, so the handoff now prefers saved questions.
+Before CSV preparation, test the selected runtime with the same isolated import used by the
+worker. Runtime discovery stays within the active/supplied context, not unrelated projects
+or home caches. These are workflow instructions; the host still controls execution and UI.
+
+Verification includes 252 unit/integration tests, 116 analytics helper checks, 52 metrics
+helper checks and strict local marketplace, Analytics manifest and skill validation. The
+new tests cover combined model/history text, exact saved SQL, read-only preview behavior,
+empty/query-only candidates, source-text escaping and large HTML result handling.
+Claude checkpoint cases cover a missing visible preview before workspace selection and a
+reuse-only handoff with changed query counts. These use synthetic supplied checkpoint
+evidence, not a new full interactive setup or live Trident publication rehearsal.
+
+## Earlier version: 0.6.0
 
 The current implementation uses the existing Analytics plugin for links, ordinary local
 folders and BI exports. It follows Inspect, Scope, Build, Check, Preview, Publish and Ready

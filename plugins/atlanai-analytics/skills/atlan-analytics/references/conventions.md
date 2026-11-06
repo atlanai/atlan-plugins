@@ -63,3 +63,5 @@ End every run with exactly one: `DONE`; `DONE_WITH_CONCERNS` and what to double-
 `BLOCKED` with the reason, what you tried and the fix; or `NEEDS_CONTEXT` naming the answer or
 file only the person has. After 3 failed attempts at one step, stop and report it that way.
 Keep updates short: what ran, the number, what's next.
+Required metric previews are an exception to short-reply limits: show the actual definitions
+in chat. A preview helper call or linked file alone is not a user-visible preview.

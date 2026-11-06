@@ -205,6 +205,8 @@ class Project(ContextState):
 
     def preview(self, limit=5, format='markdown', kind='metric'):
         # This is a read-only action. A failed rich renderer cannot consume the choice.
+        if format == 'chat':
+            return metric_preview.chat(self, limit)
         text = metric_preview.markdown(self, limit, kind)
         if format == 'markdown':
             return text
@@ -427,7 +429,7 @@ def main():
     preview = sub.add_parser('preview')
     preview.add_argument('--limit', type=int, default=5)
     preview.add_argument('--all', action='store_true')
-    preview.add_argument('--format', choices=('markdown', 'html'), default='markdown')
+    preview.add_argument('--format', choices=('markdown', 'html', 'chat'), default='markdown')
     preview.add_argument('--kind', choices=('metric', 'sql_query'), default='metric')
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
@@ -463,8 +465,13 @@ def main():
             if len(output.encode()) > 4096 and not args.full:
                 target = project.root / (args.command + '-result.json')
                 project.write(target, result)
-                output = json.dumps({'status': result.get('status', 'ok'), 'result_file': str(target),
-                                     'next': 'Read the relevant fields from this private result artifact.'})
+                compact = {'status': result.get('status', 'ok'), 'result_file': str(target),
+                           'next': 'Read the relevant fields from this private result artifact.'}
+                if args.command == 'preview':
+                    if result.get('snapshot'):
+                        compact['snapshot'] = result['snapshot']
+                    compact['next'] = 'Display actual samples in chat with preview --format chat; a file link alone is not a preview.'
+                output = json.dumps(compact)
             print(output)
         return 0
     except KeyboardInterrupt:
