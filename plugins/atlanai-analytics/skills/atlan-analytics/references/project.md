@@ -156,6 +156,13 @@ bindings; convert Registry `{{name}}` placeholders outside SQL literals to nativ
 never interpolate values. Check the exact SQL/formula and mandatory filters being published.
 Record execution evidence against that definition revision. Failed items are held; untested
 items cannot be advertised as verified. PBIT parity stays unmeasured without source values.
+For parameterized SQL, one successful example does not check every supported slice. Check
+representative observed values and an empty population, including values present in the data
+but excluded by mandatory filters. For ratios, check the denominator explicitly. Undefined
+rates must return NULL with a "no qualifying rows" explanation, never infinity, NaN or an
+invented zero. Use a reviewed `NULLIF(denominator, 0)` guard where this preserves the source
+meaning, record that change, and rerun checks; otherwise hold that query. These are SQL checks,
+not an agent eval set. Do not publish a query known to fail on an advertised parameter value.
 
 ## 4. Preview, publish and read back
 
@@ -172,22 +179,31 @@ After saving, read the complete released definitions through MCP, including save
 and parameters. A create response or local export is not a released readback. Search results
 that omit SQL or definitions are discovery only; fetch the released artifact before building
 the receipt. Do not combine release IDs from search with local authoring bodies, even when
-their hashes appear to match. Normalize the actual released response into a local receipt input:
+their hashes appear to match. Preserve the complete `registry__get_artifact` response for
+each item without selecting or rewriting fields. Wrap those raw responses in this input:
 
 ```json
 {
   "workspace_id": "workspace_example",
   "artifacts": [{
     "workspace_id": "workspace_example", "id": "sql_query_example",
-    "kind": "sql_query", "name": "example-total",
-    "release_id": "rel_example", "version_id": "ver_example", "channel": "latest",
-    "definition": {"question": "What is the total?", "sql": "SELECT ..."}
+    "kind": "sql_query", "name": "example-total", "display_name": "Example total",
+    "artifact_status": "active",
+    "is_released": true,
+    "release": {"release_id": "rel_example", "version_id": "ver_example",
+      "channel": "latest", "release_status": "released", "is_current": true},
+    "metadata": {"definition": {"spec_version": "1.0-draft.1", "dialect": "duckdb",
+      "question": "What is the total?", "sql": "SELECT ..."}}
   }]
 }
 ```
 
-The example is a receipt shape, not a Registry write schema. Copy actual IDs and complete
-definitions from readbacks, never invent them. Run `PROJECT publication "<readbacks.json>"`.
+The example illustrates the envelope, not a Registry write schema or a field allowlist.
+Keep every field of the actual artifact response, including the entire definition, dimensions,
+examples, extensions, parameters and usage notes. Use saved tool-result files when the host
+provides them. Do not reconstruct responses from search results or local drafts. Run
+`PROJECT publication "<readbacks.json>"`; the helper normalizes the responses and validates
+their release state and definition schemas. Old hand-normalized receipts must be fetched again.
 It stores IDs, release/version and definition hashes in the run, not reusable local definitions.
 The helper records host MCP evidence; it does not independently contact or verify Trident.
 Unreleased items remain pending and are excluded from suggestions and governed answers.
@@ -216,7 +232,7 @@ published IDs. Search saved queries for detail questions or where no metric fits
 complete definition/SQL and release receipt for each kept hit through MCP. Local authoring
 files and remembered setup answers are never the retrieval source.
 
-Normalize those fresh MCP reads to the same receipt shape and run
+Wrap those complete fresh MCP artifact responses in the same input shape and run
 `PROJECT retrieved "<fresh-readbacks.json>"`. It refuses mismatched workspaces, unknown IDs,
 changed definitions and missing/different releases. If a new release or another relevant
 artifact should be used, review its source mapping and checks, then refresh the publication

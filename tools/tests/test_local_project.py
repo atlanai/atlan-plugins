@@ -36,9 +36,11 @@ def model():
 def readbacks(sql='SELECT SUM(cost) AS value FROM site.work'):
     return {'workspace_id': 'workspace_example', 'artifacts': [{
         'workspace_id': 'workspace_example', 'id': 'sql_query_example', 'kind': 'sql_query',
-        'name': 'work-total', 'release_id': 'rel_example', 'version_id': 'ver_example',
-        'channel': 'latest', 'definition': {'spec_version': '1.0-draft.1',
-            'question': 'What is the total cost?', 'dialect': 'duckdb', 'sql': sql}}]}
+        'name': 'work-total', 'display_name': 'Work total', 'artifact_status': 'active', 'is_released': True,
+        'release': {'release_id': 'rel_example', 'version_id': 'ver_example',
+                    'channel': 'latest', 'release_status': 'released', 'is_current': True},
+        'metadata': {'definition': {'spec_version': '1.0-draft.1',
+            'question': 'What is the total cost?', 'dialect': 'duckdb', 'sql': sql}}}]}
 
 
 class LocalProject(unittest.TestCase):
@@ -106,7 +108,7 @@ class LocalProject(unittest.TestCase):
 
     def test_release_receipt_requires_complete_correct_workspace_readbacks(self):
         self.run.survey(self.estate)
-        for field in ('release_id', 'version_id', 'definition'):
+        for field in ('release', 'metadata', 'is_released'):
             payload = readbacks(); payload['artifacts'][0].pop(field)
             with self.assertRaises(ValueError): self.run.publication(payload)
         payload = readbacks(); payload['artifacts'][0]['workspace_id'] = 'workspace_other'
@@ -114,7 +116,8 @@ class LocalProject(unittest.TestCase):
 
     def test_retrieval_rejects_drafts_changes_and_wrong_workspace(self):
         self.run.survey(self.estate); self.run.publication(readbacks())
-        for change in ({'release_id': 'rel_changed'}, {'withdrawn': True}, {'id': 'sql_query_other'}):
+        for change in ({'release': {**readbacks()['artifacts'][0]['release'], 'release_id': 'rel_changed'}},
+                       {'withdrawn': True}, {'id': 'sql_query_other'}):
             payload = readbacks(); payload['artifacts'][0].update(change)
             with self.assertRaises(ValueError): self.run.retrieved(payload)
         with self.assertRaises(ValueError): self.run.retrieved(readbacks('SELECT 999'))
@@ -123,7 +126,29 @@ class LocalProject(unittest.TestCase):
         restarted = Project(self.run.root)
         self.assertNotIn('definition', restarted.current()['publication']['artifacts'][0])
         self.assertEqual(restarted.retrieved(readbacks())['artifacts'][0]['definition']['sql'],
-                         readbacks()['artifacts'][0]['definition']['sql'])
+                         readbacks()['artifacts'][0]['metadata']['definition']['sql'])
+
+    def test_summarized_or_unreleased_mcp_definitions_are_refused(self):
+        self.run.survey(self.estate)
+        payload = readbacks(); artifact = payload['artifacts'][0]
+        artifact['definition'] = artifact.pop('metadata')['definition']
+        with self.assertRaisesRegex(ValueError, 'complete released MCP'): self.run.publication(payload)
+        payload = readbacks(); payload['artifacts'][0]['metadata']['definition'].pop('spec_version')
+        with self.assertRaisesRegex(ValueError, 'incomplete'): self.run.publication(payload)
+        for field, value in [('is_current', False), ('release_status', 'withdrawn')]:
+            payload = readbacks(); payload['artifacts'][0]['release'][field] = value
+            with self.assertRaises(ValueError): self.run.publication(payload)
+
+    def test_full_readback_preserves_optional_definition_evidence(self):
+        self.run.survey(self.estate)
+        payload = readbacks()
+        definition = payload['artifacts'][0]['metadata']['definition']
+        definition.update(usage_note='Synthetic source evidence', extensions={'example': {'revision': 1}})
+        self.run.publication(payload)
+        self.assertEqual(self.run.retrieved(payload)['artifacts'][0]['definition'], definition)
+        changed = copy.deepcopy(payload)
+        changed['artifacts'][0]['metadata']['definition']['extensions']['example']['revision'] = 2
+        with self.assertRaisesRegex(ValueError, 'differs'): self.run.retrieved(changed)
 
     def test_changed_root_and_outside_database_are_refused(self):
         self.run.survey(self.estate)
@@ -235,7 +260,7 @@ class DuckDBFlow(unittest.TestCase):
     def test_publish_readback_restart_retrieve_fresh_answer(self):
         # The Registry transport is a test double; DuckDB execution is real.
         remote = readbacks()
-        self.assertEqual(self.run.execute({'sql': remote['artifacts'][0]['definition']['sql']})['rows'], [['34.75']])
+        self.assertEqual(self.run.execute({'sql': remote['artifacts'][0]['metadata']['definition']['sql']})['rows'], [['34.75']])
         self.run.publication(copy.deepcopy(remote))
         restarted = Project(self.run.root)
         current = restarted.retrieved(copy.deepcopy(remote))
@@ -253,6 +278,14 @@ class DuckDBFlow(unittest.TestCase):
         result = self.run.execute({'sql': 'SELECT COUNT(*) FROM site.work WHERE kind=$kind',
                                    'parameters': {'kind': "rework' OR 1=1 --"}})
         self.assertEqual(result['rows'], [[0]])
+
+    def test_empty_parameter_population_requires_an_undefined_rate_guard(self):
+        sql = 'SELECT COUNT(CASE WHEN cost > 0 THEN 1 END) * 1.0 / COUNT(*) FROM site.work WHERE kind=$kind'
+        with self.assertRaisesRegex(local_data.DataError, 'non-finite'):
+            self.run.execute({'sql': sql, 'parameters': {'kind': 'missing'}})
+        guarded = sql.replace('/ COUNT(*)', '/ NULLIF(COUNT(*), 0)')
+        result = self.run.execute({'sql': guarded, 'parameters': {'kind': 'missing'}})
+        self.assertEqual(result['rows'], [[None]])
 
     def test_forbidden_queries_leave_database_unchanged(self):
         for query in ('DELETE FROM site.work', 'SELECT 1; SELECT 2', 'SELECT * FROM site.other',
@@ -289,7 +322,7 @@ class DuckDBFlow(unittest.TestCase):
     def test_history_query_body_passes_existing_registry_contract(self):
         payload = readbacks('SELECT kind, SUM(cost) AS cost FROM site.work GROUP BY kind')
         body = {'name': 'cost-breakdown', 'display_name': 'Cost breakdown',
-                'definition': payload['artifacts'][0]['definition']}
+                'definition': payload['artifacts'][0]['metadata']['definition']}
         body['definition']['question'] = 'What is cost by work kind?'
         errors, _ = mine.check_query(body)
         self.assertEqual(errors, [])

@@ -214,23 +214,41 @@ class Project(Run):
                                request.get('limit', 100))
 
     def releases(self, payload):
-        """Validate host-normalized results of fresh MCP release reads, not create replies."""
+        """Normalize complete MCP released-artifact responses without truncating definitions."""
+        if not isinstance(payload, dict):
+            raise ProjectError('Supply a workspace and a list of complete MCP artifact responses.')
         workspace = payload.get('workspace_id')
         if not isinstance(workspace, str) or not workspace:
             raise ProjectError('Supply the selected workspace and fresh released-artifact readbacks.')
-        if not payload.get('artifacts'):
+        if not isinstance(payload.get('artifacts'), list) or not payload['artifacts']:
             raise ProjectError('No released artifacts were read back; publication is pending.')
-        seen = set()
-        for artifact in payload['artifacts']:
+        seen, normalized = set(), []
+        for raw in payload['artifacts']:
+            if not isinstance(raw, dict) or not isinstance(raw.get('release'), dict) or not isinstance(raw.get('metadata'), dict):
+                raise ProjectError('Supply complete released MCP get_artifact responses, not summaries, search hits or local definitions.')
+            release = raw.get('release') or {}
+            definition = (raw.get('metadata') or {}).get('definition')
+            if (raw.get('is_released') is not True or release.get('is_current') is not True
+                    or release.get('release_status') != 'released' or not isinstance(definition, dict)):
+                raise ProjectError('Supply complete released MCP get_artifact responses, not summaries, search hits or local definitions.')
+            artifact = {**{k: raw.get(k) for k in ('workspace_id', 'id', 'kind', 'name')},
+                        **{k: release.get(k) for k in ('release_id', 'version_id', 'channel')},
+                        'definition': definition}
             if artifact.get('workspace_id') != workspace or artifact.get('kind') not in ('metric', 'sql_query'):
                 raise ProjectError('Every readback must be a metric or query in the selected workspace.')
             if any(not isinstance(artifact.get(k), str) or not artifact[k] for k in
                    ('id', 'name', 'release_id', 'version_id', 'channel')) or not isinstance(artifact.get('definition'), dict):
                 raise ProjectError('Read back a released revision, including its definition and release receipt.')
-            if artifact['id'] in seen or artifact.get('withdrawn') or artifact['definition'].get('review_status') == 'rejected':
+            if artifact['id'] in seen or raw.get('withdrawn') or raw.get('artifact_status') != 'active' or artifact['definition'].get('review_status') == 'rejected':
                 raise ProjectError('Readbacks contain a duplicate, withdrawn or rejected artifact.')
+            check = mine.check_metric if artifact['kind'] == 'metric' else mine.check_query
+            errors, _ = check({'name': artifact['name'], 'display_name': raw.get('display_name'),
+                               'description': raw.get('description'), 'definition': definition})
+            if errors:
+                raise ProjectError('A released definition is incomplete or unsupported. Fetch its complete MCP response and review its schema.')
             seen.add(artifact['id'])
-        return payload['artifacts']
+            normalized.append(artifact)
+        return normalized
 
     def publication(self, payload):
         state = self.current()
