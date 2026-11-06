@@ -8,16 +8,34 @@ your account, and read Snowflake semantic views as its BI model.
 
 | Name | Kind | Custody | What it does |
 |---|---|---|---|
-| `snowflake-direct` | input plug | `customer` | SQL checks on a read-only connection; column names, types and comments from each database's `INFORMATION_SCHEMA`; query history from a shape table; semantic views read as their DDL |
+| `snowflake-direct` | input plug | `customer` | SQL checks on a read-only connection; column names, types and comments from each database's `INFORMATION_SCHEMA`; bounded native query history or an existing shape table; semantic views read as their DDL |
 | `snowflake-semantic-view` | BI reader | : | turns a semantic view's DDL or YAML into the core's common BI format, with the metrics, dimensions and relationships the view declares |
 
 Custody `customer`: the plug reads your own account on your own grant, so a `standalone` run may
 use it.
 
-**Query history** comes from a *shape table*: one row per distinct statement, with its
-execution and user counts (`sql`, `exec`, `users`, optionally `query_id`). Snowflake's own
-`SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` is not read directly; aggregate it into a shape table
-first, or export the log to a file for the `local-files` plug.
+**Query history** defaults to a direct read of
+`SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` when no `shape_table` is set. Only successful SELECTs
+in the bounded window are aggregated, by exact SQL plus session database and schema. Counts
+include executions and distinct users; user names never leave Snowflake. Each group carries
+one representative query ID, rather than a complete execution ID list or first/last times.
+SQL text keeps its original formatting. The core performs the exact table-lineage scope check.
+
+The default window is the previous 90 days, with a 365 day maximum and at most 5,000 SQL/context
+groups, controlled by this package's `snowflake_history` policy. Set absolute `window.start`
+and `window.end` in `run.yml` to pin the extraction interval. Dates mean midnight UTC and the
+end is exclusive. Too many groups blocks the read before any partial result is admitted;
+narrow the window or table scope. No history view or table is created.
+
+The role needs read access to the Account Usage view. An access refusal identifies the missing
+read; select an existing shape table or local export when that grant is unavailable. There is
+no automatic switch to a different history source. Account Usage can lag by up to 45 minutes
+and some short hybrid-table queries are absent, as described in
+[Snowflake's QUERY_HISTORY documentation](https://docs.snowflake.com/en/sql-reference/account-usage/query_history).
+
+An existing `shape_table` preserves the prior route: one row per distinct statement with
+`sql`, `exec`, `users` and optionally `query_id`. Its supplied counts and time coverage are
+used as-is; the native window and overflow checks do not apply to a prepared shape table.
 
 ## Install
 
@@ -41,7 +59,8 @@ guide, section C, shows a key-pair example.
 
 | Setting | Meaning |
 |---|---|
-| `shape_table` | the shape table, `DB.SCHEMA.TABLE` (for `inputs.history`) |
+| `history_source` | `account_usage` or `shape_table`; inferred from whether `shape_table` is set |
+| `shape_table` | existing aggregated table, `DB.SCHEMA.TABLE`; omit for native Account Usage |
 | `catalog` | the database the SQL check's session uses, so a statement naming `SCHEMA.TABLE` resolves. `setup --check` fails, naming this setting, when the session has none |
 | `witness_mode` | for the SQL check: `explain` (plans only, reads nothing) or `execute` (runs read-only with a row limit) |
 | `semantic_views` | semantic views to read, `DB.SCHEMA.VIEW` (fetched at the start of the run) |
@@ -53,7 +72,7 @@ policy file wins.
 
 ```yaml
 version: 1
-scope: acme-sales
+scope: example-sales
 dialect: snowflake
 mode: standalone
 inputs:
@@ -64,7 +83,7 @@ inputs:
 publish: [files]
 settings:
   snowflake-direct:
-    shape_table: ANALYTICS.METRICS.QUERY_SHAPES
+    history_source: account_usage
     semantic_views: [ANALYTICS.METRICS.SALES_VIEW]
     witness_mode: explain
 ```

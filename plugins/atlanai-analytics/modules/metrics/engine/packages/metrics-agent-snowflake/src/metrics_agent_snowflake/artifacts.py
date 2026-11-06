@@ -3,7 +3,7 @@
 """What this package registers under the core's `metrics_agent.artifacts` entry points.
 
 Its stages write no run artifact of their own; it ships its policy defaults (`POLICY`, the
-`semantic_view.*` section its reader reads), merged under the run's policy.
+`semantic_view.*` and `snowflake_history.*` sections its reader and history input read), merged under the run's policy.
 """
 from __future__ import annotations
 

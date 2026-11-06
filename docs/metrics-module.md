@@ -152,3 +152,13 @@ a device code, browser sign-in or terminal MFA. The wrapper relays prompts immed
 keeps stdout reserved for its JSON response. Interactive operations time out after 15 minutes.
 Unattended Power BI runs still require environment credentials. Tableau's native environment
 credential routes do not use interactive terminal sign-in. Never paste credentials into chat.
+
+## Native Snowflake history
+
+The Snowflake input defaults to native Account Usage when no shape table is selected. It
+aggregates successful SELECTs over a bounded window, preserving exact SQL and session
+database/schema, with execution counts, distinct-user counts and a representative query ID.
+The core keeps session schemas distinct when folding common history records. User names are
+not exported. The package policy defaults to 90 days and 5,000 SQL/context groups; overflow
+blocks before any partial result is admitted. The existing shape-table route remains available.
+Absolute run window dates make the interval reproducible; the UTC end bound is exclusive.

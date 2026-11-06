@@ -25,7 +25,7 @@ test:
 # The ordinary check target runs its source/projection tests without installing dependencies.
 test-metrics-runtime:
 	test -n "$(METRICS_RUNTIME)"
-	ANALYTICS_METRICS_RUNTIME="$(METRICS_RUNTIME)" $(PYTHON) -m unittest discover -s tools/tests -p test_metrics_module.py -q
+	ANALYTICS_METRICS_RUNTIME="$(METRICS_RUNTIME)" $(PYTHON) -m unittest tools.tests.test_metrics_module tools.tests.test_snowflake_history -q
 
 # The skills as an Agent Skills discovery index, for a website to serve at /.well-known/agent-skills/.
 site:
