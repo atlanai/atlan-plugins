@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-ask
-description: Answer a data question now from the organization's published metrics and saved queries in Atlan, run against the warehouse, and say which definition it used. Use for questions such as "what was revenue last quarter by region" or "why did weekly active users drop". Not for building a talk-to-data agent or setting up metrics (atlan-analytics).
+description: Answer data questions in this chat using published Trident metrics and saved SQL, including a prepared local project and DuckDB. Use for follow-up questions after Analytics setup or questions about totals, rates, trends and breakdowns. Not for repo setup, metric authoring or a separate agent build (atlan-analytics).
 ---
 
 # Answer a data question from governed context
@@ -10,10 +10,10 @@ truth**, read-only SQL and safety rules apply. This skill answers in this conver
 creates no project, eval, agent or registry write, and needs no subagents, so it works in any
 harness.
 
-For a selected local setup run, follow [project retrieval](../atlan-analytics/references/project.md#6-retrieval-contract-for-every-question).
-It scopes searches to its workspace, requires fresh Trident releases, retains the data binding
-and shows executed SQL. Its missing-context rule replaces the ungoverned fallback below;
-all formula, scope and result checks still apply.
+Reuse the selected project run, or find this project's `.atlan-metrics/*/run.json`; ask if
+ambiguous. Follow [project retrieval](../atlan-analytics/references/project.md#6-retrieval-contract-for-every-question)
+and return. It replaces the generic discovery and fallback below with fresh MCP releases,
+receipt checks and the recorded data binding. Local drafts are never the definition source.
 
 ## 1. Frame the question
 

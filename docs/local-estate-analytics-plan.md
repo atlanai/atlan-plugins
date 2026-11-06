@@ -113,7 +113,7 @@ DuckDB was not installed in the Python interpreter used for this assessment. No 
 
 ## Inputs and state
 
-Required at entry: a local folder or selected file, plus the business goal when not already clear. Discover candidates inside that scope. Ask only when several report/database pairings or conflicting semantics remain plausible.
+Required at entry: a repository URL, local folder or selected file, plus the business goal when not already clear. Clone or reuse the exact supplied repo before surveying; a GitHub URL is not a hosted Power BI report. Discover candidates inside that scope. Ask only when several report/database pairings or conflicting semantics remain plausible.
 
 Additional inputs are conditional:
 

@@ -1,6 +1,6 @@
 {
   "name": "atlanai-analytics",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "description": "Set up a repository for talk-to-data in Claude or Codex: combine dashboards and query history, publish metrics and saved SQL to Trident, and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent build, eval and improve workflows.",
   "author": {
     "name": "Atlan",

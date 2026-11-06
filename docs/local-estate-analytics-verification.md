@@ -4,8 +4,79 @@
 Claude Code loaded the source plugins for this rehearsal without changing the globally
 installed plugin versions. Synthetic metrics and SQL queries were published to the explicitly
 approved live workspace. The PR isolates project setup from unrelated dashboard edits and
-builds on the dashboard run infrastructure in PR #85. It bumps Analytics to 0.5.11; creating
-the PR does not release or install that version.
+builds on the dashboard run infrastructure in PR #85. The corrected repository entry is
+Analytics 0.5.13. Creating the PR does not release that version to marketplace main.
+
+## Repository entry correction
+
+The first rehearsal below started with a prepared local repository and detailed test scope.
+It did not prove the participant's short GitHub setup prompt. A subsequent participant chat
+loaded an older overlapping prototype, then selected hosted-dashboard capture for a PBIT in
+the source repository. Repository workshop copy also redirected it into a local agent package
+and skipped Trident publication. Local checks passing did not make that experience complete.
+
+The correction makes GitHub/local repository setup take precedence, including a request to
+"build an analytics agent from" the repo. The outcome is context in Trident and questions in
+the current harness. Explicit separate-agent modes remain available. Setup keeps ownership
+when source documentation describes a local-only workshop. The user still chooses the
+workspace and approves a concrete publication scope; synthetic definitions retain provenance
+and unreviewed status.
+
+`project.py prepare` now creates a fresh DuckDB from explicit surveyed CSV-to-table mappings.
+It checks source hashes, validates table identifiers, limits input size and execution time,
+disables external access except for the exact selected paths, and creates the destination
+atomically without replacing existing data. It executes no repository loader and installs
+no dependency. CSV types are inferred and must be reviewed before binding. Tests cover fresh
+preparation, overwrite refusal, changed/unselected/unsafe inputs, symlinks, duplicate tables
+and timeout cleanup.
+
+The regression prompt is now the exact short repository request that failed, without telling
+the model which route to take. Its Claude routing test passed all five graders. The test has
+no shell, so it verifies truthful capability reporting and routing, not data execution. The
+full live rehearsal is separate. `make check` passed 218 unit/integration tests, 116 analytics
+self-checks and 52 metrics self-checks; strict manifest, skill and command validation passed.
+The full validation target still stops on this Claude CLI's unsupported `--profile` option.
+
+A separate readback audit exposed another failure: the host had shortened metric definitions
+and reused query-search results while claiming complete reads. The helper now accepts raw
+released-artifact responses, normalizes them itself, validates the release state and existing
+metric/query schemas, and rejects the old summarized shape. Tests cover rejected summaries,
+withdrawn/non-current releases and preservation of optional definition evidence. The corrected
+receipt was rebuilt from 32 complete current MCP artifact reads, copied directly from tool
+results without model transcription.
+
+An empty-population check also found an unguarded denominator in the newly published
+on-time-rate query. Its existing artifact was revised to use `NULLIF(COUNT(*), 0)` and released
+as 0.2.0. Every observed job type and a missing value was checked: commercial/missing returns
+NULL, while populated rates are unchanged. NULL means no qualifying completed jobs, not zero
+performance. The workflow now requires representative parameter and empty-population checks
+before publishing; the executor continues refusing non-finite answers.
+
+The corrected plugin is installed in Claude Code and Codex for manual testing. All 83
+installed plugin files matched source. The user approved disabling the older Codex prototype;
+it remains installed with `enabled = false`. No other plugin was disabled.
+
+## Corrected live rehearsal
+
+A fresh clone of the supplied accelerator repository started from the original short GitHub
+setup prompt. Claude selected the project workflow, surveyed one report/four measures,
+110 history records and five CSV tables, and created DuckDB with `project.py prepare`.
+It authored and checked seven metrics and 25 queries, reusing seven metrics and 19 queries
+already released. The approved live continuation created six additional parameterized
+queries and six relationships, then presented five follow-up questions. No agent package,
+registration, product eval dataset or experiment was created.
+
+The installed Codex plugin independently selected the same project route and authored the
+same six-query addition. Its fresh sandbox could not access a compatible Python with DuckDB;
+it preserved the survey/drafts and reported the blocked execution without claiming publication.
+This is a routing/authoring test, not a successful full Codex execution test.
+
+A fresh chat with no plugin mention also bypassed Analytics and read local drafts. The Ask
+skill now explicitly covers prepared local projects and discovers their run binding. Continue
+questions in the setup chat; in a new chat, explicitly select Atlan Analytics. Installation
+alone cannot force every harness to invoke the skill. The final question test uses that
+explicit plugin selection and fresh MCP reads. Earlier in-flight sessions carried the old
+receipt format while the helper was being corrected; their receipt warnings are not passes.
 
 ## Starting experience
 
@@ -141,8 +212,9 @@ studio successfully. This is a platform presentation issue, not a failed Registr
 
 ## Remaining gaps and limits
 
-1. The tested host is Claude Code with session-loaded source plugins. The globally installed
-   plugin is older; customer installation/release and Claude Desktop/Cowork are not verified.
+1. The original full live test used Claude Code with session-loaded source plugins. The
+   corrected 0.5.13 is now installed locally in Claude Code and Codex. Marketplace main,
+   customer installation and Claude Desktop/Cowork are not verified.
    The local helper validates normalized MCP evidence but does not independently contact or
    authenticate Trident. The actual host MCP transcript supplies remote evidence.
 2. Embedded Metric Studio has the load failure described above. The standalone studio is a
