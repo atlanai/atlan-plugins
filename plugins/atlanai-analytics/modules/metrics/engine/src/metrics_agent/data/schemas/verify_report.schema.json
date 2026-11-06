@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/verify_report.schema.json",
+  "title": "Gate verify report (C4 / D4 / R2)",
+  "description": "A dirty report BLOCKS. There is no force flag.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "clean": {
+      "type": "boolean"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "gate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "warn"
+            ]
+          },
+          "rule": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The object's STABLE identity, where its name is not unique. Metric names are not: two families can be named the same thing, and a finding reported by name alone is then indistinguishable between them \u2014 which sends a reader to the wrong statement. Optional, because a record's name IS unique (the destination enforces it)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "gate",
+          "object",
+          "status",
+          "rule"
+        ]
+      }
+    },
+    "counts": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "clean",
+    "checks",
+    "counts"
+  ]
+}

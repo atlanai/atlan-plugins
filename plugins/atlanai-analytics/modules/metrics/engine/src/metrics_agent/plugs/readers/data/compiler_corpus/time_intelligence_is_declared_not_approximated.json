@@ -1,0 +1,32 @@
+{
+  "name": "time_intelligence_is_declared_not_approximated",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c4",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Units Sold LY",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[units_sold]), SAMEPERIODLASTYEAR('Date'[Date]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "",
+  "expect_coverage": "refused",
+  "rules_used": [
+    "dax.calculate"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "units_sold"
+    ]
+  }
+}

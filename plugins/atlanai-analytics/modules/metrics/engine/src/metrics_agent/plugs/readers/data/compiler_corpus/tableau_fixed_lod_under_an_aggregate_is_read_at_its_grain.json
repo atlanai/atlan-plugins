@@ -1,0 +1,50 @@
+{
+  "name": "tableau_fixed_lod_under_an_aggregate_is_read_at_its_grain",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "avg_customer_units",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "AVG({FIXED [customer] : SUM([units_sold])})"
+      }
+    ],
+    "filters": [
+      {
+        "stage": "dimension",
+        "column": "department",
+        "op": "eq",
+        "value": "TOYS",
+        "scope": "ws",
+        "evidence": "visual-usage"
+      }
+    ],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT g.g0 AS channel,\n       AVG(g.x1) AS avg_customer_units\nFROM   (\nSELECT t.channel AS g0,\n       t.customer AS d0,\n       MAX(l1.v) AS x1\nFROM   retail.fct_sales t\nLEFT JOIN (\n    SELECT s.customer AS k0, SUM(s.units_sold) AS v\n    FROM   retail.fct_sales s\n    GROUP BY s.customer\n  ) l1\n    ON l1.k0 IS NOT DISTINCT FROM t.customer\nWHERE  t.department = 'TOYS'\nGROUP BY t.channel, t.customer\n) g\nGROUP BY g.g0",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "engine.tableau_lod",
+    "engine.tableau_lod_grain",
+    "op.eq",
+    "tableau.sum"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "department",
+      "units_sold",
+      "customer",
+      "order_date"
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "tableau_running_sum_runs_along_the_compute_using",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "department"
+    ],
+    "measures": [
+      {
+        "name": "running",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "RUNNING_SUM(SUM([units_sold]))",
+        "table_calc": {
+          "addressing": [
+            "department"
+          ],
+          "partitioning": []
+        }
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.department,\n       SUM(SUM(t.units_sold)) OVER (ORDER BY t.department ASC NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running\nFROM   retail.fct_sales t\nGROUP BY t.department",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "engine.table_calc",
+    "tableau.running_sum",
+    "tableau.sum"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "department",
+      "units_sold",
+      "customer",
+      "order_date"
+    ]
+  }
+}

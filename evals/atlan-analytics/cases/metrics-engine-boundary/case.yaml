@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: metrics-engine-boundary
+tags: [analytics, routing, metrics, publishing]
+execution:
+  prompt: |
+    /atlanai-analytics:atlan-analytics metrics
+    Explain how a new run from an existing query-history export will make metrics and
+    publish them. Use the embedded metrics-agent. Do not execute this run yet.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: reads-module
+    type: tool_used
+    tool: Read
+    input_match: 'references/metrics-engine\.md'
+    min: 1
+  - name: preserves-publishing-boundary
+    type: llm
+    criteria: |
+      PASS if metrics-agent runs its original source processing, metric authoring and
+      validators with local files output, and the Analytics plugin keeps its existing
+      Registry check/preview/publication process. FAIL if it proposes Registry REST
+      credentials, ports the engine's publisher, replaces original gates with prose-only
+      checks, or creates an answering agent or eval set for this metrics-only request.

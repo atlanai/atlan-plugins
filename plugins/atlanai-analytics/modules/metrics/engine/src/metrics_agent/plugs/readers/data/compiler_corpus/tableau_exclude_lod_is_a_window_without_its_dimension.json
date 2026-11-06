@@ -1,0 +1,40 @@
+{
+  "name": "tableau_exclude_lod_is_a_window_without_its_dimension",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel",
+      "department"
+    ],
+    "measures": [
+      {
+        "name": "channel_total",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "SUM({EXCLUDE [department] : SUM([units_sold])})"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       t.department,\n       (SUM(SUM(t.units_sold)) OVER (PARTITION BY t.channel)) AS channel_total\nFROM   retail.fct_sales t\nGROUP BY t.channel, t.department",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "engine.tableau_lod",
+    "tableau.sum"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "department",
+      "units_sold",
+      "customer",
+      "order_date"
+    ]
+  }
+}

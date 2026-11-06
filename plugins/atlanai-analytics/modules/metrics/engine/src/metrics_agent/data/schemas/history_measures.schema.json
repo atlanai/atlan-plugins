@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "history_measures",
+  "description": "H2 \u2014 the measures the estate computes, derived from the canonical shapes by parser. One entry per (formula, entity); the count is deterministic and does not depend on who authors the prose.",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "measures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "dialect": {
+      "type": "string"
+    },
+    "measures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "measure_id",
+          "formula",
+          "entity",
+          "shape_ids",
+          "sql"
+        ],
+        "properties": {
+          "measure_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "formula": {
+            "type": "string",
+            "minLength": 1
+          },
+          "entity": {
+            "type": "string"
+          },
+          "aggregation_type": {
+            "type": "string"
+          },
+          "slices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shape_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "lead_shape_id": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "users": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exec": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_shapes": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  }
+}

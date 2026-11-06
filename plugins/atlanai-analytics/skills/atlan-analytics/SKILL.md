@@ -5,9 +5,18 @@ description: Prepare links, local folders and BI exports for talk-to-data using 
 
 # Analytics context and talk-to-data
 
+Keep progress updates and next-step explanations under 80 words unless a detailed procedure
+is requested. A next-step explanation is one paragraph about the requested action and its
+immediate checks. Use an inline option or command when useful; expand into command blocks,
+optional source formats or a full pipeline only when that detail was requested.
+
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
-publication approval, privacy and status reporting. Dispatch before loading mode-specific
-project conventions or preflight. A repository setup is not a full-agent build.
+task authorization, privacy and status reporting. Treat reads of the selected source,
+packaged-runtime initialization and generated-file reads as ordinary task steps. Once a
+publication destination is chosen for saving metrics, carry that authorization through the
+checked plan without an extra publish confirmation. Respect explicit draft/review requests. For new metric generation, read
+[the metrics module](references/metrics-engine.md); it preserves the plug architecture and
+original authored gates and hands artifacts to the existing publisher. Dispatch before mode-specific project conventions or preflight. A repository setup is not a full-agent build.
 
 This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
 Use the namespace of the installed skill throughout this run: `atlanai` for that bundle,
@@ -47,7 +56,7 @@ infer a missing coding-host plugin from a generic app-directory search.
 
 An explicit `dashboard` argument follows [dashboard to agent](references/dashboard.md).
 It retains the existing capture, independent checks and agent route. Optional inline cards
-are used only when their tools are already installed. Do not register another MCP server.
+are used only when their tools are already installed. Do not register another MCP server. Keep progress in native chat.
 
 If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
 arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from
@@ -97,7 +106,7 @@ Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over i
 | `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
 | `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
 
-The single helper is `scripts/analytics_eval.py`. It uses only the standard library and never
+Evaluation uses `scripts/analytics_eval.py`. It uses only the standard library and never
 touches the network: every registry write, eval results included, goes through the Atlan MCP
 server with the person's own sign-in.
 

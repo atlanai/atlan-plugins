@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metrics-agent-snowflake"
+dynamic = ["version"]
+description = "Snowflake plug for metrics-agent: read-only SQL check, INFORMATION_SCHEMA columns, shape-table history, and the semantic-view BI reader."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Atlan Pte. Ltd." }]
+requires-python = ">=3.11"
+keywords = ["metrics", "snowflake", "semantic view", "sql"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "metrics-agent",
+    # Pinned exactly; a pin moves only with the test suite.
+    # A security exception to the release-age cooldown (2026-10-29), for this pin only: 4.8.1
+    # (2026-10-26, snowflakedb/snowflake-connector-python) is the first release that allows
+    # filelock 4, which fixes 13 lock-file advisories in filelock 3.x. Every other pin keeps
+    # the cooldown.
+    "snowflake-connector-python==4.8.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/atlanai/atlan-plugins"
+Documentation = "https://github.com/atlanai/atlan-plugins/tree/main/docs"
+Source = "https://github.com/atlanai/atlan-plugins"
+Issues = "https://github.com/atlanai/atlan-plugins/issues"
+
+[project.entry-points."metrics_agent.plugs"]
+snowflake-direct = "metrics_agent_snowflake.plug:SnowflakeDirect"
+
+# A Snowflake semantic view is a BI model: this package's reader turns it into `bi_facts`.
+[project.entry-points."metrics_agent.readers"]
+snowflake-semantic-view = "metrics_agent_snowflake.semantic_view:SemanticViewReader"
+
+# Its policy defaults (`semantic_view.*`), merged under the run's policy.
+[project.entry-points."metrics_agent.artifacts"]
+snowflake = "metrics_agent_snowflake.artifacts"
+
+[tool.setuptools.dynamic]
+version = { attr = "metrics_agent_snowflake.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+metrics_agent_snowflake = ["policy.yml"]

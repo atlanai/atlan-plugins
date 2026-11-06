@@ -1,0 +1,72 @@
+{
+  "name": "dax_countblank_is_blank_when_there_are_none",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "cb",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "Missing Amount",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "COUNTBLANK(Sales[amount])"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       NULLIF(COUNT(CASE WHEN t.amount IS NULL THEN 1 END), 0) AS missing_amount\nFROM   retail.fct_sales t\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.countblank"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

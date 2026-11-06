@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Metrics publication holds",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "checks", "outputs", "metrics", "queries"],
+  "properties": {
+    "format": {"const": 2},
+    "checks": {"const": {"compiler_review": 1, "required_member_scope": 1, "card_aggregation": 1}},
+    "outputs": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+    "queries": {"type": "array", "items": {"$ref": "#/$defs/query"}}
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "name", "status", "reason"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "status": {"const": "held"},
+        "reason": {"type": "string", "minLength": 1},
+        "query_id": {"type": "string", "minLength": 1},
+        "sql_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "detail": {"type": "string"},
+        "query_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "metric": {"$ref": "#/$defs/record"},
+    "query": {"allOf": [{"$ref": "#/$defs/record"}, {"required": ["query_id", "sql_sha256"]}]}
+  }
+}

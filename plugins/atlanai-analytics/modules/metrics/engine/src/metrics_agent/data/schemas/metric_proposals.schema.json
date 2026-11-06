@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "metric_proposals",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "verdicts",
+    "proposals"
+  ],
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "dialect": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "layer_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "n_statements": {
+      "type": "integer"
+    },
+    "n_answered": {
+      "type": "integer"
+    },
+    "n_no_metric": {
+      "type": "integer"
+    },
+    "verdicts": {
+      "type": "object",
+      "description": "vq_id -> 'metrics' | 'none'. Every statement read gets one; a statement absent here was never read, which is a hole rather than a judgement of no metric.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "metrics",
+          "none"
+        ]
+      }
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_id",
+          "vq_id",
+          "name",
+          "expression",
+          "entity",
+          "why_a_metric"
+        ],
+        "properties": {
+          "proposal_id": {
+            "type": "string"
+          },
+          "vq_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expression": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Verbatim from the statement."
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "why_a_metric": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the business does with this number."
+          },
+          "definition": {
+            "type": "string"
+          },
+          "aggregation": {
+            "type": "string"
+          },
+          "grain": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "mandatory_filters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "optional_filters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

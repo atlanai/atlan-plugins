@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metrics-agent-postgres-example"
+version = "0.1.0.dev0"
+description = "Example postgres SQL-check plug for metrics-agent."
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+# Pinned to the newest release public for >= 7 days at pin time (2026-10-08): 3.3.6
+# (2026-09-18). Verified upstream: psycopg/psycopg, LGPL-3.0 (a runtime dependency of this
+# example only; nothing of it is vendored here).
+dependencies = ["metrics-agent", "psycopg==3.3.6"]
+
+[project.entry-points."metrics_agent.plugs"]
+postgres-direct = "metrics_agent_postgres:Direct"
+
+[tool.setuptools.packages.find]
+where = ["src"]

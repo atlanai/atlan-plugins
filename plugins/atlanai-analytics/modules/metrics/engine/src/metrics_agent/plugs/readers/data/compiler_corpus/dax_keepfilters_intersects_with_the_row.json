@@ -1,0 +1,74 @@
+{
+  "name": "dax_keepfilters_intersects_with_the_row",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "kf",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "Online Kept",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[amount]), KEEPFILTERS(Sales[channel] = \"ONLINE\" || Sales[qty] > 4))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       (SUM(CASE WHEN COALESCE(UPPER(RTRIM(t.channel)) = 'ONLINE', FALSE) OR COALESCE(t.qty > 4, FALSE) THEN t.amount END)) AS online_kept\nFROM   retail.fct_sales t\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

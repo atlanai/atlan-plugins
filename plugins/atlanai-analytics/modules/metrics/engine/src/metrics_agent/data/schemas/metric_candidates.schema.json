@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/metric_candidates.schema.json",
+  "title": "D1 metric candidates",
+  "description": "One candidate per ALIASED aggregate in the verified-query layer, with its statement's filters split by support across the layer: definitional (part of what the number means), slicing (a group-by or HAVING restriction), parameter (the column/op repeats with a varying value) and escalated (below the support floor; D3 decides with the evidence). Provenance rides on the candidate so the winner is ranked by lane, popularity and recency.",
+  "type": "object",
+  "$defs": {
+    "filter": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope_tables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "in_source": {
+          "type": "boolean",
+          "description": "The predicate defines the rows of the table the statement reads (the WHERE of a derived table it reads from): a mandatory filter of every metric over it."
+        },
+        "value_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "negated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "column",
+        "op"
+      ]
+    }
+  },
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "dialect": {
+      "type": "string",
+      "minLength": 1
+    },
+    "layer_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "vq_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alias": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expr": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fn": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source_table": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "grain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expr_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lane": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "popularity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "popularity_basis": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_seen": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "witness_result": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "witness_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "definitional_filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/filter"
+            }
+          },
+          "slicing_filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/filter"
+            }
+          },
+          "escalated_filters": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/filter"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "why"
+                  ],
+                  "properties": {
+                    "why": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "parameter_filters": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/filter"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "observed_values"
+                  ],
+                  "properties": {
+                    "observed_values": {
+                      "type": "array"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "vq_id",
+          "alias",
+          "expr",
+          "fn",
+          "tables",
+          "source_table",
+          "domain",
+          "grain",
+          "group_by",
+          "expr_key",
+          "lane",
+          "popularity",
+          "popularity_basis",
+          "last_seen",
+          "witness_result",
+          "witness_error",
+          "definitional_filters",
+          "slicing_filters",
+          "escalated_filters",
+          "parameter_filters"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "dialect",
+    "layer_sha",
+    "candidates"
+  ]
+}

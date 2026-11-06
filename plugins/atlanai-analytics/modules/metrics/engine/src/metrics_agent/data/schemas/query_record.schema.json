@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/query_record.schema.json",
+  "title": "Query record (input socket)",
+  "description": "One statement an input plug returns from query_history: either one execution, or a pre-aggregated shape (exec_count or user_count set, in which case H0 sums the counts instead of counting the record once). query_text is kept exactly as written and is never flattened. user_name is scrubbed by the core before anything is stored. Unset optional fields are left out.",
+  "type": "object",
+  "required": [
+    "query_text"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "query_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "query_id": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "ISO 8601"
+    },
+    "execution_status": {
+      "type": "string"
+    },
+    "query_type": {
+      "type": "string"
+    },
+    "exec_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "user_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "catalog": {
+      "type": "string",
+      "description": "Session database."
+    },
+    "schema": {
+      "type": "string",
+      "description": "Session schema."
+    },
+    "source": {
+      "type": "string",
+      "description": "Free-text origin label, as the source names it."
+    },
+    "plug": {
+      "type": "string",
+      "description": "The plug that supplied the record; set by the core when several plugs feed one run."
+    }
+  }
+}
