@@ -15,6 +15,11 @@ import sys
 import tempfile
 import venv
 
+try:
+    from .terminal_io import at_terminal, SIGN_IN_TIMEOUT
+except ImportError:  # The isolated worker imports this module by its filename.
+    from terminal_io import at_terminal, SIGN_IN_TIMEOUT
+
 HERE = Path(__file__).resolve().parent
 ENGINE = HERE / 'engine'
 DESCRIPTOR = HERE / 'module.json'
@@ -173,8 +178,16 @@ def _invoke(root, command, args):
         raise ValueError('Set up this module runtime first.')
     # Do not inherit Python import overrides from the host or another project.
     env = {k: v for k, v in os.environ.items() if k not in ('PYTHONPATH', 'PYTHONHOME')}
-    proc = subprocess.run([str(python), '-I', str(HERE / 'worker.py'), command,
-                           '--runtime', str(root), *args], env=env, capture_output=True, text=True)
+    interactive = at_terminal()
+    try:
+        proc = subprocess.run([str(python), '-I', str(HERE / 'worker.py'), command,
+                               '--runtime', str(root), *args], env=env,
+                              stdout=subprocess.PIPE,
+                              stderr=None if interactive else subprocess.PIPE, text=True,
+                              timeout=SIGN_IN_TIMEOUT if interactive and command == 'prepare' else None)
+    except subprocess.TimeoutExpired:
+        return {'status': 'BLOCKED', 'reason': 'Connector sign-in timed out.',
+                'fix': 'Retry preparation and complete sign-in in the displayed browser.'}, 2
     if proc.returncode not in (0, 2, 3):
         return {'status': 'BLOCKED', 'reason': 'The metrics runtime failed.',
                 'fix': 'Check the private run log; do not bypass its gates.'}, 2

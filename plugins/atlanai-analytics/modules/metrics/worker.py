@@ -9,13 +9,13 @@ import os
 from pathlib import Path
 import re
 import shutil
-import subprocess
 import sys
 import traceback
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from driver import ordinary, snapshot, write
+from terminal_io import Transcript, at_terminal, run as run_with_terminal
 
 
 def load(path):
@@ -138,7 +138,8 @@ def prepare(run, config, runtime, approval_mode='auto'):
         raise ValueError('Use a new module run directory; existing engine runs require an explicit migration.')
     # check_file performs the original plug/session checks, but never asks the setup interview.
     messages = io.StringIO()
-    with contextlib.redirect_stdout(messages), contextlib.redirect_stderr(messages):
+    stream = Transcript(messages, sys.stderr) if at_terminal() else messages
+    with contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
         code = setup.check_file(config, out=messages)
     if code:
         # Access/credential checks may name environment variables, not their values.
@@ -170,8 +171,8 @@ def advance(run, runtime, model):
     run, receipt = state(run, runtime)
     env = dict(os.environ, METRICS_AGENT_MODEL=model)
     # Never pass publishing flags or a second interview. Upstream owns stage order and resume.
-    proc = subprocess.run([sys.executable, '-m', 'metrics_agent.cli', 'run', '--run', str(run),
-                           '--config', str(run / 'run.yml')], env=env, capture_output=True, text=True)
+    proc = run_with_terminal([sys.executable, '-m', 'metrics_agent.cli', 'run', '--run', str(run),
+                              '--config', str(run / 'run.yml')], env=env)
     log = run / 'engine.log'
     ordinary(log)
     with log.open('a') as handle:
