@@ -44,6 +44,14 @@ conversation record. If the person drops items, rerun `MINE check` and keep the 
 that scope. Existing producer logic, batching, ETags, idempotency, retries and release readbacks
 below are unchanged. Never ask again for file reads, or because the publication phase started.
 
+**Show me 5 sample cards first** has an immediate action: run
+`python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" preview --limit 5 --format markdown`
+and display its returned text in this response. Use `--kind sql_query` for saved queries.
+If fewer than five exist, show all; if zero, show the reason. Do not publish, restart extraction
+or ask for a workspace to show samples. Optional rich cards must fall back to this text.
+**Show all** uses `--all`. **Not yet / Keep local** preserves the run with an unshared status.
+
+
 ## 2. Metrics
 
 - **Create:** `registry__create_artifacts` with kind `metric`, each body exactly as checked, in
@@ -103,7 +111,8 @@ agents can't read those drafts yet.
 Only after both ends exist, and only the approved list:
 1. Resolve each end to its artifact id from `published.json` or the plan's `match_id`. Confirm
    both are in the workspace. Hold any link whose end is missing or ambiguous, and never guess
-   by name.
+   by name. Metrics and saved queries can have the same name: index endpoints by kind and
+   source identity (or kind and name within the reviewed workspace), never by name alone.
 2. Read `registry__get_kind_schema` for each source kind, and write only the relation types and
    target kinds it declares.
 3. Read the existing links first, including the `depends_on` links the metric posthook derives.

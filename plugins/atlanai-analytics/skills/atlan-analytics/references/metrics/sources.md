@@ -14,6 +14,11 @@ Each metric records where it came from in `definition.extensions.atlan_analytics
 - `shapes`: the ids of the query shapes it came from;
 - `by_hand`: `true`, with the date it was drafted.
 
+The generic survey also detects Tableau, PBIP/TMDL, dbt manifests, Cube files, HTML dashboards
+and schema/data files. `needs_model_review` means detected, not parsed or translated. Use the
+format procedures below and retain a visible held reason for unavailable readers. Never execute
+JavaScript, Power Query or repository loaders to discover definitions.
+
 ## Declared semantic models
 
 Look for these first. They need no query history and often no warehouse access at all.

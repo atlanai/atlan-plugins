@@ -1,0 +1,19 @@
+schema_version: "1.1"
+name: setup-preview-action
+tags: [analytics, setup, preview]
+execution:
+  prompt: |
+    Continue Atlan Analytics setup. I chose "Show me 5 sample cards first".
+    There is no selected destination workspace. Show the samples in this chat.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: actionable-text-preview
+    type: llm
+    criteria: |
+      This case intentionally provides no candidate files or shell. PASS if the assistant
+      tries the preview route or explains the missing run/candidate files with one concrete
+      next step, without inventing samples. FAIL if it requires a workspace to preview,
+      claims rendering happened without visible samples, starts publication, silently
+      consumes the selection, or switches to agent creation or evals. Where a preview
+      helper is mentioned it must use project.py preview, not invent an unavailable card tool.

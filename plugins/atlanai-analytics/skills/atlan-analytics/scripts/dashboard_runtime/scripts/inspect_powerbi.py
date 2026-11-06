@@ -96,12 +96,12 @@ def pbir_layout(archive):
         result['page_order']=read(prefix+'pages/pages.json')
     for name in names:
         if not (name.startswith(prefix+'pages/') and name.endswith('/page.json')): continue
-        data=read(name);page=fields(data,('name','displayName','visibility','pageType'))
+        data=read(name);page=fields(data,('name','displayName','visibility','pageType','type','pageBinding'))
         page['filters']=data.get('filterConfig',{});page['visualContainers']=[]
         for visual_name in names:
             if visual_name.startswith(name[:-len('page.json')]+'visuals/') and visual_name.endswith('/visual.json'):
                 visual=read(visual_name);v=visual.get('visual',{})
-                page['visualContainers'].append({'config':{'singleVisual':{'visualType':v.get('visualType'),
+                page['visualContainers'].append({'config':{'name':visual.get('name'), 'singleVisual':{'visualType':v.get('visualType'),
                     'projections':v.get('query',{}),'objects':v.get('objects',{})}},'filters':visual.get('filterConfig',{})})
         result['sections'].append(page)
     return result
@@ -145,27 +145,48 @@ def inspect(path):
     if isinstance(layout,dict):
         out['report_filters'] = layout.get('filters',[])
         for section in layout.get('sections',[]):
-            page = fields(section,('name','displayName','filters','visibility','pageType'))
+            page = fields(section,('name','displayName','filters','visibility','pageType','type','pageBinding'))
+            section_config = section.get('config', {})
+            if isinstance(section_config, str):
+                try: section_config = json.loads(section_config)
+                except ValueError: section_config = {}
+            for key in ('visibility', 'pageType', 'type', 'pageBinding'):
+                if key not in page and key in section_config:
+                    page[key] = section_config[key]
             page['visuals'] = []
-            for visual in section.get('visualContainers',[]):
+            for index, visual in enumerate(section.get('visualContainers',[])):
                 config = visual.get('config',{})
                 if isinstance(config,str):
                     try: config = json.loads(config)
                     except ValueError: config = {}
                 single = config.get('singleVisual',{})
-                page['visuals'].append({'type':single.get('visualType'),
+                page['visuals'].append({'id':config.get('name') or 'visual_' + str(index + 1),
+                    'type':single.get('visualType'), 'query':single.get('prototypeQuery', visual.get('query',{})),
                     'projections':single.get('projections',{}),'objects':single.get('objects',{}),'filters':visual.get('filters',[])})
             out['pages'].append(page)
+        order = layout.get('page_order', {}).get('pageOrder', [])
+        if isinstance(order, list):
+            out['pages'].sort(key=lambda p: order.index(p.get('name')) if p.get('name') in order else len(order))
     if isinstance(model,dict):
         model = model.get('model',model)
+        partitions = []
+        power_query = []
         for table in model.get('tables',[]):
             out['tables'].append({'name':table.get('name'),'columns':[fields(c,('name','dataType','sourceColumn','expression','source_id')) for c in table.get('columns',[])]})
             for measure in table.get('measures',[]):
                 out['measures'].append({'table':table.get('name'),**fields(measure,('name','expression','dataType','description','formatString','lineageTag','source_id'))})
+            for partition in table.get('partitions', []):
+                source = partition.get('source', {})
+                partitions.append({'table': table.get('name'),
+                                   **fields(partition, ('name', 'mode', 'source'))})
+                if source.get('type') == 'm':
+                    power_query.append({'table': table.get('name'),
+                                        'partition': partition.get('name'),
+                                        'expression': source.get('expression')})
         out['relationships'] = model.get('relationships',[])
-        out['power_query'] = model.get('power_query',[])
+        out['power_query'] = model.get('power_query',[]) + power_query
         out['security'] = model.get('security',{})
-        out['partitions'] = model.get('partitions',[])
+        out['partitions'] = model.get('partitions',[]) + partitions
         out['security_roles_present'] = bool(model.get('roles') or out['security'].get('roles'))
     out['model_metadata_available'] = model is not None
     out['binary_status'] = binary_status
