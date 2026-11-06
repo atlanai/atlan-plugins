@@ -119,7 +119,9 @@ class Service:
                 from .snowflake_cli import execute, ConnectionPaused
                 require(bool(state.get('snowflake_connection')), 'Connect Snowflake CLI for this job first.')
                 require(not state.get('snowflake_connection_paused'), 'Warehouse checks are paused. Resolve the connection issue and explicitly reconnect once; do not retry sign-in for every metric.')
-                plan = answer_plan(state, args['metric_id'], args['context_hash'])
+                plan = answer_plan(state, args['metric_id'], args['context_hash'], args.get('purpose', 'answer'),
+                                   args.get('case_id'), args.get('plan_generation'))
+                require(plan['state'] != 'requires_validation', 'This metric needs correction or validation before answering.')
                 require(plan['state'] == 'execute_warehouse' and plan['query']['dialect'] == 'snowflake', 'A Snowflake SQL plan at the exact scope is required.')
                 query = plan['query']
                 try:

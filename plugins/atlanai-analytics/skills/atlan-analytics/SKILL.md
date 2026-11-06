@@ -1,28 +1,42 @@
 ---
 name: atlan-analytics
-description: Set up governed metrics and saved queries from a warehouse, connect a warehouse, build, evaluate or improve a talk-to-data agent, turn a Power BI dashboard into one, or propose a metric fix. Use for analytics setup and agent work on Atlan. Not for a one-off data question (atlan-analytics-ask) or business objects and policies (atlan-ontology).
+description: Prepare links, local folders and BI exports for talk-to-data using dashboards, models and query history. Use when asked to set up analytics or build an analytics agent from existing context. Publishes metrics and SQL to Trident, then suggests questions. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
 ---
 
-# Metrics and talk-to-data agents
+# Analytics context and talk-to-data
 
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
-publication approval, privacy and status reporting. Every mode but `connect`, `ask` and
-`ontology` also reads [project conventions](references/project-conventions.md).
+publication approval, privacy and status reporting. Dispatch before loading mode-specific
+project conventions or preflight. A repository setup is not a full-agent build.
 
 This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
 Use the namespace of the installed skill throughout this run: `atlanai` for that bundle,
 or `atlanai-analytics` for the separate add-on. Replace the `atlanai-analytics:` prefix in
 examples and specialist-agent names below with the installed namespace. Do not install the
-separate add-on or clone a repository to use this bundled workflow.
+separate add-on to use this bundled workflow. Cloning a source repository the user asks to
+set up is a separate, supported task.
 
 ## 0. Dispatch the requested mode first
 
-If the first argument is `dashboard`, or the person supplies a Power BI report link/file
-and asks to turn it into an agent, follow [dashboard to agent](references/dashboard.md)
-and return. This route runs in Claude Code and Codex with a shell, using the local helper
-and the core Atlan connection. An explicit `metrics` request still follows metrics-only mode.
-Keep all progress in native chat. Use existing inline dashboard cards only when their tools
-are already installed; never register another MCP server as part of this workflow.
+**Dispatch explicit modes first.** `dashboard`, `metrics`, `build`, `eval`, `improve`,
+`ask`, `ontology`, `connect` and `propose` retain their documented routes. An explicit request
+to register or deploy a separate agent uses the agent workflow.
+
+Otherwise, `start`, `setup`, `query-history`, a bare invocation, or a request to make a
+supplied link, local folder, HTML dashboard or BI export ready for questions follows
+[shared setup](references/setup.md), then returns. "Build an analytics agent from this"
+uses that route unless the person explicitly requests a separate deployed agent. A repository
+is an ordinary source input; its name and layout never select a special workflow.
+
+Survey before choosing inputs. Combine relevant declared models, dashboards, saved SQL and
+query history; preview actual definitions before asking for a publication destination.
+Finish with released context in Trident and supported questions in this conversation.
+The current harness plus Trident MCP is the talk-to-data interface. No agent package,
+registration, custom chat or eval is required. Reuse the selected run when resuming.
+
+An explicit `dashboard` argument follows [dashboard to agent](references/dashboard.md).
+It retains the existing capture, independent checks and agent route. Optional inline cards
+are used only when their tools are already installed. Do not register another MCP server.
 
 If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
 arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from
@@ -58,7 +72,8 @@ return.
 If it is `connect`, follow [warehouse discovery](references/connect.md), then return.
 Use the selected project’s state when one exists; never resume another project silently.
 
-The remaining sections apply only to full-agent modes.
+The remaining sections apply only to full-agent modes. Read
+[project conventions](references/project-conventions.md) when entering those modes.
 
 ## 1. Preflight and resume
 

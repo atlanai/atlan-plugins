@@ -14,6 +14,11 @@ Each metric records where it came from in `definition.extensions.atlan_analytics
 - `shapes`: the ids of the query shapes it came from;
 - `by_hand`: `true`, with the date it was drafted.
 
+The generic survey also detects Tableau, PBIP/TMDL, dbt manifests, Cube files, HTML dashboards
+and schema/data files. `needs_model_review` means detected, not parsed or translated. Use the
+format procedures below and retain a visible held reason for unavailable readers. Never execute
+JavaScript, Power Query or repository loaders to discover definitions.
+
 ## Declared semantic models
 
 Look for these first. They need no query history and often no warehouse access at all.
@@ -76,7 +81,8 @@ table calculations and LOD expressions (`{FIXED …}`), and say why.
 
 **Power BI.** Use a PBIP project's `definition/tables/*.tmdl` (`measure '<name>' = <DAX>`), a
 `model.bim` (`tables[].measures[].expression`), or a `.pbit` template, which holds the model as
-JSON with no data. Avoid a `.pbix`: its model is in a binary format. A table's `partition` source names the warehouse
+JSON with no data. For binary `.pbix`, use the existing approved PBIXRay runtime and report decode limitations;
+text exports need no decoder dependency. A table's `partition` source names the warehouse
 table. Translate:
 - `SUM`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN` and `MAX`;
 - `DIVIDE(a, b)`, as a guarded divide;
