@@ -1,0 +1,30 @@
+schema_version: "1.1"
+name: routing-export-setup
+tags: [analytics, routing, setup]
+execution:
+  prompt: |
+    Use Atlan Analytics to help me ask questions from ./reports/operations.pbix.
+    Use the Overview page and any relevant query history in this folder.
+    Show me the metrics and SQL before asking which workspace to publish to.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: reads-shared-setup
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup\.md'
+    min: 1
+  - name: no-implicit-agent-route
+    type: tool_used
+    tool: Read
+    input_match: 'references/(full-agent|dashboard)\.md'
+    min: 0
+    max: 0
+  - name: truthful-source-scope
+    type: llm
+    criteria: |
+      PASS if the reply honors Overview, combines relevant dashboard and history evidence,
+      and keeps local preview before an unknown publication destination. With no supplied
+      files or shell it must describe the missing capability truthfully. FAIL if it claims
+      extraction, execution or publication without evidence, requires a separate agent,
+      silently widens to all pages, or asks the user to choose dashboard OR query history.

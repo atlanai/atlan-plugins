@@ -66,7 +66,7 @@ SCHEMAS = {
                                'evidence_ref': string(1000)}, (*MUTATION, 'source_url', 'title', 'evidence_ref')),
     'dashboard_capture': obj({**MUTATION, 'capture': CAPTURE}, (*MUTATION, 'capture')),
     'dashboard_read': obj({'job_id': string(28), 'include_definitions': {'type': 'boolean'}, 'definition_offset': {'type':'integer','minimum':0}, 'definition_limit': {'type':'integer','minimum':1,'maximum':10}}, ('job_id',)),
-    'dashboard_translate': obj({**MUTATION, 'dialect': {'type':'string','enum':['snowflake','postgres','sqlite']},
+    'dashboard_translate': obj({**MUTATION, 'dialect': {'type':'string','enum':['snowflake','postgres','sqlite','duckdb']},
                                 'mappings':array(MAPPING,100)}, (*MUTATION,'dialect','mappings')),
     'dashboard_evaluate': obj({**MUTATION, 'cases': array(CASE)}, (*MUTATION, 'cases')),
     'dashboard_plan_evals': obj({**MUTATION, 'questions': array(obj({'metric_id': string(100),
