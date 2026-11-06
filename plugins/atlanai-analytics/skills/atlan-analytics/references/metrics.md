@@ -22,6 +22,12 @@ repository the user supplied. Below:
 `MINE` prints one JSON object. It exits 2 when BLOCKED, and 1 with `"status": "REFUSED"` when
 a check refuses an item.
 
+Setup callers follow [shared setup](setup.md) for ordering. They skip section 0's destination
+question when the workspace is unknown. Use provisional `PROJECT check` and `PROJECT preview`
+locally, then fetch the live schema and existing definitions and run `MINE check` after choosing
+the destination. Do not report create/revise/reuse counts before that reconciliation.
+Explicit metrics mode and full builds retain their entry contracts below.
+
 ## 0. Metrics-mode entry
 
 1. Open a registry session as **Registry calls** in the conventions describes, then call
@@ -41,7 +47,7 @@ A full build already has its workspace, `tables.txt` and state from phases 1 and
 
 ## 1. Pick the sources
 
-Read the workspace's existing `metric` and `sql_query` artifacts first
+When a workspace is already known, read its existing `metric` and `sql_query` artifacts first
 (`registry__list_artifacts`). When they already cover the request, say so and stop rather than
 create duplicates. In project setup, reconcile every scoped source first, then carry reused
 released artifacts through receipts and suggestions; existing context is not a reason to end

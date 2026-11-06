@@ -1,4 +1,8 @@
-# Set up a repository for talk-to-data
+# Local source and execution procedures
+
+Start with [shared setup](setup.md). This reference supplies compatible helper procedures
+for folders and files; its section numbering does not replace the shared seven-stage flow.
+Preview local candidates before asking for an unknown destination workspace.
 
 Use the existing Analytics plugin to survey a local project, publish reusable context in
 Trident, and answer questions through retrieval. No new plugin, repository, agent, eval,
@@ -127,8 +131,8 @@ Follow [metrics](metrics.md), source discovery, authoring and checking, using th
 `context/`. Preserve its `run.json`; maintain metrics-mode `state.json` with `entrypoint:
 project`, the original question and selected workspace. Use the live artifact contracts.
 The combined survey already chose the sources and establishes table scope where unambiguous;
-skip the metrics-mode source menu and repeated scope questionnaire. Verify a previously
-selected workspace or ask for the destination by accessible name once. Do not require an
+skip the metrics-mode source menu and repeated scope questionnaire. Reuse an already known workspace. If none is known, author provisional candidates and preview
+them first; select the destination in the shared setup publication stage. Do not require an
 agent name, agent package, eval set or full-agent preflight.
 Combine Power BI declarations, supported semantic models, rowset SQL and history evidence.
 Use `trident.dax_sql.translate` for supported scalar DAX, including dialect `duckdb` with
@@ -149,7 +153,8 @@ Chunk authoring as the existing workflow describes. Frequency ranks history cand
 does not certify them. Do not invent definitions solely from column names or treat all query
 shapes as separate metrics. Report truncation and partial coverage explicitly.
 
-Run `MINE check` as the metrics workflow describes. For local execution checks, save an
+Run `PROJECT check` for provisional local schema checks before a workspace is selected.
+Run `MINE check` against the actual workspace schemas and existing definitions before publishing. For local execution checks, save an
 ordinary JSON request with `sql`, separate `parameters` and optional `limit` (1 to 1000), then
 run `PROJECT execute "<request.json>"`. Use schema-qualified base tables and native `$name`
 bindings; convert Registry `{{name}}` placeholders outside SQL literals to native bindings,
@@ -226,43 +231,8 @@ or the user's own question. Do not choose and run a sample silently. Continue th
 
 ## 6. Retrieval contract for every question
 
-Read `PROJECT status` for binding and publication IDs only. Search Trident in the selected
-workspace for relevant released metrics and SQL queries; prioritize this estate and its
-published IDs. Search saved queries for detail questions or where no metric fits. Fetch the
-complete definition/SQL and release receipt for each kept hit through MCP. Local authoring
-files and remembered setup answers are never the retrieval source.
-
-For a saved-query answer, use **one checked operation**, `PROJECT answer "<request.json>"`:
-
-```json
-{"readbacks": {"workspace_id": "workspace_example", "artifacts": ["complete MCP response objects"]},
- "artifact_id": "sql_query_example", "parameters": {"project_id": "example_id"}}
-```
-
-Replace the illustrative array with the complete raw MCP objects. The helper validates their
-full definitions against the publication receipt, takes SQL directly from the selected
-released saved query, converts Registry templates to native bindings and executes read-only.
-It returns `retrieval_check: passed`, the executed SQL, the release used and fresh results.
-Do not rewrite the retrieved SQL into another file, call the repository's query script, or
-skip this check and present a governed answer with a caveat. A failed check stops the answer.
-
-For a metric with no suitable saved query, wrap the complete fresh MCP responses in the same
-readback shape and run `PROJECT retrieved "<fresh-readbacks.json>"` before constructing SQL.
-Both paths refuse mismatched workspaces, unknown IDs,
-changed definitions and missing/different releases. If a new release or another relevant
-artifact should be used, review its source mapping and checks, then refresh the publication
-receipt from MCP before using it. A withdrawn release cannot fall back to its head or a draft.
-
-For that metric path, use the retrieved definition to construct SQL preserving formula, scope, grain, joins and
-mandatory filters. Run `PROJECT execute` for DuckDB or the recorded warehouse tool, then
-answer with results, executed SQL and artifact links/revisions. Include truncation and
-unmeasured parity where relevant. Use artifact UI links returned by the service or observed
-in the selected workspace. If no verified UI link is available, cite the artifact name, ID
-and release; do not invent a REST/version URL as a user-facing link. Never claim the question
-was answered if execution failed.
-If retrieval returns no relevant released context, explain the missing definition and offer
-to extend context; do not silently answer this route from ungoverned or cached local SQL.
-
-Resume with the same run and workspace. A changed source requires a fresh survey and context
-reconciliation; a changed schema requires rebinding. New data rows use fresh execution.
-There is no eval, agent registration or Agent Usage completion gate in this route.
+Follow [retrieval](retrieval.md). Saved queries use fresh complete MCP release readbacks and
+one checked `PROJECT answer` operation. DuckDB executes locally; a warehouse returns
+`execute_in_host` with a validated query plan for the existing read-only tool. A plan is not
+an executed answer. Existing Trident users can follow the same retrieval rules without a
+local run or publication receipt.

@@ -803,6 +803,15 @@ def cmd_check(a) -> dict:
     queries = load_json(d / "queries.json", []) or []
     links = load_json(d / "links.json", []) or []
     existing = load_json(d / "existing.json", []) or []
+    local_checks = load_json(d / "candidate-checks.json", {}) or {}
+    def held_execution(kind, body):
+        record = local_checks.get(kind + ':' + str(body.get('name')), {})
+        revision = hashlib.sha256(json.dumps(body.get('definition'), sort_keys=True, ensure_ascii=False,
+                                            allow_nan=False, separators=(',', ':')).encode()).hexdigest()
+        if record.get('definition_hash') == revision and any(
+                sample.get('status') == 'failed' for sample in record.get('samples', {}).values()):
+            return ['A current parameter sample failed execution; correct and recheck it before publishing.']
+        return []
     shapes = {s["shape_id"] for s in read_jsonl(d / "shapes.jsonl")}
     if not metrics and not queries:
         raise Blocked("Nothing to check: metrics.json and queries.json are both empty or missing.",
@@ -820,6 +829,7 @@ def cmd_check(a) -> dict:
     for i, body in enumerate(metrics):
         label = body.get("name") or f"metrics[{i}]"
         errs, warns = check_metric(body)
+        errs += held_execution('metric', body)
         ident = identity(body)
         if not body.get("source_id"):
             body["source_id"] = f"metric:{ident}"
@@ -862,6 +872,7 @@ def cmd_check(a) -> dict:
     for i, body in enumerate(queries):
         label = body.get("name") or f"queries[{i}]"
         errs, warns = check_query(body)
+        errs += held_execution('sql_query', body)
         if not body.get("source_id"):
             errs.append("source_id is required: <slug>/<shape or vq id>")
         if body.get("name") in q_names:

@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Set up a GitHub repo or local project for talk-to-data: survey dashboards and query history, publish metrics and SQL to Trident, then suggest questions. Use when asked to set up analytics or build an analytics agent from a repo. Also supports explicit agent builds. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
+description: Prepare links, local folders and BI exports for talk-to-data using dashboards, models and query history. Use when asked to set up analytics or build an analytics agent from existing context. Publishes metrics and SQL to Trident, then suggests questions. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
 ---
 
 # Analytics context and talk-to-data
@@ -18,37 +18,25 @@ set up is a separate, supported task.
 
 ## 0. Dispatch the requested mode first
 
-**Repository intent comes first.** A supplied GitHub/repository URL, local folder, or current
-project with a request to set up analytics, make it agentic ready, ask its data, or "build an
-analytics agent from it" follows [project setup](references/project.md), then returns.
-This includes "Help me set up this repo: <GitHub URL>. Once ready, use Atlan Analytics to
-build an analytics agent from its dashboards, query history and data."
-Clone or reuse the source project, then survey it before choosing inputs. Discovering a PBIT
-inside that repo does not switch the workflow to dashboard mode. A GitHub page is not a
-hosted Power BI report URL.
+**Dispatch explicit modes first.** `dashboard`, `metrics`, `build`, `eval`, `improve`,
+`ask`, `ontology`, `connect` and `propose` retain their documented routes. An explicit request
+to register or deploy a separate agent uses the agent workflow.
 
-Survey every available source, combine model and history evidence, publish metrics and saved
-SQL, then suggest supported questions. When the user asks, retrieve the released context
-from Trident and execute against the selected data source. The current harness plus Trident
-MCP is the talk-to-data interface. Do not generate an agent package, custom chat, registration
-or evals for this route. Explicit mode arguments (`metrics`, `dashboard`, `build`, `eval`,
-`improve`) and a clear request to register or deploy a separate agent keep their routes;
-the phrase "analytics agent" alone in a repo setup request is not that request.
+Otherwise, `start`, `setup`, `query-history`, a bare invocation, or a request to make a
+supplied link, local folder, HTML dashboard or BI export ready for questions follows
+[shared setup](references/setup.md), then returns. "Build an analytics agent from this"
+uses that route unless the person explicitly requests a separate deployed agent. A repository
+is an ordinary source input; its name and layout never select a special workflow.
 
-`start` and `setup`, or invoking Analytics without a task, follow
-[getting started](references/start.md). `query-history <file, folder or scope>` follows the
-same route with query history already selected. These routes finish with a business answer
-in this host, not mandatory agent registration. Reuse an explicitly selected run when resuming.
-Do not run full-agent preflight or present build/eval/improve as the initial menu.
-Natural requests to turn supplied queries or a repository of models into context for questions
-also use this route. An explicit metrics-only or full-agent mode still takes precedence.
+Survey before choosing inputs. Combine relevant declared models, dashboards, saved SQL and
+query history; preview actual definitions before asking for a publication destination.
+Finish with released context in Trident and supported questions in this conversation.
+The current harness plus Trident MCP is the talk-to-data interface. No agent package,
+registration, custom chat or eval is required. Reuse the selected run when resuming.
 
-If the first argument is `dashboard`, or the person supplies a Power BI report link/file
-and asks to turn it into an agent, follow [dashboard to agent](references/dashboard.md)
-and return. This route runs in Claude Code and Codex with a shell, using the local helper
-and the core Atlan connection. An explicit `metrics` request still follows metrics-only mode.
-Keep all progress in native chat. Use existing inline dashboard cards only when their tools
-are already installed; never register another MCP server as part of this workflow.
+An explicit `dashboard` argument follows [dashboard to agent](references/dashboard.md).
+It retains the existing capture, independent checks and agent route. Optional inline cards
+are used only when their tools are already installed. Do not register another MCP server.
 
 If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
 arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from

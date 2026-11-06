@@ -18,6 +18,11 @@ discovery. Rebind if its schema changed; never silently select another database 
 If `state.json` has `warehouse.tool`, run that warehouse's check statement once. If it works,
 show `warehouse ok (<kind> via <via>)` and return. If it fails, continue at step 1.
 
+A setup run does not require DuckDB. `PROJECT answer` reads this same warehouse record and
+returns a validated plan with `execute_in_host`. Use its SQL and separate native bindings
+with the recorded read-only tool; report results only after that call succeeds. A report
+export's original connector does not override the data source the person selected.
+
 ## 1. Look through Atlan first
 
 The Atlan MCP server fronts the MCP servers the organization registered, so a Snowflake or

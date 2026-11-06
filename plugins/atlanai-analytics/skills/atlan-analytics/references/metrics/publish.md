@@ -16,11 +16,21 @@ Show the plan from `plan.json`, then ask:
 - every revision of a live metric, by name, with the fields that change;
 - the exact link list: both ends, `rel_type` and `attributes`.
 
-Then ask:
+If publication intent is missing, offer these actions:
 - `<slug> · context · publish to <workspace>`
 - **Publish N metrics, Q saved queries and E links (Recommended)**
 - **Show me 5 sample cards first**
 - **Not yet**
+
+When publication was already requested and this exact scope is authorized, continue without
+asking for the same intent again. Obtain only missing authorization for the reviewed plan.
+
+**Show me 5 sample cards first** has an immediate action: run
+`python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" preview --limit 5 --format markdown`
+and display its returned text in this response. Use `--kind sql_query` for saved queries.
+If fewer than five exist, show all; if zero, show the reason. Do not publish, restart extraction
+or ask for a workspace to show samples. Optional rich cards must fall back to this text.
+**Show all** uses `--all`. **Not yet / Keep local** preserves the run with an unshared status.
 
 A yes covers exactly this plan. A metric to **create** freezes its name forever, so the preview
 names every create. If the person drops some, rerun `MINE check` without them before writing.

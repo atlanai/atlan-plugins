@@ -79,6 +79,8 @@ def prepare_context(service, job_id, destination):
     require(bool(metrics), "No warehouse metrics are ready to prepare.")
     for name, value in {"metrics.json": metrics, "queries.json": [], "links.json": [],
                         "dashboard-source.json": {"job_id": job_id, "capture_hash": state["capture_hash"],
+                        "definitions_hash": digest([{k: m.get(k) for k in ('id', 'definition', 'translation')}
+                                                    for m in state.get('metrics', [])]),
                         "context_hash": state["context_hash"], "held": held,
                         "readiness": readiness(state), "validation": service.view(state)["summary"]}}.items():
         require(not (root / name).is_symlink(), "Use ordinary context files.")
