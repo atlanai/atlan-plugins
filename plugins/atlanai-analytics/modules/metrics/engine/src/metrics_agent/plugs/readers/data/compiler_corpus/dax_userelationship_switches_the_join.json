@@ -1,0 +1,102 @@
+{
+  "name": "dax_userelationship_switches_the_join",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "ur",
+    "warehouse_tables": [
+      "retail.fct_sales",
+      "retail.dim_date"
+    ],
+    "group_by": [
+      "year"
+    ],
+    "measures": [
+      {
+        "name": "Sales By Ship",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[amount]), USERELATIONSHIP(Sales[ship_date], 'Date'[date_key]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "order_date",
+        "to_table": "retail.dim_date",
+        "to_column": "date_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "ship_date",
+        "to_table": "retail.dim_date",
+        "to_column": "date_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": false
+      }
+    ],
+    "group_by_tables": [
+      "retail.dim_date"
+    ]
+  },
+  "expect_sql": "SELECT j1.year,\n       (SUM(t.amount)) AS sales_by_ship\nFROM   retail.fct_sales t\nLEFT JOIN retail.dim_date j1 ON j1.date_key = t.ship_date\nGROUP BY j1.year",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_userelationship"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ],
+    "retail.dim_date": [
+      "date_key",
+      "year",
+      "month"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

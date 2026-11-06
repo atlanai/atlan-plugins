@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/a3b_prompt.schema.json",
+  "title": "A3b prompt bundle (review-compiler)",
+  "description": "The question A3b hands its reviewer: the statements the compiler produced, and what it refused by name. The reviewer proposes rule ROWS, never SQL. The answer is validated by a3b_review --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rules_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compiled": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "On a partial statement: what it leaves out and why, by name."
+          },
+          "rules_used": {
+            "type": "array"
+          },
+          "widget": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "title",
+          "sql",
+          "coverage",
+          "rules_used",
+          "widget"
+        ]
+      }
+    },
+    "refused": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "unit_id"
+        ]
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "unit_id"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "instruction",
+    "rules_sha",
+    "compiled",
+    "refused",
+    "gaps"
+  ]
+}

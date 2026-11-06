@@ -791,12 +791,26 @@ def _same(a: dict, b: dict) -> bool:
     return keep(a.get("definition") or {}) == keep(b.get("definition") or {})
 
 
+def check_publication_holds(directory, metrics=None, queries=None, links=None):
+    """Enforce engine hold evidence without adding a dependency to legacy authored contexts."""
+    root = pathlib.Path(directory)
+    if not (root / "metrics-source.json").exists() and not (root / "publication-holds.json").exists():
+        return None
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+    try:
+        from modules.metrics.holds import enforce_context
+        return enforce_context(root, metrics, queries, links)
+    except (ValueError, OSError, ImportError) as exc:
+        raise Blocked(str(exc), "Repair the reviewed engine outputs and export into a new context; do not edit hold records.") from None
+
+
 def cmd_check(a) -> dict:
     """Check every authored body, decide create, revise or reuse against the workspace, write plan.json."""
     d = pathlib.Path(a.dir)
     metrics = load_json(d / "metrics.json", []) or []
     queries = load_json(d / "queries.json", []) or []
     links = load_json(d / "links.json", []) or []
+    check_publication_holds(d, metrics, queries, links)
     existing = load_json(d / "existing.json", []) or []
     shapes = {s["shape_id"] for s in read_jsonl(d / "shapes.jsonl")}
     if not metrics and not queries:

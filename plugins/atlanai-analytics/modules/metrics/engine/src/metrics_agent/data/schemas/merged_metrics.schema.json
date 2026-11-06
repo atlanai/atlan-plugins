@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "merged_metrics",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "metrics"
+  ],
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "dialect": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "layer_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "n_proposals_in": {
+      "type": "integer"
+    },
+    "n_metrics_out": {
+      "type": "integer"
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "metric_id",
+          "name",
+          "definition",
+          "expression",
+          "entity",
+          "sources",
+          "merge_reasoning"
+        ],
+        "properties": {
+          "metric_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expression": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Canonical, copied from one of the sources."
+          },
+          "entity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "aggregation": {
+            "type": "string"
+          },
+          "grain": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "mandatory_filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "filter"
+              ],
+              "properties": {
+                "filter": {
+                  "type": "string"
+                },
+                "why": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "optional_filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "filter"
+              ],
+              "properties": {
+                "filter": {
+                  "type": "string"
+                },
+                "from": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "dimension"
+              ],
+              "properties": {
+                "dimension": {
+                  "type": "string"
+                },
+                "from": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "proposal_id",
+                "vq_id"
+              ],
+              "properties": {
+                "proposal_id": {
+                  "type": "string"
+                },
+                "vq_id": {
+                  "type": "string"
+                },
+                "name_as_proposed": {
+                  "type": "string"
+                },
+                "contributed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "merge_reasoning": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "join_reaches_a_grouping_column",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c3",
+    "warehouse_tables": [
+      "retail.fct_sales",
+      "retail.dim_dept"
+    ],
+    "group_by": [
+      "department_name"
+    ],
+    "measures": [
+      {
+        "name": "units_sold",
+        "aggregation": "sum",
+        "formula": null,
+        "formula_language": null
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "department_key",
+        "to_table": "retail.dim_dept",
+        "to_column": "department_key",
+        "cardinality": "M:1",
+        "kind": "relationship"
+      }
+    ]
+  },
+  "expect_sql": "SELECT j1.department_name,\n       SUM(t.units_sold) AS units_sold\nFROM   retail.fct_sales t\nLEFT JOIN retail.dim_dept j1 ON j1.department_key = t.department_key\nGROUP BY j1.department_name",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "agg.sum"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "department_key",
+      "units_sold"
+    ],
+    "retail.dim_dept": [
+      "department_key",
+      "department_name"
+    ]
+  }
+}

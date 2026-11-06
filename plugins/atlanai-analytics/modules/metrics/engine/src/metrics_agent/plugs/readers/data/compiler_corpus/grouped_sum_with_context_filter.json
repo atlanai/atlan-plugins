@@ -1,0 +1,46 @@
+{
+  "name": "grouped_sum_with_context_filter",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "department"
+    ],
+    "measures": [
+      {
+        "name": "units_sold",
+        "aggregation": "sum",
+        "formula": null,
+        "formula_language": null
+      }
+    ],
+    "filters": [
+      {
+        "stage": "context",
+        "column": "channel",
+        "op": "eq",
+        "value": "RETAIL",
+        "scope": "ws",
+        "evidence": "visual-usage"
+      }
+    ],
+    "top_n": 10,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.department,\n       SUM(t.units_sold) AS units_sold\nFROM   (\n    SELECT *\n    FROM   retail.fct_sales\n    WHERE  channel = 'RETAIL'\n  ) t\nGROUP BY t.department\nORDER BY units_sold DESC\nLIMIT 10",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "agg.sum",
+    "op.eq"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "department",
+      "units_sold"
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/consistency_report.schema.json",
+  "title": "D4b consistency report",
+  "description": "Contradictions within one metric card and between cards. A blocking finding stops the layer (there is no force flag); a flag is reported and published with. `cards_sha` names the cards checked, so a later stage can tell a card edited after this gate from one it passed.",
+  "type": "object",
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "properties": {
+        "rule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "metric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "metric_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rule",
+        "blocking",
+        "detail"
+      ]
+    }
+  },
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "clean": {
+      "type": "boolean"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "blocking": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "flagged": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "cards_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "withheld": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "withheld_because": {
+      "description": "Each card the operator withheld at this gate, by name, with the reason given for it.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "clean",
+    "counts",
+    "blocking",
+    "flagged",
+    "cards_sha"
+  ]
+}

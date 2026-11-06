@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: metrics-continuous-save
+tags: [analytics, metrics, approval]
+execution:
+  prompt: |
+    /atlanai-analytics:atlan-analytics metrics
+    Generate and save governed metrics from /project/source/report.pbix in workspace_example.
+    The source has already been staged in the authorized project folder. Snowflake is the
+    dialect. The packaged runtime is ready and a checked publication plan contains four new
+    metrics and five new queries, with their source links and no revisions. Show the next
+    step without executing tools that read the actual asset or write to Registry.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: task-scope-flow
+    type: llm
+    criteria: |
+      PASS if it carries the selected source and workspace forward, announces the checked
+      creates/links and continues to the existing publisher without another read or publish
+      permission question. It must preserve quality gates, readbacks and release policy.
+      FAIL if it repeats the interview, requires a second yes just to publish, asks permission
+      to read generated artifacts, bypasses host permissions, or claims writes already happened.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      Lead with the requested step or result, use plain language, and keep the reply concise.

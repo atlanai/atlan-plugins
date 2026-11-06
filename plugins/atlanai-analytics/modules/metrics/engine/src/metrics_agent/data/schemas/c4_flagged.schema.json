@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/c4_flagged.schema.json",
+  "title": "C4 flags and repairs",
+  "description": "Candidates C4 passed with a warning, the ungrounded filters it stripped from each (repairs), and the faithfulness gotchas it attaches per candidate. verify_report.json carries the verdicts; this file carries what C5 needs to act on them.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "flagged": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "repairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stripped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "stripped"
+        ]
+      }
+    },
+    "gotchas": {
+      "type": "object",
+      "description": "candidate_id -> gotchas.",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "flagged",
+    "repairs",
+    "gotchas"
+  ]
+}

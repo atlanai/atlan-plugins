@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metrics-agent-databricks-example"
+version = "0.1.0.dev0"
+description = "Example databricks SQL-check plug for metrics-agent."
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+# Pinned to the newest release public for >= 7 days at pin time (2026-10-29): 4.7.0
+# (2026-10-20), the first to allow oauthlib 4, which fixes CVE-2026-49272. Verified upstream:
+# databricks/databricks-sql-python, Apache 2.0.
+dependencies = ["metrics-agent", "databricks-sql-connector==4.7.0"]
+
+[project.entry-points."metrics_agent.plugs"]
+databricks-direct = "metrics_agent_databricks:Direct"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -10,7 +10,7 @@ graders:
   - name: reads-dashboard-flow
     type: tool_used
     tool: Read
-    input_match: 'references/dashboard\.md'
+    input_match: 'references/dashboard-agent\.md'
     min: 1
   - name: does-not-claim-results-without-access
     type: llm

@@ -1,0 +1,84 @@
+{
+  "name": "dax_all_of_a_filtered_column_reads_the_rows_without_it",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "af",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "Pct",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "DIVIDE(SUM(Sales[amount]), CALCULATE(SUM(Sales[amount]), ALL(Sales[channel])))"
+      }
+    ],
+    "filters": [
+      {
+        "column": "channel",
+        "op": "in",
+        "value": [
+          "ONLINE"
+        ],
+        "stage": "dimension"
+      }
+    ],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       SUM(t.amount) / NULLIF((MAX(c1.v)), 0) AS pct\nFROM   retail.fct_sales t\nCROSS JOIN (\n    SELECT SUM(t.amount) AS v\n    FROM   retail.fct_sales t\n  ) c1\nWHERE  t.channel IN ('ONLINE')\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.divide",
+    "dax.sum",
+    "op.in"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

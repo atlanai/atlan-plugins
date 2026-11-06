@@ -1,0 +1,92 @@
+{
+  "name": "dax_never_blank_measure_by_a_dimension_lists_every_member",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "nb",
+    "warehouse_tables": [
+      "retail.fct_sales",
+      "retail.dim_customer"
+    ],
+    "group_by": [
+      "region"
+    ],
+    "measures": [
+      {
+        "name": "Sales0",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SUM(Sales[amount]) + 0"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "customer_key",
+        "to_table": "retail.dim_customer",
+        "to_column": "customer_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ],
+    "group_by_tables": [
+      "retail.dim_customer"
+    ]
+  },
+  "expect_sql": "SELECT COALESCE(m0.g0, v.region) AS region,\n       COALESCE(v.sales0, COALESCE(NULL, 0) + 0) AS sales0\nFROM   (\n            SELECT DISTINCT j1.region AS g0\n            FROM   retail.dim_customer j1\n            UNION\n            SELECT NULL AS g0\n            FROM   retail.fct_sales t\n            LEFT JOIN retail.dim_customer j1 ON j1.customer_key = t.customer_key\n            WHERE  j1.customer_key IS NULL\n        ) m0\nFULL JOIN (\n    SELECT j1.region,\n           COALESCE(SUM(t.amount), 0) + 0 AS sales0\n    FROM   retail.fct_sales t\n    LEFT JOIN retail.dim_customer j1 ON j1.customer_key = t.customer_key\n    GROUP BY j1.region\n) v\n  ON  m0.g0 IS NOT DISTINCT FROM v.region",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.sum",
+    "engine.dax_blank_arithmetic",
+    "engine.value_on_empty_rows"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ],
+    "retail.dim_customer": [
+      "customer_key",
+      "region"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "dax_countrows_of_another_table_reads_that_table",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "cr",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Customer Rows",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "COUNTROWS(Customer)"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT NULLIF(COUNT(*), 0) AS customer_rows\nFROM   retail.dim_customer t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.countrows"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

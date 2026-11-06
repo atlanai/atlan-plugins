@@ -3,7 +3,7 @@ PYTHON ?= python3
 # The analytics helpers' offline selftests run in `check`.
 ANALYTICS_SCRIPTS = plugins/atlanai-analytics/skills/atlan-analytics/scripts
 
-.PHONY: check build lint test site codex-directory validate eval eval-analytics
+.PHONY: check build lint test test-metrics-runtime site codex-directory validate eval eval-analytics
 
 check:
 	$(PYTHON) tools/build.py --check
@@ -20,6 +20,12 @@ lint:
 
 test:
 	$(PYTHON) -m unittest discover -s tools/tests -q
+
+# Explicit integration check: set up the isolated module once, then test without network.
+# The ordinary check target runs its source/projection tests without installing dependencies.
+test-metrics-runtime:
+	test -n "$(METRICS_RUNTIME)"
+	ANALYTICS_METRICS_RUNTIME="$(METRICS_RUNTIME)" $(PYTHON) -m unittest discover -s tools/tests -p test_metrics_module.py -q
 
 # The skills as an Agent Skills discovery index, for a website to serve at /.well-known/agent-skills/.
 site:

@@ -1,0 +1,39 @@
+{
+  "name": "dax_selectedvalue_counts_blank_as_a_value",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c_sv",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "season"
+    ],
+    "measures": [
+      {
+        "name": "Selected Region",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SELECTEDVALUE(Sales[region], \"Several\")"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.season,\n       CASE WHEN COUNT(DISTINCT t.region) = 1 AND COUNT(t.region) = COUNT(*) THEN MIN(t.region) WHEN COUNT(*) > 0 AND COUNT(t.region) = 0 THEN NULL ELSE 'Several' END AS selected_region\nFROM   retail.fct_sales t\nGROUP BY t.season",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.selectedvalue"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "region",
+      "units_sold",
+      "units_received",
+      "product",
+      "promo",
+      "season"
+    ]
+  }
+}

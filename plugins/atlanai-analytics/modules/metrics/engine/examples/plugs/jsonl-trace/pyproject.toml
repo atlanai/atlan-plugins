@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metrics-agent-jsonl-trace-example"
+version = "0.1.0.dev0"
+description = "Example observer plug for metrics-agent: every run event as one line of JSON."
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+dependencies = ["metrics-agent"]
+
+[project.entry-points."metrics_agent.plugs"]
+jsonl-trace = "metrics_agent_jsonl_trace:JsonlTrace"
+
+[tool.setuptools.packages.find]
+where = ["src"]

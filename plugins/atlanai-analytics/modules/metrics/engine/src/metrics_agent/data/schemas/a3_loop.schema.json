@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/a3_loop.schema.json",
+  "title": "A3 compile-review loop report",
+  "description": "Why the A3 -> A3b loop stopped, and the coverage at each round.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stop_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "round": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "coverage_pct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "compiled": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "units": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rules_sha": {
+            "type": "string"
+          },
+          "gaps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "changed_already_compiled": {
+            "type": "array"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "round",
+          "coverage_pct"
+        ]
+      }
+    },
+    "final_coverage_pct": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stop_reason",
+    "rounds",
+    "final_coverage_pct"
+  ]
+}

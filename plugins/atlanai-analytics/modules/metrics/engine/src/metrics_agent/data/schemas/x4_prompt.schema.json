@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/x4_prompt.schema.json",
+  "title": "X4 prompt bundle (relate-metrics)",
+  "description": "The question X4 hands its author: each metric card with a structural shortlist of what it may be derived from, the relation kinds an answer may assert, and every metric in the layer (the answer is validated against that list, not the shortlists). The answer is validated by x4_relate --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": "x4_relate"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "relations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "means": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "writes": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "means",
+          "roles",
+          "writes"
+        ]
+      }
+    },
+    "n_metrics": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "n_with_candidates": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "all_metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "metric"
+        ]
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "n_candidates": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "metric",
+          "n_candidates",
+          "candidates"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "instruction",
+    "relations",
+    "n_metrics",
+    "n_with_candidates",
+    "all_metrics",
+    "tasks"
+  ]
+}

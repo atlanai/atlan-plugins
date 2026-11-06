@@ -125,8 +125,12 @@ mods deploy it.
 An add-on for the analytics workload. It uses the core plugin's connection and declares no MCP
 server of its own, so no Atlan tool appears twice. It finds your warehouse through Atlan or a
 connector you already have, and asks you to connect one when it is missing. Building and
-evaluating an agent needs Claude Code. See its [README](plugins/atlanai-analytics) for the full
+evaluating an agent uses Claude Code or the existing isolated Claude/Codex runner. See its [README](plugins/atlanai-analytics) for the full
 list of skills and agents.
+
+New metric runs use the owned metrics module with its original input plugs, readers,
+authoring gates and verification. The plugin drives the interview and keeps its existing
+Registry publication flow. See [the module boundaries and setup](docs/metrics-module.md).
 
 ## What you can ask
 

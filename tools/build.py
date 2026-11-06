@@ -54,7 +54,7 @@ SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 
 # Where every plugin lives, and the trees a plugin may carry.
 PLUGINS = "plugins"
-TREES = ("skills", "commands", "agents")
+TREES = ("skills", "commands", "agents", "modules")
 # The core's hooks, by plugin.toml key: each harness's file, and the folder it must sit in.
 HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cursor_hooks": "command-hooks"}
 # Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
@@ -356,9 +356,10 @@ codex plugin add {addon['name']}@{market}
 
 ## Privacy
 
-It has no hooks and no binaries. Its skills may run the standard-library Python scripts bundled
-with them and keep working files in your project, and they reach Atlan only through the `{plugin['name']}`
-plugin's connection, signed in as you. See Atlan's
+It has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
+set up an isolated metrics-agent environment with pinned dependencies after authorization.
+Working files stay in your project. Input plugs use the source connections you select; Registry
+writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atlan's
 [privacy notice]({plugin['privacy_policy_url']}).
 
 ## Source
@@ -728,6 +729,16 @@ def plugin_dirs(source: dict) -> list[str]:
     return [core_dir(source), *(addon_dir(addon) for addon in source.get("addons", []))]
 
 
+def variant_sources(base):
+    """Authored plugin trees, excluding caches and generated engine test estates."""
+    return [p for top in TREES for p in sorted((base / top).rglob("*"))
+            if p.is_file() and "__pycache__" not in p.parts
+            and p.suffix not in (".pyc", ".pyo")
+            and not any(part in (".pytest_cache", "build", "dist", ".venv", "venv", ".git", ".mypy_cache", ".ruff_cache")
+                        or part.endswith(".egg-info") for part in p.relative_to(base).parts)
+            and "modules/metrics/engine/tests/fixtures/generated/" not in p.relative_to(base).as_posix()]
+
+
 def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, str]:
     """Every file of a variant, by path inside its repository."""
     texts = {path: render(document) for path, document in outputs(variant).items()}
@@ -735,10 +746,12 @@ def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, s
     pairs = rewrites(source, variant)
     for ours, theirs in zip(plugin_dirs(source), plugin_dirs(variant)):
         base = ROOT / ours
-        copied = [p for top in TREES for p in sorted((base / top).rglob("*"))
-                  if p.is_file() and "__pycache__" not in p.parts and p.suffix not in (".pyc", ".pyo")]
+        copied = variant_sources(base)
         for path in copied:
-            texts[f"{theirs}/{path.relative_to(base).as_posix()}"] = rewrite(path.read_text(encoding="utf-8"), pairs)
+            # Module source is environment-neutral package code. Variant renaming applies
+            # to customer-facing skills, not Python packages or their test fixtures.
+            content = path.read_text(encoding="utf-8")
+            texts[f"{theirs}/{path.relative_to(base).as_posix()}"] = content if "modules" in path.relative_to(base).parts else rewrite(content, pairs)
         if ours == core_dir(source):
             # The core's README is written by hand; its title is the plugin's display name.
             readme = (base / "README.md").read_text(encoding="utf-8")

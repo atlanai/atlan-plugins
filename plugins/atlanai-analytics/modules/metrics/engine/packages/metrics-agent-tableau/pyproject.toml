@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metrics-agent-tableau"
+dynamic = ["version"]
+description = "Tableau plug for metrics-agent: workbooks and their published data sources fetched from Tableau Cloud or Tableau Server."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Atlan Pte. Ltd." }]
+requires-python = ">=3.11"
+keywords = ["metrics", "tableau", "tableau cloud", "tableau server", "twb", "tds"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+# The fetch is standard library only (Tableau's REST and Metadata APIs over urllib), so the
+# core is the one dependency. It lives here, not in the core, because it is code that opens a
+# network connection and reads a credential.
+dependencies = ["metrics-agent"]
+
+[project.urls]
+Homepage = "https://github.com/atlanai/atlan-plugins"
+Documentation = "https://github.com/atlanai/atlan-plugins/tree/main/docs"
+Source = "https://github.com/atlanai/atlan-plugins"
+Issues = "https://github.com/atlanai/atlan-plugins/issues"
+
+[project.entry-points."metrics_agent.plugs"]
+tableau-cloud = "metrics_agent_tableau.plug:TableauCloud"
+
+# Its policy defaults (`tableau.*`), merged under the run's policy.
+[project.entry-points."metrics_agent.artifacts"]
+tableau = "metrics_agent_tableau.artifacts"
+
+[tool.setuptools.dynamic]
+version = { attr = "metrics_agent_tableau.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+metrics_agent_tableau = ["policy.yml"]

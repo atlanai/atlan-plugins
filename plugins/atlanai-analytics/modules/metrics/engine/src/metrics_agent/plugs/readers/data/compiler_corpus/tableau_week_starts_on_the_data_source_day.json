@@ -1,0 +1,39 @@
+{
+  "name": "tableau_week_starts_on_the_data_source_day",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "last_week_start",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "MAX(DATETRUNC('week', [order_date], 'sunday'))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       MAX((CAST(DATE_TRUNC('day', t.order_date) AS DATE) - CAST(MOD(ISODOW(t.order_date) - 7 + 7, 7) AS INTEGER))) AS last_week_start\nFROM   retail.fct_sales t\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "engine.tableau_week_start",
+    "tableau.max"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "department",
+      "units_sold",
+      "customer",
+      "order_date"
+    ]
+  }
+}

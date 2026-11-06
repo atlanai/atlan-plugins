@@ -1,0 +1,88 @@
+{
+  "name": "sql_measure_joins_each_role_on_every_key_column",
+  "dialect": "snowflake",
+  "unit": {
+    "unit_id": "sv-domestic-legs",
+    "warehouse_tables": [
+      "TRAVEL.OPS.FCT_LEG"
+    ],
+    "group_by": [],
+    "filters": [],
+    "top_n": null,
+    "measures": [
+      {
+        "name": "domestic_legs",
+        "aggregation": null,
+        "formula_language": "sql",
+        "home_table": "leg",
+        "formula": "COUNT_IF(dep.COUNTRY = arr.COUNTRY AND leg.STATUS <> 'leg.void')"
+      }
+    ],
+    "join_graph": [
+      {
+        "from_table": "TRAVEL.OPS.FCT_LEG",
+        "from_column": "DEP_CODE",
+        "to_table": "TRAVEL.OPS.DIM_PORT",
+        "to_column": "CODE",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "name": "leg_dep",
+        "from_role": "leg",
+        "to_role": "dep",
+        "columns": [
+          {
+            "from_column": "DEP_CODE",
+            "to_column": "CODE"
+          },
+          {
+            "from_column": "DEP_REGION",
+            "to_column": "REGION"
+          }
+        ]
+      },
+      {
+        "from_table": "TRAVEL.OPS.FCT_LEG",
+        "from_column": "ARR_CODE",
+        "to_table": "TRAVEL.OPS.DIM_PORT",
+        "to_column": "CODE",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "name": "leg_arr",
+        "from_role": "leg",
+        "to_role": "arr",
+        "columns": [
+          {
+            "from_column": "ARR_CODE",
+            "to_column": "CODE"
+          },
+          {
+            "from_column": "ARR_REGION",
+            "to_column": "REGION"
+          }
+        ]
+      }
+    ]
+  },
+  "logical": {
+    "leg": "TRAVEL.OPS.FCT_LEG",
+    "dep": "TRAVEL.OPS.DIM_PORT",
+    "arr": "TRAVEL.OPS.DIM_PORT"
+  },
+  "columns": {
+    "TRAVEL.OPS.FCT_LEG": [
+      "dep_code",
+      "dep_region",
+      "arr_code",
+      "arr_region",
+      "status"
+    ],
+    "TRAVEL.OPS.DIM_PORT": [
+      "code",
+      "region",
+      "country"
+    ]
+  },
+  "expect_sql": "SELECT COUNT_IF(j1.COUNTRY = j2.COUNTRY AND t.STATUS <> 'leg.void') AS domestic_legs\nFROM   TRAVEL.OPS.FCT_LEG t\nLEFT JOIN TRAVEL.OPS.DIM_PORT j1 ON j1.CODE = t.DEP_CODE AND j1.REGION = t.DEP_REGION\nLEFT JOIN TRAVEL.OPS.DIM_PORT j2 ON j2.CODE = t.ARR_CODE AND j2.REGION = t.ARR_REGION",
+  "expect_coverage": "translated",
+  "rules_used": []
+}

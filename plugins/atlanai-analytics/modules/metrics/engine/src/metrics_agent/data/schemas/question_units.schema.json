@@ -1,0 +1,1325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/question_units.schema.json",
+  "title": "Question units (A2 output)",
+  "description": "One self-contained unit per visual/worksheet, plus the container envelope that makes C3 able to write a real question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "vendor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The run's BI vendor (the name of an installed BI reader (`metrics_agent.readers`). Any string here: which readers exist is checked against the installed ones at S0, never fixed in this schema.); `mixed` when its BI models come from different vendors (see `vendors`)."
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "measures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "formula": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "formula_language": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "aggregation": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "home_table": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "A `formula_language: sql` measure's home table, by the model's own (logical) name: the role its formula is placed over."
+                },
+                "table_calc": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "addressing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "The view's columns the calculation runs ALONG, in order (outer first): the window's ORDER BY. Each sorts ascending with an empty value first, as the BI tool lays the view out."
+                    },
+                    "partitioning": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "The view's columns the calculation restarts on: the window's PARTITION BY. Every grouped column is in exactly one of the two lists."
+                    },
+                    "pad": {
+                      "type": "object",
+                      "description": "A crosstab the view densifies for this calculation: the columns on its rows and on its columns. Every row tuple is laid out against every column tuple, the empty cells included, before the calculation runs (checked live).",
+                      "additionalProperties": false,
+                      "properties": {
+                        "rows": {"type": "array", "items": {"type": "string"}},
+                        "cols": {"type": "array", "items": {"type": "string"}}
+                      }
+                    },
+                    "sort": {
+                      "type": "object",
+                      "description": "The view's own order of an addressed column, where it is not ascending: the window runs along the columns in the order the view shows them (checked live: a computed, a manual and a descending sort).",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["direction"],
+                        "properties": {
+                          "direction": {"enum": ["asc", "desc"]},
+                          "members": {"type": "array", "items": {"type": ["string", "null"]}, "description": "A manual order: the members first to last (null: the empty member)."},
+                          "by": {"type": "string", "minLength": 1, "description": "The aggregate a computed sort orders the members by, in the formula language."},
+                          "within": {"type": "array", "items": {"type": "string"}, "description": "A nested sort: the columns of its shelf outside it, within each of whose members it orders."}
+                        }
+                      }
+                    },
+                    "nested": {
+                      "type": "object",
+                      "description": "The compute-using of each table calculation the measure reaches through another calc, by that calc's name: its own columns to run along and restart on (checked live: Tableau runs a nested calc by its own compute-using, Table (across) when the file names none; a secondary calculation nests the one it runs over).",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "addressing": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                          "partitioning": {"type": "array", "items": {"type": "string", "minLength": 1}}
+                        }
+                      }
+                    },
+                    "refusal": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Why the calculation has no statement: the measure is refused with this reason, never compiled without its post-aggregation step."
+                    }
+                  },
+                  "description": "A measure computed over the statement's aggregated rows (A1 usage `table_calcs`), with its columns named as the unit's `group_by` names them."
+                },
+                "visual_calc": {
+                  "type": "boolean",
+                  "description": "true: the measure is one of the view's own calculations (`visual_matrix.calcs`), its formula that calculation's expression."
+                },
+                "hidden": {
+                  "type": "boolean",
+                  "description": "true: the view computes the measure for its own calculations but does not show it; the statements leave it out."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "name"
+              ]
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "group_by_tables": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "description": "OPTIONAL, parallel to `group_by`: the warehouse table each grouping column is read from, or null where the BI file does not say (then a column on the statement's own table is read there, else on the one unit table that has it)."
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "stage": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "column": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "op": {
+                  "type": "string"
+                },
+                "value": {},
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "negated": {
+                  "type": "boolean",
+                  "description": "true when an enclosing NOT excludes this predicate rather than requiring it"
+                },
+                "value_kind": {
+                  "type": "string",
+                  "enum": [
+                    "literal",
+                    "column",
+                    "expression",
+                    "absent"
+                  ],
+                  "description": "what the predicate compares the column to; only a literal can be tuned"
+                },
+                "table": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "description": "The warehouse table the filter column is read from, when the BI file says which model table it belongs to; absent or null: read off the statement's own table first."
+                },
+                "null_as": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "number": {
+                      "type": "number"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "date": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    }
+                  },
+                  "description": "The value an EMPTY cell takes in this filter's comparisons, by the type of the value it is compared with (the tool's own comparison rule): a number, the text, a date. A comparison the stand-in passes keeps the rows with no value too (`qty < 5` keeps the empty quantities when an empty number is 0). Absent: an empty cell passes no comparison (SQL's rule). Not used by a membership (`in`), a null test, a text match or a relative range."
+                },
+                "measure": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Set on a `measure`-stage filter that tests a MEASURE (the model's, or a column aggregated at the use site) at the view's grain: the measure's name. The condition (`op`, `value`) applies to the measure's value on each row of the view, after aggregation; on a view with no grouping, to its one total."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "scope",
+                "column",
+                "evidence"
+              ]
+            }
+          },
+          "sort": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "top_n": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "warehouse_tables": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "join_graph": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from_table": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "from_column": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to_table": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to_column": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "cardinality": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "FROM-end:TO-end multiplicity in the `<M|1>:<M|1>` vocabulary ('M:1', '1:1', 'M:M', '1:M'), or 'unknown'. A join never walks from the one end to the many end, and a TO end whose multiplicity is not one (M:M, unknown) is read as its distinct rows, so it never multiplies the FROM rows."
+                },
+                "kind": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "cross_filter": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Which way a filter crosses the relationship: 'single' (the TO end filters the FROM end only) or 'both' (either end filters the other). Absent or null: 'single'."
+                },
+                "is_active": {
+                  "type": "boolean",
+                  "description": "false for a relationship the model declares but does not use unless a measure activates it: a statement never joins along it. Absent: true."
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The relationship's own name in the model."
+                },
+                "from_role": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The model's name for the FROM end (a table's `logical_name`). A table the model uses under two names is two roles, and each keeps its own."
+                },
+                "to_role": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The model's name for the TO end."
+                },
+                "columns": {
+                  "type": "array",
+                  "minItems": 1,
+                  "description": "EVERY key column pair of the relationship, in order. `from_column` and `to_column` are the first pair, kept for readers of the one-pair shape; a join is written on all of them.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "from_column",
+                      "to_column"
+                    ],
+                    "properties": {
+                      "from_column": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "to_column": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                },
+                "condition": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "A range or as-of relationship's condition, verbatim."
+                },
+                "join_type": {
+                  "enum": [
+                    "left",
+                    "full",
+                    "inner",
+                    null
+                  ],
+                  "description": "Which unmatched rows a statement that joins along this relationship keeps: a row of one end whose key matches no row of the other end (an orphan or a NULL key). 'left': a row of the MANY end (of the FROM end, when neither or both ends are many) is kept, under a NULL member of every column of the other end (the BI tool's blank member), and an unmatched row of the other end is not. 'full': an unmatched row of EITHER end is kept (a relationship that aggregates each table at its own grain and keeps what does not match). 'inner': neither is kept (a relationship the tool treats as limited, or one that assumes referential integrity). Absent or null: 'left'. The reader decides it from the model's own settings; the compiler only applies it."
+                },
+                "rely_on_referential_integrity": {
+                  "type": "boolean",
+                  "description": "The model states that every FROM-end key has a TO-end match (assume referential integrity), so the tool joins it as an inner join. Carried as read; `join_type` already says what it means for a join."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "from_table",
+                "from_column",
+                "to_table",
+                "to_column"
+              ]
+            }
+          },
+          "container": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "dashboards": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "position": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "name"
+                  ]
+                }
+              },
+              "siblings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "measures": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "siblings_omitted": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "How many more widgets the dashboard holds than `siblings` lists: present only when the bi.max_sibling_widgets cap cut the list, which keeps the nearest."
+              },
+              "n_dashboards": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "scoped_filters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "stage": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "column": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "op": {
+                      "type": "string"
+                    },
+                    "value": {},
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "negated": {
+                      "type": "boolean",
+                      "description": "true when an enclosing NOT excludes this predicate rather than requiring it"
+                    },
+                    "value_kind": {
+                      "type": "string",
+                      "enum": [
+                        "literal",
+                        "column",
+                        "expression",
+                        "absent"
+                      ],
+                      "description": "what the predicate compares the column to; only a literal can be tuned"
+                    },
+                    "table": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "minLength": 1,
+                      "description": "The table the filter column is on, when the BI file says so (see the unit's `filters`)."
+                    },
+                    "null_as": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "number": {
+                          "type": "number"
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "date": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        }
+                      },
+                      "description": "The value an EMPTY cell takes in this filter's comparisons, by the type of the value it is compared with (the tool's own comparison rule): a number, the text, a date. A comparison the stand-in passes keeps the rows with no value too (`qty < 5` keeps the empty quantities when an empty number is 0). Absent: an empty cell passes no comparison (SQL's rule). Not used by a membership (`in`), a null test, a text match or a relative range."
+                    },
+                    "measure": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Set on a `measure`-stage filter that tests a MEASURE (the model's, or a column aggregated at the use site) at the view's grain: the measure's name. The condition (`op`, `value`) applies to the measure's value on each row of the view, after aggregation; on a view with no grouping, to its one total."
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "scope",
+                    "column",
+                    "evidence"
+                  ]
+                }
+              },
+              "source_fragments": {
+                "type": "object",
+                "properties": {
+                  "widget": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dashboard": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "prose": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "assets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/asset"
+                },
+                "description": "The BI assets behind this unit \u2014 model-level ones and the unit's own \u2014 with the tool's own ids and, where a BI plug resolved them (`bi_assets`), their catalogue ids and qualified names."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "n_dashboards"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Deterministic: the BI workbook/report name, verbatim. No clustering."
+          },
+          "status": {
+            "enum": [
+              "resolved",
+              "unresolved"
+            ]
+          },
+          "unresolved_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bi_context": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "description": "The bounded, named metadata block C3 reads INSTEAD of loading the BI files. It carries the human-authored layer A1's facts contract discards \u2014 which is most of the business context \u2014 at a few hundred bytes per unit rather than two file reads. It is also reviewable and testable, which a file the model may or may not have opened is not.",
+            "properties": {
+              "workbook": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dashboard": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": true
+              },
+              "also_on_dashboards": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "n_dashboards": {
+                "type": "integer"
+              },
+              "widget": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "subtitle": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "visual_type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "number_format": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tooltip": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sort": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "top_n": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "axis_titles": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "reference_lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  },
+                  "conditional_formatting": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              },
+              "measures": {
+              "type": "array",
+              "description": "Each measure the widget shows, as the model defines it (lib/bi_tags.py): name, caption, aggregation, folder, format string, and the model's own context about it, each text cut at policy `bi.max_context_chars`. CONTEXT, NEVER SEMANTICS: no compiler reads it.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string"},
+                  "style": {"type": ["string", "null"], "description": "`explicit`, `implicit` (aggregated where it is used), `report` (a report's own measure), `kpi_target`, `kpi_status`."},
+                  "formula": {"type": ["string", "null"]},
+                  "description": {"type": ["string", "null"]},
+                  "folder": {"type": ["string", "null"]},
+                  "format_string": {"type": ["string", "null"]},
+                  "derived_from": {"type": "array", "items": {"type": "string"}, "description": "The measures its formula names (bi_facts `uses`)."},
+                  "report": {"type": "string"},
+                  "kpi_of": {"type": "object"},
+                  "tags": {"type": "object", "description": "annotations, perspectives, the model's endorsement (and its note), a KPI's target and status."}
+                },
+                "additionalProperties": true
+                }
+              },
+              "siblings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "siblings_omitted": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "How many more widgets the dashboard holds than `siblings` lists: present only when the bi.max_sibling_widgets cap cut the list, which keeps the nearest."
+              },
+              "annotations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "scoped_filters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "dimensions": {
+                "type": "array",
+                "description": "Columns the BI model itself declares as dimensions (role=dimension). A filter-shelf-only field appears here and nowhere else.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "column": {
+                      "type": "string"
+                    },
+                    "caption": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "table": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "native_source": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Set when every measure in the unit lives on ONE table whose source is a statement (`source_lineage.native_sql`): a native query, or a custom-SQL datasource. The compiler then reads the query's result set as a derived table, and `columns` maps each model column (by name) to the query's own output column.",
+            "properties": {
+              "logical": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "columns": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "logical",
+              "sql",
+              "columns"
+            ],
+            "additionalProperties": false
+          },
+          "expression_language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The formula language the widget's calculated fields are written in, set by the reader when a column, a filter or the sort it names may be a calculated field: such a field is an EXPRESSION, compiled from its formula like a measure, never read as a stored column. Absent when the source's widgets name only stored columns. The compiler decides from this, never from which tool wrote the unit. Carried from the BI usage entry."
+          },
+          "declared": {
+            "$ref": "#/$defs/declared"
+          },
+          "blank_rows": {
+            "enum": [
+              "hidden",
+              "shown"
+            ],
+            "description": "OPTIONAL. What the view does with a row whose every measure is empty. `hidden`: the view leaves it out; the compiler keeps the rows where at least one value is not NULL (a HAVING over the statement's own value expressions, which a reader of the statement treats as hiding empty rows, not as a restriction). `shown`: the view also lists the members with no rows at all (\"show items with no data\"): every member of the grouping columns (the combinations one table holds, crossed between tables) joined to the rows' values. Absent: the view shows the rows the statement returns."
+          },
+          "totals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "grand_total",
+                    "subtotal"
+                  ],
+                  "description": "`grand_total`: keeps no grouping column. `subtotal`: keeps some of them."
+                },
+                "group_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "The grouping columns the total row keeps, named as the unit's group_by names them (a subset of it, in its order)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "group_by"
+              ]
+            },
+            "description": "OPTIONAL. The total rows the view shows beside its leaf rows (a table's grand total, a matrix's row and column subtotals and grand totals), one entry per total grain. A total is the measures evaluated over the total's own context (the view's filters, grouped by only the columns the total keeps), never a sum of the leaf rows: a distinct count, a ratio or an average total differs from the sum. Each grain is its own statement (`candidates.totals`); the leaf statement keeps its plain shape. Absent or empty: the view shows no total rows."
+          },
+          "distinct_rows": {
+            "type": "boolean",
+            "description": "OPTIONAL. true: the view has no measure and lists the distinct combinations of its columns that exist (a table of columns only). Over one table: that table's distinct rows. Over several: the combinations that exist in the table every one of them is reached from along many-to-one relationships. The unit is a grouping with no aggregate, never dropped as decoration."
+          },
+          "visual_matrix": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "language",
+              "axes",
+              "calcs"
+            ],
+            "description": "OPTIONAL. The view's own calculations over its matrix (Power BI calls them visual calculations): each is evaluated on every cell of the matrix the view lays out (its leaf rows and every total level of each axis, the empty cells of a two-axis matrix included), in the order of the axes' columns, and may read other cells (a running sum, the previous row, the parent total, a lookup). Written only where the view has one. The leaf statement and each total statement read the matrix at their own level. Axis columns are named as `group_by` is; measures as `measures`, where a calculation shown is a measure with `visual_calc: true` and a measure the view hides has `hidden: true`.",
+            "properties": {
+              "language": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The language the calculations are written in."
+              },
+              "axes": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "rows": {
+                    "type": "array",
+                    "description": "The axis' levels, outer first; each level lists the grouping columns it holds (a table visual holds all its columns in one level).",
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "columns": {
+                    "type": "array",
+                    "description": "The axis' levels, outer first; each level lists the grouping columns it holds (a table visual holds all its columns in one level).",
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "pages": {
+                    "type": "array",
+                    "description": "The axis' levels, outer first; each level lists the grouping columns it holds (a table visual holds all its columns in one level).",
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              },
+              "calcs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "expression"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "expression": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "As the file saves it; its references are names in `refs`."
+                    },
+                    "hidden": {
+                      "type": "boolean",
+                      "description": "true: in the matrix (other calculations read it) but not shown."
+                    }
+                  }
+                }
+              },
+              "refs": {
+                "type": "object",
+                "description": "Each name an expression references -> what it is: a grouping column, a measure of the view (by its name in `measures`), or another calculation.",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "minProperties": 1,
+                  "maxProperties": 1,
+                  "properties": {
+                    "column": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "measure": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "calc": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "hidden": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "The view's measures that are in the matrix but not shown (the calculations read them)."
+              }
+            }
+          },
+          "max_values_grouped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "OPTIONAL. The view groups by a column of a table of fixed rows no relationship reaches (a parameter), which compiles one statement per value it shows: the most values the statement holds (policy bi.max_variants_per_widget). A value over it is left out and named (`variant_cap`); the unit is then partial."
+          },
+          "parameters": {
+            "type": "array",
+            "description": "OPTIONAL. The values the view takes when it is OPENED (a page another page navigates to with the member a person picked): each a member of `column` (of `table`), which narrows the view to that member. The view saved with no value shows its whole population; a variant unit (`variant_of`) answers it for every member at once, grouped by the column.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "enum": [
+                    "member"
+                  ],
+                  "description": "`member`: one member of `column`, chosen by the person who opens the view."
+                },
+                "column": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "table": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "keeps_filters": {
+                  "type": "boolean",
+                  "description": "Whether the filters of the view it is opened from apply too (unknown until then; recorded, not compiled)."
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "column"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "variant_of": {
+            "type": "string",
+            "minLength": 1,
+            "description": "OPTIONAL. The unit this one is a variant of: the same widget answered another way it can show (another field a viewer can switch it to, the value it takes for each member it can be opened with, the latest point of its trend). `variant` says which."
+          },
+          "variant": {
+            "type": "string",
+            "minLength": 1,
+            "description": "OPTIONAL. Which variant of `variant_of` this unit is, in words."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "measures",
+          "group_by",
+          "filters",
+          "warehouse_tables",
+          "container",
+          "domain",
+          "status"
+        ]
+      }
+    },
+    "dropped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "reason"
+        ]
+      }
+    },
+    "vendors": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Present when the run reads several BI models: each distinct vendor, sorted. `vendor` is their shared vendor, or `mixed` when they differ."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "vendor",
+    "units",
+    "dropped"
+  ],
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "enum": [
+            "workbook",
+            "datasource",
+            "view",
+            "dashboard",
+            "report",
+            "semantic_model",
+            "page",
+            "visual"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendor_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The BI tool's own id for the asset. Null when the input does not state one; never invented."
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "site": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The BI tool's site or workspace the asset lives in."
+        },
+        "catalog_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The asset's id in the catalogue a BI plug resolved it in (its `bi_assets`), joined at A2 by role and name; null without one."
+        },
+        "endorsement": {"enum": ["certified", "promoted", null], "description": "The BI tool's endorsement of the asset (bi_facts asset `endorsement`)."},
+        "labels": {"type": "array", "items": {"type": "string", "minLength": 1}, "description": "The BI tool's own tags on the asset (content tags), verbatim."},
+        "endorsement_note": {"type": ["string", "null"]},
+        "description": {"type": ["string", "null"]},
+        "catalog_qualified_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "role",
+        "name",
+        "vendor_id"
+      ],
+      "additionalProperties": false
+    },
+    "declared": {
+      "type": "object",
+      "description": "The declared metric this unit compiles (bi_facts `measures[].declared`), with the model that declares it. Carried on the statement (provenance.bi.declared) to X1-X3, which hold a card built from it to it. A declared metric is identified by `model` and `metric` together.",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "metric",
+        "entity",
+        "formula",
+        "grain",
+        "source",
+        "joins",
+        "dimensions",
+        "examples"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The model's comment on the metric, verbatim."
+        },
+        "synonyms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The model's own other names for this, verbatim. Retrieval words, never interpreted."
+        },
+        "entity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The physical table the metric is computed over."
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The formula with every fact, dimension and metric it names expanded to what it stands for."
+        },
+        "grain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The entity's declared key, fully qualified."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The FROM clause: the entity, then a LEFT JOIN for every join in `joins`, on every key column."
+        },
+        "joins": {
+          "type": "array",
+          "description": "Every join the formula and the dimensions need. Never one that fans out: many-to-one, or one-to-one.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "to",
+              "sql",
+              "cardinality",
+              "origin"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cardinality": {
+                "enum": [
+                  "many_to_one",
+                  "one_to_one"
+                ]
+              },
+              "origin": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "description": "Every dimension the model declares on a table the metric reaches. A levelled time expression (a date part over one column) is not one; the bare date is.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "kind",
+              "sql",
+              "datatype",
+              "required_join"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "categorical",
+                  "time",
+                  "boolean"
+                ]
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "datatype": {
+                "enum": [
+                  "string",
+                  "integer",
+                  "decimal",
+                  "boolean",
+                  "date",
+                  "timestamp",
+                  "unknown"
+                ],
+                "description": "The type the model declares; else `date` or `boolean` when the model's own SQL treats the column so (only the DATE argument of a date function counts); else `unknown`. A number is never a date."
+              },
+              "required_join": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "description": "The model's comment on the dimension, verbatim."
+              },
+              "synonyms": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "The model's own other names for this, verbatim. Retrieval words, never interpreted."
+              }
+            }
+          }
+        },
+        "examples": {
+          "type": "array",
+          "description": "The model's example questions that read this metric, each with its SQL over the base tables.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "sql",
+              "question",
+              "group_by"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "pattern": "^declared:.+",
+                "description": "`declared:<the example's name in the model>`."
+              },
+              "question": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "group_by": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "The declared dimensions (by `name` above) the example groups by."
+              }
+            }
+          }
+        },
+        "timeframe_column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the metric's examples restrict or group by, when they name exactly one."
+        }
+      }
+    }
+  }
+}
