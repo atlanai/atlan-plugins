@@ -44,6 +44,8 @@ class Run:
         state = Service(self.jobs).load(self.manifest()['job_id'])
         metrics = self.context / 'metrics.json'
         return {'capture_hash': state.get('capture_hash'), 'context_hash': state.get('context_hash'),
+                'definitions_hash': digest([{k: m.get(k) for k in ('id', 'definition', 'translation')}
+                                            for m in state.get('metrics', [])]),
                 'metrics_hash': digest(self.read(metrics)) if metrics.exists() else None}
 
     def issue(self, result):
@@ -137,7 +139,7 @@ class Run:
         pub = self.read(path)
         current = self.fingerprint()
         exported = self.context / 'dashboard-source.json'
-        if not exported.exists() or any(self.read(exported).get(k) != current[k] for k in ('capture_hash', 'context_hash')):
+        if not exported.exists() or any(self.read(exported).get(k) != current[k] for k in ('capture_hash', 'context_hash', 'definitions_hash')):
             return {'state': 'needs_reconciliation', 'pending_operation': bool(pub.get('inflight'))}
         metrics = self.context / 'metrics.json'
         if not metrics.exists() or pub['reviewed']['source_hash'] != digest(self.read(metrics)):
