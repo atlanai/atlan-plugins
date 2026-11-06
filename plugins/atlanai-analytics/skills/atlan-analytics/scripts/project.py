@@ -23,6 +23,7 @@ import page_scope
 import metric_preview
 import progress
 import acquisition
+import auth_recovery
 from source_inventory import discover, source_kind, SENSITIVE
 from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
@@ -58,6 +59,9 @@ class Project(ContextState):
         if state.get('entrypoint') != 'project':
             raise ProjectError('Select the project setup run, not a dashboard or agent run.')
         return state
+
+    def auth(self, request):
+        return auth_recovery.advance(self, request)
 
     def archive_candidates(self):
         """Keep stale local work reviewable, but never present it as current scope."""
@@ -205,6 +209,8 @@ class Project(ContextState):
 
     def preview(self, limit=5, format='markdown', kind='metric'):
         # This is a read-only action. A failed rich renderer cannot consume the choice.
+        if format == 'chat':
+            return metric_preview.chat(self, limit)
         text = metric_preview.markdown(self, limit, kind)
         if format == 'markdown':
             return text
@@ -427,14 +433,14 @@ def main():
     preview = sub.add_parser('preview')
     preview.add_argument('--limit', type=int, default=5)
     preview.add_argument('--all', action='store_true')
-    preview.add_argument('--format', choices=('markdown', 'html'), default='markdown')
+    preview.add_argument('--format', choices=('markdown', 'html', 'chat'), default='markdown')
     preview.add_argument('--kind', choices=('metric', 'sql_query'), default='metric')
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+')
-    for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition'):
+    for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:
@@ -463,8 +469,13 @@ def main():
             if len(output.encode()) > 4096 and not args.full:
                 target = project.root / (args.command + '-result.json')
                 project.write(target, result)
-                output = json.dumps({'status': result.get('status', 'ok'), 'result_file': str(target),
-                                     'next': 'Read the relevant fields from this private result artifact.'})
+                compact = {'status': result.get('status', 'ok'), 'result_file': str(target),
+                           'next': 'Read the relevant fields from this private result artifact.'}
+                if args.command == 'preview':
+                    if result.get('snapshot'):
+                        compact['snapshot'] = result['snapshot']
+                    compact['next'] = 'Display actual samples in chat with preview --format chat; a file link alone is not a preview.'
+                output = json.dumps(compact)
             print(output)
         return 0
     except KeyboardInterrupt:

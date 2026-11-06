@@ -1,0 +1,56 @@
+schema_version: "1.1"
+name: setup-reuse-preview
+tags: [analytics, setup, preview, reuse]
+execution:
+  prompt: |
+    Use the Atlan Analytics skill to continue setup from this checkpoint. Do not make
+    new Registry calls or execute SQL this turn. The destination is
+    already selected. Complete release readbacks were verified in the earlier turn.
+    The previous assistant only linked an HTML file; no definitions appeared in chat.
+
+    Local build: 2 metrics and 3 saved queries. Reconciliation reuses 2 released metrics
+    and 2 released saved queries, with no creates or revisions. The third local query,
+    shipment-total-check, is kept for validation: it duplicates the shipped-units metric's
+    exact population and calculation and adds no grouping or parameter. Its local file is retained.
+
+    Preview output:
+    - Shipped units: units on shipped orders, SUM(s.units), mandatory filter s.status = 'shipped',
+      shipments model, authored SQL example executed, released definition reused.
+    - Returned units: units returned, SUM(r.units), returns model plus query history,
+      authored SQL example executed, released definition reused.
+    - Saved query: How many units shipped by region? From query history, SQL executed,
+      released definition reused. SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' GROUP BY region LIMIT 100
+    - Saved query: How many units were returned? From query history, SQL executed,
+      released definition reused. SQL: SELECT SUM(units) AS returned_units FROM shipping.returns
+
+    The read-only data binding is ready. Dashboard parity remains unmeasured.
+    Please finish the handoff from these verified facts.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: reuse-does-not-skip-visible-preview
+    type: llm
+    criteria: |
+      PASS only if the reply displays both actual metric definitions with meaning,
+      calculations, source and reused/check status, and at least one supplied saved SQL,
+      before offering follow-up questions. The shipped-units population filter must remain
+      visible. FAIL if it only shows counts, names or a file link, or skips the preview
+      because these definitions already exist in Trident.
+  - name: explains-reconciliation-without-new-approval
+    type: llm
+    criteria: |
+      PASS if it explains 3 local queries became 2 reused released queries because
+      shipment-total-check remains local for validation and is equivalent to shipped-units.
+      It must say existing releases were reused, not newly published, and must not ask for
+      workspace selection or another approval for read-only reuse. It should suggest
+      questions supported by the supplied context, without claiming this turn executed SQL.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the reply leads with the result or preview, uses plain language and has no
+      greeting, apology, em dash or generic closing offer. Actual preview content may
+      exceed 80 words. Asking the user to pick a supported question is appropriate.

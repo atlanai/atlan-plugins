@@ -47,11 +47,13 @@ local PBIT is inspected as a file; do not pass its GitHub blob URL to dashboard 
 Do not create a project-specific `agent.py`, `SKILL.md`, plugin, server or chat application.
 
 Check that the selected Atlan MCP connection is authenticated before Registry discovery.
-If its tools are absent or it reports sign-in required, give the host's sign-in step for that
-connection (Claude Code: `/mcp`, or `claude mcp login <existing server name>`), and preserve
-local survey/authoring work. Do not guess REST routes, inspect credential files, or probe
-other registries or organizations to work around missing authentication. A separately
-signed-in CLI does not prove the host's MCP connection is ready.
+If its tools are absent or it reports sign-in required, follow [connection recovery](auth-recovery.md).
+Keep the run active while the host sign-in task is being watched, open its issued URL in
+Chrome and resume after a successful current-host read. Distinguish an absent/disabled plugin
+from expired sign-in; show exact core-plugin install instructions when necessary. Preserve
+local survey/authoring work and repeat its actual preview in the final answer if access
+remains unavailable. Do not guess REST routes, inspect credentials or switch identities.
+A separately signed-in CLI does not prove the host's MCP connection is ready.
 
 ## 1. Survey before choosing inputs
 

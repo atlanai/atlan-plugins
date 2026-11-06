@@ -135,6 +135,57 @@ class GenericSetup(unittest.TestCase):
         self.assertEqual(result['status'], 'text_fallback')
         self.assertIn('SUM(s.cost)', result['markdown'])
 
+    def test_chat_preview_renders_both_sources_and_exact_history_sql_without_writes(self):
+        cards = self.seed_candidates()
+        cards[0]['definition']['mandatory_filters'] = ["s.kind <> 'cancelled'"]
+        self.run.write(self.run.context / 'metrics.json', cards)
+        bodies = self.run.read(self.run.context / 'queries.json')
+        bodies[0]['definition']['extensions'] = {'atlan_analytics': {'shapes': ['shape-example']}}
+        self.run.write(self.run.context / 'queries.json', bodies)
+        before = {p: p.read_bytes() for p in self.run.root.rglob('*') if p.is_file()}
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                 'preview', '--format', 'chat'], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Showing 5 of 6 metrics', result.stdout)
+        self.assertIn('| Metric | Meaning | Calculation | Population / filters | Source | Check status |', result.stdout)
+        self.assertIn('powerbi: Cost', result.stdout)
+        self.assertIn('Query history: 1 pattern', result.stdout)
+        self.assertIn("s.kind &lt;&gt; 'cancelled'", result.stdout)
+        self.assertIn('```sql\n' + bodies[0]['definition']['sql'] + '\n```', result.stdout)
+        self.assertNotIn('result_file', result.stdout)
+        self.assertNotIn('workspace_id', self.run.current())
+        self.assertEqual(before, {p: p.read_bytes() for p in self.run.root.rglob('*') if p.is_file()})
+
+    def test_chat_preview_handles_empty_query_only_and_untrusted_source_text(self):
+        self.run.survey(self.estate)
+        self.assertIn('No metrics or saved queries', self.run.preview(format='chat'))
+        body = query()
+        body['definition']['question'] = '![preview](https://example.com/track) <script>bad()</script>'
+        self.run.write(self.run.context / 'queries.json', [body])
+        text = self.run.preview(format='chat')
+        self.assertIn('0 metrics and 1 saved query', text)
+        self.assertIn(body['definition']['sql'], text)
+        self.assertNotIn('![preview]', text)
+        self.assertNotIn('<script>', text)
+        self.assertIn('&lt;script&gt;', text)
+        self.assertNotIn('| Metric |', text)
+
+    def test_large_html_preview_keeps_snapshot_path_and_visible_fallback(self):
+        cards = self.seed_candidates()
+        for card in cards:
+            card['description'] = 'A long source description. ' * 150
+        self.run.write(self.run.context / 'metrics.json', cards)
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                 'preview', '--format', 'html'], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        compact = json.loads(result.stdout)
+        self.assertLess(len(result.stdout.encode()), 4096)
+        self.assertTrue(Path(compact['snapshot']).is_file())
+        full = json.loads(Path(compact['result_file']).read_text())
+        self.assertEqual(full['snapshot'], compact['snapshot'])
+        self.assertIn('SUM(s.cost)', full['markdown'])
+        self.assertIn('preview --format chat', compact['next'])
+
     def test_changed_definition_resets_checked_preview_and_progress(self):
         cards = self.seed_candidates()
         result = self.run.check()
