@@ -8,6 +8,9 @@ sample schema or database name. Explicit agent and evaluation modes remain separ
 `PROJECT` means `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>"`.
 Use an existing approved Python runtime; DuckDB execution needs one with DuckDB installed.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.
+Missing Registry access follows [connection recovery](auth-recovery.md): inspect the current
+host, start Chrome sign-in when required, watch its native task and resume after a successful
+Registry read. Continue independent local work while waiting; do not simply ask for "continue".
 
 **Visible preview is a required conversation step.** Before a destination question or
 publication/reuse, show actual candidates in an assistant message. Tool output, counts and
@@ -124,6 +127,9 @@ metrics (all if fewer): name, meaning, calculation, model/history source and che
 The helper includes a history-derived SQL example when available. With only queries, show
 those as saved queries. Preserve SQL, filters and parameters; do not invent a metric or result.
 This preview may exceed the usual short reply limit. An HTML view is supplementary.
+Repeat the actual metric table and saved SQL in the final assistant answer, even if they
+were shown in commentary. This applies to success, Keep local and blocked sign-in outcomes.
+The final answer must be useful when the host collapses all intermediate progress messages.
 If a draft preview was already displayed, show changed definitions or check status before
 continuing. If none was displayed, render the full first preview now. Never infer that the
 user saw tool output. Rendering or linking a file does not complete this conversation step.

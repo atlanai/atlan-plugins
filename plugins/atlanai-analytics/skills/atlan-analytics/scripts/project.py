@@ -23,6 +23,7 @@ import page_scope
 import metric_preview
 import progress
 import acquisition
+import auth_recovery
 from source_inventory import discover, source_kind, SENSITIVE
 from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
@@ -58,6 +59,9 @@ class Project(ContextState):
         if state.get('entrypoint') != 'project':
             raise ProjectError('Select the project setup run, not a dashboard or agent run.')
         return state
+
+    def auth(self, request):
+        return auth_recovery.advance(self, request)
 
     def archive_candidates(self):
         """Keep stale local work reviewable, but never present it as current scope."""
@@ -436,7 +440,7 @@ def main():
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+')
-    for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition'):
+    for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

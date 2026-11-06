@@ -1,5 +1,53 @@
 # Analytics setup: implementation and verification
 
+## Sign-in recovery and final preview: 0.6.2
+
+The next participant run showed five draft metrics and saved SQL in commentary, then ended
+with a file link. A host that collapses progress messages hid the useful preview. Setup now
+repeats the actual metric table and saved SQL in the final answer, including when publication
+is blocked by access. Links supplement that content. Local candidates remain clearly distinct
+from released Registry context.
+
+The same run searched a generic app directory and treated absent results as missing Registry
+access. It did not inspect the coding host's installed connection or attempt recovery.
+The Analytics task now discovers deferred host tools, attempts a small Registry read and
+distinguishes a missing plugin, disabled connection, required OAuth, unloaded tools,
+permission denial and transport errors. No identity or host setting is changed automatically.
+
+When OAuth is required, the parent starts the existing client's login as a native background
+or yielding task, opens its issued authorization URL in Chrome and watches the retained task
+handle for at most ten minutes. Successful login alone is not readiness: a successful Registry
+read from the current host is required before resuming the saved stage. The private
+`auth-recovery.json` records only allowed host observations and opaque task identifiers.
+The helper neither authenticates nor verifies network access itself. It does not implement
+an OS daemon or promise to wake a closed chat.
+
+Timeout, cancellation and permission denial stop only the owned login task. Resumption
+preserves candidates and prior authorization. An expired attempt returns its original task
+for cleanup before another attempt begins. When automatic recovery is unavailable, the
+response includes copyable core `atlanai` plugin install/sign-in instructions and the saved-run
+resume prompt. Installing the separate Registry CLI does not substitute for current-host tools.
+
+Verification: `make check` passed 263 unit/integration tests, 116 analytics helper checks,
+52 metrics helper checks, generated-file drift and lint. Eleven new tests exercise the
+recovery states, actual controlled-child completion, read-before-resume requirement, stale
+events, deadline cleanup, duplicate-task prevention, disabled/denied states, private state
+permissions, input rejection and CLI dispatch. Strict Analytics manifest, skill and command
+validation passed. The child-process test simulates login completion; no OAuth was performed.
+
+The two new Claude checkpoint cases cover final-answer content/install fallback and the
+bounded sign-in/reload/resume procedure. They use supplied synthetic evidence and do not
+perform browser login or publish Registry content. Both passed all three graders in their
+latest targeted runs. Earlier attempts exposed verbose recovery narration and ambiguity
+between checkpoint evidence and fresh SQL execution; instructions now address both.
+These are single-run behavior checks, not a stability claim. Claude Code and Codex have
+0.6.2 installed for manual testing; all 94 source files match both installed copies.
+The existing reuse-ordering issue below remains a release gate; this version stays draft.
+
+Security-relevant: the change does not read credentials, save authorization URLs or raw login
+output, register another MCP server, change disabled connections or introduce dependencies.
+Fresh Chrome OAuth and automatic continuation in an interactive host remain unverified.
+
 ## Preview follow-up: 0.6.1
 
 A participant's 0.6.0 run combined dashboard definitions and query history correctly, but
