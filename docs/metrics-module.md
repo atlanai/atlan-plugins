@@ -122,3 +122,25 @@ its SQL groups by every required source key. Ordinary optional blank filters do 
 member requirements. Source-unit evidence is bound into the completion receipt alongside C4.
 After updating the engine instructions, start a new run with the new runtime; resume older
 runs with their original plugin/runtime before exporting their evidence.
+
+
+## Stable source identity and current eligibility
+
+Source staging accepts a stable source-system key through --source-id. It names the captured
+asset from that key while preserving its format, custody sidecar and immutable content hashes.
+The download filename can change and the same report keeps its reader identities. Different
+source keys remain distinct, and changed bytes require a new capture directory. Local files
+without a source-system identity retain their existing filename behavior; do not infer identity
+by stripping browser suffixes. Report titles remain display context, not identity keys.
+
+Format 2 publication manifests record eligibility check versions. All publication entry points
+refuse older or incomplete check sets even when their manifest digest is internally consistent.
+Rerun with the current plugin/runtime from the selected source, preserving the user's answers.
+The source-stage contracts and Registry transport remain unchanged.
+
+X3 rejects nested aggregates in one query scope, aggregate/window expressions in row filters
+and windows inside aggregates. Separate subqueries and valid grouped window calculations are
+accepted. Export repeats aggregation validation so older invalid card layers cannot obtain
+current eligibility evidence. Focused synthetic tests cover rejection, repair, stable reader
+identities across renamed downloads and outdated publication contexts. Warehouse execution
+and independent parity remain separate checks.

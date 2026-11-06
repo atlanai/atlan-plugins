@@ -194,6 +194,7 @@ def main(argv=None):
     commands.add_parser('discover')
     stage = commands.add_parser('stage-input')
     stage.add_argument('--source', required=True)
+    stage.add_argument('--source-id', help='Stable source-system asset key, independent of download filename.')
     stage.add_argument('--destination', required=True)
     prepare = commands.add_parser('prepare')
     prepare.add_argument('--run', required=True)
@@ -214,7 +215,7 @@ def main(argv=None):
             code = 2 if result['status'] == 'BLOCKED' else 0
         else:
             forwarded = []
-            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination'):
+            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id'):
                 if hasattr(args, name) and getattr(args, name) is not None:
                     forwarded += ['--' + name.replace('_', '-'), str(getattr(args, name))]
             result, code = invoke(args.runtime, args.command, forwarded)

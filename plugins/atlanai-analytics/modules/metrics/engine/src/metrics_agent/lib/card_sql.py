@@ -74,3 +74,34 @@ def canonical_statement(card: dict) -> str:
     if mand:
         out.append("WHERE  " + "\n  AND  ".join(mand))
     return "\n".join(out)
+
+
+def aggregation_problems(sql: str, dialect: str | None) -> list[str]:
+    """Reject invalid aggregation within a query scope without executing SQL.
+
+    A subquery starts a new scope. An aggregate used as a window function may consume a
+    grouped aggregate, but a regular aggregate cannot consume another aggregate or window.
+    """
+    from sqlglot import exp
+    from metrics_agent.lib import sqlshape
+
+    try:
+        tree = sqlshape.parse(sql, dialect)
+    except Exception:
+        return ["the canonical statement cannot be parsed for aggregation checks"]
+    problems = set()
+    for node in tree.walk():
+        if not isinstance(node, (exp.AggFunc, exp.Window)):
+            continue
+        parent = node.parent
+        while parent is not None and not isinstance(parent, exp.Query):
+            if isinstance(parent, (exp.Where, exp.Join, exp.Group)):
+                problems.add("an aggregate or window appears in a row filter, join condition or grouping key")
+            if isinstance(parent, exp.AggFunc):
+                windowed = isinstance(parent.parent, exp.Window) and parent.parent.this is parent
+                if not windowed:
+                    problems.add("nested aggregates or windows in a regular aggregate require a separate query scope")
+            if isinstance(node, exp.Window) and isinstance(parent, exp.Window):
+                problems.add("nested window functions require a separate query scope")
+            parent = parent.parent
+    return sorted(problems)

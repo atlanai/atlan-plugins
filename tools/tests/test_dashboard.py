@@ -63,7 +63,7 @@ class DashboardPublication(unittest.TestCase):
 
     def test_hold_evidence_is_enforced_before_a_resumed_publication_call(self):
         from modules.metrics import holds
-        evidence = {'format': 1, 'outputs': {'verified_queries.json': 'a' * 64}, 'metrics': [],
+        evidence = {'format': 2, 'checks': holds.CHECKS, 'outputs': {'verified_queries.json': 'a' * 64}, 'metrics': [],
                     'queries': [{'source_id': 'query:held', 'query_id': 'held-1', 'name': 'held-query',
                                  'status': 'held', 'reason': 'compiler_review_wrong',
                                  'sql_sha256': holds.sql_identity('SELECT 0 AS value')}]}

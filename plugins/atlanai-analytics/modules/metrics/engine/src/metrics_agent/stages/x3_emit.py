@@ -771,6 +771,9 @@ def _ingest(ctx: stage.Ctx) -> None:
                     f"{where}: formula, source.sql and mandatory_filters do not compose into "
                     f"one statement that only reads. A card defines a number; it never "
                     f"carries a second statement or a write.")
+            if composed:
+                problems.extend(f"{where}: {problem}." for problem in
+                                _card_sql.aggregation_problems(composed, dialect))
             # A MANDATORY FILTER ON A JOINED TABLE MAKES THAT JOIN MANDATORY. An inner join
             # filters, and a predicate on a left-joined table in the WHERE turns it into one.
             # Either way the rows the aggregate sees depend on it, so a query that omits the

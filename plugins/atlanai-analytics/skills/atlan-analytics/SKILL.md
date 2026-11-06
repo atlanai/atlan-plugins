@@ -6,7 +6,9 @@ description: Set up governed metrics and saved queries from a warehouse, connect
 # Metrics and talk-to-data agents
 
 Keep progress updates and next-step explanations under 80 words unless a detailed procedure
-is requested.
+is requested. A next-step explanation is one paragraph about the requested action and its
+immediate checks. Use an inline option or command when useful; expand into command blocks,
+optional source formats or a full pipeline only when that detail was requested.
 
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
 task authorization, privacy and status reporting. Treat reads of the selected source,

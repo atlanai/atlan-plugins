@@ -76,6 +76,29 @@ class InputStagingTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'input changed'):
                     worker.stage_input(source, capture)
 
+    def test_stable_asset_identity_ignores_download_suffix_and_preserves_custody(self):
+        worker = self.worker()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            first, again = root / 'Report.pbix', root / 'Report (3).pbix'
+            for path in (first, again):
+                path.write_bytes(b'synthetic-asset')
+                path.with_name(path.name + '.manifest.json').write_text('{"custody":"customer"}')
+            a = worker.stage_input(first, root / 'capture-a', 'bi:workspace:report-a')
+            b = worker.stage_input(again, root / 'capture-b', 'bi:workspace:report-a')
+            self.assertEqual(Path(a['path']).name, Path(b['path']).name)
+            self.assertTrue(Path(a['path'] + '.manifest.json').is_file())
+            self.assertEqual(worker.stage_input(again, root / 'capture-a', 'bi:workspace:report-a')['path'], a['path'])
+            c = worker.stage_input(again, root / 'capture-c', 'bi:workspace:report-b')
+            self.assertNotEqual(Path(a['path']).name, Path(c['path']).name)
+            with self.assertRaisesRegex(ValueError, 'same selected source'):
+                worker.stage_input(again, root / 'capture-a', 'bi:workspace:report-b')
+            again.write_bytes(b'updated-asset')
+            d = worker.stage_input(again, root / 'capture-d', 'bi:workspace:report-a')
+            self.assertEqual(Path(a['path']).name, Path(d['path']).name)
+            with self.assertRaisesRegex(ValueError, 'input changed'):
+                worker.stage_input(again, root / 'capture-a', 'bi:workspace:report-a')
+
     def test_capture_refuses_links_and_credentials_before_copying(self):
         worker = self.worker()
         with tempfile.TemporaryDirectory() as temp:
@@ -241,6 +264,59 @@ class ProjectionTests(unittest.TestCase):
 RUNTIME = os.environ.get('ANALYTICS_METRICS_RUNTIME')
 
 
+@unittest.skipUnless(RUNTIME, 'Set ANALYTICS_METRICS_RUNTIME for SQL aggregation and reader checks.')
+class CardAggregationAcceptance(unittest.TestCase):
+    def test_invalid_nested_aggregates_fail_but_subqueries_and_windows_execute(self):
+        program = """
+import duckdb
+from metrics_agent.lib.card_sql import aggregation_problems
+bad = [
+    "SELECT COUNT(CASE WHEN COUNT(*) > 0 THEN 1 END) FROM (VALUES (1)) t(x)",
+    "SELECT SUM(AVG(x)) FROM (VALUES (1)) t(x)",
+    "SELECT SUM(CASE WHEN MAX(x)>0 THEN 1 ELSE 0 END) FROM (VALUES (1)) t(x)",
+    "SELECT SUM(x) FROM (VALUES (1)) t(x) WHERE COUNT(*)>0",
+    "SELECT SUM(SUM(SUM(x))) OVER () FROM (VALUES (1)) t(x)",
+    "SELECT SUM(ROW_NUMBER() OVER ()) FROM (VALUES (1)) t(x)"]
+good = [
+    "SELECT SUM(CASE WHEN x>0 THEN 1 ELSE 0 END) FROM (VALUES (1)) t(x)",
+    "SELECT SUM(x)/NULLIF(COUNT(*),0) FROM (VALUES (1)) t(x)",
+    "SELECT SUM(total) FROM (SELECT SUM(x) AS total FROM (VALUES (1)) t(x)) q",
+    "SELECT SUM(SUM(x)) OVER () FROM (VALUES (1)) t(x)",
+    "SELECT COUNT(*) FROM (VALUES (1)) t(x) WHERE x=(SELECT MAX(y) FROM (VALUES (1)) s(y))",
+    "SELECT SUM(x) OVER () FROM (VALUES (1)) t(x)"]
+for sql in bad:
+    assert aggregation_problems(sql,'duckdb'), sql
+for sql in good:
+    assert not aggregation_problems(sql,'duckdb'), (sql, aggregation_problems(sql,'duckdb'))
+    duckdb.connect().execute(sql).fetchall()
+"""
+        p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+
+    def test_staged_pbix_downloads_produce_identical_reader_unit_ids(self):
+        program = """
+import json,sys,tempfile,zipfile
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+from modules.metrics.worker import stage_input
+from metrics_agent.plugs.readers.pbix import report_usage
+with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp).resolve()
+    layout={'sections':[{'name':'page-key','displayName':'Overview','visualContainers':[
+        {'config':json.dumps({'name':'visual-key','singleVisual':{'visualType':'card','title':'Revenue','projections':{}}})}]}]}
+    results=[]
+    for i,name in enumerate(['Report.pbix','Report (3).pbix']):
+        src=root/name
+        with zipfile.ZipFile(src,'w') as z:z.writestr('Report/Layout',json.dumps(layout))
+        staged=stage_input(src,root/str(i),'bi:workspace:report-a')
+        results.append(report_usage(Path(staged['path']),[]))
+    assert results[0] and results[0]==results[1],results
+"""
+        p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program,
+                            str(ROOT / 'plugins/atlanai-analytics')], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+
+
 @unittest.skipUnless(RUNTIME, 'Set ANALYTICS_METRICS_RUNTIME to test SQL scope proofs.')
 class RequiredFilterAcceptance(unittest.TestCase):
     def check(self, sql, *, variant=False, filters=None, group=None, parameters=None):
@@ -386,6 +462,57 @@ class RuntimeAcceptance(unittest.TestCase):
         target = Path(gate['answers'].replace('*', 'reply'))
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(body))
+
+    def test_card_gate_rejects_nested_aggregate_and_accepts_the_repaired_answer(self):
+        code, result = self.command('prepare', '--run', self.run, '--config', self.config)
+        self.assertEqual(code, 0, result)
+        rejected = False
+        for _ in range(9):
+            code, result = self.command('advance', '--run', self.run, '--model', 'synthetic-test')
+            if code == 0:
+                break
+            self.assertEqual(code, 3, result)
+            gate = result['gate']
+            self.answer(gate)
+            if gate['id'] == 'x3' and not rejected:
+                target = Path(gate['answers'].replace('*', 'reply'))
+                body = json.loads(target.read_text())
+                body['metrics'][0]['formula'] = 'SUM(CASE WHEN COUNT(demo.main.orders.id)>0 THEN 1 ELSE 0 END)'
+                target.write_text(json.dumps(body))
+                code, refusal = self.command('advance', '--run', self.run, '--model', 'synthetic-test')
+                self.assertEqual(code, 3, refusal)
+                self.assertEqual(refusal['gate']['id'], 'x3')
+                self.assertIn('nested aggregates', refusal['feedback'])
+                self.assertTrue(Path(refusal['gate']['repair']).is_file())
+                self.answer(refusal['gate'])
+                rejected = True
+        self.assertTrue(rejected)
+        self.assertEqual(code, 0, result)
+        code, exported = self.command('export', '--run', self.run, '--context', self.context)
+        self.assertEqual(code, 0, exported)
+        self.assertEqual(exported['metrics'], 1)
+        # A previously authored invalid layer cannot obtain fresh eligibility at export.
+        program = '''
+import json,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+from export import export_context
+run=Path(sys.argv[2])
+path=run/'metric_cards.json'
+layer=json.loads(path.read_text())
+layer['metrics'][0]['formula']='SUM(COUNT(demo.main.orders.id))'
+path.write_text(json.dumps(layer))
+try:
+    export_context(run,run.parent/'invalid-export',json.loads((run/'module.json').read_text()))
+except ValueError as exc:
+    assert 'aggregation checks' in str(exc),str(exc)
+else:
+    raise AssertionError('Invalid older card received current eligibility evidence')
+'''
+        p = subprocess.run([str(self.python), '-c', program, str(driver.HERE), str(self.run)],
+                           capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertFalse((self.root / 'invalid-export').exists())
 
     def test_all_gates_resume_export_and_existing_publication_plan(self):
         code, data = self.command('prepare', '--run', self.run, '--config', self.config, '--approval-mode', 'auto')

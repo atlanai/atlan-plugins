@@ -150,3 +150,10 @@ The last thing, and the one the SQL says least about.
 
 The purpose settles which columns are dimensions and which are decoration, and there is no way
 to get it from the syntax alone.
+
+
+When inlining a derived row column into a metric formula, resolve its defining projection in
+the source subquery. Do not substitute the outer aggregate that reuses the same alias. The
+replacement must preserve row grain. If it is itself aggregated, retain a separate derived
+query scope instead of nesting it inside another regular aggregate. The card validator checks
+this even in parse-only runs; a repair must pass the gate before publication.
