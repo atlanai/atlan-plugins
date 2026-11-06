@@ -127,7 +127,7 @@ def readiness(state):
             'heldout_accuracy': 'not_run'}
 
 
-def answer_plan(state, metric_id, context_hash):
+def answer_plan(state, metric_id, context_hash, purpose='answer', case_id=None, plan_generation=None):
     metric = next((m for m in state['metrics'] if m['id'] == metric_id), None)
     if metric is None:
         raise ValueError('Unknown metric. Resolve the question against the captured inventory first.')
@@ -135,6 +135,18 @@ def answer_plan(state, metric_id, context_hash):
         return {'state': 'needs_new_scope', 'instruction': 'The requested scope differs from this SQL. Capture the new scope and translate/check it before reusing validation.'}
     if metric['runtime'] != 'warehouse':
         return {'state': 'needs_sql', 'metric_id': metric_id, 'reason': metric.get('translation', {}).get('gap', 'Physical mapping and SQL conversion are required.')}
+    if purpose == 'validation':
+        if plan_generation != state.get('eval_plan', {}).get('generation') or not case_id:
+            raise ValueError('Validation requires the current planned case and generation.')
+        task = next_task(state, case_id)
+        if task.get('state') != 'execution_required' or task.get('metric_id') != metric_id:
+            raise ValueError('Validation requires the current planned case and generation.')
+    elif purpose != 'answer':
+        raise ValueError('Unsupported execution purpose.')
+    elif not usable_metric(state, metric):
+        return {'state': 'requires_validation', 'metric_id': metric_id,
+                'validation_details': validation_status(state, metric),
+                'instruction': 'Use another available metric. Repair and validate this metric before answering with it; diagnostic execution uses the planned validation case.'}
     return {'state': 'execute_warehouse', 'metric_id': metric_id, 'name': metric['name'],
             'validation': 'passed_at_captured_scope' if metric['warehouse_portable'] else 'unverified',
             'validation_details': validation_status(state, metric),

@@ -162,8 +162,10 @@ class Publisher:
                 action["phase"] = "head"
             elif phase == "head":
                 action["phase"] = "release"
-            release_id = receipt.get("release_id") if phase == "release" else None
+            release_id = (receipt.get("release_id") or artifact.get("release_id")) if phase == "release" else None
             if phase == "release":
+                require(not receipt.get('release_id') or not artifact.get('release_id')
+                        or receipt['release_id'] == artifact['release_id'], 'Release selectors disagree; reread the current release.')
                 require(isinstance(release_id, str) and bool(release_id), "Record the release selector returned by the latest read.")
                 require(artifact.get("kind") == "metric" and artifact.get("workspace_id") == workspace
                         and artifact.get("source_id") == action["source_id"], "Release belongs to another metric or workspace.")

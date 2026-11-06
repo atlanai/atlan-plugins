@@ -2,6 +2,10 @@
 
 Use the host's installed connector or documented computer-use APIs. Browser automation runs under the host's permission model. This package cannot assume a browser is installed, available or signed in.
 
+Generic talk-to-data setup uses [shared setup](../setup.md) for metadata-first page selection,
+authorized download reuse and private run locations. This procedure remains the explicit
+dashboard-agent capture route. Neither route bypasses provider or host download permissions.
+
 1. **Download first; do not tour every page.** Open only the supplied report, identify its actual title, then use **File → Download this file** if permitted. Reuse an already supplied matching export. Download once to the task's private working directory. Prefer a supplied PBIT or textual model export when available. A PBIX download can contain a binary model or only a live connection; it does not automatically provide readable DAX. Never bypass disabled downloads or permissions.
 
    **Import the downloaded file with `dashboard_import_file`.** Supply its absolute local path, the confirmed semantic-model reference, and the selected page context. `scope_complete` defaults to false; set it true only after verifying the actual filters, caller security and data cutoff. The report must be identified first. This tool decodes binary PBIX with PBIXRay, reads legacy or PBIR report layout, and imports every typed measure directly into the existing job. It returns the inventory card and a private `inventory_file` path. Read that file selectively for columns, relationships, security and Power Query source transformations when constructing SQL mappings. Do not retype the entire captured measure array through chat.

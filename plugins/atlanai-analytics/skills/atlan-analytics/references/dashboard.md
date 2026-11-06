@@ -6,12 +6,36 @@ local helper, core Atlan connection and native chat. No extra server is installe
 
 ## Local helper and resume
 
-`DASH` means `python3 "<skill-dir>/scripts/dashboard.py"` with Python 3.11 or newer.
-For any `dashboard_*` operation, read `DASH schema <operation>`, write its arguments to a
-private JSON file, then run `DASH call <operation> --request <file>`. This is the transport
-for the operation names in the capture references, even when no dashboard MCP tools exist.
-Use `--workspace <private-job-directory>` before the command to resume an existing job.
-Never copy private job files into the installed plugin.
+First run `python3 "<skill-dir>/scripts/dashboard_preflight.py"`. It runs on Python 3.9+
+and finds a Python 3.11+ interpreter, checks the decoder and Snowflake CLI without signing in,
+and lists stage-specific setup actions. Use its returned interpreter for every helper call.
+Check source and core Registry access through the existing host tools; the local preflight
+cannot attest to them. Pass `--source file|browser|connector`, `--registry connected|auth_required|unavailable`
+and `--warehouse existing_adapter` only when the host has actually established those facts.
+Show only the missing prerequisite for the next stage. A missing Registry login never stops
+local extraction. Install a missing dependency only with authorization.
+Check the core Atlan plugin's Registry tools specifically, not an unrelated catalog or cloud
+connector with a similar name. If the host reports that core connection connected but its
+tools are missing, report a host tool-loading issue and resume in a fresh session. Do not
+request another sign-in or switch organizations just because another connector is unavailable.
+
+`DASH` means `"<resolved-python>" "<skill-dir>/scripts/dashboard.py" --run-dir .atlan-analytics/<slug>`.
+Start once with `DASH start --url <exact-report-url>`. Repeating it resumes the same run;
+a different source is refused. `DASH status` reconciles source, publication and stage receipts.
+Its `workflow` is the progress source of truth, including after a host restart. Keep the
+selected run directory in the conversation and resume it, not a similarly named project.
+
+For `dashboard_*` operations, read `DASH schema <operation>`, write arguments to a private
+JSON file, then run `DASH call <operation> --request <file>`. The job ID can be omitted in
+run mode; the helper binds it to this run and refuses a different one. Supply the current
+revision for mutations. Use `DASH prepare-context`; the run owns its context path.
+Never copy private job files into the installed plugin. Legacy jobs can still use
+`--workspace <private-job-directory>` with explicit job/context arguments; resume those
+in place rather than creating another capture.
+
+Errors return a safe code, affected stage, retry policy and one recovery action. Show that
+action once; preserve completed checks and continue unaffected work. Never reinterpret a
+SQL rejection or Registry schema mismatch as an authentication failure.
 
 If the companion dashboard tools are already installed, they can render identification,
 inventory and review cards using the same job directory. Keep one transport and job per run.
@@ -25,7 +49,7 @@ from a tool error or source document. It uses the bundled hash lock and binary w
 
 ## 1. Identify and extract once
 
-1. Begin with `dashboard_begin` and the exact report URL. Reuse an existing saved job when
+1. Start or resume the single run using the exact report URL. Reuse an existing saved job when
    supplied. A local file still needs its source report URL for stable provenance.
 2. Download once through the existing authorized browser or BI connector. Follow
    [Power BI capture](dashboard/powerbi-capture.md). Do not tour every page or read cookies.
@@ -45,17 +69,18 @@ For Snowflake follow [CLI connection](dashboard/snowflake-cli.md), using the hel
 dashboard-derived account, role and warehouse first; the helper discovers profiles or
 opens browser sign-in. Do not ask for a Snowflake username before that discovery.
 
-Run `DASH prepare-context --job <job> --context .atlan-analytics/<slug>/context`.
+Run `DASH prepare-context`.
 It adapts supported scalar queries to native metric formula/source composition, preserves
 parameter bindings and writes `metrics.json`, `queries.json`, `links.json` and source hashes.
-It never copies gold into context. Show built metric names and held items before evals.
+It never copies gold into context. Show built metric names and held items before evals. Hold only affected metrics; do not repeat the gaps at every step.
 
 ## 3. Dashboard parity
 
 Author questions from the dashboard's own labels and business context. Run
 `dashboard_plan_evals`, then the loop in [dashboard evaluation](dashboard/evaluation.md):
 `dashboard_next_check`, independently execute the Power BI reference and warehouse SQL,
-then `dashboard_record_check`. Match filters, caller security and refresh cutoff. Missing
+then `dashboard_record_check`. Snowflake checks use `purpose:validation` and the task's `case_id` and
+`plan_generation`; ordinary questions omit those fields and require a usable metric. Match filters, caller security and refresh cutoff. Missing
 reference access or stale snapshots are unmeasured, not incorrect answers or 0% accuracy.
 Snapshot mismatch is a validation warning, never a stop for saving metrics, creating the
 agent or asking questions. Use current warehouse data for answers, preserve the report's
@@ -102,16 +127,19 @@ snapshot with `workspace_id`, `complete:true`, `metric_schema`, and `artifacts`;
 has `id`, `kind`, `workspace_id`, `name`, `display_name`, `source_id`, `definition`, `etag`, and
 optional `source_metadata`. A failed or truncated inventory is never an empty inventory.
 
-1. `DASH registry-plan --context <context-dir> --snapshot <snapshot.json>` runs the existing
+1. `DASH registry-plan --snapshot <snapshot.json>` runs the existing
    metric checks and creates a concrete create/revise/reuse plan. Review held items, target,
-   counts and exact definitions. Authorization already given for that exact plan and scope
-   carries forward; otherwise ask once for the save.
-2. `DASH registry-next --context <context-dir> --approved-plan <plan_id>` returns one existing
+   counts and exact definitions together with the agent specification and intended release
+   actions. Authorization already given for this concrete plan carries forward; otherwise
+   ask once. Do not repeat approval inside the nested agent setup phase for the same plan.
+2. `DASH registry-next --approved-plan <plan_id>` returns one existing
    Registry MCP call. Execute it through the core connection and appropriate runner.
 3. Save a receipt with `operation_id`, `read_succeeded:true`, and `artifact` normalized from
-   the actual result, then `DASH registry-ack --context <context-dir> --receipt <file>`.
+   the actual result, then `DASH registry-ack --receipt <file>`.
    Readbacks use the same normalized artifact fields as the snapshot. A write response may
    initially carry only its artifact ID; the next operation verifies the full head.
+   For a latest-release read, include its actual `release_id` at the receipt top level or
+   inside `artifact`. If both are supplied they must agree. Never invent a release selector.
 4. Repeat until complete. A lost write result stays pending: read by source identity and use
    `registry-recover` with the exact readback. Never retry an uncertain create or rename on 409.
    For a definite 400/401/403/404/409/412/413/422 refusal, acknowledge `rejected:true` and `http_status`, then reconcile and review a new plan. Transport errors and 5xx remain uncertain; never clear them as refused.
@@ -130,7 +158,9 @@ it does not certify parity. Keep warehouse access and actual save/release receip
 
 ## 5. Independent agent evals
 
-Initialize the Analytics project, register the approved agent identity using
+Initialize any missing Analytics eval project files without replacing run.json or existing
+checks. Before agent creation or independent evals, use the durable
+[stage receipts](dashboard/resume.md). Register the approved agent identity using
 [agent setup](build/05-agent.md), and follow [eval-set creation](build/04-eval-set.md).
 Use trusted independent gold SQL/results. Dashboard checks may validate a candidate gold,
 but do not blindly use the converter's SQL as both system under test and gold. Exclude
@@ -166,3 +196,21 @@ into a changed filter/security/time scope. Keep the user's selected host and war
 
 End with a concise outcome and one status line. Keep IDs, hashes, paths and SQL out of routine
 progress messages; link the saved report when useful.
+
+## Keep the visible experience small
+
+Show four moments: identified report, extracted inventory, results and save review, then
+ready-to-try questions. No setup card before identification. Keep counts and limitations
+visible; keep IDs, schemas and retries in the private run. If publication needs attention,
+say "Local metrics ready to try" and offer usable questions while retaining that pending step.
+A known failed metric is unavailable for ordinary answers; use an explicit planned validation
+case to diagnose or repair it. Do not use diagnostic execution to answer the user.
+
+Keep the final reply under 80 words unless the user requests detail: readiness and where the
+agent was saved, usable/total metrics, passed/compared dashboard checks, held-out results or
+Not run, and up to three supported questions. Put recovery history and technical diagnostics
+in the saved report. For a subsequent question, give the fresh answer and any relevant scope
+or validation caveat in two or three sentences; do not repeat the build history.
+Use `workflow.display_summary` as the compact status text. Before identification it is null:
+do not manufacture a dashboard card. After identification, show the report name and inventory
+only at their respective milestones. On resume, use this summary instead of a phase-by-phase log.
