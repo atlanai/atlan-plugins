@@ -93,7 +93,9 @@ def choose(rows, config, managed=False):
         candidates = defaults
     if len(candidates) > 1:
         names = ', '.join(sorted(row['connection'] for row in candidates)[:8])
-        raise CLIError('Multiple matching Snowflake connections: ' + names + '. Choose a connection profile, not a password or token.')
+        error = CLIError('Multiple matching Snowflake connections: ' + names + '. Choose a connection profile, not a password or token.', code='warehouse_profile_ambiguous')
+        error.choices = sorted(row['connection'] for row in candidates)[:8]
+        raise error
     if not candidates:
         return None
     row = candidates[0]

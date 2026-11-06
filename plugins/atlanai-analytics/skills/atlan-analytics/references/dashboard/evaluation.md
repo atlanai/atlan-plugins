@@ -6,7 +6,10 @@ Three distinct results appear in the experience:
 2. **Dashboard parity:** supplied report references versus observed answer results, bound to the exact capture, definition and context. This implementation compares scalars exactly, or numeric values within an explicitly supplied absolute tolerance. Types matter. Explicit `value:null` is an observed blank and can match another blank; an absent `value` is missing evidence, not blank. SQL actual observations require `executor:warehouse` and the current translation query hash. Missing/invalid references, stale definitions and mismatched contexts are unmeasured; execution errors are failed measured cases. Display all denominators.
 3. **Held-out question accuracy:** not implemented by this local parity tool. Display Not run. It requires an isolated answerer, a frozen held-out split, gold inaccessible to the answerer and transcript checks. Never infer it from parity or from a caller's “independent=true” flag.
 
-The current App Metrics workflow at revision `7d5bda651b7404de3aedf69d6907e46a9e4783b6` already supplies `/atlan-analytics build`, `eval` and `improve`. Reuse that workflow for warehouse-backed agents: local cases/answers separation, fresh question-only subagents, deterministic result-set grading, contamination checks and train/test reporting. Its agent runner currently requires Claude Code and warehouse SQL; it is not automatically a Codex eval runner. Those need explicit execution adapters.
+Use the existing Analytics build/eval workflow for independent evaluation. The
+[host runners](../eval/hosts.md) support Claude Code and Codex with a fresh question-only
+process and a transcript audit. They measure SQL answering from supplied released context;
+Registry retrieval needs a separate test.
 
 `dashboard_evaluate` stores references in local `grader-only.json`. Its read/exported runtime context does not expose that file. This is an API separation, not an OS sandbox: a fully privileged host could still read the local file. A genuinely blind benchmark needs a separately restricted process/toolset.
 

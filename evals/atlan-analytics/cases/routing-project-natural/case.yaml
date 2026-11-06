@@ -1,0 +1,44 @@
+schema_version: "1.1"
+name: routing-project-natural
+tags: [analytics, routing]
+execution:
+  prompt: |
+    Help me set up this repo:
+    https://github.com/atlanai/analytics-agent-accelerator
+
+    Once it's ready, use Atlan Analytics to help me build an analytics agent from
+    the dashboards, query history and data included in it.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: reads-shared-setup-route
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup\.md'
+    min: 1
+  - name: avoids-agent-preflight
+    type: tool_used
+    tool: Read
+    input_match: 'references/full-agent\.md'
+    min: 0
+    max: 0
+  - name: preserves-simplified-flow
+    type: llm
+    criteria: |
+      This routing test has no shell and cannot clone a repo or execute the survey.
+      PASS if it truthfully reports that limit and describes continuing from repo
+      survey of dashboards AND query history to metrics/saved SQL in Trident and
+      questions in the current chat. Missing shell or an unselected workspace is
+      not a failure. FAIL if it routes to hosted-report capture, asks the user to
+      choose dashboard OR history, creates/requires a separate agent package, or
+      claims discovery, publication or execution without tool evidence.
+  - name: avoids-dashboard-url-route
+    type: tool_used
+    tool: Read
+    input_match: 'references/dashboard\.md'
+    min: 0
+    max: 0
