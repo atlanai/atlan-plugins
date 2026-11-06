@@ -86,6 +86,28 @@ It runs the maintained configuration and plug checks, without the terminal inter
 Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
 
+### Native sign-in
+
+For a live connector that needs the person's browser, a device code or an MFA prompt, run
+both `ENGINE prepare` and `ENGINE advance` using the host terminal tool with a real TTY
+(for example, `tty: true` in Codex). Keep that command session running while the person
+completes sign-in. Relay the connector's sign-in instructions immediately, then poll the same
+session for completion. Never ask the person to paste a token, password or callback URL.
+Do not read browser storage or credential caches. Opening a browser alone does not prove
+that the connector obtained API access.
+
+The wrapper preserves stdin and streams connector prompts through stderr while keeping its
+stdout JSON separate. Setup checks also retain terminal detection. Interactive preparation
+and each interactive advance have a 15 minute deadline; a timeout blocks the operation.
+Power BI device-code and browser PKCE routes use this path, as does Snowflake's
+`authenticator=externalbrowser` and any native terminal MFA prompt. Environment-based routes
+remain available for unattended execution. Power BI still refuses interactive fallback when
+no terminal is attached. Do not fabricate a terminal in an unattended job to bypass that check.
+
+Tableau's native routes (personal access token, connected-app JWT, username/password) read
+configured environment variables and do not need a terminal. Its browser-download and MCP
+capture alternatives continue to use their existing host tools.
+
 ### Inherit approval behavior
 
 Use the continuous workflow by default: `--approval-mode auto`. An explicit request for a

@@ -144,3 +144,11 @@ accepted. Export repeats aggregation validation so older invalid card layers can
 current eligibility evidence. Focused synthetic tests cover rejection, repair, stable reader
 identities across renamed downloads and outdated publication contexts. Warehouse execution
 and independent parity remain separate checks.
+
+## Interactive connector sign-in
+
+Run preparation and advancement with a real host terminal when Power BI or Snowflake needs
+a device code, browser sign-in or terminal MFA. The wrapper relays prompts immediately and
+keeps stdout reserved for its JSON response. Interactive operations time out after 15 minutes.
+Unattended Power BI runs still require environment credentials. Tableau's native environment
+credential routes do not use interactive terminal sign-in. Never paste credentials into chat.
