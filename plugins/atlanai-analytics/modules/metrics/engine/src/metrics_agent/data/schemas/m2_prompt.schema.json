@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/m2_prompt.schema.json",
+  "title": "M2 prompt bundle (describe-verified-sql)",
+  "description": "The question M2 hands its author: every statement in the merged layer, grouped by domain, with what its outer select returns and every restriction it applies. The set is fixed; only the words are the author's. The answer is validated by m2_describe --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": "m2_describe"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fields": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "optional"
+      ]
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vq_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "restrictions": {
+                  "type": "array"
+                }
+              },
+              "required": [
+                "vq_id",
+                "sql"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "domain",
+          "n",
+          "queries"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "instruction",
+    "fields",
+    "tasks"
+  ]
+}

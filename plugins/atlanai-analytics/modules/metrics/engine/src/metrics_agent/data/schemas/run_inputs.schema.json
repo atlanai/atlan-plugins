@@ -1,0 +1,655 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/run_inputs.schema.json",
+  "title": "Run inputs (S0 output)",
+  "description": "What S0 settled from run.yml: the plugs this run uses (each with the settings it is built with at every later stage), the dialect, the mode, the profile, the bounded tables and where output may go. Paths and names only, never contents. Names no plug, source or destination of its own (AGENT_GUARDRAILS rule 22).",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "run_id",
+    "generated_at",
+    "scope",
+    "dialect",
+    "profile",
+    "mode",
+    "witness_mode",
+    "sql_check",
+    "bi",
+    "querylog",
+    "bounded_tables",
+    "outputs",
+    "publish_target",
+    "policy",
+    "plugs",
+    "config"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "plug_entry": {
+      "type": "object",
+      "required": [
+        "name",
+        "custody",
+        "package",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "custody": {
+          "enum": [
+            "customer",
+            "third-party",
+            null
+          ],
+          "description": "Whose systems the plug's data passes through: the customer's own, or a third party's store (refused in a standalone run); null for outputs and observers. The instance's, which may be stricter than the class's: a file whose sidecar says it passed through a third party."
+        },
+        "custodian": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Who holds a third-party plug's data, as the plug names it."
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The installed package that provides the plug."
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The installed plug package's version."
+        },
+        "settings": {
+          "type": "object",
+          "description": "The plug's own settings.<plug> block of run.yml, validated against its declarations, with each `path` setting made absolute. Present for an input plug. Never a credential: run.yml cannot carry one."
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Every FILE the plug reads (its `path` settings), each with its sha256, so a changed or reordered input is visible on the record. Paths and hashes only, never bytes.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": [
+        "role",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The neutral role a reader gives an asset (`workbook`, `report`, ...)."
+        },
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The asset's id in the catalogue that resolved it."
+        },
+        "qualified_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "not_third_party": {
+      "description": "An entry (or every entry of a list) whose data does not pass through a third party.",
+      "properties": {
+        "custody": {
+          "not": {
+            "const": "third-party"
+          }
+        }
+      },
+      "items": {
+        "properties": {
+          "custody": {
+            "not": {
+              "const": "third-party"
+            }
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Slug identifying this estate scope. Feeds every source_id."
+    },
+    "dialect": {
+      "type": "string",
+      "minLength": 1,
+      "description": "REQUIRED and blocking. Consumed by A3 authoring, B3/B5 sqlglot read, every witness, and definition.dialect. Never inferred."
+    },
+    "profile": {
+      "enum": [
+        "bi-only",
+        "history-only",
+        "both"
+      ],
+      "description": "Derived from which definitional inputs were supplied. All three are first-class."
+    },
+    "mode": {
+      "enum": [
+        "standalone",
+        "connected"
+      ],
+      "description": "WHERE THE INPUTS MAY COME FROM, never where output goes. `standalone` reads only the customer's own systems: every input plug has custody `customer`, and a third-party plug is refused by name before anything is read (no flag relaxes it). `connected` reads through at least one third-party plug."
+    },
+    "witness_mode": {
+      "enum": [
+        "none",
+        "parse",
+        "explain",
+        "execute"
+      ]
+    },
+    "sql_check": {
+      "type": "object",
+      "required": [
+        "compiled",
+        "declared",
+        "warning"
+      ],
+      "additionalProperties": false,
+      "description": "Whether this run compiles its statements against a warehouse, said where nobody can miss it: a run with no SQL check ships every statement `parse_only`, and SQL that parses but cannot run goes unnoticed. `metrics-agent run` repeats `warning` when it ends.",
+      "properties": {
+        "compiled": {
+          "type": "boolean",
+          "description": "True when a SQL check explains or executes every statement (`witness_mode` explain or execute)."
+        },
+        "declared": {
+          "type": "boolean",
+          "description": "True when run.yml states the choice itself: a SQL check listed, or, with none, `witness_mode` written out (how the set-up interview records a declined SQL check). False when the run fell back to `parse` because run.yml said nothing."
+        },
+        "warning": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "With nothing compiled: what that costs, in plain words. Null when every statement is compiled."
+        }
+      }
+    },
+    "bi": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "vendor",
+            "sources"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The first BI plug's definitions."
+            },
+            "vendor": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The BI vendor: the name of an installed BI reader (`metrics_agent.readers`). Any string here: which readers exist is checked against the installed ones at S0, never fixed in this schema. `mixed` when the plugs' models come from different vendors."
+            },
+            "sources": {
+              "type": "array",
+              "minItems": 1,
+              "description": "Every BI plug's definitions, in the order listed. A1 parses each on its own; with several, it merges them with every unit, container and domain prefixed by the plug.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "plug",
+                  "path",
+                  "vendor"
+                ],
+                "properties": {
+                  "plug": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "vendor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The BI vendor: the name of an installed BI reader (`metrics_agent.readers`). Any string here: which readers exist is checked against the installed ones at S0, never fixed in this schema."
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The ONE model to read when the definitions hold several, as the operator named it (`settings.<plug>.bi_model`: an id or a name). Handed to the reader as it is; the reader matches it against what the file holds and refuses an ambiguous or unmatched one by name. Absent when unset."
+                  },
+                  "assets": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/asset"
+                    },
+                    "description": "The catalogue identities of the BI assets the plug delivered (`bi_assets`), so a published object can name its source by id. Empty when the plug resolves none."
+                  },
+                  "capture": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "route",
+                      "captured_at",
+                      "role",
+                      "rows_on_disk",
+                      "oracle_files",
+                      "refused"
+                    ],
+                    "description": "Present when the definitions came from a capture (`bi_capture.schema.json`): a browser capture or an MCP capture, how and as whom they were captured, and every gap it named (what the route could not give, and what the run therefore cannot verify). `path` is then the capture's `definitions`.",
+                    "properties": {
+                      "route": {
+                        "enum": [
+                          "browser",
+                          "mcp"
+                        ]
+                      },
+                      "captured_at": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "role": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The role of the identity the browser was signed in as."
+                      },
+                      "row_filters_apply": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "rows_on_disk": {
+                        "type": "boolean"
+                      },
+                      "oracle_files": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "refused": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": "The refusal codes the capture recorded."
+                      },
+                      "routes": {
+                        "type": "array",
+                        "items": {
+                          "enum": [
+                            "browser",
+                            "mcp",
+                            "api",
+                            "file"
+                          ]
+                        },
+                        "description": "Every route a file came by, when the capture mixes them."
+                      },
+                      "server": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "name",
+                          "version",
+                          "transport"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "version": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "transport": {
+                            "enum": [
+                              "stdio",
+                              "http"
+                            ]
+                          }
+                        },
+                        "description": "The MCP server an `mcp` capture came from, as it named itself."
+                      },
+                      "gaps": {
+                        "type": "array",
+                        "description": "What the capture does not hold, and what the run therefore cannot verify (`bi_capture` gap). Printed by S0; never silent.",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "what",
+                            "cannot_verify"
+                          ],
+                          "properties": {
+                            "what": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "cannot_verify": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "detail": {
+                              "type": "string"
+                            },
+                            "objects": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "access_code": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "querylog": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plugs",
+            "engine",
+            "window_start",
+            "window_end"
+          ],
+          "properties": {
+            "plugs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "The history plugs H0 reads, in order, as ONE corpus."
+            },
+            "engine": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The engine the history came out of, when a history plug's settings name it. Checked against the dialect."
+            },
+            "window_start": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "window_end": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "bounded_tables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "tables"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "run.yml",
+            "plug-scope",
+            "bi-lineage"
+          ],
+          "description": "Which route supplied the set: run.yml's `tables`, the union of the tables the scope plugs resolved, or the BI models' own lineage. Never defaulted silently."
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Each destination's target, by output plug: identifiers only (a workspace, a base URL), settled by the plug. A credential comes from the environment and is never recorded.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string",
+          "minLength": 1
+        },
+        "propertyNames": {
+          "not": {
+            "pattern": "(?i)(token|secret|password|passwd|api[_-]?key|private[_-]?key|credential)"
+          }
+        }
+      }
+    },
+    "publish_target": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "Where this run may publish: the lanes the output plugs in run.yml's `publish` declare, sorted (`files` alone: nothing leaves the run directory). The operator's decision, never defaulted. A write stage refuses a lane outside it; a dry run is never blocked."
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ]
+    },
+    "plugs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "history",
+        "schema",
+        "bi",
+        "scope",
+        "sql_check",
+        "publish",
+        "observers"
+      ],
+      "description": "The plugs this run uses, per capability. Each input capability is a list (several plugs per run); sql_check is one plug, a list of plugs (each checking the databases it holds), or null (parse-only). An input plug carries the settings it is built with.",
+      "properties": {
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plug_entry"
+          }
+        },
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plug_entry"
+          }
+        },
+        "bi": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plug_entry"
+          }
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plug_entry"
+          }
+        },
+        "sql_check": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/plug_entry"
+            },
+            {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "$ref": "#/$defs/plug_entry"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "publish": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plug_entry"
+          },
+          "minItems": 1
+        },
+        "observers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/plug_entry"
+          }
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "description": "The run.yml that described this run: its path and the hash of its bytes.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "description": "THE HARD RULE ON THE CONTRACT: a standalone run reads through no third party, whatever wrote this record.",
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "standalone"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "plugs": {
+            "properties": {
+              "history": {
+                "$ref": "#/$defs/not_third_party"
+              },
+              "schema": {
+                "$ref": "#/$defs/not_third_party"
+              },
+              "bi": {
+                "$ref": "#/$defs/not_third_party"
+              },
+              "scope": {
+                "$ref": "#/$defs/not_third_party"
+              },
+              "sql_check": {
+                "$ref": "#/$defs/not_third_party"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/metric_relationships.schema.json",
+  "title": "metric_relationships",
+  "description": "Two shapes, one file. The ANSWER a person writes at the X4 gate \u2014 `relationships[]`, keyed by metric name \u2014 and the ARTIFACT the stage writes back, `edges[]`, already resolved to metric refs and ready for POST /artifacts/metric/{id}/relationships. Both are accepted here because the stage validates the answer with the same schema it validates its own output against, and a drift between the two would be a drift nobody notices.",
+  "type": "object",
+  "anyOf": [
+    {
+      "required": [
+        "relationships"
+      ]
+    },
+    {
+      "required": [
+        "edges"
+      ]
+    }
+  ],
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "string"
+    },
+    "n_edges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "relationships": {
+      "type": "array",
+      "description": "The answer: one entry per metric that derives from something. A metric that derives from nothing is omitted, not listed empty.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric",
+          "depends_on"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The metric's `name`, exactly as the card spells it."
+          },
+          "depends_on": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "metric",
+                "relation",
+                "why"
+              ],
+              "properties": {
+                "metric": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The TARGET metric's name \u2014 what this one is derived from."
+                },
+                "relation": {
+                  "type": "string",
+                  "enum": [
+                    "derivation",
+                    "restriction",
+                    "grain_variant",
+                    "alternative"
+                  ],
+                  "description": "What the relationship IS, in metric terms. The stage maps it to the edge vocabulary \u2014 `derivation` and `restriction` write `depends_on`, the other two write the symmetric `alternative` \u2014 and carries this word itself in the edge's attributes, because `depends_on` is the same name for a ratio's numerator and for a narrowed population."
+                },
+                "role": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "What the target plays: numerator, denominator or component on a derivation, base on a restriction. Refused on a grain_variant or an alternative, which have no roles."
+                },
+                "why": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "What the target CONTRIBUTES, in a sentence a reader can check against the two SQL bodies. An edge nobody can check is worse than no edge."
+                },
+                "exact": {
+                  "type": "boolean",
+                  "description": "True when the populations nest \u2014 every row the target counts is a row this metric counts, or the composition is arithmetically exact. Default true."
+                },
+                "differs": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Required when `exact` is false: what does NOT line up. A consumer dividing one of these by the other needs this sentence."
+                },
+                "label": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Free prose carried onto the graph edge itself."
+                },
+                "confidence": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "The stage's own output: one resolved edge per assertion, in the shape POST .../relationships takes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "rel_type"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rel_type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The edge type, derived from `relation`: `depends_on` or `alternative`. Never invented: an unknown type would be known to no reader."
+          },
+          "role": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "attributes": {
+            "type": "object",
+            "description": "Carried onto the edge verbatim and read by nothing structurally: it is where the reasoning goes."
+          },
+          "relation": {
+            "type": "string",
+            "description": "The metric-domain relation this edge was asserted as."
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "edge"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

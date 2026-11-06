@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/a1_sidecar.schema.json",
+  "title": "A1 sidecar: A2's inputs carried out of the bi_facts contract",
+  "description": "What a parser knows about each usage unit that is not a fact about the model: the aggregation chosen at the use site per measure (a field placed on a shelf, where the tool chooses the aggregation there) and the visuals beside it on its page. Also which PUBLISHED datasources were resolved against a .tds beside the workbook and which resolved to nothing. A parser emits these as `_aggregations`, `_siblings`, `_resolved_published` and `_unresolved_published`; A1 pops them out of bi_facts and writes them here.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "per_unit": {
+      "type": "object",
+      "description": "Keyed by usage unit_id.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "aggregations": {
+            "type": "object",
+            "description": "measure name -> the aggregation at the use site.",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "siblings": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "description": "Titles of the other visuals on the same page; null where the parser does not record them.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "aggregations",
+          "siblings"
+        ]
+      }
+    },
+    "resolved_published_datasources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unresolved_published_datasources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "per_unit",
+    "resolved_published_datasources",
+    "unresolved_published_datasources"
+  ]
+}

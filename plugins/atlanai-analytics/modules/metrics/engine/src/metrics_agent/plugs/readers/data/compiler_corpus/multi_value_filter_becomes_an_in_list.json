@@ -1,0 +1,46 @@
+{
+  "name": "multi_value_filter_becomes_an_in_list",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c6",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "units_sold",
+        "aggregation": "sum",
+        "formula": null,
+        "formula_language": null
+      }
+    ],
+    "filters": [
+      {
+        "stage": "dimension",
+        "column": "season_code",
+        "op": "in",
+        "value": [
+          "AW25",
+          "SS25"
+        ],
+        "scope": "ws",
+        "evidence": "visual-usage"
+      }
+    ],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT SUM(t.units_sold) AS units_sold\nFROM   retail.fct_sales t\nWHERE  t.season_code IN ('AW25', 'SS25')",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "agg.sum",
+    "op.in"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "season_code",
+      "units_sold"
+    ]
+  }
+}

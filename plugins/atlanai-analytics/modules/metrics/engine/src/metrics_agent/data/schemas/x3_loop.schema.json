@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/x3_loop.schema.json",
+  "title": "X3 author-repair loop report",
+  "description": "Why the X3 repair loop stopped, and what each round refused.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stop": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rounds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "round": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "outcome": {
+            "type": "string",
+            "minLength": 1
+          },
+          "n_cards": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "n_file_problems": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "round",
+          "outcome"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stop",
+    "rounds",
+    "history"
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/c3_prompt.schema.json",
+  "title": "C3 prompt bundle (author-questions)",
+  "description": "The question C3 hands its author: each candidate's frozen SQL and structure with its bi_context INLINE, so the author opens no BI file. The answer is validated by c3_questions --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lane": {
+            "type": "string"
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aggregations": {
+            "type": "array"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string"
+                },
+                "op": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "column",
+                "op"
+              ]
+            }
+          },
+          "bi_context": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "adoption": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "candidate_id",
+          "lane",
+          "sql",
+          "tables",
+          "group_by",
+          "aggregations",
+          "filters"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "instruction",
+    "evidence_sources",
+    "items"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "name": "dax_distinctcount_counts_the_blank",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "dc",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "status"
+    ],
+    "measures": [
+      {
+        "name": "Customers",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "DISTINCTCOUNT(Sales[customer_key])"
+      },
+      {
+        "name": "Online Customers",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(DISTINCTCOUNT(Sales[customer_key]), Sales[channel] = \"ONLINE\")"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.status,\n       NULLIF(COUNT(DISTINCT t.customer_key) + MAX(CASE WHEN t.customer_key IS NULL THEN 1 ELSE 0 END), 0) AS customers,\n       (NULLIF(COUNT(DISTINCT CASE WHEN UPPER(RTRIM(t.channel)) = 'ONLINE' THEN t.customer_key END) + MAX(CASE WHEN (UPPER(RTRIM(t.channel)) = 'ONLINE') AND t.customer_key IS NULL THEN 1 ELSE 0 END), 0)) AS online_customers\nFROM   retail.fct_sales t\nGROUP BY t.status",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.distinctcount",
+    "engine.dax_count_blank",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

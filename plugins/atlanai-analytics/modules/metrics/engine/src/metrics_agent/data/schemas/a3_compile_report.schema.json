@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/a3_compile_report.schema.json",
+  "title": "A3 compile report",
+  "description": "What the BI compiler did with each usage unit: how many compiled, how many partially, which it refused and why, and the constructs a new rule would have to cover (`gaps`). A3b reads it to build its review bundle; the loop driver reads `coverage_pct`.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "rules_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rules": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provisional_rules": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "units": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "compiled": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "partial": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "refused": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unknown": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "untranslatable": {
+            "type": "array"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "reason",
+          "unknown",
+          "untranslatable"
+        ]
+      }
+    },
+    "partial_units": {
+      "type": "array",
+      "description": "Every unit that compiled with a named gap: its candidate, what the statement leaves out and why, and the constructs a new rule would have to cover.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unknown": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "untranslatable": {
+            "type": "array"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "candidate_id",
+          "reason",
+          "unknown",
+          "untranslatable"
+        ]
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unknown": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "unknown",
+          "reason"
+        ]
+      }
+    },
+    "coverage_pct": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "counts",
+        "widgets",
+        "measures"
+      ],
+      "description": "The conversion-quality grade the COMPILE earned (lib/quality.py), per widget and per measure: exact, equivalent_with_gotcha, approximate or refused, each with its reason. Verification is added at A4: the candidate's `quality` is the final grade (`unverified` when no warehouse accepted the statement).",
+      "properties": {
+        "counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "widgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "unit_id",
+              "grade",
+              "reason"
+            ],
+            "properties": {
+              "unit_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "candidate_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "grade": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "measures": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "measures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "measure",
+              "grade",
+              "reason",
+              "units"
+            ],
+            "description": "Each measure a compiled widget shows: the worst grade of those widgets (a construct left out counts against the measure it is in only), its reason and the widgets.",
+            "properties": {
+              "measure": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "grade": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "units": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "rules_sha",
+    "rules",
+    "provisional_rules",
+    "units",
+    "compiled",
+    "partial",
+    "refused",
+    "gaps",
+    "coverage_pct"
+  ]
+}

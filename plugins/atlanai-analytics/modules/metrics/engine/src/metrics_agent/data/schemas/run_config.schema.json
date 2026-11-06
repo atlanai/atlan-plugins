@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/run_config.schema.json",
+  "title": "Run configuration (run.yml)",
+  "description": "Which plugs a run uses and their non-secret settings. Written by `metrics-agent setup` or by hand. Secrets never go here: each plug reads them from the environment variables it declares. Each input capability and the output take a LIST of plugs, served in the order listed (one history corpus, a schema union, several BI vendors, a scope union). The SQL check is one plug, a list of plugs that each check the databases they hold, or none (parse-only); a run has one SQL dialect. A plug is listed once per run; several sources of the same kind go in that plug's settings.",
+  "type": "object",
+  "required": [
+    "version",
+    "scope",
+    "dialect",
+    "mode",
+    "inputs",
+    "publish"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "plug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "plugs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plug"
+      },
+      "uniqueItems": true
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}"
+    }
+  },
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Feeds every source_id."
+    },
+    "dialect": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Read by every stage; never defaulted."
+    },
+    "mode": {
+      "enum": [
+        "standalone",
+        "connected"
+      ],
+      "description": "Where inputs may come from: `standalone` reads only the customer's own systems; `connected` reads through at least one third-party plug."
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "history": {
+          "$ref": "#/$defs/plugs"
+        },
+        "schema": {
+          "$ref": "#/$defs/plugs"
+        },
+        "bi": {
+          "$ref": "#/$defs/plugs"
+        },
+        "sql_check": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/plug"
+            },
+            {
+              "$ref": "#/$defs/plugs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "$ref": "#/$defs/plugs"
+        }
+      }
+    },
+    "publish": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/plug"
+      },
+      "description": "Never defaulted. An empty list is refused; [files] means publish nowhere."
+    },
+    "observers": {
+      "$ref": "#/$defs/plugs"
+    },
+    "witness_mode": {
+      "enum": [
+        "none",
+        "parse",
+        "explain",
+        "execute"
+      ],
+      "description": "How each statement is checked. Normally the SQL-check plug's own `witness_mode` setting (default explain); here for a run with no SQL check, which is `parse` unless this says `none`."
+    },
+    "settings": {
+      "type": "object",
+      "description": "Per-plug, non-secret settings, keyed by plug name.",
+      "propertyNames": {
+        "$ref": "#/$defs/plug"
+      },
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/date"
+        },
+        "end": {
+          "$ref": "#/$defs/date"
+        }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[^.]+\\.[^.]+\\.[^.]+$"
+      },
+      "description": "Optional bounded table set, DB.SCHEMA.TABLE."
+    }
+  }
+}

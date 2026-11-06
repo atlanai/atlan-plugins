@@ -1,0 +1,626 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/verified_queries.schema.json",
+  "title": "The verified-query layer (C5 output)",
+  "description": "The run's canonical artifact \u2014 warehouse-neutral and destination-neutral, so it can be diffed, reviewed and re-pushed without re-running anything upstream. layer_sha binds every downstream artifact to exactly this content.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "layer_sha": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dialect": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "enum": [
+        "bi-only",
+        "history-only",
+        "both"
+      ]
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "vq_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Deterministic \u2014 BI workbook/report name or warehouse schema, verbatim. A categories value, never a dataset boundary."
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "joins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "left": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "right": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "left",
+                "right"
+              ]
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "op": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "stage": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "negated": {
+                  "type": "boolean",
+                  "description": "true when an enclosing NOT excludes this predicate rather than requiring it"
+                },
+                "value_kind": {
+                  "type": "string",
+                  "enum": [
+                    "literal",
+                    "column",
+                    "expression",
+                    "absent"
+                  ],
+                  "description": "what the predicate compares the column to; only a literal can be tuned"
+                },
+                "scope_tables": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The real base tables the select owning this predicate restricts. A predicate restricts the select it sits in, not the statement; without this, filters from every CTE were attributed flat to the metric's one entity."
+                },
+                "in_source": {
+                  "type": "boolean",
+                  "description": "The predicate is the WHERE of a derived table the statement reads from: it defines the rows of the table (a BI tool's own query steps), so every metric over the statement keeps it as a mandatory filter."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "column",
+                "op"
+              ]
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "grain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "klass": {
+            "enum": [
+              "metric",
+              "segmentation",
+              "cohort",
+              "lookup",
+              "trend"
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "gotchas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope_when": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "label",
+                "scope_when",
+                "evidence"
+              ]
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "metric_refs this query computes. Populated from d2's metric_refs.json at r1/d6 join time, NOT edited into this artifact: a stage that mutates another stage's output breaks ownership and resumability, and layer_sha would stop identifying what c5 produced."
+          },
+          "label": {
+            "enum": [
+              "verified",
+              "parse_only",
+              "needs_review"
+            ],
+            "description": "The FROZEN vocabulary. Never 'approved' \u2014 the agent certifies nothing."
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "lane": {
+                "enum": [
+                  "bi",
+                  "history",
+                  "merged"
+                ]
+              },
+              "bi": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "history": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "evidence_citations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "claim": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "description": "Closed vocabulary (lib/evidence.py): the core's sources plus the formula languages the installed BI readers declare. `x-vocabulary` is filled from them when the schema is loaded (lib/artifacts.py).",
+                      "x-vocabulary": "evidence"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "claim",
+                    "source"
+                  ]
+                },
+                "description": "Closed world: every filter and literal cites evidence. No citation, no filter."
+              },
+              "ranking_basis": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Names the substitute a single-lane run used (e.g. n_dashboards) so a reviewer can see WHY this object ranked."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "lane",
+              "ranking_basis"
+            ]
+          },
+          "witness": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "parse_ok",
+                      "parse_failed",
+                      "pass",
+                      "fail",
+                      "empty",
+                      "skipped_no_substrate",
+                      "missing_object",
+                      "disabled"
+                    ]
+                  },
+                  "rows": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "hash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "executed_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "sample": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "bound_parameters": {
+                    "type": "object"
+                  },
+                  "mode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "none",
+                      "parse",
+                      "explain",
+                      "execute",
+                      null
+                    ],
+                    "description": "Which witness mode produced this verdict. `verified` means the warehouse accepted the statement; this says how strongly \u2014 `execute` ran it and `rows`/`hash` are present, `explain` compiled it and they are null. The frozen label vocabulary cannot carry that distinction, so it is recorded here."
+                  },
+                  "viewer_bound": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "user_name",
+                        "full_name"
+                      ]
+                    },
+                    "description": "The viewer values this verdict was executed with, bound in memory to the fetching identity and never recorded: their NAMES only. Every value equal to one is masked out of the sample and the error."
+                  },
+                  "access": {
+                    "description": "The access limit that kept this statement from being checked against the warehouse (an access_report code, and the warehouse's own answer). The statement is `skipped_no_substrate`, so it is labelled unverified, and the run's access_report.json names the blocker with what to ask for.",
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z_]*$"
+                      },
+                      "detail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "withheld_bound": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^withheld_[1-9][0-9]*$"
+                    },
+                    "description": "The withheld literals (lib/withheld) this verdict was executed with, read again from the BI file and bound in memory, never recorded: their NAMES only. Every value equal to one is masked out of the sample and the error."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "result"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_values": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "description": "Literals observed across the collapsed group. Two queries differing only in a literal share one shape and only the representative's value stays in the SQL; these are the others, which retrieval would otherwise never find.",
+            "properties": {
+              "by_column": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      },
+                      "n_exec": {
+                        "type": "integer"
+                      },
+                      "n_users": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "tokens": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Flat, deduplicated, sorted. This is the list that goes to input.observed_values, which is what a destination's text search scans."
+              },
+              "withheld": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "description": "Per column, how many values the cap or the floor held back. A cap that bites is reported, never silent."
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "name_provisional": {
+            "type": "boolean",
+            "description": "true when no description has been written for this object yet: its name and question come from the estate's own column alias, not from an author. A consumer can tell an unnamed measure from a named one."
+          },
+          "viewer_binds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bindable",
+              "placeholders"
+            ],
+            "description": "The statement is FILTERED TO THE VIEWING USER: it reads the name (or full name) of whoever runs it as a bind placeholder, never as a value (guardrail 8). `placeholders` names each one as the statement spells it; a consumer binds it to the name of the person asking. `bindable`: verification could bind it to the fetching identity's name, held in memory only and never written.",
+            "properties": {
+              "bindable": {
+                "type": "boolean"
+              },
+              "placeholders": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "of",
+                    "placeholder"
+                  ],
+                  "properties": {
+                    "of": {
+                      "enum": [
+                        "user_name",
+                        "full_name"
+                      ]
+                    },
+                    "placeholder": {
+                      "type": "string",
+                      "minLength": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "quality": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "grade",
+              "reason"
+            ],
+            "description": "The conversion-quality grade (lib/quality.py; wording and order in policy `quality.*`): how close this SQL is to the number the BI tool shows. `exact`: a complete translation naming no difference, accepted by the warehouse; `equivalent_with_gotcha`: the same number under a named condition; `approximate`: part of the formula has no SQL form, named; `unverified`: no warehouse accepted it, and why; `refused`: no SQL. A grade names its evidence (`verified_by`); it is never a value check against the BI tool.",
+            "properties": {
+              "grade": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "compile_grade": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ],
+                "description": "The grade the compile alone earned (A3), before the witness."
+              },
+              "differences": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "What the compiler names as differing from the BI formula: each gotcha, or each construct left out."
+              },
+              "verified_by": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "`witness:<mode>` when the warehouse accepted the statement; null otherwise."
+              }
+            }
+          },
+          "withheld_binds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "placeholders"
+            ],
+            "description": "The statement COMPARES WITH A WITHHELD LITERAL: a person's address or name the BI file holds, which no artifact keeps (guardrail 8). It reads each one as a bind placeholder (`of` withheld_N, the same N for the same value across the run); whoever runs it binds it to the value the BI file's own formula or filter holds. Verification binds it in memory, from the BI file, and drops it.",
+            "properties": {
+              "placeholders": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "of",
+                    "placeholder"
+                  ],
+                  "properties": {
+                    "of": {
+                      "type": "string",
+                      "pattern": "^withheld_[1-9][0-9]*$"
+                    },
+                    "placeholder": {
+                      "type": "string",
+                      "minLength": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "vq_id",
+          "name",
+          "question",
+          "sql",
+          "domain",
+          "tables",
+          "group_by",
+          "grain",
+          "klass",
+          "label",
+          "provenance"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "layer_sha",
+    "dialect",
+    "generated_at",
+    "scope",
+    "profile",
+    "objects"
+  ]
+}

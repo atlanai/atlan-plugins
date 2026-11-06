@@ -1,0 +1,50 @@
+{
+  "name": "tableau_percent_of_total_is_a_window_over_the_view",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel",
+      "department"
+    ],
+    "measures": [
+      {
+        "name": "share",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "SUM([units_sold]) / TOTAL(SUM([units_sold]))",
+        "table_calc": {
+          "addressing": [
+            "department"
+          ],
+          "partitioning": [
+            "channel"
+          ]
+        }
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       t.department,\n       (SUM(t.units_sold) / NULLIF((SUM(SUM(t.units_sold)) OVER (PARTITION BY t.channel)), 0)) AS share\nFROM   retail.fct_sales t\nGROUP BY t.channel, t.department",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "engine.table_calc",
+    "tableau.divide_operator",
+    "tableau.sum",
+    "tableau.total"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "department",
+      "units_sold",
+      "customer",
+      "order_date"
+    ]
+  }
+}

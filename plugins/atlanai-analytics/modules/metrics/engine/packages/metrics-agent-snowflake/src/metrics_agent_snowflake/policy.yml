@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Atlan Pte. Ltd.
+# The Snowflake package's own policy: its defaults, merged under the run's policy
+# (lib/policy.py). An operator's policy file overrides the section by naming it.
+
+# ---------------------------------------------------------------- semantic_view
+semantic_view:
+  # A view that declares NO relationship (a catalog reconstruction can lose them) cannot place
+  # a metric that reads two tables. When true, the reader infers only the joins its own
+  # metrics need, from primary keys, marking each `kind: "inferred"`: and only on a key that
+  # names one table and is not the joining table's own (so `ID = ID` never joins two tables).
+  # A declared relationship always wins: nothing is inferred when any is declared. Off: a join
+  # nobody declared is a guess about the grain.
+  infer_relationships_from_primary_keys: false
+
+# Native history is always bounded. Overflow blocks instead of silently dropping groups.
+snowflake_history:
+  default_days: 90
+  max_days: 365
+  max_shapes: 5000

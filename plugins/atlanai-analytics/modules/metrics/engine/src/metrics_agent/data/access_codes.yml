@@ -1,0 +1,153 @@
+# The access limits a run names, by neutral code (access_report.schema.json `$defs/code`; a
+# test keeps the two lists equal). For each: where the limit is (`layer`), whether it holds
+# for everything a source would read or for one item (`scope`), what it does to that item
+# (`effect`), whom to ask by role (`who`), and what the run does instead (`did_instead`).
+# A plug or a stage that meets one names the item and what exactly to ask for; it may name a
+# more precise `who` or `did_instead`. No vendor is named here: a plug converts its tool's
+# answer into one of these codes.
+#
+#   effect   not_read: the item was not read at all
+#            partial: read through a poorer route; what is missing is said
+#            unverified: read, and what it should have been checked against was not
+#   who      operator | bi_item_owner | bi_workspace_admin | bi_site_admin |
+#            bi_tenant_admin | warehouse_admin
+
+sign_in_failed:
+  layer: bi
+  scope: run
+  effect: not_read
+  who: operator
+  did_instead: read nothing through this source and went on with the run's other inputs
+
+missing_scope:
+  layer: bi
+  scope: item
+  effect: partial
+  who: bi_site_admin
+  did_instead: went on without what the missing scope reads
+
+no_access_to_item:
+  layer: bi
+  scope: item
+  effect: not_read
+  who: bi_item_owner
+  did_instead: left the item out and read every other item
+
+definition_needs_edit_rights:
+  layer: bi
+  scope: item
+  effect: partial
+  who: bi_workspace_admin
+  did_instead: tried the item's file download instead
+
+download_refused:
+  layer: bi
+  scope: item
+  effect: not_read
+  who: bi_item_owner
+  did_instead: tried the BI tool's catalogue for the item's definition instead; where that was not available either, left the item out
+
+seat_cannot_download:
+  layer: bi
+  scope: run
+  effect: not_read
+  who: bi_site_admin
+  did_instead: read nothing that needs a download and went on with the run's other inputs
+
+model_not_queryable:
+  layer: bi
+  scope: item
+  effect: unverified
+  who: bi_item_owner
+  did_instead: read the model's definition; the values it shows were not read, so nothing is compared with them
+
+bound_model_unreachable:
+  layer: bi
+  scope: item
+  effect: not_read
+  who: bi_workspace_admin
+  did_instead: read the report's own definition; its visuals resolve to no model, so no SQL is compiled for them
+
+upstream_model_unavailable:
+  layer: bi
+  scope: item
+  effect: not_read
+  who: bi_workspace_admin
+  did_instead: read the composite model's own tables; what it reads from the unavailable model is refused by name at A1
+
+row_level_security:
+  layer: bi
+  scope: item
+  effect: unverified
+  who: bi_item_owner
+  did_instead: compiled the SQL without the per-viewer row filter; values checked as the fetching identity hold for that identity only
+
+catalog_api_unavailable:
+  layer: bi
+  scope: run
+  effect: partial
+  who: bi_tenant_admin
+  did_instead: read the downloaded definitions only, with no catalogue fallback for an item whose download is refused
+
+value_service_off:
+  layer: bi
+  scope: run
+  effect: unverified
+  who: bi_tenant_admin
+  did_instead: read the definitions; the values the BI tool shows were not read, so nothing is compared with them
+
+source_credentials_missing:
+  layer: bi
+  scope: item
+  effect: unverified
+  who: bi_item_owner
+  did_instead: read the data source's definition; the BI tool could not query it, so its values were not read
+
+fetch_incomplete:
+  layer: bi
+  scope: item
+  effect: not_read
+  who: operator
+  did_instead: left the item out and read every other item
+
+capture_gap:
+  layer: capture
+  scope: run
+  effect: unverified
+  who: operator
+  did_instead: read what the capture holds; what the gap names is not checked
+
+warehouse_sign_in_failed:
+  layer: warehouse
+  scope: run
+  effect: unverified
+  who: warehouse_admin
+  did_instead: checked every statement by parsing only (skipped_no_substrate); each is published unverified
+
+warehouse_unavailable:
+  layer: warehouse
+  scope: run
+  effect: unverified
+  who: warehouse_admin
+  did_instead: stopped sending statements after the first refusal and checked the rest by parsing only (skipped_no_substrate); each is published unverified
+
+no_select_grant:
+  layer: warehouse
+  scope: item
+  effect: unverified
+  who: warehouse_admin
+  did_instead: checked the statements over this table by parsing only (skipped_no_substrate); each is published unverified
+
+object_not_visible:
+  layer: warehouse
+  scope: item
+  effect: unverified
+  who: warehouse_admin
+  did_instead: checked the statements over this table by parsing only (skipped_no_substrate); each is published unverified
+
+database_not_visible:
+  layer: warehouse
+  scope: item
+  effect: unverified
+  who: warehouse_admin
+  did_instead: checked the statements over this database by parsing only (skipped_no_substrate); each is published unverified

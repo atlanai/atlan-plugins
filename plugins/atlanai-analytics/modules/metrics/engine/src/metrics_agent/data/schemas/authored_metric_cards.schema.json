@@ -1,0 +1,367 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Authored metric cards",
+  "description": "What a person (or a model acting as one) writes at the X3 gate. Mirrors the metric card contract (metric_spec.schema.json), so a card that validates here is one X3 can emit.",
+  "type": "object",
+  "required": [
+    "metrics"
+  ],
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "domain",
+          "formula",
+          "population",
+          "aggregation",
+          "output",
+          "source"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The merged metric's name, verbatim."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the number means, in business words. No SQL."
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The part of the business, not the warehouse schema."
+          },
+          "formula": {
+            "type": "string",
+            "description": "THE MEASURE, as SQL. The complete aggregate, fully qualified \u2014 `COUNT(DISTINCT DB.SCHEMA.T.ID)`, or the whole guarded divide for a ratio. Opaque formula text to a destination (never parsed or executed there), and it is what a consumer assembles a statement from. Prose belongs in `description` and `population`: a sentence here is a metric whose definition cannot be built."
+          },
+          "population": {
+            "type": "string",
+            "minLength": 1
+          },
+          "grain": {
+            "type": "string",
+            "description": "THE KEY: the column(s) that make one row of the base table unique, comma-separated and fully qualified. It is what tells a consumer whether a join has multiplied rows. A description of the OUTPUT grain says nothing about that and belongs in `population`."
+          },
+          "aggregation": {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "sum",
+                  "count",
+                  "count_distinct",
+                  "min",
+                  "max",
+                  "ratio",
+                  "custom"
+                ]
+              },
+              "reaggregation": {
+                "enum": [
+                  "",
+                  "sum",
+                  "min",
+                  "max",
+                  "none"
+                ]
+              },
+              "null_handling": {
+                "enum": [
+                  "",
+                  "ignore",
+                  "zero_fill",
+                  "propagate"
+                ]
+              },
+              "zero_denominator": {}
+            }
+          },
+          "output": {
+            "type": "object",
+            "required": [
+              "alias",
+              "datatype"
+            ],
+            "properties": {
+              "alias": {
+                "type": "string",
+                "minLength": 1
+              },
+              "datatype": {
+                "enum": [
+                  "integer",
+                  "decimal",
+                  "string",
+                  "boolean",
+                  "date",
+                  "timestamp"
+                ]
+              },
+              "unit": {
+                "type": "string"
+              }
+            }
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "entity",
+              "alias"
+            ],
+            "properties": {
+              "entity": {
+                "type": "string",
+                "minLength": 1
+              },
+              "alias": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A business handle, not a column name."
+              },
+              "table": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The table the aggregate runs over \u2014 exactly one of table or sql."
+              },
+              "sql": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The query trimmed to what changes the population."
+              },
+              "timeframe_column": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "datatype",
+                    "default"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "datatype": {
+                      "type": "string"
+                    },
+                    "default": {}
+                  }
+                }
+              }
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mandatory_filters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "joins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "sql",
+                "cardinality"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "cardinality": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "A plain string with no enforced vocabulary. Say `many_to_one`/`one_to_one`/`one_to_many`/`many_to_many` where the BI model declares it, and `unknown` where nothing does \u2014 a SQL JOIN says nothing about multiplicity, and `INNER` is not `many_to_one`."
+                },
+                "origin": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "kind",
+                "sql",
+                "datatype"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "enum": [
+                    "categorical",
+                    "time",
+                    "geo",
+                    "boolean",
+                    "numeric"
+                  ]
+                },
+                "sql": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "datatype": {
+                  "enum": [
+                    "integer",
+                    "decimal",
+                    "string",
+                    "boolean",
+                    "date",
+                    "timestamp",
+                    "unknown"
+                  ],
+                  "description": "The card contract's vocabulary, plus `unknown`. A dimension whose datatype the warehouse and the catalogue DISAGREE about \u2014 or that neither declares \u2014 is admitted as `unknown` rather than dropped: the column is still sliceable, and guessing a type is how a consumer ends up comparing a date to a string. A destination may warn on it; the warning is the point."
+                },
+                "filter_form": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "values": {
+                  "type": "array"
+                },
+                "values_truncated": {},
+                "value_map": {},
+                "required_join": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "default": null,
+                  "description": "The join this dimension reads through, by name. A hint for readers: a consumer resolves what a dimension needs from the references in its expression and by following ON conditions, so a two-hop or two-join dimension needs nothing extra here."
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "NOT YOURS TO WRITE. The verified statement's own SQL is carried onto the card from the layer; naming the statement in `source` is the whole of an example. A value here is refused unless it matches the layer byte for byte."
+                },
+                "question": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "NOT YOURS TO WRITE either \u2014 the question was authored upstream over this same SQL and is carried with it."
+                },
+                "group_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "filters": {
+                  "type": "object"
+                },
+                "parameters": {
+                  "type": "object"
+                },
+                "result": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Anything the statements disagree about, said rather than papered over."
+          }
+        }
+      }
+    }
+  }
+}

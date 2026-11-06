@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/access_report.schema.json",
+  "title": "Access report",
+  "description": "Everything this run could not read because of an access, permission or availability limit, one named blocker per item: what was not read, what the run did instead, and exactly what to ask for and from whom. A blocker never stops the run: the run goes on with what it could read and marks what the blocker touches as unverified. Plugs hand blockers over in the `blocker` shape below (`$defs/blocker`); the core collects them here.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blocker"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "n_blockers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_code": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "by_who": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "statements_unverified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "widgets_unverified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metrics_unverified": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "n_blockers",
+        "by_code",
+        "by_who",
+        "statements_unverified",
+        "widgets_unverified",
+        "metrics_unverified"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "blockers",
+    "summary"
+  ],
+  "$defs": {
+    "code": {
+      "description": "The neutral name of the limit. The defaults for each (layer, scope, effect, who to ask, what the run does instead) are in data/access_codes.yml; a test keeps the two lists equal.",
+      "enum": [
+        "sign_in_failed",
+        "missing_scope",
+        "no_access_to_item",
+        "definition_needs_edit_rights",
+        "download_refused",
+        "seat_cannot_download",
+        "model_not_queryable",
+        "bound_model_unreachable",
+        "upstream_model_unavailable",
+        "row_level_security",
+        "catalog_api_unavailable",
+        "value_service_off",
+        "source_credentials_missing",
+        "fetch_incomplete",
+        "capture_gap",
+        "warehouse_sign_in_failed",
+        "warehouse_unavailable",
+        "no_select_grant",
+        "object_not_visible",
+        "database_not_visible"
+      ]
+    },
+    "who": {
+      "description": "Whom to ask, by role: the person running the agent, the owner of one BI item, a BI workspace or project admin, a BI site admin, a BI tenant admin, or a warehouse admin.",
+      "enum": [
+        "operator",
+        "bi_item_owner",
+        "bi_workspace_admin",
+        "bi_site_admin",
+        "bi_tenant_admin",
+        "warehouse_admin"
+      ]
+    },
+    "blocker": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/code"
+        },
+        "layer": {
+          "description": "Where the limit is: the BI tool, a capture route (browser or MCP), or the warehouse that verifies the SQL.",
+          "enum": [
+            "bi",
+            "capture",
+            "warehouse"
+          ]
+        },
+        "scope": {
+          "description": "`run`: the limit holds for everything this source would read (a sign-in, a suspended warehouse); `item`: for the one item named.",
+          "enum": [
+            "run",
+            "item"
+          ]
+        },
+        "effect": {
+          "description": "`not_read`: the item was not read at all; `partial`: it was read through a poorer route, and something is missing (said in `not_read`); `unverified`: it was read, and what it should have been checked against was not.",
+          "enum": [
+            "not_read",
+            "partial",
+            "unverified"
+          ]
+        },
+        "source": {
+          "description": "The plug the limit was met through.",
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "description": "The step that met it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "item": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        "not_read": {
+          "type": "string",
+          "minLength": 1
+        },
+        "did_instead": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ask": {
+          "type": "object",
+          "properties": {
+            "what": {
+              "type": "string",
+              "minLength": 1
+            },
+            "who": {
+              "$ref": "#/$defs/who"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "what",
+            "who"
+          ]
+        },
+        "detail": {
+          "description": "The tool's own answer (status and error code), with no credential, address or personal name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "affects": {
+          "type": "object",
+          "properties": {
+            "statements": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "widgets": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "metrics": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "layer",
+        "scope",
+        "effect",
+        "source",
+        "stage",
+        "item",
+        "not_read",
+        "did_instead",
+        "ask"
+      ]
+    }
+  }
+}

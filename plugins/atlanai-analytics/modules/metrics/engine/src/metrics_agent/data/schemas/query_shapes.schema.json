@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "query_shapes",
+  "description": "H1 \u2014 the estate's canonical query shapes, selected from the history corpus by composite trust. One entry per distinct structural skeleton, represented by its most-adopted query.",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "shapes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "slices": {
+      "type": "object",
+      "description": "slice name -> how many shapes it holds; the authoring stage bundles per slice",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "shapes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "shape_id",
+          "slice",
+          "sql",
+          "tables",
+          "users",
+          "exec",
+          "trust_score"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "shape_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "slice": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "users": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exec": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "trust_score": {
+            "type": "number"
+          },
+          "aggs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter_cols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "joins": {
+            "type": "array"
+          },
+          "enum_vals": {
+            "description": "observed literals: {column: [values]} where the miner knew the column, a flat list where it did not",
+            "oneOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "array"
+              }
+            ]
+          },
+          "win_funcs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "user_names": {
+            "description": "WHO asked this skeleton across its collapsed members, sorted. Present only with pii.redact_user_names: false, and only in the run directory: no publish destination accepts a user name.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "observed_values": {
+            "description": "literals the collapsed members of this skeleton carried, shaped by policy. Null where the shape had none.",
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "adoption": {
+            "type": "string",
+            "enum": [
+              "multi-analyst",
+              "single-analyst",
+              "unattributed"
+            ],
+            "description": "why the shape was admitted: corroborated by several analysts, the best of one analyst's, or from a source that records no adoption at all (a pre-aggregated source) \u2014 not a claim that anyone ran it."
+          },
+          "query_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "logged query ids this skeleton was executed as, across every collapsed member, sorted and capped at history_corpus.query_ids_per_shape. Empty when the source names no ids."
+          },
+          "n_query_ids": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "how many logged query ids the skeleton had in all; greater than len(query_ids) when the cap bit"
+          },
+          "query_ids_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SHA-256 over the sorted per-statement digests of the FULL id lists (query_corpus.jsonl query_ids_sha256), so a truncated list stays checkable"
+          },
+          "first_seen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "earliest logged start time of any member"
+          },
+          "last_seen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "latest logged start time of any member"
+          }
+        }
+      }
+    }
+  }
+}

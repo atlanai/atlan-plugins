@@ -1,0 +1,808 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/metric_spec.schema.json",
+  "title": "Canonical metric spec (D3b output)",
+  "description": "THE canonical, vendor-neutral metric artifact. One writer (x3_emit, the card gate), many readers: every output plug projects from this and never from another plug's output, and none computes a field that is not here. A superset by design \u2014 each target takes its slice; an unused field is correct, a derived one is not.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "spec_version",
+    "metrics"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "spec_version": {
+      "const": "1.0-draft.1",
+      "description": "The card contract version. Explicit dispatch: a reader performs no implicit upgrade or downgrade."
+    },
+    "dialect": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "layer_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "partial": {
+      "type": "object",
+      "description": "Present only when X3 ran with --partial and some merged metrics have no card. The layer is NOT publishable: r1b and g1 refuse it. Lists the merged metrics still unauthored.",
+      "properties": {
+        "unauthored": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "n_authored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_merged": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "unauthored",
+        "n_authored",
+        "n_merged"
+      ],
+      "additionalProperties": false
+    },
+    "metric_refs_by_vq": {
+      "type": "object",
+      "description": "Inverted `derived_from`: which metrics each verified query computes. R1 publishes it on every record, and it is what makes the metric layer and the verified-query layer checkable against each other (\u00a74.4).",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/metric"
+      }
+    }
+  },
+  "$defs": {
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric_ref",
+        "name",
+        "source_id",
+        "measure_id",
+        "formula",
+        "sql",
+        "entity",
+        "alias",
+        "aggregation",
+        "output",
+        "tier",
+        "tier_basis",
+        "status",
+        "derived_from",
+        "dialect"
+      ],
+      "properties": {
+        "metric_ref": {
+          "type": "string",
+          "description": "Family-scoped reference used to join slices and examples back to this metric."
+        },
+        "source_id": {
+          "type": "string",
+          "description": "The stable identity, derived from the MEASURE, not from the grouping. Renaming, regrouping and reformatting must not move it \u2014 an identity that shifts archives artifacts and REPLACES a layer that should have been REVISED."
+        },
+        "measure_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "domain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "formula": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "THE MEASURE, as SQL. The complete aggregate, fully qualified \u2014 `COUNT(DISTINCT DB.SCHEMA.T.ID)`, or the whole guarded divide for a ratio. Opaque formula text to a destination (never parsed or executed there), and it is what a consumer assembles a statement from. Prose belongs in `description` and `population`: a sentence here is a metric whose definition cannot be built."
+        },
+        "sql": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The canonical statement, NARROWED FROM a parent query rather than authored."
+        },
+        "entity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "alias": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeframe_column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "grain": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "THE KEY: the column(s) that make one row of the base table unique, comma-separated and fully qualified. It is what tells a consumer whether a join has multiplied rows. A description of the OUTPUT grain says nothing about that and belongs in `population`."
+        },
+        "population": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Prose and the declared filter list are derived from ONE source, so the two cannot disagree: a restriction that is not declared is not described either."
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mandatory_filters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "NOT the same list as definitional_filters: a definitional filter has a drop-when."
+        },
+        "parameters": {
+          "type": "array",
+          "description": "One entry per distinct NAME, values merged. Duplicate parameter names are refused outright.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "datatype"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "datatype": {
+                "type": "string"
+              },
+              "default": {}
+            }
+          }
+        },
+        "aggregation": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "reaggregation": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "null_handling": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "zero_denominator": {
+              "description": "Absence and explicit null are preserved separately; a ratio with neither is flagged."
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "alias",
+            "datatype"
+          ],
+          "properties": {
+            "alias": {
+              "type": "string"
+            },
+            "datatype": {
+              "type": "string"
+            },
+            "unit": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "Named only where the words say so."
+            }
+          }
+        },
+        "joins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name unique within this definition."
+              },
+              "to": {
+                "type": "string",
+                "description": "The fully-qualified table joined to."
+              },
+              "sql": {
+                "type": "string",
+                "description": "The ON condition. Opaque; never parsed."
+              },
+              "cardinality": {
+                "type": "string",
+                "description": "many_to_one | one_to_one | one_to_many."
+              },
+              "origin": {
+                "type": "string",
+                "description": "Why this join is here."
+              }
+            },
+            "required": [
+              "name",
+              "sql",
+              "cardinality"
+            ]
+          },
+          "description": "DECLARED, never dropped. An unresolved sub-field is admitted in place as `unknown`."
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "required_join": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "default": null,
+                "description": "The join this dimension reads through, by name. A hint for readers: a consumer resolves what a dimension needs from the references in its expression and by following ON conditions, so a two-hop or two-join dimension needs nothing extra here."
+              }
+            },
+            "required": [
+              "name",
+              "kind",
+              "sql",
+              "datatype"
+            ]
+          },
+          "description": "Column-level, in any of the five roles. Under \u00a73.9 these carry the load `variants[]` used to \u2014 a `filtered` dimension holds every value the family observed."
+        },
+        "dimension_report": {
+          "type": "object",
+          "description": "What D3 could and could not resolve. Without it, a consumer reads the absence as 'every dimension resolved'."
+        },
+        "tier": {
+          "enum": [
+            "bi_declared",
+            "bi_confirmed",
+            "history_only"
+          ],
+          "description": "The trust tier, from the lane of the closure ACTUALLY PUBLISHED \u2014 not the winner's, since D3b falls back to the richest closure when the winner's was withheld and the two then differ (\u00a73.3). Named by provenance, never by correctness, and a separate axis from the witness label: `bi_declared` + `parse_only` is a coherent state."
+        },
+        "tier_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "const": "",
+          "description": "ALWAYS empty. A witness is not an approval; the producer never sets governance status and never sets `approved`."
+        },
+        "derived_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Every verified query computing this measure, winner first."
+        },
+        "n_sources": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "examples": {
+          "type": "array",
+          "description": "The retained slices, ranked by popularity then recency and cut at `metrics.examples.retain_n`. NOTE: not structurally deduplicated \u2014 `collapse_variants` runs on records only, so two examples may be two tellings of one recipe (deferred).",
+          "items": {
+            "type": "object",
+            "required": [
+              "source",
+              "sql"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "`verified_query:<vq_id>`."
+              },
+              "question": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sql": {
+                "type": "string"
+              },
+              "filters": {
+                "type": "object"
+              },
+              "group_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Must name declared dimensions: an example whose group_by references an absent one is REFUSED."
+              },
+              "result": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "Unattested producer evidence. Row width must match the declared columns, or the example is refused."
+              }
+            }
+          }
+        },
+        "gotchas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What a reader has to know before trusting the number, taken from the statements this metric was mined from."
+        },
+        "provenance": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "execution_count": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "distinct_analysts": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "proposed_by": {
+              "type": "string"
+            },
+            "observed_in": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Technical filters the statements applied but which are not definitional \u2014 column, operator, value, fully qualified. A caller may drop one and still have the same metric over a wider population."
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Other metrics this one is computed from."
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What the source statements disagree about, said rather than papered over."
+        },
+        "related": {
+          "type": "array",
+          "description": "Relations the edge vocabulary has no type for \u2014 a grain variant or an alternative. Carried on the card, never invented as an edge.",
+          "items": {
+            "type": "object",
+            "required": [
+              "metric",
+              "relation",
+              "why",
+              "exact"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "metric": {
+                "type": "string",
+                "description": "The related metric's name."
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "grain_variant",
+                  "alternative"
+                ]
+              },
+              "why": {
+                "type": "string",
+                "minLength": 1
+              },
+              "exact": {
+                "type": "boolean"
+              },
+              "differs": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "confidence": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "dialect": {
+          "type": "string",
+          "description": "The warehouse this card's SQL is written for. No default: a function like DIV0NULL or a clause like QUALIFY exists in some engines only, and a card that does not say where it runs is a syntax error waiting for the first person to run it elsewhere."
+        },
+        "source": {
+          "type": "object",
+          "description": "The spec's source object. `sql` IS THE FROM CLAUSE: a source is a table or a SQL source, exactly one of `table` and `sql`, so this is the text after FROM. A join's INNER or LEFT is written out here, because it is the only place the contract has for it; a measure computed in two passes is derived tables joined together. Tables are never aliased here: the card's expressions are fully qualified and an alias makes them unresolvable.",
+          "additionalProperties": true
+        },
+        "synonyms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The model's own other names for this metric (a declared metric's synonyms, and the author's name when the card took the model's), verbatim. Retrieval words for search and the glossary; not a registry field."
+        },
+        "viewer_binds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bindable",
+            "placeholders"
+          ],
+          "description": "The metric is FILTERED TO THE VIEWING USER: a statement it is derived from reads the name (or full name) of whoever runs it as a bind placeholder (the union over its sources). Never the name itself (guardrail 8). `bindable`: every such source was verified bound to the fetching identity, in memory.",
+          "properties": {
+            "bindable": {
+              "type": "boolean"
+            },
+            "placeholders": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "of",
+                  "placeholder"
+                ],
+                "properties": {
+                  "of": {
+                    "enum": [
+                      "user_name",
+                      "full_name"
+                    ]
+                  },
+                  "placeholder": {
+                    "type": "string",
+                    "minLength": 2
+                  }
+                }
+              }
+            }
+          }
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grade",
+            "reason",
+            "statements"
+          ],
+          "description": "The metric's conversion-quality grade: the worst grade of the BI statements it was merged from (policy `quality.order`), the reason that statement gives, and each statement's grade. Absent on a metric of the query-history lane only.",
+          "properties": {
+            "grade": {
+              "enum": [
+                "exact",
+                "equivalent_with_gotcha",
+                "approximate",
+                "unverified",
+                "refused"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "statements": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ]
+              }
+            },
+            "counts": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "bi_definitions": {
+          "type": "array",
+          "description": "Every BI definition this metric was merged from, one per (model, measure): where it is defined and how (its style), the model's own metadata about it (description, display folder, annotations, perspectives, the model's or data source's endorsement, a KPI's target and status) and the statements compiled from it. CONTEXT, NEVER SEMANTICS: none of it changed the SQL. Absent on a metric with no BI source.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "model",
+              "measure",
+              "statements"
+            ],
+            "properties": {
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "measure": {
+                "type": "string",
+                "minLength": 1
+              },
+              "style": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "How the BI tool defines it: `explicit` (a measure of the model), `implicit` (a column aggregated where it is used), `report` (a report's own measure over a shared model), `calculation_item` (a calculation group's item applied to the measure by the widget: `calculation_items`), `kpi_target` / `kpi_status` (a KPI's target or status expression)."
+              },
+              "formula": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "folder": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "format_string": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "derived_from": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The other measures this one's formula names (a measure chain), by name."
+              },
+              "tags": {
+                "$ref": "#/$defs/bi_tags"
+              },
+              "statements": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "calculation_items": {
+                "type": "array",
+                "description": "The calculation group items the statement applies to the measure (`stacked`: the statement shows several, one per row), each with its formula in the model's own words.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "group",
+                    "item"
+                  ],
+                  "properties": {
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "item": {
+                      "type": "string"
+                    },
+                    "formula": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "stacked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "withheld_binds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "placeholders"
+          ],
+          "description": "The statement COMPARES WITH A WITHHELD LITERAL: a person's address or name the BI file holds, which no artifact keeps (guardrail 8). It reads each one as a bind placeholder (`of` withheld_N, the same N for the same value across the run); whoever runs it binds it to the value the BI file's own formula or filter holds. Verification binds it in memory, from the BI file, and drops it.",
+          "properties": {
+            "placeholders": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "of",
+                  "placeholder"
+                ],
+                "properties": {
+                  "of": {
+                    "type": "string",
+                    "pattern": "^withheld_[1-9][0-9]*$"
+                  },
+                  "placeholder": {
+                    "type": "string",
+                    "minLength": 2
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "bi_tags": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The BI tool's own metadata about a definition, verbatim (bi_facts `tags`, plus its model's endorsement). Hints for whoever reads or authors; never used to change SQL.",
+      "properties": {
+        "annotations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "perspectives": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "endorsement": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "certified",
+            "promoted",
+            null
+          ]
+        },
+        "endorsement_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kpi": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status_graphic": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The BI tool's own tags on the model's or data source's assets (content tags)."
+        }
+      }
+    }
+  }
+}

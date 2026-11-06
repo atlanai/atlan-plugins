@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Atlan Pte. Ltd.
+# The Tableau package's own policy: its defaults, merged under the run's policy
+# (lib/policy.py). An operator's policy file overrides the section by naming it.
+
+# ---------------------------------------------------------------- tableau
+tableau:
+  # The hosts TABLEAU_SERVER_URL may name. The sign-in carries a Personal Access Token, so the
+  # host is default-deny: a typo otherwise sends the token to whoever owns the misspelling.
+  # Tableau Cloud pods are under .online.tableau.com. For your own Tableau Server, add its
+  # domain (".tableau.example.com") in your policy file. An internal or metadata address
+  # (localhost, 10.x, 169.254.169.254, *.internal, *.local) is refused whatever this says.
+  allowed_host_suffixes:
+    - .online.tableau.com
+  # The REST API version every call names. 3.19 is Tableau Server 2023.1 and every Tableau
+  # Cloud site; an older server needs a lower one (settings.tableau-cloud.api_version).
+  api_version: "3.19"
+  # Seconds one request may take before the fetch gives up on it.
+  timeout_seconds: 120
+  # The largest workbook or data source file downloaded, in bytes. Downloads ask for no
+  # extract (includeExtract=false), so a definition is usually well under a megabyte.
+  max_download_bytes: 268435456
+  # How many published data sources deep a chain is followed (a data source built on another
+  # published data source). Deeper is refused, by name.
+  max_datasource_depth: 5

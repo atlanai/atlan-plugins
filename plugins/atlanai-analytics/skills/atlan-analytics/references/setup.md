@@ -96,7 +96,17 @@ runtime, the supplied project's environment and an explicitly supplied approved 
 do not search unrelated projects or home caches. If none works, give one scoped runtime
 setup option subject to host policy, or continue with untested definitions and a preview.
 
-Run `PROJECT history` for available history, then use [metrics authoring](metrics/authoring.md).
+For new supported metrics, use [the metrics module](metrics-engine.md), preserving this setup
+run, scope and preview/publication order. Reuse the interview decisions; do not run another.
+Supported BI definitions and captured history enter through its input plugs and authored gates.
+For a configured direct Snowflake connection, select native Account Usage history; no shape
+table preparation is required. `PROJECT history` remains an optional capture path for local or
+chat-tool evidence, which must enter the module's common inputs before metric generation.
+
+Export the module's checked metrics, queries, links and structured publication holds into this
+run's context. Carry its source receipts through reconciliation and publication; source/scope
+changes require a new engine run, never edited pinned inputs. Existing legacy authored contexts
+and explicitly requested by-hand drafts use [metrics authoring](metrics/authoring.md).
 Keep `context/metrics.json`, `queries.json` and `links.json` in existing formats. Include formula,
 grain, units, dimensions, mandatory filters, time semantics and provenance. Reconcile declared
 and history evidence; detail SQL remains a saved query. Unsupported formulas remain held.

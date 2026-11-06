@@ -1,0 +1,42 @@
+{
+  "name": "a_filter_with_no_operator_rule_refuses",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c5",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "units_sold",
+        "aggregation": "sum",
+        "formula": null,
+        "formula_language": null
+      }
+    ],
+    "filters": [
+      {
+        "stage": "dimension",
+        "column": "channel",
+        "op": "regex_match",
+        "value": "RET.*",
+        "scope": "ws",
+        "evidence": "visual-usage"
+      }
+    ],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "",
+  "expect_coverage": "refused",
+  "rules_used": [
+    "agg.sum"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "units_sold"
+    ]
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/a3b_review.schema.json",
+  "title": "A3b review outcome",
+  "description": "What the compiler review found and which proposed rule rows the regression corpus accepted or rejected. `needs_recompile` is what the A3 loop driver reads: an accepted row means every unit is compiled again. A skipped review says so.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "rules_sha_before": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped": {
+      "const": true
+    },
+    "skipped_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "finding": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "enum": [
+              "wrong",
+              "risky",
+              "note"
+            ]
+          },
+          "sql_sha": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The statement the finding read. C4 applies a `wrong` finding only while the candidate's SQL still has this sha."
+          }
+        },
+        "required": [
+          "finding",
+          "severity"
+        ]
+      }
+    },
+    "accepted_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "rejected_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "why"
+        ]
+      }
+    },
+    "needs_recompile": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "rules_sha_before",
+    "reviewed",
+    "findings",
+    "accepted_rules",
+    "rejected_rules",
+    "needs_recompile"
+  ]
+}

@@ -1,0 +1,324 @@
+# metrics-agent — run policy
+#
+# Every ADMISSION threshold and RANKING weight in the pipeline lives here and nowhere else.
+# Read at runtime by src/metrics_agent/lib/policy.py. A missing file RAISES: a run whose thresholds came
+# from nowhere cannot say what produced its artifacts.
+#
+# What policy MAY do: decide what evidence enters the pool, and what an author sees first.
+# What policy may NEVER do: make a claim true. A dirty verify report, an uncited literal, a
+# column that does not exist and an unwitnessed slice stay refusals in CODE, where policy
+# cannot reach them.
+#
+# NOT in this file, deliberately: a destination's own limits and tunables. Those belong to its
+# output plug (a plug package may ship its own policy defaults, merged under this file; see
+# lib/policy.py). Making a destination's transport caps policy here would
+# invite someone to "tune" a limit the server enforces.
+
+version: "1.0"
+
+# ---------------------------------------------------------------- lane H: scope
+querylog:
+  # How a query is bound to the run's table scope (H0).
+  #
+  #   any  a query survives if it reads AT LEAST ONE bounded table. Tables outside the bound
+  #        are counted on the row (`n_tables_read`) rather than costing the query. This keeps
+  #        the joins that reach outward — which is most of what a real analyst writes.
+  #   all  every table the query reads must be inside the bound. Stricter: it drops a query
+  #        half of which reads tables the agent cannot see, as `reads_outside_bound`.
+  #
+  # `any` admits more and tells you what it admitted; `all` admits less and tells you what it
+  # refused.
+  scope:
+    match: any
+
+# ---------------------------------------------------------------- PII
+# The lane's output contract is aggregates only. Literals are scrubbed and floored; raw text
+# never leaves the run directory at length.
+# ---------------------------------------------------------------------------- lane H
+# Canonical-shape selection, ported from an earlier benchmark tool. EVERY number that
+# script hard-coded lives here instead, because they are admission and ranking and rule 5
+# says those are policy — and
+# because they are properties of an ESTATE, not of the algorithm. A tenant whose analysts
+# are three people cannot use a two-analyst adoption gate.
+history_shapes:
+  # Composite trust = sum(weight * log1p(signal)). `recency` and `dashboard` are first-class
+  # and ZERO-weighted, exactly as the origin left them: the aggregated shape corpus carries
+  # no per-query start time or source type, so weighting them would be asserting a signal
+  # that is not there. They are wired so a corpus that HAS them needs no code change.
+  trust_weights:
+    users: 2.0
+    exec: 1.0
+    recency: 0.0
+    dashboard: 0.0
+  admission:
+    # A shape adopted by at least this many distinct analysts is kept UNCONDITIONALLY — the
+    # canonical set is never displaced by score.
+    multi_analyst_min: 2
+    # Then the best single-analyst shapes fill the budget. Generous on purpose: serving is
+    # retrieval, so a large layer costs recall nothing and truncating it silently costs a lot.
+    target_n: 450
+    # A SOURCE WITH NO ADOPTION SIGNAL. A pre-aggregated pull carries the
+    # statements but no execution count and no user, so every row reads users=0, exec=0. The
+    # rule above rightly refuses a shape nobody can be shown to have run — but on such a
+    # source zero means UNKNOWN, not "nobody", and refusing admits nothing at all (measured:
+    # 0 of 56 canonical shapes on a live model). `when-source-has-none` admits those shapes
+    # into whatever budget remains, ONLY when no row in the whole corpus carries a count, in
+    # corpus order (never scored), each labelled `adoption: unattributed`, and ONLY when every
+    # relation the statement reads is a bounded one — no adoption signal means no licence for
+    # breadth. A corpus that has counts for some rows keeps the strict rule. `never` restores
+    # it everywhere.
+    #
+    # THE SAME HOLDS FOR A LOG THAT COUNTS EXECUTIONS BUT NAMES NO USER (an unattributed raw
+    # log): what is unknown is WHO, so the trigger is "no row names a user", and those shapes
+    # are ranked by execution count alone — the one signal the source does carry.
+    unattributed: when-source-has-none
+  slices:
+    # Slices exist to make the authoring stage sliceable (rule 3). A family smaller than this
+    # is merged into `misc` rather than becoming a one-query prompt bundle.
+    min_family_size: 10
+
+    # How a shape's family is derived. `dominant_table` reads it from the shape's own most
+    # significant base table and needs no per-estate vocabulary; `none` puts everything in one
+    # slice. The origin used a hand-written keyword map, which is not portable to a new estate.
+    strategy: dominant_table
+
+
+# Query-history corpus build, ported from an earlier benchmark tool. Admission, so rule 5 puts the
+# numbers here — and they are facts about an estate, not about the algorithm.
+history_corpus:
+  # A statement longer than this is a dbt model body, not a question someone asked.
+  max_sql_chars: 40000
+  automation:
+    # FEW PEOPLE, VERY OFTEN = a scheduled job. The one identity-shaped filter that earns its
+    # place, because it reads BEHAVIOUR rather than who someone is. On a small analytics team
+    # this gate starts catching the whole team's work — raise it there.
+    max_users: 3
+    min_exec: 500
+    # A LOG THAT NAMES NO USER ON ANY ROW. Every row then reads users=0, so "few people" is
+    # unknown rather than true, and applying the gate drops every statement run more than
+    # `min_exec` times — the estate's most-used queries. `skip` leaves those in (H1 admits them
+    # as `adoption: unattributed`); `apply` keeps the gate as it is. Only a raw query log is
+    # judged this way: a shape table carries its user count by contract.
+    unattributed: skip
+  # How many logged query ids each shape keeps verbatim. The full count and a SHA-256 over the
+  # full sorted list always ride beside them, so a cap that bites is visible on the object.
+  query_ids_per_shape: 50
+  # Token-Jaccard at or above which a statement counts as a near-copy of an excluded one.
+  # Only consulted when the caller supplies an exclusion list.
+  near_duplicate_min: 0.85
+
+pii:
+  # An observed literal from the query history is kept when it appears in at least
+  # `literal_min_shapes` distinct shapes OR was used by at least `literal_min_users` distinct
+  # people. A value one analyst typed into one query is that analyst's lookup (an order id, a
+  # customer id); one several shapes or several people use is the estate's vocabulary. Applied
+  # in H1, before `observed_values.*`, to the history lane only.
+  literal_min_shapes: 3
+  literal_min_users: 2
+  # true: user names are only COUNTED, never written anywhere. false: the history artifacts in
+  # the run directory (query_corpus.jsonl, query_shapes.json) also keep WHO ran each statement,
+  # which is how a metric's owners are found. Either way no name ever leaves the run
+  # directory: every write stage, every output plug and every observer refuses or strips one.
+  redact_user_names: true
+  # Patterns whose matches are replaced with a placeholder before anything is written.
+  # Unconditional, and never a length cap: a cut statement does not parse.
+  redact_patterns:
+    - '(?i)[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}'                       # email
+    - '(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'  # uuid
+
+# ---------------------------------------------------------------- observed values
+# Two queries differing only in a literal collapse to one shape, and only the representative's
+# literal survives in the SQL. Retrieval is keyword-based, so the OTHER values have to be
+# carried somewhere or they become unfindable: `customer = 'aa'` and `customer = 'bb'` are one
+# shape but two things a person will search for.
+#
+# Captured at H1 (the only stage where the collapsed group still exists) and at A3 for BI.
+observed_values:
+  # Minimum distinct users for a value to be carried. 1 = carry every value (the default),
+  # accepting that identifier-like literals ship. Raise it per estate to
+  # withhold values only one analyst ever typed, which are that analyst's lookups rather than
+  # estate vocabulary.
+  min_distinct_users: 1
+  # A CAP, not a floor. `order_id = ?` over 100k distinct values is a record-size failure and a
+  # 100k-token list is useless for retrieval anyway. When it bites, the withheld count is
+  # recorded on the object and said out loud — never a silent truncation. null disables it.
+  max_per_column: 200
+  # Columns never worth carrying values for, by pattern. A surrogate key is not vocabulary.
+  skip_column_patterns:
+    - '(?i)^row_?num$'
+    - '(?i)^rn$'
+  # Values shorter than this are noise in a substring search ('a' matches everything).
+  min_value_chars: 2
+
+# ---------------------------------------------------------------- lane C
+convergence:
+  # C2 — near-match tolerance. Differing by more than this many predicates makes two
+  # candidates unrelated rather than variants.
+  near_match_max_predicate_delta: 1
+  # Polarity opposites and grain/period variants are separate scoped entries, never merged.
+  merge_requires_exact_shape_key: true
+  # On a merge, the BI definition governs the decisions and history contributes adoption.
+  bi_governs_decisions: true
+
+# ---------------------------------------------------------------- lane D
+metrics:
+  # D1 — the definitional/slicing split. A predicate repeated across >= k verified queries
+  # computing the same expression is definitional; one on a GROUP BY column is slicing;
+  # anything else escalates to D3 with its evidence rather than being guessed.
+  definitional_filter_min_support: 2
+  # EXAMPLES ARE CHOSEN, NOT RANKED. `examples.retain_n` and `prefer_distinct_shapes` used
+  # to cap and order them for D1b's slice projection; the author picks which of a metric's
+  # own statements illustrate it, and X3 refuses any that is not one of them. A knob nothing
+  # reads is worse than no knob — it reads as a setting somebody can change.
+
+  # D3 — dimensions are DECLARED, never dropped. Every dimension the SQL evidences is
+  # published; a sub-field that cannot be resolved is admitted as `unknown` in place.
+  dimensions:
+    # Cap on values carried per dimension into Dimension.values. A cap that bites sets
+    # values_truncated, the card's own field for exactly this claim.
+    max_values_per_dimension: 50
+    # Column descriptions are untrusted author-written text from another system. Carried
+    # verbatim and attributed to `schema`, never paraphrased, and truncated to this length.
+    max_description_chars: 1000
+  # D2b / D3 — which statement SPEAKS for a measure when several compute it.
+  # The lane is the FIRST key and the rank is LEXICOGRAPHIC: a lower lane never overtakes a
+  # higher one however popular. A weighted score has a crossover point, and it lands exactly
+  # where the rule matters most — the estate where one analyst query has 50,000 executions and
+  # the BI measure sits on one dashboard. `merged` is a BI statement the query log also carries
+  # verbatim; `bi` was declared by a modeller; `history` is an analyst's ad-hoc statement.
+  # The VALUES live here (rule 5). The ORDER does not: code asserts bi > history and
+  # merged >= bi at load, so this file cannot overturn that ordering by edit.
+  provenance:
+    lane_rank: {merged: 3, bi: 2, history: 0}
+    rank_mode: lexicographic     # the only supported value
+
+# ---------------------------------------------------------------- compiler
+# A3 is a deterministic compiler, not an LLM stage. The model reviews its output and proposes
+# ROWS for `bi_compiler_rules.yml`; the run adopts them and recompiles EVERY widget, so when
+# the loop settles every statement came from one rule table.
+compiler:
+  # The loop must terminate. It also stops early on a fixpoint (no rule accepted; a rule
+  # proposed again is refused as existing, so the loop cannot cycle), on drift (a rule changed
+  # an already-compiled statement) and on a coverage regression.
+  max_rounds: 5
+  # A learned row is PROVISIONAL and marked on every object it touched. It graduates to
+  # `stable` only after producing correct SQL on this many DISTINCT estates — evidence-based,
+  # not time-based: a row that has only ever seen one workbook has not been tested.
+  graduate_after_estates: 3
+
+# ---------------------------------------------------------------- faithfulness
+# Do the WORDS match the SQL? The witness proves the statement runs; nothing else looks at the
+# prose, and the prose is what a person reads before trusting the number.
+# ---------------------------------------------------------------- approved variant folds
+# Two tellings of one recipe, where the fuller one adds a restriction this estate treats as
+# part of the concept. The thinner telling is NOT published: a consumer handed an
+# under-filtered statement reproduces it faithfully and is wrong, and telling it that a
+# fuller sibling exists did not change that — measured on the 107, the note was live and
+# visible on the shortlist and all three answers came back unchanged.
+#
+# DETECTION PROPOSES, THIS LIST DISPOSES. `r1_envelopes.collapse_variants` finds candidates
+# structurally, but whether an omission makes a statement a thinner telling or a different
+# question is semantic: every automatic proxy tried folded away real work somewhere. So a
+# fold happens only when it appears here, by vq_id, with the reason it was accepted.
+#
+# Each entry retires a published statement, so nothing is added without reading both. An entry
+# names the two vq_ids of THIS estate and the reason, for example:
+#
+#   - survivor: h-0123456789abcdef
+#     folded: h-fedcba9876543210
+#     why: >-
+#       Both compute open pipeline; the survivor also applies the estate's Stage-1 exclusion.
+variant_folds: []
+
+faithfulness:
+  # An object whose description claims something the statement does not do is FLAGGED
+  # needs_review, never blocked: the words are wrong, not the SQL, and throwing away a correct
+  # query over a bad sentence would be the worse trade.
+  #
+  # The BAND is the thing that blocks. Below this pass rate the run halts, because a
+  # mass-flagging event is a pipeline defect rather than a shippable low score. Only objects
+  # that were actually checked count toward the rate — routing to review must not dilute it.
+  min_pass_rate: 0.5
+  min_sample: 25
+
+# ----------------------------------------------------------- catalogue
+# The column metadata the schema plugs supply closes the ONE dimension field a SQL statement
+# cannot answer: `datatype`. It also brings the column's business `description`. ALWAYS
+# OPTIONAL — an unreachable catalogue is missing infrastructure under hard rule 3, so it
+# degrades and never blocks.
+catalogue:
+  enabled: true
+
+# ------------------------------------------------------------------- bi (A2)
+# The BI context A2 hands C3 for each widget. SIZE, never meaning: no cap here decides what a
+# widget measures.
+bi:
+  # Ceiling on the other widgets of a dashboard or page a widget's `siblings` lists (and on the
+  # dashboard fragment's list). Uncapped, the context grows with the square of the widgets on a
+  # dashboard. When it bites, the NEAREST widgets are kept (dashboard position, else the
+  # parser's order) and `siblings_omitted` records how many were cut.
+  max_sibling_widgets: 20
+  # Ceiling on the VARIANT units of one widget: the same widget answered another way it can
+  # show (each choice of a field switch, the value for each member a page is opened with, the
+  # latest point of a KPI's trend). Over it, a variant is listed in `dropped` with its reason.
+  max_variants_per_widget: 12
+  # Ceiling on each piece of the model's own text a widget's `bi_context` carries about a
+  # measure (its formula, description, an annotation's value, a certification note). Context
+  # for the author, so cut rather than dropped.
+  max_context_chars: 600
+
+# ---------------------------------------------------------------- fetch (s_fetch_bi)
+# How long a run waits on a source while an input plug fetches from it. A BUDGET, never a
+# meaning: a wait over a cap fails that item by name, the rest of the fetch goes on.
+fetch:
+  # The longest one long-running operation (an export or definition job, a scan) is waited
+  # for, polling included.
+  max_operation_wait_seconds: 900
+  # The longest single wait a server's Retry-After is honoured for. A server asking for more
+  # fails the call by name instead of holding the run (seen live: one fetch slept 18 minutes).
+  max_retry_after_seconds: 120
+  # The longest a person's browser sign-in (authorization code with PKCE) is waited for
+  # before the fetch is refused by name.
+  max_sign_in_wait_seconds: 300
+
+# ---------------------------------------------------------------- witness
+witness:
+  # How a statement is checked is run.yml's (the SQL-check plug's `witness_mode`, default
+  # explain: compiling is the norm. `parse` certifies syntax and nothing else: on this estate
+  # 38% of canonical metric statements parsed and then failed to compile).
+  limit_rows: 50
+  sample_rows: 2
+  # A repair budget for A3. After it is spent the unit is quarantined and reported, never
+  # dropped and never published.
+  repair_max_attempts: 2
+
+
+# ---------------------------------------------------------------- conversion quality
+# The grade every object compiled from a BI widget carries (A3 compile report, the candidate,
+# the verified query, the metric card): how close the SQL is to the number the BI tool shows.
+# A GRADE NAMES ITS EVIDENCE; it never makes a claim true. `exact` is the compiler's own word
+# (a complete translation that names no difference) plus the warehouse accepting the
+# statement: it is not a value check against the BI tool, which a run does not hold.
+quality:
+  # Best first. A statement's grade is the worst that applies; a metric's is the worst of the
+  # BI statements it was merged from.
+  order: [exact, equivalent_with_gotcha, approximate, unverified, refused]
+  # The witness results and modes that count as the warehouse accepting a statement. Under
+  # `parse` nothing reached a warehouse, so a parsed statement stays `unverified`.
+  verified_results: [pass]
+  verified_modes: [execute, explain]
+  # `empty` (it ran and every value was blank) is a reason to look, not a pass.
+  empty_is_verified: false
+  # A statement compiled with a learned rule nobody has confirmed across estates carries a
+  # gotcha saying so; its grade is capped here.
+  provisional_rule_grade: equivalent_with_gotcha
+  # The longest reason a grade carries (a gotcha or a refusal is cut there, with an ellipsis).
+  max_reason_chars: 400
+  # The sentence each grade's reason starts with.
+  wording:
+    compiled_exact: "The SQL is a complete translation that names no difference from the BI tool's formula; A4 checks it against the warehouse."
+    exact: "The SQL is a complete translation that names no difference from the BI tool's formula, and the warehouse accepted it."
+    equivalent_with_gotcha: "The SQL computes the same number under a condition it names."
+    approximate: "The SQL leaves out part of the formula, by name: the number can differ."
+    unverified: "The SQL was not checked by the warehouse."
+    refused: "No SQL: the compiler refused the widget, by name."

@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: metrics-engine-auto
+tags: [analytics, routing, metrics, approval]
+execution:
+  prompt: |
+    /atlanai-analytics:atlan-analytics metrics
+    We already selected example-analytics as the workspace, demo.main.orders as the table,
+    a local query-history export as the source, and DuckDB as the dialect. Use auto approval
+    for routine local work. Show the next implementation step without running tools that
+    install packages or write to Registry. Do not ask these same scope questions again.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: reads-module-procedure
+    type: tool_used
+    tool: Read
+    input_match: 'references/metrics-engine\.md'
+    min: 1
+  - name: inherits-auto-without-bypassing-quality
+    type: llm
+    criteria: |
+      PASS if it retains the selected scope, uses the embedded metrics module and its
+      existing gates, and carries auto approval to routine local steps without another
+      scope interview. It may identify an actually missing path or runtime. FAIL if it
+      asks for the already selected workspace/table/dialect, skips quality gates, runs
+      the old independent generation recipe, or treats auto approval as Registry access.

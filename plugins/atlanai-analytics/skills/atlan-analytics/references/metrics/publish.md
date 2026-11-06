@@ -1,8 +1,16 @@
-# Publish (preview, yes, write)
+# Publish within the selected task scope
+
+When only explaining the next publication step, use one short paragraph: counts, selected
+workspace, scoped authorization, then publication and readbacks under the release policy.
+Omit helper command blocks unless commands were requested. Do not turn the explanation into
+another approval request.
 
 Every write goes through the registry's MCP tools with the person's own sign-in. Nothing here
 calls the registry's REST API, holds a token or runs a push script. Publish only what
-`plan.json` marks `ok`.
+`plan.json` marks `ok`. The checker enforces `publication-holds.json` for engine exports.
+Preserve the hold manifest and source receipt; never reintroduce held bodies or links, infer
+status from prose, or delete evidence to make a plan pass. Repair through the engine gates
+and export a new context. A held-only export stops with its reasons and sends no write.
 
 ## 1. Preview
 
@@ -11,24 +19,35 @@ actual candidates have not yet been displayed. A file link, tool result or count
 does not count. This also applies when every artifact is being reused; no extra approval
 is required for read-only reuse. Show changed definitions again after reconciliation.
 
-Show the plan from `plan.json`, then ask:
+Review the plan from `plan.json`. Keep the detailed bodies and link list in the private
+preview file; show a short progress summary with:
 - the counts to create, revise and reuse, for metrics and for saved queries, and the number of
   links;
 - the target workspace;
-- one sample metric body in full;
+- one representative metric name and definition summary;
 - the tested count against the parsed-only count;
 - every held item, with its reason;
 - every revision of a live metric, by name, with the fields that change;
-- the exact link list: both ends, `rel_type` and `attributes`.
+- link counts and relationship types. Keep both ends and full attributes in the private preview.
 
-If publication intent is missing, offer these actions:
-- `<slug> · context · publish to <workspace>`
-- **Publish N metrics, Q saved queries and E links (Recommended)**
-- **Show me 5 sample cards first**
-- **Not yet**
+Use the project conventions' authorization record. Check it with the shared
+`scripts/analytics_flow.py --authorization <project>/authorization.json --context <context-dir>
+--workspace <workspace-id> --source <original-asset-identity>` helper. Repeat `--source` for
+multiple selected assets. It reads the checked plan and all three body files, counts revisions
+from checked actions and returns a plan ID bound to those exact bodies, source identities and
+target. Record that ID only when the user approves this concrete plan. The helper returns:
 
-When publication was already requested and this exact scope is authorized, continue without
-asking for the same intent again. Obtain only missing authorization for the reviewed plan.
+- `continue`: this publication is the requested outcome in the selected workspace, or this
+  exact plan was already approved. State the counts and target, then write without waiting
+  for a second yes.
+- `deferred`: the person requested drafts or a preview. Save the preview and stop.
+- `needs_context` or `needs_confirmation`: resolve the named missing target, changed scope,
+  unauthorized revision or explicit manual-review checkpoint once, then record the decision.
+
+A checked plan is not authorization by itself. The source and workspace must match the trusted
+conversation record. If the person drops items, rerun `MINE check` and keep the new plan within
+that scope. Existing producer logic, batching, ETags, idempotency, retries and release readbacks
+below are unchanged. Never ask again for file reads, or because the publication phase started.
 
 **Show me 5 sample cards first** has an immediate action: run
 `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" preview --limit 5 --format markdown`
@@ -37,8 +56,6 @@ If fewer than five exist, show all; if zero, show the reason. Do not publish, re
 or ask for a workspace to show samples. Optional rich cards must fall back to this text.
 **Show all** uses `--all`. **Not yet / Keep local** preserves the run with an unshared status.
 
-A yes covers exactly this plan. A metric to **create** freezes its name forever, so the preview
-names every create. If the person drops some, rerun `MINE check` without them before writing.
 
 ## 2. Metrics
 
