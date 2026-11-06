@@ -8,8 +8,8 @@ Two entries use this file:
   and stops at section 6;
 - a **full agent build** reaches it from phase 3 and starts at section 1.
 
-Everything here runs in this assistant plus one standard-library script. Nothing is cloned,
-installed or downloaded. Below:
+The plugin owns the interview and publication. New supported runs use the isolated metrics
+module; legacy authored runs use the standard-library helpers. Below:
 - `MINE` means `python3 "<skill-dir>/scripts/metrics_mine.py"`. `<skill-dir>` is this skill's
   directory: `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics` in Claude Code, and otherwise the
   directory that holds this file's `references/`.
@@ -21,29 +21,32 @@ a check refuses an item.
 
 ## 0. Metrics-mode entry
 
-1. Open a registry session as **Registry calls** in the conventions describes, then call
-   `registry__list_workspaces`. Confirm access to the workspace Metric Studio supplied. If its
-   scope is `all`, or none was supplied, ask which accessible workspace to use. Never choose one
-   silently, and never require an empty one.
+1. Reuse the requested destination and publication intent. Local draft requests need no
+   publication workspace. For Atlan saves, open the Registry session and verify the selected
+   workspace. If the destination is unresolved, list accessible workspaces and ask once with
+   local drafts and those workspaces as the choices. Resolve an explicit personal-workspace
+   selection directly. Never choose the first accessible workspace silently.
 2. Keep state in `.atlan-metrics/<slug>/state.json`, with `mode: "metrics"`,
-   `ids.workspace_id` and `session_id`, and set `phase` to `context`. Resume only a metrics
+   `ids.workspace_id` and `session_id` when connected, and set `phase` to `context`. Resume only a metrics
    state for this workspace and scope; when several match, ask which. Never read or resume
    `.atlan-analytics/*/state.json`, and do not call `EVAL init`. Keep source files and authored
    answers under the run directory and out of commits.
-3. Ask only for what is missing: the business area and a bounded set of tables. Use the supplied
-   scope and any BI lineage to propose a small table set, confirm it, and write `tables.txt`. No
-   agent name, audience interview or eval questions.
+3. Reuse the supplied business area and scope. Derive a bounded table set from the selected
+   BI lineage or declared model and write `tables.txt`. Ask only when ambiguity affects the
+   source or table boundary. Do not require a second confirmation of source-derived scope or
+   ask for an agent name, audience or eval questions.
 
 A full build already has its workspace, `tables.txt` and state from phases 1 and 2.
 
 ## 1. Pick the sources
 
-Read the workspace's existing `metric` and `sql_query` artifacts first
-(`registry__list_artifacts`). When they already cover the request, say so and stop rather than
+For a connected workspace, read its existing `metric` and `sql_query` artifacts first
+(`registry__list_artifacts`). Local drafts can proceed without selecting a publication workspace. When they already cover the request, say so and stop rather than
 create duplicates.
 
-Then find which sources are in reach, using [sources](metrics/sources.md). Use every one that
-is, in the order the conventions' **Source of truth** sets: a declared model's metric is taken
+Reuse the source the person supplied. When the source is unresolved, find what is in reach
+within the selected scope using [sources](metrics/sources.md). Combine selected evidence in
+the order the conventions' **Source of truth** sets: a declared model's metric is taken
 as declared, and query history adds what the models miss.
 
 | source | in reach when | becomes |
@@ -54,7 +57,8 @@ as declared, and query history adds what the models miss.
 | Query history | a warehouse query tool, a vendor CLI, or an export file | mined metrics and saved queries |
 | Definitions written together | always | five to ten hand-drafted metrics |
 
-Ask once, with the options that are actually in reach:
+Ask only if the source choice is unresolved, with the options actually in reach. A supplied
+BI file, asset URL or query-history export already settles this decision:
 - `<slug> · context · where the definitions come from`
 - **Declared models plus query history (Recommended when both are in reach)**: the models give
   the definitions, and history shows what is used and what the models miss.
@@ -66,6 +70,19 @@ Ask once, with the options that are actually in reach:
 
 If the person offers a benchmark or eval file here, keep it out of this workflow. In a full
 build it is used in phase 4. Eval answers never become context.
+
+## Use the metrics-agent module for new supported runs
+
+For new query-history, Power BI, Tableau and supported semantic-model sources, follow
+[the metrics module](metrics-engine.md) instead of sections 2 and 3 below. It runs the maintained
+metrics implementation and returns the same context files. Continue at section 4
+for the existing Registry check and publication flow. The module owns generation only.
+
+A finished metrics-agent run can still use `MINE import-run` when it already has Registry
+payloads; a completed embedded core run uses `ENGINE export` without a Registry package.
+For an unsupported declared model or an explicitly chosen by-hand draft, use sections 2 and 3
+as a named legacy authoring path and disclose its evidence level. Never switch to that path to
+hide a compiler refusal. Existing in-flight legacy projects resume their original procedure.
 
 ## 2. Query history into shapes
 

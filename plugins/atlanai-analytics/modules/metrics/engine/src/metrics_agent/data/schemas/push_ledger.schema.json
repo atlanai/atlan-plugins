@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "push_ledger",
+  "description": "What a push stage (r3 / r3b / r4) did, item by item: published.json, published_v2.json, published_relationships.json. A destination may not say whether a create became an append, so `outcome` is derived client-side from the heads read before the push. `items[].source_id` and `items[].id` are the identity the destination actually holds (after any adoption), which is what r4 and t1 key on.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "dry-run",
+        "push"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "sql_query",
+        "metric",
+        "relationship"
+      ]
+    },
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "adopted": {
+      "type": "array",
+      "description": "Items pointed at the live artifact that already holds them (a metric by what it measures, a saved query by its statement): the identity the agent minted (`was`) and the one it now carries (`now`).",
+      "items": {
+        "type": "object",
+        "required": [
+          "was",
+          "now"
+        ]
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "outcome"
+        ],
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "version_ordinal": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "created",
+              "versioned",
+              "reused",
+              "skipped_curated",
+              "failed",
+              "not_sent",
+              "skipped"
+            ]
+          },
+          "adopted_from": {
+            "type": "string"
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

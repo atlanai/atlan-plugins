@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/bi_viewer.schema.json",
+  "title": "The viewer a BI input is evaluated for",
+  "description": "viewer.json beside a BI input: the identity its viewer-dependent expressions (a domain test, a group test) are evaluated for, written by a fetch plug for the identity it signed in as (only when its settings ask) or by the operator. Its domain and groups, and whether the identity's user name and full name can be bound at verification (`user_name_bindable`), and the time zone its current moment is read in (`time_zone`): never the name, the full name or a credential (guardrail 8).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "domain": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source": {
+      "type": "string"
+    },
+    "user_name_bindable": {
+      "type": "boolean",
+      "description": "true: the plug that wrote this file can supply its identity's user name and full name at verification, in memory (`viewer_names`), to bind a statement filtered to the viewing user. The names themselves are never written."
+    },
+    "time_zone": {
+      "type": "string",
+      "pattern": "^[A-Za-z_]+(/[A-Za-z0-9_+-]+)*$",
+      "maxLength": 64,
+      "description": "The IANA time zone the BI tool evaluates the current moment in for this identity (its site's or its user's setting), e.g. America/Los_Angeles: a relative date filter counts its periods from the date there, and 'to date' on a date and time ends at that moment there. Absent: the warehouse session's own clock (seen live on Tableau Cloud: the site's local time)."
+    }
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/x3_repair.schema.json",
+  "title": "X3 repair bundle",
+  "description": "Written when X3 refuses authored cards: each refused card as written, the exact field and reason, and the merged metric it answers; plus problems that belong to the answers file rather than to a card. The X3 loop driver hands it to the author.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": "x3_emit"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "n_cards": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "unattributed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "faults": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "problem": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "problem"
+              ]
+            }
+          },
+          "card_as_written": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "merged": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "faults",
+          "card_as_written",
+          "merged"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "instruction",
+    "n_cards",
+    "files",
+    "unattributed",
+    "tasks"
+  ]
+}

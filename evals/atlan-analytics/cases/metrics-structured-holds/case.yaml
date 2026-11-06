@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: metrics-structured-holds
+tags: [analytics, metrics, quality, publishing]
+execution:
+  prompt: |
+    /atlanai-analytics:atlan-analytics metrics
+    A completed BI run contains 18 queries. C4 marks seven with compiler_review warnings
+    from wrong findings. Six more single-member queries have uncaptured required member
+    parameters in the source units; their review severity is risky. One explicitly declared
+    per-member variant correctly groups by every required source key. Their descriptions do not contain the word held. Another query's
+    description says "previously held for presentation" but C4 has no failure for it.
+    The user selected workspace_example and authorized saving new definitions in auto mode.
+    Briefly explain the next step without running tools that write files or call Registry.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: structured-holds-control-publication
+    type: llm
+    criteria: |
+      PASS if it uses the exporter's structured C4-based holds, keeps failed queries and
+      their dependent metrics/links out of publication, and uses the existing checker and
+      scoped authorization. The six missing member selections remain held regardless of risky
+      severity, while the explicit correctly grouped variant remains eligible. It does not infer eligibility from the descriptions, delete
+      evidence, or ask permission to override semantic failures. Judge the proposed next step;
+      no tools need to execute in this explanation-only case.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      Lead with the next step, use plain language, and keep the reply concise.

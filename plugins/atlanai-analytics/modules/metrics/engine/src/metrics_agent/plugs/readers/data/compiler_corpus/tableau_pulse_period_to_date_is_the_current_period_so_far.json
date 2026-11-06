@@ -1,0 +1,43 @@
+{
+  "name": "tableau_pulse_period_to_date_is_the_current_period_so_far",
+  "dialect": "snowflake",
+  "unit": {
+    "unit_id": "c_ptd",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Units",
+        "aggregation": "sum",
+        "formula": null,
+        "formula_language": null
+      }
+    ],
+    "filters": [
+      {
+        "scope": "worksheet",
+        "stage": "dimension",
+        "column": "sold_at",
+        "op": "period_to_date",
+        "value": "month",
+        "evidence": "tableau pulse measurement period"
+      }
+    ],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT SUM(t.Units) AS units\nFROM   retail.fct_sales t\nWHERE  (t.sold_at >= DATE_TRUNC('month', CURRENT_DATE) AND t.sold_at <= CURRENT_TIMESTAMP)",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "agg.sum",
+    "op.period_to_date"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "Units",
+      "sold_at"
+    ]
+  }
+}

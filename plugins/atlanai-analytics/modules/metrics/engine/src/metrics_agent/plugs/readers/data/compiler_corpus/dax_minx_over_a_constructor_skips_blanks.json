@@ -1,0 +1,38 @@
+{
+  "name": "dax_minx_over_a_constructor_skips_blanks",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c_mx",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Lowest Average",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "VAR sold = AVERAGE(Sales[units_sold])\nVAR received = AVERAGE(Sales[units_received])\nRETURN MINX({sold, received}, [Value])"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT LEAST(COALESCE((AVG(t.units_sold)), (AVG(t.units_received))), COALESCE((AVG(t.units_received)), (AVG(t.units_sold)))) AS lowest_average\nFROM   retail.fct_sales t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.average",
+    "dax.minx"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "region",
+      "units_sold",
+      "units_received",
+      "product",
+      "promo",
+      "season"
+    ]
+  }
+}

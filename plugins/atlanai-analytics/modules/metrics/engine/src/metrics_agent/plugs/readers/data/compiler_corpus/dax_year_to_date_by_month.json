@@ -1,0 +1,102 @@
+{
+  "name": "dax_year_to_date_by_month",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "ytd",
+    "warehouse_tables": [
+      "retail.fct_sales",
+      "retail.dim_date"
+    ],
+    "group_by": [
+      "year",
+      "month"
+    ],
+    "measures": [
+      {
+        "name": "Sales YTD",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "TOTALYTD(SUM(Sales[amount]), 'Date'[date_key])"
+      },
+      {
+        "name": "Sales FYTD",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "TOTALYTD(SUM(Sales[amount]), 'Date'[date_key], \"6-30\")"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "order_date",
+        "to_table": "retail.dim_date",
+        "to_column": "date_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ],
+    "group_by_tables": [
+      "retail.dim_date",
+      "retail.dim_date"
+    ]
+  },
+  "expect_sql": "SELECT u.k1 AS year,\n       u.k2 AS month,\n       (MAX(u.s1)) AS sales_ytd,\n       (MAX(u.s2)) AS sales_fytd\nFROM (\nSELECT c.k1 AS k1,\n       c.k2 AS k2,\n       SUM(t.amount) AS s1,\n       NULL AS s2\nFROM   (\n  SELECT d.year AS k1, d.month AS k2, MIN(d.date_key) AS lo, MAX(d.date_key) AS hi\n  FROM   retail.dim_date d\n  GROUP BY d.year, d.month\n) c\nJOIN retail.dim_date s ON s.date_key BETWEEN CAST(DATE_TRUNC('year', c.hi) AS DATE) AND c.hi\nJOIN retail.fct_sales t ON t.order_date = s.date_key\nGROUP BY c.k1, c.k2\n  UNION ALL\nSELECT c.k1 AS k1,\n       c.k2 AS k2,\n       NULL AS s1,\n       SUM(t.amount) AS s2\nFROM   (\n  SELECT d.year AS k1, d.month AS k2, MIN(d.date_key) AS lo, MAX(d.date_key) AS hi\n  FROM   retail.dim_date d\n  GROUP BY d.year, d.month\n) c\nJOIN retail.dim_date s ON s.date_key BETWEEN CAST(CAST(DATE_TRUNC('year', CAST(c.hi + INTERVAL (6) MONTH AS DATE)) AS DATE) + INTERVAL (-6) MONTH AS DATE) AND c.hi\nJOIN retail.fct_sales t ON t.order_date = s.date_key\nGROUP BY c.k1, c.k2\n) u\nGROUP BY u.k1, u.k2",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.sum",
+    "engine.dax_date_set_to_date",
+    "engine.dax_time_datesytd",
+    "engine.dax_time_intelligence"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ],
+    "retail.dim_date": [
+      "date_key",
+      "year",
+      "month"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

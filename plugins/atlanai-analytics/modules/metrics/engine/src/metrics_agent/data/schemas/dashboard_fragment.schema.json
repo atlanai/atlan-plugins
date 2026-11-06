@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/dashboard_fragment.schema.json",
+  "title": "A2 dashboard fragment (fragments/*.dashboard.json)",
+  "description": "One dashboard or page, verbatim: its visuals and the author-written text on it. Kept for HUMAN REVIEW; no stage reads it.",
+  "type": "object",
+  "properties": {
+    "container": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "siblings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "measures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "measures"
+        ]
+      }
+    },
+    "siblings_omitted": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Widgets on the dashboard beyond the bi.max_sibling_widgets cap, which keeps the first in dashboard order. Present only when the cap cut the list."
+    },
+    "prose": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "container",
+    "kind",
+    "siblings",
+    "prose",
+    "note"
+  ]
+}

@@ -1,0 +1,126 @@
+# What the built-in readers' SQL writers (`mquery_steps.py`, `bicompile.py`) know about each
+# warehouse: data, not code, so no module keeps a list of engines (AGENT_GUARDRAILS rule 22).
+
+# A warehouse connector function -> the dialect its SQL is written in, and the index of the
+# argument that fixes the database (null when the navigation starts at the database).
+connectors:
+  Snowflake.Databases: {dialect: snowflake, database_arg: null}
+  Databricks.Catalogs: {dialect: databricks, database_arg: null}
+  Databricks.Contents: {dialect: databricks, database_arg: null}
+  DatabricksMultiCloud.Catalogs: {dialect: databricks, database_arg: null}
+  AmazonRedshift.Database: {dialect: redshift, database_arg: 1}
+  GoogleBigQuery.Database: {dialect: bigquery, database_arg: null}
+  Sql.Database: {dialect: tsql, database_arg: 1}
+  Sql.Databases: {dialect: tsql, database_arg: null}
+  PostgreSQL.Database: {dialect: postgres, database_arg: 1}
+  Oracle.Database: {dialect: oracle, database_arg: null}
+  Teradata.Database: {dialect: teradata, database_arg: null}
+  AmazonAthena.Databases: {dialect: athena, database_arg: null}
+  # Through ODBC the warehouse is whatever the DSN names: the dialect is unknown.
+  Odbc.DataSource: {dialect: null, database_arg: null}
+
+# Rounding half to even (what `Int64.Type`, `Currency.Type` and `Number.Round`'s default do),
+# as each dialect spells it; a dialect not listed has no spelling and the step is refused.
+# `{x}` the value, `{d}` the digits, `{p}` ten to the power of the digits as an exact literal.
+# A dialect with no half-even rounding writes it out in exact decimals: a value exactly half
+# way (a fraction of .5 at the digit) goes to the even neighbour, 2 * ROUND(v / 2); any other
+# rounds as ROUND does.
+round_half_even:
+  snowflake: "ROUND({x}, {d}, 'HALF_TO_EVEN')"
+  databricks: "BROUND({x}, {d})"
+  duckdb: "ROUND_EVEN({x}, {d})"
+  bigquery: "ROUND({x}, {d}, 'ROUND_HALF_EVEN')"
+  postgres: >-
+    (CASE WHEN ABS(CAST({x} AS NUMERIC) * {p} - TRUNC(CAST({x} AS NUMERIC) * {p})) = 0.5
+    THEN 2 * ROUND(CAST({x} AS NUMERIC) * {p} / 2) / {p} ELSE ROUND(CAST({x} AS NUMERIC), {d}) END)
+  redshift: >-
+    (CASE WHEN ABS(CAST({x} AS DECIMAL(38, 10)) * {p} - TRUNC(CAST({x} AS DECIMAL(38, 10)) * {p})) = 0.5
+    THEN 2 * ROUND(CAST({x} AS DECIMAL(38, 10)) * {p} / 2) / {p}
+    ELSE ROUND(CAST({x} AS DECIMAL(38, 10)), {d}) END)
+  tsql: >-
+    (CASE WHEN ABS(CAST({x} AS DECIMAL(38, 10)) * {p} - ROUND(CAST({x} AS DECIMAL(38, 10)) * {p}, 0, 1)) = 0.5
+    THEN 2 * ROUND(CAST({x} AS DECIMAL(38, 10)) * {p} / 2, 0) / {p}
+    ELSE ROUND(CAST({x} AS DECIMAL(38, 10)), {d}) END)
+
+# The first n rows of an ordered statement where the dialect does not write LIMIT n ({n}):
+# the statement always has its ORDER BY here.
+limit:
+  tsql: "OFFSET 0 ROWS FETCH NEXT {n} ROWS ONLY"
+
+# The remainder of a whole-number division where the dialect does not spell it MOD(a, b)
+# ({0} the dividend, {1} the divisor). The remainder takes the dividend's sign, as MOD's does.
+modulo:
+  tsql: "(({0}) % ({1}))"
+
+# Dialects with no logical value type, where a comparison cannot be an argument.
+no_boolean: [tsql, oracle]
+
+# Dialects with no `NULLS LAST` in an ORDER BY.
+no_nulls_last: [tsql, mssql, sqlserver]
+
+# Initial SQL a BI connection runs when it opens a session: the statements that cannot change
+# what a later statement returns (a tag, a timeout, the result cache, the compute it runs on),
+# per dialect. A connection whose Initial SQL is only these is read without it; any other
+# statement (a setting that changes dates, numbers or text, a role, a temporary table) is
+# refused by name.
+session_without_effect:
+  snowflake:
+    alter_session_set: [QUERY_TAG, STATEMENT_TIMEOUT_IN_SECONDS,
+                        STATEMENT_QUEUED_TIMEOUT_IN_SECONDS, USE_CACHED_RESULT, LOCK_TIMEOUT,
+                        ABORT_DETACHED_QUERY]
+    use: [WAREHOUSE]
+
+# The case each dialect folds an unquoted identifier to: a column renamed by a function of its
+# name (Table.TransformColumnNames) is read back under the spelling an unquoted name has.
+unquoted_identifier_case:
+  snowflake: upper
+  oracle: upper
+  postgres: lower
+  redshift: lower
+
+# Table.UnpivotOtherColumns of a table whose columns the M does not list: the dialect's unpivot
+# of every column but the kept ones, null values dropped (as M drops them). Placeholders:
+# {source} the rows, {attr} / {value} the new columns, {keep_list} the kept columns quoted,
+# {keep_names} their names as text, {keep_cols} them as columns of `u`. `value_cast` converts
+# the value to the model column's kind where the form returns an untyped value.
+unpivot_other_columns:
+  snowflake:
+    sql: |
+      SELECT {keep_cols},
+             f.KEY AS {attr},
+             f.VALUE AS {value}
+      FROM   (
+          SELECT s.*,
+                 OBJECT_CONSTRUCT(*) AS row_object
+          FROM   (
+      {source}
+          ) s
+      ) u,
+             LATERAL FLATTEN(INPUT => u.row_object) f
+      WHERE  f.KEY NOT IN ({keep_names})
+    value_cast:
+      number: "CAST({x} AS DOUBLE)"
+      int: "CAST({x} AS BIGINT)"
+      text: "CAST({x} AS VARCHAR)"
+      date: "CAST({x} AS DATE)"
+      datetime: "CAST({x} AS TIMESTAMP)"
+  duckdb:
+    sql: |
+      UNPIVOT (
+      {source}
+      ) ON COLUMNS(* EXCLUDE ({keep_list}))
+      INTO NAME {attr} VALUE {value}
+
+# Values a floating-point division gives that no number literal spells: M divides by zero to
+# infinity (or NaN for 0 / 0; seen live, as Power BI loads them), where SQL raises an error.
+float_specials:
+  snowflake: {inf: "CAST('inf' AS FLOAT)", ninf: "CAST('-inf' AS FLOAT)", nan: "CAST('NaN' AS FLOAT)"}
+  duckdb: {inf: "CAST('inf' AS DOUBLE)", ninf: "CAST('-inf' AS DOUBLE)", nan: "CAST('nan' AS DOUBLE)"}
+  postgres: {inf: "CAST('Infinity' AS DOUBLE PRECISION)", ninf: "CAST('-Infinity' AS DOUBLE PRECISION)", nan: "CAST('NaN' AS DOUBLE PRECISION)"}
+  databricks: {inf: "CAST('Infinity' AS DOUBLE)", ninf: "CAST('-Infinity' AS DOUBLE)", nan: "CAST('NaN' AS DOUBLE)"}
+  bigquery: {inf: "CAST('inf' AS FLOAT64)", ninf: "CAST('-inf' AS FLOAT64)", nan: "CAST('nan' AS FLOAT64)"}
+
+# What a dialect lacks for a key above, and why it has no entry: read into the refusal.
+no_form:
+  float_specials:
+    tsql: FLOAT holds no infinity or NaN

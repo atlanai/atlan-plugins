@@ -1,0 +1,83 @@
+{
+  "name": "dax_removefilters_is_a_window_over_the_visual_rows",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "rf",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel",
+      "status"
+    ],
+    "measures": [
+      {
+        "name": "Pct Of Channels",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "DIVIDE(SUM(Sales[amount]), CALCULATE(SUM(Sales[amount]), REMOVEFILTERS(Sales[channel])))"
+      },
+      {
+        "name": "Avg Share",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "DIVIDE(AVERAGE(Sales[unit_price]), CALCULATE(AVERAGE(Sales[unit_price]), ALL(Sales[channel])))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       t.status,\n       SUM(t.amount) / NULLIF((SUM(SUM(t.amount)) OVER (PARTITION BY t.status)), 0) AS pct_of_channels,\n       AVG(t.unit_price) / NULLIF(((SUM(SUM(t.unit_price)) OVER (PARTITION BY t.status) / NULLIF(SUM(COUNT(t.unit_price)) OVER (PARTITION BY t.status), 0))), 0) AS avg_share\nFROM   retail.fct_sales t\nGROUP BY t.channel, t.status",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.average",
+    "dax.calculate.filter",
+    "dax.divide",
+    "dax.sum",
+    "engine.dax_context_window"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

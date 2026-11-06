@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/c3_authored.schema.json",
+  "title": "C3 authored prose, per candidate",
+  "description": "The words C3 attached to each candidate (question, description, gotchas, aliases, evidence citations, claims) and where they came from. Carried beside questioned_candidates.json because it is not part of the candidates contract; C4 checks the claims against the statement and C5 folds the prose into the verified-query layer. A skipped pass says so in `skipped_reason`.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "question_source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skipped_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authored": {
+      "type": "object",
+      "description": "Keyed by candidate_id.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gotchas": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "aliases": {
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "evidence_citations": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "claims": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "required": [
+                "predicate"
+              ]
+            }
+          },
+          "question_source": {
+            "enum": [
+              "model",
+              "structural-draft"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "question",
+          "question_source"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "question_source",
+    "authored"
+  ]
+}

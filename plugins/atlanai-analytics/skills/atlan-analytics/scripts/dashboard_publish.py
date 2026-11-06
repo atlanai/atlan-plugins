@@ -4,6 +4,7 @@ The host captures live schema and a complete scoped inventory, reviews the gener
 plan, executes one MCP call, then acknowledges it. An uncertain write is never replayed.
 """
 import copy
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -26,6 +27,11 @@ class Publisher:
 
     def save(self, state):
         self.store.write(self.path, state)
+
+    def hold_identity(self):
+        evidence = metrics_mine.check_publication_holds(self.root)
+        return hashlib.sha256(json.dumps(evidence, sort_keys=True, separators=(",", ":"),
+                                        ensure_ascii=False).encode()).hexdigest() if evidence is not None else None
 
     def plan(self, snapshot):
         if self.path.exists():
@@ -78,6 +84,7 @@ class Publisher:
         require(bool(actions), "No admitted metrics remain; inspect plan.json refusals.")
         document = {"workspace_id": workspace, "schema_hash": digest(snapshot["metric_schema"]),
                     "source_hash": digest(self.read(self.root / "metrics.json")), "actions": actions,
+                    "publication_holds_hash": self.hold_identity(),
                     "refused": checked["refused"], "warnings": checked["warnings"]}
         plan_id = digest(document)
         state = {"plan_id": plan_id, "reviewed": document, "cursor": 0, "inflight": None, "published": []}
@@ -89,6 +96,8 @@ class Publisher:
 
     def next(self, approved):
         state = self.read(self.path)
+        require(self.hold_identity() == state["reviewed"].get("publication_holds_hash"),
+                "Publication holds changed; export and review a new plan.")
         require(approved == state["plan_id"], "Approval must name the exact reviewed plan.")
         require(not state.get("refused"), "The last call was refused; reconcile and review a new plan.")
         require(digest(self.read(self.root / "metrics.json")) == state["reviewed"]["source_hash"],

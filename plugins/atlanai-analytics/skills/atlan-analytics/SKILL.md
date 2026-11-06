@@ -5,8 +5,16 @@ description: Set up governed metrics and saved queries from a warehouse, connect
 
 # Metrics and talk-to-data agents
 
+Keep progress updates and next-step explanations under 80 words unless a detailed procedure
+is requested.
+
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
-publication approval, privacy and status reporting. Every mode but `connect`, `ask` and
+task authorization, privacy and status reporting. Treat reads of the selected source,
+packaged-runtime initialization and generated-file reads as ordinary task steps. Once a
+publication destination is chosen for saving metrics, carry that authorization through the
+checked plan without an extra publish confirmation. Respect explicit draft/review requests. For new metric generation, read
+[the metrics module](references/metrics-engine.md); it preserves the plug architecture and
+original authored gates and hands artifacts to the existing publisher. Every mode but `connect`, `ask` and
 `ontology` also reads [project conventions](references/project-conventions.md).
 
 This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
@@ -18,7 +26,7 @@ separate add-on or clone a repository to use this bundled workflow.
 ## 0. Dispatch the requested mode first
 
 If the first argument is `dashboard`, or the person supplies a Power BI report link/file
-and asks to turn it into an agent, follow [dashboard to agent](references/dashboard.md)
+and asks to turn it into an agent, follow [dashboard to agent](references/dashboard-agent.md)
 and return. This route runs in Claude Code and Codex with a shell, using the local helper
 and the core Atlan connection. An explicit `metrics` request still follows metrics-only mode.
 Keep all progress in native chat. Use existing inline dashboard cards only when their tools
@@ -71,7 +79,7 @@ Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over i
 | `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
 | `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
 
-The single helper is `scripts/analytics_eval.py`. It uses only the standard library and never
+Evaluation uses `scripts/analytics_eval.py`. It uses only the standard library and never
 touches the network: every registry write, eval results included, goes through the Atlan MCP
 server with the person's own sign-in.
 

@@ -1,0 +1,74 @@
+{
+  "name": "dax_switch_matches_a_blank",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "sw",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "Code",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SWITCH(SUM(Sales[amount]), BLANK(), \"none\", 0, \"zero\", \"some\")"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       (CASE\n  WHEN SUM(t.amount) IS NULL THEN 'none'\n  WHEN SUM(t.amount) = 0 THEN 'zero'\n  ELSE 'some'\nEND) AS code\nFROM   retail.fct_sales t\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.blank",
+    "dax.sum",
+    "engine.dax_switch"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

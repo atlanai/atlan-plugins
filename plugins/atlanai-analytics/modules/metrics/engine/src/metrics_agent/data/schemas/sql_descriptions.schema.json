@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "sql_descriptions",
+  "description": "M2 \u2014 the natural-language question and prose for each verified SQL, keyed by vq_id. An OVERLAY: the layer exists without it and m1_merge applies it.",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "descriptions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {
+      "type": "string"
+    },
+    "descriptions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The BUSINESS alias \u2014 what people call this thing, in their own words ('Success Plan Sign-Off Rate'). Not a technical handle. It is the highest weight a search ranks."
+          },
+          "description": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Every business question this statement answers, in one string. Several are written one after another \u2014 'How many X? What share of Y?' \u2014 because this becomes `display_name`, the highest human-readable weight a search ranks."
+          }
+        }
+      }
+    }
+  }
+}

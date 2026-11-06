@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "module": "metrics",
+  "ownership": "atlan-plugins",
+  "packages": [
+    "packages/metrics-agent-snowflake",
+    "packages/metrics-agent-powerbi",
+    "packages/metrics-agent-tableau",
+    "examples/plugs/databricks-direct",
+    "examples/plugs/postgres-direct"
+  ],
+  "gate_skills": [
+    "review-compiler",
+    "author-questions",
+    "describe-verified-sql",
+    "propose-metrics",
+    "merge-metrics",
+    "author-metric-card",
+    "relate-metrics"
+  ]
+}

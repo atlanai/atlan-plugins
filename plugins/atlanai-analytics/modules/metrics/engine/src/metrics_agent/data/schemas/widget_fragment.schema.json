@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/widget_fragment.schema.json",
+  "title": "A2 widget fragment (fragments/*.widget.json)",
+  "description": "What the parser saw for one usage unit, verbatim from bi_facts, kept for HUMAN REVIEW. No stage reads it: C3 gets the bounded bi_context block instead.",
+  "type": "object",
+  "properties": {
+    "unit_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "visual_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "measures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "top_n": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "sort": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "unit_id",
+    "title",
+    "visual_type",
+    "measures",
+    "columns",
+    "filters",
+    "top_n",
+    "sort",
+    "parameters",
+    "note"
+  ]
+}

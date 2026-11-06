@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/bi_tags.schema.json",
+  "title": "The BI tool's own metadata about its assets",
+  "description": "bi_tags.json beside a BI input: what the BI tool's API says about the input's assets that its files do not hold (a data source's or model's certification or promotion and its note, the asset's description), written by a fetch plug from the API's answer or by the operator. HINTS, NEVER SEMANTICS: a reader copies them onto the matching `bi_facts` asset (by vendor id, else by name), the gate bundles and the metric card carry them, and no compiler reads them. Who endorsed an asset is never written.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "assets"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "source": {
+      "type": "string",
+      "description": "Where the values came from (the plug and the API), for the reader of the run."
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "name"
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "workbook",
+              "datasource",
+              "view",
+              "dashboard",
+              "report",
+              "semantic_model",
+              "page",
+              "visual"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vendor_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endorsement": {
+            "enum": [
+              "certified",
+              "promoted",
+              null
+            ]
+          },
+          "endorsement_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "The BI tool's own tags on the asset (content tags), verbatim."
+          }
+        }
+      }
+    }
+  }
+}

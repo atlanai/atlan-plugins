@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/x2_prompt.schema.json",
+  "title": "X2 prompt bundle (merge-metrics)",
+  "description": "The question X2 hands its author: every metric proposal, grouped by entity as a reading order, each carrying the statement it came from. The answer is validated by x2_merge --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": "x2_merge"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "n_proposals": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "fields": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "optional"
+      ]
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "proposals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vq_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "statement": {
+                  "type": "object",
+                  "required": [
+                    "vq_id",
+                    "sql"
+                  ]
+                }
+              },
+              "required": [
+                "vq_id",
+                "statement"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "entity",
+          "n",
+          "proposals"
+        ]
+      }
+    },
+    "same_number_hints": {
+      "type": "array",
+      "description": "Proposals that compute the same aggregate over the same table under the same restrictions: one number however many measures, visuals or reports spell it (a copy, a format-string variant, an implicit aggregate, a report's own measure, a calculation item beside its copied measure). A hint: two metrics publishing one such number are refused at ingest.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposals",
+          "why"
+        ],
+        "properties": {
+          "proposals": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "instruction",
+    "n_proposals",
+    "fields",
+    "groups"
+  ]
+}

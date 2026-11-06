@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/query_corpus.schema.json",
+  "title": "H0 query corpus: ONE LINE of query_corpus.jsonl",
+  "description": "A statement admitted from the query history, PII-scrubbed, stored as written, with the features H1 groups shapes by and the ids of the log rows it came from (capped; `n_query_ids` and the digest cover the full list). Each line of the JSONL file validates against this schema.",
+  "type": "object",
+  "properties": {
+    "sql": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "exec": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "users": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "feat": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "n_tables_read": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "query_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "n_query_ids": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "query_ids_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "first_seen": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_seen": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_user_attributed": {
+      "type": "boolean"
+    },
+    "user_names": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "description": "WHO ran the statement, sorted. Present only with pii.redact_user_names: false, and only in the run directory: no publish destination accepts a user name."
+    },
+    "plug": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The history plug this statement came from, when the run reads several (one corpus, in the order listed: a statement an earlier plug supplied is not counted again)."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "sql",
+    "tables",
+    "exec",
+    "users",
+    "feat",
+    "n_tables_read",
+    "family",
+    "query_ids",
+    "n_query_ids",
+    "query_ids_sha256",
+    "first_seen",
+    "last_seen"
+  ]
+}
