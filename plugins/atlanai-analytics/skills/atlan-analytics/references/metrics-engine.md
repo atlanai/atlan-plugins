@@ -44,6 +44,24 @@ dialect, custody, verification mode and any required plug setting. Propose defau
 evidence. Never ask for credentials. Missing warehouse access can produce parse-only output;
 a failed semantic check cannot be converted into parse-only success.
 
+### Direct Snowflake query history
+
+With the `snowflake` feature and the person's configured connection, use `snowflake-direct`
+for history with `history_source: account_usage`, omitting `shape_table`. This reads native
+`SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` through the existing read-only socket; no preparation
+view is required. Reuse the selected tables and time range. When no range was requested, state
+the default 90 day range and write its absolute start/end dates into `run.yml` before preparing,
+so resuming keeps the same bounds. The end date is exclusive at midnight UTC. Do not ask for
+an existing shape table unless the person selected that route or native read access is missing.
+
+The plug aggregates SQL and session context, returns counts without user names and blocks
+rather than truncating more than 5,000 SQL/context groups. Narrow a blocked scope or time range.
+A missing grant is an access limit, never an empty history or successful extraction. Offer an
+accessible shape table or local export; do not grant permissions or silently change routes.
+The native view can lag by up to 45 minutes; describe coverage accordingly. Chat MCP query
+history capture remains available through [warehouse history](warehouses/query-history.md)
+when no direct connector is configured.
+
 ## 2. Prepare one engine run
 
 Metrics-only uses `.atlan-metrics/<slug>/engine/`; full builds and dashboards use

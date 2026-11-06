@@ -156,10 +156,10 @@ def body(ctx: stage.Ctx) -> None:
                 continue        # a statement that errored is not evidence of anything
             if rec.query_type.upper() != "SELECT":
                 continue
-            # Keyed on the session database too: the same text run in prod and in a
+            # Keyed on the session database and schema: the same text run in prod and in a
             # benchmark copy is two pieces of evidence, and merging them would file both
             # under whichever database was seen first.
-            k = (C.normalise(sql), str(rec.catalog or "").upper())
+            k = (C.normalise(sql), str(rec.catalog or "").upper(), str(rec.schema or "").upper())
             # ONE CORPUS FROM SEVERAL PLUGS. Two sources over the same warehouse see the same
             # executions; a statement an earlier plug already supplied is not counted again.
             if k in agg and agg[k]["plug"] != plug:

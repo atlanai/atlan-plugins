@@ -12,3 +12,9 @@ semantic_view:
   # A declared relationship always wins: nothing is inferred when any is declared. Off: a join
   # nobody declared is a guess about the grain.
   infer_relationships_from_primary_keys: false
+
+# Native history is always bounded. Overflow blocks instead of silently dropping groups.
+snowflake_history:
+  default_days: 90
+  max_days: 365
+  max_shapes: 5000

@@ -7,8 +7,8 @@ The core consumes common formats. Inputs and readers are discovered through Pyth
 points. The plugin runs the engine with local file output, then uses its existing Registry
 publisher. See the plugin's module guide for the customer workflow.
 
-The Snowflake input reads a prepared shape table. Raw ACCOUNT_USAGE.QUERY_HISTORY is not
-read from Snowflake itself.
+The Snowflake input reads bounded native `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` and
+aggregates executions into common records. Existing prepared shape tables remain supported.
 
 ## Development
 

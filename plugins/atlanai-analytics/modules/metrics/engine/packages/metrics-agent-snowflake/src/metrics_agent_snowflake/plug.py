@@ -6,9 +6,8 @@ Custody `customer`: nothing passes through a third party's store.
 
 * **SQL check**: a read-only connection (the socket refuses any write before it is sent).
 * **schema**: column names, types and comments from each database's INFORMATION_SCHEMA.
-* **history**: a shape table in the account (one row per distinct statement, with counts).
-  Snowflake's own `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY` is NOT supported, and naming it is
-  refused with the shape-table route.
+* **history**: bounded native Account Usage history, or an existing shape table. Native
+  executions are aggregated by exact SQL and session database/schema, without exporting users.
 * **BI definitions**: semantic views (`semantic_views`, each `DB.SCHEMA.VIEW`), read as their
   DDL by one `SELECT GET_DDL('SEMANTIC_VIEW', '<view>')` each, through the same read-only
   connection, and written as `<view>.sql`. Or a semantic view file already on disk (`bi`),
@@ -34,15 +33,9 @@ from typing import Any, Iterator
 from metrics_agent import sockets as S
 from metrics_agent.lib.querylog import shape_table_records
 
-# Snowflake's own query history (`SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY`) is not read: it holds
-# one row per execution with columns of its own, not the shape-table contract, and reading it
-# needs a grant a read-only role often lacks. Named, so pointing `shape_table` at it is refused
-# with the route that works instead of failing on a missing column.
+# Keep native history separate from the three-column shape-table contract.
 _ACCOUNT_USAGE = re.compile(r'^"?SNOWFLAKE"?\."?ACCOUNT_USAGE"?\."?QUERY_HISTORY"?$',
                             re.IGNORECASE)
-_NO_ACCOUNT_USAGE = ("History from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY is not supported; "
-                     "aggregate it into a shape table (sql, exec, users[, query_id]) and name "
-                     "that as `shape_table`, or export the log to a file for local-files.")
 
 
 # SNOWFLAKE'S ACCESS REFUSALS, by its own error numbers, as the run's access codes
@@ -125,8 +118,8 @@ class SnowflakeDirect:
     # first step of `metrics-agent run`) into the run directory, so S0 never reaches out.
     fetch_settings = ("semantic_views",)
     setup_questions = {
-        "history": (S.SetupQuestion("shape_table", "The shape table (DB.SCHEMA.TABLE: one row per "
-                                       "distinct statement, with its counts)"),
+        "history": (S.SetupQuestion("shape_table", "Existing shape table, DB.SCHEMA.TABLE "
+                                       "(blank: read native Account Usage history)", required=False),
                     S.SetupQuestion("columns", "Its columns, in order: the statement, its "
                                     "execution count, its user count[, a query id] (blank: "
                                     "sql,exec,users)", required=False, kind="list"),),
@@ -229,16 +222,31 @@ class SnowflakeDirect:
                               catalog_per_database=self.catalog_per_database,
                               access_blocker=access_blocker)
 
+    @classmethod
+    def validate_settings(cls, role: str, settings: dict[str, Any]) -> str | None:
+        if role != "history":
+            return None
+        from .history import source
+
+        try:
+            source(settings)
+            table = settings.get("shape_table")
+            if table and _ACCOUNT_USAGE.match(str(table).strip()):
+                return ("Use history_source: account_usage and omit shape_table to read "
+                        "SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY directly")
+        except ValueError as exc:
+            return str(exc)
+        return None
+
     def query_history(self, tables: list[str], window: S.Window) -> Iterator[S.QueryRecord]:
-        table = self.settings.get("shape_table")
-        if not table:
-            raise S.NotSupported("snowflake-direct: set `shape_table` (DB.SCHEMA.TABLE), a "
-                                 "table with one row per distinct statement and its counts. "
-                                 + _NO_ACCOUNT_USAGE)
-        if _ACCOUNT_USAGE.match(str(table).strip()):
-            raise S.NotSupported(f"snowflake-direct: {table} is not a shape table. "
-                                 + _NO_ACCOUNT_USAGE)
-        return shape_table_records(self.sql_runner(), self.dialect, table,
+        from .history import records, source
+
+        problem = self.validate_settings("history", self.settings)
+        if problem:
+            raise ValueError(problem)
+        if source(self.settings) == "account_usage":
+            return records(self.sql_runner(), tables, window)
+        return shape_table_records(self.sql_runner(), self.dialect, self.settings["shape_table"],
                                    self.settings.get("columns"))
 
     def table_schema(self, tables: list[str], *, max_description_chars: int) -> S.SchemaResult:

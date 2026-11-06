@@ -757,7 +757,7 @@ model with no measure is said and left out.
 ### C. Snowflake
 
 SQL checked on your own read-only role, columns from `INFORMATION_SCHEMA`, and query history
-from a shape table (one row per distinct statement, with its counts):
+from native Account Usage history or an existing aggregated shape table:
 
 ```yaml
 version: 1
@@ -793,8 +793,12 @@ CURRENT_ACCOUNT_NAME()`); a bare account locator works only in AWS US West. `pri
 is the key **file**, by absolute path; drop `private_key_file_pwd` for an unencrypted key. Give
 the service user `DEFAULT_SECONDARY_ROLES = ()` so no other role it holds joins the session.
 Use a read-only role: the agent refuses any statement that writes before it is sent, but the
-role is the first lock. Snowflake's own `ACCOUNT_USAGE.QUERY_HISTORY` is not
-read directly; build a shape table from it.
+role is the first lock. For native history, replace `shape_table` above with
+`history_source: account_usage`, give the role read access to
+`SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY`, and set the run's bounded `tables` and absolute
+`window.start` / `window.end` dates. The end is exclusive at midnight UTC. Without explicit
+bounds, the native route uses the previous 90 days. It blocks on overflow instead of returning
+a partial corpus; see the [Snowflake plug](../packages/metrics-agent-snowflake/README.md).
 
 ### D. An Atlan tenant
 
