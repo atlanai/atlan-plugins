@@ -64,6 +64,10 @@ Ask once, with the options that are actually in reach:
 - **Import a finished metrics-agent run**: the run directory's `registry_payloads/`.
 - **We write a few definitions together**: section 3, by hand.
 
+Skip this choice when the request already selected a source, including `query-history`.
+Use a supplied query export before asking for warehouse history access. Discover a data
+connection only when needed for checks or fresh answers, and explain that purpose first.
+
 If the person offers a benchmark or eval file here, keep it out of this workflow. In a full
 build it is used in phase 4. Eval answers never become context.
 

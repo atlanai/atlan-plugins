@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Set up governed metrics and saved queries from a warehouse, connect a warehouse, build, evaluate or improve a talk-to-data agent, turn a Power BI dashboard into one, or propose a metric fix. Use for analytics setup and agent work on Atlan. Not for a one-off data question (atlan-analytics-ask) or business objects and policies (atlan-ontology).
+description: Set up analytics from a local project, dashboards, query history or a warehouse; publish metrics and SQL, or build and evaluate an agent. Use when asked to set up a project for analytics or questions about its data. Not for a one-off data question (atlan-analytics-ask) or business objects and policies (atlan-ontology).
 ---
 
 # Metrics and talk-to-data agents
@@ -16,6 +16,21 @@ examples and specialist-agent names below with the installed namespace. Do not i
 separate add-on or clone a repository to use this bundled workflow.
 
 ## 0. Dispatch the requested mode first
+
+"Set up this project for analytics" and "Set up this project so I can ask questions about
+its data", with a selected local folder, follow [local project setup](references/project.md).
+Survey every available source, combine model and history evidence, publish metrics and saved
+SQL, then suggest supported questions. When the user asks, retrieve the released context
+from Trident and execute against the selected data source. No eval or dedicated agent is
+required. Explicit metrics-only, dashboard, build, eval and improve modes keep their routes.
+
+`start` and `setup`, or invoking Analytics without a task, follow
+[getting started](references/start.md). `query-history <file, folder or scope>` follows the
+same route with query history already selected. These routes finish with a business answer
+in this host, not mandatory agent registration. Reuse an explicitly selected run when resuming.
+Do not run full-agent preflight or present build/eval/improve as the initial menu.
+Natural requests to turn supplied queries or a repository of models into context for questions
+also use this route. An explicit metrics-only or full-agent mode still takes precedence.
 
 If the first argument is `dashboard`, or the person supplies a Power BI report link/file
 and asks to turn it into an agent, follow [dashboard to agent](references/dashboard.md)

@@ -84,7 +84,8 @@ agents can't read those drafts yet.
 Only after both ends exist, and only the approved list:
 1. Resolve each end to its artifact id from `published.json` or the plan's `match_id`. Confirm
    both are in the workspace. Hold any link whose end is missing or ambiguous, and never guess
-   by name.
+   by name. Metrics and saved queries can have the same name: index endpoints by kind and
+   source identity (or kind and name within the reviewed workspace), never by name alone.
 2. Read `registry__get_kind_schema` for each source kind, and write only the relation types and
    target kinds it declares.
 3. Read the existing links first, including the `depends_on` links the metric posthook derives.

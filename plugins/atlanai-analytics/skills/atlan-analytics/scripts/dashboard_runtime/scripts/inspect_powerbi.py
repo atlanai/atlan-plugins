@@ -158,14 +158,24 @@ def inspect(path):
             out['pages'].append(page)
     if isinstance(model,dict):
         model = model.get('model',model)
+        partitions = []
+        power_query = []
         for table in model.get('tables',[]):
             out['tables'].append({'name':table.get('name'),'columns':[fields(c,('name','dataType','sourceColumn','expression','source_id')) for c in table.get('columns',[])]})
             for measure in table.get('measures',[]):
                 out['measures'].append({'table':table.get('name'),**fields(measure,('name','expression','dataType','description','formatString','lineageTag','source_id'))})
+            for partition in table.get('partitions', []):
+                source = partition.get('source', {})
+                partitions.append({'table': table.get('name'),
+                                   **fields(partition, ('name', 'mode', 'source'))})
+                if source.get('type') == 'm':
+                    power_query.append({'table': table.get('name'),
+                                        'partition': partition.get('name'),
+                                        'expression': source.get('expression')})
         out['relationships'] = model.get('relationships',[])
-        out['power_query'] = model.get('power_query',[])
+        out['power_query'] = model.get('power_query',[]) + power_query
         out['security'] = model.get('security',{})
-        out['partitions'] = model.get('partitions',[])
+        out['partitions'] = model.get('partitions',[]) + partitions
         out['security_roles_present'] = bool(model.get('roles') or out['security'].get('roles'))
     out['model_metadata_available'] = model is not None
     out['binary_status'] = binary_status

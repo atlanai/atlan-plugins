@@ -35,7 +35,8 @@ def portable_metric(metric):
     sql = translation["sql"]
     parameters = translation["parameters"]
     # Compiler parameters occur outside quoted literals: values are never interpolated into SQL.
-    sql = re.sub(r":(p\d+)\b", lambda m: "{{" + m[1] + "}}", sql)
+    marker = r"\$(p\d+)\b" if translation.get('binding_style') == 'named_dollar' else r":(p\d+)\b"
+    sql = re.sub(marker, lambda m: "{{" + m[1] + "}}", sql)
     definition["formula"] = 'dashboard_value."value"'
     definition["aggregation"] = {"type": "custom", "reaggregation": "none"}
     definition["source"] = {
