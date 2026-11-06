@@ -1,0 +1,34 @@
+{
+  "name": "tableau_datepart_compiles_only_shared_parts",
+  "dialect": "snowflake",
+  "unit": {
+    "unit_id": "c_dp",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Latest Month",
+        "aggregation": null,
+        "formula_language": "tableau-calc",
+        "formula": "MAX(DATEPART('month', [sold_at]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT MAX(DATE_PART('month', t.sold_at)) AS latest_month\nFROM   retail.fct_sales t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "tableau.datepart",
+    "tableau.max"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "units_sold",
+      "sold_at"
+    ]
+  }
+}

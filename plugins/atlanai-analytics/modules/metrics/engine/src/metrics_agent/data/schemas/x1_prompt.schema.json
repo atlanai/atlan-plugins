@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/x1_prompt.schema.json",
+  "title": "X1 prompt bundle (propose-metrics)",
+  "description": "The question X1 hands its author: every verified statement, grouped by domain, with the aggregates the parser found offered as evidence. The answer is validated by x1_propose --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": "x1_propose"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fields": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "per_metric_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "per_metric_optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "per_metric_required",
+        "per_metric_optional"
+      ]
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "vq_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "aggregates_found": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "filters": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mandatory_source_filters": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Filters that define the rows of the table the statement reads (the WHERE of a derived table it reads from, such as a BI tool's own query steps). Every metric over the statement keeps them in its mandatory_filters."
+                }
+              },
+              "required": [
+                "vq_id",
+                "sql",
+                "aggregates_found"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "domain",
+          "n",
+          "queries"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "instruction",
+    "fields",
+    "tasks"
+  ]
+}

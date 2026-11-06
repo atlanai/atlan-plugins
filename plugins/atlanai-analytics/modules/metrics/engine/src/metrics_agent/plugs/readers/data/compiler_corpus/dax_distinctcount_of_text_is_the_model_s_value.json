@@ -1,0 +1,63 @@
+{
+  "name": "dax_distinctcount_of_text_is_the_model_s_value",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "dct",
+    "warehouse_tables": [
+      "retail.dim_customer"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Regions",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "DISTINCTCOUNT(Customer[region])"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT NULLIF(COUNT(DISTINCT UPPER(RTRIM(t.region))) + MAX(CASE WHEN UPPER(RTRIM(t.region)) IS NULL THEN 1 ELSE 0 END), 0) AS regions\nFROM   retail.dim_customer t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.distinctcount",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.dim_customer": [
+      "customer_key",
+      "region"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

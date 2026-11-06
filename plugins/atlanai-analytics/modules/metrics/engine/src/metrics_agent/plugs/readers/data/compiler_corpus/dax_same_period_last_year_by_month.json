@@ -1,0 +1,103 @@
+{
+  "name": "dax_same_period_last_year_by_month",
+  "dialect": "snowflake",
+  "unit": {
+    "unit_id": "ly",
+    "warehouse_tables": [
+      "retail.fct_sales",
+      "retail.dim_date"
+    ],
+    "group_by": [
+      "year",
+      "month"
+    ],
+    "measures": [
+      {
+        "name": "Sales",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SUM(Sales[amount])"
+      },
+      {
+        "name": "Sales LY",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[amount]), SAMEPERIODLASTYEAR('Date'[date_key]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "order_date",
+        "to_table": "retail.dim_date",
+        "to_column": "date_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ],
+    "group_by_tables": [
+      "retail.dim_date",
+      "retail.dim_date"
+    ]
+  },
+  "expect_sql": "SELECT u.k1 AS year,\n       u.k2 AS month,\n       MAX(u.s1) AS sales,\n       (MAX(u.s2)) AS sales_ly\nFROM (\nSELECT j1.year AS k1,\n       j1.month AS k2,\n       SUM(t.amount) AS s1,\n       NULL AS s2\nFROM   retail.fct_sales t\nLEFT JOIN retail.dim_date j1 ON j1.date_key = t.order_date\nGROUP BY j1.year, j1.month\n  UNION ALL\nSELECT c.k1 AS k1,\n       c.k2 AS k2,\n       NULL AS s1,\n       SUM(t.amount) AS s2\nFROM   (\n  SELECT DISTINCT c.k1, c.k2, s.date_key AS dt\n  FROM   (\n    SELECT d.year AS k1, d.month AS k2, d.date_key AS dt, LAG(d.date_key) OVER (PARTITION BY d.year, d.month ORDER BY d.date_key) AS prev\n    FROM   retail.dim_date d\n  ) c\n  JOIN retail.dim_date s ON s.date_key BETWEEN DATEADD(MONTH, -12, c.dt) AND CASE WHEN c.dt = LAST_DAY(c.dt) AND c.prev = DATEADD(DAY, -1, c.dt) THEN LAST_DAY(DATEADD(MONTH, -12, c.dt)) ELSE DATEADD(MONTH, -12, c.dt) END\n) c\nJOIN retail.fct_sales t ON t.order_date = c.dt\nGROUP BY c.k1, c.k2\n) u\nGROUP BY u.k1, u.k2",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_date_set_shift",
+    "engine.dax_time_intelligence",
+    "engine.dax_time_sameperiodlastyear"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ],
+    "retail.dim_date": [
+      "date_key",
+      "year",
+      "month"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/bi_capture.schema.json",
+  "title": "A BI capture: what an operator's assistant saved from a signed-in browser or a vendor's MCP server",
+  "description": "The manifest `capture_manifest.json` at the root of a capture folder. Two routes fill one: `browser` (the operator's assistant, in the operator's own signed-in browser, saves the BI tool's own downloads (definition files any installed reader already reads) and the values the tool shows (oracle files)) and `mcp` (the assistant calls the BI vendor's own MCP server and saves what its tools return in the same two roles); either way it lists the files here, and no stage calls a browser or an MCP server. What a route could not give (a report layout, a data source definition, the displayed values) is named in `gaps`, so the run says what it could not verify instead of staying silent. The core reads ONLY the files listed: `definitions` is what the run's reader parses; an `oracle` file is never parsed as a definition and never reaches a statement. Each file carries its SHA-256, so a file changed after the capture is refused. The `refused` list names, by code, every capture the tool or the identity did not allow, so a run that has nothing to read says why. Vendor-neutral: `tool` is the name of the installed reader that reads `definitions`, and `how` is the tool's own label for the action, as text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "route",
+    "tool",
+    "custody",
+    "captured_at",
+    "captured_by",
+    "definitions",
+    "rows_on_disk",
+    "files"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "route": {
+      "enum": [
+        "browser",
+        "mcp"
+      ],
+      "description": "How the files were obtained. `browser`: the operator's own signed-in browser session, driven by their assistant; no credential was handed to the agent. `mcp`: the BI vendor's own MCP server, called by the operator's assistant under the operator's sign-in; `server` names it. A file obtained another way says so in its own `route`."
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The installed BI reader (`metrics_agent.readers`) that reads `definitions`: the run's `bi_vendor`. Any string here; S0 checks it against the installed readers."
+    },
+    "custody": {
+      "enum": [
+        "customer",
+        "third-party"
+      ],
+      "description": "Who held the data on its way to this folder. `customer` when the browser and the folder are the customer's own (their operator, their machine); `third-party` otherwise. A standalone run refuses a third-party capture."
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "captured_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role"
+      ],
+      "description": "The identity the browser was signed in as: never a name, an email or a token. What it saw depends on it (row-level security, hidden fields, what it may download).",
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The identity's role on the container, as the tool names it (a workspace role, a site role)."
+        },
+        "row_filters_apply": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "Whether the tool's row-level security narrows what this identity sees; null when unknown. When true, an oracle value is this identity's number, not everyone's."
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where the capture came from, as the browser showed it. No query string: it can carry a session or a filter state.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https://[^?]*$"
+        },
+        "container": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The workspace, site or project."
+        },
+        "item": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The report, workbook or model."
+        }
+      }
+    },
+    "definitions": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![/~])(?!.*(^|/)\\.\\.(/|$)).+$",
+      "description": "The path, relative to the capture folder, of what the run's reader parses: one file (a downloaded report file) or one folder (a workbook beside the published data sources it uses). Every `definition` file lies at or under it."
+    },
+    "rows_on_disk": {
+      "type": "boolean",
+      "description": "Whether a definition file carries the tool's data rows (a report downloaded with its data, a packaged workbook with an extract). The reader never reads them; the operator is told before such a download."
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    },
+    "refused": {
+      "type": "array",
+      "description": "Every capture the tool or the identity did not allow, by code. A run whose `definitions` is missing is refused with these.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "what",
+          "reason"
+        ],
+        "properties": {
+          "what": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The capture that was attempted, in the tool's own words."
+          },
+          "reason": {
+            "$ref": "#/$defs/refusal"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "transport"
+      ],
+      "description": "With route `mcp`: the MCP server the assistant called, as its `initialize` answer named it (`serverInfo`), and how it was reached. Never its credentials or its configuration.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transport": {
+          "enum": [
+            "stdio",
+            "http"
+          ]
+        },
+        "read_only": {
+          "type": "boolean",
+          "description": "Whether only read-only tools were enabled (the tool allow-list or the server's read-only mode)."
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "description": "What this capture does NOT hold that a full fetch would, one entry per kind: the run records each one and says what it therefore cannot verify. Empty or absent: nothing is missing.",
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "role",
+        "how"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![/~])(?!.*(^|/)\\.\\.(/|$)).+$",
+          "description": "Relative to the capture folder; never absolute, never above it."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "role": {
+          "enum": [
+            "definition",
+            "oracle"
+          ],
+          "description": "`definition`: a file the reader parses. `oracle`: a value the tool showed, kept to check the agent's SQL against; never a definition."
+        },
+        "how": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The tool's action that produced it, in its own words: a menu path in the browser, the MCP tool's name (and the arguments that matter) over MCP."
+        },
+        "widget": {
+          "$ref": "#/$defs/widget"
+        },
+        "format": {
+          "enum": [
+            "csv",
+            "tsv"
+          ],
+          "description": "An oracle file's layout. The encoding is read from its byte-order mark (UTF-8 or UTF-16)."
+        },
+        "header": {
+          "type": "boolean",
+          "description": "Whether an oracle file's first line names its columns. A tool can leave it out for a single value."
+        },
+        "formatted": {
+          "type": "boolean",
+          "description": "Whether an oracle file's numbers are as DISPLAYED (thousands separators, rounded to the decimals shown), so a check rounds the agent's number to the same decimals; false when they are the tool's raw values."
+        },
+        "route": {
+          "enum": [
+            "browser",
+            "mcp",
+            "api",
+            "file"
+          ],
+          "description": "How THIS file was obtained, when not by the manifest's `route`: a capture can mix routes (an MCP server that exposes no data source download, completed by the browser's download of it). `api`: the vendor's REST API under the operator's own credential. `file`: a file the operator already had."
+        }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Which widget, and in which state, an oracle file holds, as the browser showed it.",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "page": {
+          "type": "string"
+        },
+        "sheet": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The widget's own name where the tool shows one (a worksheet)."
+        },
+        "filters": {
+          "type": "array",
+          "description": "The filters the tool listed on the widget when the values were taken (its filter pane), as shown. Empty: unfiltered.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "values"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1
+              },
+              "op": {
+                "enum": [
+                  "in",
+                  "not_in"
+                ]
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "number",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "refusal": {
+      "enum": [
+        "content_not_visible",
+        "download_not_permitted",
+        "export_disabled",
+        "label_export_blocked",
+        "rows_not_accepted",
+        "definitions_not_obtainable",
+        "no_machine_readable_oracle",
+        "network_body_unavailable",
+        "session_expired",
+        "download_incomplete",
+        "credential_prompt",
+        "write_refused",
+        "credential_reuse",
+        "tool_not_exposed",
+        "server_feature_off",
+        "terms_not_accepted",
+        "tool_error"
+      ],
+      "description": "content_not_visible: the identity cannot see the item. download_not_permitted: its role or a permission forbids the download. export_disabled: an admin setting turns the export off. label_export_blocked: a sensitivity label blocks it. rows_not_accepted: the only download carries data rows and the operator declined them. definitions_not_obtainable: no route gives this identity the definitions. no_machine_readable_oracle: the widget shows its values only as pixels. network_body_unavailable: the page's requests can be seen but not their bodies. session_expired: the operator must sign in again. download_incomplete: the file did not arrive whole. credential_prompt: the tool asked for a warehouse credential, which the assistant never types. write_refused: the only way on was an action that changes something. credential_reuse: the only way on was reusing the page's own token. tool_not_exposed: the MCP server has no tool that returns it. server_feature_off: an admin setting turns the MCP server (or that tool) off for this identity. terms_not_accepted: the server needs a licence the operator has not accepted; the assistant never accepts one for them. tool_error: an MCP tool answered with an error (its message, without any personal data, is the detail)."
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "what",
+        "cannot_verify"
+      ],
+      "properties": {
+        "what": {
+          "enum": [
+            "report_definition",
+            "model_definition",
+            "data_source_definition",
+            "displayed_values",
+            "warehouse_lineage",
+            "row_security_context"
+          ],
+          "description": "report_definition: no layout of the report or workbook (no widgets, pages, visual filters): questions come from the model alone. model_definition: no measure or calculation formulas. data_source_definition: a data source the definitions use is not in the capture (its tables and joins are unknown). displayed_values: no value the tool showed, so no widget can be checked against what a person sees. warehouse_lineage: the warehouse tables a data source reads are not named. row_security_context: the identity's row-level security cannot be told."
+        },
+        "detail": {
+          "type": "string",
+          "description": "Which objects, and why the route could not give them (for example: the server exposes no tool for it)."
+        },
+        "cannot_verify": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the run therefore cannot check, in words the run report repeats."
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The objects concerned, by the name the tool shows (a data source, a report)."
+        },
+        "access_code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z_]*$",
+          "description": "When the gap is an access limit the route met (the BI tool's value service is off, a data source's embedded credentials are missing, a tool the server does not expose), its access_report code; the run records the gap as that blocker instead of a plain capture_gap."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "route": {
+            "const": "mcp"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "server"
+        ]
+      }
+    }
+  ]
+}

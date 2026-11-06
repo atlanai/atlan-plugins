@@ -79,10 +79,12 @@ is marked untested in the preview.
 Translate `SUM([Sales])`, `COUNTD([Order ID])`, `IF … THEN … END` and `ZN()` directly. Hold
 table calculations and LOD expressions (`{FIXED …}`), and say why.
 
-**Power BI.** Use a PBIP project's `definition/tables/*.tmdl` (`measure '<name>' = <DAX>`), a
-`model.bim` (`tables[].measures[].expression`), or a `.pbit` template, which holds the model as
-JSON with no data. For binary `.pbix`, use the existing approved PBIXRay runtime and report decode limitations;
-text exports need no decoder dependency. A table's `partition` source names the warehouse
+**Power BI.** New generation uses [the metrics module](../metrics-engine.md): its optional
+`pbix` feature reads binary PBIX, and its Power BI reader supports the documented PBIP/TMDL
+and model.bim inputs. A `.pbit` template is not supported by that reader; do not recommend
+changing formats as an identity repair. Keep the selected report's stable asset key across
+supported downloads. The following translation notes apply only to an explicitly selected
+by-hand draft. A table's `partition` source names the warehouse
 table. Translate:
 - `SUM`, `COUNTROWS`, `DISTINCTCOUNT`, `AVERAGE`, `MIN` and `MAX`;
 - `DIVIDE(a, b)`, as a guarded divide;

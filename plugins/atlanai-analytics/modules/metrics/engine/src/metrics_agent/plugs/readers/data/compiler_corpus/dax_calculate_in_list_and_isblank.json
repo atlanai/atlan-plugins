@@ -1,0 +1,39 @@
+{
+  "name": "dax_calculate_in_list_and_isblank",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c_in",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "North South Units",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[units_sold]), Sales[region] IN {\"North\", \"South\"} && NOT ISBLANK(Sales[season]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT (SUM(CASE WHEN UPPER(RTRIM(t.region)) IN ('NORTH', 'SOUTH') AND t.season IS NOT NULL THEN t.units_sold END)) AS north_south_units\nFROM   retail.fct_sales t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "region",
+      "units_sold",
+      "units_received",
+      "product",
+      "promo",
+      "season"
+    ]
+  }
+}

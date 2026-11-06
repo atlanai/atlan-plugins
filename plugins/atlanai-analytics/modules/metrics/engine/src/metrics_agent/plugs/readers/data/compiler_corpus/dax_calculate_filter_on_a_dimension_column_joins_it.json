@@ -1,0 +1,122 @@
+{
+  "name": "dax_calculate_filter_on_a_dimension_column_joins_it",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "dim",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "North Sales",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[amount]), Customer[region] = \"North\")"
+      },
+      {
+        "name": "Sport Sales",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[amount]), Category[department] = \"Sport\")"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "customer_key",
+        "to_table": "retail.dim_customer",
+        "to_column": "customer_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "product_key",
+        "to_table": "retail.dim_product",
+        "to_column": "product_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      },
+      {
+        "from_table": "retail.dim_product",
+        "from_column": "category_key",
+        "to_table": "retail.dim_category",
+        "to_column": "category_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ]
+  },
+  "expect_sql": "SELECT t.channel,\n       (SUM(CASE WHEN UPPER(RTRIM(j1.region)) = 'NORTH' THEN t.amount END)) AS north_sales,\n       (SUM(CASE WHEN UPPER(RTRIM(j3.department)) = 'SPORT' THEN t.amount END)) AS sport_sales\nFROM   retail.fct_sales t\nLEFT JOIN retail.dim_customer j1 ON j1.customer_key = t.customer_key\nLEFT JOIN retail.dim_product j2 ON j2.product_key = t.product_key\nLEFT JOIN retail.dim_category j3 ON j3.category_key = j2.category_key\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.sum",
+    "engine.dax_related_table_column",
+    "engine.dax_text_key"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ],
+    "retail.dim_customer": [
+      "customer_key",
+      "region"
+    ],
+    "retail.dim_product": [
+      "product_key",
+      "category_key",
+      "list_price"
+    ],
+    "retail.dim_category": [
+      "category_key",
+      "department"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

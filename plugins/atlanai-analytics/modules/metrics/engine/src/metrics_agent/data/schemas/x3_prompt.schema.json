@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/x3_prompt.schema.json",
+  "title": "X3 prompt bundle (author-metric-card)",
+  "description": "The question X3 hands its author: one task per merged metric, with the merge, the statements it came from and what the SQL itself evidences, parsed. The answer is validated by x3_emit --from; this schema holds the question.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": "x3_emit"
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fields": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "optional"
+      ]
+    },
+    "n_metrics": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "metric_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "merged": {
+            "type": "object"
+          },
+          "n_sources": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Each statement the metric was merged from: its SQL and authored prose, what X1 proposed, and, for a BI statement, `bi_definitions` (where and how the BI tool defines the number, with the model's own metadata: context, never SQL) and `conversion_quality` (its grade and reason)."
+          },
+          "evidence": {
+            "type": "object"
+          },
+          "declared": {
+            "type": "object",
+            "description": "When a source statement was compiled from a metric its BI model declares: the declaration (question_units `declared`), shown whole. The card's formula and entity are held to it; X3 adds its joins, dimensions, examples, grain and synonyms."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "metric_id",
+          "name",
+          "merged",
+          "n_sources",
+          "sources",
+          "evidence"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "stage",
+    "instruction",
+    "fields",
+    "n_metrics",
+    "tasks"
+  ]
+}

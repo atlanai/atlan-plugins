@@ -1,0 +1,97 @@
+{
+  "name": "dax_sumx_with_related_reads_the_dimension_row",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "sx",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "List Value",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SUMX(Sales, Sales[qty] * RELATED(Product[list_price]))"
+      },
+      {
+        "name": "Big Lines",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "SUMX(FILTER(Sales, Sales[qty] >= 3), Sales[amount])"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": [
+      {
+        "from_table": "retail.fct_sales",
+        "from_column": "product_key",
+        "to_table": "retail.dim_product",
+        "to_column": "product_key",
+        "cardinality": "M:1",
+        "kind": "relationship",
+        "is_active": true
+      }
+    ]
+  },
+  "expect_sql": "SELECT t.channel,\n       SUM(t.qty * j1.list_price) AS list_value,\n       SUM(CASE WHEN COALESCE(COALESCE(t.qty, 0) >= 3, FALSE) THEN t.amount END) AS big_lines\nFROM   retail.fct_sales t\nLEFT JOIN retail.dim_product j1 ON j1.product_key = t.product_key\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.related",
+    "dax.sumx",
+    "engine.dax_blank_comparison",
+    "engine.dax_related_table_column",
+    "engine.dax_row_iterator"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "amount",
+      "qty",
+      "unit_price",
+      "customer_key",
+      "product_key",
+      "order_date",
+      "ship_date",
+      "channel",
+      "status",
+      "order_id"
+    ],
+    "retail.dim_product": [
+      "product_key",
+      "category_key",
+      "list_price"
+    ]
+  },
+  "table_of": {
+    "sales": "retail.fct_sales",
+    "customer": "retail.dim_customer",
+    "product": "retail.dim_product",
+    "category": "retail.dim_category",
+    "date": "retail.dim_date"
+  },
+  "types": [
+    [
+      "sales",
+      "channel",
+      "string"
+    ],
+    [
+      "sales",
+      "customer_key",
+      "int64"
+    ],
+    [
+      "customer",
+      "region",
+      "string"
+    ],
+    [
+      "date",
+      "date_key",
+      "dateTime"
+    ]
+  ]
+}

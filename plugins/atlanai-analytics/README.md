@@ -27,9 +27,10 @@ codex plugin add atlanai-analytics@atlan
 
 ## Privacy
 
-It has no hooks and no binaries. Its skills may run the standard-library Python scripts bundled
-with them and keep working files in your project, and they reach Atlan only through the `atlanai`
-plugin's connection, signed in as you. See Atlan's
+It has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
+set up an isolated metrics-agent environment with pinned dependencies after authorization.
+Working files stay in your project. Input plugs use the source connections you select; Registry
+writes use the `atlanai` plugin's connection, signed in as you. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).
 
 ## Source

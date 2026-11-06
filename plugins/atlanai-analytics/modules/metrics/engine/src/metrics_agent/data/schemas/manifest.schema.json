@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/manifest.schema.json",
+  "title": "Run manifest",
+  "description": "One entry per stage. Records what produced each artifact so two runs are comparable and one is reproducible. Inputs are PATHS.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "script": {
+            "type": "string",
+            "minLength": 1
+          },
+          "started_at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "duration_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "policy_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "policy_sha256": {
+            "type": "string",
+            "minLength": 1
+          },
+          "counts": {
+            "type": "object"
+          },
+          "verdict": {
+            "enum": [
+              "ok",
+              "stub",
+              "blocked",
+              "skipped"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Model id, for LLM stages only. Makes a regression attributable."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "stage",
+          "script",
+          "started_at",
+          "duration_s",
+          "inputs",
+          "outputs",
+          "policy_path",
+          "policy_sha256",
+          "counts",
+          "verdict"
+        ]
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Decisions an operator made about how the run goes on, kept beside the stage entries because an entry is replaced each time its stage runs. Today one kind: going on untraced after required tracing failed (`continue_untraced`).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "continue_untraced"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "at",
+          "stage",
+          "kind",
+          "detail"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "run_id",
+    "stages"
+  ]
+}

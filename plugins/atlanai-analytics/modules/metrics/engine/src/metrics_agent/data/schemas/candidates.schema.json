@@ -1,0 +1,1159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/candidates.schema.json",
+  "title": "Normalised candidates (C1 / C2 output)",
+  "description": "Both lanes emit THIS so nothing downstream learns two vocabularies. C2 merges on the semantic shape key; near matches become scoped variants and are never merged.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "dialect": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lane": {
+            "enum": [
+              "bi",
+              "history",
+              "merged"
+            ]
+          },
+          "sql": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "joins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "left": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "right": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "left",
+                "right"
+              ]
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "op": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_identity": {
+                  "type": "boolean"
+                },
+                "stage": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "negated": {
+                  "type": "boolean",
+                  "description": "true when an enclosing NOT excludes this predicate rather than requiring it"
+                },
+                "value_kind": {
+                  "type": "string",
+                  "enum": [
+                    "literal",
+                    "column",
+                    "expression",
+                    "absent"
+                  ],
+                  "description": "what the predicate compares the column to; only a literal can be tuned"
+                },
+                "scope_tables": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The real base tables the select owning this predicate restricts. A predicate restricts the select it sits in, not the statement; without this, filters from every CTE were attributed flat to the metric's one entity."
+                },
+                "in_source": {
+                  "type": "boolean",
+                  "description": "The predicate is the WHERE of a derived table the statement reads from: it defines the rows of the table (a BI tool's own query steps), so every metric over the statement keeps it as a mandatory filter."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "column",
+                "op"
+              ]
+            }
+          },
+          "group_by": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "aggregations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fn": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "expr": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "alias": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "fn",
+                "expr"
+              ]
+            }
+          },
+          "grain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "klass": {
+            "enum": [
+              "metric",
+              "segmentation",
+              "cohort",
+              "lookup",
+              "trend"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "semantic_shape_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "sorted(tables) + sorted((fn,column)) + sorted(group_by) + normalised parameterized predicate set."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "question_draft": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "translation": {
+            "enum": [
+              "full",
+              "partial",
+              null
+            ]
+          },
+          "untranslatable": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "construct": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "in_measure": {
+                  "type": "string"
+                },
+                "why": {
+                  "type": "string",
+                  "description": "the rule table's stated reason the construct cannot be expressed as one statement"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "construct"
+              ]
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scope_when": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sql": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "label",
+                "scope_when",
+                "evidence"
+              ]
+            }
+          },
+          "totals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "grand_total",
+                    "subtotal"
+                  ],
+                  "description": "`grand_total`: keeps no grouping column. `subtotal`: keeps some of them."
+                },
+                "group_by": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "The grouping columns the total row keeps, named as the unit's group_by names them (a subset of it, in its order)."
+                },
+                "sql": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The statement for this total grain; null when it does not compile (then `reason`)."
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Why this total grain has no statement."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "group_by",
+                "sql"
+              ]
+            },
+            "description": "OPTIONAL (BI lane). The total rows the widget shows beside the rows `sql` returns: one statement per total grain (a grand total, a subtotal), each the measures over the total's own context, never a sum of `sql`'s rows. `sql` keeps its plain shape; downstream stages read `sql` only."
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "lane": {
+                "type": "string",
+                "minLength": 1
+              },
+              "bi": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "workbook": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "model": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "report": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "page": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "visual": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "unit_id": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "container_path": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "source_fragments": {
+                        "type": "object",
+                        "properties": {
+                          "widget": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dashboard": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prose": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "n_dashboards": {
+                        "type": "integer"
+                      },
+                      "bi_context": {
+                        "type": [
+                          "object",
+                          "null"
+                        ]
+                      },
+                      "assets": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/asset"
+                        },
+                        "description": "The BI assets this statement was compiled from, by identity (copied from the question unit)."
+                      },
+                      "declared": {
+                        "$ref": "#/$defs/declared"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "history": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "shape_key": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "n_exec": {
+                        "type": "integer"
+                      },
+                      "n_distinct_users": {
+                        "type": "integer"
+                      },
+                      "first_seen": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "last_seen": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "merged_from": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "evidence_citations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "claim": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "description": "Closed vocabulary (lib/evidence.py): the core's sources plus the formula languages the installed BI readers declare. `x-vocabulary` is filled from them when the schema is loaded (lib/artifacts.py).",
+                      "x-vocabulary": "evidence"
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "claim",
+                    "source"
+                  ]
+                },
+                "description": "Closed world: every filter and literal cites evidence. No citation, no filter."
+              },
+              "ranking_basis": {
+                "type": "string",
+                "description": "Names the signal this candidate ranked on. Set by C2 and carried to C5 so a reviewer can see WHY an object ranked \u2014 which matters most on a single-lane run, where a NAMED substitute stands in for the absent lane."
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "lane"
+            ]
+          },
+          "witness": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "enum": [
+                      "parse_ok",
+                      "parse_failed",
+                      "pass",
+                      "fail",
+                      "empty",
+                      "skipped_no_substrate",
+                      "missing_object",
+                      "disabled"
+                    ]
+                  },
+                  "rows": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "hash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "executed_at": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "columns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "sample": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  },
+                  "bound_parameters": {
+                    "type": "object"
+                  },
+                  "mode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "none",
+                      "parse",
+                      "explain",
+                      "execute",
+                      null
+                    ],
+                    "description": "Which witness mode produced this verdict. `verified` means the warehouse accepted the statement; this says how strongly \u2014 `execute` ran it and `rows`/`hash` are present, `explain` compiled it and they are null. The frozen label vocabulary cannot carry that distinction, so it is recorded here."
+                  },
+                  "viewer_bound": {
+                    "type": "array",
+                    "items": {
+                      "enum": [
+                        "user_name",
+                        "full_name"
+                      ]
+                    },
+                    "description": "The viewer values this verdict was executed with, bound in memory to the fetching identity and never recorded: their NAMES only. Every value equal to one is masked out of the sample and the error."
+                  },
+                  "access": {
+                    "description": "The access limit that kept this statement from being checked against the warehouse (an access_report code, and the warehouse's own answer). The statement is `skipped_no_substrate`, so it is labelled unverified, and the run's access_report.json names the blocker with what to ask for.",
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z_]*$"
+                      },
+                      "detail": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "withheld_bound": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^withheld_[1-9][0-9]*$"
+                    },
+                    "description": "The withheld literals (lib/withheld) this verdict was executed with, read again from the BI file and bound in memory, never recorded: their NAMES only. Every value equal to one is masked out of the sample and the error."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "result"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_values": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "description": "Literals observed across the collapsed group. Two queries differing only in a literal share one shape and only the representative's value stays in the SQL; these are the others, which retrieval would otherwise never find.",
+            "properties": {
+              "by_column": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      },
+                      "n_exec": {
+                        "type": "integer"
+                      },
+                      "n_users": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              },
+              "tokens": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Flat, deduplicated, sorted. This is the list that goes to input.observed_values, which is what a destination's text search scans."
+              },
+              "withheld": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "description": "Per column, how many values the cap or the floor held back. A cap that bites is reported, never silent."
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            }
+          },
+          "gotchas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Carried from the stage that found the concern \u2014 e.g. a provisional compiler rule. Merged into the emitted object's gotchas at C5."
+          },
+          "compiler": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Which rule table compiled this unit, and which rows it used. Without the sha, 'was this built before or after the fix?' is guesswork \u2014 and the review loop makes that question routine.",
+            "properties": {
+              "rules_sha": {
+                "type": "string"
+              },
+              "rules_used": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "provisional_rules": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "coverage": {
+                "type": "string",
+                "enum": [
+                  "translated",
+                  "partial",
+                  "refused"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "On a partial compile, what the statement leaves out and why, by name (the measures that did not compile, a filter that is not a row filter). Present exactly when coverage is partial."
+              }
+            }
+          },
+          "viewer_binds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bindable",
+              "placeholders"
+            ],
+            "description": "The statement is FILTERED TO THE VIEWING USER: it reads the name (or full name) of whoever runs it as a bind placeholder, never as a value (guardrail 8). `placeholders` names each one as the statement spells it; a consumer binds it to the name of the person asking. `bindable`: verification could bind it to the fetching identity's name, held in memory only and never written.",
+            "properties": {
+              "bindable": {
+                "type": "boolean"
+              },
+              "placeholders": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "of",
+                    "placeholder"
+                  ],
+                  "properties": {
+                    "of": {
+                      "enum": [
+                        "user_name",
+                        "full_name"
+                      ]
+                    },
+                    "placeholder": {
+                      "type": "string",
+                      "minLength": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "quality": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "grade",
+              "reason"
+            ],
+            "description": "The conversion-quality grade (lib/quality.py; wording and order in policy `quality.*`): how close this SQL is to the number the BI tool shows. `exact`: a complete translation naming no difference, accepted by the warehouse; `equivalent_with_gotcha`: the same number under a named condition; `approximate`: part of the formula has no SQL form, named; `unverified`: no warehouse accepted it, and why; `refused`: no SQL. A grade names its evidence (`verified_by`); it is never a value check against the BI tool.",
+            "properties": {
+              "grade": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "compile_grade": {
+                "enum": [
+                  "exact",
+                  "equivalent_with_gotcha",
+                  "approximate",
+                  "unverified",
+                  "refused"
+                ],
+                "description": "The grade the compile alone earned (A3), before the witness."
+              },
+              "differences": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "What the compiler names as differing from the BI formula: each gotcha, or each construct left out."
+              },
+              "verified_by": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "`witness:<mode>` when the warehouse accepted the statement; null otherwise."
+              }
+            }
+          },
+          "withheld_binds": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "placeholders"
+            ],
+            "description": "The statement COMPARES WITH A WITHHELD LITERAL: a person's address or name the BI file holds, which no artifact keeps (guardrail 8). It reads each one as a bind placeholder (`of` withheld_N, the same N for the same value across the run); whoever runs it binds it to the value the BI file's own formula or filter holds. Verification binds it in memory, from the BI file, and drops it.",
+            "properties": {
+              "placeholders": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "of",
+                    "placeholder"
+                  ],
+                  "properties": {
+                    "of": {
+                      "type": "string",
+                      "pattern": "^withheld_[1-9][0-9]*$"
+                    },
+                    "placeholder": {
+                      "type": "string",
+                      "minLength": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "lane",
+          "sql",
+          "tables",
+          "filters",
+          "group_by",
+          "aggregations",
+          "grain",
+          "klass",
+          "domain",
+          "semantic_shape_key",
+          "provenance"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "dialect",
+    "candidates"
+  ],
+  "$defs": {
+    "asset": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "enum": [
+            "workbook",
+            "datasource",
+            "view",
+            "dashboard",
+            "report",
+            "semantic_model",
+            "page",
+            "visual"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendor_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The BI tool's own id for the asset. Null when the input does not state one; never invented."
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "site": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The BI tool's site or workspace the asset lives in."
+        },
+        "catalog_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The asset's id in the catalogue a BI plug resolved it in (its `bi_assets`), joined at A2 by role and name; null without one."
+        },
+        "catalog_qualified_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "endorsement": {
+          "enum": [
+            "certified",
+            "promoted",
+            null
+          ],
+          "description": "The BI tool's endorsement of the asset (bi_facts asset `endorsement`)."
+        },
+        "endorsement_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The BI tool's own tags on the asset (bi_facts asset `labels`)."
+        }
+      },
+      "required": [
+        "role",
+        "name",
+        "vendor_id"
+      ],
+      "additionalProperties": false
+    },
+    "declared": {
+      "type": "object",
+      "description": "The declared metric this unit compiles (bi_facts `measures[].declared`), with the model that declares it. Carried on the statement (provenance.bi.declared) to X1-X3, which hold a card built from it to it. A declared metric is identified by `model` and `metric` together.",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "metric",
+        "entity",
+        "formula",
+        "grain",
+        "source",
+        "joins",
+        "dimensions",
+        "examples"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The model's comment on the metric, verbatim."
+        },
+        "synonyms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The model's own other names for this, verbatim. Retrieval words, never interpreted."
+        },
+        "entity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The physical table the metric is computed over."
+        },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The formula with every fact, dimension and metric it names expanded to what it stands for."
+        },
+        "grain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "The entity's declared key, fully qualified."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The FROM clause: the entity, then a LEFT JOIN for every join in `joins`, on every key column."
+        },
+        "joins": {
+          "type": "array",
+          "description": "Every join the formula and the dimensions need. Never one that fans out: many-to-one, or one-to-one.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "to",
+              "sql",
+              "cardinality",
+              "origin"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cardinality": {
+                "enum": [
+                  "many_to_one",
+                  "one_to_one"
+                ]
+              },
+              "origin": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "description": "Every dimension the model declares on a table the metric reaches. A levelled time expression (a date part over one column) is not one; the bare date is.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "kind",
+              "sql",
+              "datatype",
+              "required_join"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "categorical",
+                  "time",
+                  "boolean"
+                ]
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "datatype": {
+                "enum": [
+                  "string",
+                  "integer",
+                  "decimal",
+                  "boolean",
+                  "date",
+                  "timestamp",
+                  "unknown"
+                ],
+                "description": "The type the model declares; else `date` or `boolean` when the model's own SQL treats the column so (only the DATE argument of a date function counts); else `unknown`. A number is never a date."
+              },
+              "required_join": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "description": "The model's comment on the dimension, verbatim."
+              },
+              "synonyms": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "The model's own other names for this, verbatim. Retrieval words, never interpreted."
+              }
+            }
+          }
+        },
+        "examples": {
+          "type": "array",
+          "description": "The model's example questions that read this metric, each with its SQL over the base tables.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "sql",
+              "question",
+              "group_by"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "pattern": "^declared:.+",
+                "description": "`declared:<the example's name in the model>`."
+              },
+              "question": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sql": {
+                "type": "string",
+                "minLength": 1
+              },
+              "group_by": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "The declared dimensions (by `name` above) the example groups by."
+              }
+            }
+          }
+        },
+        "timeframe_column": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the metric's examples restrict or group by, when they name exactly one."
+        }
+      }
+    }
+  }
+}

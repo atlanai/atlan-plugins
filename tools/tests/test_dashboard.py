@@ -12,9 +12,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "plugins/atlanai-analytics/skills/atlan-analytics/scripts"
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(ROOT / "plugins/atlanai-analytics"))
 sys.path.insert(0, str(Path(__file__).parent / "dashboard_cases"))
 import dashboard
 from dashboard_publish import Publisher
+import metrics_mine
 from dashboard_fixture import URL, capture
 from test_dax_sql import mapping
 from trident.core import Service
@@ -58,6 +60,31 @@ class DashboardPublication(unittest.TestCase):
         body=json.loads((self.context/'metrics.json').read_text())[0]
         self.assertEqual(body['definition']['extensions']['atlan_analytics']['dashboard_validation']['parity'],'unmeasured')
         self.assertEqual(self.view['agent_readiness']['state'],'ready_with_warnings')
+
+    def test_hold_evidence_is_enforced_before_a_resumed_publication_call(self):
+        from modules.metrics import holds
+        evidence = {'format': 2, 'checks': holds.CHECKS, 'outputs': {'verified_queries.json': 'a' * 64}, 'metrics': [],
+                    'queries': [{'source_id': 'query:held', 'query_id': 'held-1', 'name': 'held-query',
+                                 'status': 'held', 'reason': 'compiler_review_wrong',
+                                 'sql_sha256': holds.sql_identity('SELECT 0 AS value')}]}
+        marker = {'module': 'metrics', 'outputs': evidence['outputs'],
+                  'publication_holds_sha256': holds.identity(evidence)}
+        (self.context / holds.FILE).write_text(json.dumps(evidence))
+        (self.context / 'metrics-source.json').write_text(json.dumps(marker))
+        plan = self.pub.plan(self.snapshot)
+        saved = json.loads((self.context / 'queries.json').read_text())
+        (self.context / 'queries.json').write_text(json.dumps(saved + [{'source_id': 'query:held'}]))
+        with self.assertRaisesRegex(metrics_mine.Blocked, 'held artifact'):
+            self.pub.next(plan['plan_id'])
+        self.assertIsNone(self.pub.read(self.pub.path)['inflight'])
+        (self.context / 'queries.json').write_text(json.dumps(saved))
+        evidence['queries'] = []
+        marker['publication_holds_sha256'] = holds.identity(evidence)
+        (self.context / holds.FILE).write_text(json.dumps(evidence))
+        (self.context / 'metrics-source.json').write_text(json.dumps(marker))
+        with self.assertRaisesRegex(ValueError, 'Publication holds changed'):
+            self.pub.next(plan['plan_id'])
+        self.assertIsNone(self.pub.read(self.pub.path)['inflight'])
 
     def artifact(self):
         body = json.loads((self.context / "metrics.json").read_text())[0]

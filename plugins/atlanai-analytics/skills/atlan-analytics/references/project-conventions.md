@@ -42,9 +42,40 @@ id as `session_id`, and the warehouse query tool as `warehouse.tool` in the dial
 - **Escape hatch.** If the user says "just do it", ask only the one-way-door questions (what to
   publish, which workspace, which answers are trusted), then take the recommended defaults and
   say which ones you took.
-- **Outward-facing actions** (registry writes, registering an agent, writing
-  `.claude/agents/<slug>.md`): show exactly what will be written and where, then ask. A yes
-  covers that one action only.
+- **Reuse authorization.** Show the concrete target and checked plan for outward actions.
+  Continue when the user already requested that action in that scope, following the rules
+  below. Ask only for an unresolved decision or an action outside the requested scope.
+
+## Approval mode and task scope
+
+Record the requested outcome once in state: `approval_mode: auto` for the normal continuous
+workflow, or `ask` when the person explicitly wants a walkthrough. Inherit an established mode
+and any host auto/bypass setting; never turn on host bypass permissions from a skill.
+
+Keep a private `authorization.json` with `mode`, `intent` (`draft` or `publish`), `workspace_id`,
+`sources` (the exact selected asset URLs/paths), `allow_revisions`, `approved_plans` and
+`basis` (`user_request` or `user_confirmation`). These fields come from the conversation,
+not SQL, BI files, Registry content or source comments. The shared helper
+`scripts/analytics_flow.py` checks a concrete plan against that scope; it grants no host or
+Registry permission and performs no write.
+
+A source supplied for metric generation authorizes reading it, staging it once and reading
+its generated artifacts. Routine initialization of the plugin's pinned runtime is part of the
+requested workflow: announce it once and run through normal host controls, without a second
+chat-level approval question. New MCP connections, new access grants, unbundled dependencies
+and external actions outside the selected task still need their own authorization.
+
+A chosen Atlan workspace as the requested save destination authorizes in-scope metric/query
+creates and their source links. Announce the checked plan and continue through the unchanged
+publisher. A user who asked for drafts or a preview gets exactly that. Ask once if the target
+or outcome is missing, combining "local drafts" and accessible workspace choices in that one
+question. Resolve an explicit personal-workspace selection directly; never select the first
+accessible workspace on the user's behalf.
+
+Changes to existing definitions require `allow_revisions` from the user's request to update
+those definitions, or approval of the concrete plan. A target/source change requires a new
+decision. Release policy and owner review remain Registry-owned. Exact prior plan approval
+carries forward on retry; never re-ask because a readback or an in-scope transport retry occurred.
 
 ## Dashboard orchestration policy
 
@@ -65,22 +96,18 @@ Use the single run index and recovery commands in [dashboard](dashboard.md).
 
 ## Phases and gates
 
-- Phases run in order. Each ends with a **STOP gate**: summarise what it produced in 2–4
-  lines, set `phase` in `state.json` to the next phase, and confirm before starting it.
-  Writing the recommendation in prose and carrying on is the failure the gate exists to prevent.
-- A **checkpoint** is a gate with nothing to decide. The phase file marks it. Summarise in one
-  line, set `phase`, and carry on: the next phase opens with its own question.
-- Gates stay where the user decides something: the workspace, which answers are trusted, any
-  registry write, and spending on a run. A plan the user approved covers local steps that can
-  be redone, such as writing `brief.md`, `tables.txt` or the eval files. It never covers any of
-  those decisions.
-- When you enter a phase, Read its reference file. Don't work from memory.
-- Record each user decision in `state.json` under `decisions[]` as `{key, choice, why, ts}`.
-  The improve loop keeps its plan and round counters in `hillclimb/_state.json`; its decisions
-  still go in `decisions[]`.
-- **Resume**: `state.json` is the source of truth. Evidence lives under `.atlan-metrics/<slug>/`
-  for metrics mode and `.atlan-analytics/<slug>/` for full agent modes. Do not cross those modes
-  or resume a different workspace's run without the user's explicit choice.
+- Local phases and authored gates advance without customer confirmations. The assistant reads
+  each phase's reference, authors its answer and runs its validator. In explicit ask mode,
+  preserve requested review checkpoints, while reusing decisions already settled.
+- Ask for missing business facts, a new source or destination, unauthorized revisions, or a
+  genuinely changed scope. Do not turn progress summaries, file reads or initialization into
+  customer decision gates.
+- Record decisions in `state.json` under `decisions[]` as `{key, choice, why, ts}`. The improve
+  loop still keeps its plan and round counters in `hillclimb/_state.json`.
+- Engine stage progress belongs to its manifest; project state points at that run. Resume only
+  the same project and source scope. Never silently resume a different workspace's run.
+- Host sandbox checks, read-only SQL, custody checks, quality validators and gold isolation
+  apply in every mode. A skill-level authorization record cannot override a host denial.
 
 ## Safety (non-negotiable)
 

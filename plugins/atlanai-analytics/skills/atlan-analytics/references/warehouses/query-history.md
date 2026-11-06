@@ -9,6 +9,12 @@ writes a user name.
 
 ## Snowflake
 
+When using the metrics module with its `snowflake` feature and a configured direct connection,
+prefer its native `history_source: account_usage` route. It needs no prepared shape table and
+uses the existing common plug contract. See [the module procedure](../metrics-engine.md).
+The numbered alternatives below apply when capturing through chat SQL tools or when the
+person selected an existing shape view.
+
 1. **A query-shape view an admin created once** (see **One-time setup** below). Look for it
    with `show views like 'QUERY_SHAPES' in account`. It needs no grant beyond SELECT on the
    view:

@@ -1,0 +1,39 @@
+{
+  "name": "dax_calculate_containsstring_is_a_substring_filter",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c_cs",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [],
+    "measures": [
+      {
+        "name": "Gift Units",
+        "aggregation": null,
+        "formula_language": "dax",
+        "formula": "CALCULATE(SUM(Sales[units_sold]), CONTAINSSTRING(Sales[product], \"gift\"), Sales[promo] = FALSE())"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT (SUM(CASE WHEN COALESCE(POSITION(LOWER('gift') IN LOWER(t.product)) > 0, FALSE) AND (t.promo = FALSE OR t.promo IS NULL) THEN t.units_sold END)) AS gift_units\nFROM   retail.fct_sales t",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "dax.calculate.filter",
+    "dax.containsstring",
+    "dax.sum"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "region",
+      "units_sold",
+      "units_received",
+      "product",
+      "promo",
+      "season"
+    ]
+  }
+}
