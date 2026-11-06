@@ -38,7 +38,7 @@
       "name": "atlanai-analytics",
       "displayName": "Analytics",
       "source": "./plugins/atlanai-analytics",
-      "description": "Answer data questions from governed metrics, use and draft your business ontology, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry.",
+      "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Trident and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows.",
       "author": {
         "name": "Atlan",
         "url": "https://atlan.com"

@@ -2,22 +2,21 @@
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 VERSION='0.15.5'
 RUNTIME=Path.home()/'.trident/runtimes'/('pbixray-'+VERSION)/'bin/python'
 
-def inspect_file(path):
+def inspect_file(path, allow_report_only=False):
     source=Path(path).expanduser()
     if not source.is_absolute() or source.is_symlink() or not source.is_file() or source.suffix.lower() not in ('.pbix','.pbit','.bim'):
         raise ValueError('Supply the absolute path to the downloaded PBIX, PBIT or BIM file.')
-    if not RUNTIME.is_file():
-        raise ValueError('PBIXRay runtime is missing. Run the packaged scripts/setup_pbixray.py once after authorizing dependency installation.')
     script=Path(__file__).resolve().parents[1]/'scripts/inspect_powerbi.py'
     with tempfile.TemporaryDirectory(prefix='trident-inventory-') as folder:
         target=Path(folder)/'inventory.json'
         try:
-            run=subprocess.run([str(RUNTIME),'-B',str(script),str(source),'--output',str(target)],
+            run=subprocess.run([str(RUNTIME) if RUNTIME.is_file() else sys.executable,'-B',str(script),str(source),'--output',str(target)],
                                capture_output=True,text=True,timeout=120)
         except (OSError,subprocess.TimeoutExpired):
             raise ValueError('Local PBIX extraction could not complete within two minutes. Existing job state is unchanged.') from None
@@ -26,12 +25,54 @@ def inspect_file(path):
         if target.stat().st_size>4_000_000:
             raise ValueError('Extracted metadata exceeds the local bundle limit; narrow the selected source.')
         inventory=json.loads(target.read_text())
-    if not inventory.get('model_metadata_available'):
+    if not inventory.get('model_metadata_available') and not allow_report_only:
         reason=inventory.get('binary_status')
+        if reason == 'runtime_not_installed':
+            raise ValueError('Binary Power BI metadata needs the approved PBIXRay runtime. Text PBIT and BIM metadata need no extra dependency.')
         if reason:
-            raise ValueError('Binary model could not be decoded ('+str(reason)+'). Use a compatible model export or bulk metadata query; do not infer measures from visuals.')
+            raise ValueError('Local PBIX extraction failed. Check the file and installed parser; existing job state is unchanged.')
         raise ValueError('This file has no embedded readable model. Retrieve the linked semantic model through the existing authorized connection.')
     return inventory
+
+
+def measure_type(measure, inventory):
+    """Infer only the supported scalar AST from declared column types, never formatting."""
+    from .dax_sql import Parser, TranslationGap
+    types = {'int64':'integer', 'integer':'integer', 'double':'decimal', 'decimal':'decimal',
+             'datetime':'timestamp', 'timestamp':'timestamp', 'date':'date',
+             'string':'string', 'boolean':'boolean'}
+    declared = types.get(str(measure.get('dataType', '')).lower())
+    if declared:
+        return declared
+    columns = {(t['name'], c['name']): types.get(str(c.get('dataType', '')).lower())
+               for t in inventory.get('tables', []) for c in t.get('columns', [])}
+    def infer(node):
+        if node[0] == 'var':
+            return infer(node[2])
+        if node[0] == 'column':
+            return columns.get((node[1], node[2]))
+        if node[0] == 'call':
+            fn, args = node[1:]
+            if fn in ('COUNTROWS', 'DISTINCTCOUNT') and len(args) == 1:
+                return 'integer'
+            if fn == 'CALCULATE' and args:
+                return infer(args[0])
+            if fn in ('SUM', 'AVERAGE', 'MIN', 'MAX', 'SELECTEDVALUE') and len(args) == 1:
+                kind = infer(args[0])
+                if fn in ('SUM', 'AVERAGE') and kind not in ('integer', 'decimal'):
+                    return None
+                return 'decimal' if fn == 'AVERAGE' and kind else kind
+        if node[0] == 'literal' and type(node[1]) in (int, float):
+            return 'integer' if type(node[1]) is int else 'decimal'
+        if node[0] == 'op' and node[1] in ('+', '-'):
+            kinds = (infer(node[2]), infer(node[3]))
+            if all(k in ('integer', 'decimal') for k in kinds):
+                return 'decimal' if 'decimal' in kinds else 'integer'
+        return None
+    try:
+        return infer(Parser(measure.get('expression') or '').parse())
+    except (TranslationGap, RecursionError, TypeError):
+        return None
 
 def capture_from_inventory(inventory,state,args):
     measures=[]
@@ -39,7 +80,7 @@ def capture_from_inventory(inventory,state,args):
            'string':'string','integer':'integer','timestamp':'timestamp','date':'date'}
     evidence='powerbi-file:sha256:'+inventory['file_sha256']
     for m in inventory['measures']:
-        datatype=types.get(str(m.get('dataType','')).lower())
+        datatype=measure_type(m, inventory)
         if not datatype:
             raise ValueError('A file measure has no supported source datatype. Retrieve its declared model datatype before importing; no measures were silently dropped.')
         if not isinstance(m.get('expression'),str) or '[WITHHELD:' in m['expression']:
