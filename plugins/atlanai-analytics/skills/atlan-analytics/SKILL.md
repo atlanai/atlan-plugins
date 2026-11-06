@@ -34,9 +34,16 @@ in chat before asking for a publication destination or proceeding to publish/reu
 `project.py preview --format chat` for the first five metrics and a saved SQL example.
 A helper result, counts, a file link or a generated HTML page alone does not show a preview.
 This visible checkpoint also applies on resume and when all definitions can be reused.
+Keep the metric table and saved SQL in the final answer too, including an authentication
+blocker. Commentary and linked files alone are not the final deliverable.
 Finish with released context in Trident and supported questions in this conversation.
 The current harness plus Trident MCP is the talk-to-data interface. No agent package,
 registration, custom chat or eval is required. Reuse the selected run when resuming.
+If Registry tools are missing or sign-in is required, follow [connection recovery](references/auth-recovery.md)
+inside this task: diagnose the selected host connection, open Chrome for the issued sign-in
+URL, watch the real login task, verify a current-host Registry read and resume the saved stage.
+Give the core Registry plugin's installation commands if recovery cannot complete. Never
+infer a missing coding-host plugin from a generic app-directory search.
 
 An explicit `dashboard` argument follows [dashboard to agent](references/dashboard.md).
 It retains the existing capture, independent checks and agent route. Optional inline cards
