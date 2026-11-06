@@ -1,28 +1,39 @@
 ---
 name: atlan-analytics
-description: Set up analytics from a local project, dashboards, query history or a warehouse; publish metrics and SQL, or build and evaluate an agent. Use when asked to set up a project for analytics or questions about its data. Not for a one-off data question (atlan-analytics-ask) or business objects and policies (atlan-ontology).
+description: Set up a GitHub repo or local project for talk-to-data: survey dashboards and query history, publish metrics and SQL to Trident, then suggest questions. Use when asked to set up analytics or build an analytics agent from a repo. Also supports explicit agent builds. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
 ---
 
-# Metrics and talk-to-data agents
+# Analytics context and talk-to-data
 
 Read [shared conventions](references/conventions.md) first. They define audit sessions,
-publication approval, privacy and status reporting. Every mode but `connect`, `ask` and
-`ontology` also reads [project conventions](references/project-conventions.md).
+publication approval, privacy and status reporting. Dispatch before loading mode-specific
+project conventions or preflight. A repository setup is not a full-agent build.
 
 This workflow also ships inside the public Atlan marketplace's `atlanai` plugin.
 Use the namespace of the installed skill throughout this run: `atlanai` for that bundle,
 or `atlanai-analytics` for the separate add-on. Replace the `atlanai-analytics:` prefix in
 examples and specialist-agent names below with the installed namespace. Do not install the
-separate add-on or clone a repository to use this bundled workflow.
+separate add-on to use this bundled workflow. Cloning a source repository the user asks to
+set up is a separate, supported task.
 
 ## 0. Dispatch the requested mode first
 
-"Set up this project for analytics" and "Set up this project so I can ask questions about
-its data", with a selected local folder, follow [local project setup](references/project.md).
+**Repository intent comes first.** A supplied GitHub/repository URL, local folder, or current
+project with a request to set up analytics, make it agentic ready, ask its data, or "build an
+analytics agent from it" follows [project setup](references/project.md), then returns.
+This includes "Help me set up this repo: <GitHub URL>. Once ready, use Atlan Analytics to
+build an analytics agent from its dashboards, query history and data."
+Clone or reuse the source project, then survey it before choosing inputs. Discovering a PBIT
+inside that repo does not switch the workflow to dashboard mode. A GitHub page is not a
+hosted Power BI report URL.
+
 Survey every available source, combine model and history evidence, publish metrics and saved
 SQL, then suggest supported questions. When the user asks, retrieve the released context
-from Trident and execute against the selected data source. No eval or dedicated agent is
-required. Explicit metrics-only, dashboard, build, eval and improve modes keep their routes.
+from Trident and execute against the selected data source. The current harness plus Trident
+MCP is the talk-to-data interface. Do not generate an agent package, custom chat, registration
+or evals for this route. Explicit mode arguments (`metrics`, `dashboard`, `build`, `eval`,
+`improve`) and a clear request to register or deploy a separate agent keep their routes;
+the phrase "analytics agent" alone in a repo setup request is not that request.
 
 `start` and `setup`, or invoking Analytics without a task, follow
 [getting started](references/start.md). `query-history <file, folder or scope>` follows the
@@ -73,7 +84,8 @@ return.
 If it is `connect`, follow [warehouse discovery](references/connect.md), then return.
 Use the selected project’s state when one exists; never resume another project silently.
 
-The remaining sections apply only to full-agent modes.
+The remaining sections apply only to full-agent modes. Read
+[project conventions](references/project-conventions.md) when entering those modes.
 
 ## 1. Preflight and resume
 

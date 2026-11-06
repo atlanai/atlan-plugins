@@ -19,6 +19,7 @@ from dashboard_run import Run
 from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
+import local_prepare
 import metrics_mine as mine
 from analytics_eval import filter_querylog
 
@@ -199,6 +200,12 @@ class Project(Run):
         self.store.write(self.context / 'database-schema.json', metadata)
         return {'status': 'ok', 'execution': binding, 'columns': metadata['columns']}
 
+    def prepare(self, request):
+        state = self.current()
+        result = local_prepare.prepare(state['source_root'], state['sources'], request)
+        self.store.write(self.context / 'data-preparation.json', result)
+        return result
+
     def execute(self, request):
         state = self.current()
         if not state.get('execution'):
@@ -260,7 +267,7 @@ def main():
     sub.add_parser('history')
     sub.add_parser('status')
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+')
-    for name in ('execute', 'publication', 'retrieved'):
+    for name in ('prepare', 'execute', 'publication', 'retrieved'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
-  "version": "0.5.11",
-  "description": "Answer data questions from governed metrics, use and draft your business ontology, bootstrap metrics and saved SQL queries, build a talk-to-data agent, evaluate it and improve it against your Snowflake or Databricks warehouse, on the Atlan registry.",
+  "version": "0.5.12",
+  "description": "Set up a repository for talk-to-data in Claude or Codex: combine dashboards and query history, publish metrics and saved SQL to Trident, and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent build, eval and improve workflows.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -24,7 +24,7 @@
     "com.openai": {
       "interface": {
         "displayName": "Analytics",
-        "shortDescription": "Metrics and talk-to-data agents on Atlan Trident",
+        "shortDescription": "Publish analytics context and ask your data with Trident",
         "longDescription": "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions.",
         "developerName": "Atlan",
         "category": "Data & Analytics",
@@ -34,6 +34,7 @@
         ],
         "websiteURL": "https://atlan.com",
         "defaultPrompt": [
+          "Help me set up this repository so I can ask questions about its data",
           "Build and test a talk-to-data agent from this Power BI dashboard",
           "Build metrics and saved queries for our support tables from the warehouse's query history",
           "How do customers join to orders in our business ontology, and which tables hold them?"

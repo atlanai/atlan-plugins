@@ -167,6 +167,59 @@ class DuckDBFlow(unittest.TestCase):
         self.run.survey(self.estate)
         self.run.bind(self.database, ['site.work'])
 
+    def preparation(self):
+        data = self.estate / 'work.csv'
+        data.write_text('kind,cost\nbuild,20.50\nrework,14.25\n')
+        result = self.run.survey(self.estate)
+        source = next(s for s in result['sources'] if s['path'] == 'work.csv')
+        return {'database': 'prepared.duckdb', 'tables': [
+            {'source_id': source['source_id'], 'table': 'site.work'}]}
+
+    def test_cold_csv_preparation_then_read_only_binding(self):
+        result = self.run.prepare(self.preparation())
+        self.assertEqual(result['tables'][0]['rows'], 2)
+        self.assertEqual(result['types'], 'inferred_from_csv')
+        self.run.bind(result['database'])
+        answer = self.run.execute({'sql': 'SELECT SUM(cost) FROM site.work'})
+        self.assertEqual(float(answer['rows'][0][0]), 34.75)
+        self.assertEqual((self.estate / 'prepared.duckdb').stat().st_mode & 0o777, 0o600)
+
+    def test_preparation_never_replaces_existing_database(self):
+        request = self.preparation()
+        request['database'] = self.database.name
+        original = self.database.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'never replaced'):
+            self.run.prepare(request)
+        self.assertEqual(self.database.read_bytes(), original)
+
+    def test_preparation_rejects_changed_unselected_and_unsafe_inputs(self):
+        request = self.preparation()
+        for bad in ({'source_id': 'unknown'}, {'table': 'site.work; DROP SCHEMA site'},
+                    {'table': 'work'}):
+            payload = copy.deepcopy(request); payload['tables'][0].update(bad)
+            with self.assertRaises(ValueError): self.run.prepare(payload)
+        payload = copy.deepcopy(request); payload['database'] = '../outside.duckdb'
+        with self.assertRaises(ValueError): self.run.prepare(payload)
+        (self.estate / 'work.csv').write_text('kind,cost\nchanged,99\n')
+        with self.assertRaisesRegex(ValueError, 'changed'): self.run.prepare(request)
+        self.assertFalse((self.estate / 'prepared.duckdb').exists())
+
+    def test_preparation_rejects_symlinks_and_duplicate_table_names(self):
+        request = self.preparation()
+        path = self.estate / 'work.csv'
+        path.unlink(); path.symlink_to(self.root / 'outside.csv')
+        with self.assertRaises(ValueError): self.run.prepare(request)
+        path.unlink(); path.write_text('kind,cost\nbuild,20.50\nrework,14.25\n')
+        request['tables'].append({**request['tables'][0], 'table': 'SITE.WORK'})
+        with self.assertRaisesRegex(ValueError, 'distinct'): self.run.prepare(request)
+
+    def test_preparation_failure_leaves_no_destination(self):
+        request = self.preparation()
+        with patch('local_prepare.subprocess.run', side_effect=subprocess.TimeoutExpired('worker', 60)):
+            with self.assertRaisesRegex(ValueError, 'timed out'): self.run.prepare(request)
+        self.assertFalse((self.estate / 'prepared.duckdb').exists())
+        self.assertFalse(list(self.estate.glob('.atlan-prepare-*')))
+
     def test_native_dax_binding_executes_exact_value(self):
         mapping = {'semantic_table': 'WORK', 'relation': ['site', 'work'],
                    'rowset_equivalent': True, 'security_preserved': True,
