@@ -30,3 +30,11 @@ The exact available metadata columns depend on the source; inspect errors and ad
 7. Reference extraction and answer execution are separate evidence. A reference may be a visible report card with its exact filter scope. Do not derive both gold and answer from the same generated query and describe them as independent.
 
 For a report inaccessible to the caller, the next step is exact report/model access or a sanctioned metadata export. A screenshot can start a limited visual description, but cannot establish a complete metric definition or an executable agent.
+
+
+For the metrics module, stage a downloaded report with the stable source key
+`powerbi:<workspace-id>:<report-id>` from the selected report URL or metadata, using
+`ENGINE stage-input --source <download> --destination <project>/sources/report --source-id <key>`.
+Use the returned path for the reader. Browser-generated suffixes such as `(3)` are filenames,
+never report identities. Do not strip such suffixes and assume two similarly named reports
+are the same. Keep the display title separately in project state. No extra interview is needed.

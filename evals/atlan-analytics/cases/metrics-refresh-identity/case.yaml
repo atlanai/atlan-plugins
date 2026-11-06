@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: metrics-refresh-identity
+tags: [analytics, metrics, quality]
+execution:
+  prompt: |
+    /atlanai-analytics:atlan-analytics metrics
+    The same selected Power BI report has workspace ID workspace_example and report ID
+    report_example. Two downloads are named Revenue.pbix and Revenue (3).pbix. A different
+    report happens to have the same title. Explain how to stage the new download so that it
+    keeps the same metric/query identities. Do not run the source, install packages or publish.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: preserves-runtime-contract
+    type: llm
+    criteria: |
+      PASS if it uses stage-input with the same stable source-system workspace/report key
+      through --source-id for both downloads and uses the returned canonical staged path. A
+      separate report must use a distinct identity even with the same title. It must not strip
+      filename suffixes and guess identity, manually rewrite query IDs or reopen known decisions.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      Lead with the next step and use one concise paragraph.

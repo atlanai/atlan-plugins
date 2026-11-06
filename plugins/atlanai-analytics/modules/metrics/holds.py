@@ -10,6 +10,7 @@ import re
 
 
 FILE = 'publication-holds.json'
+CHECKS = {'compiler_review': 1, 'required_member_scope': 1, 'card_aggregation': 1}
 _HASH = re.compile(r'[a-f0-9]{64}')
 
 
@@ -43,8 +44,11 @@ def review_holds(queries, report):
 
 def validate(document):
     """Standard-library validation of the publication-holds schema for host preflights."""
-    if not isinstance(document, dict) or set(document) != {'format', 'outputs', 'metrics', 'queries'} or type(document['format']) is not int or document['format'] != 1:
-        raise ValueError('Invalid publication hold manifest.')
+    if not isinstance(document, dict) or set(document) != {'format', 'checks', 'outputs', 'metrics', 'queries'} or type(document['format']) is not int or document['format'] != 2:
+        raise ValueError('Re-export with the current plugin: publication eligibility evidence is outdated or invalid.')
+    if (document.get('checks') != CHECKS
+            or any(type(v) is not int for v in (document.get('checks') or {}).values())):
+        raise ValueError('Re-export with the current plugin to apply all required eligibility checks.')
     outputs = document['outputs']
     if not isinstance(outputs, dict) or not outputs or any(not isinstance(k, str) or not isinstance(v, str)
                                                           or not _HASH.fullmatch(v) for k, v in outputs.items()):

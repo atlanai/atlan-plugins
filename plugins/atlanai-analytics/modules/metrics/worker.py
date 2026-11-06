@@ -27,13 +27,24 @@ def digest(path):
         return hashlib.file_digest(handle, 'sha256').hexdigest()
 
 
-def stage_input(source, destination):
+def stage_input(source, destination, source_id=None):
     """Read the selected asset once, then keep all further processing in the project."""
     source, destination = ordinary(source), ordinary(destination)
     if not source.exists():
         raise ValueError('The selected source does not exist.')
     if source == destination or (source.is_dir() and destination.is_relative_to(source)):
         raise ValueError('Keep the private capture directory outside the selected source.')
+    if source_id is not None and (not isinstance(source_id, str) or not source_id.strip()
+                                  or any(ord(c) < 32 for c in source_id)):
+        raise ValueError('Use a nonempty stable source identity from the selected asset metadata.')
+    namespace = 'asset-' + hashlib.sha256(source_id.encode()).hexdigest()[:24] if source_id is not None else None
+
+    def relative(path):
+        if source.is_file():
+            name = namespace + source.suffix.lower() if namespace else source.name
+            return Path(name + ('.manifest.json' if path != source else ''))
+        return (Path(namespace) if namespace else Path()) / path.relative_to(source)
+
     files = [source] if source.is_file() else sorted(p for p in source.rglob('*') if p.is_file() or p.is_symlink())
     for path in files:
         ordinary(path)
@@ -51,10 +62,11 @@ def stage_input(source, destination):
         raise ValueError('The selected source folder is empty.')
     marker = destination / 'staged-input.json'
     if destination.exists() and any(destination.iterdir()):
-        if not marker.is_file() or load(marker).get('source') != str(source):
+        if (not marker.is_file() or load(marker).get('source_id') != source_id
+                or (source_id is None and load(marker).get('source') != str(source))):
             raise ValueError('Use an empty capture directory or resume the same selected source.')
         recorded = {item['path']: item['sha256'] for item in load(marker)['files']}
-        selected = {(Path(path.name) if source.is_file() else path.relative_to(source)).as_posix(): digest(path)
+        selected = {relative(path).as_posix(): digest(path)
                     for path in files}
         captured = {path.relative_to(destination).as_posix() for path in destination.rglob('*')
                     if path.is_file() and path != marker}
@@ -63,17 +75,17 @@ def stage_input(source, destination):
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
     records = []
     for path in files:
-        relative = Path(path.name) if source.is_file() else path.relative_to(source)
-        target = ordinary(destination / relative)
+        rel = relative(path)
+        target = ordinary(destination / rel)
         if target.exists() and digest(target) != digest(path):
             raise ValueError('The selected input changed; use a new source capture directory.')
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             shutil.copyfile(path, target)
             target.chmod(0o600)
-        records.append({'path': relative.as_posix(), 'sha256': digest(target)})
-    write(destination / 'staged-input.json', {'source': str(source), 'files': records})
-    return {'status': 'staged', 'path': str(destination / source.name if source.is_file() else destination),
+        records.append({'path': rel.as_posix(), 'sha256': digest(target)})
+    write(destination / 'staged-input.json', {'source': str(source), 'source_id': source_id, 'files': records})
+    return {'status': 'staged', 'path': str(destination / relative(source) if source.is_file() else destination / namespace if namespace else destination),
             'files': len(records), 'remote_writes': False}
 
 
@@ -200,7 +212,7 @@ def advance(run, runtime, model):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export'))
-    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination'):
+    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id'):
         parser.add_argument('--' + name)
     parser.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
     args = parser.parse_args()
@@ -211,7 +223,7 @@ def main():
         if args.command == 'discover':
             result = discover()
         elif args.command == 'stage-input':
-            result = stage_input(args.source, args.destination)
+            result = stage_input(args.source, args.destination, args.source_id)
         elif args.command == 'prepare':
             result = prepare(args.run, args.config, runtime, args.approval_mode)
             code = 2 if result['status'] == 'NEEDS_CONTEXT' else 0

@@ -3,9 +3,10 @@
   "title": "Metrics publication holds",
   "type": "object",
   "additionalProperties": false,
-  "required": ["format", "outputs", "metrics", "queries"],
+  "required": ["format", "checks", "outputs", "metrics", "queries"],
   "properties": {
-    "format": {"const": 1},
+    "format": {"const": 2},
+    "checks": {"const": {"compiler_review": 1, "required_member_scope": 1, "card_aggregation": 1}},
     "outputs": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
     "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
     "queries": {"type": "array", "items": {"$ref": "#/$defs/query"}}

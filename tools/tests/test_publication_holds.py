@@ -53,7 +53,7 @@ class StructuredHoldTests(unittest.TestCase):
             holds.review_holds(queries, report(0))
 
     def context(self, root):
-        document = {'format': 1, 'outputs': {'verified_queries.json': 'a' * 64},
+        document = {'format': 2, 'checks': holds.CHECKS, 'outputs': {'verified_queries.json': 'a' * 64},
                     'metrics': [{'source_id': 'metric:held', 'name': 'Held metric',
                                  'status': 'held', 'reason': 'source_query_held'}],
                     'queries': [{'source_id': 'query:held', 'name': 'held-query', 'query_id': 'q-0',
@@ -106,6 +106,26 @@ class StructuredHoldTests(unittest.TestCase):
             self.assertEqual(p.returncode, 2, p.stderr)
             self.assertEqual(json.loads(p.stdout)['decision'], 'needs_context')
 
+    def test_prior_export_cannot_bypass_current_eligibility_checks(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            document = self.context(root)
+            for change in ('prior_format', 'missing_check', 'older_check'):
+                stale = copy.deepcopy(document)
+                if change == 'prior_format':
+                    stale['format'] = 1
+                    del stale['checks']
+                elif change == 'missing_check':
+                    del stale['checks']['required_member_scope']
+                else:
+                    stale['checks']['card_aggregation'] = 0
+                (root / holds.FILE).write_text(json.dumps(stale))
+                marker = json.loads((root / 'metrics-source.json').read_text())
+                marker['publication_holds_sha256'] = holds.identity(stale)
+                (root / 'metrics-source.json').write_text(json.dumps(marker))
+                with self.subTest(change=change), self.assertRaisesRegex(ValueError, 'Re-export'):
+                    holds.enforce_context(root)
+
     def test_legacy_authored_contexts_keep_their_existing_path(self):
         with tempfile.TemporaryDirectory() as temp:
             self.assertIsNone(holds.enforce_context(Path(temp).resolve()))
@@ -146,6 +166,7 @@ class ExportHoldTests(unittest.TestCase):
         agent = types.ModuleType('metrics_agent')
         agent.sockets = types.SimpleNamespace(Bundle=lambda *args: None)
         lib = types.ModuleType('metrics_agent.lib')
+        lib.card_sql = types.SimpleNamespace(canonical_statement=lambda card: '', aggregation_problems=lambda *args: [])
         lib.artifacts = types.SimpleNamespace(read=lambda path, name: json.loads((path / name).read_text()))
         checked = types.SimpleNamespace(validation=lambda *args: {})
         with mock.patch.dict(sys.modules, {'metrics_agent': agent, 'metrics_agent.lib': lib, 'validation': checked}), \

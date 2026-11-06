@@ -50,8 +50,13 @@ Metrics-only uses `.atlan-metrics/<slug>/engine/`; full builds and dashboards us
 `.atlan-analytics/<slug>/engine/`. Keep context files in the corresponding `context/` directory.
 
 Keep downloaded inputs under the task's authorized project directory. If a browser downloaded
-elsewhere, use `ENGINE stage-input --source <selected-file-or-folder> --destination <project>/sources/<asset>`
-once, through normal host file-access controls. Use the returned project path for every later
+elsewhere, use `ENGINE stage-input --source <selected-file-or-folder> --destination <project>/sources/<asset> --source-id <stable-asset-key>`
+once, through normal host file-access controls. For a source-system download, include
+`--source-id <stable-asset-key>` from its selected source metadata. Power BI uses
+`powerbi:<workspace-id>:<report-id>`, never a download filename or a display title. Keep the
+same key across downloads and content revisions; distinct reports have distinct keys. The
+helper returns a canonical asset path, so browser suffixes cannot change reader identities.
+Keep the source's readable title in project state and use the returned path in the BI config. Use the returned project path for every later
 read, inventory and run configuration. Never ask conversational permission to read the supplied
 asset or generated instructions/answers/receipts. A host file permission dialog may still need
 the person's answer; do not edit sandbox settings or repeat the same access request per stage.
@@ -179,3 +184,15 @@ its SQL groups by every required source key. Ordinary optional blank filters do 
 member requirements. Source-unit evidence is bound into the completion receipt alongside C4.
 After updating the engine instructions, start a new run with the new runtime; resume older
 runs with their original plugin/runtime before exporting their evidence.
+
+
+Publication requires format 2 eligibility evidence recording compiler review, required member
+scope and card aggregation checks. Older exports cannot be published just because they have a
+valid older manifest. If a runtime does not match the installed plugin, initialize a new
+runtime and run from the authorized source with its existing decisions. Never search temporary
+folders for an older helper to evade current eligibility checks. Keep old jobs for reference.
+
+The card gate rejects nested aggregates in the same query scope and aggregate/window
+expressions in row filters. Valid separate aggregation subqueries and grouped window
+calculations remain supported. The exporter repeats these checks before producing eligibility
+evidence. These checks do not replace warehouse execution or independent dashboard parity.
