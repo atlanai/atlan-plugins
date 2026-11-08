@@ -6,17 +6,22 @@ approves more than one version per yes.
 
 ## What is waiting
 
-1. **The workspaces.** `registry__list_workspaces` lists the workspaces the user holds a role on,
-   each with its role. Review needs an admin, so keep the admin ones. A user who is admin of
-   none still gets the queue, read-only, with who can approve.
+1. **The workspaces.** `registry__list_workspaces` lists the workspaces the user can reach.
+   Review needs an admin, so keep the rows with `can_manage: true`. A gateway that does not send
+   `can_manage` predates it: keep every row and let a `403` on approval say who can. A user who
+   is admin of none still gets the queue, read-only, with who can approve.
 2. **The counts.** For each kept workspace, `registry__get_artifact_counts` with
-   `workspace_id` and `"group_by": "artifact_status"`, all sent together. Keep `pending_review`
-   (waiting for the scan or a reviewer) and `blocked` (failed the security scan). Report the
-   non-zero ones in one line: "3 waiting in Platform, 1 blocked in Data".
-3. **The items.** `registry__list_artifacts` with that `workspace_id` and `full: true`, keeping
-   rows whose `artifact_status` is `pending_review` or `blocked`. Page with `offset` only until
-   the counted number is found, and stop there. If the gateway takes a status filter (its
-   `mcp__describe_tools` entry says so), send it instead.
+   `workspace_id` and `"group_by": "artifact_status"`, all sent together. Keep `blocked` (a
+   check, such as a skill's security scan, refused it, and only an admin's approval releases
+   it) and `pending_review` (its checks have not settled: the scan is still running, or stuck).
+   Report the non-zero ones in one line: "3 waiting in Platform, 1 blocked in Data".
+3. **The items.** `registry__list_artifacts` with that `workspace_id`, `full: true` and
+   `"status": "pending_review"`, and a second call with `"status": "blocked"`, sent together.
+   On a workspace whose release policy is `manual`, also list
+   `"is_released": false` with `"status": "active"`: those are approved versions nobody has
+   shipped yet. A gateway that refuses `status` predates it: list without it, keep the rows
+   with the right `artifact_status`, and page with `offset` only until the counted number is
+   found.
 
 List each item with its name, kind, version, owner and status. Offer to review one, newest first.
 Do not open their files yet.
@@ -35,7 +40,8 @@ Send these reads together:
   approving an unscanned version skips the check.
 - **The blast radius.** `registry__get_related_artifacts`, read as SKILL.md step 2 says.
   Approving a new version of a skill that agents pin changes nothing for them until their
-  manifests move. An agent that follows `latest` gets it on release.
+  manifests move; an edge's `version_ordinal`, when it has one, names the version each pins.
+  An agent that follows `latest` gets it on release.
 
 Show one card: name, version, workspace and owner; what changed; the findings (or none); what
 depends on it. Then ask once: approve this exact version, yes or no.
