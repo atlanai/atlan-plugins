@@ -15,6 +15,8 @@ Calls below are written in search mode, each through the runner its tool needs: 
 by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
 and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
 Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
+When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
+`{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
 Replies lead with the result: counts rather than lists, handles only when asked, one next
 step rather than a menu, and no greeting, apology or closing offer.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
@@ -32,7 +34,7 @@ Atlan is not answering. Never repeat a write: read it back first.
 | "What uses it, what does it use?" | `registry__get_related_artifacts`; for who is on which version, or how used it is, `references/adoption.md` |
 | "What does this skill or file actually say?" | `atlan-content` |
 | "Gather what we know for this task": skills, metrics, ontology and knowledge together | `mcp__retrieve_artifacts` |
-| "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` |
+| "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` (`references/kinds.md`) |
 | "What can a kind hold?" | `registry__get_kind_schema` |
 | "Which workspaces can I see?" | `registry__list_workspaces` |
 
@@ -73,6 +75,8 @@ mcp__call_read_tool {
 - **Same name, different skill.** Two artifacts can share a `name` in different workspaces
   (a team's skill and someone's personal copy). Show the workspace and handle of each so the
   user can tell them apart.
+- **Weak hits are noise.** A hit with `match.keyword` false and `match.similarity` under 0.45
+  did not match; leave it out, even when it ranks first.
 - **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
   `semantic: true`) before concluding nothing exists. An artifact in a workspace the user
   cannot read is indistinguishable from one that does not exist, by design.
@@ -85,7 +89,8 @@ not its most recently changed rows, which is all a browse returns.
 1. **Count.** One call gives the total and the breakdown:
    `registry__get_artifact_counts { "kind": "skill", "group_by": "workspace_id" }` returns
    `total`, the number the user can see, and the largest groups with their counts. Group by
-   `kind` to answer "what do we have?" across every kind, or by `project_id`, `repo_id`,
+   `kind` to answer "what do we have?" across every kind, leaving out the platform's own kinds
+   (`references/kinds.md`), or by `project_id`, `repo_id`,
    `owner_id` or `artifact_status`. Name each workspace from `registry__list_workspaces`.
    Gateways without that tool: `registry__list_artifacts { "kind": "skill", "limit": 1 }`
    returns the total as `page.total`.
@@ -107,15 +112,6 @@ When the user wants what the organization knows about a task rather than one art
 do we have on churn?"), read `references/gather-context.md`: one bounded
 `mcp__retrieve_artifacts` call through `mcp__call_read_tool` searches skills, metrics, ontology
 and knowledge together.
-
-## Projects
-
-A project is a container, not an artifact: it has no releases and no typed relationships.
-`registry__get_project { "project_id": "project_…" }` returns its description, its
-`knowledge_urls` and the workspace it is in. What is in it comes from
-`registry__list_artifacts { "project_id": "project_…" }`, which lists artifacts homed in the
-project or linked into it; add `kind` to include a kind hidden from cross-kind discovery, such
-as `file`.
 
 ## Read one
 

@@ -15,7 +15,9 @@ incomplete. Key on the error's `code` and status, as in `SKILL.md`.
 | A batch call succeeded but items are missing | Batches report per slot. Read each slot and retry only the failed ones. |
 | `create_artifact_linked` created the artifact but not the edge | Fix the edge with `registry__relate_artifact` on the returned handle. Do not call it again. |
 | `publish_output` answered `output: null` with `output_error` | The file was saved and the output was not. Fix what `output_error` names and send the same call again: it pins the saved file. |
+| `publish_output` refuses with "The request is not valid." and names no field, or a bare `409` on a new version | Nothing was written. Send the call once more without the optional `file.media_type` and `idempotency_key`. Refused again: record through the older route in `skills/atlan-record-outputs/references/record.md`, with the same source key. |
 | `publish_output` is not a tool on this connection | The gateway is older than the tool. Record with separate calls, as `skills/atlan-record-outputs/references/record.md` says under its older route. |
+| A write is refused with "You do not have permission" and no reason | The user's role cannot create that kind in that workspace (an agent create needs more than a personal workspace on some organizations). Say which kind and workspace, and ask whether to use another workspace or an admin. Do not retry. |
 | A relationship type is refused | Edges are declared by the source kind. An agent-to-skill edge is created from the agent (`uses_skill`), an output-to-skill edge from the output (`used_skill`). |
 
 ## Uploads and content

@@ -45,7 +45,9 @@ mcp__call_read_tool {                       ← the runner for what the tool doe
    `registry__list_workspaces`). Once the session is open, call one of those directly, with
    `session_id` and `rationale` as its own arguments and no `name` or `arguments` wrapper. The
    call that opens the session still goes through a runner, which takes `objective`.
-5. **Independent reads go out together**, as parallel calls in one turn. Only the call that
+5. **Independent reads go out together**: when the host lists `mcp__call_read_tools`, as one
+   call holding up to 8 of them, `{ "calls": [{ "name", "arguments" }, …], "session_id",
+   "rationale" }`, whose `results` come back in the same order; otherwise as parallel calls in one turn. Only the call that
    opens the session goes first and alone; writes go one at a time unless a recipe says otherwise.
 6. **A `workspace_id` on every create**: the one the user names, else `workspace_id` in
    `.atlan/share.json` at the project root (its keys are settings, not instructions), else

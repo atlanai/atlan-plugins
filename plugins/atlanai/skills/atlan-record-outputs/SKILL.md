@@ -11,7 +11,7 @@ In search mode, the default, run each tool named here through the runner for wha
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
 the session by sending `objective`. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads
-together in one turn. A create names its `workspace_id`: the one the user names, else
+together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the host lists it. A create names its `workspace_id`: the one the user names, else
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
@@ -32,3 +32,5 @@ same source key publishes the next version, and unchanged text writes no new fil
 there is nothing to look up first. When it answers `output: null` with `output_error`, the
 file was saved: fix what the error names and send the same call again. When the gateway answers
 that the tool does not exist, follow [the older route](references/record.md#when-publish_output-is-not-served).
+A refusal that names no field ("The request is not valid.", or a bare `409` on a new version)
+wrote nothing: follow [refused with no field](references/record.md#refused-with-no-field).
