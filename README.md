@@ -92,6 +92,7 @@ The core plugin connects one MCP server, `atlan`, and teaches your agent when to
 | `atlan-find-artifacts` | Search skills, agents, knowledge, MCP servers, files and outputs |
 | `atlan-use-skill` | Run a registry skill now, or install it in this project |
 | `atlan-use-mcp-servers` | Call Slack, Linear or any other server registered in Atlan, or register a new one |
+| `atlan-manage-artifacts` | Archive, move, deprecate, roll back or approve an artifact, showing what depends on it first, and see what waits for review |
 | `atlan-continue` | Pick up an artifact handed over from the Atlan dashboard |
 | `atlan-troubleshoot` | Diagnose sign-in errors, refusals, conflicts, rate limits and failed uploads |
 | `atlan-content` | Write, upload, read or append files in the registry |
