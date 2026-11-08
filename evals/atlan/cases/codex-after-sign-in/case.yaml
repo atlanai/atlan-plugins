@@ -15,7 +15,7 @@ graders:
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
   - name: lists-workspaces
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"\s*:\s*"registry__list_workspaces"'
     min: 1
   - name: no-web-search

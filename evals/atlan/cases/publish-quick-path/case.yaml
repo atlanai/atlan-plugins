@@ -31,21 +31,34 @@ graders:
     max: 0
   - name: searches-skills-first
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"\s*:\s*"registry__search_artifacts"[\s\S]*"skill"'
     min: 1
   - name: creates-once-in-personal-workspace-and-waits
+    # The create may run on call_tool or call_write_tool (run_with can name either), so this
+    # counts it in the trace across both runners.
+    type: regex
+    target: trace
+    pattern: '"name":"mcp__plugin_atlanai_atlan__mcp__call_(?:write_)?tool","input":\{"name":"extension__skill__create"(?=[^\n]*"workspace_01evaldana")(?=[^\n]*"wait_for_release"\s*:\s*true)'
+    match: 'count:1'
+  - name: at-most-three-atlan-reads
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"extension__skill__create"(?=[\s\S]*"workspace_01evaldana")(?=[\s\S]*"wait_for_release"\s*:\s*true)'
-    min: 1
-    max: 1
-  - name: at-most-four-atlan-calls
-    type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"'
-    min: 1
-    max: 4
+    min: 0
+    max: 3
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
   - name: every-call-has-rationale
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool

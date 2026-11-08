@@ -6,7 +6,7 @@ from context_state import digest
 STATUS_LABELS = {'draft': 'Draft', 'schema_checked': 'Schema checked; execution untested',
                  'executed': 'SQL executed for observed parameter samples',
                  'example_executed': 'Authored SQL example executed; formula equivalence not established',
-                 'held': 'Held', 'released': 'Released in Trident'}
+                 'held': 'Held', 'released': 'Released in Atlan'}
 
 
 def candidates(run):

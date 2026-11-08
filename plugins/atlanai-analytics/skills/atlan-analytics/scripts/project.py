@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Survey a local analytics project and retain its data binding and Trident receipts.
+"""Survey a local analytics project and retain its data binding and Atlan receipts.
 
 Authoring and all Registry calls remain in the existing skills and authenticated MCP.
 This helper never publishes, executes repository scripts, installs software or runs evals.
@@ -404,7 +404,7 @@ class Project(ContextState):
         self.store.write(self.path, state)
         progress.update(self, 'publish', 'complete')
         return {'status': 'ok', 'recorded_from': 'host_mcp_release_readbacks', **receipt,
-                'next': 'Suggest supported questions, then retrieve from Trident for the user question.'}
+                'next': 'Suggest supported questions, then retrieve from Atlan for the user question.'}
 
     def retrieved(self, payload):
         state = self.current()

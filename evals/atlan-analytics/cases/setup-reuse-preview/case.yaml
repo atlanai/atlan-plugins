@@ -39,7 +39,7 @@ graders:
       calculations, source and reused/check status, and at least one supplied saved SQL,
       before offering follow-up questions. The shipped-units population filter must remain
       visible. FAIL if it only shows counts, names or a file link, or skips the preview
-      because these definitions already exist in Trident.
+      because these definitions already exist in Atlan.
   - name: explains-reconciliation-without-new-approval
     type: llm
     criteria: |
