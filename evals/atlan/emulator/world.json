@@ -2,7 +2,7 @@
  "tools": [
   {
    "name": "registry__list_workspaces",
-   "description": "List the workspaces you hold a role on, each with the handle every write needs. Call this before your first create. If you can reach more than one, say which you are writing to rather than guessing.",
+   "description": "List the workspaces you hold a role on, each with the handle every write needs. Call this before your first create. If you can reach more than one, say which you are writing to rather than guessing. A row's `can_manage` says you are its admin.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -65,7 +65,7 @@
   },
   {
    "name": "registry__list_artifacts",
-   "description": "Browse artifacts, most recently changed first. Omit kind to browse discoverable kinds. Use this when you want to see what changed recently rather than to find a particular thing — for a specific thing, search, and for how many there are, get_artifact_counts. Returns the latest version of each artifact as a summary row, and `page.total`, the number of matching artifacts, not the number shown. Use limit and offset to page through the contents.",
+   "description": "Browse artifacts, most recently changed first. Omit kind to browse discoverable kinds. Use this when you want to see what changed recently rather than to find a particular thing — for a specific thing, search, and for how many there are, get_artifact_counts. Returns the latest version of each artifact as a summary row, and `page.total`, the number of matching artifacts, not the number shown. Use limit and offset to page through the contents. Narrow with `status`, `is_released` and `related_to`: for example `status: blocked` for what waits on an admin's review, or `related_to` for what depends on an artifact before you archive or move it.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -93,6 +93,36 @@
      },
      "full": {
       "type": "boolean"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "active",
+       "pending_review",
+       "blocked"
+      ],
+      "description": "Only heads in this `artifact_status`. Omit for all three."
+     },
+     "is_released": {
+      "type": "boolean",
+      "description": "true keeps heads released on some channel; false keeps heads released on none."
+     },
+     "related_to": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "rel_type": {
+        "type": "string"
+       },
+       "to_id": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "rel_type",
+       "to_id"
+      ],
+      "description": "Only artifacts holding an active relationship of `rel_type` to `to_id`, such as the agents that load a skill."
      }
     },
     "required": []
@@ -142,7 +172,7 @@
   },
   {
    "name": "registry__get_artifact",
-   "description": "Read one artifact by its handle, including the kind's own properties. The handle is the `id` a search result carries, shaped `<kind>_<identifier>`. It cannot find anything by name. Set channel (for example latest) or release_id for the exact published version. Set include_file to a path from the artifact's `metadata.files`, such as `SKILL.md`, to read that file's text in the same call instead of a second get_file_content. Set include_files to read several paths in one call.",
+   "description": "Read one artifact by its handle, including the kind's own properties. The handle is the `id` a search result carries, shaped `<kind>_<identifier>`. It cannot find anything by name. Set channel (for example latest) or release_id for the exact published version, or version_ordinal for any version, released or not. Set include_file to a path from the artifact's `metadata.files`, such as `SKILL.md`, to read that file's text in the same call instead of a second get_file_content. Set include_files to read several paths in one call.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -161,6 +191,10 @@
      },
      "release_id": {
       "type": "string"
+     },
+     "version_ordinal": {
+      "type": "integer",
+      "description": "Read this exact version, released or not, such as one waiting for review."
      },
      "include_file": {
       "type": "string",
@@ -524,7 +558,7 @@
   },
   {
    "name": "registry__archive_artifact",
-   "description": "Archive an artifact: it stops appearing in searches and listings. Needs admin. Do it only when asked to.",
+   "description": "Archive an artifact: it stops appearing in searches and listings. Needs admin. Do it only when asked to. Read get_related_artifacts first. To undo a bad release, call withdraw_release instead. Do not set artifact_status to deprecated: it is an alias of active.",
    "annotations": {
     "readOnlyHint": false,
     "destructiveHint": true,
@@ -595,6 +629,31 @@
     },
     "required": [
      "artifact_id"
+    ]
+   }
+  },
+  {
+   "name": "registry__withdraw_release",
+   "description": "Withdraw one release: this is how to roll a channel back. If it was the channel's current release, the newest earlier release on that channel whose version is still active becomes current again; if none qualifies, the channel is left with nothing current. Take release_id from list_releases, where is_current marks the one a channel serves. Releasing an older version again is not a rollback: a label must increase. A withdrawal is terminal. Do it only when asked to.",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "release_id": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "release_id"
     ]
    }
   },
@@ -1207,7 +1266,8 @@
    "kind": "org_default",
    "workspace_status": "active",
    "visibility": "public",
-   "role": "member"
+   "role": "member",
+   "can_manage": false
   },
   {
    "id": "workspace_01evalplatform",
@@ -1216,7 +1276,8 @@
    "kind": "default",
    "workspace_status": "active",
    "visibility": "public",
-   "role": "admin"
+   "role": "admin",
+   "can_manage": true
   },
   {
    "id": "workspace_01evaldana",
@@ -1225,7 +1286,8 @@
    "kind": "user_default",
    "workspace_status": "active",
    "visibility": "private",
-   "role": "owner"
+   "role": "owner",
+   "can_manage": false
   },
   {
    "id": "workspace_01evalmktg",
@@ -1234,7 +1296,8 @@
    "kind": "default",
    "workspace_status": "active",
    "visibility": "public",
-   "role": "member"
+   "role": "member",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e00",
@@ -1242,7 +1305,8 @@
    "display_name": "e2e-create-000000",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e01",
@@ -1250,7 +1314,8 @@
    "display_name": "e2e-create-000001",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e02",
@@ -1258,7 +1323,8 @@
    "display_name": "e2e-create-000002",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e03",
@@ -1266,7 +1332,8 @@
    "display_name": "e2e-create-000003",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e04",
@@ -1274,7 +1341,8 @@
    "display_name": "e2e-create-000004",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e05",
@@ -1282,7 +1350,8 @@
    "display_name": "e2e-create-000005",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e06",
@@ -1290,7 +1359,8 @@
    "display_name": "e2e-create-000006",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e07",
@@ -1298,7 +1368,8 @@
    "display_name": "e2e-create-000007",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e08",
@@ -1306,7 +1377,8 @@
    "display_name": "e2e-create-000008",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e09",
@@ -1314,7 +1386,8 @@
    "display_name": "e2e-create-000009",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e10",
@@ -1322,7 +1395,8 @@
    "display_name": "e2e-create-000010",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e11",
@@ -1330,7 +1404,8 @@
    "display_name": "e2e-create-000011",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e12",
@@ -1338,7 +1413,8 @@
    "display_name": "e2e-create-000012",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   },
   {
    "id": "workspace_01evale2e13",
@@ -1346,7 +1422,8 @@
    "display_name": "e2e-create-000013",
    "kind": "default",
    "workspace_status": "archived",
-   "visibility": "public"
+   "visibility": "public",
+   "can_manage": false
   }
  ],
  "artifacts": {
@@ -1807,7 +1884,7 @@
       "size_bytes": 500,
       "media_type": "text/markdown",
       "file_version_ordinal": 2,
-      "sha256": "549b5e2b5bf0b080e231ef04b398d1ab5e90095680fdc62a45a6c207018dc011",
+      "source_digest": "549b5e2b5bf0b080e231ef04b398d1ab5e90095680fdc62a45a6c207018dc011",
       "is_executable": false
      },
      {
@@ -1816,7 +1893,7 @@
       "size_bytes": 260,
       "media_type": "text/markdown",
       "file_version_ordinal": 2,
-      "sha256": "d8364b41cbf38879a7812b2fb959edf6d41ca2798f33730582b0b8355051eecb",
+      "source_digest": "d8364b41cbf38879a7812b2fb959edf6d41ca2798f33730582b0b8355051eecb",
       "is_executable": false
      },
      {
@@ -1825,7 +1902,7 @@
       "size_bytes": 119,
       "media_type": "text/markdown",
       "file_version_ordinal": 1,
-      "sha256": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
+      "source_digest": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
       "is_executable": false
      },
      {
@@ -1834,7 +1911,7 @@
       "size_bytes": 186,
       "media_type": "text/markdown",
       "file_version_ordinal": 1,
-      "sha256": "704f463e864f27fed25ae4b0c51a3bdb38f9549978d309b36ff6a0c98948f5e5",
+      "source_digest": "704f463e864f27fed25ae4b0c51a3bdb38f9549978d309b36ff6a0c98948f5e5",
       "is_executable": false
      }
     ],
@@ -1856,7 +1933,7 @@
         "size_bytes": 500,
         "media_type": "text/markdown",
         "file_version_ordinal": 2,
-        "sha256": "549b5e2b5bf0b080e231ef04b398d1ab5e90095680fdc62a45a6c207018dc011",
+        "source_digest": "549b5e2b5bf0b080e231ef04b398d1ab5e90095680fdc62a45a6c207018dc011",
         "is_executable": false
        },
        {
@@ -1865,7 +1942,7 @@
         "size_bytes": 260,
         "media_type": "text/markdown",
         "file_version_ordinal": 2,
-        "sha256": "d8364b41cbf38879a7812b2fb959edf6d41ca2798f33730582b0b8355051eecb",
+        "source_digest": "d8364b41cbf38879a7812b2fb959edf6d41ca2798f33730582b0b8355051eecb",
         "is_executable": false
        },
        {
@@ -1874,7 +1951,7 @@
         "size_bytes": 119,
         "media_type": "text/markdown",
         "file_version_ordinal": 1,
-        "sha256": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
+        "source_digest": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
         "is_executable": false
        },
        {
@@ -1883,7 +1960,7 @@
         "size_bytes": 186,
         "media_type": "text/markdown",
         "file_version_ordinal": 1,
-        "sha256": "704f463e864f27fed25ae4b0c51a3bdb38f9549978d309b36ff6a0c98948f5e5",
+        "source_digest": "704f463e864f27fed25ae4b0c51a3bdb38f9549978d309b36ff6a0c98948f5e5",
         "is_executable": false
        }
       ],
@@ -1894,7 +1971,7 @@
      "release_id": "rel_01evaloncall100",
      "version_label": "1.0.0",
      "version_ordinal": 1,
-     "channel": null,
+     "channel": "latest",
      "is_current": false,
      "released_at": "2026-08-01T09:00:00Z",
      "metadata": {
@@ -1905,7 +1982,7 @@
         "size_bytes": 439,
         "media_type": "text/markdown",
         "file_version_ordinal": 1,
-        "sha256": "0e9fe82a0b0c9d126fa9a0fb8ef9ab9c3ac84be94c259691492a09595e181657",
+        "source_digest": "0e9fe82a0b0c9d126fa9a0fb8ef9ab9c3ac84be94c259691492a09595e181657",
         "is_executable": false
        },
        {
@@ -1914,7 +1991,7 @@
         "size_bytes": 172,
         "media_type": "text/markdown",
         "file_version_ordinal": 1,
-        "sha256": "0ea08557a425715bbfa3fc877714318361a5debacdbcdd425a207f4b93315acd",
+        "source_digest": "0ea08557a425715bbfa3fc877714318361a5debacdbcdd425a207f4b93315acd",
         "is_executable": false
        },
        {
@@ -1923,7 +2000,7 @@
         "size_bytes": 119,
         "media_type": "text/markdown",
         "file_version_ordinal": 1,
-        "sha256": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
+        "source_digest": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
         "is_executable": false
        }
       ],
