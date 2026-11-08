@@ -28,6 +28,8 @@ No handle, only a title: search for it (`registry__search_artifacts`, `semantic:
 The first runner call opens the session: send `objective` beside `name`, such as
 `Catch up on "<title>" handed over from the Atlan dashboard`, and reuse the `mcp_session_id` it
 returns as `session_id` on every later call, with a `rationale` on each. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
+When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
+`{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.

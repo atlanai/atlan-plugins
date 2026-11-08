@@ -120,6 +120,19 @@ One edge per call, so an agent that uses three skills is one linked create plus 
 `extension__skill__create`. So for a skill the order is: upload the skill, then relate from
 the other artifact.
 
+## One edge, three spellings
+
+Each tool names the two ends differently. Read the row for the tool you are calling: a guess the
+other way round can write a reversed edge wherever both kinds declare the type.
+
+| Tool | Source (declares `rel_type`) | Target |
+|---|---|---|
+| `registry__relate_artifact` | `artifact_id` | `subject_id` |
+| `registry__create_artifact_linked` | the artifact being created | `subject_id` |
+| `registry__publish_output` | the output being published | `to_id`, inside each `edges` entry |
+
+`subject_id` inside an output's `metadata` is its producer, not an edge end.
+
 ## The three refusals, in the order they fire
 
 1. **Unknown `rel_type`**: 422, and the message **names the vocabulary**:

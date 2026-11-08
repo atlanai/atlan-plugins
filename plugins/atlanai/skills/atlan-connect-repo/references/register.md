@@ -7,8 +7,8 @@ register the repository, then link the artifacts the user chooses.
 
 ## Tools
 
-Open one audited session with `mcp__initialise`, then pass its `session_id` and a concrete
-first-person `rationale` on every later call.
+Your first call opens the session by sending `objective`; pass the id it returns as
+`session_id`, with a concrete first-person `rationale`, on every later call.
 
 - `registry__list_workspaces` to resolve the workspace the user names.
 - `extension__repo__register_repo` to register the repository, or to get the repo already
