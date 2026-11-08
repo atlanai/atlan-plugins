@@ -196,31 +196,6 @@
      "query"
     ]
    }
-  },
-  {
-   "name": "registry__list_releases",
-   "description": "List an artifact's releases, newest first, each with its release_id, channel and whether it is current.",
-   "annotations": {
-    "readOnlyHint": true,
-    "destructiveHint": false,
-    "idempotentHint": true,
-    "openWorldHint": false
-   },
-   "input_schema": {
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {
-     "artifact_id": {
-      "type": "string"
-     },
-     "limit": {
-      "type": "integer"
-     }
-    },
-    "required": [
-     "artifact_id"
-    ]
-   }
   }
  ],
  "artifacts": {

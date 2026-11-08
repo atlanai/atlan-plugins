@@ -328,6 +328,21 @@ def head(item: dict) -> dict:
                     "metadata": item["metadata"] | {"size_bytes": len(current["content"].encode())}}
 
 
+def released(item: dict, a: dict) -> dict:
+    """`get_artifact` at a `release_id` or `channel`: a fixture with `releases` answers with that
+    release's version and manifest; any other answers with its head, as before."""
+    releases = item.get("releases")
+    shown = {k: v for k, v in item.items() if k != "releases"}
+    if not releases or not (a.get("release_id") or a.get("channel")):
+        return shown
+    pick = next((r for r in releases if (a.get("release_id") and r["release_id"] == a["release_id"])
+                 or (not a.get("release_id") and r.get("channel") == a["channel"])), None)
+    if pick is None:
+        raise Refusal(404, "not_found", "No release with that id or channel on this artifact.")
+    return shown | {k: pick[k] for k in ("release_id", "version_label", "version_ordinal")} | {
+        "released_channels": [pick["channel"]] if pick.get("channel") else [], "metadata": pick["metadata"]}
+
+
 def in_project(item: dict, project_id: str | None) -> bool:
     if not project_id:
         return True
@@ -357,13 +372,18 @@ def search_artifacts(a: dict) -> dict:
     hits.sort(key=lambda h: -h[0])
     limit = a.get("limit", 10)
     # Every hit here matched a query word; the gateway's fused hits say so in `match`.
-    return {"items": [(h if a.get("full") else summary(h)) | {"score": s / 100, "match": {"keyword": True}}
+    return {"items": [(bare(h) if a.get("full") else summary(h)) | {"score": s / 100, "match": {"keyword": True}}
                       for s, h in hits[:limit]],
             "page": {"limit": limit, "offset": 0}}
 
 
 SUMMARY = ("id", "kind", "name", "display_name", "description", "workspace_id", "project_id", "artifact_status",
            "is_released", "version_label", "updated_at", "repo_id", "source_id", "version_ordinal")
+
+
+def bare(item: dict) -> dict:
+    """A `full` row: every field but the fixture's own `releases` list, which only release reads use."""
+    return {k: v for k, v in item.items() if k != "releases"}
 
 
 def summary(item: dict) -> dict:
@@ -406,8 +426,13 @@ def file_content(a: dict) -> dict:
     if found.get("binary"):
         raise Refusal(422, "not_text", f"{found['path']} is {found['size_bytes']} bytes of {found['media_type']}, not UTF-8 "
                       "text. Read it over HTTP: GET /file/v1/files/{file_id}/content.")
+    content = found["content"]
+    if found.get("versions") and a.get("version_ordinal") is not None:
+        content = found["versions"].get(str(a["version_ordinal"]))
+        if content is None:
+            raise Refusal(404, "not_found", "No such version of this file.")
     return {"file_id": a["file_id"], "path": found["path"], "media_type": found["media_type"],
-            "version_ordinal": a.get("version_ordinal", 1), "content": found["content"]}
+            "version_ordinal": a.get("version_ordinal", 1), "content": content}
 
 
 def included_file(item: dict, path: str) -> dict:
@@ -540,14 +565,16 @@ def dispatch(name: str, a: dict) -> dict:
         return search_artifacts(a)
     if name == "registry__list_artifacts":
         items = [head(i) for i in browsed(a)]
-        rows = items if a.get("full") else [summary(i) for i in items]
+        rows = [bare(i) for i in items] if a.get("full") else [summary(i) for i in items]
         return {"items": rows[: a.get("limit", 50)], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(items)}}
     if name == "registry__get_artifact_counts":
         return counts(a)
     if name == "registry__get_artifact":
-        found = artifact(a["artifact_id"])
+        found = released(artifact(a["artifact_id"]), a)
         if "include_file" in a:
             found = found | {"included_file": included_file(found, a["include_file"])}
+        if "include_files" in a:
+            found = found | {"included_files": [included_file(found, path) for path in a["include_files"][:8]]}
         return found
     if name == "registry__get_project":
         project = WORLD["projects"].get(a["project_id"])
@@ -725,6 +752,9 @@ def get_context(a: dict) -> dict:
 
 def list_releases(a: dict) -> dict:
     found = artifact(a["artifact_id"])
+    if found.get("releases"):
+        return {"items": [{k: r.get(k) for k in ("release_id", "version_label", "version_ordinal", "channel",
+                                                 "is_current", "released_at")} for r in found["releases"]]}
     if not found.get("release_id"):
         return {"items": []}
     return {"items": [{"release_id": found["release_id"], "channel": "latest", "is_current": True,

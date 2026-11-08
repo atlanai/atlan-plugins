@@ -57,6 +57,9 @@ Then read **every** other entry in `metadata.files` (`SKILL.md` already came bac
    out for the rest of the session.
 4. Write each returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
    any path that is absolute or contains `..`.
+5. Record the install in `.atlan-installed.json` in the skills folder that holds `<folder>`
+   (beside it, never inside it), merging this skill's entry into any record already there, as
+   `compare-versions.md` shows. This is what a later "are my skills up to date?" reads.
 
 Before writing, show the user the file list. Point out any script (`*.sh`, `*.py`, `*.js`,
 anything under `scripts/`) and say you have not run it. Never run a downloaded script as
@@ -71,5 +74,5 @@ will misbehave when it reaches that step. aireg, where it is installed, fetches 
 
 Then say which skill and version you installed (`name`, handle, `version_ordinal` of
 `SKILL.md`), where, and how many files. Tell the user their tool may need a new session to
-load it. To update later, read the artifact again and compare versions; reinstall only on a
-newer one.
+load it. To update later, follow `compare-versions.md`: it checks the record against `latest`
+and reinstalls only on a newer version.
