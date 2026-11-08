@@ -1,0 +1,11 @@
+interface:
+  display_name: "Manage Atlan Artifacts"
+  short_description: "Archive, move, roll back or approve, seeing what depends on it"
+  default_prompt: "Use $atlan-manage-artifacts to show what is waiting for my review in Atlan."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
