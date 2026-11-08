@@ -1,11 +1,11 @@
 # Retrieve released context, then reach the data
 
-The current harness owns authenticated Trident calls. Every answer searches and reads fresh
+The current harness owns authenticated Atlan calls. Every answer searches and reads fresh
 released definitions; local drafts, search snippets and remembered setup answers are not
 the definition source. No new agent or eval is required.
 
 For a selected setup run, read `PROJECT status` for its workspace, release IDs and executor.
-Search relevant metrics and saved queries in Trident, fetch complete `registry__get_artifact`
+Search relevant metrics and saved queries in Atlan, fetch complete `registry__get_artifact`
 responses at a release, and retain the full definition and release metadata. Prioritize the
 selected estate. Use saved queries for detail questions or when they already answer the request.
 
@@ -40,7 +40,7 @@ For an ordinary question with no setup run, follow the Ask skill's released-cont
 and connection steps directly. Do not require setup, a local receipt, local files or DuckDB.
 The pure `retrieval.validate(payload)` and `retrieval.query_plan(request, execution)` functions
 also support this case without a receipt; callers must supply actual fresh MCP responses.
-They do not contact or authenticate to Trident themselves.
+They do not contact or authenticate to Atlan themselves.
 
 Lead with the result and cite the metric/query name, actual artifact ID, release ID and
 verified UI link when available. Retain executed SQL and bounded results; show SQL when asked.

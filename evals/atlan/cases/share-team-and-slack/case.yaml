@@ -13,18 +13,42 @@ graders:
     type: tool_used
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
-  - name: writes-the-file-with-a-source-key
+  - name: publishes-once-under-a-key
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"file")(?=[\s\S]*workspace_01evalplatform)(?=[\s\S]*"source_type"\s*:\s*"local")(?=[\s\S]*"source_id"\s*:\s*"[^"]+")'
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__publish_output"(?=[\s\S]*workspace_01evalplatform)(?=[\s\S]*"source_type"\s*:\s*"local")(?=[\s\S]*"source_id"\s*:\s*"[^"]+")(?=[\s\S]*Build caching)'
     min: 1
     max: 1
-  - name: records-the-output-pinned-and-keyed
+  - name: no-separate-file-or-output-writes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"registry__(?:append_artifact_version|create_artifact(?:_linked)?)"'
+    min: 0
+    max: 0
+  - name: no-separate-file-or-output-writes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__(?:append_artifact_version|create_artifact(?:_linked)?)"'
+    min: 0
+    max: 0
+  - name: no-separate-file-or-output-writes
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"output")(?=[\s\S]*file_01evalnew)(?=[\s\S]*"file_version_ordinal"\s*:\s*1)(?=[\s\S]*"source_id"\s*:\s*"[^"]+")'
-    min: 1
-    max: 1
+    input_match: '"name"\s*:\s*"registry__(?:append_artifact_version|create_artifact(?:_linked)?)"'
+    min: 0
+    max: 0
+  - name: never-shares-to-the-personal-workspace-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: 'workspace_01evaldana'
+    min: 0
+    max: 0
+  - name: never-shares-to-the-personal-workspace-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: 'workspace_01evaldana'
+    min: 0
+    max: 0
   - name: never-shares-to-the-personal-workspace
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
@@ -33,14 +57,38 @@ graders:
     max: 0
   - name: posts-the-hand-off-once
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"slack__send_message"(?=[\s\S]*platform-eng)(?=[\s\S]*/atlanai:continue output_01evalnew)(?=[\s\S]*https://app\.atlan\.com/\?open=%2Facme%2Foutputs%2Foutput_01evalnew0000000000000000%3Fws%3Dworkspace_01evalplatform%26n%3D)'
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"slack__send_message"(?=[\s\S]*platform-eng)(?=[\s\S]*/atlanai:continue output_01evalpub\d{14})(?=[\s\S]*https://app\.atlan\.com/\?open=%2Facme%2Foutputs%2Foutput_01evalpub\d{14}%3Fws%3Dworkspace_01evalplatform%26n%3D)'
     min: 1
     max: 1
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
     min: 0
     max: 0
   - name: every-call-has-rationale
@@ -52,7 +100,7 @@ graders:
   - name: reports-the-share
     type: llm
     criteria: |
-      PASS if the reply says the note was shared with Platform Engineering, gives a link starting `https://app.atlan.com/?open=%2Facme%2Foutputs%2Foutput_01evalnew0000000000000000` and the hand-off prompt `/atlanai:continue output_01evalnew0000000000000000`, and says it was posted to #platform-eng.
+      PASS if the reply says the note was shared with Platform Engineering, gives a link starting `https://app.atlan.com/?open=%2Facme%2Foutputs%2Foutput_01evalpub` and the hand-off prompt `/atlanai:continue output_01evalpub…` naming the same output, and says it was posted to #platform-eng.
       FAIL if it asks for permission again before acting, names a different workspace or channel, or says the share or the post failed. (The tool calls are graded separately; judge only what the reply says.)
   - name: plain-reply
     type: llm

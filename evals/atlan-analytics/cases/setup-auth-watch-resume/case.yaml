@@ -20,7 +20,7 @@ graders:
     type: llm
     criteria: |
       PASS if the plan uses the existing host login command/task, opens its actual issued
-      authorization URL in Chrome, retains/polls the real task handle with a finite timeout,
+      authorization URL in the browser (Chrome when the host controls it), retains/polls the real task handle with a finite timeout,
       and requires a successful current-host Registry read after CLI completion before
       resuming the same saved stage automatically. It must not require 'done', claim the
       helper alone runs the watcher, schedule an automation/daemon, read credentials, or

@@ -31,7 +31,7 @@ graders:
     criteria: |
       This routing test has no shell and cannot clone a repo or execute the survey.
       PASS if it truthfully reports that limit and describes continuing from repo
-      survey of dashboards AND query history to metrics/saved SQL in Trident and
+      survey of dashboards AND query history to metrics/saved SQL in Atlan and
       questions in the current chat. Missing shell or an unselected workspace is
       not a failure. FAIL if it routes to hosted-report capture, asks the user to
       choose dashboard OR history, creates/requires a separate agent package, or

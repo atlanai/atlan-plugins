@@ -11,17 +11,28 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'atlan-(analytics|ontology)'
-  - name: reads-expected
+  - name: reads-shared-setup-route
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup\.md'
+    min: 1
+  - name: avoids-agent-preflight
     type: tool_used
     tool: Read
     input_match: 'references/full-agent\.md'
-    min: 1
+    min: 0
+    max: 0
   - name: avoids-wrong-branch
     type: tool_used
     tool: Read
     input_match: 'references/metrics\.md'
     min: 0
     max: 0
+  - name: offers-the-deployed-agent-once
+    type: llm
+    criteria: |
+      PASS if the reply starts the setup route (asks for or surveys a source of revenue context, or explains that this chat answers from published metrics once they exist) and offers a separately deployed agent with an eval set in at most one or two sentences, switching only if the person asks.
+      FAIL if it starts the full-agent build preflight (purpose questions, eval set, registration) unasked, or gives no hint that a deployed agent is available.
   - name: plain-reply
     type: llm
     criteria: |

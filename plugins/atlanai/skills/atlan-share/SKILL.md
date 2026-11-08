@@ -16,6 +16,9 @@ Calls below are search-mode runner calls: `mcp__call_read_tool` for a read and
 `rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Replies lead with the result: the first sentence is the answer
 or the step, counts rather than lists, handles only when asked, and no greeting, apology or
 closing offer.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
 ## 1. Know what is being shared
 
