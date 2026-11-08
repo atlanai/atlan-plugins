@@ -1,6 +1,6 @@
 ---
 name: atlan-find-artifacts
-description: Search and browse the Atlan registry for skills, agents, knowledge, MCP servers, files and outputs, and say how they relate. Use when the user asks what exists in Atlan, what a workspace or project holds, whether the organization already has a skill or agent for something, who owns an artifact or what depends on it.
+description: Search and browse the Atlan registry for skills, agents, knowledge, MCP servers, files and outputs, and say how they relate. Use when the user asks what exists in Atlan, what a workspace or project holds, whether the organization already has a skill or agent for something, who owns an artifact, what depends on it or which version agents use.
 license: Apache-2.0
 ---
 
@@ -15,9 +15,8 @@ Calls below are written in search mode, each through the runner its tool needs: 
 by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
 and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
 Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
-Replies lead with the result: the first sentence is the answer or the step, counts rather
-than lists, handles only when asked, one next step rather than a menu, and no greeting,
-apology or closing offer.
+Replies lead with the result: counts rather than lists, handles only when asked, one next
+step rather than a menu, and no greeting, apology or closing offer.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -30,7 +29,7 @@ Atlan is not answering. Never repeat a write: read it back first.
 | "What do we have?" "Find me skills" "How many?", with no task named | [Overview](#overview) with `registry__get_artifact_counts`, then a search for the user's task |
 | "What changed recently?" | `registry__list_artifacts` |
 | "Tell me about this one" | `registry__get_artifact` |
-| "What uses it, what does it use?" | `registry__get_related_artifacts` |
+| "What uses it, what does it use?" | `registry__get_related_artifacts`; for who is on which version, or how used it is, `references/adoption.md` |
 | "What does this skill or file actually say?" | `atlan-content` |
 | "Gather what we know for this task": skills, metrics, ontology and knowledge together | `mcp__retrieve_artifacts` |
 | "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` |
