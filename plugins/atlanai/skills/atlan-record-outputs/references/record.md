@@ -77,6 +77,15 @@ names (usually an edge or a producer field) and send the same call again: the so
 saved file and pins it rather than writing a second one. Any other refusal is an error result and
 wrote nothing.
 
+### Refused with no field
+
+Some gateways refuse `publish_output` without naming what is wrong: "The request is not valid."
+when `file.media_type`, `idempotency_key` and `edges` are sent together, or a bare `409` when the
+same source key should publish a new version. Neither writes anything. Send the call once more
+without `file.media_type` and `idempotency_key`. Refused again: record through
+[the older route](#when-publish_output-is-not-served) with the same source key, which reaches the
+same file and output. Never send the identical call a third time.
+
 **Binary or larger files** follow the upload recipe in `skills/atlan-content/references/upload.md`
 first, with the same `source_type` and `source_id` on the `file`, then pass the returned `id`
 and `version_ordinal` as `file_pin`. The staged `PUT` needs a shell and the user's bearer, which
@@ -103,7 +112,7 @@ This is the section this recipe exists to have.
 
 **`session_id` appears twice.** Inside `metadata` it is the `session_...` handle of the
 *run* - which agent conversation produced this. Outside it, at the top level of the tool
-call, it is the `mcp_session_...` id `mcp__initialise` gave you. They are unrelated
+call, it is the `mcp_session_...` id your first call returned. They are unrelated
 and swapping them is two silent errors at once.
 
 **`subject_id` also appears in two roles.** Inside `metadata` it is the **producer** - an
@@ -154,7 +163,8 @@ so there is no second copy to drift.
 
 ## When `publish_output` is not served
 
-A gateway older than the tool answers that no tool of that name exists. Then record in separate
+A gateway older than the tool answers that no tool of that name exists, and a refusal with no
+field ([above](#refused-with-no-field)) can send you here too. Then record in separate
 calls, giving the `file` and the `output` the same source key flat in `metadata` beside `name`:
 
 1. **The file.** Text up to 64 KiB: `registry__create_artifact` with `kind` `file`, `content`, and
