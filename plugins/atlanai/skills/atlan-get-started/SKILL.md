@@ -36,8 +36,7 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
 
   Reply in three lines at most: the state, the step, and "say done and I will show what your
   organization has". When the user says done, look for the tools again and go on to the read
-  below. Still missing after a terminal sign-in means this chat started before it: ask for a
-  new chat with the same request.
+  below. Still missing after a terminal sign-in: ask for a new chat with the same request.
 - **Tools are there, and the user named a task**: skip the check and load that task's skill
   (section 3); its first call opens the session.
 - **Tools are there, and the user is connecting or asked what they have**: prove it works with
@@ -96,8 +95,8 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
   When you do search for one, pass `servers: ["registry"]`.
 - **Runner by tier:** `mcp__call_read_tool` for a get, list or search, `mcp__call_write_tool`
   for a create, update, append, relate or move, `mcp__call_tool` for anything destructive. A
-  runner that refuses names the one to use. A `registry__` read the host also lists by name
-  skips the runner once the session is open (`references/calling-tools.md`).
+  `registry__` read the host also lists by name skips the runner once the session is open
+  (`references/calling-tools.md`).
 - **Every call carries a `rationale`**, one first-person sentence for the person who audits it.
   `session_id`, `objective` and `rationale` go beside `name` and `arguments`, never inside.
 - **A failed call is not a broken plugin.** Read `references/calling-tools.md` for a failed
@@ -117,6 +116,7 @@ Load the skill the row names and follow it; it opens the session itself.
 | Publish a skill or a new version | `atlan-author-skills` |
 | Register an agent or harness, or record the skills it uses | `atlan-author-agents` |
 | Create or edit a knowledge bundle | `atlan-author-knowledge` |
+| Archive, move, roll back or approve an artifact, or see the review queue | `atlan-manage-artifacts` |
 | Share a result with colleagues, or post the hand-off to Slack | `atlan-share` |
 | Record an agent's deliverable with no audience in mind | `atlan-record-outputs` |
 | Publish a repository's skills and agents from GitHub CI | `atlan-connect-repo` |
