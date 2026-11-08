@@ -15,16 +15,48 @@ execution:
 graders:
   # The reply to the first create is lost after it commits. A keyed create is resent unchanged and
   # replays the first version; reading back first is also correct. Either way one version lands.
+  - name: creates-at-least-once
+    # The create may run on call_tool or call_write_tool (run_with can name either), so this
+    # counts it in the trace across both runners.
+    type: regex
+    target: trace
+    pattern: '"name":"mcp__plugin_atlanai_atlan__mcp__call_(?:write_)?tool","input":\{"name":"extension__skill__create"'
+    match: 'contains'
   - name: creates-at-most-twice
+    # The create may run on call_tool or call_write_tool (run_with can name either), so this
+    # counts it in the trace across both runners.
+    type: regex
+    target: trace
+    pattern: '(?:"name":"mcp__plugin_atlanai_atlan__mcp__call_(?:write_)?tool","input":\{"name":"extension__skill__create"[\s\S]*){3}'
+    match: 'not_contains'
+  - name: every-create-carries-a-key-on-read-runner
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"extension__skill__create"'
-    min: 1
-    max: 2
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"idempotency_key")[\s\S]*"name"\s*:\s*"extension__skill__create"'
+    min: 0
+    max: 0
+  - name: every-create-carries-a-key-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"idempotency_key")[\s\S]*"name"\s*:\s*"extension__skill__create"'
+    min: 0
+    max: 0
   - name: every-create-carries-a-key
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '^(?![\s\S]*"idempotency_key")[\s\S]*"name"\s*:\s*"extension__skill__create"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
     min: 0
     max: 0
   - name: rails-beside-arguments

@@ -29,7 +29,7 @@ graders:
       PASS only if the final assistant answer itself includes both metric definitions,
       calculations, shipped-only population, sources and checked status, plus the supplied
       saved SQL. A link or a reference to earlier commentary alone fails. It must distinguish
-      unpublished local candidates from released Trident context and not claim this turn
+      unpublished local candidates from released Atlan context and not claim this turn
       executed SQL. Fewer than five candidates is not a failure.
   - name: actionable-registry-install-fallback
     type: llm

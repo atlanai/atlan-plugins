@@ -1,6 +1,6 @@
 """Validate complete host MCP readbacks and prepare backend-neutral saved-query plans.
 
-This module does not contact Trident. The parent obtains readbacks with its own MCP
+This module does not contact Atlan. The parent obtains readbacks with its own MCP
 connection and dispatches warehouse plans through an existing read-only tool.
 """
 import re
