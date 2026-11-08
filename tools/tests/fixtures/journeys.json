@@ -1695,6 +1695,149 @@
     "governed_metric_rank": 1
    },
    "measured": null
+  },
+  {
+   "id": "registry-archive-with-readout",
+   "plugin": "atlanai",
+   "skill": "atlan-manage-artifacts",
+   "title": "Archive a skill after showing what depends on it",
+   "route": "Search, head and dependents, readout and one yes, archive, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<name>",
+       "kind": "skill"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     },
+     {
+      "tool": "registry__get_related_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     },
+     {
+      "tool": "registry__archive_artifact",
+      "runner": "call_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     },
+     {
+      "tool": "registry__get_related_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     },
+     {
+      "tool": "registry__archive_artifact",
+      "runner": "call_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 5,
+    "warm": 4
+   },
+   "warm_note": "Warm: the handle is known; the head and dependents reads go out together.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-review-queue",
+   "plugin": "atlanai",
+   "skill": "atlan-manage-artifacts",
+   "title": "See what waits for review in the workspaces I administer",
+   "route": "Workspaces, counts by status per admin workspace, then the pending rows",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "limit": 50
+      }
+     },
+     {
+      "tool": "registry__get_artifact_counts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<admin workspace>",
+       "group_by": "artifact_status"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<admin workspace>",
+       "full": true
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact_counts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<admin workspace>",
+       "group_by": "artifact_status"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<admin workspace>",
+       "full": true
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 3,
+    "warm": 2
+   },
+   "warm_note": "Warm: the admin workspaces are known from earlier in the conversation. A status filter on list_artifacts would drop the client-side paging.",
+   "targets": null,
+   "measured": null
   }
  ]
 }
