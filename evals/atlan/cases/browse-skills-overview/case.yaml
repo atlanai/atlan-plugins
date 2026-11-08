@@ -13,19 +13,55 @@ graders:
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
   - name: counts-with-the-count-tool
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"registry__get_artifact_counts"'
     min: 1
+  - name: no-unbounded-list-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"registry__(?:list|search)_artifacts"(?![\s\S]*"limit")'
+    min: 0
+    max: 0
+  - name: no-unbounded-list-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__(?:list|search)_artifacts"(?![\s\S]*"limit")'
+    min: 0
+    max: 0
   - name: no-unbounded-list
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"name"\s*:\s*"registry__(?:list|search)_artifacts"(?![\s\S]*"limit")'
     min: 0
     max: 0
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
     min: 0
     max: 0
   - name: no-unrequested-writes

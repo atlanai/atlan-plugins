@@ -13,14 +13,26 @@ graders:
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-continue"'
   - name: reads-output
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"registry__get_artifact"[\s\S]*output_01evalchurn'
     min: 1
   - name: reads-file
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"registry__get_file_content"[\s\S]*file_01evalchurnmd'
     min: 1
+  - name: skips-claw-only-reader-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"extension__agent__session_(?:read|list)"'
+    min: 0
+    max: 0
+  - name: skips-claw-only-reader-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"extension__agent__session_(?:read|list)"'
+    min: 0
+    max: 0
   - name: skips-claw-only-reader
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
@@ -29,24 +41,60 @@ graders:
     max: 0
   - name: finds-runs
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"\s*:\s*"extension__agent__list_session_traces"'
     min: 1
   - name: opens-a-listed-run
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"\s*:\s*"extension__agent__get_trace"'
     min: 1
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
     min: 0
     max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
   - name: every-call-has-rationale
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
     min: 0
     max: 0
   - name: no-unrequested-writes

@@ -1144,6 +1144,44 @@ class EvalCasesTest(unittest.TestCase):
             for runner in ("call_tool", "call_read_tool", "call_write_tool", "search_tools"):
                 self.assertIn(f"tool: mcp__plugin_atlanai_atlan__mcp__{runner}\n", text, f"{case.name}: {runner}")
 
+    def test_graders_look_for_each_tool_on_the_runner_it_needs(self) -> None:
+        # The skills send a read through call_read_tool, a create through call_write_tool and only
+        # destructive tools through call_tool. A grader that counts a tool on another runner counts
+        # nothing, so a correct run fails it and a regression passes unseen.
+        import re
+
+        world = json.loads((ROOT / "evals" / "atlan" / "emulator" / "world.json").read_text(encoding="utf-8"))
+        tiers = {}
+        for tool in world["tools"]:
+            notes = tool.get("annotations", {})
+            tiers[tool["name"]] = 0 if notes.get("readOnlyHint") else (2 if notes.get("destructiveHint") else 1)
+        # The publish skill sends a skill create through call_tool, where its files_from helper runs.
+        tiers["extension__skill__create"] = 2
+        runners = {0: "call_read_tool", 1: "call_write_tool", 2: "call_tool"}
+        prefix = "mcp__plugin_atlanai_atlan__mcp__"
+        block = re.compile(r"(?m)^  - name: (\S+)\n((?:    .*\n)+)")
+        for case in self.cases():
+            text = (case / "case.yaml").read_text(encoding="utf-8")
+            forbidden: dict[str, set[str]] = {}
+            for name, body in block.findall(text):
+                tool = re.search(rf"(?m)^    tool: {prefix}(call_\w+)$", body)
+                if not tool or "type: tool_used" not in body:
+                    continue
+                match = re.search(r"(?m)^    input_match: '(.*)'$", body)
+                pattern = match.group(1) if match else ""
+                if re.search(r"(?m)^    max: 0$", body):
+                    forbidden.setdefault(pattern, set()).add(tool.group(1))
+                    continue
+                # A required call is made once, on one runner: copies on the others can never all pass.
+                self.assertFalse(name.endswith(("-on-read-runner", "-on-write-runner")), f"{case.name}: {name}")
+                used = {tiers[n] for n in re.findall(r"(?<!\w)((?:registry|extension__[a-z]+|slack|mcp)__[a-z_]+)", pattern) if n in tiers}
+                if len(used) == 1:
+                    self.assertEqual(tool.group(1), runners[used.pop()], f"{case.name}: {name}")
+            for pattern, found in forbidden.items():
+                if "search_tools" in found:
+                    continue
+                self.assertEqual(found, set(runners.values()), f"{case.name}: a forbidden call checked on {sorted(found)} only: {pattern}")
+
     def test_the_baseline_flag_adds_the_no_plugin_arm_and_the_summary_shows_it(self) -> None:
         self.assertEqual(self.runner.ablation(False), "none")
         self.assertEqual(self.runner.ablation(True), "with-without")
