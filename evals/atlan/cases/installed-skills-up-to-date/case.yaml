@@ -1,0 +1,104 @@
+schema_version: "1.1"
+name: installed-skills-up-to-date
+tags: [use-skill,installed,versions]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: |
+    are my installed atlan skills up to date?
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+graders:
+  - name: reads-the-latest-manifest
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"registry__get_artifact"[\s\S]*skill_01evaloncall'
+    min: 1
+  - name: reads-no-file-content-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"include_files?"|"registry__get_file_content"'
+    min: 0
+    max: 0
+  - name: reads-no-file-content-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"include_files?"|"registry__get_file_content"'
+    min: 0
+    max: 0
+  - name: reads-no-file-content
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"include_files?"|"registry__get_file_content"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate|release|approve)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate|release|approve)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate|release|approve)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: changes-no-local-files
+    type: tool_used
+    tool: Write
+    min: 0
+    max: 0
+  - name: reports-behind
+    type: llm
+    criteria: |
+      The installed oncall-handoff skill is version 1.0.0 and Atlan's latest is 1.1.0: two files changed (SKILL.md and references/escalation.md), one was added (checklist.md) and one is unchanged.
+      PASS if the reply says oncall-handoff is behind, gives both versions (1.0.0 installed, 1.1.0 latest), and offers to show what changed or to update, without claiming it already updated anything. Giving the file counts is welcome but not required.
+      FAIL if it says the skill is up to date, gets either version wrong, or says it updated or reinstalled the skill.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

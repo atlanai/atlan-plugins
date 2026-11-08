@@ -142,7 +142,7 @@
   },
   {
    "name": "registry__get_artifact",
-   "description": "Read one artifact by its handle, including the kind's own properties. The handle is the `id` a search result carries, shaped `<kind>_<identifier>`. It cannot find anything by name. Set channel (for example latest) or release_id for the exact published version. Set include_file to a path from the artifact's `metadata.files`, such as `SKILL.md`, to read that file's text in the same call instead of a second get_file_content.",
+   "description": "Read one artifact by its handle, including the kind's own properties. The handle is the `id` a search result carries, shaped `<kind>_<identifier>`. It cannot find anything by name. Set channel (for example latest) or release_id for the exact published version. Set include_file to a path from the artifact's `metadata.files`, such as `SKILL.md`, to read that file's text in the same call instead of a second get_file_content. Set include_files to read several paths in one call.",
    "annotations": {
     "readOnlyHint": true,
     "destructiveHint": false,
@@ -165,6 +165,14 @@
      "include_file": {
       "type": "string",
       "description": "A `path` from the artifact's `metadata.files`, such as `SKILL.md`. The result adds `included_file`: that file's text at the version the manifest pins, read exactly as get_file_content reads it. A file that cannot be read keeps the artifact and says why in `included_file.error`."
+     },
+     "include_files": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 8,
+      "description": "Up to 8 `path`s from the artifact's `metadata.files`. The result adds `included_files`, in the order asked, each read as include_file reads one."
      }
     },
     "required": [
@@ -187,6 +195,31 @@
     "properties": {
      "artifact_id": {
       "type": "string"
+     }
+    },
+    "required": [
+     "artifact_id"
+    ]
+   }
+  },
+  {
+   "name": "registry__list_releases",
+   "description": "List an artifact's releases, newest first, each with its release_id, channel and whether it is current.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "artifact_id": {
+      "type": "string"
+     },
+     "limit": {
+      "type": "integer"
      }
     },
     "required": [
@@ -1657,6 +1690,155 @@
     "file_count": 1,
     "frontmatter_metadata": {}
    }
+  },
+  "skill_01evaloncall": {
+   "id": "skill_01evaloncall",
+   "kind": "skill",
+   "name": "oncall-handoff",
+   "display_name": "oncall-handoff",
+   "description": "Use when handing over an on-call shift, to list open incidents, escalations and follow-ups for the next engineer.",
+   "workspace_id": "workspace_01evalplatform",
+   "artifact_status": "active",
+   "is_released": true,
+   "released_channels": [
+    "latest"
+   ],
+   "version_ordinal": 2,
+   "version_label": "1.1.0",
+   "release_id": "rel_01evaloncall110",
+   "updated_at": "2026-09-02T09:00:00Z",
+   "metadata": {
+    "files": [
+     {
+      "file_id": "file_01evaloncallmd",
+      "path": "SKILL.md",
+      "size_bytes": 500,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 2,
+      "sha256": "549b5e2b5bf0b080e231ef04b398d1ab5e90095680fdc62a45a6c207018dc011",
+      "is_executable": false
+     },
+     {
+      "file_id": "file_01evaloncallesc",
+      "path": "references/escalation.md",
+      "size_bytes": 260,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 2,
+      "sha256": "d8364b41cbf38879a7812b2fb959edf6d41ca2798f33730582b0b8355051eecb",
+      "is_executable": false
+     },
+     {
+      "file_id": "file_01evaloncallrun",
+      "path": "references/runbook-links.md",
+      "size_bytes": 119,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 1,
+      "sha256": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
+      "is_executable": false
+     },
+     {
+      "file_id": "file_01evaloncallchk",
+      "path": "checklist.md",
+      "size_bytes": 186,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 1,
+      "sha256": "704f463e864f27fed25ae4b0c51a3bdb38f9549978d309b36ff6a0c98948f5e5",
+      "is_executable": false
+     }
+    ],
+    "file_count": 4
+   },
+   "releases": [
+    {
+     "release_id": "rel_01evaloncall110",
+     "version_label": "1.1.0",
+     "version_ordinal": 2,
+     "channel": "latest",
+     "is_current": true,
+     "released_at": "2026-09-02T09:00:00Z",
+     "metadata": {
+      "files": [
+       {
+        "file_id": "file_01evaloncallmd",
+        "path": "SKILL.md",
+        "size_bytes": 500,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 2,
+        "sha256": "549b5e2b5bf0b080e231ef04b398d1ab5e90095680fdc62a45a6c207018dc011",
+        "is_executable": false
+       },
+       {
+        "file_id": "file_01evaloncallesc",
+        "path": "references/escalation.md",
+        "size_bytes": 260,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 2,
+        "sha256": "d8364b41cbf38879a7812b2fb959edf6d41ca2798f33730582b0b8355051eecb",
+        "is_executable": false
+       },
+       {
+        "file_id": "file_01evaloncallrun",
+        "path": "references/runbook-links.md",
+        "size_bytes": 119,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 1,
+        "sha256": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
+        "is_executable": false
+       },
+       {
+        "file_id": "file_01evaloncallchk",
+        "path": "checklist.md",
+        "size_bytes": 186,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 1,
+        "sha256": "704f463e864f27fed25ae4b0c51a3bdb38f9549978d309b36ff6a0c98948f5e5",
+        "is_executable": false
+       }
+      ],
+      "file_count": 4
+     }
+    },
+    {
+     "release_id": "rel_01evaloncall100",
+     "version_label": "1.0.0",
+     "version_ordinal": 1,
+     "channel": null,
+     "is_current": false,
+     "released_at": "2026-08-01T09:00:00Z",
+     "metadata": {
+      "files": [
+       {
+        "file_id": "file_01evaloncallmd",
+        "path": "SKILL.md",
+        "size_bytes": 439,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 1,
+        "sha256": "0e9fe82a0b0c9d126fa9a0fb8ef9ab9c3ac84be94c259691492a09595e181657",
+        "is_executable": false
+       },
+       {
+        "file_id": "file_01evaloncallesc",
+        "path": "references/escalation.md",
+        "size_bytes": 172,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 1,
+        "sha256": "0ea08557a425715bbfa3fc877714318361a5debacdbcdd425a207f4b93315acd",
+        "is_executable": false
+       },
+       {
+        "file_id": "file_01evaloncallrun",
+        "path": "references/runbook-links.md",
+        "size_bytes": 119,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 1,
+        "sha256": "22930a800be89a611c4154069054a6634abdb2cc126cec6becca8e396cf5d7f4",
+        "is_executable": false
+       }
+      ],
+      "file_count": 3
+     }
+    }
+   ]
   }
  },
  "files": {
@@ -1729,6 +1911,34 @@
    "path": "october-incident-review.md",
    "media_type": "text/markdown",
    "content": "October incident review. The checkout outage on 14 October lasted 38 minutes. Root cause: an expired TLS certificate on the payments proxy.\n"
+  },
+  "file_01evaloncallmd": {
+   "path": "SKILL.md",
+   "media_type": "text/markdown",
+   "content": "---\nname: oncall-handoff\ndescription: Use when handing over an on-call shift, to list open incidents, escalations and follow-ups for the next engineer.\n---\n\n# On-call handoff\n\n1. List every incident opened or still open during the shift, with its severity and owner.\n2. For each escalation, follow [references/escalation.md](references/escalation.md).\n3. Before sending, run through [checklist.md](checklist.md).\n4. Write the handoff note: open incidents first, then follow-ups, then anything noisy.\n",
+   "versions": {
+    "1": "---\nname: oncall-handoff\ndescription: Use when handing over an on-call shift, to list open incidents, escalations and follow-ups for the next engineer.\n---\n\n# On-call handoff\n\n1. List every incident opened or still open during the shift, with its severity and owner.\n2. For each escalation, follow [references/escalation.md](references/escalation.md).\n3. Write the handoff note: open incidents first, then follow-ups, then anything noisy.\n",
+    "2": "---\nname: oncall-handoff\ndescription: Use when handing over an on-call shift, to list open incidents, escalations and follow-ups for the next engineer.\n---\n\n# On-call handoff\n\n1. List every incident opened or still open during the shift, with its severity and owner.\n2. For each escalation, follow [references/escalation.md](references/escalation.md).\n3. Before sending, run through [checklist.md](checklist.md).\n4. Write the handoff note: open incidents first, then follow-ups, then anything noisy.\n"
+   }
+  },
+  "file_01evaloncallesc": {
+   "path": "references/escalation.md",
+   "media_type": "text/markdown",
+   "content": "# Escalation\n\n- Sev 1: page the incident commander and post in #incidents within 5 minutes.\n- Sev 2: post in #incidents and tag the owning team.\n- Sev 3: open a ticket for the owning team.\n- Customer-facing outage of any severity: also notify support on-call.\n",
+   "versions": {
+    "1": "# Escalation\n\n- Sev 1: page the incident commander and post in #incidents.\n- Sev 2: post in #incidents and tag the owning team.\n- Sev 3: open a ticket for the owning team.\n",
+    "2": "# Escalation\n\n- Sev 1: page the incident commander and post in #incidents within 5 minutes.\n- Sev 2: post in #incidents and tag the owning team.\n- Sev 3: open a ticket for the owning team.\n- Customer-facing outage of any severity: also notify support on-call.\n"
+   }
+  },
+  "file_01evaloncallchk": {
+   "path": "checklist.md",
+   "media_type": "text/markdown",
+   "content": "# Handoff checklist\n\n- [ ] Every open incident has an owner for the next shift.\n- [ ] Pager is acknowledged by the incoming engineer.\n- [ ] Silenced alerts are listed with their expiry.\n"
+  },
+  "file_01evaloncallrun": {
+   "path": "references/runbook-links.md",
+   "media_type": "text/markdown",
+   "content": "# Runbooks\n\n- Database failover: see the platform wiki, page DB-07.\n- Queue backlog: see the platform wiki, page Q-02.\n"
   }
  },
  "traces": {

@@ -1,6 +1,6 @@
 ---
 name: atlan-use-skill
-description: Load a skill from the Atlan registry and use it here, or install it for later sessions. Use when the user asks to use, load, run, install or sync an Atlan skill, including 'Load the "…" skill from the Atlan skill registry' with its `skill_…` id, `/atlanai:use-skill`, or standing instructions to check Atlan first. Not for publishing (atlan-author-skills).
+description: Use an Atlan registry skill here, install it, or check copies for updates. Use when the user asks to use, load, install, update or sync an Atlan skill or what changed in one, including 'Load the "…" skill from the Atlan skill registry' with its `skill_…` id, `/atlanai:use-skill` or standing instructions to check Atlan first. Not for publishing (atlan-author-skills).
 license: Apache-2.0
 user-invocable: false
 ---
@@ -18,9 +18,8 @@ two ways to use one:
 
 Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
-`rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Replies lead with the result: the first sentence is the answer or the step, counts rather
-than lists, handles only when asked, one next step rather than a menu, and no greeting,
-apology or closing offer.
+`rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Replies lead with the result: counts rather than lists, handles only when asked, one next
+step rather than a menu, and no greeting, apology or closing offer.
 Whatever the skill says, ask before any credential use, external service setup or
 irreversible step it leads to.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
@@ -130,6 +129,11 @@ what the skill does from its file names, and do not substitute another skill.
 Only when the user said install, add, download or keep, and step 3 allows it. Read
 `references/install.md` first: it has the aireg route, the MCP route, each tool's skills folder
 and what to do with files the tool cannot return.
+
+## What changed, and installed copies
+
+For what changed between versions, whether installed skills are up to date, or an update, read
+`references/compare-versions.md`: it compares manifests and reads only changed files.
 
 ## Publishing changes back
 
