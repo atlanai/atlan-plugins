@@ -227,7 +227,7 @@ def padding() -> dict:
         topic, description = PAD_TOPICS[0] if n < 12 else PAD_TOPICS[n % len(PAD_TOPICS)]
         handle = f"skill_01evalpad{n:011d}"
         files = [{"path": "SKILL.md", "file_id": f"file_01evalpad{n:011d}", "file_version_ordinal": 1,
-                  "size_bytes": 2400, "sha256": "0" * 64}]
+                  "size_bytes": 2400, "source_digest": "0" * 64}]
         _PADDED[handle] = {
             "id": handle, "kind": "skill", "name": f"{topic}-{n:03d}", "display_name": f"{topic}-{n:03d}",
             "description": description, "workspace_id": spaces[n % len(spaces)], "artifact_status": "active",
@@ -333,10 +333,16 @@ def released(item: dict, a: dict) -> dict:
     release's version and manifest; any other answers with its head, as before."""
     releases = item.get("releases")
     shown = {k: v for k, v in item.items() if k != "releases"}
-    if not releases or not (a.get("release_id") or a.get("channel")):
+    ordinal = a.get("version_ordinal")
+    if ordinal is not None and ordinal == item.get("version_ordinal"):
+        return shown
+    if not releases or not (a.get("release_id") or a.get("channel") or ordinal is not None):
+        if ordinal is not None:
+            raise Refusal(404, "not_found", "No version with that ordinal on this artifact.")
         return shown
     pick = next((r for r in releases if (a.get("release_id") and r["release_id"] == a["release_id"])
-                 or (not a.get("release_id") and r.get("channel") == a["channel"])), None)
+                 or (ordinal is not None and r["version_ordinal"] == ordinal)
+                 or (not a.get("release_id") and ordinal is None and r.get("channel") == a["channel"])), None)
     if pick is None:
         raise Refusal(404, "not_found", "No release with that id or channel on this artifact.")
     return shown | {k: pick[k] for k in ("release_id", "version_label", "version_ordinal")} | {
@@ -397,7 +403,37 @@ def browsed(a: dict) -> list[dict]:
             if (not a.get("kind") or i["kind"] == a["kind"]) and i["kind"] != "session"
             and (a.get("kind") or i["kind"] != "file")
             and (not a.get("workspace_id") or i["workspace_id"] == a["workspace_id"])
+            and (not a.get("status") or i.get("artifact_status") == a["status"])
+            and ("is_released" not in a or bool(i.get("is_released")) == a["is_released"])
+            and related(i, a.get("related_to"))
             and in_project(i, a.get("project_id"))]
+
+
+def related(item: dict, rel: dict | None) -> bool:
+    """`related_to`: the item holds an active `rel_type` edge to `to_id`, which the fixture records
+    as an incoming edge on the target."""
+    if not rel:
+        return True
+    return any(e["direction"] == "incoming" and e["rel_type"] == rel["rel_type"] and e["artifact_id"] == item["id"]
+               for e in WORLD["edges"].get(rel["to_id"], []))
+
+
+def withdraw_release(a: dict) -> dict:
+    """`withdraw_release`: the channel falls back to the newest earlier release whose version is active."""
+    for item in artifacts().values():
+        releases = item.get("releases") or []
+        gone = next((r for r in releases if r["release_id"] == a["release_id"]), None)
+        if gone is None:
+            continue
+        if gone.get("withdrawn"):
+            break
+        earlier = [r for r in releases if r.get("channel") == gone.get("channel")
+                   and r["version_ordinal"] < gone["version_ordinal"] and not r.get("withdrawn")]
+        back = max(earlier, key=lambda r: r["version_ordinal"], default=None) if gone.get("is_current") else None
+        return {"release_id": gone["release_id"], "release_status": "withdrawn", "channel": gone.get("channel"),
+                "current_release_id": back["release_id"] if back else None,
+                "current_version_label": back["version_label"] if back else None, "note": "eval write recorded"}
+    raise Refusal(404, "not_found", "No such release, or it is already withdrawn.")
 
 
 def counts(a: dict) -> dict:
@@ -559,6 +595,8 @@ def dispatch(name: str, a: dict) -> dict:
         raise Refusal(**tool["refuse"])
     if name == "extension__skill__create":
         return skill_create(a)
+    if name == "registry__withdraw_release":
+        return withdraw_release(a)
     if name == "registry__list_workspaces":
         return {"items": WORLD["workspaces"], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(WORLD["workspaces"])}}
     if name == "registry__search_artifacts":
