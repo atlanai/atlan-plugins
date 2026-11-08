@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-ask
-description: Answer data questions in this chat using published Trident metrics and saved SQL, including a prepared local project and DuckDB. Use for follow-up questions after Analytics setup or questions about totals, rates, trends and breakdowns. Not for repo setup, metric authoring or a separate agent build (atlan-analytics).
+description: Answer data questions in this chat using published Atlan metrics and saved SQL, including a prepared local project and DuckDB. Use for follow-up questions after Analytics setup or questions about totals, rates, trends and breakdowns. Not for repo setup, metric authoring or a separate agent build (atlan-analytics).
 ---
 
 # Answer a data question from governed context
@@ -12,7 +12,7 @@ harness.
 
 If a setup run was selected, follow [setup retrieval](../atlan-analytics/references/retrieval.md)
 and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
-below using existing Trident context. Ordinary questions require no local run, publication
+below using existing Atlan context. Ordinary questions require no local run, publication
 receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
 
 ## 1. Frame the question

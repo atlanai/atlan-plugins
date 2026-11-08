@@ -16,6 +16,9 @@ together in one turn. A create names its `workspace_id`: the one the user names,
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
 a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines, and ask before every write.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
 Follow [the knowledge workflow](references/author.md) for creation, reading and editing.
 Load only the references that procedure calls for.

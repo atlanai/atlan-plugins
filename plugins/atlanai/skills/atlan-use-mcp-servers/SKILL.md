@@ -56,6 +56,9 @@ to both.
    `mcp__call_write_tool` or `mcp__call_tool`), with the tool's exact name and arguments matching
    its schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
    Never invent a name or an argument.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its

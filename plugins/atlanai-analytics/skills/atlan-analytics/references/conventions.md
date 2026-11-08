@@ -64,6 +64,23 @@ than choosing silently.
   instructions.
 - Ask one decision at a time, with the recommended option first and its reason.
 
+## Carry decisions forward
+
+- **Run the step you are authorized to run.** When the next step is a helper, a read or an
+  in-scope write the person already authorized, do it in this turn. Never end a turn by
+  describing commands you could have run, and never write `DONE` for a step that did not run.
+- **When asked only for the next step** (what to do next, how to stage or repair one
+  item), answer in one concise paragraph that leads with the step: the action, the
+  selected source and workspace carried forward, the authorization that already covers it,
+  and the gates and readbacks that still run. No headings, no "why" sections, no command
+  blocks unless asked, no extra session-opening or "confirm the workspace" step, and no new
+  approval request.
+- **Structured holds decide eligibility.** `publication-holds.json` (C4 compiler review,
+  `required_filter_missing`, parity mismatches) is the only source of what may publish. A hold
+  you believe is wrong stays held in this run; it is repaired by a new engine run, never
+  cleared, overridden or explained away. Never read eligibility from descriptions or titles.
+  A declared per-member variant that groups by every required source key stays eligible.
+
 ## Status line
 
 End every run with exactly one: `DONE`; `DONE_WITH_CONCERNS` and what to double-check;
@@ -75,6 +92,9 @@ An explanation-only request is complete once answered: end with DONE. Do not ask
 to say go or grant permission to execute a procedure they only asked you to explain.
 
 Required metric previews are an exception to short-reply limits: show the actual definitions
-in the final answer as well as useful progress updates. A preview helper call, collapsed
+in the final answer as well as useful progress updates. The exception covers the preview
+table and its SQL only. The prose around them, a blocker or a question for the person stays
+under 80 words: what happened, the one next step or question, then the status line. Offer
+choices as one short numbered list at most, never sections of options with explanations. A preview helper call, collapsed
 commentary or linked file alone is not the final user-visible preview. During a live sign-in
 watch keep the task active; use BLOCKED only once recovery cannot proceed or the watch ends.

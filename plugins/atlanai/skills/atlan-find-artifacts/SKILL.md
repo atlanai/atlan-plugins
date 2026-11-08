@@ -18,6 +18,9 @@ Once the session is open, a `registry__` read this host also lists by name can b
 Replies lead with the result: the first sentence is the answer or the step, counts rather
 than lists, handles only when asked, one next step rather than a menu, and no greeting,
 apology or closing offer.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
 ## Pick the read
 

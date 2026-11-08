@@ -15,20 +15,56 @@ graders:
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-record-outputs"'
   - name: publishes-once-under-the-key
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
     input_match: '"name"\s*:\s*"registry__publish_output"(?=[\s\S]*"source_id"\s*:\s*"claude/october-incident-review")(?=[\s\S]*workspace_01evalplatform)(?=[\s\S]*expiry alerts)'
     min: 1
     max: 1
+  - name: no-separate-file-or-output-writes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"registry__(?:append_artifact_version|create_artifact(?:_linked)?)"'
+    min: 0
+    max: 0
+  - name: no-separate-file-or-output-writes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__(?:append_artifact_version|create_artifact(?:_linked)?)"'
+    min: 0
+    max: 0
   - name: no-separate-file-or-output-writes
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"name"\s*:\s*"registry__(?:append_artifact_version|create_artifact(?:_linked)?)"'
     min: 0
     max: 0
+  - name: sets-no-mode-or-pin-itself-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"registry__publish_output"(?=[\s\S]*"(?:mode|file_artifact_id|file_version_ordinal)"\s*:)'
+    min: 0
+    max: 0
+  - name: sets-no-mode-or-pin-itself-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__publish_output"(?=[\s\S]*"(?:mode|file_artifact_id|file_version_ordinal)"\s*:)'
+    min: 0
+    max: 0
   - name: sets-no-mode-or-pin-itself
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"name"\s*:\s*"registry__publish_output"(?=[\s\S]*"(?:mode|file_artifact_id|file_version_ordinal)"\s*:)'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
     min: 0
     max: 0
   - name: every-call-has-rationale
