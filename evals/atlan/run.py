@@ -145,10 +145,17 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
             "--allow-tools", tools_pattern(name), *settings.get("allow_tools", []), "Write",
             "--ablation", ablation(baseline), "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *without_case_filters(extra),
+            "--output-dir", str(out), *scaffold(cases), *without_case_filters(extra),
         ]
         print("+", " ".join(command), flush=True)
         return subprocess.run(command, check=False).returncode
+
+
+def scaffold(cases: list[Path]) -> list[str]:
+    """`--scaffold` when a case stages its workspace with a `context.scaffold_script` of its own,
+    such as a skill installed in the project; `claude plugin eval` runs none without it."""
+    staged = any("scaffold_script:" in (case / "case.yaml").read_text(encoding="utf-8") for case in cases)
+    return ["--scaffold"] if staged else []
 
 
 def ablation(baseline: bool) -> str:
