@@ -8,9 +8,10 @@ then asks to update.
 ## Compare the manifests before reading any file
 
 Each version's `metadata.files` lists every path with its `file_id`, `file_version_ordinal`
-and, on current gateways, its `sha256`. Two entries for the same path are the same bytes when
-their `sha256` values match or, without `sha256`, when both `file_id` and
-`file_version_ordinal` match. Such a file never needs reading to know it did not change.
+and `source_digest`, the file's SHA-256. Two entries for the same path are the same bytes when
+their `source_digest` values match or, on an older gateway that leaves it out, when both
+`file_id` and `file_version_ordinal` match. Such a file never needs reading to know it did not
+change.
 
 1. **Find the two versions.** "What changed in 1.3" means 1.3 against the release before it.
    `registry__list_releases` with the `artifact_id` lists the releases, each with its
@@ -18,7 +19,9 @@ their `sha256` values match or, without `sha256`, when both `file_id` and
    the version the install record pins (below) against `latest`.
 2. **Read both manifests, without file content.** Two `registry__get_artifact` calls, sent
    together: one with the older `release_id`, one with the newer `release_id` or
-   `"channel": "latest"`. Leave out `include_file`: the manifests are all this step needs.
+   `"channel": "latest"`. A version with no release, such as one waiting for review, is read by
+   its `version_ordinal` instead of a `release_id`. Leave out `include_file`: the manifests are
+   all this step needs.
 3. **Join the two file lists by `path`.**
    - Same bytes, as above: unchanged. Do not read it.
    - Only in the newer list: added. Only in the older: removed.
@@ -53,15 +56,17 @@ installed skill, keyed by the skill's folder name:
     "version_ordinal": 3,
     "installed_at": "2026-11-08T10:00:00Z",
     "files": {
-      "SKILL.md": { "file_id": "file_01j…", "file_version_ordinal": 2, "sha256": "9f2c…" },
-      "references/rules.md": { "file_id": "file_01j…", "file_version_ordinal": 1, "sha256": "41ab…" }
+      "SKILL.md": { "file_id": "file_01j…", "file_version_ordinal": 2, "source_digest": "9f2c…" },
+      "references/rules.md": { "file_id": "file_01j…", "file_version_ordinal": 1, "source_digest": "41ab…" }
     }
   }
 }
 ```
 
-`files` copies each manifest entry's `file_id`, `file_version_ordinal` and `sha256` (when the
-manifest has one) at install time. Read the record first and
+`files` copies each manifest entry's `file_id`, `file_version_ordinal` and `source_digest`
+(when the manifest has one) at install time. A record written by an earlier version of this
+skill names the digest `sha256`: read it as `source_digest`, and write `source_digest` when you
+next replace that entry. Read the record first and
 merge your entry into it, keeping every other skill's entry. aireg keeps its own record, so an
 aireg install writes none.
 
@@ -89,6 +94,6 @@ Answer with one line per skill that is behind and a count of those up to date. O
 what changed (the comparison above, from the recorded version to `latest`) or to update.
 Updating is a reinstall of `latest` through `install.md`, after the user says yes, that also
 replaces the skill's entry in the record. Files the user edited in the installed copy are lost
-on a reinstall. With a shell and a recorded `sha256`, `sha256sum` each local file first and
+on a reinstall. With a shell and a recorded digest, `sha256sum` each local file first and
 name the ones that no longer match the record; without either, say local edits would be
 replaced.
