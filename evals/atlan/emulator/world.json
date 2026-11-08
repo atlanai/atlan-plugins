@@ -1558,7 +1558,15 @@
    "version_ordinal": 3,
    "project_ids": [
     "project_01evalpayments"
-   ]
+   ],
+   "metadata": {
+    "skills": [
+     {
+      "skill_id": "skill_01evalsecrev01",
+      "version_ordinal": 1
+     }
+    ]
+   }
   },
   "output_01evalchurn": {
    "id": "output_01evalchurn",
@@ -1923,6 +1931,44 @@
      }
     }
    ]
+  },
+  "agent_01evalhandoffbot": {
+   "id": "agent_01evalhandoffbot",
+   "kind": "agent",
+   "name": "handoff-bot",
+   "display_name": "Handoff bot",
+   "description": "Writes the on-call handoff note at the end of each shift.",
+   "workspace_id": "workspace_01evalplatform",
+   "artifact_status": "active",
+   "version_ordinal": 4,
+   "updated_at": "2026-08-05T09:00:00Z",
+   "metadata": {
+    "skills": [
+     {
+      "skill_id": "skill_01evaloncall",
+      "version_ordinal": 1
+     }
+    ]
+   }
+  },
+  "agent_01evalpagersum": {
+   "id": "agent_01evalpagersum",
+   "kind": "agent",
+   "name": "pager-summary",
+   "display_name": "Pager summary",
+   "description": "Summarizes overnight pages for the morning standup.",
+   "workspace_id": "workspace_01evalplatform",
+   "artifact_status": "active",
+   "version_ordinal": 2,
+   "updated_at": "2026-09-03T09:00:00Z",
+   "metadata": {
+    "skills": [
+     {
+      "skill_id": "skill_01evaloncall",
+      "version_ordinal": 2
+     }
+    ]
+   }
   }
  },
  "files": {
@@ -2111,6 +2157,46 @@
     "artifact_id": "skill_01evalsecrev02",
     "kind": "skill",
     "is_readable": true
+   }
+  ],
+  "skill_01evaloncall": [
+   {
+    "rel_type": "uses_skill",
+    "direction": "incoming",
+    "artifact_id": "agent_01evalhandoffbot",
+    "kind": "agent",
+    "is_readable": true,
+    "provenance": "manifest"
+   },
+   {
+    "rel_type": "uses_skill",
+    "direction": "incoming",
+    "artifact_id": "agent_01evalpagersum",
+    "kind": "agent",
+    "is_readable": true,
+    "provenance": "manifest"
+   },
+   {
+    "rel_type": "used_skill",
+    "direction": "incoming",
+    "artifact_id": "output_01evalhandoff0904",
+    "kind": "output",
+    "is_readable": true
+   },
+   {
+    "rel_type": "used_skill",
+    "direction": "incoming",
+    "artifact_id": "output_01evalhandoff0905",
+    "kind": "output",
+    "is_readable": true
+   },
+   {
+    "rel_type": "uses_skill",
+    "direction": "incoming",
+    "artifact_id": "agent_01evalsecretops",
+    "kind": "agent",
+    "is_readable": false,
+    "provenance": "manifest"
    }
   ]
  },
