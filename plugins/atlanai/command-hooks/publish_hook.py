@@ -9,7 +9,9 @@
 Each entry point reads the harness's hook event as JSON on stdin and prints that harness's answer
 on stdout, or nothing. It is claude-hooks/register.ts for the harnesses that run commands:
 
-- session-start adds the line atlan-author-skills' publish.md waits for before it sends files_from;
+- session-start adds the line atlan-author-skills' publish.md waits for before it sends files_from,
+  and, when main's manifest names a later release than this install, one line saying how to update
+  (one read of that public file, at most 2 seconds; ATLAN_PLUGIN_UPDATE_CHECK=0 turns it off);
 - pre, on the Atlan gateway's call_tool or call_write_tool naming extension__skill__create, and on
   no other server's tool of a like name, reads each `files_from` folder
   in the working tree, checks it with check_bundle.py's rules and sends its files inline with each
@@ -35,6 +37,7 @@ import re
 import stat
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 PUBLISH = "extension__skill__create"
@@ -50,7 +53,57 @@ RUNNERS = {
     "cursor": re.compile(r"^MCP:mcp__call(?:_write)?_tool$"),
 }
 ATLAN_HOST = re.compile(r"^(?:[a-z0-9-]+\.)*atlan\.com$")
-CHECKER = Path(__file__).resolve().parent.parent / "skills" / "atlan-author-skills" / "scripts" / "check_bundle.py"
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+CHECKER = PLUGIN_ROOT / "skills" / "atlan-author-skills" / "scripts" / "check_bundle.py"
+UPDATE_TIMEOUT_SECONDS = 2
+# How each harness takes a newer release of the plugin from this marketplace (README, Install).
+UPDATE_STEP = {
+    "codex": "`codex plugin marketplace upgrade atlan`, then a new session",
+    "cursor": "Cursor's plugin settings, then a new chat",
+}
+
+
+def parse_version(text) -> tuple[int, int, int] | None:
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", text.strip()) if isinstance(text, str) else None
+    return (int(match[1]), int(match[2]), int(match[3])) if match else None
+
+
+def is_newer(latest, installed) -> bool:
+    """Whether `latest` is a later release than `installed`; unreadable versions never are."""
+    a, b = parse_version(latest), parse_version(installed)
+    return a is not None and b is not None and a > b
+
+
+def latest_manifest_url(manifest: dict) -> str | None:
+    """The plugin's manifest on main, where merging is the release (tools/build.py writes the same)."""
+    repository, name = str(manifest.get("repository", "")).rstrip("/"), manifest.get("name")
+    prefix = "https://github.com/"
+    if not repository.startswith(prefix) or not isinstance(name, str) or not re.fullmatch(r"[a-z0-9-]+", name):
+        return None
+    return f"https://raw.githubusercontent.com/{repository[len(prefix):]}/main/plugins/{name}/plugin.json"
+
+
+def update_notice(host: str, fetch=None) -> str | None:
+    """One line when this install is older than the latest release, else None. Never raises."""
+    try:
+        if os.environ.get("ATLAN_PLUGIN_UPDATE_CHECK", "").strip().lower() in ("0", "false"):
+            return None
+        manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
+        installed, url = manifest.get("version"), latest_manifest_url(manifest)
+        if url is None or parse_version(installed) is None:
+            return None
+        if fetch is None:
+            with urllib.request.urlopen(url, timeout=UPDATE_TIMEOUT_SECONDS) as response:  # noqa: S310 - https, fixed host
+                text = response.read(65536).decode("utf-8")
+        else:
+            text = fetch(url)
+        latest = json.loads(text).get("version")
+        if not is_newer(latest, installed):
+            return None
+        return (f"The {manifest['name']} plugin is at {installed} and {latest} is released. At the end of your reply, tell "
+                f"the user in one line that they can update it with {UPDATE_STEP[host]}. Say it once.")
+    except Exception:  # noqa: BLE001 - the check is a courtesy: any fault says nothing
+        return None
 
 
 def load_checker():
@@ -364,7 +417,9 @@ def answer(entry: str, host: str, event: dict):
     """The JSON the harness reads, or None for no output."""
     codex = host == "codex"
     if entry == "session-start":
-        return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": CAPABILITY}} if codex else {"additional_context": CAPABILITY}
+        notice = update_notice(host)
+        context = CAPABILITY if notice is None else f"{CAPABILITY}\n{notice}"
+        return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context}} if codex else {"additional_context": context}
     if entry == "mcp-guard":
         refusal = guard(event) if not codex else None
         if refusal is None:
