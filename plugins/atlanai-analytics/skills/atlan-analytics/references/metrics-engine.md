@@ -301,3 +301,7 @@ evidence. These checks do not replace warehouse execution or independent dashboa
 
 Refresh [the setup checklist](setup/checklist.md) at meaningful phase changes with
 `PROJECT checklist --engine-dir <within-run-engine>`.
+
+Runtime creation resolves the base Python executable before setting the virtual environment
+home. Launchers from approved environment managers keep the real installation and standard
+library linkage. Python 3.11 or 3.12 remains required; failed attempts stay available for diagnosis.

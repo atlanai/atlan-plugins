@@ -33,6 +33,8 @@ The question-only runner replaces step 2.1 and produces the answer and transcrip
 Its SQL is executed by the parent in step 2.4; all grading and publication steps stay the same.
 Report the runner alongside the score: this measures answering with a supplied released
 context snapshot, not the separate ability to retrieve that context from Registry.
+For a bare-schema comparison, use the explicit `--schema-only` mode in the host-runner
+reference. Keep the same approved schema in both arms; do not remove the default context guard.
 
 ## Procedure
 

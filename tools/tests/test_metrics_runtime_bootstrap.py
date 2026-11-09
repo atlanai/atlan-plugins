@@ -23,9 +23,13 @@ class RuntimeBootstrap(unittest.TestCase):
             root = Path(temp).resolve() / 'runtime'
             identity = 'a' * 64
             package_commands = mock.Mock(return_value=SimpleNamespace(returncode=0, stdout=''))
+            launcher = root.parent / 'launchers' / Path(sys._base_executable).name
+            launcher.parent.mkdir()
+            launcher.symlink_to(Path(sys._base_executable).resolve())
             # Bootstrap and ensurepip are real, offline operations. Only the two later
             # package installation calls are replaced, so this test never uses a registry.
-            with mock.patch.object(driver, 'snapshot', return_value=({'commit': identity}, identity)), \
+            with mock.patch.object(sys, '_base_executable', str(launcher)), \
+                    mock.patch.object(driver, 'snapshot', return_value=({'commit': identity}, identity)), \
                     mock.patch.object(driver, 'unpack', side_effect=lambda path: path.mkdir(parents=True)), \
                     mock.patch.object(driver, 'subprocess', SimpleNamespace(
                         run=package_commands, PIPE=subprocess.PIPE, STDOUT=subprocess.STDOUT,
@@ -33,6 +37,9 @@ class RuntimeBootstrap(unittest.TestCase):
                 result = driver.setup(root, [])
             self.assertEqual(result['status'], 'ready')
             self.assertEqual(package_commands.call_count, 2)
+            config = (root / 'venv/pyvenv.cfg').read_text()
+            self.assertIn('home = ' + str(Path(sys._base_executable).resolve().parent), config)
+            self.assertNotIn('home = ' + str(launcher.parent) + '\n', config)
             python = root / 'venv/bin/python'
             self.assertTrue(python.is_symlink())
             self.assertEqual(python.resolve(), Path(sys._base_executable).resolve())
@@ -60,7 +67,7 @@ class RuntimeBootstrap(unittest.TestCase):
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with mock.patch.object(driver, 'snapshot', return_value=({'commit': 'a' * 64}, 'a' * 64)), \
                         mock.patch.object(driver, 'unpack', side_effect=lambda path: path.mkdir(parents=True)), \
-                        mock.patch.object(driver.venv, 'EnvBuilder') as builder, \
+                        mock.patch.object(driver, 'ResolvedEnvBuilder') as builder, \
                         mock.patch.object(driver.subprocess, 'run') as package_commands, \
                         redirect_stdout(stdout), redirect_stderr(stderr):
                     builder.return_value.create.side_effect = fail_bootstrap

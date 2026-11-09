@@ -43,6 +43,27 @@ or unexecuted SQL do not qualify as passing cases. A runner that requested tools
 `analytics_transcript.py` reads both Claude JSONL and Codex events; unknown executable events
 are contamination. Raw transcripts remain private audit evidence.
 
+## Compare with a bare schema
+
+Use the same approved table/column schema, questions, host, instructions and execution adapter
+for both arms. Add `--schema <schema.json>` to the released-context arm too. Keep eval labels,
+gold SQL, result values and metric definitions out of the bare-schema input.
+
+The schema is a JSON array of `{name, columns}` tables. Each column has only `{name, type}`.
+For example: `[{"name":"site.work","columns":[{"name":"cost","type":"DECIMAL(12,2)"}]}]`.
+Save an explicit empty JSON array in `<empty-context.json>`, then run:
+
+```sh
+python3 "<skill-dir>/scripts/analytics_case.py" --host codex --schema-only --schema <schema.json> --context <empty-context.json> --question <question.txt> --out <new-schema-only-case-directory> --instructions <approved-agent-instructions.txt>
+```
+
+Schema-only mode refuses nonempty context, missing schema and fields beyond table/column
+names and column types. It records `runner: question-only-schema-only` and a schema hash in
+`run.json`. The ordinary released-context mode still refuses empty context. Both modes retain
+the fresh process, no-tool boundary, transcript audit, parameter validation and deterministic
+grading. Empty SQL is a valid proposal when the schema lacks a required business rule; record
+it through the normal grader rather than inventing a metric or removing a guard.
+
 ## Scope of the score
 
 Report the host and `question-only released-context` runner beside the rate. It measures
