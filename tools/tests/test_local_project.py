@@ -452,6 +452,13 @@ class SQLiteFlow(unittest.TestCase):
         with self.assertRaisesRegex(local_data.DataError, 'parameters'):
             self.run.execute({'sql': 'SELECT COUNT(*) FROM site.work WHERE kind=:kind'})
 
+    def test_like_and_sqlite_date_functions_are_allowed(self):
+        result = self.run.execute({'sql': "SELECT COUNT(*) FROM site.work WHERE kind LIKE '%work%'"})
+        self.assertEqual(result['rows'], [[2]])
+        result = self.run.execute({'sql': "SELECT CAST(julianday(MAX(day)) - julianday(MIN(day)) AS INTEGER), "
+                                          "date(MIN(day)), iif(COUNT(*) > 2, 'many', 'few') FROM site.work"})
+        self.assertEqual(result['rows'], [[2, '2026-01-01', 'many']])
+
     def test_forbidden_queries_leave_database_unchanged(self):
         for query in ('DELETE FROM site.work', 'SELECT 1 FROM site.work; SELECT 2 FROM site.work',
                       'SELECT * FROM site.other', 'SELECT * FROM site.hidden',

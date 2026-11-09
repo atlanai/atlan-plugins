@@ -35,7 +35,11 @@ FUNCTIONS = set(('sum avg count min max coalesce nullif abs round floor ceil cei
                  'decimal numeric varchar char bigint integer smallint').split())
 
 
-def check_functions(sql):
+# SQLite reports LIKE as a call to like() and has its own date functions; same review bar.
+SQLITE_FUNCTIONS = FUNCTIONS | {'like', 'date', 'datetime', 'julianday', 'iif'}
+
+
+def check_functions(sql, allowed=FUNCTIONS):
     from metrics_mine import scan
     code = ''.join(text if kind == 'code' else text[1:-1] if kind == 'ident' else ' '
                    for kind, text in scan(sql))
@@ -46,7 +50,7 @@ def check_functions(sql):
                   r'\s*(?=as\s+(?:(?:not\s+)?materialized\s+)?\()',
                   lambda m: m[1] + ' cte_columns ', code, flags=re.I)
     calls = set(re.findall(r'([A-Za-z_][A-Za-z_0-9]*)\s*\(', code.lower()))
-    if calls - FUNCTIONS:
+    if calls - allowed:
         raise DataError('SQL uses an unsupported function. Use reviewed analytical functions and base tables.')
     return calls
 
@@ -143,7 +147,7 @@ def sqlite_worker(request):
         parameters = request.get('parameters') or {}
         if not isinstance(parameters, dict) or set(re.findall(r'(?<!:):([A-Za-z_][A-Za-z_0-9]*)\b', code)) != set(parameters):
             raise DataError('Supply exactly the named SQL parameters using :name bindings.')
-        check_functions(sql)
+        check_functions(sql, SQLITE_FUNCTIONS)
         # The engine's authorizer is the scope check: it sees every table read and function
         # call after parsing, so a write, ATTACH, PRAGMA or out-of-scope table is refused.
         allowed = {(schema.lower(), t.split('.', 1)[1].lower()) for t in selected}
@@ -153,7 +157,7 @@ def sqlite_worker(request):
             if action == sqlite3.SQLITE_READ:
                 return sqlite3.SQLITE_OK if ((database or '').lower(), arg1.lower()) in allowed else sqlite3.SQLITE_DENY
             if action == sqlite3.SQLITE_FUNCTION:
-                return sqlite3.SQLITE_OK if arg2.lower() in FUNCTIONS else sqlite3.SQLITE_DENY
+                return sqlite3.SQLITE_OK if arg2.lower() in SQLITE_FUNCTIONS else sqlite3.SQLITE_DENY
             return sqlite3.SQLITE_DENY
         con.set_authorizer(authorize)
         started = time.monotonic()
