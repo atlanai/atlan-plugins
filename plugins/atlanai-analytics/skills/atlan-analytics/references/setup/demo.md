@@ -286,7 +286,9 @@ reused rather than copied.
 The agent is this chat with the saved context; do not register, deploy or evaluate a
 separate agent, and say so only if asked. Answer Rob's question through the ask route: the job, the amount, what ate it, and the
 context behind it in one line. Say once that the answer came from the context built from
-Fixit's dashboard and queries, not from a guess at the tables. Offer two more questions the yard supports, such as rework cost
+Fixit's dashboard and queries, not from a guess at the tables. Name the metrics it used as
+links to their pages in Atlan Trident ([definition links](../definition-links.md)); never
+print metric or release ids. Offer two more questions the yard supports, such as rework cost
 by job or which jobs finished late. Close with:
 
 "With your own data, the same steps turn your dashboards and your warehouse's query history
