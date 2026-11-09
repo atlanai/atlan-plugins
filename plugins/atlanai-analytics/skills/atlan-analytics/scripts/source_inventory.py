@@ -17,6 +17,8 @@ def source_kind(path):
         return 'tableau'
     if suffix == '.duckdb':
         return 'duckdb'
+    if suffix in ('.sqlite', '.sqlite3'):
+        return 'sqlite'
     if suffix in ('.jsonl', '.json', '.csv') and any(
             s in str(path).lower() for s in ('history', 'querylog', 'query_log')):
         return 'query_history'

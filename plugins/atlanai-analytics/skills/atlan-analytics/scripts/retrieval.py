@@ -68,7 +68,7 @@ def query_plan(request, execution, receipt=None):
     query = next((a for a in checked['artifacts'] if a['id'] == request.get('artifact_id')), None)
     if not query or query['kind'] != 'sql_query':
         raise RetrievalError('Select a saved query from these fresh released MCP responses.')
-    if not execution or execution.get('kind') not in ('duckdb', 'warehouse'):
+    if not execution or execution.get('kind') not in ('duckdb', 'sqlite', 'warehouse'):
         raise RetrievalError('Select an existing local or read-only warehouse connection.')
     if execution.get('read_only') is False or (execution['kind'] == 'warehouse' and not execution.get('tool')):
         raise RetrievalError('Select the existing read-only warehouse query tool.')
@@ -87,10 +87,11 @@ def query_plan(request, execution, receipt=None):
     limit = request.get('limit', 100)
     if type(limit) is not int or not 1 <= limit <= 1000:
         raise RetrievalError('Use a row limit from 1 to 1000.')
-    native = ''.join(re.sub(template, r'$\1', text) if kind == 'code' else text
-                     for kind, text in mine.scan(sql)) if execution['kind'] == 'duckdb' else sql
+    marker = {'duckdb': '$', 'sqlite': ':'}.get(execution['kind'])
+    native = ''.join(re.sub(template, marker + r'\1', text) if kind == 'code' else text
+                     for kind, text in mine.scan(sql)) if marker else sql
     return {'status': 'ready', 'retrieval_check': 'passed', 'sql': native,
             'parameters': parameters, 'limit': limit, 'execution': execution,
-            'binding_style': 'duckdb_named' if execution['kind'] == 'duckdb' else 'host_native',
+            'binding_style': {'duckdb': 'duckdb_named', 'sqlite': 'sqlite_named'}.get(execution['kind'], 'host_native'),
             'used_release': {k: query[k] for k in ('id', 'name', 'kind', 'release_id', 'version_id', 'channel')},
             'definition_hash': digest(definition), 'workspace_id': checked['workspace_id']}
