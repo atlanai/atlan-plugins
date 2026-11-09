@@ -1,0 +1,96 @@
+schema_version: "1.1"
+name: share-new-version-conflict
+tags: [share,write,version]
+execution:
+  prompt: |
+    Share the new version of the October incident review with Platform Engineering in Atlan. Go ahead, no need to ask me again.
+
+    October incident review. The checkout outage on 14 October lasted 38 minutes. Root cause: an expired TLS certificate on the payments proxy. Follow-up: certificate expiry alerts now page 14 days ahead, and the proxy's certificate is renewed by automation.
+  max_turns: 40
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-share
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
+  - name: tries-publish-output-at-most-twice
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__publish_output"(?=[\s\S]*"source_id"\s*:\s*"claude/october-incident-review")'
+    min: 1
+    max: 2
+  - name: appends-the-file-version
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__append_artifact_version"(?=[\s\S]*file_01evalincidentmd)(?=[\s\S]*"if_match")(?=[\s\S]*renewed by automation)'
+    min: 1
+  - name: creates-the-output-version-under-the-same-key
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"output")(?=[\s\S]*"source_id"\s*:\s*"claude/october-incident-review")(?=[\s\S]*file_01evalincidentmd)'
+    min: 1
+  - name: no-second-file-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"file")'
+    min: 0
+    max: 0
+  - name: no-second-file-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"file")'
+    min: 0
+    max: 0
+  - name: no-second-file
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"registry__create_artifact"(?=[\s\S]*"kind"\s*:\s*"file")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: reports-the-new-version
+    type: llm
+    criteria: |
+      This gateway refuses `registry__publish_output` on a source key that already names an output with the bare text "The request conflicts with the current state of the resource." and writes nothing. The older route (a new version of the output's file, then a `registry__create_artifact` of kind `output` with the same source key) records version 2 under the same output, output_01evalincident, in Platform Engineering.
+      PASS if the final reply says the October incident review now has a new version (version 2, or a handle, is enough) under the same output in Platform Engineering, and does not present the refusal as the outcome.
+      FAIL if it says the share failed, reports the conflict text as the result, says a separate output was created, names another workspace, or asks the user what to change before acting. (The tool calls are graded separately; judge only what the reply says.)
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"),, a sentence announcing which skill was loaded when that changes nothing for the user, a menu of follow-up actions to choose from ("I can also…", "want me to A, B or C?"), a sentence about a call it skipped or retried when that changes nothing the user should do ("I didn't request an upload ticket", "the registry returned service unavailable twice"), or more than seven lines, not counting a table, a code block or a list the user asked for. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

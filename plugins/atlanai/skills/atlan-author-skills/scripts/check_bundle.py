@@ -39,7 +39,15 @@ MAX_DEPTH = 8
 NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SKIPPED_DIRS = {".git", "__pycache__", "node_modules"}
 SKIPPED_FILES = {".DS_Store"}
-KEY_FILES = re.compile(r"(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx)$|^id_(?:rsa|dsa|ecdsa|ed25519)$)")
+# Files that hold credentials by design: keys, dotenv, package-registry and machine logins, and
+# Terraform variables and state.
+KEY_FILES = re.compile(
+    r"(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$"
+    r"|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)"
+)
+# A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
+# `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
+NOT_SECRET = r"[$<{*%]|(?:synthetic|example|dummy|fake|placeholder|changeme|redacted|your)"
 # The same patterns tools/lint.py refuses in this repository.
 SECRETS = [
     ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b")),
@@ -49,6 +57,16 @@ SECRETS = [
     ("Slack token", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b")),
     ("API key", re.compile(r"\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{32,}\b")),
     ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
+    ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}")),
+    ("Google OAuth client secret", re.compile(r"\bGOCSPX-[A-Za-z0-9_-]{28}")),
+    ("Stripe live key", re.compile(r"\b(?:sk|rk)_live_[0-9A-Za-z]{24,}")),
+    ("password in a URL", re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s/:@<>{}$]+:(?!(?:password|passwd|pass|pwd|pw|secret|x+|\*+)@)(?![$<{%*])[^\s/@<>{}$]+@", re.I)),
+    ("password", re.compile(
+        r"(?<![A-Za-z0-9])[A-Za-z0-9_]*(?:password|passwd|client_secret|accountkey|sharedaccesskey)[\"']?[ \t]*[:=][ \t]*"
+        rf"(?:\"(?!{NOT_SECRET})[^\"\s]{{8,}}\"|'(?!{NOT_SECRET})[^'\s]{{8,}}'"
+        rf"|(?!{NOT_SECRET})(?=[^\s\"'(),;&\[\]]*\d)[^\s\"'(),;&\[\]]{{8,}}(?=[\s;,&]|$))",
+        re.I,
+    )),
 ]
 
 DIRECTION = {0x061C, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A)}

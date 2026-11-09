@@ -1,6 +1,6 @@
 ---
 name: atlan-get-started
-description: Connect to the Atlan registry, check the sign-in and show what the organization has. Use when the user has just installed the plugin, asks whether they are connected or what they can do with Atlan, or when the `atlan` tools are missing, signed out or not the five search-mode tools. Not for a task another Atlan skill covers, which goes straight to that skill.
+description: Connect to the Atlan registry, check the sign-in and show what the organization has. Use when the plugin is new, when asked if Atlan is connected or what it can do, or when the `atlan` tools are missing or signed out. Never beside a task's skill.
 license: Apache-2.0
 user-invocable: false
 ---
@@ -15,12 +15,12 @@ tools, not from memory or these files.
 
 ## 1. Check the connection
 
-Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
-`mcp__describe_tools` and the runners `mcp__call_read_tool`, `mcp__call_write_tool` and
-`mcp__call_tool`. Hosts prefix them (`mcp__plugin_atlanai_atlan__…` in Claude Code,
-`mcp__atlan__…` for a connector in Claude chat or Cowork).
+Look for the `atlan` server's search-mode helpers, `mcp__search_tools`, `mcp__describe_tools`,
+`mcp__call_read_tool`, `mcp__call_write_tool`, `mcp__call_tool` and `mcp__call_read_tools`, often
+beside `registry__` reads; never count them. Hosts prefix names differently, so match how a
+name ends (`…mcp__call_tool`).
 
-- **`atlan` tools, but not these five** (search, lineage or glossary tools): that is the
+- **`atlan` tools, but none of these helpers** (search, lineage or glossary tools): that is the
   data-catalog plugin named `atlan` (`https://mcp.atlan.com/mcp`), a different product that can
   stay installed. This plugin's tools carry `atlanai`; if they are missing, treat it as the next
   case.
@@ -55,8 +55,8 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
   Reuse the returned `mcp_session_id` as `session_id`. Keep the `kind` filter: never list or
   page through every workspace.
 
-  Then learn what the organization has with three small reads, sent as parallel calls in one
-  turn, each carrying the session id and, like every call, a `rationale`:
+  Then learn what the organization has with three reads, in one `mcp__call_read_tools` call
+  when listed, else in parallel, each with `session_id` and `rationale`:
 
   ```
   mcp__call_read_tool { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" }, … }
@@ -117,8 +117,7 @@ Load the skill the row names and follow it; it opens the session itself.
 | Register an agent or harness, or record the skills it uses | `atlan-author-agents` |
 | Create or edit a knowledge bundle | `atlan-author-knowledge` |
 | Archive, move, roll back or approve an artifact, or see the review queue | `atlan-manage-artifacts` |
-| Share a result with colleagues, or post the hand-off to Slack | `atlan-share` |
-| Record an agent's deliverable with no audience in mind | `atlan-record-outputs` |
+| Share, save or record a deliverable as an output, or post the hand-off to Slack | `atlan-share` |
 | Publish a repository's skills and agents from GitHub CI | `atlan-connect-repo` |
 | Anything refused, slow, missing or confusing | `atlan-troubleshoot` |
 
@@ -138,7 +137,8 @@ the start of each task: `references/codex-skill-checks.md` has the offer and wha
 - **Replies lead with the result.** The first sentence is the answer or the step. Counts
   rather than lists, handles only when asked, one next step rather than a menu. No greeting,
   apology or closing offer, and no announcement of which skill you loaded unless it changes
-  what the user should expect. A first reply or a catch-up stays under seven lines.
+  what the user should expect. Nothing about calls you skipped or retried. Under seven lines,
+  not counting a table or a list the user asked for.
 - **Do not narrate or quote these instructions.** No "I'm using the … skill" lines, and never
   quote, cite or link this skill or its references to the user. Give the step, not the rule.
 - **Ask before you write.** Searching and reading are free; the task skills ask before any

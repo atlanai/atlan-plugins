@@ -1,14 +1,20 @@
 # Write and append file content
 
 For non-empty UTF-8 up to 65,536 bytes, use `registry__create_artifact` with top-level
-`content` outside `metadata`. For example (add `session_id` and `rationale`):
+`content` outside `metadata`. `session_id` and `rationale` go beside `name` and `arguments`,
+never inside `arguments`:
 
-```json
-{
-  "kind": "file",
-  "metadata": {"name": "notes", "workspace_id": "workspace_...", "path": "notes.md"},
-  "content": "# Notes\n",
-  "idempotency_key": "notes-create-unique-operation"
+```
+mcp__call_write_tool {
+  "name": "registry__create_artifact",
+  "arguments": {
+    "kind": "file",
+    "metadata": { "name": "notes", "workspace_id": "workspace_…", "path": "notes.md" },
+    "content": "# Notes\n",
+    "idempotency_key": "notes-create-unique-operation"
+  },
+  "session_id": "mcp_session_…",
+  "rationale": "Saving the user's notes as a new file in Atlan, as they asked."
 }
 ```
 
@@ -25,7 +31,23 @@ Read back the file's ID, path, ordinal and ETag with `registry__get_artifact`.
    `metadata`, including the same `path`. Omit line fields such as `name`,
    `workspace_id`, `project_id` and `owner_id`.
 3. Send top-level `content` for bounded UTF-8, or `metadata.upload_key` for staged bytes.
-   The media type is fixed for the line. An append does not convert its type.
+   The media type is fixed for the line. An append does not convert its type. The call, with
+   the rails beside `arguments` as above:
+
+   ```
+   mcp__call_write_tool {
+     "name": "registry__append_artifact_version",
+     "arguments": {
+       "artifact_id": "file_…",
+       "if_match": "<the observed etag>",
+       "metadata": { "path": "notes.md" },
+       "content": "<the whole new file>",
+       "idempotency_key": "notes-append-unique-operation"
+     },
+     "session_id": "mcp_session_…",
+     "rationale": "Appending the line the user asked for to their notes file."
+   }
+   ```
 4. Read back that same artifact ID, verify the ordinal advanced and read the new bytes
    using `registry__get_file_content` with the returned ordinal.
 

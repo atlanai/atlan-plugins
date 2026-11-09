@@ -153,10 +153,17 @@ from this file.
 
 Write `links.json`, a list of `{from: {kind, name}, to: {kind, name}, rel_type, attributes}`.
 Each link needs `attributes.why`:
-- `source_of`: from each saved query to each metric it computes;
+- `source_of`: from each saved query to each metric it was mined or authored from;
+- `uses_metric`: from a saved query to a metric it computes but was not the source of;
 - `depends_on`: from a metric to what it is computed from, such as a ratio's two halves, or a
-  restriction of a broader metric. `attributes.relation` is `derivation` or `restriction`;
-- `alternative`: the same question at another grain (accounts against contacts of one event).
-  It is symmetric, so assert it once.
+  restriction of a broader metric. `attributes.relation` is `derivation` or `restriction`, and
+  `attributes.role` is `numerator`, `denominator`, `component` or `base`. The metric app writes
+  this edge from the definition, so also list the target's `name` in the source metric's
+  `definition.depends_on`; `MINE check` refuses a `depends_on` link the definition does not name.
+
+The same question at another grain (accounts against contacts of one event), or two spellings
+of one measurement, is not an edge: `metric` declares no `alternative`. Record it on both
+metrics' `definition.extensions.related` as `{metric, relation, why}`, with `relation`
+`grain_variant` or `alternative`.
 
 No self-links and no cycles. Link only between this layer and the workspace's live artifacts.

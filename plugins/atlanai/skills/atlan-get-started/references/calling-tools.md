@@ -39,7 +39,7 @@ mcp__call_read_tool {                       ← the runner for what the tool doe
    `mcp__describe_tools { "names": [ … ] }` for a schema. An empty search does not prove a tool
    is missing: describe it by name first. A server you have not connected comes back under
    `connect`: ask, then run `mcp__connect_server` through `mcp__call_write_tool`.
-   Some hosts also list the most used `registry__` reads by name beside the five tools
+   Some hosts also list the most used `registry__` reads by name beside the helpers
    (`registry__search_artifacts`, `registry__get_artifact`, `registry__get_artifact_counts`,
    `registry__get_file_content`, `registry__get_related_artifacts`,
    `registry__list_workspaces`). Once the session is open, call one of those directly, with
@@ -123,8 +123,8 @@ version to it instead of making a second one. Each recipe keeps to one conventio
 |---|---|---|---|
 | A skill published from this computer | `local` (the default) | the skill's `name` (the default) | `atlan-author-skills` |
 | An agent declared in a repository | as the recipe sets it | the declaration path, such as `.atlan/agents/reviewer.yaml` | `atlan-author-agents` |
-| A shared or recorded file and its output | `local` | `<repository or folder name>/<path from its root>`, at most 512 characters | `atlan-share`, `atlan-record-outputs` |
-| An output with no file | `local` | `claude/<title in kebab case>` | `atlan-record-outputs` |
+| A shared or recorded file and its output | `local` | `<repository or folder name>/<path from its root>`, at most 512 characters | `atlan-share` |
+| An output with no file | `local` | `claude/<title in kebab case>` | `atlan-share` |
 
 To add a version to something that exists, read it and send its stored `workspace_id`,
 `source_type` and `source_id` unchanged. A matching name alone is not the same artifact.
