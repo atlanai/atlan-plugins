@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metrics-agent-databricks"
+version = "0.1.0"
+description = "Databricks input plug: native query history, Unity Catalog columns and read-only SQL checks."
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+# Pinned to the newest release public for >= 7 days at pin time (2026-10-29): 4.7.0
+# (2026-10-20), the first to allow oauthlib 4, which fixes CVE-2026-49272. Verified upstream:
+# databricks/databricks-sql-python, Apache 2.0.
+# Official databricks/databricks-sdk-py, Apache 2.0; released 2026-10-29 (>7 days).
+dependencies = ["metrics-agent", "databricks-sql-connector==4.7.0", "databricks-sdk==0.158.0"]
+
+[project.entry-points."metrics_agent.plugs"]
+databricks-direct = "metrics_agent_databricks:Direct"
+
+[project.entry-points."metrics_agent.artifacts"]
+databricks = "metrics_agent_databricks.artifacts"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+metrics_agent_databricks = ["policy.yml"]
