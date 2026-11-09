@@ -127,7 +127,7 @@ class Disk {
 /** A case's folder, built at `base` the way check_bundle.py's tests build it. */
 function build(disk: Disk, base: string, one: Case) {
   disk.add(base, { kind: 'dir' })
-  for (const [rel, text] of Object.entries(one.files ?? {})) disk.file(`${base}/${rel}`, text.replaceAll('{{fake_aws_key}}', FAKE_AWS_KEY))
+  for (const [rel, text] of Object.entries(one.files ?? {})) disk.file(`${base}/${rel}`, text.replaceAll('{{fake_aws_key}}', FAKE_AWS_KEY).replaceAll('{{split}}', ''))
   for (const [rel, hex] of Object.entries(one.binary ?? {})) disk.add(`${base}/${rel}`, { kind: 'file', bytes: hexBytes(hex) })
   for (const [rel, target] of Object.entries(one.links ?? {})) disk.add(`${base}/${rel}`, { kind: 'link', target })
   const generate = one.generate ?? {}
