@@ -162,3 +162,12 @@ The core keeps session schemas distinct when folding common history records. Use
 not exported. The package policy defaults to 90 days and 5,000 SQL/context groups; overflow
 blocks before any partial result is admitted. The existing shape-table route remains available.
 Absolute run window dates make the interval reproducible; the UTC end bound is exclusive.
+
+## Maintained Databricks input
+
+The optional Databricks feature installs `packages/metrics-agent-databricks`, supporting
+browser OAuth, environment tokens, legacy connection DSNs, native workspace-scoped history,
+Unity Catalog column metadata and read-only SQL verification. No new third-party dependency
+is added: the existing constrained SQL connector is reused. The SQL-only example remains
+separate for compatibility. History masking, missing namespace context and overflow block
+explicitly; no historical catalog/schema is guessed. Existing Registry publication is unchanged.
