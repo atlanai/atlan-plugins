@@ -3,7 +3,8 @@
 Connects your coding agent to the Atlan registry: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and
 skills that teach the agent to find what the organization already has, use it in the current
-project, and publish new work back.
+project, and publish new work back. Atlan's documentation is at
+[platform.atlan.com](https://platform.atlan.com/).
 
 ## Install
 

@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://platform.atlan.com/">Docs</a> ·
   <a href="#install">Install</a> ·
   <a href="#plugins">Plugins</a> ·
   <a href="#what-you-can-ask">What you can ask</a> ·
