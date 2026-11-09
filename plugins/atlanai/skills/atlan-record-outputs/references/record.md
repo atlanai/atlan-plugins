@@ -79,10 +79,16 @@ wrote nothing.
 
 ### Refused with no field
 
-Some gateways refuse `publish_output` without naming what is wrong: "The request is not valid."
-when `file.media_type`, `idempotency_key` and `edges` are sent together, or a bare `409` when the
-same source key should publish a new version. Neither writes anything. Send the call once more
-without `file.media_type` and `idempotency_key`. Refused again: record through
+Some gateways refuse `publish_output` without naming what is wrong. Neither refusal writes anything.
+
+- "The request is not valid." on a call that carries `idempotency_key`: the gateway derives a key
+  per step that its registry does not accept, so every keyed call is refused. Leave
+  `idempotency_key` out of `publish_output`.
+- A bare `409` when the same source key should publish a new version: often a `file.media_type`
+  that differs from the one the first version stored, which a version cannot change. Leave
+  `media_type` out after the first version; the file keeps its type.
+
+Send the call once more without `idempotency_key` and `file.media_type`. Refused again: record through
 [the older route](#when-publish_output-is-not-served) with the same source key, which reaches the
 same file and output. Never send the identical call a third time.
 
@@ -92,7 +98,8 @@ and `version_ordinal` as `file_pin`. The staged `PUT` needs a shell and the user
 Claude chat and Cowork never give you: there, record text inline or the deliverable in link mode,
 and say that a binary needs the Atlan CLI. Decide this before asking for approval.
 
-`idempotency_key` recovers a lost response: send the same key with identical arguments.
+`idempotency_key` recovers a lost response on the older route's single writes: send the same key
+with identical arguments. Do not send it to `publish_output` (see above).
 
 ## The source key
 
