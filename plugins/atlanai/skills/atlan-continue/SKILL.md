@@ -124,8 +124,14 @@ recorded without content or that its runs are not yours to read; say which you k
 In a few lines: what the artifact is, who owns it and in which workspace, its version, and
 from the session, the original request, the decisions made and the work that remains. State
 any gaps in what you could read, in one line. Keep the whole catch-up under seven lines of
-plain sentences, with no headings: the user can ask for more. If the prompt already says what
-to do next, do that.
+plain sentences, with no headings or bullets: the user can ask for more. Name people and
+workspaces by display name; leave out handles the user did not give. For example:
+
+> Vendor spend review is Priya's report (v2, Finance workspace) from a Codex run on 3 March.
+> It was asked to rank vendors by spend and flag duplicates; the top 5 cover 61% of spend and
+> 3 duplicate contracts were found. The renewal-date column was never filled. Fill it in now?
+
+If the prompt already says what to do next, do that.
 Otherwise ask what they want next in one question, naming at most two of the steps that fit
 the kind, never a menu of them all:
 

@@ -9,7 +9,11 @@ production registry returned on 30 October 2026: duplicate skill names, a skill 
 review, a blocked one, archived workspaces, a Claw-only session reader, an unconnected
 Linear server and a lookalike `create_issue` tool on another server.
 
-Standard library only. Every request and reply is appended to $ATLAN_EMULATOR_LOG when set.
+Standard library only. Every request and reply is appended to $ATLAN_EMULATOR_LOG when set, with
+the wall-clock time (`ts`) and the emulator's process id (`pid`): each Claude Code run starts its
+own emulator, so `pid` separates the runs of one log.
+- `ATLAN_EMULATOR_LATENCY_MS=400`: every `tools/call` waits that long before answering, so a
+  journey's round trips cost what they cost against the live gateway;
 
 One organization is not every situation a skill must handle, so a case can put the emulator in
 another state through its environment (`emulator.json` beside the case, read by `run.py`):
@@ -77,6 +81,7 @@ HERE = Path(__file__).resolve().parent
 WORLD = json.loads((HERE / "world.json").read_text(encoding="utf-8"))
 SESSION = "mcp_session_01evalsession00000000000000"
 LOG = os.environ.get("ATLAN_EMULATOR_LOG")
+LATENCY_S = int(os.environ.get("ATLAN_EMULATOR_LATENCY_MS", "0")) / 1000
 HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") if s}
 EMPTY = os.environ.get("ATLAN_EMULATOR_EMPTY") == "1"
 RATE_LIMIT = os.environ.get("ATLAN_EMULATOR_RATE_LIMIT")
@@ -1272,7 +1277,7 @@ else:
 def log(entry: dict) -> None:
     if LOG:
         with open(LOG, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry) + "\n")
+            fh.write(json.dumps({"ts": time.time(), "pid": os.getpid(), **entry}) + "\n")
 
 
 def handle(msg: dict) -> dict | None:
@@ -1288,6 +1293,8 @@ def handle(msg: dict) -> dict | None:
         return {"jsonrpc": "2.0", "id": rid, "result": {"tools": tools}}
     if method == "tools/call":
         params = msg.get("params") or {}
+        if LATENCY_S:
+            time.sleep(LATENCY_S)
         if SIGNED_OUT:
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32001}})
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32001, "message": "authentication required"}}
