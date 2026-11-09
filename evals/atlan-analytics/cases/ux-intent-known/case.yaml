@@ -1,0 +1,62 @@
+schema_version: "1.1"
+name: ux-intent-known
+tags: [analytics, setup, ux, intent]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue fresh setup from these supplied source facts. Read plugin
+    instructions only; do not execute commands or contact services in this checkpoint test.
+    I care about shipping time and delays, and want to understand how delivery performance is
+    measured. This states both my business focus and purpose. The inspected source includes
+    warehouse capacity as the first listed measure, followed by Late shipment rate. Late shipment
+    rate means late shipments divided by delivered shipments. Its source calculation is late_count /
+    delivered_count, population delivered shipments, source delivery model. This is a discovered
+    source definition, with SQL not generated and checks not run. Show the next useful step.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: intent-sequence
+    type: llm
+    focus: last_message
+    criteria: |
+      Known user intent: shipping time/delays, with the purpose of understanding how delivery
+      performance is measured. Both are explicit. The source lists capacity first, then the relevant
+      Late shipment rate: late_count / delivered_count, delivered shipments, delivery model, SQL
+      not generated and checks not run. PASS if it reflects the known intent and shows the relevant
+      Late shipment rate with honest evidence/status. FAIL if it repeats either intent question,
+      asks confirmation or a filler question, selects warehouse capacity merely because it is first,
+      claims generated/executed SQL or publication, or invents a numerical result.
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      The user already supplied both intent answers: shipping time/delays, and understanding
+      how delivery performance is measured. The requested evidence is Late shipment rate,
+      late_count / delivered_count, delivered shipments, delivery model, with SQL not generated
+      and checks not run. PASS if the reply presents that evidence plainly in under 100 words.
+      Ending at this explanation is correct: do not require another question or next-action
+      section. FAIL on a repeated intent question, a publishing pitch, internal helper commands,
+      an unnecessary follow-up offer, or a reply longer than 100 words.

@@ -34,11 +34,25 @@ credentials. Without a trustworthy revision/access scope, do not claim cross-ses
 validity. Local files are never copied merely to use this cache. Keep run files private and
 clean up only explicitly selected owned outputs, never source files.
 
-Show the inventory and the combination you will use before authoring. Distinguish available,
-needs review, held and scan-limited inputs. Models provide declared definitions; relevant query
+Before authoring, give a short business summary: observed source types and subject, what
+the project appears to be about, and two or three analyses those sources could support.
+Explain how the sources complement each other; counts alone do not show understanding.
+Keep this summary with the first native question, not only in collapsible commentary.
+Distinguish sample, available, needs review, held and scan-limited inputs; keep filenames
+and diagnostics in details. Models provide declared definitions; relevant query
 history adds actual query patterns, dimensions, joins and missing measures. A data extract is
 an executor/schema source, not a replacement for available history. Reuse already released
 workspace context early when the destination is known.
+
+After the source summary, follow [the intent checkpoint](intent.md), even when file/page
+scope is unambiguous. Establish the business focus first and the purpose second before
+authoring or choosing the first metric. Use the answers to select relevant source coverage.
+
+When the survey exposes a declared measure relevant to that focus, show it after the intent
+checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it a discovered
+definition, with SQL not generated and checks not run where appropriate. Missing lineage is
+an explicit limit, not a guessed table mapping. This first look does not certify a candidate,
+replace the engine's authored gates or satisfy the later checked publication preview.
 
 ## 2. Scope the report and evidence
 

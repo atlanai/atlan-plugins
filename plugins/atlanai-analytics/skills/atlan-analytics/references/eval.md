@@ -171,4 +171,4 @@ To check one case by hand, run `EVAL grade --gold <gold.json> --agent <agent.jso
 - `../scripts/analytics_eval.py`: the bundled script. `EVAL selftest` checks it; `EVAL --help` lists
   commands.
 
-End with one status line.
+End with the useful result or one recovery action in natural language.

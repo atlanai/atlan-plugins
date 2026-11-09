@@ -29,22 +29,21 @@ graders:
   - name: visible-before-destination
     type: llm
     criteria: |
-      PASS only if the assistant renders all five supplied metric candidates in an assistant
-      message, with their actual names, meaning, calculation, model/history evidence and
-      untested status, AND the exact supplied saved SQL, before any workspace or publish
-      question. A table or concise cards are both fine. Tool outputs and an HTML link alone
-      do not count. The preview may exceed the normal short-reply limit. FAIL if the
-      assistant only lists names/counts, repeats a preview link, says preview was already
-      shown, invents results or publication, or requires workspace selection before rendering.
+      PASS only if the assistant shows one actual supplied metric with its meaning,
+      calculation, model/history source and untested status before a destination/publish
+      question. It offers access to details or more candidates without dumping all five or
+      the full saved SQL by default. Supplied populations and formulas must not change.
+      A helper output or HTML link alone fails, as do invented results/publication or a
+      workspace question before the sample. The new default is one visible sample;
+      explicit Show five/all and detail requests retain their separate content checks.
   - name: no-extra-approval-to-preview
     type: llm
     criteria: |
-      PASS if it shows the supplied candidates directly without first asking whether to
+      PASS if it shows a supplied candidate directly without first asking whether to
       display them or requesting approval to run a read-only preview. A subsequent
       destination/continuation choice is fine; no Registry writes should be claimed.
   - name: plain-reply
     type: llm
     criteria: |
       PASS if the reply leads with the preview or current stage, uses plain language and
-      has no greeting, apology, em dash or generic closing offer. Actual preview content
-      may exceed 80 words. A concrete next choice after the visible preview is appropriate.
+      has no greeting, apology, em dash or generic closing offer. Requested detail may exceed 80 words; the default stays concise. A concrete next choice after the visible preview is appropriate.
