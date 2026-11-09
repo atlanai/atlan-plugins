@@ -3,6 +3,10 @@
 // folder, checks it with the rules of skills/atlan-author-skills/scripts/check_bundle.py, and sends
 // its files inline in the same call, each with its sha256. It reads nothing else and sends nowhere else.
 //
+// Beside it, notices.ts adds two one-line notes: that a newer release is out (from one read of the
+// public manifest on main, LATEST_URL), and an offer to draft feedback for Atlan after a failed
+// Atlan call or, one turn in fifty, after Atlan work. Feedback is never sent by a hook.
+//
 // Every hook here fails open: a bug passes the call on as the model wrote it, and the skill app
 // refuses `files_from` by name, saying to send `files`. So a fault costs speed, never a publish.
 //
@@ -15,6 +19,20 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import { CREDENTIAL_DIRS, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
+import {
+  ATLAN_TOOL,
+  FEEDBACK_ON_FAILURE,
+  FEEDBACK_SAMPLED,
+  FEEDBACK_SAMPLE_RATE,
+  UPDATE_WAIT_MS,
+  isExpected,
+  isFlagOn,
+  isNewer,
+  marketplaceOf,
+  updateNotice,
+  versionOf,
+} from './notices'
+import { LATEST_URL, VERSION } from './release'
 
 /**
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
@@ -270,19 +288,80 @@ function resultText(ran: { text?: unknown; result?: unknown }): string {
   return blocks.map(block => (isRecord(block) && typeof block.text === 'string' ? block.text : '')).join('\n')
 }
 
+/** Whether the user turned the feedback offers off, the way other tools' telemetry is. */
+async function isFeedbackOff($: Dollar): Promise<boolean> {
+  return isFlagOn(await $.env.get('DO_NOT_TRACK').catch(() => undefined)) || isFlagOn(await $.env.get('DISABLE_TELEMETRY').catch(() => undefined))
+}
+
+/** The update notice, or undefined: off when the user turned the check or nonessential traffic off. */
+async function checkLatest($: Dollar): Promise<string | undefined> {
+  const check = await $.env.get('ATLAN_PLUGIN_UPDATE_CHECK')
+  if (check === '0' || /^false$/i.test(check ?? '')) return undefined
+  if (isFlagOn(await $.env.get('CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'))) return undefined
+  const response = await $.http.fetch(LATEST_URL)
+  const latest = response.ok ? versionOf(response.text) : undefined
+  if (!latest || !isNewer(latest, VERSION)) return undefined
+  return updateNotice($.plugin.name, VERSION, latest, marketplaceOf($.plugin.root, $.plugin.name))
+}
+
 export const register: Register = on => {
   // The conversations already told, by session id: a /clear goes on under a new id, and is told again.
   const told = new Set<string>()
+  // The update notice, read once a process and given once; the conversations offered feedback; and
+  // those whose last turn called an Atlan tool, the only turns the sampled offer follows.
+  let latest: Promise<string | undefined> | undefined
+  let isUpdateTold = false
+  const offered = new Set<string>()
+  const usedAtlan = new Set<string>()
+
+  on('session.start', async ($, e, next) => {
+    latest ??= checkLatest($).catch(() => undefined)
+    return next(e)
+  }).catch(($, e, next) => next(e))
 
   on('prompt.submit', async ($, e, next) => {
     // A slash command's or a hidden prompt's context is not the conversation's own: tell the next one.
     if (e.command !== undefined || e.isMeta === true) return next(e)
     const session = await $.session.id()
-    if (told.has(session)) return next(e)
-    told.add(session)
-    return next({ ...e, context: [...(e.context ?? []), CAPABILITY] })
+    const notes: string[] = []
+    if (!told.has(session)) {
+      told.add(session)
+      notes.push(CAPABILITY)
+    }
+    // Each note fails alone, so a fault in one never drops the capability line.
+    if (!isUpdateTold) {
+      try {
+        latest ??= checkLatest($).catch(() => undefined)
+        const notice = await Promise.race([latest, $.clock.sleep(UPDATE_WAIT_MS).then(() => null)])
+        // null: not answered yet, so the next prompt looks again; undefined: nothing to say.
+        if (notice !== null) isUpdateTold = true
+        if (notice) notes.push(notice)
+      } catch {
+        isUpdateTold = true
+      }
+    }
+    const hadAtlan = usedAtlan.delete(session)
+    if (hadAtlan && !offered.has(session) && Math.random() < FEEDBACK_SAMPLE_RATE && !(await isFeedbackOff($))) {
+      offered.add(session)
+      notes.push(FEEDBACK_SAMPLED)
+    }
+    return notes.length > 0 ? next({ ...e, context: [...(e.context ?? []), ...notes] }) : next(e)
   }).catch(($, e, next) => next(e))
 
+  on('tool.call', { tool: ATLAN_TOOL }, async ($, e, next) => {
+    const ran = await next(e)
+    // From here the call has run: nothing below may throw, or the .catch would send it again.
+    try {
+      const session = await $.session.id()
+      usedAtlan.add(session)
+      if (ran.deny !== undefined || ran.isError !== true || offered.has(session)) return ran
+      if (isExpected(resultText(ran)) || (await isFeedbackOff($))) return ran
+      offered.add(session)
+      return { ...ran, context: [...(ran.context ?? []), FEEDBACK_ON_FAILURE] }
+    } catch {
+      return ran
+    }
+  }).catch(($, e, next) => next(e))
   on('tool.call', { tool: CALL_TOOL }, async ($, e, next) => {
     const call = e as unknown as { name?: unknown; arguments?: unknown }
     if (call.name !== PUBLISH) return next(e)

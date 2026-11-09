@@ -1,0 +1,33 @@
+schema_version: "1.1"
+name: feedback-command
+tags: [troubleshoot,feedback]
+execution:
+  prompt: |
+    /atlanai:feedback publishing my skill "quarterly-revenue-sql" to the Finance team workspace failed twice with invalid_arguments saying skills[0].files is required, even though I passed files_from. The skill docs told me files_from works.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-troubleshoot
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-troubleshoot"'
+  - name: sends-nothing
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: drafts-and-waits
+    type: llm
+    criteria: |
+      PASS if the reply shows a feedback draft with the user's goal, the steps, what was expected and what was observed (the invalid_arguments error), and then asks the user to edit it or approve it before anything is sent, offering a mailto link or the address ask@atlan.com only as the way the user sends it.
+      FAIL if it says the feedback was sent, or gives no draft.
+  - name: leaves-out-names
+    type: llm
+    criteria: |
+      PASS if the draft does not contain the skill name "quarterly-revenue-sql" or the workspace name "Finance", describing them generically instead.
+      FAIL if either name appears in the draft.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"),, a sentence announcing which skill was loaded when that changes nothing for the user, a menu of follow-up actions to choose from ("I can also…", "want me to A, B or C?"), a sentence about a call it skipped or retried when that changes nothing the user should do ("I didn't request an upload ticket", "the registry returned service unavailable twice"), or more than seven lines, not counting a table, a code block or a list the user asked for. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
