@@ -92,7 +92,7 @@ admin can add it from the Store. Then offer the smallest thing that answers the 
   person to run, and answer from what they paste back;
 - **Paste or attach the result** of a query, or a CSV export.
 
-End that turn with `NEEDS_CONTEXT`. The published definition still decides the formula and
+End with the missing input, not a status token. The published definition still decides the formula and
 filters, whatever the data source.
 
 A released dashboard metric may carry
@@ -136,4 +136,4 @@ conventions' **Source of truth** says.
 For missing definitions, corrections or a request to save/share the answer, follow
 [answer follow-ups](../atlan-analytics/references/ask-followups.md).
 
-End with one status line from the conventions.
+End naturally with the result or next action, as the conventions describe.

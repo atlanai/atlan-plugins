@@ -1,0 +1,83 @@
+schema_version: "1.1"
+name: ux-one-metric-final
+tags: [analytics, setup, ux, preview]
+execution:
+  prompt: |
+    Use Atlan Analytics to finish this synthetic setup checkpoint in chat. Earlier tool
+    calls completed release readbacks: 7 metrics and 4 saved queries are published, and
+    1 additional metric remains held locally because its denominator is undefined. Nothing
+    needs to be executed or published in this turn. No native sidepanel tool is available.
+
+    A representative released metric is Shipped units: total units on shipped orders,
+    SUM(s.units), mandatory filter s.status = 'shipped', from the shipments model and query
+    history. Its authored SQL example executed earlier; independent dashboard parity is
+    unmeasured. Other released metric names are Shipping cost, Returned units, Return rate,
+    Late shipments, Package count and Average package weight. Do not invent their definitions.
+    The published saved queries support 'How many units shipped by region?' and 'What was
+    the shipping cost by region?' with no supported date comparison. The earlier progress
+    message only linked preview.html. Give me the handoff.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: one-durable-real-sample
+    type: llm
+    focus: last_message
+    criteria: |
+      Known checkpoint: earlier release readbacks verified 7 published metrics and 4 published
+      saved queries. One additional metric is held locally because its denominator is undefined.
+      Shipped units means total units on shipped orders, calculated as SUM(s.units), with the
+      mandatory filter s.status = 'shipped', from the shipments model and query history.
+      Its SQL example executed successfully earlier; independent dashboard parity is unmeasured.
+      PASS only if the reply shows those counts and one concise Shipped units sample containing
+      meaning, calculation, mandatory population/filter, source and honest prior check status.
+      FAIL on other metric cards or inventories, a link in place of the sample, invented
+      definitions or a claim of verified dashboard parity. Full SQL is not required here.
+  - name: supported-question-handoff
+    type: llm
+    focus: last_message
+    criteria: |
+      Supported questions are exactly these two meanings: "How many units shipped by region?"
+      and "What was the shipping cost by region?" Equivalent wording with the same measures
+      and region grain is acceptable. No date comparison or other dimension is supported.
+      PASS if the reply offers both questions for this chat without adding unsupported scope
+      or separate-agent instructions, and says answers retrieve the published definition
+      before running SQL. Historical facts are valid: 7 metrics and 4 saved queries were
+      published earlier, and the Shipped units SQL example ran earlier. A future explanation
+      of retrieving definitions and executing SQL is also valid. FAIL for claiming new
+      execution or publication in this turn, opening a native panel (none is available),
+      creating an agent, or asserting unsupported questions are answerable.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      This is a final handoff from a saved checkpoint: 7 metrics and 4 queries were published
+      earlier, one further metric is held locally. PASS if the reply is at most 160 words,
+      leads with that result, and ends naturally with supported questions, the next-answer
+      retrieval behavior or a material limitation. No machine status footer such as DONE,
+      DONE_WITH_CONCERNS, BLOCKED or NEEDS_CONTEXT is allowed. Historical published status
+      and an honest held-item limitation are useful facts, not prohibited workflow narration.
+  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

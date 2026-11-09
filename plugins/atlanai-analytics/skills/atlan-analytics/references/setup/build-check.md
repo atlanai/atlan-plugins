@@ -4,6 +4,12 @@
 
 ## 3. Build candidates
 
+On fresh setup, complete [business focus and purpose](intent.md) before authoring. Reuse saved
+answers on resume. Select the first metric and the smallest useful source scope from those
+answers. A specific business question prioritizes its required metric/query and first supported
+answer; broader team preparation follows only within the requested scope. Existing publication,
+retrieval and execution requirements still apply.
+
 Use [local source procedures](../project.md#2-bind-data-once) to select an executor independently
 of the input: existing DuckDB, approved CSV preparation, or an existing read-only warehouse
 through [connect](../connect.md). No data connection is needed to preview definitions. Without
@@ -28,9 +34,12 @@ and explicitly requested by-hand drafts use [metrics authoring](../metrics/autho
 Keep `context/metrics.json`, `queries.json` and `links.json` in existing formats. Include formula,
 grain, units, dimensions, mandatory filters, time semantics and provenance. Reconcile declared
 and history evidence; detail SQL remains a saved query. Unsupported formulas remain held.
-Write coherent candidate batches atomically and show a first draft preview as soon as useful.
-Run `PROJECT preview --limit 5 --format chat` and put its actual content in chat before long
-SQL checks. Keep the current Build stage; a draft preview is useful before Check completes.
+Write coherent candidate batches atomically and show one real draft as soon as useful.
+After an engine gate or phase transition, run `PROJECT experience --format chat --engine-dir
+<within-run-engine>` and show its factual change or sample. This reads provisional evidence;
+it does not export, change eligibility or publish. Keep Build as the stage while work remains.
+Use `--detail` when the user wants that sample's SQL, source and check evidence. The first
+useful preview must not wait for every check or for the engine to finish.
 
 ## 4. Check the actual revisions
 
