@@ -2,16 +2,27 @@ import type { Register } from 'claude-code'
 
 const ID = 'analytics-view'
 const TOOL = 'mcp__atlanai-analytics-view__show'
+const FOLLOW = 'mcp__atlanai-analytics-view__follow'
 const fields = ['phase', 'status', 'summary', 'domain', 'purpose', 'counts', 'metric', 'meaning', 'calculation', 'population', 'source', 'check', 'next', 'snapshot_at']
 const lists = ['sources', 'opportunities', 'warnings']
+const evidenceFields = ['sql', 'evidence', 'usable', 'attention']
 
 // Reject rather than truncate malformed updates. Source text is always rendered as Text.
 export function valid(value: any): boolean {
   return !!value && typeof value === 'object' && !Array.isArray(value)
-    && Object.keys(value).every(k => fields.includes(k) || lists.includes(k))
+    && Object.keys(value).every(k => fields.includes(k) || lists.includes(k) || evidenceFields.includes(k) || k === 'interaction_mode')
+    && (value.interaction_mode === undefined || ['active', 'paused', 'local'].includes(value.interaction_mode))
+    && evidenceFields.every(k => value[k] === undefined || (typeof value[k] === 'string' && value[k].length <= 2000))
     && fields.every(k => typeof value[k] === 'string' && value[k].length <= 2000)
     && lists.every(k => Array.isArray(value[k]) && value[k].length <= 8 && value[k].every((s: any) => typeof s === 'string' && s.length <= 240))
     && JSON.stringify(value).length <= 16000
+}
+
+// Only the exact read-only feed printed by the packaged local preview is supported.
+export function validFeed(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const match = /^http:\/\/127\.0\.0\.1:([1-9][0-9]{0,4})\/pane$/.exec(value)
+  return !!match && Number(match[1]) <= 65535
 }
 
 export const register: Register = on => {
@@ -19,14 +30,55 @@ export const register: Register = on => {
   let dismissed = false
   let placed = false
   let details = false
+  let feedback = ''
+  let feed = ''
+  let generation = 0
+  let timer: {cancel: () => void} | null = null
+  let refreshing = false
+  let stale = false
+  let attemptedPlacement = false
   on('session.start', async ($, e, next) => {
+    await $.tool.register({name:'follow', description:'Follow the saved Analytics run in the native pane. Start the packaged experience_view.py preview first, then pass its exact pane_url. Updates automatically; read-only; respects dismissal. Never pass an arbitrary service URL.',
+      inputSchema:{type:'object',properties:{url:{type:'string',maxLength:40}},required:['url'],additionalProperties:false}})
     await $.tool.register({name:'show', description:'Display or update the Analytics source overview, selected metric and saved progress in the native side pane. Pass the exact pane payload from project.py experience --format panel. Presentation only; does not execute or publish. Respects dismissal.',
-      inputSchema:{type:'object', properties:{view:{type:'object', properties:Object.fromEntries([...fields.map(k=>[k,{type:'string',maxLength:2000}]),...lists.map(k=>[k,{type:'array',maxItems:8,items:{type:'string',maxLength:240}}])]),required:[...fields,...lists],additionalProperties:false}}, required:['view'],additionalProperties:false}})
+      inputSchema:{type:'object', properties:{view:{type:'object', properties:{...Object.fromEntries([...[...fields,...evidenceFields].map(k=>[k,{type:'string',maxLength:2000}]),...lists.map(k=>[k,{type:'array',maxItems:8,items:{type:'string',maxLength:240}}])]),interaction_mode:{type:'string',enum:['active','paused','local']}},required:[...fields,...lists],additionalProperties:false}}, required:['view'],additionalProperties:false}})
     await $.command.register({name:ID,description:'Reopen the Analytics evidence pane',immediate:true})
     return next(e)
   }).catch(($,e,next)=>next(e))
+  on('tool.call',{tool:FOLLOW},async ($,e) => {
+    if (!validFeed(e.url)) return {result:'Use the exact pane_url from the packaged local Analytics preview.',isError:true}
+    timer?.cancel(); timer=null; generation++
+    if(feed!==e.url) current=null
+    feed=e.url; attemptedPlacement=placed
+    const version=generation
+    const target=feed
+    const refresh = async () => {
+      if (refreshing) return false
+      refreshing = true
+      try {
+        const response = await $.http.fetch(target)
+        if (version !== generation) return false
+        if (!response.ok || response.text.length > 16000) throw new Error('Unavailable')
+        const value = JSON.parse(response.text)
+        if (!valid(value)) throw new Error('Invalid')
+        current = value
+        stale = false
+        if(!dismissed&&!placed&&!attemptedPlacement){attemptedPlacement=true;const opened=await $.ui.open({id:ID,title:'Analytics'});placed=opened.isPlaced}
+        $.ui.invalidate('ui.render')
+        return true
+      } catch {
+        if (version === generation) {stale = true; $.ui.invalidate('ui.render')}
+        return false
+      } finally {refreshing = false}
+    }
+    const loaded=await refresh()
+    timer=$.clock.every(2500,()=>{void refresh()})
+    return {result:JSON.stringify({displayed:loaded&&placed&&!dismissed,following:loaded,dismissed,read_only:true}),isError:!loaded}
+  }).catch(()=>({result:'The Analytics preview is unavailable. Keep working in chat and restart the owned preview if it stopped.',isError:true}))
   on('tool.call',{tool:TOOL},async ($,e) => {
     if(!valid(e.view)) return {result:'Invalid Analytics view. Preserve the prior pane and refresh its bounded payload.',isError:true}
+    // A legacy snapshot must not overwrite an authoritative live subscription.
+    if(feed) return {result:'Analytics already follows saved run state automatically. Save progress in the run.'}
     current=e.view
     if(!dismissed&&!placed){const opened=await $.ui.open({id:ID,title:'Analytics'});placed=opened.isPlaced}
     $.ui.invalidate('ui.render')
@@ -40,12 +92,46 @@ export const register: Register = on => {
     return {text:placed?'Analytics pane opened.':'The pane needs a wider window. The evidence remains available in chat.'}
   }).catch(()=>({text:'The Analytics pane is unavailable. Continue with the evidence in chat.'}))
   on('ui.close',{id:ID},($,e,next)=>{dismissed=true;placed=false;return next(e)}).catch(($,e,next)=>next(e))
+  for (const component of ['ToolUse','ToolResult'] as const) {
+    on('ui.render',{component},($,e,next)=>{
+      if((e.component!=='ToolUse'&&e.component!=='ToolResult')||![TOOL,FOLLOW].includes(e.props.tool)||e.props.isExpanded) return next(e)
+      const {Text}=$.ui.resolve(e)
+      return <Text>{e.props.isErrored?'Analytics view unavailable; continue in chat.':e.component==='ToolUse'?'Analytics · Update the evidence pane':'Analytics evidence remains available in the pane and chat.'}</Text>
+    }).catch(($,e,next)=>next(e))
+  }
   on('ui.render',{component:'Pane',requestId:ID},($,e,next)=>{
     if(e.component!=='Pane'||!current)return next(e)
     const {Box,Text,Button}=$.ui.resolve(e)
     const v=current
+    const paused=v.interaction_mode==='paused'
+    const draft=async(text:string)=>{
+      try {const result=await $.prompt.fill({text});feedback=result.isFilled?'Request prepared in chat. Submit it to apply your choice.':'Could not prepare the request. Type your choice in chat.'}
+      catch {feedback='Could not prepare the request. Type your choice in chat.'}
+      $.ui.invalidate('ui.render')
+    }
+    // Inline terminal panes may expose only a few rows. Keep the current task
+    // visible there; the full evidence is an explicit expansion, not a scroll hunt.
+    if(e.surface==='terminal'&&e.props.scroll.bodyRows<18&&!details){
+      const width=Math.max(30,e.props.bodyColumns-2)
+      const line=(value:string)=>value.length>width?value.slice(0,width-1)+'…':value
+      return <Box flexDirection="column" gap={0}>
+        <Text bold>{line(v.phase+(stale?' · Updates unavailable':''))}</Text>
+        <Text>{line(v.domain?(v.domain+(v.purpose?' · '+v.purpose:'')):(v.summary||'Inspecting the selected sources'))}</Text>
+        <Text bold>{line(v.metric?(v.metric+' · '+v.check):v.next)}</Text>
+        {v.metric?<Text>{line(v.next)}</Text>:''}
+        <Text dimColor>{line(v.counts)}</Text>
+        <Box flexDirection="row" gap={1}>
+          <Button key="evidence" label="Expand evidence" onPress={()=>{details=true;$.ui.invalidate('ui.render')}}/>
+          <Button key="pause" label={paused?'Prepare resume':'Prepare pause'} onPress={()=>void draft(paused?'Resume this analytics run from its saved checkpoint.':'Pause this analytics run at its current checkpoint.')}/>
+          <Button key="local" label="Prepare keep local" onPress={()=>void draft('Keep this analytics run local. Do not publish its definitions.')}/>
+        </Box>
+        <Text dimColor>{line(feedback||(stale?'Last received evidence; continue in chat.':feed?'Live updates · buttons prepare a chat request; submit to apply.':'Saved snapshot · buttons prepare a chat request.'))}</Text>
+      </Box>
+    }
     return <Box flexDirection="column" gap={1}>
       <Text bold>{v.phase}</Text><Text dimColor>{v.status+' · '+v.snapshot_at}</Text>
+      {e.surface==='terminal'&&e.props.scroll.bodyRows<18?<Button key="compact" label="Back to progress" onPress={()=>{details=false;$.ui.invalidate('ui.render')}}/>:''}
+      <Text dimColor>{stale?'Updates unavailable. Showing the last received evidence.':feed?'Following saved progress automatically.':'Saved snapshot; automatic updates are not connected.'}</Text>
       <Text bold>What we found</Text><Text>{v.summary || v.sources.join(', ')}</Text>
       {v.opportunities.map((s:string)=><Text key={s}>{'• '+s}</Text>)}
       <Text bold>What matters to you</Text><Text>{v.domain||'Choose your business focus in chat'}</Text><Text dimColor>{v.purpose||'Then choose what you want to accomplish'}</Text>
@@ -54,13 +140,18 @@ export const register: Register = on => {
       {v.population?<Text>{'Includes: '+v.population}</Text>:''}
       {v.metric?<Button key="evidence" label={details?'Hide evidence':'Inspect source and checks'} onPress={()=>{details=!details;$.ui.invalidate('ui.render')}}/>:''}
       {details?<Text>{v.source+'\nSaved checks are not fresh execution or proof of dashboard parity.'}</Text>:''}
+      {details&&v.evidence?<Text>{v.evidence}</Text>:''}
+      {details&&v.sql?<Text>{'Saved SQL: '+v.sql}</Text>:''}
       <Text bold>{v.counts}</Text>{v.warnings.map((s:string)=><Text key={s}>{s}</Text>)}
+      {v.usable?<Text bold>Available now</Text>:''}{v.usable?<Text>{v.usable}</Text>:''}
+      {v.attention?<Text bold>Needs attention</Text>:''}{v.attention?<Text>{v.attention}</Text>:''}
       <Text bold>Up next</Text><Text>{v.next}</Text>
-      <Button key="details" label="Ask for details" onPress={()=>void $.prompt.fill({text:'Show the selected analytics metric, its SQL, source and checks.'})}/>
-      <Button key="pause" label={v.status==='paused'?'Resume in chat':'Pause in chat'} onPress={()=>void $.prompt.fill({text:v.status==='paused'?'Resume this analytics run from its saved checkpoint.':'Pause this analytics run at its current checkpoint.'})}/>
-      <Button key="local" label="Keep local" onPress={()=>void $.prompt.fill({text:'Keep this analytics run local. Do not publish its definitions.'})}/>
+      <Button key="details" label="Ask for details" onPress={()=>void draft('Show the selected analytics metric, its SQL, source and checks.')}/>
+      <Button key="pause" label={paused?'Prepare resume request':'Prepare pause request'} onPress={()=>void draft(paused?'Resume this analytics run from its saved checkpoint.':'Pause this analytics run at its current checkpoint.')}/>
+      <Button key="local" label="Prepare keep-local request" onPress={()=>void draft('Keep this analytics run local. Do not publish its definitions.')}/>
       <Button key="hide" label="Hide pane" onPress={()=>{dismissed=true;placed=false;void $.ui.close({id:ID})}}/>
       <Text dimColor>Buttons fill the prompt. Submit it to make your choice.</Text>
+      {feedback?<Text>{feedback}</Text>:''}
     </Box>
   }).catch(($,e,next)=>next(e))
 }

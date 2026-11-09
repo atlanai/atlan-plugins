@@ -67,6 +67,9 @@ class LiveView(unittest.TestCase):
         try:
             status,data=request('/snapshot');self.assertEqual(status,200)
             first=json.loads(data);self.assertIn('What we found',first['html'])
+            first_pane=json.loads(request('/pane')[1])
+            self.assertEqual(first_pane['summary'],self.overview['summary'])
+            self.assertEqual(first_pane['interaction_mode'],'active')
             for path in ['/run.json','/../run.json','/snapshot?file=run.json','/.env','/favicon.ico']:
                 self.assertEqual(request(path)[0],404)
             self.assertEqual(request('/',headers={'Host':'attacker.example'})[0],403)
@@ -78,12 +81,44 @@ class LiveView(unittest.TestCase):
             self.run.journey('domain',answer='Shipping cost')
             second=json.loads(request('/snapshot')[1]);self.assertNotEqual(first['revision'],second['revision'])
             self.assertIn('Shipping cost',second['html'])
+            self.assertEqual(json.loads(request('/pane')[1])['domain'],'Shipping cost')
+            self.run.journey('purpose',answer='Prepare team metrics')
+            self.assertEqual(json.loads(request('/pane')[1])['purpose'],'Prepare team metrics')
+            self.run.journey('pause')
+            self.assertEqual(json.loads(request('/pane')[1])['interaction_mode'],'paused')
+            self.run.journey('resume')
+            self.assertEqual(json.loads(request('/pane')[1])['interaction_mode'],'active')
         finally:server.shutdown();server.server_close();thread.join()
 
     def test_symlink_and_invalid_summary_rejected(self):
         link=Path(self.tmp.name).resolve()/'link';link.symlink_to(self.run.root,target_is_directory=True)
         with self.assertRaises(ValueError):view.make_server(link)
         with self.assertRaises(ValueError):view.overview(self.run,{'summary':'x','opportunities':['a']*4})
+
+    def test_engine_wait_is_not_a_user_pause(self):
+        model=experience.snapshot(self.run)
+        model['phase']['status']='paused'
+        self.assertEqual(view.pane(model,{})['status'],'working')
+        self.assertEqual(view.pane(model,{})['interaction_mode'],'active')
+        model['interaction']['mode']='paused'
+        self.assertEqual(view.pane(model,{})['status'],'paused')
+
+    def test_native_feed_clears_access_error_after_current_host_read(self):
+        import auth_recovery
+        self.run.write(self.run.root/'auth-recovery.json', {
+            'host':'claude_code','server':'plugin:atlanai:atlan','status':'login_required','started_at':1000})
+        server=view.make_server(self.run.root,host='claude_code',server='plugin:atlanai:atlan')
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        def read():
+            conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+            conn.request('GET','/pane');response=conn.getresponse()
+            value=json.loads(response.read());conn.close();return value
+        try:
+            self.assertEqual(read()['status'],'access_needed')
+            auth_recovery.advance(self.run,{'operation':'record_read','host':'claude_code',
+                'server':'plugin:atlanai:atlan','read_tool':'registry__list_workspaces','read_succeeded':True},now=2000)
+            self.assertNotEqual(read()['status'],'access_needed')
+        finally:server.shutdown();server.server_close();thread.join()
 
 
 if __name__=='__main__': unittest.main()

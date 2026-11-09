@@ -34,17 +34,28 @@ def pane(model, understanding):
     """Bounded text-only payload for Claude's native mod; no paths or executable actions."""
     sample = model.get('sample') or {}
     clean = lambda v, n=500: experience._text(v, n)
-    return {'phase': clean(model['phase']['label'], 120), 'status': clean(model['phase']['status'], 80),
+    status = model['phase']['status']
+    # Engine authoring checkpoints are not a request for the person to resume.
+    if status == 'paused' and model['interaction']['mode'] != 'paused':
+        status = 'working'
+    return {'phase': clean(model['phase']['label'], 120), 'status': clean(status, 80),
+            'interaction_mode': model['interaction']['mode'],
             'summary': clean(understanding.get('summary'), 1200),
             'sources': [clean(s['name'], 120) for s in model['scope'][:8]],
             'opportunities': [clean(s, 120) for s in understanding.get('opportunities', [])[:3]],
             'domain': clean(model['interaction']['intent'].get('domain'), 160),
             'purpose': clean(model['interaction']['intent'].get('purpose'), 240),
             'counts': ', '.join(f'{model["counts"][key]} {label}' for key, label in
-                               [('metrics', 'metrics'), ('queries', 'queries'), ('released', 'saved'), ('held', 'held')]),
+                               [('metrics', 'metrics'), ('queries', 'queries'), ('released', 'saved'), ('held', 'held'),
+                                ('review_required', 'need source review')]),
             'metric': clean(sample.get('name'), 120), 'meaning': clean(sample.get('meaning')),
             'calculation': clean(sample.get('calculation'), 2000), 'population': clean(sample.get('population')),
             'source': clean('; '.join(sample.get('provenance', []))), 'check': clean(sample.get('status_label'), 160),
+            'sql': clean(sample.get('sql'), 2000),
+            'usable': clean(model.get('handoff', {}).get('usable_now'), 1000),
+            'attention': clean('\n'.join(model.get('handoff', {}).get('attention', [])), 2000),
+            'evidence': clean('\n'.join(sample.get('detail_notes', [])) +
+                              ('\nSQL shortened here; ask for the complete saved statement.' if len(sample.get('sql') or '') > 2000 else ''), 2000),
             'warnings': [clean(w, 240) for w in model['warnings'][:5]],
             'next': clean(model['next_step']), 'snapshot_at': model['snapshot_at']}
 
@@ -96,9 +107,9 @@ def render(model, understanding=None):
     opportunities = ''.join('<li>'+esc(v)+'</li>' for v in understanding.get('opportunities', []))
     intent = model['interaction']['intent']
     goal = '<p><strong>Business focus</strong><br>'+esc(intent.get('domain') or 'Choose in chat')+'</p><p><strong>Your goal</strong><br>'+esc(intent.get('purpose') or 'Choose after the business focus')+'</p>'
-    count_html = ''.join('<div class="count"><strong>'+str(counts[key])+'</strong><span>'+label+'</span></div>' for key,label in [('metrics','Metric definitions'),('queries','Saved queries'),('released','Saved in Atlan'),('held','Need repair')])
+    count_html = ''.join('<div class="count"><strong>'+str(counts[key])+'</strong><span>'+label+'</span></div>' for key,label in [('metrics','Metric definitions'),('queries','Saved queries'),('released','Saved in Atlan'),('held','Need repair'),('executed','Recorded execution checks'),('review_required','Need source review')])
     if sample:
-        metric = '<p class="muted">Your first metric</p><h2>'+esc(sample['name'])+'</h2><p>'+esc(sample['meaning'])+'</p><p class="status">'+esc(sample['status_label'])+'</p>'
+        metric = '<p class="muted">Selected definition</p><h2>'+esc(sample['name'])+'</h2><p>'+esc(sample['meaning'])+'</p><p class="status">'+esc(sample['status_label'])+'</p>'
         metric += '<div class="row"><strong>Calculation</strong><pre>'+esc(sample['calculation'])+'</pre></div><div class="row"><strong>Who and what it includes</strong>'+esc(sample.get('population','Review source scope'))+'</div>'
         metric += '<details id="metric-evidence"><summary>Inspect SQL, source and checks</summary><pre>'+esc(sample.get('sql') or sample['calculation'])+'</pre><p>'+esc('; '.join(sample['provenance']))+'</p>'
         metric += ''.join('<p>'+esc(n)+'</p>' for n in sample.get('detail_notes',[]))+'<p class="muted">Saved checks do not prove fresh execution or dashboard parity.</p></details>'
@@ -109,12 +120,17 @@ def render(model, understanding=None):
         ident = hashlib.sha256(item['id'].encode()).hexdigest()[:16]
         catalog += '<details class="row" id="item-'+ident+'" data-card data-status="'+esc(item['status'])+'"><summary>'+esc(item['name'])+' · '+esc(item['status_label'])+'</summary><p>'+esc(item['meaning'])+'</p><pre>'+esc(item.get('sql') or item['calculation'])+'</pre><p>'+esc(item.get('population',''))+'</p><p>'+esc('; '.join(item['provenance']))+'</p></details>'
     warnings = ''.join('<p class="warning">'+esc(w)+'</p>' for w in model['warnings'])
+    handoff = model.get('handoff', {})
+    readiness = '<section class="card"><h2>Available now</h2><p>'+esc(handoff.get('usable_now', ''))+'</p>'
+    if handoff.get('attention'):
+        readiness += '<h3>Needs attention</h3><ul>'+''.join('<li>'+esc(v)+'</li>' for v in handoff['attention'])+'</ul>'
+    readiness += '</section>'
     modes = model['interaction']['mode']
-    controls = [('details','Copy details request'), ('resume','Copy resume request') if modes!='active' else ('pause','Copy pause request'), ('local','Copy keep-local request')]
+    controls = [('details','Copy details request'), ('resume','Copy resume request') if modes=='paused' else ('pause','Copy pause request'), ('local','Copy keep-local request')]
     buttons = ''.join('<button type="button" data-prompt="'+key+'">'+label+'</button>' for key,label in controls)
     options = ''.join('<option value="'+esc(k)+'">'+esc(v)+'</option>' for k,v in experience.LABELS.items())
     script_hash=base64.b64encode(hashlib.sha256(SCRIPT.encode()).digest()).decode()
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'sha256-'+script_hash+'\'; connect-src \'self\'; base-uri \'none\'; form-action \'none\'"><title>Analytics · Your context</title><style>'+STYLE+'</style></head><body><main><header><small>ANALYTICS</small><h1>'+esc(model['phase']['label'])+'</h1><p id="connection">Saved evidence · '+esc(model['snapshot_at'])+'</p><nav class="rail" aria-label="Setup progress">'+rail+'</nav></header>'+warnings+'<section class="card"><h2>What we found</h2><p class="summary">'+esc(summary)+'</p><div class="sources">'+sources+'</div>'+('<h3>What this could help you explore</h3><ul>'+opportunities+'</ul>' if opportunities else '')+'</section><div class="grid"><section class="card metric">'+metric+'</section><aside><section class="card"><h2>What matters to you</h2>'+goal+'</section><section class="card"><h2>Up next</h2><p>'+esc(model['next_step'])+'</p><p class="muted">Decisions stay in your conversation.</p></section></aside></div><div class="counts">'+count_html+'</div><details id="catalog" class="card"><summary>Browse definitions and their evidence</summary><label for="filter">Find a definition</label><input id="filter" type="search" placeholder="Metric, query or source"><label for="status-filter"> Status </label><select id="status-filter"><option value="">All statuses</option>'+options+'</select><p id="filter-result">'+str(len(model['items']))+' definitions shown</p><div class="catalog">'+catalog+'</div>'+('<p>Showing the first 100 definitions. Ask in chat for more.</p>' if model['items_truncated'] else '')+'</details><section class="card"><h2>You are in control</h2><div class="controls">'+buttons+'</div><p id="copy-result" aria-live="polite">Copy a request, then submit it in chat. These buttons do not execute or publish.</p><textarea id="copy-fallback" hidden readonly rows="3" aria-label="Request to copy"></textarea></section></main><script>'+SCRIPT+'</script></body></html>'
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'sha256-'+script_hash+'\'; connect-src \'self\'; base-uri \'none\'; form-action \'none\'"><title>Analytics · Your context</title><style>'+STYLE+'</style></head><body><main><header><small>ANALYTICS</small><h1>'+esc(model['phase']['label'])+'</h1><p id="connection">Saved evidence · '+esc(model['snapshot_at'])+'</p><nav class="rail" aria-label="Setup progress">'+rail+'</nav></header>'+warnings+'<section class="card"><h2>What we found</h2><p class="summary">'+esc(summary)+'</p><div class="sources">'+sources+'</div>'+('<h3>What this could help you explore</h3><ul>'+opportunities+'</ul>' if opportunities else '')+'</section><div class="grid"><section class="card metric">'+metric+'</section><aside><section class="card"><h2>What matters to you</h2>'+goal+'</section><section class="card"><h2>Up next</h2><p>'+esc(model['next_step'])+'</p><p class="muted">Decisions stay in your conversation.</p></section></aside></div><div class="counts">'+count_html+'</div>'+readiness+'<details id="catalog" class="card"><summary>Browse definitions and their evidence</summary><label for="filter">Find a definition</label><input id="filter" type="search" placeholder="Metric, query or source"><label for="status-filter"> Status </label><select id="status-filter"><option value="">All statuses</option>'+options+'</select><p id="filter-result">'+str(len(model['items']))+' definitions shown</p><div class="catalog">'+catalog+'</div>'+('<p>Showing the first 100 definitions. Ask in chat for more.</p>' if model['items_truncated'] else '')+'</details><section class="card"><h2>You are in control</h2><div class="controls">'+buttons+'</div><p id="copy-result" aria-live="polite">Copy a request, then submit it in chat. These buttons do not execute or publish.</p><textarea id="copy-fallback" hidden readonly rows="3" aria-label="Request to copy"></textarea></section></main><script>'+SCRIPT+'</script></body></html>'
 
 
 def prepare(run, model, supplied=None):
@@ -145,19 +161,23 @@ def make_server(root, port=0, engine_dir=None, host=None, server=None):
             if (self.headers.get('Host') != origin[7:] or self.headers.get('Origin',origin)!=origin
                     or self.headers.get('Sec-Fetch-Site')=='cross-site'):
                 self.send_error(403);return
-            if self.path not in ('/', '/snapshot'):
+            if self.path not in ('/', '/snapshot', '/pane'):
                 self.send_error(404);return
             try:
                 model=experience.snapshot(root, engine_dir, host=host, server=server)
                 understanding=overview(ReadOnly())
-                page=render(model, understanding)
-                stable={**model, 'snapshot_at':''}
-                data=(json.dumps({'revision':digest([stable,understanding]), 'html':page}) if self.path=='/snapshot' else page).encode()
-                if len(data)>MAX_PAGE: raise ValueError('Preview too large')
+                if self.path == '/pane':
+                    data=json.dumps(pane(model, understanding), ensure_ascii=False).encode()
+                    if len(data)>64000: raise ValueError('Pane too large')
+                else:
+                    page=render(model, understanding)
+                    stable={**model, 'snapshot_at':''}
+                    data=(json.dumps({'revision':digest([stable,understanding]), 'html':page}) if self.path=='/snapshot' else page).encode()
+                    if len(data)>MAX_PAGE: raise ValueError('Preview too large')
             except (ValueError,OSError,KeyError,TypeError):
                 self.send_error(503,'Saved view unavailable');return
             self.send_response(200)
-            self.send_header('Content-Type','application/json' if self.path=='/snapshot' else 'text/html; charset=utf-8')
+            self.send_header('Content-Type','text/html; charset=utf-8' if self.path=='/' else 'application/json')
             self.send_header('Content-Length',str(len(data)))
             self.send_header('Cache-Control','no-store')
             self.send_header('X-Content-Type-Options','nosniff')
@@ -175,7 +195,8 @@ def main():
     parser.add_argument('--server')
     args=parser.parse_args()
     with make_server(args.run_dir,args.port,args.engine_dir,args.host,args.server) as preview:
-        print(json.dumps({'url':'http://127.0.0.1:'+str(preview.server_port),'pid':os.getpid(),'read_only':True}),flush=True)
+        url='http://127.0.0.1:'+str(preview.server_port)
+        print(json.dumps({'url':url,'pane_url':url+'/pane','pid':os.getpid(),'read_only':True}),flush=True)
         try: preview.serve_forever()
         except KeyboardInterrupt: pass
 

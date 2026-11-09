@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Prepare BI exports, models and query history for talk-to-data. Use when asked to set up or resume analytics, choose a workspace, define a metric, or build an analytics agent. Not for data questions (atlan-analytics-ask).
+description: Prepare BI exports, models and query history for questions. Use for analytics setup, resume or final handoff, choosing a workspace, defining metrics, or building analytics agents. Not for data questions (atlan-analytics-ask).
 ---
 
 # Analytics context and talk-to-data
@@ -10,12 +10,20 @@ completed setup handoff may use 160: counts, one metric's calculation/population
 then supported questions. Details may be longer. Do not list other metrics or
 repeat the pipeline.
 Attribute saved checks to the earlier run. After publication, answers retrieve definitions before SQL runs.
+For final handoffs, read [handoff rules](references/setup/preview-publish.md) and return.
+Keep execution, source review, holds and releases separate. Total definitions = metrics + queries.
 
 On fresh setup, your next assistant message is the opening, before reading references,
 surveying files or calling helpers. This includes survey-only requests. In 40 to 50 words,
 name the outcome, next step and controls: narrow scope, inspect details, keep local or pause.
 Honor existing choices. Survey-only requests stop after inspection. On resume, name the
 saved result and next step. Detail-only requests get only the requested evidence.
+For a fresh folder, use this opening:
+"I'll inspect the sources, explain what they cover, and ask what matters to you before
+preparing metrics for questions here. You'll see an example and its check status first.
+You can narrow the scope, ask for details, keep the work local, or pause at any point."
+Keep the controls sentence. Do not replace it with a new approval requirement for work
+the person already requested.
 
 Then read [shared conventions](references/conventions.md). They define audit sessions,
 task authorization, privacy and status reporting. Treat reads of the selected source,
@@ -29,9 +37,8 @@ existing publisher. Dispatch before mode-specific project conventions or preflig
 repository setup is not a full-agent build. Cloning a source repository the user asks to set
 up is a separate, supported task.
 
-The registry's own marketplace (`api.atlan.com/public/marketplace.git`) bundles this workflow
-in its `atlanai` plugin. Use the installed skill's namespace for the `atlanai-analytics:`
-prefixes below (`atlanai` in that bundle), and do not install this add-on beside it.
+The Registry marketplace bundles this workflow in `atlanai`. Use its installed namespace
+instead of `atlanai-analytics:` below; do not install this add-on beside that bundle.
 
 ## 0. Dispatch the requested mode first
 
@@ -52,7 +59,7 @@ Open [the host view](references/setup/render.md) after inspection and update it 
 Explain the sources, business meaning and
 possible analyses inside the first question. Follow the [intent flow](references/setup/intent.md):
 business focus first, purpose second, using native choices and waiting for each missing answer.
-Even clear source scope needs this checkpoint. Then show one relevant metric with its meaning and
+Even clear scope needs this checkpoint. Then show one metric with its meaning and
 honest check status before a destination question or publication/reuse. Use the read-only
 `project.py experience --format chat`, adding `--engine-dir <within-run-engine>` during
 engine work. `--detail` exposes that sample's SQL, source and checks. Show five or all only
@@ -76,21 +83,11 @@ job resumes with [its original procedure](references/dashboard.md), which keeps 
 capture, independent checks and agent route. Optional inline cards
 are used only when their tools are already installed. Do not register another MCP server. Keep progress in native chat.
 
-If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
-arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from
-section 0. It checks registry access, asks only for the missing table scope and sources, then
-drafts metrics and saved queries from declared models, BI files or query history, whichever
-are in reach. Everything is previewed before it is published. Use `.atlan-metrics/<slug>/`,
-never `.atlan-analytics/` state.
-
-**Return after that branch. Do not continue below.** It runs none of these:
-- the full-agent preflight or the build/improve menu;
-- `EVAL init`, an eval set or an eval run;
-- agent registration, deployment, a smoke test or a baseline.
-
-A declared model or a BI file needs no warehouse connection. The query-log filter and
-`scripts/metrics_mine.py` are permitted. Starting an agent build later needs an explicit new
-request.
+If the first argument is exactly `metrics`, follow [the metrics workflow](references/metrics.md),
+with remaining arguments as scope, then returns. Use `.atlan-metrics/<slug>/`.
+Do not run full-agent preflight, eval, registration or deployment. Models and BI files
+need no warehouse; query-log filtering and `scripts/metrics_mine.py` are permitted.
+Starting an agent build later needs an explicit new request.
 
 If the first argument is exactly `propose`, read [the proposal workflow](references/propose.md),
 preview a proposal for its owners, and return: no metric save, full-agent preflight or eval.
@@ -124,9 +121,8 @@ Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over i
 | `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
 | `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
 
-Evaluation uses `scripts/analytics_eval.py`. It uses only the standard library and never
-touches the network: every registry write, eval results included, goes through the Atlan MCP
-server with the person's own sign-in.
+Evaluation uses `scripts/analytics_eval.py`, standard library only, with no network access.
+Registry writes, including eval results, use Atlan MCP with the person's sign-in.
 
 ## MCP resources
 

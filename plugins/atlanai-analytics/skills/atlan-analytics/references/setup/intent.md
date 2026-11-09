@@ -28,6 +28,8 @@ Then ask "What do you care about most?" with source-grounded choices and free te
 substitute a file-count inventory, vague "analytics coverage", or a menu alone for the summary.
 Never invent available tables, dimensions, measures, user behavior or numerical findings.
 Retain material limitations such as sample data, missing joins or incomplete inspection.
+Distinguish history entries from distinct query shapes. Use the inspector's actual count
+and noun; do not relabel 110 history records as 110 distinct analyses or metrics.
 Aim for 40 to 50 words of explanation before the question and short option labels. Summarize
 supporting tables by business subject; do not enumerate every file, field or table. Do not
 repeat a full explanation of each analysis both in the paragraph and in the choices. State
@@ -64,6 +66,10 @@ shipping time: "What would you like to do with delivery performance?" Suggested 
 
 These represent answering a business question, understanding/checking the source, and
 preparing reusable context. Use the person's language and accept goals outside these examples.
+Keep suggested questions within the observed coverage. Do not add a period such as "last
+quarter" or a causal claim such as "what caused it" without the user's request and supporting
+evidence. Prefer "Which jobs lost margin, and where were costs concentrated?" when that is
+what the available model and history support. A date column alone is not a chosen time window.
 Wait for the answer. Ask a narrow follow-up only if a necessary question, period or comparison
 is still missing. Do not turn this into a multi-step questionnaire.
 
@@ -97,6 +103,11 @@ Reflect both in one sentence: "You want to understand where shipping delays happ
 start with delivery time and late shipments, using the evidenced timestamps and regions."
 Then continue. Choose the first useful metric, required supporting context and next actions
 from this intent. Do not keep presenting the first alphabetic metric regardless of the goal.
+When candidates become available, `PROJECT journey status` returns `select-focus` until
+the host selects the relevant candidate with `PROJECT journey select --focus <exact-identity>`.
+This is the host's next work step, not a third interview question. Choose from actual names,
+definitions and source evidence. A changed domain or purpose reopens this selection so an
+earlier metric does not silently stand in for the new goal. Saved intent remains visible.
 
 For a specific business question, prioritize the relevant checked metric/query and the first
 supported answer before optional broader coverage. Preserve existing release/retrieval and

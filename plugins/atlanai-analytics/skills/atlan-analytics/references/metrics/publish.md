@@ -14,6 +14,10 @@ and export a new context. A held-only export stops with its reasons and sends no
 
 ## 1. Preview
 
+Before previewing the plan, follow [existing-work reconciliation](reconciliation.md). Read
+its review requests and preserve coverage limitations in the handoff, including when the
+final plan reuses every artifact. A reusable total does not imply every proposed cut is covered.
+
 For setup runs, first show one actual sample from `project.py experience --format chat`
 in an assistant message if none has been displayed; details remain available on request. A file link, tool result or counts alone
 does not count. This also applies when every artifact is being reused; no extra approval
@@ -65,7 +69,8 @@ or ask for a workspace to show samples. Optional rich cards must fall back to th
   its `source_id` in `<context-dir>/published.json`.
 - **Revise:** append a new version to the matched artifact (`match_id`), as
   [appending a revision](#appending-a-revision) below says. Keep its `name` and `display_name`.
-  Raise `definition.version` by one over the live one.
+  The checked body already carries `definition.version` one above the reviewed live version.
+  Do not change it after plan approval.
 - **Reuse:** nothing to write. Record the live id.
 - A `409` on create means the name is taken. Report it and hold the item. Never rename to get
   around it.
