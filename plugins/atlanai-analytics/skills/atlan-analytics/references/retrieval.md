@@ -19,8 +19,9 @@ For a saved-query answer, run `PROJECT answer "<request.json>"`:
 Replace the illustrative array with actual complete objects. The helper checks the released
 revision against the setup receipt, uses its SQL, checks parameter names and selects execution:
 
-- **DuckDB:** converts Registry placeholders outside literals/comments into native bindings,
-  executes read-only against the recorded database and returns fresh results.
+- **SQLite or DuckDB:** converts Registry placeholders outside literals/comments into native
+  bindings (`:name` or `$name`), executes read-only against the recorded database and returns
+  fresh results.
 - **Warehouse:** returns `status: execute_in_host`, the SQL, separate parameters, limit,
   selected connection and release. This is a query plan, not an answer. Dispatch it through the
   existing recorded read-only MCP/CLI tool. Convert placeholder syntax to that tool's native

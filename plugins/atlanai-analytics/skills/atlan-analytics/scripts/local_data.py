@@ -1,6 +1,7 @@
-"""Bounded DuckDB execution in a child process; no installs, uploads or repository code.
+"""Bounded DuckDB or SQLite execution in a child process; no installs, uploads or repository code.
 
-Use an existing approved Python runtime with DuckDB. Host sandboxing is still required
+SQLite needs only the Python standard library; DuckDB needs an existing approved runtime with
+DuckDB. Host sandboxing is still required
 for hostile SQL; engine settings are defense in depth, not an OS security boundary.
 """
 import datetime
@@ -34,7 +35,11 @@ FUNCTIONS = set(('sum avg count min max coalesce nullif abs round floor ceil cei
                  'decimal numeric varchar char bigint integer smallint').split())
 
 
-def check_functions(sql):
+# SQLite reports LIKE as a call to like() and has its own date functions; same review bar.
+SQLITE_FUNCTIONS = FUNCTIONS | {'like', 'date', 'datetime', 'julianday', 'iif', 'group_concat'}
+
+
+def check_functions(sql, allowed=FUNCTIONS):
     from metrics_mine import scan
     code = ''.join(text if kind == 'code' else text[1:-1] if kind == 'ident' else ' '
                    for kind, text in scan(sql))
@@ -45,17 +50,20 @@ def check_functions(sql):
                   r'\s*(?=as\s+(?:(?:not\s+)?materialized\s+)?\()',
                   lambda m: m[1] + ' cte_columns ', code, flags=re.I)
     calls = set(re.findall(r'([A-Za-z_][A-Za-z_0-9]*)\s*\(', code.lower()))
-    if calls - FUNCTIONS:
+    if calls - allowed:
         raise DataError('SQL uses an unsupported function. Use reviewed analytical functions and base tables.')
     return calls
+
+
+KINDS = {'.duckdb': 'duckdb', '.sqlite': 'sqlite', '.sqlite3': 'sqlite', '.db': 'sqlite'}
 
 
 def regular_file(path):
     p = Path(path).expanduser().absolute()
     if any(x.is_symlink() for x in (p, *p.parents)) or not p.is_file():
-        raise DataError('Select an existing regular DuckDB file; no database was created.')
-    if p.suffix.lower() != '.duckdb':
-        raise DataError('Select a .duckdb database file.')
+        raise DataError('Select an existing regular database file; no database was created.')
+    if p.suffix.lower() not in KINDS:
+        raise DataError('Select a .duckdb or .sqlite database file.')
     return p
 
 
@@ -101,7 +109,84 @@ def _value(value):
     raise DataError('The result has a nested or binary value; select scalar columns.')
 
 
+def sqlite_worker(request):
+    import sqlite3
+    binding = request['binding']
+    path = regular_file(binding['path'])
+    # One file is one schema; attaching it under that name keeps schema.table references.
+    schema = binding.get('schema') or path.stem
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', schema) or schema.lower() in ('main', 'temp'):
+        raise DataError('Use a simple schema name for the SQLite file.')
+    con = sqlite3.connect(':memory:', uri=True)
+    try:
+        con.execute('ATTACH ? AS "' + schema + '"', ('file:' + str(path) + '?mode=ro',))
+        rows = con.execute('SELECT name FROM "' + schema + '".sqlite_master WHERE type = \'table\' '
+                           'AND name NOT LIKE \'sqlite_%\' ORDER BY name').fetchall()
+        columns = [{'catalog': None, 'schema': schema, 'table': t, 'column': c[1], 'type': c[2] or 'ANY'}
+                   for (t,) in rows
+                   for c in con.execute('SELECT * FROM pragma_table_info(?, ?)', (t, schema))]
+        schema_hash = fingerprint(columns)
+        tables = sorted({schema + '.' + c['table'] for c in columns})
+        if request['operation'] == 'inspect':
+            return {'status': 'ok', 'kind': 'sqlite', 'version': sqlite3.sqlite_version, 'schema': schema,
+                    'tables': tables, 'columns': columns, 'schema_hash': schema_hash}
+        if request['operation'] != 'execute':
+            raise DataError('Unsupported local data operation.')
+        if schema_hash != binding.get('schema_hash'):
+            raise DataError('Database schema changed. Inspect and rebind before answering.')
+        selected = set(binding.get('tables', []))
+        if not selected or not selected <= set(tables):
+            raise DataError('Select existing schema-qualified base tables before executing SQL.')
+        sql = request['sql']
+        if not isinstance(sql, str) or len(sql) > 200_000:
+            raise DataError('Supply one bounded SELECT statement.')
+        from metrics_mine import scan
+        code = ''.join(text if kind == 'code' else ' ' for kind, text in scan(sql))
+        if not re.match(r'\s*(select|with)\b', code, re.I) or ';' in code.rstrip().rstrip(';'):
+            raise DataError('Only one SELECT or WITH query is allowed.')
+        parameters = request.get('parameters') or {}
+        if not isinstance(parameters, dict) or set(re.findall(r'(?<!:):([A-Za-z_][A-Za-z_0-9]*)\b', code)) != set(parameters):
+            raise DataError('Supply exactly the named SQL parameters using :name bindings.')
+        check_functions(sql, SQLITE_FUNCTIONS)
+        # The engine's authorizer is the scope check: it sees every table read and function
+        # call after parsing, so a write, ATTACH, PRAGMA or out-of-scope table is refused.
+        allowed = {(schema.lower(), t.split('.', 1)[1].lower()) for t in selected}
+        def authorize(action, arg1, arg2, database, trigger):
+            if action == sqlite3.SQLITE_SELECT or action == sqlite3.SQLITE_RECURSIVE:
+                return sqlite3.SQLITE_OK
+            if action == sqlite3.SQLITE_READ:
+                return sqlite3.SQLITE_OK if ((database or '').lower(), arg1.lower()) in allowed else sqlite3.SQLITE_DENY
+            if action == sqlite3.SQLITE_FUNCTION:
+                return sqlite3.SQLITE_OK if arg2.lower() in SQLITE_FUNCTIONS else sqlite3.SQLITE_DENY
+            return sqlite3.SQLITE_DENY
+        con.set_authorizer(authorize)
+        started = time.monotonic()
+        try:
+            cursor = con.execute(sql, parameters)
+        except sqlite3.DatabaseError as exc:
+            if 'not authorized' in str(exc):
+                raise DataError('Query tables or functions are outside the selected scope. Use schema-qualified base tables.') from None
+            raise
+        result_columns = [{'name': c[0], 'type': None} for c in cursor.description]
+        rows = cursor.fetchmany(request['limit'] + 1)
+        return {'status': 'ok', 'query_id': 'local_' + uuid.uuid4().hex,
+                'sql_hash': fingerprint({'sql': sql, 'parameters': parameters}),
+                'schema_hash': schema_hash, 'columns': result_columns,
+                'rows': [[_value(v) for v in row] for row in rows[:request['limit']]],
+                'truncated': len(rows) > request['limit'],
+                'duration_ms': round((time.monotonic() - started) * 1000, 3)}
+    except DataError:
+        raise
+    except Exception as exc:
+        raise DataError('SQLite could not complete the query (' + type(exc).__name__ +
+                        '). Check SQL, bindings and supported functions.') from None
+    finally:
+        con.close()
+
+
 def worker(request):
+    if KINDS[regular_file(request['binding']['path']).suffix.lower()] == 'sqlite':
+        return sqlite_worker(request)
     try:
         import duckdb
     except ImportError:

@@ -23,7 +23,8 @@ packaged-runtime initialization and generated-file reads as ordinary task steps.
 publication destination is chosen for saving metrics, carry that authorization through the
 checked plan without an extra publish confirmation. Respect explicit draft/review requests.
 For new metric generation (metrics mode, or a setup run's Build stage), read
-[the metrics module](references/metrics-engine.md), also to explain it; it preserves the plug architecture and authored gates and hands artifacts to the
+[the metrics module](references/metrics-engine.md), also to explain it. A setup with only local
+files and no warehouse uses SQLite and installs nothing ([build and check](references/setup/build-check.md)). The module preserves the plug architecture and authored gates and hands artifacts to the
 existing publisher. Dispatch before mode-specific project conventions or preflight. A
 repository setup is not a full-agent build. Cloning a source repository the user asks to set
 up is a separate, supported task.
