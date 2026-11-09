@@ -1,5 +1,5 @@
 {
- "about": "Skill bundles with the verdict every pre-send check must reach: tools/tests (check_bundle.py) and, later, the publish helper's hooks. A case builds its folder from `files` (UTF-8 text), `binary` (hex), `links` (symbolic links) and `generate` (filler files, or one filler file sized so the folder totals `pad_to_bytes`). `at` lists [path, line, column] the check must report, 1-based. `{{fake_aws_key}}` in a file stands for \"AKIA\" followed by \"ABCDEFGHIJKLMNOP\", substituted when the folder is built so no credential-shaped string is committed. A case with `applies_to: [\"hook\"]` tests the files_from expansion, not a folder.",
+ "about": "Skill bundles with the verdict every pre-send check must reach: tools/tests (check_bundle.py) and, later, the publish helper's hooks. A case builds its folder from `files` (UTF-8 text), `binary` (hex), `links` (symbolic links) and `generate` (filler files, or one filler file sized so the folder totals `pad_to_bytes`). `at` lists [path, line, column] the check must report, 1-based. `{{fake_aws_key}}` in a file stands for \"AKIA\" followed by \"ABCDEFGHIJKLMNOP\", substituted when the folder is built so no credential-shaped string is committed; `{{split}}` is removed the same way, so a credential-shaped string can be written in two halves. A case with `applies_to: [\"hook\"]` tests the files_from expansion, not a folder.",
  "cases": [
   {
    "name": "clean",
@@ -80,7 +80,7 @@
    "about": "U+FE0F after a plain letter, as in scripts/lint.py:39:52",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "scripts/lint.py": "x = 1\nprint(\"ok\ufe0f\")\n"
+    "scripts/lint.py": "x = 1\nprint(\"ok️\")\n"
    },
    "expect": "refuse",
    "rules": [
@@ -99,7 +99,7 @@
    "about": "U+202E reverses the text a reader sees",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "notes.md": "safe \u202etxt.exe\n"
+    "notes.md": "safe ‮txt.exe\n"
    },
    "expect": "refuse",
    "rules": [
@@ -117,7 +117,7 @@
    "name": "zero-width-space",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "notes.md": "rm\u200b -rf\n"
+    "notes.md": "rm​ -rf\n"
    },
    "expect": "refuse",
    "rules": [
@@ -135,7 +135,7 @@
    "name": "joiner-between-letters",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "notes.md": "a\u200db\n"
+    "notes.md": "a‍b\n"
    },
    "expect": "refuse",
    "rules": [
@@ -153,7 +153,7 @@
    "name": "tag-characters-outside-a-flag",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "notes.md": "hi\udb40\udc69\udb40\udc67\udb40\udc6e\n"
+    "notes.md": "hi󠁩󠁧󠁮\n"
    },
    "expect": "refuse",
    "rules": [
@@ -171,7 +171,7 @@
    "name": "c1-control",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "notes.md": "a\u0085b\n"
+    "notes.md": "ab\n"
    },
    "expect": "refuse",
    "rules": [
@@ -190,7 +190,7 @@
    "about": "A ZWJ emoji sequence, a keycap, a flag tag sequence and an emoji with U+FE0F are sent",
    "files": {
     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
-    "notes.md": "\ud83d\udc68\u200d\ud83d\udcbb 1\ufe0f\u20e3 \ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc73\udb40\udc63\udb40\udc74\udb40\udc7f \u2708\ufe0f \ud83c\uddec\ud83c\udde7\n"
+    "notes.md": "👨‍💻 1️⃣ 🏴󠁧󠁢󠁳󠁣󠁴󠁿 ✈️ 🇬🇧\n"
    },
    "expect": "send"
   },
@@ -385,6 +385,78 @@
    "rules": [
     "credential-file"
    ]
+  },
+  {
+   "name": "credential-file-configs",
+   "about": "Package-registry and machine logins and Terraform variables are credential files",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+    ".npmrc": "registry=https://registry.npmjs.org/\n",
+    ".netrc": "machine example.com\n",
+    "env/prod.tfvars": "region = \"eu-west-1\"\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential-file"
+   ]
+  },
+  {
+   "name": "credential-cloud-keys",
+   "about": "A Google API key and a Stripe live secret key",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+    "config.md": "maps: AIza{{split}}SyA0123456789abcdefghijklmnopqrstuv\nbilling: sk_live{{split}}_0123456789abcdefghijklmn\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential"
+   ],
+   "at": [
+    [
+     "config.md",
+     1,
+     7
+    ],
+    [
+     "config.md",
+     2,
+     10
+    ]
+   ]
+  },
+  {
+   "name": "credential-passwords",
+   "about": "A password set to a literal, and one inside a connection string",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+    "settings.ini": "db_pass{{split}}word = \"correcthorsebattery\"\nDB_URL=postgres{{split}}://admin:hunter2@db/app\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential"
+   ],
+   "at": [
+    [
+     "settings.ini",
+     1,
+     1
+    ],
+    [
+     "settings.ini",
+     2,
+     8
+    ]
+   ]
+  },
+  {
+   "name": "credential-near-misses",
+   "about": "Placeholders, lookups and publishable keys are not secrets",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+    "references/setup.md": "password = os.environ[\"DB_PASSWORD\"]\nPASSWORD=$DB_PASSWORD\npassword: \"<your password>\"\nclient_secret: SecretStr\nConnect with postgres://user:<password>@db/app or postgres://user:password@db/app.\nThe publishable key starts pk_live_ and is safe in a page.\n",
+    "references/npmrc.md": "Never commit an .npmrc with a token.\n"
+   },
+   "expect": "send"
   },
   {
    "name": "files-and-files-from",

@@ -745,7 +745,8 @@ class VoiceTest(unittest.TestCase):
 
 
 # Built here, never written whole, so the repository's own secret lint stays quiet. The shared
-# fixtures carry it as `{{fake_aws_key}}`; a hook's own tests substitute the same string.
+# fixtures carry it as `{{fake_aws_key}}`, and other credentials in halves joined at `{{split}}`; a
+# hook's own tests substitute the same way.
 FAKE_AWS_KEY = "AKIA" + "ABCDEFGHIJKLMNOP"
 
 
@@ -772,7 +773,7 @@ class CheckBundleTest(unittest.TestCase):
     def build(case: dict, root: Path) -> None:
         for rel, text in case.get("files", {}).items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
-            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY)
+            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY).replace("{{split}}", "")
             (root / rel).write_bytes(text.encode("utf-8"))
         for rel, data in case.get("binary", {}).items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
