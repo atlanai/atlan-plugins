@@ -11,8 +11,8 @@ as your own service principal or as yourself. No Atlan tenant is involved.
 | `powerbi-fabric` | input | `customer` | fetches report (PBIR) and semantic-model (TMDL) definitions through Fabric's public `getDefinition` API, or reads an extract already on disk |
 
 The core's Power BI reader parses what it fetches. The extractor it runs
-(`pbi_definition_extract.py`) uses the Python standard library only, so the core is this
-package's one dependency.
+(`pbi_definition_extract.py`) uses the Python standard library for REST transport. Certificate
+and managed-identity sign-in use the pinned official Azure Identity SDK.
 
 ## Install
 
@@ -55,9 +55,8 @@ that applies:
    a stand-in identity provider (state, error answer, timeout, a refused exchange); a live
    sign-in needs you at the keyboard.
 
-A service principal that has only a certificate (`PBI_CLIENT_CERTIFICATE_PATH`) is not
-supported: `setup --check` says so by name. Give it a client secret, or hand over a token it
-obtained with its certificate.
+Certificate-only service principals are supported through Azure Identity; see the certificate
+and managed-identity section below for the environment variables and explicit route selection.
 
 A run that is not at a terminal (CI, a scheduler) and has neither a service principal nor a
 token is refused by name before anything is fetched; it never waits for a device code nobody
@@ -202,3 +201,20 @@ definition was refused, no admin scanner (`catalog_api_unavailable`). An extract
 nothing (exit 2 or 3) raises them as `AccessBlocked`, and the run goes on with its other
 inputs. They land in the run's `access_report.json` with what to ask for and from whom; the
 whole matrix is in [customer access](../../docs/guides/customer-access.md).
+
+## Certificate, managed identity and token renewal
+
+`sign_in` can explicitly select `device`, `browser`, `spn`, `token`, `certificate` or
+`managed-identity`; `PBI_SIGN_IN` supplies the same choice outside run settings. Certificate
+sign-in needs `PBI_TENANT_ID`, `PBI_CLIENT_ID` and `PBI_CLIENT_CERTIFICATE_PATH`, with optional
+`PBI_CLIENT_CERTIFICATE_PASSWORD`. The official Azure Identity SDK consumes the certificate;
+never read its contents into chat or put a credential in run configuration. Managed identity
+must be selected explicitly on a supported Azure host. `PBI_CLIENT_ID` optionally selects a
+user-assigned identity. These identities still need the applicable Fabric tenant and workspace
+permissions. An explicit route wins over other configured credential routes.
+
+Fetches renew service-principal, certificate and managed-identity access tokens through their
+providers. Fresh device/browser flows request offline access and retain the refresh token in
+process memory. A legacy access-only cache may need a fresh sign-in to obtain renewal rights.
+A 401 permits one renewal and retry, including downloads; a repeated denial stops. Supplied
+`PBI_ACCESS_TOKEN` cannot be renewed by the plug and must be replaced when it expires.

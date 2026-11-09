@@ -9,7 +9,7 @@ remains separate; do not install both distributions into the same runtime.
 
 Use the selected warehouse's non-secret `server_hostname` and `http_path` settings, or
 `DATABRICKS_SERVER_HOSTNAME` and `DATABRICKS_HTTP_PATH` in the environment. Browser OAuth
-(`sign_in: browser`) uses the official connector and a genuine host terminal, including the
+(`sign_in: browser`) uses the official SDK OAuth cache and a genuine host terminal, including the
 module wrapper's prompt relay and deadline. It needs no password or token in chat.
 
 Unattended runs use `DATABRICKS_TOKEN` with `sign_in: token`. An existing
@@ -110,3 +110,13 @@ observers: []
 Run preparation and advancement with a real TTY for browser sign-in. An explicit parse-only
 run does not establish warehouse execution, and example execution does not prove formula
 parity. Publication remains the host plugin's responsibility.
+
+## Connection isolation and reuse
+
+Prefer `DATABRICKS_DSN` for Databricks connection fields. The legacy shared warehouse DSN is
+used only when it names `server_hostname`; a Snowflake or Postgres DSN does not select this
+plug's connection. An explicitly supplied Databricks DSN with unsupported fields is refused.
+Browser OAuth delegates cache and refresh to the official SDK and checks the resolved host
+before credential acquisition. Direct Entra browser OAuth reuses an in-memory connector cache
+within a process; separate processes can still require sign-in. For durable reuse of a
+configured identity, use the SDK profile or CLI route. No plug writes a custom token file.

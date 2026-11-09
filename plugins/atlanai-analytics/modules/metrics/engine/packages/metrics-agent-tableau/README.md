@@ -192,3 +192,23 @@ live through the connected app in each site role. A fetch that read no workbook 
 reason raises them as `AccessBlocked`, and the run goes on with its other inputs. They land in
 the run's `access_report.json` with what to ask for and from whom; the whole matrix is in
 [customer access](../../docs/guides/customer-access.md).
+
+## Supplied JWTs, private endpoints and retries
+
+`TABLEAU_JWT` supplies a JWT issued by an external authorization server or connected app.
+`TABLEAU_UAT` supplies the signed JWT associated with a Tableau unified access token
+configuration, not the UAT configuration ID. Both use Tableau's JWT sign-in exchange and
+retain only the resulting session token in memory. The UAT route defaults to REST API 3.27;
+an explicit `api_version` must support the selected route. JWT scopes, site and expiry are
+validated by Tableau. PAT retains precedence when multiple complete routes are configured.
+
+A private-IP or internal-DNS Tableau Server needs an explicit exact entry in
+`tableau.allowed_private_hosts` in the operator's policy. Only RFC1918/ULA addresses and
+internal DNS names are eligible. Metadata, localhost, loopback and link-local destinations
+remain blocked. HTTPS verification and redirect refusal are unchanged. Public custom hosts
+continue to use `allowed_host_suffixes`; no private host is approved automatically.
+
+Reads and sign-in exchanges retry transient network failures and HTTP 429/500/502/503/504
+within `retry_attempts` (default 3) and `max_retry_after_seconds` (default 30). Retry-After is
+honored; a delay above the cap stops with an explicit error. Authentication and permission
+denials are not retried.

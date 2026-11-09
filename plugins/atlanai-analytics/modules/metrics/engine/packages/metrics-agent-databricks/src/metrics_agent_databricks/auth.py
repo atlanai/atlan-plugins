@@ -9,6 +9,7 @@ HOST = "DATABRICKS_SERVER_HOSTNAME"
 PATH = "DATABRICKS_HTTP_PATH"
 TOKEN = "DATABRICKS_TOKEN"
 DSN = "METRICS_AGENT_WAREHOUSE_DSN"
+OWN_DSN = "DATABRICKS_DSN"
 _ALLOWED = {"server_hostname", "http_path", "access_token", "auth_type", "catalog", "schema"}
 SIGN_INS = ("browser", "azure-browser", "token", "pat", "databricks-oauth", "azure-oauth",
             "oauth-m2m", "unified", "sdk")
@@ -45,9 +46,13 @@ def sdk_provider(host, settings, method):
                 return self.delegate(cfg)
 
         kwargs = {'credentials_strategy': ScopedCredentials()}
-        if method == 'oauth-m2m':
-            # Explicit environment route, without inheriting a saved profile's secrets.
+        if method == 'browser':
             kwargs.update(host='https://' + host, config_file=os.devnull,
+                          profile='DEFAULT', auth_type='external-browser',
+                          client_id='databricks-cli', client_secret='')
+        elif method == 'oauth-m2m':
+            # Explicit environment route, without inheriting a saved profile's secrets.
+            kwargs.update(host='https://' + host, config_file=os.devnull, profile='DEFAULT',
                           auth_type='oauth-m2m', client_id=os.environ.get('DATABRICKS_CLIENT_ID'),
                           client_secret=os.environ.get('DATABRICKS_CLIENT_SECRET'))
         else:
@@ -77,7 +82,12 @@ def at_terminal():
 def connection_options(settings):
     from metrics_agent.lib.engine import parse_kv
 
-    options = parse_kv(os.environ[DSN]) if os.environ.get(DSN) else {}
+    raw = os.environ.get(OWN_DSN)
+    if raw is None:
+        legacy = parse_kv(os.environ.get(DSN, ''))
+        # A shared Snowflake/Postgres DSN is not a Databricks credential route.
+        raw = os.environ.get(DSN, '') if 'server_hostname' in legacy else ''
+    options = parse_kv(raw)
     if set(options) - _ALLOWED:
         raise AuthConfigurationError("Databricks DSN contains unsupported settings; use only Databricks connection fields")
     selected_host = settings.get("server_hostname")
@@ -110,7 +120,13 @@ def connection_options(settings):
         if not at_terminal():
             raise AuthConfigurationError("Databricks browser sign-in needs a real terminal; use the host TTY or an environment token for unattended runs")
         options.pop("access_token", None)
-        options["auth_type"] = "azure-oauth" if method in ('azure-browser', 'azure-oauth') else "databricks-oauth"
+        if method in ('azure-browser', 'azure-oauth'):
+            options['auth_type'] = 'azure-oauth'
+            options['experimental_oauth_persistence'] = _azure_cache(host)
+        else:
+            # The SDK owns its OAuth cache and refresh. Never persist tokens ourselves.
+            options.pop('auth_type', None)
+            options['credentials_provider'] = sdk_provider(host, settings, 'browser')
     elif method in ('oauth-m2m', 'unified', 'sdk'):
         if method == 'oauth-m2m' and not (os.environ.get('DATABRICKS_CLIENT_ID') and os.environ.get('DATABRICKS_CLIENT_SECRET')):
             raise AuthConfigurationError("Databricks OAuth M2M needs DATABRICKS_CLIENT_ID and DATABRICKS_CLIENT_SECRET in the environment")
@@ -125,3 +141,13 @@ def connection_options(settings):
         if settings.get(key):
             options[key] = settings[key]
     return options
+
+
+_AZURE_CACHES = {}
+
+
+def _azure_cache(host):
+    from databricks.sql.experimental.oauth_persistence import OAuthPersistenceCache
+    if host not in _AZURE_CACHES:
+        _AZURE_CACHES[host] = OAuthPersistenceCache()
+    return _AZURE_CACHES[host]
