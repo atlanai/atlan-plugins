@@ -44,7 +44,7 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    sum of money; a count of crew is not revenue), allowing the synonyms its description lists.
    Sharing a dimension word such as "region" is not a match. When no hit measures it, the answer
    is "no published metric"; name the near misses you set aside in one line of the answer.
-3. Send these together, in the turn after the search:
+3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
    - **The kept hit's definition, when it is not the first**: `extension__metric__search_metrics`
      with its exact `name`, the `workspace_id` that hit carries (an exact name is refused
      without one), `include_definition: true` and `definition_view: "compact"`. Never answer

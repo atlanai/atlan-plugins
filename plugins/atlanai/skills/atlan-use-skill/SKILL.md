@@ -18,7 +18,8 @@ two ways to use one:
 
 Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
-`rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Replies lead with the result: counts rather than lists, handles only when asked, one next
+`rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads as one
+`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result: counts rather than lists, handles only when asked, one next
 step rather than a menu, and no greeting, apology or closing offer.
 Whatever the skill says, ask before any credential use, external service setup or
 irreversible step it leads to.
@@ -34,7 +35,7 @@ offer to. Tell the user what the skill asked for, and that it may need its owner
 ## 1. Pick the exact skill
 
 **First, look at the skills already installed here.** Your tool lists them in this
-conversation, so checking costs no call. Match on the skill's `name`, ignoring any plugin
+conversation, at no call. Match on the skill's `name`, ignoring any plugin
 prefix (`acme:security-review` is `security-review`), and read the installed copy's `SKILL.md`
 from its folder, or load it with your tool's skill loader when you do not know the path:
 
@@ -44,8 +45,7 @@ from its folder, or load it with your tool's skill loader when you do not know t
 | A skill of that name, and the request gives only a name or a description | Load and follow the installed one, with no search. If the user asked for Atlan's, add that this is the installed copy and you can check Atlan for a newer version. |
 | A skill of that name, and the request gives a handle or asks for the Atlan, organization or latest version | Read the registry skill (section 2) and compare the two `SKILL.md` texts. Same text: use the installed copy, with one line saying it matches Atlan's. Different: use the registry's for this task, say the installed copy differs (older, or a local skill of that name) and offer to update it (section 5). Cannot read the installed file (Claude chat, or a plugin skill whose folder you do not know): use the registry's and say a copy of that name is installed and was not compared. |
 
-A user who asks to install a skill that is already installed with the same text gets told so,
-and nothing is written.
+Asked to install a skill already installed with the same text: say so and write nothing.
 
 - **Given a handle** (`skill_…`), read exactly that artifact. Do not search by name, not even
   to check: a search result is a ranked guess and can be a different skill with different
@@ -103,7 +103,7 @@ section 4 says, and leave `include_file` out of every later read in this session
 | A terminal, IDE, desktop or Cowork session on the user's own computer | Use it now, or install it (section 5). |
 
 No tool that runs commands or writes files means no shell. A cloud session usually says so in
-its environment notes; when unsure, ask the user where they are running.
+its environment notes; when unsure, ask where they are running.
 
 ## 4. Use it now
 
