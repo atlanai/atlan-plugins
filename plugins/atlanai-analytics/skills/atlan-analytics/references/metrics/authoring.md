@@ -144,9 +144,11 @@ from this file.
   - `sql`: the shape's statement, comments stripped and literals as they ran;
   - `question` and `dialect`;
   - `review_status`: `unreviewed`;
-  - `usage`: `{execution_count, user_count}`;
+  - `usage`: observed `{execution_count, user_count}` from matched history evidence; omit an
+    unknown counter instead of inventing zero or summing non-additive user counts;
   - `analysis`: `{tables, filters, dimensions}`;
-  - `usage_note`: says it was mined from query history and when;
+  - `usage_note`: always explain the source and its observed time window, or that the query
+    was derived from a dashboard/model and historical usage is unavailable;
   - `extensions.atlan_analytics.shape_id`.
 
 ## Pass 4: relate
@@ -167,3 +169,7 @@ metrics' `definition.extensions.related` as `{metric, relation, why}`, with `rel
 `grain_variant` or `alternative`.
 
 No self-links and no cycles. Link only between this layer and the workspace's live artifacts.
+
+Carry these fields unchanged through batch publication and complete release readback. Usage
+counts describe captured history, not new execution checks. Keep `review_status: unreviewed`
+until an actual review decision exists; successful execution alone is not review approval.

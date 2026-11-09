@@ -60,6 +60,18 @@ class PublicationBatches(unittest.TestCase):
                 'tool_input': {'name': call['name'], 'arguments': call['arguments'],
                                'session_id': 'session_example', 'rationale': 'Publish the checked definitions.'}}
 
+    def test_publication_keeps_usage_notes_and_only_observed_counts_exact(self):
+        docs = self.context(2)
+        docs['queries'][0]['definition'].update(usage_note='Mined from captured query history.',
+            usage={'execution_count': 17, 'user_count': 3}, review_status='unreviewed')
+        docs['queries'][1]['definition'].update(usage_note='Derived from the model; historical usage is unavailable.',
+            review_status='unreviewed')
+        self.write(docs)
+        event = self.event(self.prepare()['calls'][0])
+        sent = hook.answer('pre', 'codex', event)['hookSpecificOutput']['updatedInput']
+        self.assertEqual(sent['arguments']['items'], [{**q, 'workspace_id': 'workspace_example'} for q in docs['queries']])
+        self.assertNotIn('usage', sent['arguments']['items'][1]['definition'])
+
     def test_receipt_paths_are_relative_only_when_inside_the_current_directory(self):
         self.context(1)
         with patch('os.getcwd', return_value=str(self.root.parent)):

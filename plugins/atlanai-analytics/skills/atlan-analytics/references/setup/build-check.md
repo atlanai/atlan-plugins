@@ -21,15 +21,22 @@ Use [local source procedures](../project.md#2-bind-data-once) to select an execu
 of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
 through [connect](../connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
-Prepare CSVs into a new `.sqlite` database. It needs only the standard library, so do not
-check for, offer or install DuckDB or any other package for this step. Author SQL in the
-`sqlite` dialect with `:name` parameters. Translate history SQL written for another engine
-before checking it, and keep the original in the shape's provenance.
+For a rerun with a selected existing destination, inspect its saved receipt/binding and fetch
+fresh relevant released definitions before choosing a different executor. Follow
+[released execution](../project.md#reuse-a-released-local-executor). The released SQL dialect
+and catalog decide the local binding; keep that SQL and its definitions unchanged. Use an
+existing approved matching runtime. A missing dependency needs authorization, not a choice
+between overwriting releases and changing engines.
+
+For a fresh local setup without relevant existing releases, prepare CSVs into a new `.sqlite`
+database. It needs only the standard library, so do not offer or install DuckDB for that case.
+Author in the selected binding's dialect and native named parameters. Translate unrelated
+history SQL before checking it, and keep the original in the shape's provenance.
 
 When every selected input is a local file (BI files, CSVs, query-history files) and no
 warehouse is selected, author with [metrics authoring](../metrics/authoring.md) over this run's
 `PROJECT history` shapes, and check with `PROJECT check-query` and `check-metric` against the
-SQLite binding. Do not initialize the metrics module runtime for this case; it installs
+selected local binding. Do not initialize the metrics module runtime for this case; it installs
 packages.
 
 Before authoring the full local collection, save one relevant candidate and its supporting

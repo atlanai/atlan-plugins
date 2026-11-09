@@ -52,6 +52,10 @@ for the concrete plan, missing authorization, idempotency, release policy and un
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
 release and full MCP readback. Record receipts with `PROJECT publication` as the local
 procedures describe. A draft or local plan is not publication.
+If a rerun differs only because setup selected another local engine, return to
+[released execution](../project.md#reuse-a-released-local-executor), preserve the existing
+released SQL and recheck against its matching executor. Do not silently translate a released
+query, append a revision or claim breakage without an actual definition comparison.
 When definitions already exist, say which, how many and where, and why reuse beats a copy:
 "6 of the 8 metrics were already saved in Analytics Demo by an earlier run, so I reused them;
 2 are new." Use actual counts and names, never only "everything was already created".

@@ -769,6 +769,17 @@ def check_query(body: dict) -> tuple:
             errs.append(f"{k} holds {why}")
     if d.get('review_status') == 'rejected':
         errs.append('The saved query was rejected in review; repair and review it before publication.')
+    if 'usage_note' in d:
+        note = d['usage_note']
+        if not isinstance(note, str) or not note.strip():
+            errs.append('definition.usage_note must be nonempty source-backed prose')
+        elif _pii_prose(note):
+            errs.append('definition.usage_note contains identifying information')
+    if 'usage' in d:
+        usage = d['usage']
+        if (not isinstance(usage, dict) or not usage or set(usage) - {'execution_count', 'user_count'}
+                or any(type(v) is not int or v < 0 for v in usage.values())):
+            errs.append('definition.usage accepts only observed nonnegative integer execution_count and user_count')
     if d.get("review_status") not in (None, "unreviewed", "reviewed", "verified", "needs_review", "rejected"):
         warns.append(f"definition.review_status {d.get('review_status')!r} is unusual")
     return errs, warns
