@@ -1,12 +1,20 @@
 # Who uses an artifact, and at which version
 
-Open this for "who uses this skill?", "who is still on 1.0?", "is anyone using it?" or "which
-of our skills are used most?". Every call here is a read.
+Open this for "what uses it, what does it use?", "who uses this skill?", "who is still on 1.0?",
+"is anyone using it?" or "which of our skills are used most?". Every call here is a read.
 
 Atlan records **who depends on** an artifact, as edges. It does not record how often a skill is
 loaded. Answer from the edges, and say once that load counts are not recorded yet when the user
 asked how much something is used. Never count usage by reading run traces: one run holds
 hundreds of steps, and runs you cannot see read as missing.
+
+## Reading the neighbourhood
+
+`registry__get_related_artifacts { "artifact_id": "…" }` returns typed edges in both
+directions: an agent's `uses_skill`, an output's `used_skill`, a skill's `sourced_from` repo.
+An end marked `is_readable: false` exists in a workspace the user cannot read; say that
+rather than guessing what it is. Edges are declared by their source kind, so to find the
+agents that use a skill, read the skill's incoming edges rather than its outgoing ones.
 
 ## One artifact
 
