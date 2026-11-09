@@ -57,7 +57,11 @@ has the settings file, the workspace kinds and how to say each one.
 Every share carries a source key (`source_type` `local`, `source_id` the file's
 `<repository or folder>/<path>` or `claude/<title in kebab case>`), so sharing the same thing
 again makes a new version of one output instead of a copy. Look for an earlier share first, show
-the user what will be written in at most four lines, and write only on their yes:
+the user what will be written in at most four lines, and write only on their yes. A request
+that already names what to save and where ("record this in my personal workspace", "share
+this report with the Data team") is that yes: write, then say what was written. Ask first when
+anything is left to choose, when it would replace a different earlier share, or when step 1
+found something to mask. The write is:
 
 - **one call,** `registry__publish_output`, writes the bytes as a `file`, then the `output` that
   pins it and its edges;
