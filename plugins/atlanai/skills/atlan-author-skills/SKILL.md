@@ -1,6 +1,6 @@
 ---
 name: atlan-author-skills
-description: Publish a skill to Atlan, or a new version of one, or write a new skill for the team and publish it. Use when the user wants to publish, upload, push or release a skill to Atlan, or update one already there. Not for loading or installing a registry skill (atlan-use-skill), publishing from GitHub CI (atlan-connect-repo) or a skill kept only on this computer.
+description: Publish a skill to Atlan or a new version of one, or write a team skill and publish it. Use when asked to publish, upload, push or release a skill to Atlan. Not for loading a registry skill (atlan-use-skill) or GitHub CI (atlan-connect-repo).
 license: Apache-2.0
 ---
 

@@ -9,10 +9,10 @@ execution:
   max_turns: 30
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
-  - name: fires-atlan-record-outputs
+  - name: fires-atlan-share
     type: tool_used
     tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-record-outputs"'
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
   - name: publishes-once-under-the-key
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
