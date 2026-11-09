@@ -33,7 +33,7 @@ class DatabricksDirect:
     custody = "customer"
     default_dialect = "databricks"
     capabilities = ("query_history", "table_schema", "sql_runner")
-    requires_env = (auth.HOST, auth.PATH, auth.TOKEN, auth.DSN,
+    requires_env = (auth.HOST, auth.PATH, auth.TOKEN, auth.DSN, auth.OWN_DSN,
                     "DATABRICKS_CLIENT_ID", "DATABRICKS_CLIENT_SECRET",
                     "DATABRICKS_HOST", "DATABRICKS_CONFIG_PROFILE", "DATABRICKS_AUTH_TYPE")
     catalog_per_database = True
@@ -43,6 +43,7 @@ class DatabricksDirect:
         S.CredentialRoute("service-principal OAuth M2M", (auth.HOST, auth.PATH, "DATABRICKS_CLIENT_ID", "DATABRICKS_CLIENT_SECRET")),
         S.CredentialRoute("SDK unified authentication", (), note="Matching SDK profile or DATABRICKS_HOST; CLI, cloud and workload identities use their configured SDK provider"),
         S.CredentialRoute("existing connection DSN", (auth.DSN,)),
+        S.CredentialRoute("Databricks connection DSN", (auth.OWN_DSN,)),
     )
     setup_questions = {
         "history": (S.SetupQuestion("workspace_id", "The selected Databricks workspace ID (from its URL)"),),

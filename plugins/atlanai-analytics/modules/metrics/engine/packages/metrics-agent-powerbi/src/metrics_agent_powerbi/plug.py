@@ -61,14 +61,12 @@ EXTRACTOR = pathlib.Path(__file__).resolve().parent / "pbi_definition_extract.py
 
 SPN_ENV = ("PBI_TENANT_ID", "PBI_CLIENT_ID", "PBI_CLIENT_SECRET")
 TOKEN_ENV = "PBI_ACCESS_TOKEN"
-# A service principal that has a certificate and no secret. Not supported: named, never tried.
+# A service principal that has a certificate instead of a secret.
 CERT_ENV = "PBI_CLIENT_CERTIFICATE_PATH"
 # The device-code sign-in's own public client, for a tenant that blocks the default one.
 PUBLIC_CLIENT_ENV = "PBI_PUBLIC_CLIENT_ID"
-CERT_REFUSED = ("certificate sign-in for a service principal is not supported: give the "
-                "principal a client secret (PBI_CLIENT_SECRET), or hand over a token "
-                "(PBI_ACCESS_TOKEN) the principal obtained with its certificate")
 SIGN_IN_KINDS = ("device", "browser")
+ALL_SIGN_INS = (*SIGN_IN_KINDS, 'spn', 'token', 'certificate', 'managed-identity')
 NO_SIGN_IN = ("no Fabric sign-in for a run that is not at a terminal: set PBI_TENANT_ID, "
               "PBI_CLIENT_ID and PBI_CLIENT_SECRET (a service principal) or PBI_ACCESS_TOKEN, "
               "or run it at a terminal to sign in as yourself with a device code")
@@ -99,14 +97,19 @@ def at_terminal() -> bool:
         return False
 
 
-def sign_in() -> str | None:
+def sign_in(settings=None) -> str | None:
     """How a fetch signs in, the first that applies: `spn` (all three service-principal
     variables set), `token` (PBI_ACCESS_TOKEN set), `device` (a person at a terminal), or None
     when none can. Names only are read here; no value is kept."""
+    selected = (settings or {}).get('sign_in') or os.environ.get('PBI_SIGN_IN')
+    if selected:
+        if selected not in ALL_SIGN_INS:
+            raise SignInRefused('PBI_SIGN_IN is not a supported authentication route')
+        return selected if selected not in SIGN_IN_KINDS or at_terminal() else None
     if all(os.environ.get(n, "").strip() for n in SPN_ENV):
         return "spn"
     if os.environ.get(CERT_ENV, "").strip() and not os.environ.get(TOKEN_ENV, "").strip():
-        return "certificate"            # recognised so it is refused by name, never tried
+        return "certificate"
     if os.environ.get(TOKEN_ENV, "").strip():
         return "token"
     if at_terminal():
@@ -141,8 +144,8 @@ class PowerBIFabric:
                                                              for k in cls.fetch_settings)):
             return ("plug 'powerbi-fabric' needs settings.powerbi-fabric.bi (an extract on "
                     "disk), or settings.powerbi-fabric.targets to fetch one")
-        if settings.get("sign_in") not in (None, *SIGN_IN_KINDS):
-            return ("settings.powerbi-fabric.sign_in is `device` or `browser`, not "
+        if settings.get("sign_in") not in (None, *ALL_SIGN_INS):
+            return ("settings.powerbi-fabric.sign_in is a supported authentication route, not "
                     f"{settings.get('sign_in')!r}")
         return None
 
@@ -160,11 +163,13 @@ class PowerBIFabric:
     custody = "customer"
     # Every variable it reads, none of them required on its own (see `env_missing`).
     requires_env: tuple[str, ...] = (*SPN_ENV, TOKEN_ENV, PUBLIC_CLIENT_ENV,
-                                       CERT_ENV)
+                                       CERT_ENV, 'PBI_CLIENT_CERTIFICATE_PASSWORD', 'PBI_SIGN_IN')
     # The ways it signs in, in the order it tries them; the interview lists them, never asks.
     credential_routes = (
         S.CredentialRoute("service principal", SPN_ENV),
         S.CredentialRoute("access token", (TOKEN_ENV,)),
+        S.CredentialRoute('certificate', ('PBI_TENANT_ID', 'PBI_CLIENT_ID', CERT_ENV)),
+        S.CredentialRoute('managed identity', ('PBI_SIGN_IN',), note='Set PBI_SIGN_IN=managed-identity in a managed-identity host; PBI_CLIENT_ID optionally selects a user-assigned identity'),
         S.CredentialRoute("your own sign-in", (),
                           note="nothing to set: run at a terminal and sign in with the code "
                                "the run shows, or in your browser with `sign_in: browser` "
@@ -205,13 +210,11 @@ class PowerBIFabric:
             ok = pathlib.Path(str(settings["bi"])).expanduser().exists()
             return S.CheckResult(ok, "extract found" if ok else "the `bi` path does not exist",
                                  fix="" if ok else "settings.powerbi-fabric.bi")
-        mode = sign_in()
+        mode = sign_in(settings)
         if mode is None:
             return S.CheckResult(False, NO_SIGN_IN, S.missing_env(self.requires_env),
                                  fix="PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET or "
                                      "PBI_ACCESS_TOKEN (or run at a terminal)")
-        if mode == "certificate":
-            return S.CheckResult(False, CERT_REFUSED, fix="PBI_CLIENT_SECRET or PBI_ACCESS_TOKEN")
         if not (settings.get("targets") or settings.get("workspace")):
             return S.CheckResult(False, "no report or workspace to fetch",
                                  fix="settings.powerbi-fabric.targets or .workspace")
@@ -220,7 +223,15 @@ class PowerBIFabric:
         partial = [n for n in SPN_ENV if os.environ.get(n, "").strip()] if mode != "spn" else []
         note = (f" ({', '.join(partial)} set, but not all three: the service principal is "
                 "not used)") if partial else ""
-        if mode == "spn":
+        if mode in ('certificate', 'managed-identity'):
+            from argparse import Namespace
+            from metrics_agent_powerbi.credentials import TokenProvider
+            try:
+                token = TokenProvider(Namespace(auth=mode, scope=X.DEFAULT_SCOPE), X)()
+            except X.AuthError as exc:
+                return S.CheckResult(False, str(exc), fix='The selected Power BI credential configuration')
+            route = 'signs in with ' + mode
+        elif mode == "spn":
             route = "signs in as the service principal"
             try:
                 token = X.token_client_credentials(X.DEFAULT_SCOPE)
@@ -313,11 +324,9 @@ class PowerBIFabric:
         targets = [targets] if isinstance(targets, str) else list(targets)
         if not targets and not self.settings.get("workspace"):
             raise S.NotSupported("powerbi-fabric: set `targets` or `workspace`")
-        mode = sign_in()
+        mode = sign_in(self.settings)
         if mode is None:
             raise SignInRefused(f"powerbi-fabric: {NO_SIGN_IN}")
-        if mode == "certificate":
-            raise S.NotSupported(f"powerbi-fabric: {CERT_REFUSED}")
         if mode == "device" and self.settings.get("sign_in") == "browser":
             mode = "browser"
         cmd = [sys.executable, str(EXTRACTOR), *targets, "--out", str(dest), "--auth", mode,

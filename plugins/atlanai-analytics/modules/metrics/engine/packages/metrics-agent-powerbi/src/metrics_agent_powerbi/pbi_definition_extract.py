@@ -332,7 +332,7 @@ def _write_cached_token(path: str, token: str, expires_in: int) -> None:
         pass
 
 
-def token_client_credentials(scope: str) -> str:
+def token_client_credentials(scope: str, *, on_token=None) -> str:
     tenant = os.environ.get("PBI_TENANT_ID", "").strip()
     client_id = os.environ.get("PBI_CLIENT_ID", "").strip()
     secret = os.environ.get("PBI_CLIENT_SECRET", "").strip()
@@ -362,13 +362,15 @@ def token_client_credentials(scope: str) -> str:
             f"service principal sign-in failed ({status}): "
             f"{payload.get('error_description') or payload.get('error')}"
         )
+    if on_token:
+        on_token(payload)
     return payload["access_token"]
 
 
-def token_device_code(tenant: str, client_id: str, scope: str) -> Tuple[str, int]:
+def token_device_code(tenant: str, client_id: str, scope: str, *, on_token=None) -> Tuple[str, int]:
     status, payload = _form_post(
         f"{LOGIN_HOST}/{tenant}/oauth2/v2.0/devicecode",
-        {"client_id": client_id, "scope": scope},
+        {"client_id": client_id, "scope": scope + " offline_access"},
     )
     if status != 200 or "device_code" not in payload:
         raise AuthError(
@@ -395,6 +397,8 @@ def token_device_code(tenant: str, client_id: str, scope: str) -> Tuple[str, int
         )
         if status == 200 and "access_token" in tok:
             log("Signed in.")
+            if on_token:
+                on_token(tok)
             return tok["access_token"], int(tok.get("expires_in", 3600))
         error = tok.get("error")
         if error == "authorization_pending":
@@ -453,7 +457,7 @@ class _Redirect(http.server.BaseHTTPRequestHandler):
 
 def token_auth_code(tenant: str, client_id: str, scope: str, *,
                     open_url: Optional[Any] = None,
-                    timeout: int = SIGN_IN_WAIT_SECONDS) -> Tuple[str, int]:
+                    timeout: int = SIGN_IN_WAIT_SECONDS, on_token=None) -> Tuple[str, int]:
     """A person's sign-in in their own browser: the OAuth 2.0 authorization code flow with
     PKCE (S256) and a loopback redirect, for a public client (no secret).
 
@@ -471,7 +475,7 @@ def token_auth_code(tenant: str, client_id: str, scope: str, *,
     redirect = f"http://localhost:{server.server_port}/"
     url = f"{LOGIN_HOST}/{tenant}/oauth2/v2.0/authorize?" + urllib.parse.urlencode({
         "client_id": client_id, "response_type": "code", "redirect_uri": redirect,
-        "response_mode": "query", "scope": scope, "state": state,
+        "response_mode": "query", "scope": scope + " offline_access", "state": state,
         "code_challenge": challenge, "code_challenge_method": "S256",
         "prompt": "select_account"})
     log()
@@ -507,6 +511,8 @@ def token_auth_code(tenant: str, client_id: str, scope: str, *,
         raise AuthError(f"browser sign-in failed at the token endpoint ({status}): "
                         f"{tok.get('error_description') or tok.get('error')}")
     log("Signed in.")
+    if on_token:
+        on_token(tok)
     return tok["access_token"], int(tok.get("expires_in", 3600))
 
 
@@ -561,7 +567,7 @@ def public_client_id(default: str = DEFAULT_PUBLIC_CLIENT_ID) -> str:
     return value
 
 
-def acquire_token(args: argparse.Namespace) -> str:
+def acquire_token(args: argparse.Namespace, *, on_token=None) -> str:
     if args.auth == "token":
         token = os.environ.get("PBI_ACCESS_TOKEN", "").strip()
         if not token:
@@ -571,7 +577,7 @@ def acquire_token(args: argparse.Namespace) -> str:
             raise AuthError(problem)
         return token
     if args.auth == "spn":
-        return token_client_credentials(args.scope)
+        return token_client_credentials(args.scope, on_token=on_token)
 
     cache = (
         None
@@ -588,9 +594,9 @@ def acquire_token(args: argparse.Namespace) -> str:
 
         token, expires_in = token_auth_code(args.tenant, args.client_id, args.scope,
                                             open_url=webbrowser.open,
-                                            timeout=args.sign_in_timeout)
+                                            timeout=args.sign_in_timeout, on_token=on_token)
     else:
-        token, expires_in = token_device_code(args.tenant, args.client_id, args.scope)
+        token, expires_in = token_device_code(args.tenant, args.client_id, args.scope, on_token=on_token)
     if cache:
         _write_cached_token(cache, token, expires_in)
     return token
@@ -705,8 +711,10 @@ class FabricClient:
         pacer: Optional[RatePacer] = None,
         limiter: Optional[AdaptiveLimiter] = None,
         verbose: bool = False,
+        token_provider=None,
     ):
         self._token = token
+        self._token_provider = token_provider
         self.pacer = pacer
         self.limiter = limiter
         self.verbose = verbose
@@ -720,7 +728,7 @@ class FabricClient:
         return self.max_attempts or MAX_ATTEMPTS
 
     def _request(
-        self, method: str, url: str, body: Optional[dict] = None
+        self, method: str, url: str, body: Optional[dict] = None, *, _refreshed=False
     ) -> Tuple[int, Dict[str, str], Any]:
         data = json.dumps(body).encode() if body is not None else None
         headers = {"Authorization": f"Bearer {self._token}", "Accept": "application/json"}
@@ -728,6 +736,9 @@ class FabricClient:
             headers["Content-Type"] = "application/json"
 
         for attempt in range(1, self._attempts() + 1):
+            if self._token_provider:
+                self._token = self._token_provider()
+                headers['Authorization'] = f'Bearer {self._token}'
             if self.pacer is not None:
                 self.pacer.wait()
             req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -738,6 +749,9 @@ class FabricClient:
                     return resp.status, dict(resp.headers), parsed
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode(errors="replace")
+                if exc.code == 401 and self._token_provider and not _refreshed:
+                    self._token = self._token_provider(force=True)
+                    return self._request(method, url, body, _refreshed=True)
                 if exc.code == 429 and self.limiter is not None:
                     self.limiter.note_throttle()
                 if exc.code in (429, 500, 502, 503, 504) and attempt < self._attempts():
@@ -754,11 +768,14 @@ class FabricClient:
                 raise ApiError(0, "NetworkError", str(reason)) from None
         raise ApiError(0, "RetryExhausted", f"gave up on {method}")
 
-    def download(self, url: str, target: str) -> Tuple[int, bytes]:
+    def download(self, url: str, target: str, *, _refreshed=False) -> Tuple[int, bytes]:
         """GET a file to `target` (owner-only), retrying a throttle or a 5xx like any call.
         Returns (bytes written, the first bytes, to tell a .pbix zip from a .rdl)."""
         headers = {"Authorization": f"Bearer {self._token}"}
         for attempt in range(1, self._attempts() + 1):
+            if self._token_provider:
+                self._token = self._token_provider()
+                headers['Authorization'] = f'Bearer {self._token}'
             if self.pacer is not None:
                 self.pacer.wait()
             req = urllib.request.Request(url, headers=headers, method="GET")
@@ -775,6 +792,9 @@ class FabricClient:
                     return size, head
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode(errors="replace")
+                if exc.code == 401 and self._token_provider and not _refreshed:
+                    self._token = self._token_provider(force=True)
+                    return self.download(url, target, _refreshed=True)
                 if exc.code in (429, 500, 502, 503, 504) and attempt < self._attempts():
                     time.sleep(_retry_after(dict(exc.headers), attempt, self.max_retry_after,
                                             exc.code))
@@ -1560,7 +1580,7 @@ def main() -> int:
     parser.add_argument("--probe", action="store_true",
                         help="sign in and print, as JSON, what this identity can reach "
                              "(workspaces, the admin API); fetch no content")
-    parser.add_argument("--auth", choices=["device", "browser", "spn", "token"],
+    parser.add_argument("--auth", choices=["device", "browser", "spn", "token", "certificate", "managed-identity"],
                         default="device",
                         help="device: a person, with a device code; browser: a person, in "
                              "their browser (authorization code with PKCE); spn; token")
@@ -1627,7 +1647,9 @@ def main() -> int:
 
     pacer = RatePacer(args.calls_per_minute) if args.calls_per_minute > 0 else None
     limiter = AdaptiveLimiter(max(args.concurrency, 1))
-    client = FabricClient(acquire_token(args), pacer, limiter, args.verbose)
+    from metrics_agent_powerbi.credentials import TokenProvider
+    provider = TokenProvider(args, sys.modules[__name__])
+    client = FabricClient(provider(), pacer, limiter, args.verbose, token_provider=provider)
     client.operation_timeout, client.max_retry_after = args.operation_timeout, args.max_retry_after
 
     # What this identity can reach, before anything is read: the manifest records it, and
