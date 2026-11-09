@@ -70,7 +70,7 @@ export const register: Register = on => {
         const changed=stale||!current||JSON.stringify({...current,snapshot_at:''})!==JSON.stringify({...value,snapshot_at:''})
         current = value
         stale = false
-        if(!dismissed&&!placed&&!attemptedPlacement){attemptedPlacement=true;const opened=await $.ui.open({id:ID,title:'Analytics'});placed=opened.isPlaced}
+        if(!dismissed&&!placed&&!attemptedPlacement){attemptedPlacement=true;await $.ui.open({id:ID,title:'Analytics'});placed=(await $.ui.panes()).some(p=>p.id===ID&&p.isPlaced&&p.isShown)}
         if(changed) $.ui.invalidate('ui.render')
         return true
       } catch {
@@ -87,14 +87,14 @@ export const register: Register = on => {
     // A legacy snapshot must not overwrite an authoritative live subscription.
     if(feed) return {result:'Analytics already follows saved run state automatically. Save progress in the run.'}
     current=e.view
-    if(!dismissed&&!placed){const opened=await $.ui.open({id:ID,title:'Analytics'});placed=opened.isPlaced}
+    if(!dismissed&&!placed){await $.ui.open({id:ID,title:'Analytics'});placed=(await $.ui.panes()).some(p=>p.id===ID&&p.isPlaced&&p.isShown)}
     $.ui.invalidate('ui.render')
     return {result:JSON.stringify({displayed:placed&&!dismissed,surface:placed?'native_pane':'text_fallback',dismissed,read_only:true})}
   }).catch(()=>({result:JSON.stringify({displayed:false,surface:'text_fallback',read_only:true}),isError:true}))
   on('command.run',{command:ID},async ($) => {
     if(!current) return {text:'Start Analytics setup to inspect a source and prepare its view.'}
     dismissed=false
-    const opened=await $.ui.open({id:ID,title:'Analytics',focus:true});placed=opened.isPlaced
+    await $.ui.open({id:ID,title:'Analytics',focus:true});placed=(await $.ui.panes()).some(p=>p.id===ID&&p.isPlaced&&p.isShown)
     $.ui.invalidate('ui.render')
     return {text:placed?'Analytics pane opened.':'The pane needs a wider window. The evidence remains available in chat.'}
   }).catch(()=>({text:'The Analytics pane is unavailable. Continue with the evidence in chat.'}))
@@ -124,6 +124,8 @@ export const register: Register = on => {
       const local=v.interaction_mode==='local'
       const active=['preview','publish','ready'].includes(v.phase_code)?2:v.metric?1:0
       const meaning=v.meaning.match(/^.*?[.!?](?:\s|$)/)?.[0].trim()||v.meaning
+      const prepared=Number(stats.metrics)>0||Number(stats.queries)>0||!!v.metric
+      const canExplore=prepared&&!!v.domain&&!!v.purpose&&['preview','ready'].includes(v.phase_code)
       return <Box flexDirection="column" gap={1}>
         <Box flexDirection="row" justifyContent="space-between" gap={1}>
           <Text bold>{v.domain||'Your analytics'}</Text>
@@ -133,19 +135,19 @@ export const register: Register = on => {
         <Box flexDirection="row" gap={2} flexWrap="wrap">
           {['Discover','Prepare','Use'].map((label,i)=><Text key={label} bold={i===active} dimColor={i!==active}>{(i<active?'✓ ':i===active?'● ':'○ ')+label}</Text>)}
         </Box>
-        <Box flexDirection="row" gap={1} flexWrap="wrap">
+        {prepared?<Box flexDirection="row" gap={1} flexWrap="wrap">
           {[['metrics','Metrics'],['queries','Queries'],['executed','SQL checks']].map(([key,label])=><Box key={key} flexDirection="column" flexGrow={1} borderStyle="round" borderDimColor paddingX={1} paddingY={1}><Text bold>{count(key)}</Text><Text dimColor>{label}</Text></Box>)}
-        </Box>
+        </Box>:''}
         <Box flexDirection="column" gap={1} borderStyle="round" borderDimColor padding={1}>
           <Box flexDirection="row" justifyContent="space-between" gap={1} flexWrap="wrap"><Text bold>{v.metric||'What matters to you?'}</Text><Text dimColor>{local?'Saved locally':Number(stats.released)>0?'Shared in Atlan':'In progress'}</Text></Box>
           <Text>{v.metric?meaning:(v.summary||'Choose a business focus in chat. Your first metric will appear here.')}</Text>
           <Text dimColor>{v.check||'Waiting for your business focus'}</Text>
-          <Button key="evidence" label={details?'Hide definition and checks':'View definition and checks'} onPress={()=>{details=!details;$.ui.invalidate('ui.render')}}/>
+          {v.metric?<Button key="evidence" label={details?'Hide definition and checks':'View definition and checks'} onPress={()=>{details=!details;$.ui.invalidate('ui.render')}}/>:''}
         </Box>
-        {details?<Box flexDirection="column" gap={1}><Text bold>{v.metric+' · Evidence'}</Text><Text>{v.meaning}</Text><Text>{'Calculation: '+v.calculation}</Text><Text>{'Includes: '+v.population}</Text><Text>{v.source}</Text><Text>{v.evidence||v.check}</Text>{v.sql?<Text>{'Saved SQL: '+v.sql}</Text>:''}<Text dimColor>Saved checks are not fresh execution or proof of dashboard parity.</Text></Box>:''}
+        {details&&v.metric?<Box flexDirection="column" gap={1}><Text bold>{v.metric+' · Evidence'}</Text><Text>{v.meaning}</Text><Text>{'Calculation: '+v.calculation}</Text><Text>{'Includes: '+v.population}</Text><Text>{v.source}</Text><Text>{v.evidence||v.check}</Text>{v.sql?<Text>{'Saved SQL: '+v.sql}</Text>:''}<Text dimColor>Saved checks are not fresh execution or proof of dashboard parity.</Text></Box>:''}
         <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1} flexWrap="wrap">
-          <Text>{stats.review_required?`${stats.review_required} queries need source review`:v.metric?'Explore your saved definitions':'Understanding your sources'}</Text>
-          <Button key="ask" label={stats.review_required?'Review queries':'Explore a question'} onPress={()=>void draft(stats.review_required?'Show the queries that still need source review and the evidence needed to review them.':'Show a question supported by this analytics run, with its local or released scope.')}/>
+          <Text>{stats.review_required?`${stats.review_required} queries need source review`:canExplore?'Explore your saved definitions':v.next}</Text>
+          {stats.review_required||canExplore?<Button key="ask" label={stats.review_required?'Review queries':'Explore a question'} onPress={()=>void draft(stats.review_required?'Show the queries that still need source review and the evidence needed to review them.':'Show a question supported by this analytics run, with its local or released scope.')}/>:''}
         </Box>
         <Box flexDirection="row" flexWrap="wrap" gap={1}>
           <Button key="sources" label={sources?'Hide sources':'View sources'} dimColor onPress={()=>{sources=!sources;$.ui.invalidate('ui.render')}}/>
@@ -155,7 +157,7 @@ export const register: Register = on => {
         {sources?<Box flexDirection="column" gap={1}><Text bold>What we found</Text><Text>{v.summary||v.sources.join(', ')}</Text>{v.opportunities.map((s:string)=><Text key={s}>{s}</Text>)}</Box>:''}
         {v.warnings.map((s:string)=><Text key={s}>{s}</Text>)}
         {stale?<Text>Updates unavailable. Showing the last received evidence.</Text>:''}
-        <Text dimColor>{`${count('released')} shared in Atlan · ${count('held')} held`}</Text>
+        {prepared?<Text dimColor>{`${count('released')} shared in Atlan · ${count('held')} held`}</Text>:''}
         <Text dimColor>{feedback||'Actions prepare a message in chat. Submit it to continue.'}</Text>
       </Box>
     }

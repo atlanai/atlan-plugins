@@ -138,7 +138,7 @@ default = true
 [[mods]]
 name = "atlanai-analytics-view"
 display_name = "Analytics View"
-version = "0.1.8"
+version = "0.1.9"
 description = "Native Analytics source overview, metric evidence and progress pane for Claude Code. Shows only supplied presentation data and fills prompts on explicit button clicks."
 keywords = ["atlan", "analytics", "preview"]
 claude_category = "development"

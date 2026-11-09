@@ -41,7 +41,11 @@ Reuse an explicit existing destination or ask once by accessible workspace name,
 local as an alternative. Explain it as where the team finds and reuses definitions. Never
 offer or attempt API/CLI workspace creation. If none is accessible, retain the sample and
 run, then explain how to request access. Only an explicit new-workspace request gets the
-UI/admin route; refresh the list after the person resolves it. Fetch live kind schemas and existing definitions, then
+UI/admin route; refresh the list after the person resolves it. An explanation-only request
+gets one short paragraph: the unavailable creation capability, preserved local drafts, and
+the UI/admin action followed by refreshing accessible workspaces. Do not narrate a full
+publication workflow, speculate about CLI endpoints, or add an alternative destination menu.
+Fetch live kind schemas and existing definitions, then
 run `MINE check` with that destination. Only now show actual create/revise/reuse/held counts.
 If reconciliation changes a candidate, show the changed preview. Follow [publication](../metrics/publish.md)
 for the concrete plan, missing authorization, idempotency, release policy and uncertain-write
@@ -80,8 +84,9 @@ history. Its example ran earlier; dashboard value parity remains unmeasured.
 You can explore local shipped-unit totals or units by region. Time comparisons are not
 supported. Next, review the 2 outstanding queries."
 
-Use actual evidence, not this example's numbers. Never end a supported-question handoff by
-asking the user to invent a held metric's denominator; inspect its source definition instead.
+Use actual evidence, not this example's numbers. Explain a held metric's reason briefly.
+Do not append a new task to resolve it after the supported-question handoff. If the person
+asks to resolve it, inspect its source definition; do not ask them to invent a denominator.
 After displaying the sample, save `PROJECT progress --stage preview --status complete`
 (or `complete-with-held-items`). Keep local then finishes at the local-question handoff,
 not a stale Build/Check stage. Never mark Ready without matching release receipts.

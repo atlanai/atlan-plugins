@@ -5,8 +5,22 @@ const FOLLOW='mcp__atlanai-analytics-view__follow'
 const view={phase:'Checking definitions',status:'running',summary:'Synthetic shipping model and query history.',domain:'Shipping cost',purpose:'Prepare reusable metrics',counts:'1 metrics, 0 queries, 0 saved, 0 held',metric:'Shipping cost',meaning:'Cost for shipped shipments.',calculation:'SUM(cost)',population:'Shipped shipments only',source:'Synthetic model',check:'SQL untested',next:'Check the definition.',snapshot_at:'2026-11-09T00:00:00Z',sources:['shipping.bim'],opportunities:['Cost by region'],warnings:[]}
 const pane={plugin:'atlanai-analytics-view',surface:'terminal',component:'Pane',requestId:'analytics-view',props:{title:'Analytics',isFocused:false,bodyColumns:60,placement:'dock',scroll:{offset:0,bodyRows:40},view:{}}} as const
 describe('Analytics native pane',()=>{
+ test('discovery shows source understanding without empty evidence or premature exploration',async($,on)=>{
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
+  await $.tool.call({tool:TOOL,view:{...view,phase_code:'scope',metric:'',domain:'',purpose:'',meaning:'',next:'Choose your business focus in chat.',
+   stats:{metrics:0,queries:0,executed:0,review_required:0,released:0,held:0}}})
+  const ui=await $.ui.mount({...pane,surface:'desktop'})
+  expect((await ui.find({type:'Text',text:view.summary}))?.text).toBe(view.summary)
+  expect((await ui.find({type:'Text',text:'Choose your business focus in chat.'}))?.text).toBe('Choose your business focus in chat.')
+  expect(await ui.find({type:'Button',key:'evidence'})).toBeUndefined()
+  expect(await ui.find({type:'Button',key:'ask'})).toBeUndefined()
+  expect(await ui.find({type:'Text',text:'SQL checks'})).toBeUndefined()
+  await ui.unmount()
+ })
  test('desktop starts with a visual board and reveals long evidence only on request',async($,on)=>{
-  on('ui.open',()=>({value:{isPlaced:true}}))
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   let filled=''
   on('prompt.fill',(_,e)=>{filled=e.text;return {isFilled:true}})
   await $.tool.call({tool:TOOL,view:{...view,phase_code:'preview',interaction_mode:'local',
@@ -27,7 +41,8 @@ describe('Analytics native pane',()=>{
   await ui.unmount()
  })
  test('desktop keeps supplied markup literal in native text',async($,on)=>{
-  on('ui.open',()=>({value:{isPlaced:true}}))
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   const metric='<script>alert(1)</script>'
   await $.tool.call({tool:TOOL,view:{...view,metric}})
   const ui=await $.ui.mount({...pane,surface:'desktop'})
@@ -43,9 +58,11 @@ describe('Analytics native pane',()=>{
  })
  test('opens, draws, updates and preserves dismissal',async($,on)=>{
   let opened=0
-  on('ui.open',()=>{opened++;return {value:{isPlaced:true}}})
+  on('ui.open',()=>{opened++;return {value:undefined}})
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   on('ui.close',()=>({value:undefined}))
-  await $.tool.call({tool:TOOL,view})
+  const shown=await $.tool.call({tool:TOOL,view})
+  expect(JSON.parse(String(shown.result)).displayed).toBe(true)
   expect(opened).toBe(1)
   const ui=await $.ui.mount(pane)
   expect((await ui.find({type:'Text',text:/Synthetic shipping/}))?.text).toBe(view.summary)
@@ -56,12 +73,14 @@ describe('Analytics native pane',()=>{
   expect(opened).toBe(1)
  })
  test('reports unplaced panes honestly',async($,on)=>{
-  on('ui.open',()=>({value:{isPlaced:false}}))
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:false,isShown:false,isFocused:false}]}))
   const result=await $.tool.call({tool:TOOL,view})
   expect(JSON.stringify(result)).toContain('text_fallback')
  })
  test('short terminal pane prioritizes the selected result and expands evidence on demand',async($,on)=>{
-  on('ui.open',()=>({value:{isPlaced:true}}))
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   await $.tool.call({tool:TOOL,view})
   const ui=await $.ui.mount({...pane,props:{...pane.props,placement:'inline',bodyColumns:100,scroll:{offset:0,bodyRows:8}}})
   expect((await ui.find({type:'Text',text:'Shipping cost · SQL untested'}))?.text).toBe('Shipping cost · SQL untested')
@@ -74,7 +93,8 @@ describe('Analytics native pane',()=>{
  })
  test('buttons reveal evidence and fill requests without executing them',async($,on)=>{
   const filled:string[]=[]
-  on('ui.open',()=>({value:{isPlaced:true}}))
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   on('prompt.fill',(_,e)=>{filled.push(e.text);return {isFilled:true}})
   await $.tool.call({tool:TOOL,view})
   const ui=await $.ui.mount(pane)
@@ -87,7 +107,8 @@ describe('Analytics native pane',()=>{
  test('updates the same pane without reopening or stealing focus',async($,on)=>{
   let opened=0
   let filled=''
-  on('ui.open',()=>{opened++;return {value:{isPlaced:true}}})
+  on('ui.open',()=>{opened++;return {value:undefined}})
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   on('prompt.fill',(_,e)=>{filled=e.text;return {isFilled:true}})
   await $.tool.call({tool:TOOL,view})
   await $.tool.call({tool:TOOL,view:{...view,status:'paused',interaction_mode:'paused',check:'SQL checked'}})
@@ -106,13 +127,16 @@ describe('Analytics native pane',()=>{
   const clock=mock.clock(on)
   let opened=0,broken=false
   let latest={...view,interaction_mode:'active'}
-  on('ui.open',()=>{opened++;return {value:{isPlaced:true}}})
+  on('ui.open',()=>{opened++;return {value:undefined}})
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   on('ui.close',()=>({value:undefined}))
   on('http.fetch',(_,e)=>{
    expect(e.url).toBe('http://127.0.0.1:43123/pane')
    return {value:{status:broken?503:200,ok:!broken,headers:{},text:JSON.stringify(latest)}}
   })
-  await $.tool.call({tool:FOLLOW,url:'http://127.0.0.1:43123/pane'})
+  const followed=await $.tool.call({tool:FOLLOW,url:'http://127.0.0.1:43123/pane'})
+  expect(JSON.parse(String(followed.result)).displayed).toBe(true)
+  expect(JSON.parse(String(followed.result)).following).toBe(true)
   const ui=await $.ui.mount(pane)
   expect((await ui.find({type:'Text',text:/Following saved progress/}))?.text).toContain('automatically')
   latest={...latest,domain:'Delivery time',check:'Recorded SQL check passed'}
@@ -130,7 +154,8 @@ describe('Analytics native pane',()=>{
  })
  test('engine waiting cannot turn a pause request into resume',async($,on)=>{
   let filled=''
-  on('ui.open',()=>({value:{isPlaced:true}}))
+  on('ui.open',()=>({value:undefined}))
+  on('ui.panes',()=>({value:[{id:'analytics-view',title:'Analytics',isPlaced:true,isShown:true,isFocused:false}]}))
   on('prompt.fill',(_,e)=>{filled=e.text;return {isFilled:true}})
   await $.tool.call({tool:TOOL,view:{...view,status:'paused',interaction_mode:'active'}})
   const ui=await $.ui.mount(pane)

@@ -40,6 +40,11 @@ Installing Analytics in Claude Code automatically includes its native view. Do n
 person to find or install a separate view plugin. If an older installation lacks the tools,
 continue with the fallback below and explain once that updating Analytics and reloading
 plugins restores the included view. Do not change installations unless requested.
+After an authorized update, restart a CLI session before testing the new companion; an
+already-running session can retain the old code. Preserve and resume its existing run.
+If the feed is following but not displayed, offer `/analytics-view` first: this explicit
+command can place a pane in a narrow terminal. Do not diagnose a broken server or require
+fullscreen merely because automatic placement was declined.
 `/analytics-view` reopens the last pane. Its buttons use
 native prompt filling: the person submits the filled text to request pause, local mode or
 details. The pane confirms that a request was prepared; it does not claim to have applied it.
