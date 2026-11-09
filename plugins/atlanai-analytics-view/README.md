@@ -16,7 +16,10 @@ These are host layout controls, not plugin settings.
 
 The mod registers two presentation tools and one command. `follow` accepts only
 `http://127.0.0.1:<port>/pane`; `show` retains compatibility with bounded static snapshots.
-It renders text, keeps it in session memory and uses native buttons to fill the user's
+Desktop renders a visual board with a three-step progress rail, count cards, a selected
+metric card and review/local-state badges. Sources, SQL and check details expand on demand.
+The board is escaped, script-free SVG with accessible alternative text and light/dark colors.
+Terminal panes retain a compact text layout. It keeps presentation in memory and uses native buttons to fill the user's
 prompt. It confirms when the request is prepared; the user must submit it. Inspect source
 and checks toggles local detail visibility. Failed refreshes label the retained evidence
 stale. Compact tool rows keep presentation JSON out of the normal transcript.

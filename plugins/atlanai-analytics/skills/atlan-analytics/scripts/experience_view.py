@@ -39,6 +39,8 @@ def pane(model, understanding):
     if status == 'paused' and model['interaction']['mode'] != 'paused':
         status = 'working'
     return {'phase': clean(model['phase']['label'], 120), 'status': clean(status, 80),
+            'phase_code': model['phase']['code'],
+            'stats': {key: model['counts'][key] for key in ('metrics', 'queries', 'executed', 'review_required', 'released', 'held')},
             'interaction_mode': model['interaction']['mode'],
             'summary': clean(understanding.get('summary'), 1200),
             'sources': [clean(s['name'], 120) for s in model['scope'][:8]],
