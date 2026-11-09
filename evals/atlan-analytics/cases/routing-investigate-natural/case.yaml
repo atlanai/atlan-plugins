@@ -1,0 +1,36 @@
+schema_version: "1.1"
+name: routing-investigate-natural
+tags: [analytics, routing, investigate]
+execution:
+  prompt: |
+    Our on-time departure rate dropped last month compared with the month before. Dig into
+    what is driving it across stations and aircraft types.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: picks-investigate
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-analytics-investigate"'
+    min: 1
+  - name: searches-released-metrics
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    input_match: '"extension__metric__search_metrics"'
+    min: 1
+  - name: avoids-agent-build
+    type: tool_used
+    tool: Read
+    input_match: 'references/full-agent\.md'
+    min: 0
+    max: 0
+  - name: no-invented-finding
+    type: llm
+    criteria: |
+      PASS if the reply uses OTP D15 (otp_d15) as the definition, says no warehouse query tool is reachable through Atlan, and gives the statements to run first (the rate for both months, earlier months, or row counts) or asks for a pasted result. It may list hypotheses as things to test.
+      FAIL if it states a size for the drop, names a station or aircraft type as the driver, or presents any hypothesis as a finding, since no query ran.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

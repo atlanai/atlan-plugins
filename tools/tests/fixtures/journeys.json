@@ -966,6 +966,126 @@
    "measured": null
   },
   {
+   "id": "analytics-investigate-change",
+   "plugin": "atlanai-analytics",
+   "skill": "atlan-analytics-investigate",
+   "title": "Find what drove a change in a released metric",
+   "route": "One metric search (opens the session); release history, earlier analyses and the warehouse check together; three statements to test that the change is real; four cuts sent together",
+   "calls": {
+    "cold": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<terms>",
+       "definition_limit": 1,
+       "include_definition": true,
+       "semantic": true,
+       "definition_view": "compact"
+      }
+     },
+     {
+      "tool": "registry__list_releases",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<metric>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "output",
+       "query": "<measure>",
+       "workspace_id": "<ws>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<check statement>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<both windows, earlier periods, row counts>"
+      },
+      "group": "g2",
+      "repeat": 3
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<one cut, both windows, LIMIT>"
+      },
+      "group": "g3",
+      "repeat": 4
+     }
+    ],
+    "warm": [
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "definition_limit": 1,
+       "semantic": true
+      }
+     },
+     {
+      "tool": "registry__list_releases",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<metric>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "output",
+       "query": "<measure>",
+       "workspace_id": "<ws>"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<both windows, earlier periods, row counts>"
+      },
+      "group": "g2",
+      "repeat": 3
+     },
+     {
+      "tool": "warehouse.query",
+      "runner": "warehouse",
+      "args": {
+       "sql": "<one cut, both windows, LIMIT>"
+      },
+      "group": "g3",
+      "repeat": 4
+     }
+    ]
+   },
+   "budget": {
+    "cold": 11,
+    "warm": 10
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
    "id": "analytics-connect-warehouse",
    "plugin": "atlanai-analytics",
    "skill": "atlan-analytics",

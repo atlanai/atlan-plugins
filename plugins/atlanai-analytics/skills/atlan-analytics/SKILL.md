@@ -44,7 +44,7 @@ instead of `atlanai-analytics:` below; do not install this add-on beside that bu
 ## 0. Dispatch the requested mode first
 
 **Dispatch explicit modes first.** `dashboard`, `metrics`, `build`, `eval`, `improve`,
-`ask`, `ontology`, `connect` and `propose` retain their documented routes. Only the `build`
+`ask`, `investigate`, `ontology`, `connect` and `propose` retain their documented routes. Only the `build`
 mode or an explicit request to register, deploy or evaluate a separate agent uses the agent
 workflow.
 
@@ -98,7 +98,8 @@ If the first argument is exactly `ask`, or there is no mode and the request is a
 this plugin's `atlan-analytics-ask` skill by name (in Claude Code, the Skill tool's
 `atlanai-analytics:atlan-analytics-ask`). It answers in the
 conversation from published definitions, then returns: no full-agent preflight, project, eval
-or agent.
+or agent. `investigate`, a root cause or a deep dive loads `atlan-analytics-investigate` the
+same way.
 
 If the first argument is exactly `ontology`, or the request is about business objects, their
 relationships, governed policies or modelling the business, load and follow this

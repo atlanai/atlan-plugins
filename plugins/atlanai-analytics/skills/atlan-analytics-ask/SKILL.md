@@ -114,9 +114,9 @@ Apply [explanation checks](../atlan-analytics/references/answer-checks.md) to nu
    - a join did not multiply rows: compare the count before and after when in doubt;
    - the number is plausible against the definition (no all-NULL or zero where a count is
      expected). If not, re-check the filters against the definition before answering.
-4. For an explanation, break the change down along the definition's dimensions, one at a time,
-   and report the largest contributors with their share of the change. Say "associated with",
-   not "caused", unless an experiment shows it.
+4. For an explanation, break the change down along one dimension and report the largest
+   contributors with their share. Say "associated with", not "caused". A root cause, a deep
+   dive or several cuts loads `atlan-analytics-investigate` instead.
 
 ## 5. Answer
 

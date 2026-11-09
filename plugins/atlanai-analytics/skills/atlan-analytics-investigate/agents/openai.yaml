@@ -1,0 +1,11 @@
+interface:
+  display_name: "Investigate a Metric"
+  short_description: "Find what drove a change in a governed metric"
+  default_prompt: "Use $atlan-analytics-investigate to find out why revenue fell last month against the month before."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

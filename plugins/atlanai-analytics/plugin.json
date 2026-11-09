@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
-  "version": "0.6.24",
+  "version": "0.6.25",
   "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows.",
   "author": {
     "name": "Atlan",
@@ -25,7 +25,7 @@
       "interface": {
         "displayName": "Analytics",
         "shortDescription": "Publish analytics context and ask your data with Atlan",
-        "longDescription": "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions.",
+        "longDescription": "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Investigate why a metric changed, with the contributors reconciled to the total. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions.",
         "developerName": "Atlan",
         "category": "Data & Analytics",
         "capabilities": [

@@ -1,0 +1,33 @@
+schema_version: "1.1"
+name: investigate-mix-not-rate
+tags: [analytics, reliability, investigate]
+execution:
+  prompt: |
+    Use Atlan Analytics Investigate to finish this finding from the fresh read-only results
+    already obtained in this turn. This is a finding-writing checkpoint, not a request to rerun
+    tools. The released OTP D15 metric is on-time departures divided by scheduled departures,
+    cancelled and diverted legs excluded. Source receipt: metric_example, release_example,
+    latest; no release between the two months. Both months are complete, and the eight months
+    before September ranged from 80.2% to 81.9%.
+    Fresh results by station, as scheduled departures and on-time departures:
+    September: BLR 700 and 630; DEL 300 and 180. October: BLR 500 and 455; DEL 500 and 305.
+    Explain why the rate fell in October against September.
+    Do not execute new queries, alter definitions or publish anything.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-investigate
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics-investigate'
+  - name: mix-explains-the-fall
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS only if the answer states the rate fell from 81.0% to 76.0% (5.0 points), attributes about -6.0 points to mix (departures moving towards DEL, the lower-rate station) and about +1.0 point to rates inside stations, and says or shows that the two add up to -5.0. It must note that each station's own rate rose (90% to 91%, 60% to 61%).
+      FAIL if it says a station's performance worsened, sums or averages station rates, gives effects that do not add up to -5.0, says "caused" without qualification, or claims new execution.
+  - name: no-new-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
