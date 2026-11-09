@@ -7,6 +7,11 @@ workspace and offers to join it.
 
 ## What goes in it
 
+- **The dashboard origin** of the environment this connection reaches: `https://app.atlan.com`
+  when the `atlan` server is `api.atlan.com`, `https://app.dev.example` when it is
+  `api.dev.example`. The server's URL names it, or the `uri` of any artifact read with
+  `verbose: true`. A link on another environment's origin opens nothing, so never assume
+  production. The examples below use production.
 - **The organization's slug**, such as `acme`: the first segment of the user's Atlan dashboard
   address (`https://app.atlan.com/acme/…`). Take it from the request, a dashboard address the
   user pasted, or `org` in `.atlan/share.json`. The registry does not return it, and no
@@ -26,7 +31,7 @@ workspace and offers to join it.
    /acme/outputs/output_01abc?ws=workspace_01xyz&n=Q3+churn+report&utm_campaign=output_share&utm_source=agent&utm_content=output_01abc
    ```
 
-2. That whole path percent-encoded once more, after `https://app.atlan.com/?open=`:
+2. That whole path percent-encoded once more, after `<origin>/?open=`:
 
    ```
    https://app.atlan.com/?open=%2Facme%2Foutputs%2Foutput_01abc%3Fws%3Dworkspace_01xyz%26n%3DQ3%2Bchurn%2Breport%26utm_campaign%3Doutput_share%26utm_source%3Dagent%26utm_content%3Doutput_01abc
@@ -35,7 +40,7 @@ workspace and offers to join it.
 With a shell, build it rather than encoding by hand:
 
 ```
-node -e 'const [org,id,ws,n]=process.argv.slice(1);const q=new URLSearchParams({ws,n,utm_campaign:"output_share",utm_source:"agent",utm_content:id});console.log("https://app.atlan.com/?open="+encodeURIComponent(`/${encodeURIComponent(org)}/outputs/${encodeURIComponent(id)}?${q}`))' acme output_01abc workspace_01xyz "Q3 churn report"
+node -e 'const [origin,org,id,ws,n]=process.argv.slice(1);const q=new URLSearchParams({ws,n,utm_campaign:"output_share",utm_source:"agent",utm_content:id});console.log(origin+"/?open="+encodeURIComponent(`/${encodeURIComponent(org)}/outputs/${encodeURIComponent(id)}?${q}`))' https://app.atlan.com acme output_01abc workspace_01xyz "Q3 churn report"
 ```
 
 The link carries no version, so it opens the newest one and keeps working after the next share.

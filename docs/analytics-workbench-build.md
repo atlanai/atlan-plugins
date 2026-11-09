@@ -1,8 +1,14 @@
 # Analytics native journey implementation
 
-Updated 9 November 2026 in the Analytics 0.6.10 candidate worktree. This supersedes the first
+Updated 9 November 2026 for the Analytics 0.6.12 pull request. This supersedes the first
 snapshot-only slice. The default product surface is the existing Claude/Codex conversation.
 There is no custom chat shell, palette, font system, new dependency, server or hook.
+
+The 0.6.12 candidate incorporates current main, including its metric relationship and batched
+read changes. Final repository checks pass: 401 tests with 21 optional skips, plus 116 and 55
+helper checks. Strict Analytics manifest and skill validation pass. Earlier version-specific
+measurements below remain historical evidence; the installed 0.6.10 copies were not replaced
+as part of preparing this pull request.
 
 ## Complete interaction path
 

@@ -7,6 +7,7 @@ import copy
 import hashlib
 import io
 import json
+import re
 import subprocess
 import sys
 import tarfile
@@ -488,7 +489,7 @@ class SkillLintTest(unittest.TestCase):
     def test_an_owned_skill_keeps_its_description_short_and_its_skill_md_small(self) -> None:
         long = "Use when testing. " + "x" * lint.MAX_OWNED_DESCRIPTION
         errors = self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n")
-        self.assertTrue(any("max 370" in e for e in errors), errors)
+        self.assertTrue(any("max 250" in e for e in errors), errors)
         self.assertEqual(self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n", owned=False), [])
         big = "---\nname: a\ndescription: Use when testing.\n---\n" + "word " * (lint.MAX_SKILL_BYTES // 5)
         errors = self.lint("a", big)
@@ -560,6 +561,42 @@ class SkillLintTest(unittest.TestCase):
     def test_repository_content_passes(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(lint.main(), 0)
+
+
+class GatewayToolNamesTest(unittest.TestCase):
+    """The gateway tool names the skills quote are the ones MCP service serves (fixtures/gateway-tools.json)."""
+
+    TOOLS = json.loads((ROOT / "tools/tests/fixtures/gateway-tools.json").read_text())
+    # A gateway-namespace name: `mcp__` and one segment, not a host-prefixed or truncated one.
+    NAME = re.compile(r"(?<![A-Za-z0-9_])mcp__[a-z]+(?:_[a-z]+)*(?![A-Za-z0-9_])")
+
+    def texts(self):
+        for plugin in sorted((ROOT / "plugins").iterdir()):
+            for tree in ("skills", "commands", "agents"):
+                base = plugin / tree
+                if base.is_dir():
+                    for path in sorted(base.rglob("*.md")):
+                        yield path, path.read_text()
+
+    def test_every_quoted_gateway_tool_exists(self):
+        known = set(self.TOOLS["search_mode_helpers"]) | set(self.TOOLS["gateway_tools"])
+        unknown = {
+            f"{path.relative_to(ROOT)}: {name}"
+            for path, text in self.texts()
+            for name in self.NAME.findall(text)
+            if name not in known
+        }
+        self.assertEqual(set(), unknown)
+
+    def test_get_started_names_every_helper_and_no_count(self):
+        text = (ROOT / "plugins/atlanai/skills/atlan-get-started/SKILL.md").read_text()
+        for name in self.TOOLS["search_mode_helpers"]:
+            self.assertIn(f"`{name}`", text)
+        for path, text in self.texts():
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertNotRegex(
+                    text, r"(?i)\b(three|four|five|six|seven)\s+(search-mode\s+|fixed\s+|gateway\s+)?tools\b"
+                )
 
 
 class DashboardPromptTest(unittest.TestCase):
@@ -708,7 +745,8 @@ class VoiceTest(unittest.TestCase):
 
 
 # Built here, never written whole, so the repository's own secret lint stays quiet. The shared
-# fixtures carry it as `{{fake_aws_key}}`; a hook's own tests substitute the same string.
+# fixtures carry it as `{{fake_aws_key}}`, and other credentials in halves joined at `{{split}}`; a
+# hook's own tests substitute the same way.
 FAKE_AWS_KEY = "AKIA" + "ABCDEFGHIJKLMNOP"
 
 
@@ -735,7 +773,7 @@ class CheckBundleTest(unittest.TestCase):
     def build(case: dict, root: Path) -> None:
         for rel, text in case.get("files", {}).items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
-            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY)
+            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY).replace("{{split}}", "")
             (root / rel).write_bytes(text.encode("utf-8"))
         for rel, data in case.get("binary", {}).items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -1090,7 +1128,9 @@ class EvalCasesTest(unittest.TestCase):
     SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_LOST_REPLY", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
                 "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE",
                 "ATLAN_EMULATOR_HIDE_TOOLS", "ATLAN_EMULATOR_PLATFORM", "ATLAN_EMULATOR_UNRELEASED",
-                "ATLAN_EMULATOR_OPAQUE_PUBLISH"}
+                "ATLAN_EMULATOR_OPAQUE_PUBLISH", "ATLAN_EMULATOR_DISABLED_SERVERS",
+                "ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT", "ATLAN_EMULATOR_SERVE_WITHDRAW",
+                "ATLAN_EMULATOR_LIVE_SURFACE"}
 
     @classmethod
     def setUpClass(cls) -> None:

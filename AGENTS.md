@@ -68,8 +68,9 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   retrieval signal twice over: the harness matches requests against it, and the registry's
   search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
   a task loads one skill, not `atlan-get-started` first. Every session carries every
-  description, so `make check` fails on one over 370 characters, and on a `SKILL.md` over 500
-  lines or 9 KiB. Keep the workflow in `SKILL.md` and move material only some requests need to
+  description, and hosts cut a long one in their skill list, so `make check` fails on one over
+  250 characters, and on a `SKILL.md` over 500 lines or 9 KiB. Keep the workflow in `SKILL.md`
+  and move material only some requests need to
   `references/`, each file cited with the condition for opening it. Teach decisions and point
   at live tools; do not paste reference data that will go stale.
 - **Search mode is the default.** Owned skills show calls as `mcp__call_tool { "name", "arguments",
@@ -121,9 +122,10 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **A workload is an add-on, not a core skill.** A workload built on the registry (analytics,
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
-  is their source of truth: the app behind the workload pins a commit of this repository to serve
-  the same files over MCP (metric service does, for `atlanai-analytics`). A change here reaches that
-  app at its next pin bump, where its own tests run against the new text. An add-on depends on `atlanai` and declares no MCP server, hooks or
+  is their source of truth. The app behind the workload should pin a commit of this repository
+  to serve the same files over MCP, so a change here reaches it at its next pin bump. metric service
+  does not yet: it serves its own copy of `atlan-analytics` from
+  `backend/defaults/skills/atlan-analytics/`, which has drifted from `plugins/atlanai-analytics`. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
@@ -140,16 +142,19 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 3. One step per failure. No apology, no `unfortunately`, no `it seems`.
 4. No closing offer unless the next step is real. Never `let me know if you need anything else`.
 5. Commas, colons and full stops. No em dashes, no exclamation marks, no emoji.
-6. Under 80 words unless the user asked for a list. A first reply or a catch-up stays under
-   seven lines.
+6. Under 80 words unless the user asked for a list, and never over seven lines outside a table
+   or a list the user asked for.
 7. Do not announce which skill was loaded unless it changes what the user should expect.
+8. One next step, not a menu, and nothing about calls skipped or retried when it changes
+   nothing the user should do ("I didn't request an upload ticket").
 
 `tools/lint.py` fails on an em dash, a sentence-ending exclamation mark or a short list of filler
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
 under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
-grader that reads the reply's shape. The rules live in `atlan-get-started` too, under **Replies
-lead with the result**, and every skill carries a one-line version, because a task reaches its
-skill directly rather than through `atlan-get-started`. Drop that line from a skill and its
+grader that reads the reply's shape against rules 1 and 3 to 8. The rules live in
+`atlan-get-started` too, under **Replies lead with the result**, and every skill carries them as
+one line of checks to tick before sending, because a task reaches its skill directly rather
+than through `atlan-get-started`. Drop that line from a skill and its
 replies grow: the first eval pass after 0.3.5 caught longer catch-ups that the judge failed.
 
 ## Checks
@@ -238,8 +243,11 @@ repository holds no variant of its own.
    installed until it changes) and run `make build`. An add-on has its own `version` under
    `[[addons]]`, and a mod under `[[mods]]`; bump it when its content or manifest changes.
 2. Say what changes for users in the pull request's description; there is no changelog file.
-3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlanai--v0.3.0`,
-   `atlanai-analytics--v0.4.0`), so a dependency with a version range resolves in Claude Code.
+3. Merge to `main`. The `Release tags` workflow tags each released plugin
+   `<name>--v<version>` (`atlanai--v0.3.0`, `atlanai-analytics--v0.4.0`) from its
+   `.claude-plugin/plugin.json`, so a dependency with a version range resolves in Claude Code.
+   gateway's `release sync` workflow opens the pull request that moves its vendored
+   copy of `atlanai` within the hour.
    The repository is its own marketplace for every tool, so users get the new version on their
    tool's next marketplace refresh. Directory listings (Claude, Codex, Cursor)
    are pinned to a commit and move only when the listing is updated.

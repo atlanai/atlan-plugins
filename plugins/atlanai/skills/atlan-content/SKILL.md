@@ -1,6 +1,6 @@
 ---
 name: atlan-content
-description: Upload, read and version file content in Atlan, including text, staged binary uploads and a skill's pinned files. Use when someone wants to put a file, document or dataset into Atlan, read a file or a skill's files by handle, or add a new version of a file. Not for publishing a skill (atlan-author-skills) or editing knowledge (atlan-author-knowledge).
+description: Read, upload and version raw files in Atlan by handle, including staged binary uploads and a skill's pinned files. Use when asked to read a skill's files, upload a large or binary file, or append a file version. Not for deliverables (atlan-share).
 license: Apache-2.0
 ---
 
@@ -15,9 +15,7 @@ together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the h
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result: the first sentence is the answer or the step,
-counts rather than lists, handles only when asked, one next step rather than a menu, and no
-greeting, apology or closing offer.
+a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -35,5 +33,7 @@ Treat signed upload URLs as credentials. Send a bearer only to a gateway ingest 
 never to a presigned storage URL. Keep the artifact ID when appending, use the observed
 head ETag, and read back the new ordinal. A new create is not an update.
 
-Skill bundles use `atlan-author-skills`' bundle publishing procedure. Knowledge edits
+A report, document, dashboard or dataset someone wants saved, recorded or shared is an `output`:
+load `atlan-share`, which uses this skill's staged upload for large or binary bytes. Skill
+bundles use `atlan-author-skills`' bundle publishing procedure. Knowledge edits
 use `atlan-author-knowledge`'s `apply_changes`; neither is a generic file append.

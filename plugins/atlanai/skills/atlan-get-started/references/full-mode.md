@@ -9,7 +9,7 @@ server URL ends in `?tools=full`.
 | | Search mode (default) | Full mode |
 |---|---|---|
 | URL | `https://api.atlan.com/mcp` | `https://api.atlan.com/mcp?tools=full` |
-| `tools/list` | Five fixed tools: search, describe and three runners | Every tool you can call, possibly hundreds |
+| `tools/list` | The helpers (search, describe, the runners and the batch read runner), `mcp__connect_server` and the core `registry__` reads | Every tool you can call, possibly hundreds |
 | Open a session | `objective` on the first search or runner call | `mcp__initialise { "objective", "client", "rationale" }` |
 | Call a tool | its runner, such as `mcp__call_read_tool { "name", "arguments", "session_id", "rationale" }` | `registry__… { …arguments, "session_id", "rationale" }` |
 
@@ -33,7 +33,7 @@ Full mode refuses a call without that `session_id`.
 ## Translating a recipe written in full mode
 
 The registry's authoring skills (`atlan-author-skills`, `atlan-author-agents`,
-`atlan-author-knowledge`, `atlan-content`, `atlan-record-outputs`, `atlan-connect-repo`) write
+`atlan-author-knowledge`, `atlan-content`, `atlan-connect-repo`) and `atlan-share`'s run recording write
 calls in full mode, most of them after an opening `mcp__initialise`, like this:
 
 ```

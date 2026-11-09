@@ -581,7 +581,7 @@
   {
    "id": "registry-record-output",
    "plugin": "atlanai",
-   "skill": "atlan-record-outputs",
+   "skill": "atlan-share",
    "title": "Record a small text report as an output",
    "route": "One publish_output call: the file, then the output and its edge, by source key",
    "calls": {

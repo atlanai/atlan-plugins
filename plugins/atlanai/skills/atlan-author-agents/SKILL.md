@@ -1,6 +1,6 @@
 ---
 name: atlan-author-agents
-description: "Register or update an agent in Atlan: link a repository's agent and the skills it uses, register this coding tool as a harness, or prepare an agent's runtime credential. Use when the user wants to add, register or update an agent in Atlan or record its skills. Not for publishing skills (atlan-author-skills) or GitHub CI publication (atlan-connect-repo)."
+description: "Register or update an agent in Atlan: link a repository's agent and its skills, register this tool as a harness, or prepare its credential. Use when adding or updating an agent in Atlan. Not for publishing skills (atlan-author-skills)."
 license: Apache-2.0
 ---
 
@@ -26,7 +26,7 @@ together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the h
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines, and ask before every write.
+a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for. Ask before every write.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -44,4 +44,4 @@ agent to recover a missing credential. Issue a runtime credential only when requ
 
 The app owns the native Atlan runtime; other providers may remain catalog-only. Registering
 an agent does not deploy it or prove traces are arriving. Record produced deliverables
-with `atlan-record-outputs` and upload owned files with `atlan-content`.
+with `atlan-share` and upload owned files with `atlan-content`.

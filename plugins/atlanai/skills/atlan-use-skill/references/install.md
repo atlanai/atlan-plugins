@@ -1,9 +1,20 @@
 # Installing a registry skill
 
-Open this only when the user asked to install, add, download or keep a skill, and the skill's
-step 3 says this surface can hold the files. You have already read the artifact (step 2): its
-`artifact_status` is `active` and `metadata.files` is the pinned file list. Prefer aireg on the
+Open this only when the user asked to install, add, download or keep a skill. You have already
+read the artifact (step 2): its `artifact_status` is `active` and `metadata.files` is the
+pinned file list. First check the surface can hold the files (below). Prefer aireg on the
 user's own computer; use the MCP route when aireg is missing or the user declines it.
+
+## Where installing works
+
+| Where you are | Route |
+|---|---|
+| Claude chat on the web, desktop or mobile, or any host with no shell | Use it now. Installing is not possible here, so do not try. |
+| A cloud session: Claude Code on the web, a CI runner, any container discarded when the session ends | Use it now. A project install lasts only if the user commits it, so offer that instead of a user-folder install. |
+| A terminal, IDE, desktop or Cowork session on the user's own computer | Use it now, or install it (below). |
+
+No tool that runs commands or writes files means no shell. A cloud session usually says so in
+its environment notes; when unsure, ask where they are running.
 
 ## With aireg
 
@@ -51,10 +62,13 @@ Then read **every** other entry in `metadata.files` (`SKILL.md` already came bac
    `included_files`, in the order asked, at the version the manifest pins.
 2. An entry with `code: "budget_exceeded"` has no content: read it in a further call. An entry
    with any other `error` is handled as **When a file will not come through** says.
-3. If `get_artifact` refuses `include_files`, the gateway predates it: read each file with
-   `registry__get_file_content` (`file_id`, and `version_ordinal` set to the entry's
-   `file_version_ordinal`), as parallel calls, up to 8 in one turn, and leave `include_files`
-   out for the rest of the session.
+3. If `get_artifact` refuses `include_files`, the gateway predates it: leave `include_files`
+   out for the rest of the session and read the same groups with `registry__get_file_contents`,
+   `"files"` holding up to 8 `{file_id, version_ordinal}` entries (`version_ordinal` set to the
+   entry's `file_version_ordinal`). Its results come back in the order asked, and an entry's
+   `error` or `budget_exceeded` is handled as in step 2. Only when that tool is not served
+   either, read each file with `registry__get_file_content` (the same two arguments), as
+   parallel calls, up to 8 in one turn.
 4. Write each returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
    any path that is absolute or contains `..`.
 5. Record the install in `.atlan-installed.json` in the skills folder that holds `<folder>`

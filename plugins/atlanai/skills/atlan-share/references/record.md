@@ -79,12 +79,20 @@ wrote nothing.
 
 ### Refused with no field
 
-Some gateways refuse `publish_output` without naming what is wrong: "The request is not valid."
-when `file.media_type`, `idempotency_key` and `edges` are sent together, or a bare `409` when the
-same source key should publish a new version. Neither writes anything. Send the call once more
-without `file.media_type` and `idempotency_key`. Refused again: record through
+Some gateways refuse `publish_output` without naming what is wrong. Neither refusal writes anything.
+
+- "The request is not valid." on a call that carries `idempotency_key`: the gateway derives a key
+  per step that its registry does not accept, so every keyed call is refused. Leave
+  `idempotency_key` out of `publish_output`.
+- A bare `409` ("The request conflicts with the current state of the resource.") when the same
+  source key should publish a new version: gateway 2.21.0 refuses every new version through
+  `publish_output`, with or without `edges`, whatever the call carries. Only a first share lands.
+
+A call refused "not valid" that carried `idempotency_key` or `file.media_type` is sent once more
+without them. A bare `409` on a new version is not resent: record through
 [the older route](#when-publish_output-is-not-served) with the same source key, which reaches the
-same file and output. Never send the identical call a third time.
+same file and output and lands the next version under the same handle. Never send the identical
+call a third time.
 
 **Binary or larger files** follow the upload recipe in `skills/atlan-content/references/upload.md`
 first, with the same `source_type` and `source_id` on the `file`, then pass the returned `id`
@@ -92,7 +100,8 @@ and `version_ordinal` as `file_pin`. The staged `PUT` needs a shell and the user
 Claude chat and Cowork never give you: there, record text inline or the deliverable in link mode,
 and say that a binary needs the Atlan CLI. Decide this before asking for approval.
 
-`idempotency_key` recovers a lost response: send the same key with identical arguments.
+`idempotency_key` recovers a lost response on the older route's single writes: send the same key
+with identical arguments. Do not send it to `publish_output` (see above).
 
 ## The source key
 
@@ -191,4 +200,4 @@ calls, giving the `file` and the `output` the same source key flat in `metadata`
 See `skills/atlan-get-started/references/edges.md` - it covers `output`'s edge
 alongside `agent`'s two.
 
-Mode rules in full: `skills/atlan-record-outputs/references/output-modes.md`.
+Mode rules in full: [output modes](output-modes.md).

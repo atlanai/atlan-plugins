@@ -1,0 +1,24 @@
+{
+  "_source": "an internal repository mcp/src/naming.rs (SEARCH_MODE_TOOLS, MCP_CONNECT_SERVER, MCP_INITIALISE, CORE_REGISTRY_READS) and mcp/src/retrieval/mod.rs (WIRE). Update this file in the same change that follows the gateway's tool list.",
+  "search_mode_helpers": [
+    "mcp__search_tools",
+    "mcp__describe_tools",
+    "mcp__call_read_tool",
+    "mcp__call_write_tool",
+    "mcp__call_tool",
+    "mcp__call_read_tools"
+  ],
+  "gateway_tools": [
+    "mcp__connect_server",
+    "mcp__initialise",
+    "mcp__retrieve_artifacts"
+  ],
+  "core_registry_reads": [
+    "registry__search_artifacts",
+    "registry__get_artifact",
+    "registry__list_workspaces",
+    "registry__get_artifact_counts",
+    "registry__get_related_artifacts",
+    "registry__get_file_content"
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: atlan-continue
-description: Catch up on and continue an Atlan artifact someone handed over, named by its handle. Use when a prompt asks to continue, catch up on, open or resume something in Atlan and names a handle, as in `/atlanai:continue output_…` or the dashboard's "Catch me up on Atlan artifact … (output_…)". Not for searching (atlan-find-artifacts).
+description: "Continue an Atlan artifact handed over by its handle. Use when asked to continue or resume something in Atlan by its handle, as in `/atlanai:continue output_…` or \"Catch me up on Atlan artifact … (output_…)\". Not for search (atlan-find-artifacts)."
 license: Apache-2.0
 user-invocable: false
 ---
@@ -27,7 +27,9 @@ No handle, only a title: search for it (`registry__search_artifacts`, `semantic:
 
 The first runner call opens the session: send `objective` beside `name`, such as
 `Catch up on "<title>" handed over from the Atlan dashboard`, and reuse the `mcp_session_id` it
-returns as `session_id` on every later call, with a `rationale` on each. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
+returns as `session_id` on every later call, with a `rationale` on each. Every read goes
+through `mcp__call_read_tool`, even when the hand-off prompt names `mcp__call_tool`: that
+runner is for destructive calls, and outside Claude Code each call through it asks the user. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
@@ -124,9 +126,10 @@ from the session, the original request, the decisions made and the work that rem
 any gaps in what you could read, in one line. Keep the whole catch-up under seven lines of
 plain sentences, with no headings: the user can ask for more. If the prompt already says what
 to do next, do that.
-Otherwise ask what they want next, offering the steps that fit the kind:
+Otherwise ask what they want next in one question, naming at most two of the steps that fit
+the kind, never a menu of them all:
 
-- an `output`: revise it and record the result as a new output (`atlan-record-outputs`);
+- an `output`: revise it and record the result as a new output (`atlan-share`);
 - a `skill`: use it now or install it (`atlan-use-skill`), or publish an edited version
   (`atlan-author-skills`);
 - an `agent`: update its skills or configuration (`atlan-author-agents`).
