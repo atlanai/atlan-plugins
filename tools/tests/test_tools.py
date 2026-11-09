@@ -7,6 +7,7 @@ import copy
 import hashlib
 import io
 import json
+import re
 import subprocess
 import sys
 import tarfile
@@ -560,6 +561,42 @@ class SkillLintTest(unittest.TestCase):
     def test_repository_content_passes(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(lint.main(), 0)
+
+
+class GatewayToolNamesTest(unittest.TestCase):
+    """The gateway tool names the skills quote are the ones MCP service serves (fixtures/gateway-tools.json)."""
+
+    TOOLS = json.loads((ROOT / "tools/tests/fixtures/gateway-tools.json").read_text())
+    # A gateway-namespace name: `mcp__` and one segment, not a host-prefixed or truncated one.
+    NAME = re.compile(r"(?<![A-Za-z0-9_])mcp__[a-z]+(?:_[a-z]+)*(?![A-Za-z0-9_])")
+
+    def texts(self):
+        for plugin in sorted((ROOT / "plugins").iterdir()):
+            for tree in ("skills", "commands", "agents"):
+                base = plugin / tree
+                if base.is_dir():
+                    for path in sorted(base.rglob("*.md")):
+                        yield path, path.read_text()
+
+    def test_every_quoted_gateway_tool_exists(self):
+        known = set(self.TOOLS["search_mode_helpers"]) | set(self.TOOLS["gateway_tools"])
+        unknown = {
+            f"{path.relative_to(ROOT)}: {name}"
+            for path, text in self.texts()
+            for name in self.NAME.findall(text)
+            if name not in known
+        }
+        self.assertEqual(set(), unknown)
+
+    def test_get_started_names_every_helper_and_no_count(self):
+        text = (ROOT / "plugins/atlanai/skills/atlan-get-started/SKILL.md").read_text()
+        for name in self.TOOLS["search_mode_helpers"]:
+            self.assertIn(f"`{name}`", text)
+        for path, text in self.texts():
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertNotRegex(
+                    text, r"(?i)\b(three|four|five|six|seven)\s+(search-mode\s+|fixed\s+|gateway\s+)?tools\b"
+                )
 
 
 class DashboardPromptTest(unittest.TestCase):
