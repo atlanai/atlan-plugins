@@ -38,3 +38,6 @@ If the person dismisses the surface, stay in chat until asked to reopen it. Do n
 pause/publish button or embed chat decisions in an inert HTML control. CLI users get the same
 concise sample and factual progress as text, with native tasks/choices only when available.
 If rendering fails, use chat; presentation must not block generation or publication.
+
+Update the already opened Analytics view at meaningful phase changes with `PROJECT experience --format panel`.
+Follow the host rendering procedure in [render.md](render.md). Keep a dismissed view closed.

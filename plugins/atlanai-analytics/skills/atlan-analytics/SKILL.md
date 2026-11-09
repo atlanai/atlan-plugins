@@ -47,7 +47,8 @@ reply adds one line offering a separately deployed agent with an eval set (`buil
 and switches only when the person asks for it. A repository
 is an ordinary source input; its name and layout never select a special workflow.
 
-Survey models, dashboards, SQL and query history. Explain the sources, business meaning and
+Open [the host view](references/setup/render.md) after inspection and update it through setup.
+Explain the sources, business meaning and
 possible analyses inside the first question. Follow the [intent flow](references/setup/intent.md):
 business focus first, purpose second, using native choices and waiting for each missing answer.
 Even clear source scope needs this checkpoint. Then show one relevant metric with its meaning and

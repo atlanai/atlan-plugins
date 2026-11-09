@@ -24,6 +24,7 @@ pause." Continue authorized work without another go-ahead. On resume, state the 
 and next action instead of repeating the introduction.
 
 Read [native conversation and saved choices](setup/workbench.md) on starting or resuming.
+Open and verify [the host view](setup/render.md) after inspection; update it through the run.
 Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
 run waits for an explicit resume; details requests do not resume work.
 
