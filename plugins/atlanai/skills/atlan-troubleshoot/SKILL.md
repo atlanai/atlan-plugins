@@ -30,7 +30,7 @@ fixes it, without apology.
 | `"code": "unknown_tool"` | No registry tool has that name. Registry tools are `registry__…`, app tools `extension__<app>__…`; find the name with `mcp__search_tools` or `mcp__describe_tools` rather than guessing a variant. |
 | `"code": "invalid_handle"` | The handle is not `<kind>_<identifier>`. Pass the `id` a search or read returned, whole, never a name or a bare identifier. |
 | `"code": "unknown_kind"` | The kind named, or the handle's prefix, is not registered for this account: a typo (`skills`, `out_…`), or an app the organization does not have. `registry__get_artifact_counts` with `group_by: "kind"` lists the kinds it holds. |
-| A search with `kind` returns nothing at all | Search may not refuse an unknown kind: it answers empty. Before saying nothing exists, check the kind against `registry__get_artifact_counts` with `group_by: "kind"`, then search again without `kind`. |
+| A search with `kind` returns nothing at all | Older gateways answer an unknown kind with an empty page instead of `unknown_kind`. Before saying nothing exists, check the kind against `registry__get_artifact_counts` with `group_by: "kind"`, then search again without `kind`. |
 | `"code": "not_found"` | No artifact by that handle, or one the user cannot see; the two read alike on purpose. Do not retry with variants. Search by name (`registry__search_artifacts`), and if it is still missing, see "Artifacts the user expects are missing". |
 | `"code": "invalid_arguments"` | The arguments are malformed or contradict each other, and the message names which. Fix those and send once more. |
 | `tool is unavailable; refresh tools/list` | The name is wrong for this connection's mode. In search mode run a tool through a runner (`mcp__call_read_tool`, `mcp__call_write_tool` or `mcp__call_tool`) unless the host lists it by name; on a `?tools=full` URL the five search-mode tools do not exist. |
@@ -43,7 +43,7 @@ fixes it, without apology.
 | A recipe names `request_upload` or `get_content`, bare or under the old `file` extension prefix | Older names. The registry's tools are `registry__request_file_upload` and `registry__get_file_content`. |
 | A recipe starts with `mcp__initialise` and search mode does not list it | Skip it: your first search already opened the session. |
 | `mcp__search_tools` finds nothing, or not the registry tool you expected | Search ranks every connected server. Call a tool you know by name (`registry__…`) directly, or pass `servers: ["registry"]`. An empty search does not mean the tool is missing. |
-| `mcp__connect_server` is not a tool | It runs through `mcp__call_write_tool` (or `mcp__call_tool`) with `name: "mcp__connect_server"` and `arguments: { "server": … }`. |
+| `mcp__connect_server` is not a tool | Older gateways do not list it. Run it through `mcp__call_write_tool` (or `mcp__call_tool`) with `name: "mcp__connect_server"` and `arguments: { "server": … }`. A connection opened read-only (`?access=read`) cannot run it at all. |
 | `403` "Only a project's Claw … can use the Claw session tools" | `extension__agent__session_read` and `session_list` serve a project's Claw, not a person's agent. Read a session through its traces instead (`atlan-continue`, step 2). |
 | JSON-RPC `-32003`, `rate_limited` | The organization's call budget is spent for the moment. Wait, then retry reads. Retry a write only by reusing its `idempotency_key` with identical arguments. |
 
