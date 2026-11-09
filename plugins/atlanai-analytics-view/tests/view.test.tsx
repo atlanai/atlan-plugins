@@ -1,6 +1,5 @@
 import {describe,expect,test,mock} from 'claude-code/testing'
 import {valid,validFeed} from '../hooks/register'
-import {visualBoard} from '../hooks/visual'
 const TOOL='mcp__atlanai-analytics-view__show'
 const FOLLOW='mcp__atlanai-analytics-view__follow'
 const view={phase:'Checking definitions',status:'running',summary:'Synthetic shipping model and query history.',domain:'Shipping cost',purpose:'Prepare reusable metrics',counts:'1 metrics, 0 queries, 0 saved, 0 held',metric:'Shipping cost',meaning:'Cost for shipped shipments.',calculation:'SUM(cost)',population:'Shipped shipments only',source:'Synthetic model',check:'SQL untested',next:'Check the definition.',snapshot_at:'2026-11-09T00:00:00Z',sources:['shipping.bim'],opportunities:['Cost by region'],warnings:[]}
@@ -13,9 +12,10 @@ describe('Analytics native pane',()=>{
   await $.tool.call({tool:TOOL,view:{...view,phase_code:'preview',interaction_mode:'local',
    stats:{metrics:1,queries:2,executed:3,review_required:2,released:0,held:0}}})
   const ui=await $.ui.mount({...pane,surface:'desktop'})
-  const board=await ui.find({type:'Svg'})
-  expect(board?.props.alt).toContain('Shipping cost')
-  expect(board?.props.source).toContain('LOCAL ONLY')
+  expect(await ui.find({type:'Svg'})).toBeUndefined()
+  expect((await ui.find({type:'Text',text:'Shipping cost'}))?.text).toBe('Shipping cost')
+  expect((await ui.find({type:'Text',text:'Saved locally'}))?.text).toBe('Saved locally')
+  expect((await ui.find({type:'Text',text:'2 queries need source review'}))?.text).toBe('2 queries need source review')
   expect(await ui.find({type:'Text',text:view.summary})).toBeUndefined()
   expect(await ui.find({type:'Text',text:/Calculation:/})).toBeUndefined()
   await ui.press({key:'evidence'})
@@ -26,13 +26,16 @@ describe('Analytics native pane',()=>{
   expect(filled).toContain('source review')
   await ui.unmount()
  })
- test('visual content cannot introduce SVG markup or remote resources',()=>{
-  const board=visualBoard({...view,metric:'<script>alert(1)</script>',domain:'<image href="https://example.com"/>'},false,true)
-  expect(board.source).not.toContain('<script>')
-  expect(board.source).not.toContain('<image ')
-  expect(board.source).toContain('&lt;script&gt;')
+ test('desktop keeps supplied markup literal in native text',async($,on)=>{
+  on('ui.open',()=>({value:{isPlaced:true}}))
+  const metric='<script>alert(1)</script>'
+  await $.tool.call({tool:TOOL,view:{...view,metric}})
+  const ui=await $.ui.mount({...pane,surface:'desktop'})
+  expect((await ui.find({type:'Text',text:metric}))?.text).toBe(metric)
+  expect(await ui.find({type:'Svg'})).toBeUndefined()
   expect(valid({...view,stats:{metrics:1}})).toBe(false)
   expect(valid({...view,phase_code:'publish-now'})).toBe(false)
+  await ui.unmount()
  })
  test('validates bounded text without commands',()=>{
   expect(valid(view)).toBe(true);expect(valid({...view,command:'publish'})).toBe(false)
