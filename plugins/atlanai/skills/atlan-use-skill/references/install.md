@@ -51,10 +51,13 @@ Then read **every** other entry in `metadata.files` (`SKILL.md` already came bac
    `included_files`, in the order asked, at the version the manifest pins.
 2. An entry with `code: "budget_exceeded"` has no content: read it in a further call. An entry
    with any other `error` is handled as **When a file will not come through** says.
-3. If `get_artifact` refuses `include_files`, the gateway predates it: read each file with
-   `registry__get_file_content` (`file_id`, and `version_ordinal` set to the entry's
-   `file_version_ordinal`), as parallel calls, up to 8 in one turn, and leave `include_files`
-   out for the rest of the session.
+3. If `get_artifact` refuses `include_files`, the gateway predates it: leave `include_files`
+   out for the rest of the session and read the same groups with `registry__get_file_contents`,
+   `"files"` holding up to 8 `{file_id, version_ordinal}` entries (`version_ordinal` set to the
+   entry's `file_version_ordinal`). Its results come back in the order asked, and an entry's
+   `error` or `budget_exceeded` is handled as in step 2. Only when that tool is not served
+   either, read each file with `registry__get_file_content` (the same two arguments), as
+   parallel calls, up to 8 in one turn.
 4. Write each returned `content` to `<folder>/<path>`, keeping the bundle's own paths. Refuse
    any path that is absolute or contains `..`.
 5. Record the install in `.atlan-installed.json` in the skills folder that holds `<folder>`

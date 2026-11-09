@@ -28,7 +28,7 @@ Do not open their files yet.
 
 ## Reviewing one item
 
-Send these reads together:
+Send these reads together, as one `mcp__call_read_tools` call when the host lists it:
 
 - **What changed.** For a skill with an earlier active release, compare the pending version with
   it as `skills/atlan-use-skill/references/compare-versions.md` says. Its files cannot be read until
