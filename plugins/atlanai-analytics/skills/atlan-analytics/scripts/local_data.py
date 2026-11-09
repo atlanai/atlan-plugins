@@ -36,7 +36,7 @@ FUNCTIONS = set(('sum avg count min max coalesce nullif abs round floor ceil cei
 
 
 # SQLite reports LIKE as a call to like() and has its own date functions; same review bar.
-SQLITE_FUNCTIONS = FUNCTIONS | {'like', 'date', 'datetime', 'julianday', 'iif'}
+SQLITE_FUNCTIONS = FUNCTIONS | {'like', 'date', 'datetime', 'julianday', 'iif', 'group_concat'}
 
 
 def check_functions(sql, allowed=FUNCTIONS):
