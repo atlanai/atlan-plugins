@@ -6,7 +6,8 @@ An input folder is ordinary customer context. Never depend on a particular repos
 sample schema or database name. Explicit agent and evaluation modes remain separate.
 
 `PROJECT` means `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>"`.
-Use an existing approved Python runtime; DuckDB execution needs one with DuckDB installed.
+Python 3.10+ with its standard library is enough: CSV data is prepared into SQLite, which
+needs no package install. An existing `.duckdb` file still needs a runtime with DuckDB.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.
 Missing Registry access follows [connection recovery](auth-recovery.md): inspect the current
 host, start the host's sign-in when required, watch its native task and resume after a
@@ -21,7 +22,7 @@ run whose candidates were never shown in chat starts at Preview.
 | Entering | Read |
 | --- | --- |
 | Inspect or Scope | [inspect and scope](setup/inspect-scope.md) |
-| Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](metrics-engine.md) |
+| Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](metrics-engine.md), except setups whose inputs are all local files |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
 | A long helper run, a heartbeat or a panel | [progress and presentation](setup/progress.md) |
 

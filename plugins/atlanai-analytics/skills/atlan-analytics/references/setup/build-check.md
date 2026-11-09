@@ -5,16 +5,21 @@
 ## 3. Build candidates
 
 Use [local source procedures](../project.md#2-bind-data-once) to select an executor independently
-of the input: existing DuckDB, approved CSV preparation, or an existing read-only warehouse
+of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
 through [connect](../connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
-Before CSV preparation, test the selected interpreter with `-I -c 'import duckdb'`, matching
-the preparation worker's isolation. A normal import is not sufficient. Check only the active
-runtime, the supplied project's environment and an explicitly supplied approved runtime;
-do not search unrelated projects or home caches. If none works, give one scoped runtime
-setup option subject to host policy, or continue with untested definitions and a preview.
+Prepare CSVs into a new `.sqlite` database. It needs only the standard library, so do not
+check for, offer or install DuckDB or any other package for this step. Author SQL in the
+`sqlite` dialect with `:name` parameters. Translate history SQL written for another engine
+before checking it, and keep the original in the shape's provenance.
 
-For new supported metrics, use [the metrics module](../metrics-engine.md), preserving this setup
+When every selected input is a local file (BI files, CSVs, query-history files) and no
+warehouse is selected, author with [metrics authoring](../metrics/authoring.md) over this run's
+`PROJECT history` shapes, and check with `PROJECT check-query` and `check-metric` against the
+SQLite binding. Do not initialize the metrics module runtime for this case; it installs
+packages.
+
+Otherwise, for new supported metrics, use [the metrics module](../metrics-engine.md), preserving this setup
 run, scope and preview/publication order. Reuse the interview decisions; do not run another.
 Supported BI definitions and captured history enter through its input plugs and authored gates.
 For a configured direct Snowflake connection, select native Account Usage history; no shape
@@ -36,7 +41,7 @@ SQL checks. Keep the current Build stage; a draft preview is useful before Check
 
 Run `PROJECT check` for local structural validation. It requires no workspace and reports
 `schema_checked`, not certification or execution. Use `PROJECT check-query "<request.json>"`
-with a candidate `name` and separate `parameters` to execute exact DuckDB saved SQL. Checks
+with a candidate `name` and separate `parameters` to execute exact saved SQL on the bound SQLite or DuckDB file. Checks
 for metrics use `PROJECT check-metric` with `name`, `example_index` (zero-based) and parameters.
 It executes that exact authored SQL example, labels the result as example execution, and does
 not claim the example proves formula equivalence or dashboard parity. Review those separately.

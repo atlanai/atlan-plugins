@@ -357,3 +357,117 @@ class DuckDBFlow(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SQLiteFlow(unittest.TestCase):
+    """The standard-library path: no DuckDB, so these always run."""
+
+    def setUp(self):
+        LocalProject.setUp(self)
+        import sqlite3
+        self.database = self.estate / 'site.sqlite'
+        with sqlite3.connect(self.database) as con:
+            con.execute('CREATE TABLE work (kind TEXT, cost REAL, day TEXT)')
+            con.executemany('INSERT INTO work VALUES (?, ?, ?)', [
+                ('rework', 12.5, '2026-01-01'), ('build', 20, '2026-01-02'), ('rework', 2.25, '2026-01-03')])
+            con.execute('CREATE TABLE other (value INTEGER)')
+            con.execute('INSERT INTO other VALUES (99)')
+            con.execute('CREATE VIEW hidden AS SELECT * FROM other')
+        self.run.survey(self.estate)
+        self.run.bind(self.database, ['site.work'], 'site')
+
+    def preparation(self):
+        (self.estate / 'work.csv').write_text('kind,cost,day\nbuild,20.50,2026-01-02\nrework,14.25,2026-01-03\n')
+        result = self.run.survey(self.estate)
+        source = next(s for s in result['sources'] if s['path'] == 'work.csv')
+        return {'database': 'prepared.sqlite', 'tables': [
+            {'source_id': source['source_id'], 'table': 'site.work'}]}
+
+    def test_binding_attaches_the_file_under_its_schema(self):
+        execution = self.run.current()['execution']
+        self.assertEqual((execution['kind'], execution['schema'], execution['tables']),
+                         ('sqlite', 'site', ['site.work']))
+
+    def test_cold_csv_preparation_then_read_only_binding(self):
+        result = self.run.prepare(self.preparation())
+        self.assertEqual((result['kind'], result['schema']), ('sqlite', 'site'))
+        self.assertEqual(result['tables'][0]['rows'], 2)
+        self.assertEqual([c['type'] for c in result['tables'][0]['columns']], ['TEXT', 'REAL', 'TEXT'])
+        self.run.bind(result['database'], schema='site')
+        answer = self.run.execute({'sql': 'SELECT SUM(cost) FROM site.work'})
+        self.assertEqual(answer['rows'], [[34.75]])
+        self.assertEqual((self.estate / 'prepared.sqlite').stat().st_mode & 0o777, 0o600)
+
+    def test_preparation_never_replaces_existing_database_or_mixes_schemas(self):
+        request = self.preparation()
+        request['database'] = self.database.name
+        original = self.database.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'never replaced'):
+            self.run.prepare(request)
+        self.assertEqual(self.database.read_bytes(), original)
+        request = self.preparation()
+        request['tables'].append({**request['tables'][0], 'table': 'other.work'})
+        with self.assertRaisesRegex(ValueError, 'one schema'):
+            self.run.prepare(request)
+        self.assertFalse((self.estate / 'prepared.sqlite').exists())
+
+    def test_native_dax_binding_executes_exact_value(self):
+        mapping = {'semantic_table': 'WORK', 'relation': ['site', 'work'],
+                   'rowset_equivalent': True, 'security_preserved': True,
+                   'columns': [{'semantic': 'cost', 'physical': 'cost', 'datatype': 'decimal'},
+                               {'semantic': 'kind', 'physical': 'kind', 'datatype': 'string'}]}
+        query = translate('CALCULATE(SUM(WORK[cost]), WORK[kind] = "rework")', mapping, {}, 'sqlite')
+        self.assertEqual(query['parameters'], {'p0': 'rework'})
+        self.assertEqual(self.run.execute(query)['rows'], [[14.75]])
+
+    def test_publish_readback_restart_retrieve_fresh_answer(self):
+        import sqlite3
+        remote = readbacks("SELECT SUM(cost) AS value FROM site.work WHERE kind={{kind}}")
+        definition = remote['artifacts'][0]['metadata']['definition']
+        definition['dialect'] = 'sqlite'
+        definition['parameters'] = [{'name': 'kind', 'data_type': 'string', 'description': 'Work kind'}]
+        self.run.publication(copy.deepcopy(remote))
+        restarted = Project(self.run.root)
+        request = {'readbacks': remote, 'artifact_id': 'sql_query_example', 'parameters': {'kind': 'rework'}}
+        result = restarted.answer(request)
+        self.assertEqual(result['rows'], [[14.75]])
+        self.assertIn(':kind', result['sql'])
+        with sqlite3.connect(self.database) as con:
+            con.execute("INSERT INTO work VALUES ('rework', 10, '2026-01-04')")
+        self.assertEqual(restarted.answer(request)['rows'], [[24.75]])
+
+    def test_duckdb_release_is_refused_on_a_sqlite_binding(self):
+        remote = readbacks()
+        self.run.publication(copy.deepcopy(remote))
+        with self.assertRaisesRegex(ValueError, 'dialect'):
+            self.run.answer({'readbacks': remote, 'artifact_id': 'sql_query_example'})
+
+    def test_injection_and_null_are_bound(self):
+        result = self.run.execute({'sql': 'SELECT day, NULL AS missing FROM site.work ORDER BY day', 'limit': 1})
+        self.assertEqual(result['rows'], [['2026-01-01', None]])
+        self.assertTrue(result['truncated'])
+        result = self.run.execute({'sql': 'SELECT COUNT(*) FROM site.work WHERE kind=:kind',
+                                   'parameters': {'kind': "rework' OR 1=1 --"}})
+        self.assertEqual(result['rows'], [[0]])
+        with self.assertRaisesRegex(local_data.DataError, 'parameters'):
+            self.run.execute({'sql': 'SELECT COUNT(*) FROM site.work WHERE kind=:kind'})
+
+    def test_forbidden_queries_leave_database_unchanged(self):
+        for query in ('DELETE FROM site.work', 'SELECT 1 FROM site.work; SELECT 2 FROM site.work',
+                      'SELECT * FROM site.other', 'SELECT * FROM site.hidden',
+                      'SELECT * FROM site.sqlite_master', 'SELECT * FROM pragma_database_list',
+                      "ATTACH DATABASE '/tmp/x.db' AS x", "SELECT load_extension('x') FROM site.work",
+                      'SELECT random() FROM site.work'):
+            with self.subTest(query=query), self.assertRaises(local_data.DataError):
+                self.run.execute({'sql': query})
+        self.assertEqual(self.run.execute({'sql': 'SELECT COUNT(*) FROM site.work'})['rows'], [[3]])
+
+    def test_schema_change_and_missing_database_do_not_create_or_rebuild(self):
+        import sqlite3
+        with sqlite3.connect(self.database) as con:
+            con.execute('ALTER TABLE work ADD COLUMN extra INTEGER')
+        with self.assertRaisesRegex(local_data.DataError, 'schema changed'):
+            self.run.execute({'sql': 'SELECT COUNT(*) FROM site.work'})
+        missing = self.estate / 'missing.sqlite'
+        with self.assertRaises(ValueError): self.run.bind(missing)
+        self.assertFalse(missing.exists())

@@ -1,7 +1,8 @@
 # Run the metrics module
 
 Use this procedure for metrics-only work, the context phase of a full build, and new Power BI
-or Tableau dashboard projects. The plugin drives the conversation and Registry publication.
+or Tableau dashboard projects. A repository or folder setup whose inputs are all local files,
+with no warehouse selected, does not use it: see [shared setup](setup.md) section 3. The plugin drives the conversation and Registry publication.
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<skill-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.

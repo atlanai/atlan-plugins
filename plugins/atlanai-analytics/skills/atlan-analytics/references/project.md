@@ -15,9 +15,9 @@ When the working project is already clear, **Set up this project for analytics**
 Do not ask the person to repeat a supplied folder or business question.
 
 `PROJECT` below means `python3 "<skill-dir>/scripts/project.py" --run-dir
-"<project>/.atlan-metrics/<slug>"`. Use a Python 3.10+ runtime. For DuckDB commands, use an
-existing approved Python with DuckDB installed; the helper records that interpreter for
-later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
+"<project>/.atlan-metrics/<slug>"`. Use a Python 3.10+ runtime; SQLite needs nothing else.
+Only an existing `.duckdb` file needs an approved Python with DuckDB installed. The helper
+records the interpreter for later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
 unreviewed repository code simply because a README recommends it.
 The helper only writes local state; Registry operations use the existing Atlan MCP connection.
 `PROJECT` is documentation shorthand: pass the interpreter, quoted script path and arguments
@@ -73,7 +73,7 @@ setup log or ask the user to choose one of two complementary sources.
 
 Use every relevant available source in the requested scope. Models provide declared measures;
 history supplies additional measures, useful SQL, dimensions, joins and actual question
-patterns. DuckDB supplies schema and current data. Do not ask the person to choose between
+patterns. The local database supplies schema and current data. Do not ask the person to choose between
 model and history when both are present. Use exported history before requesting live history
 access. Missing reports or history do not block the sources that are present.
 
@@ -90,10 +90,15 @@ non-destructive local preparation using existing dependencies. The mapping selec
 survey source IDs, a new project-relative database path, and evidenced schema/table names:
 
 ```json
-{"database": "data/analytics.duckdb", "tables": [
+{"database": "data/analytics.sqlite", "tables": [
   {"source_id": "src_from_survey", "table": "site.work"}
 ]}
 ```
+
+Use a `.sqlite` destination: it needs only the standard library. A SQLite file holds one
+schema, so map every CSV to the same schema name; bind attaches the file under that name,
+so `site.work` resolves. SQLite has no catalog level: write `schema.table`, never
+`catalog.schema.table`.
 
 The destination's parent must exist. The helper accepts up to 32 CSVs (32 MiB each, 128 MiB
 total), checks survey hashes, restricts reads to those paths, and atomically creates a new
@@ -108,8 +113,8 @@ use the project's approved dependency mechanism and the user's host permissions.
 replace a missing dependency with a bespoke application or silently label setup complete.
 
 When one database clearly matches the selected estate, state the selection and run
-`PROJECT bind "<absolute database.duckdb>"`. Add `--tables schema.table ...` for a narrower
-scope. With several plausible databases, ask for the pairing. The returned schema and
+`PROJECT bind "<absolute database>"` (`.sqlite` or `.duckdb`). For SQLite add `--schema <name>`
+with the schema used at preparation. Add `--tables schema.table ...` for a narrower scope. With several plausible databases, ask for the pairing. The returned schema and
 `context/database-schema.json` establish the physical columns and types. An embedded
 Snowflake connector in a Power BI model does not override an explicitly selected DuckDB.
 
@@ -137,8 +142,8 @@ skip the metrics-mode source menu and repeated scope questionnaire. Reuse an alr
 them first; select the destination in the shared setup publication stage. Do not require an
 agent name, agent package, eval set or full-agent preflight.
 Combine Power BI declarations, supported semantic models, rowset SQL and history evidence.
-Use `trident.dax_sql.translate` for supported scalar DAX, including dialect `duckdb` with
-`$name` bindings; the runtime package is beside the helper under `scripts/dashboard_runtime`.
+Use `trident.dax_sql.translate` for supported scalar DAX, with the bound database's dialect:
+`sqlite` with `:name` bindings or `duckdb` with `$name` bindings; the runtime package is beside the helper under `scripts/dashboard_runtime`.
 Types may be derived from a supported expression and declared columns, never display format.
 Unresolved types, transformations and unsupported DAX remain held per measure.
 
