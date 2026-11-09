@@ -10,6 +10,8 @@ The Analytics skill starts its packaged local preview after inspection and binds
 `follow` tool to its exact `pane_url`. Saved progress refreshes every 2.5 seconds without
 another model call. `/analytics-view` reopens a dismissed pane.
 Narrow or headless sessions retain the same evidence in chat.
+Restart a running CLI session after updating the companion. If automatic placement is
+declined in a narrow terminal, `/analytics-view` explicitly opens its compact dock.
 
 Desktop Code uses a side panel. The CLI uses a sidebar in a wide fullscreen terminal and a
 framed dock above the prompt in the classic renderer. For a single fullscreen session use
@@ -33,5 +35,6 @@ starts no process, changes no permissions and performs no analytics or publicati
 It registers no permission hook. Closing the pane prevents updates from reopening it.
 
 Host calls: `tool.register`, `command.register`, `ui.open`, `ui.close`, `ui.invalidate`,
-`ui.resolve`, `prompt.fill`, `http.fetch` and `clock.every`. A presentation failure leaves
+`ui.panes`, `ui.resolve`, `prompt.fill`, `http.fetch` and `clock.every`. Placement is read from
+`ui.panes`; `ui.open` has no placement return value. A presentation failure leaves
 the evidence available in chat. Stop the owned preview with the host's task controls when done.
