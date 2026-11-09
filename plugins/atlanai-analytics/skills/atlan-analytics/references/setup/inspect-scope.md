@@ -44,7 +44,7 @@ history adds actual query patterns, dimensions, joins and missing measures. A da
 an executor/schema source, not a replacement for available history. Reuse already released
 workspace context early when the destination is known.
 
-Open the [host view](render.md) with this source overview before asking the first question.
+Refresh [the checklist](checklist.md) so step 1 shows its source count before asking the first question.
 After the source summary, follow [the intent checkpoint](intent.md), even when file/page
 scope is unambiguous. Establish the business focus first and the purpose second before
 authoring or choosing the first metric. Use the answers to select relevant source coverage.

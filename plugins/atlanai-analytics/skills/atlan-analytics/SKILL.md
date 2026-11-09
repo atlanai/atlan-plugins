@@ -23,7 +23,7 @@ Honor existing choices. Survey-only requests stop after inspection. On resume, n
 saved result and next step. Detail-only requests get only the requested evidence.
 Fresh-folder opening:
 "I'll inspect the sources, explain what they cover, and ask what matters to you before
-preparing metrics for questions here. You'll see an example and its check status first.
+preparing metrics for questions here. The task list shows the six steps; two need you.
 You can narrow the scope, ask for details, keep the work local, or pause at any point."
 Retain controls without requesting approval for already-authorized work.
 
@@ -55,7 +55,8 @@ talk-to-data agent takes that route too: this chat with Atlan becomes the agent.
 reply adds one line offering a separately deployed agent with an eval set (`build`) instead,
 and switches only when the person asks for it. Repository names and layouts never select a special workflow.
 
-Open [the host view](references/setup/render.md) after inspection and update it through setup.
+Progress is [the setup checklist](references/setup/checklist.md) in the host's task list, from
+the first action. Open no panel or view.
 Explain the sources, business meaning and
 possible analyses inside the first question. Before the choices, explicitly say what the
 sources could help the person analyse. An inventory followed by option labels alone does

@@ -70,15 +70,10 @@ class Project(ContextState):
         import journey
         return journey.advance(self, action, focus, host=host, server=server, answer=answer)
 
-    def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None, overview_file=None):
+    def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None):
         """Present existing evidence without advancing the engine or publication."""
         import experience
         model = experience.snapshot(self, engine_dir, focus=focus, host=host, server=server)
-        if overview_file is not None and format != 'panel':
-            raise ValueError('Source understanding belongs to the panel presentation.')
-        if format == 'panel':
-            import experience_view
-            return experience_view.prepare(self, model, self.read(safe_path(overview_file, self.root)) if overview_file else None)
         if format == 'json':
             return model
         chat = experience.render_chat(model, detail=detail)
@@ -470,8 +465,7 @@ def main():
     preview.add_argument('--kind', choices=('metric', 'sql_query'), default='metric')
     experience = sub.add_parser('experience')
     experience.add_argument('--engine-dir', type=Path)
-    experience.add_argument('--format', choices=('chat', 'html', 'json', 'panel'), default='chat')
-    experience.add_argument('--overview-file', type=Path, help='Run-local JSON with the observed source summary and possible analyses')
+    experience.add_argument('--format', choices=('chat', 'html', 'json'), default='chat')
     experience.add_argument('--detail', action='store_true')
     experience.add_argument('--focus', help='Exact saved metric identity to retain across refreshes')
     experience.add_argument('--host', choices=('claude_code', 'codex'))
@@ -483,6 +477,10 @@ def main():
     conversation.add_argument('--answer', help='User-supplied business area or purpose; never an unsubmitted suggestion')
     conversation.add_argument('--host', choices=('claude_code', 'codex'))
     conversation.add_argument('--server', help='Observed Atlan server identifier in that host')
+    steps = sub.add_parser('checklist', help='The six setup steps with their saved state, for the host task list')
+    steps.add_argument('--engine-dir', type=Path)
+    steps.add_argument('--host', choices=('claude_code', 'codex'))
+    steps.add_argument('--server', help='Observed Atlan server identifier in that host')
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
@@ -498,6 +496,11 @@ def main():
             return 0
         if not args.run_dir:
             raise ProjectError('Select a run directory, or use location to choose a permitted one.')
+        if args.command == 'checklist' and not (safe_path(args.run_dir) / 'run.json').is_file():
+            import checklist
+            # Nothing is saved yet: the list starts at its first step and claims no progress.
+            print(json.dumps({'steps': checklist.initial(), 'state': 'running', 'step': 1, 'of': 6, 'remote_writes': False}))
+            return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
         project = Project(args.run_dir)
@@ -507,7 +510,10 @@ def main():
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
-        elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server, args.overview_file)
+        elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
+        elif args.command == 'checklist':
+            import experience
+            result = {**experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)['checklist'], 'remote_writes': False}
         elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage

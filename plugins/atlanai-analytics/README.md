@@ -4,13 +4,12 @@ The analytics workload on the Atlan registry. Ask a data question and get an ans
 
 ## Install
 
-In Claude Code, one command installs Analytics, `atlanai` and the native Analytics view automatically:
+In Claude Code, one command installs Analytics and `atlanai` automatically:
 
 ```
 claude plugin install atlanai-analytics --marketplace atlanai/atlan-plugins
 ```
 
-No separate view installation is needed in Claude Code Desktop or CLI.
 
 
 Other hosts install plugins one at a time, so add `atlanai` first. In Codex:
@@ -25,7 +24,6 @@ codex plugin add atlanai-analytics@atlan
 
 Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
 set up an isolated metrics-agent environment with pinned dependencies after authorization.
-The included Claude view uses native presentation hooks to display saved progress and prepare chat requests.
 Working files stay in your project. Input plugs use the source connections you select; Registry
 writes use the `atlanai` plugin's connection, signed in as you. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).

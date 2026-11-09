@@ -476,6 +476,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
             'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
             'selected_pages': selection, 'counts': counts,
+            'progress': {'completed': saved.get('completed_items'), 'total': saved.get('total_items')},
             'sample': sample, 'items': items, 'items_truncated': len(items) > 100,
             'engine': engine, 'auth_status': auth_status if isinstance(auth_status, str) else None,
             'local_work_available': local_work_available,
@@ -489,6 +490,8 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     from journey import apply
     model = apply(focus_sample(model, focus), interaction, explicit_focus=explicit_focus)
     model['handoff'] = handoff(model)
+    import checklist
+    model['checklist'] = checklist.build(model)
     model['items'] = model['items'][:100]
     return model
 

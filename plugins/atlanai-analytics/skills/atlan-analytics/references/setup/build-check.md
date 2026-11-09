@@ -81,5 +81,5 @@ revenue on rows with no costs; distinguish an unchanged top result from an uncha
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.
 
-Save progress and candidate evidence at meaningful phase changes. The live view follows them
-automatically through [render.md](render.md). Keep a dismissed view closed.
+Save progress and candidate evidence at meaningful phase changes, then refresh
+[the checklist](checklist.md) from `PROJECT checklist`.

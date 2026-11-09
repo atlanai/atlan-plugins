@@ -1,10 +1,9 @@
 # Native conversation from setup to first answer
 
 Read on starting or resuming setup. Claude and Codex own the interface: use their normal
-messages, task progress, code disclosures and question controls. Open the actual Analytics
-view using [host rendering](render.md) after inspection, before the first intent question.
-Claude's companion mod supplies a native side pane; Codex uses its local Browser panel.
-Keep the same surface through the run. Use system styling, without another chat shell.
+messages, task list, code disclosures and question controls. Progress is
+[the setup checklist](checklist.md) in that task list. Open no side panel, browser view or
+other surface unless the person asks for [a visual view](render.md).
 
 ## One useful result, one next action
 
@@ -84,17 +83,18 @@ Use the existing host surface at each meaningful moment. Do not create a new app
 | Moment | Native presentation |
 | --- | --- |
 | Start | A short opening message before tool work. |
-| Inspection finishes | Automatically opened source overview plus the business summary and focus choices in the native question. |
+| Start | The six-step checklist in the host's task list, before the first helper call. |
+| Inspection finishes | Step 1 ticked with its source count, then the business summary and focus choices in the native question. |
 | Business focus is answered | A separate purpose question tailored to that focus. Wait for its answer. |
 | Both answers are known | One sentence reflecting the goal and immediate action. No extra confirmation. |
-| First relevant metric is available | Update the same view with the selected metric, calculation, population, source and honest status; summarize in chat. |
-| Meaningful work progresses | Existing task indicators where supported, plus a concise factual update. |
-| Details are requested | Working disclosure in the view or SQL and evidence in chat. |
+| First relevant metric is available | The selected metric in chat with its calculation, population, source and honest status. |
+| Meaningful work progresses | The checklist updated from `PROJECT checklist`, plus one result line when a step ends. |
+| Details are requested | SQL and evidence in chat. |
 | Input or access is missing | One contextual question or the host's existing sign-in interface. |
 | Saving is appropriate | Destination and actual create/revise/reuse/held counts. Ask only for missing authorization. |
 | Context is released | The selected metric, verified links and supported questions; answer an existing question directly. |
 | A fresh query finishes | Answer first; native chart or table when useful and supported, then compact provenance. |
-| Pause or return | Saved result and next action, retaining both intent answers and metric selection. |
+| Pause or return | Saved result and next action, with the checklist rebuilt from the saved run, retaining both intent answers and metric selection. |
 
 A question is a real native control only when its tool exists. Do not claim buttons, panels,
 charts or live updates that the host does not support. Never pause for a cosmetic render.

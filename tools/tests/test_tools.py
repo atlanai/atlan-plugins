@@ -224,16 +224,17 @@ class AddonTest(unittest.TestCase):
         self.assertNotIn(f"{self.base}/.mcp.json", self.documents)
         self.assertNotIn(f"{self.base}/mcp.json", self.documents)
 
-    def test_analytics_includes_the_native_view_only_on_claude(self) -> None:
+    def test_analytics_installs_no_view_on_any_host(self) -> None:
+        # Setup progress is the host's task list, so Analytics ships no presentation mod.
         claude = self.documents[f"{self.base}/.claude-plugin/plugin.json"]
-        self.assertIn("atlanai-analytics-view", claude["dependencies"])
+        self.assertEqual(claude["dependencies"], [self.source["plugin"]["name"]])
         for path in ("plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
             self.assertNotIn("dependencies", self.documents[f"{self.base}/{path}"])
-            self.assertNotIn("atlanai-analytics-view", json.dumps(self.documents[f"{self.base}/{path}"]))
-        self.assertIn("native Analytics view automatically", build.addon_readme(self.source, self.addon))
+        self.assertNotIn("Analytics view", build.addon_readme(self.source, self.addon))
+        self.assertNotIn("atlanai-analytics-view", [mod["name"] for mod in self.source.get("mods", [])])
 
     def test_companions_must_be_unique_declared_mods(self) -> None:
-        for companions in (["unknown-view"], ["atlanai-analytics"], ["atlanai-analytics-view"] * 2, "atlanai-analytics-view", [None]):
+        for companions in (["unknown-view"], ["atlanai-analytics"], ["atlanai-mods"] * 2, "atlanai-mods", [None]):
             broken = copy.deepcopy(self.source)
             broken["addons"][0]["claude_companions"] = companions
             with self.subTest(companions=companions), self.assertRaises(SystemExit):
