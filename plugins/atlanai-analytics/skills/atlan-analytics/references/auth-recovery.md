@@ -65,8 +65,9 @@ start multiple OAuth flows. Keep the returned `attempt_id` for later observation
 
 ## 2. Open the sign-in page and watch the host login task
 
-When sign-in is needed, tell the user: "I'm opening the Atlan sign-in page. I'll resume
-this setup when the connection is ready." Launch the supported client command as a host
+When sign-in is needed, tell the user why and where first: "I'm opening the Atlan sign-in
+page so these metrics can be saved where your company's Atlan finds them. Sign in to your
+company's Atlan there; I'll resume this setup when the connection is ready." Launch the supported client command as a host
 background task, or a yielding terminal task with a retained task/session ID:
 
 - Codex: `codex mcp login atlan` for the observed server of that name.
@@ -107,7 +108,9 @@ and retry the small Registry read from step 1. Only after that read succeeds, re
 {"operation":"observe","attempt_id":"<current-attempt>","event":"registry_ready","read_tool":"registry__list_workspaces","read_succeeded":true}
 ```
 
-Then resume the recorded stage immediately, without asking for "done" or "continue" and
+In the next reply, name the tenant the sign-in or read result shows and the workspaces it
+listed, in one line. Never guess a tenant name; without one, say "the Atlan you signed in to
+in the browser". Then resume the recorded stage immediately, without asking for "done" or "continue" and
 without re-cloning, re-authoring or repeating existing approvals. Sign-in grants access;
 publication still follows its concrete plan and existing authorization.
 

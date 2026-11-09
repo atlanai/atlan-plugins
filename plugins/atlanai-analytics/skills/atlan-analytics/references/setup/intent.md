@@ -24,7 +24,10 @@ Before asking what matters most, explain the project in two or three short sente
 - What it could help analyse: offer two or three specific, evidenced opportunities, such as
   delivery delays, capacity use or cost drivers. These are possibilities, not computed findings.
 
-Then ask "What do you care about most?" with source-grounded choices and free text. Do not
+Then say what the person will end with, in one sentence: they can ask questions like one
+example the sources support, here in plain English, and get answers with the definition
+used. Only then ask "What do you care about most?" with source-grounded choices and free
+text. Phrase each choice as something they could learn, so a person new to the domain can pick. Do not
 substitute a file-count inventory, vague "analytics coverage", or a menu alone for the summary.
 Never invent available tables, dimensions, measures, user behavior or numerical findings.
 Retain material limitations such as sample data, missing joins or incomplete inspection.

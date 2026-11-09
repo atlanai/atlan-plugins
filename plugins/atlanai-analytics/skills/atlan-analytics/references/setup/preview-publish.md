@@ -52,6 +52,9 @@ for the concrete plan, missing authorization, idempotency, release policy and un
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
 release and full MCP readback. Record receipts with `PROJECT publication` as the local
 procedures describe. A draft or local plan is not publication.
+When definitions already exist, say which, how many and where, and why reuse beats a copy:
+"6 of the 8 metrics were already saved in Analytics Demo by an earlier run, so I reused them;
+2 are new." Use actual counts and names, never only "everything was already created".
 Reusing everything still requires the visible preview before marking Ready. Explain count
 changes: name any candidate kept only for validation, deduplicated, held or replaced by a
 released definition, with its reason. Preserve those local candidates and coverage decisions;

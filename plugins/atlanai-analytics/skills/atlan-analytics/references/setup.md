@@ -19,6 +19,9 @@ for "continue".
 
 ## Orient before work
 
+A bare `start` with no source or saved run reads [the start choice](setup/demo.md) first.
+The demo explains its environment, then runs this file unchanged on the demo repository.
+
 In at most 60 words, explain the outcome, next action and controls. For example: "I'll turn
 these dashboards and query history into metrics you can question here. First I'll check the
 sources, ask what matters to you and what you want to accomplish, then show a sample. The
