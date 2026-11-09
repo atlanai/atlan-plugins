@@ -1,6 +1,6 @@
 ---
 name: atlan-manage-artifacts
-description: Archive, move, deprecate, roll back or release an Atlan artifact, approve a pending version, or see what waits for review. Use when the user asks what breaks if something is archived, to retire or replace a skill or agent, to approve one, or what is waiting for their review. Not for publishing (atlan-author-skills) or finding things (atlan-find-artifacts).
+description: Archive, move, deprecate, roll back or release an Atlan artifact, approve a pending version, or see the review queue. Use when asked what breaks if something is archived, to retire, replace or approve a skill or agent, or what awaits review.
 license: Apache-2.0
 ---
 

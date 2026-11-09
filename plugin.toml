@@ -162,8 +162,8 @@ short_description = "Archive, move, roll back or approve, seeing what depends on
 prompt = "Use $atlan-manage-artifacts to show what is waiting for my review in Atlan."
 
 [skills.atlan-share]
-display_name = "Share with Colleagues"
-short_description = "Share a result with your team and post it to Slack"
+display_name = "Share or Record an Output"
+short_description = "Save or share a deliverable in Atlan and post it to Slack"
 prompt = "Use $atlan-share to share this with my team in Atlan and post it to our Slack channel."
 
 [skills.atlan-continue]
@@ -200,11 +200,6 @@ prompt = "Use $atlan-author-skills to publish the skill in this folder to Atlan.
 display_name = "Register an Agent"
 short_description = "Catalogue an agent or harness in Atlan"
 prompt = "Use $atlan-author-agents to register the agent in this repository in Atlan."
-
-[skills.atlan-record-outputs]
-display_name = "Record an Output"
-short_description = "Record a deliverable as an Atlan output"
-prompt = "Use $atlan-record-outputs to record this deliverable as an Atlan output."
 
 [skills.atlan-analytics]
 display_name = "Atlan Analytics"

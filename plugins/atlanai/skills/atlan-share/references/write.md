@@ -45,7 +45,7 @@ mcp__call_write_tool {
   it is hosted elsewhere, and say that a binary needs the Atlan CLI or the dashboard's upload.
 - **Something hosted elsewhere** is `external_url` with no file.
 - Add `project_id` to `metadata` when the settings or the user name one. Producer and session
-  fields follow `skills/atlan-record-outputs/references/record.md`. Add one `edges` entry,
+  fields follow `skills/atlan-share/references/record.md`. Add one `edges` entry,
   `{"rel_type": "used_skill", "to_id": "skill_…"}`, for each registry skill this session loaded.
 
 **A new version** is the same call with the earlier share's `source_id` and the new content. It
@@ -61,7 +61,7 @@ kind: read `registry__get_kind_schema` for `output` and fix it. Any other refusa
 `atlan-troubleshoot`; never retry with a new source key to get past it.
 
 **When the gateway has no `publish_output`,** record in separate calls as
-`skills/atlan-record-outputs/references/record.md` describes under its older route: the `file`
+`skills/atlan-share/references/record.md` describes under its older route: the `file`
 by `registry__create_artifact` (or `registry__append_artifact_version` on the earlier share's
 file for a new version, after comparing its text), then the `output` by
 `registry__create_artifact` with the same source key and the file pin.

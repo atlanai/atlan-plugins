@@ -1,6 +1,6 @@
 ---
 name: atlan-author-agents
-description: "Register or update an agent in Atlan: link a repository's agent and the skills it uses, register this coding tool as a harness, or prepare an agent's runtime credential. Use when the user wants to add, register or update an agent in Atlan or record its skills. Not for publishing skills (atlan-author-skills) or GitHub CI publication (atlan-connect-repo)."
+description: "Register or update an agent in Atlan: link a repository's agent and its skills, register this tool as a harness, or prepare its credential. Use when adding or updating an agent in Atlan. Not for publishing skills (atlan-author-skills)."
 license: Apache-2.0
 ---
 
@@ -44,4 +44,4 @@ agent to recover a missing credential. Issue a runtime credential only when requ
 
 The app owns the native Atlan runtime; other providers may remain catalog-only. Registering
 an agent does not deploy it or prove traces are arriving. Record produced deliverables
-with `atlan-record-outputs` and upload owned files with `atlan-content`.
+with `atlan-share` and upload owned files with `atlan-content`.

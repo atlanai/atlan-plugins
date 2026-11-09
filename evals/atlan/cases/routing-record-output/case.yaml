@@ -7,10 +7,10 @@ execution:
   max_turns: 12
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
-  - name: fires-atlan-record-outputs
+  - name: fires-atlan-share
     type: tool_used
     tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-record-outputs"'
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
   - name: goes-straight-to-the-skill
     type: tool_used
     tool: Skill
@@ -71,7 +71,7 @@ graders:
     input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
     min: 0
     max: 0
-  - name: routes-to-record-outputs
+  - name: routes-to-share
     type: llm
     criteria: |
       PASS if the reply makes no write, treats the report as something to record in Atlan once it has it, and asks for what is missing (the file, which does not exist here, or the workspace). FAIL if it writes to Atlan, invents the report, or says Atlan cannot record it.
