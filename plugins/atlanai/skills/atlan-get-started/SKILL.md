@@ -55,8 +55,8 @@ Look for the `atlan` server's five search-mode tools: `mcp__search_tools`,
   Reuse the returned `mcp_session_id` as `session_id`. Keep the `kind` filter: never list or
   page through every workspace.
 
-  Then learn what the organization has with three small reads, sent as parallel calls in one
-  turn, each carrying the session id and, like every call, a `rationale`:
+  Then learn what the organization has with three reads, sent as one `mcp__call_read_tools`
+  call when the host lists it, else in parallel, each with `session_id` and a `rationale`:
 
   ```
   mcp__call_read_tool { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" }, … }

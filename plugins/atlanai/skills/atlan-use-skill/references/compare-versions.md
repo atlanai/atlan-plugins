@@ -28,8 +28,11 @@ change.
    - Anything else: changed. A file that then diffs as identical counts as unchanged.
 4. **Read only the changed files, at both versions.** One `registry__get_artifact` call per
    version with `include_files` listing the changed paths (the added files only on the newer
-   side). If `include_files` is refused, read each with `registry__get_file_content`, passing
-   its `file_id` and that version's `file_version_ordinal` as `version_ordinal`.
+   side). If `include_files` is refused, read them with `registry__get_file_contents`: one call
+   whose `"files"` lists up to 8 `{file_id, version_ordinal}` entries, both versions' files
+   together, each with that version's `file_version_ordinal` as `version_ordinal`. Only when
+   that tool is not served either, read each with `registry__get_file_content` and the same two
+   arguments, as parallel calls in one turn.
 5. **Diff them.** With a shell, write each pair to a scratch folder outside the user's project
    and run `diff -u old new`. Without one, compare the two texts yourself.
 

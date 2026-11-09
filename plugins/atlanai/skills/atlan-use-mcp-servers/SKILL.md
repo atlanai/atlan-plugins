@@ -55,7 +55,8 @@ to both.
 2. Run the match with the runner its `run_with` names (`mcp__call_read_tool`,
    `mcp__call_write_tool` or `mcp__call_tool`), with the tool's exact name and arguments matching
    its schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
-   Never invent a name or an argument.
+   Never invent a name or an argument. Independent reads go out together: as one
+   `mcp__call_read_tools` call (up to 8) when the host lists it, otherwise in parallel.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.

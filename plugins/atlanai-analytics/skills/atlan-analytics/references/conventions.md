@@ -21,7 +21,9 @@ explicit orchestration policy for phase approvals and continuation; these safety
 - **Full mode** (every tool listed): open the session with `mcp__initialise`, passing an
   `objective` and a `rationale`, then call each tool directly with its `session_id`.
 
-Send independent reads together in one turn. Hold for the rest of the conversation what does
+Send independent reads together: as one `mcp__call_read_tools` call (up to 8,
+`{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`) when the host lists it,
+otherwise as parallel calls in one turn. Hold for the rest of the conversation what does
 not change within it: each metric's `workspace_id`, the warehouse query tool (or that there is
 none), the ontology and its release id. A later question reuses them and skips discovery; look
 again only after a call is refused.
