@@ -10,6 +10,13 @@ answers. A specific business question prioritizes its required metric/query and 
 answer; broader team preparation follows only within the requested scope. Existing publication,
 retrieval and execution requirements still apply.
 
+After intent, check connection readiness once when the requested outcome includes team reuse
+or saving in Atlan. Use a current-host `registry__list_workspaces` read and record success with
+`PROJECT auth` `record_read` as [connection recovery](../auth-recovery.md) describes. A failed
+read starts that host's recovery while independent local work continues. Do not mark the
+workspace-listing task done until a read succeeds, and do not retry it at every authoring gate.
+Local exploration and understanding-only requests do not need this sign-in step.
+
 Use [local source procedures](../project.md#2-bind-data-once) to select an executor independently
 of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
 through [connect](../connect.md). No data connection is needed to preview definitions. Without
@@ -25,9 +32,19 @@ warehouse is selected, author with [metrics authoring](../metrics/authoring.md) 
 SQLite binding. Do not initialize the metrics module runtime for this case; it installs
 packages.
 
+Before authoring the full local collection, save one relevant candidate and its supporting
+query, select it with `PROJECT journey select`, and run its exact local check. Show the first
+result with its scope and check limitations, then expand the collection. Keep that first
+candidate when appending later ones. If execution is unavailable, show the source-backed
+draft and name the missing check; do not claim a checked result or stall all source work.
+
 Otherwise, for new supported metrics, use [the metrics module](../metrics-engine.md), preserving this setup
 run, scope and preview/publication order. Reuse the interview decisions; do not run another.
 Supported BI definitions and captured history enter through its input plugs and authored gates.
+Power BI templates (`.pbit`) now use the model and report together. Do not replace a supported
+template with its BIM sibling as a routine workaround. Query-history admission uses the same
+identifying-literal filter as local setup, before any authoring prompt; report exclusions as
+counts and reasons without reproducing the withheld values.
 For a configured direct Snowflake connection, select native Account Usage history; no shape
 table preparation is required. `PROJECT history` remains an optional capture path for local or
 chat-tool evidence, which must enter the module's common inputs before metric generation.
@@ -58,8 +75,11 @@ Both types of checks
 are bound to definition hashes. For warehouses use the existing read-only tool and retain
 actual revision-bound check evidence. Test representative parameters, excluded populations
 and empty denominators. Never treat one parameter sample as exhaustive coverage.
+When showing an early local answer or explaining excluded rows, apply
+[explanation checks](../answer-checks.md). Account for every formula component, including
+revenue on rows with no costs; distinguish an unchanged top result from an unchanged total.
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.
 
-Update the already opened Analytics view at meaningful phase changes with `PROJECT experience --format panel`.
-Follow the host rendering procedure in [render.md](render.md). Keep a dismissed view closed.
+Save progress and candidate evidence at meaningful phase changes. The live view follows them
+automatically through [render.md](render.md). Keep a dismissed view closed.

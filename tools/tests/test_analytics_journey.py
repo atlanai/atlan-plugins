@@ -87,9 +87,24 @@ class ConversationChoices(unittest.TestCase):
         self.run.journey('keep-local')
         model = self.run.experience(format='json')
         self.assertEqual(model['counts']['released'], 1)
-        self.assertEqual(model['continuation']['action'], 'resume')
+        self.assertEqual(model['continuation']['action'], 'ask')
         self.assertNotIn('drafts', model['phase']['label'])
         self.assertEqual(self.run.journey('resume')['continuation']['action'], 'ask')
+
+    def test_keep_local_continues_preparation_and_never_requests_publication(self):
+        self.run.journey('domain', answer='Shipping')
+        self.run.journey('purpose', answer='Explore totals')
+        self.run.journey('select', 'metric-source')
+        self.run.journey('keep-local')
+        self.fixture.write('auth-recovery.json', {'status': 'permission_denied'})
+        for stage, status, expected in [('build', 'running', 'build'), ('check', 'complete', 'preview'),
+                                        ('preview', 'complete', 'explore-local'), ('ready', 'complete', 'explore-local')]:
+            self.fixture.write('progress.json', {'stage': stage, 'status': status})
+            model = self.run.experience(format='json')
+            self.assertEqual(model['continuation']['action'], expected)
+            self.assertEqual(model['interaction']['mode'], 'local')
+            if stage not in ('preview', 'ready'):
+                self.assertNotEqual(model['phase']['status'], 'local')
 
     def test_cli_bad_selection_does_not_mark_engine_failed(self):
         before = self.fixture.files()
@@ -145,6 +160,8 @@ class FirstAnswerRehearsal(unittest.TestCase):
             run.write(run.context / 'metrics.json', [metric])
             run.write(run.context / 'queries.json', [query])
             run.check()
+            self.assertEqual(run.journey()['continuation']['action'], 'select-focus')
+            run.journey('select', focus='metric:' + metric['name'])
             self.assertEqual(run.experience(format='json')['sample']['status'], 'schema_checked')
             run.check_metric({'name': metric['name']})
             run.check_query({'name': query['name']})

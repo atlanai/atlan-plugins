@@ -25,6 +25,7 @@ Run directory (<context-dir>), written by the skill:
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import pathlib
@@ -743,6 +744,10 @@ def check_query(body: dict) -> tuple:
     if body.get("name") and not _SLUG.match(body["name"]):
         errs.append("name must be a lower-case slug")
     d = body.get("definition") or {}
+    if not isinstance(d, dict):
+        return errs + ['definition must be an object'], warns
+    if d.get('extensions') is not None and not isinstance(d['extensions'], dict):
+        errs.append('definition.extensions must be an object')
     if d.get("spec_version") != QUERY_SPEC:
         errs.append(f"definition.spec_version must be {QUERY_SPEC}")
     for k in ("sql", "question", "dialect"):
@@ -762,22 +767,27 @@ def check_query(body: dict) -> tuple:
         why = _pii_prose(d.get(k) or body.get(k) or "")
         if why:
             errs.append(f"{k} holds {why}")
-    if d.get("review_status") not in (None, "unreviewed", "reviewed", "verified", "rejected"):
+    if d.get('review_status') == 'rejected':
+        errs.append('The saved query was rejected in review; repair and review it before publication.')
+    if d.get("review_status") not in (None, "unreviewed", "reviewed", "verified", "needs_review", "rejected"):
         warns.append(f"definition.review_status {d.get('review_status')!r} is unusual")
     return errs, warns
 
 
 def _canon(text: str) -> str:
-    """A predicate or formula as compared for identity: no comments, no spaces, code and quoted
-    names in lower case, and every literal kept as written. Unlike normalize(), which keys query
-    shapes, `status = 'paid'` and `status = 'refunded'`, or `amount > 100` and `amount > 1000`,
-    stay different: the literals are the population the metric counts."""
+    """Compare tokens without merging names or changing quoted identifiers/literals."""
     parts = []
     for kind, text in scan(text or ""):
         if kind == "comment":
             continue
-        parts.append(text if kind in ("str", "dollar") else _WS.sub("", text).lower())
-    return "".join(parts).rstrip(";")
+        if kind in ('str', 'dollar', 'ident'):
+            parts.append((kind, text))
+        else:
+            parts.extend(('code', token.lower()) for token in re.findall(
+                r'[\w$]+|<>|!=|<=|>=|::|\|\||[^\s]', text))
+    if parts and parts[-1] == ('code', ';'):
+        parts.pop()
+    return json.dumps(parts, ensure_ascii=False)
 
 
 def identity(body: dict) -> str:
@@ -785,15 +795,95 @@ def identity(body: dict) -> str:
     included. Never its name."""
     d = body.get("definition") or {}
     src = d.get("source") or {}
-    parts = [_ident(src.get("entity") or ""), _canon(src.get("sql") or src.get("table") or ""),
+    parts = [_canon(src.get("entity") or ""), _canon(src.get("sql") or src.get("table") or ""),
              _canon(d.get("formula") or ""),
              "|".join(sorted(_canon(f) for f in d.get("mandatory_filters") or []))]
     return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:16]
 
 
 def _same(a: dict, b: dict) -> bool:
-    keep = lambda x: {k: v for k, v in x.items() if k not in ("version", "extensions")}
-    return keep(a.get("definition") or {}) == keep(b.get("definition") or {})
+    # The same contract rules preserve unknown constraints and producer bindings.
+    return query_identity(a) == query_identity(b)
+
+
+def definition_hash(body):
+    return hashlib.sha256(json.dumps(body.get('definition'), sort_keys=True, ensure_ascii=False,
+                                    allow_nan=False, separators=(',', ':')).encode()).hexdigest()
+
+
+def reconciliation_hash(body):
+    """Bind a local review to identity, prose and the complete definition, never just SQL."""
+    value = {key: body.get(key) for key in ('name', 'display_name', 'description', 'source_id', 'definition')}
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
+                                    allow_nan=False, separators=(',', ':')).encode()).hexdigest()
+
+
+def query_identity(body: dict) -> str:
+    """Exact executable contract, independent of producer scope and descriptive prose.
+
+    Do not use the history shape normalizer: it removes literal values. SQL is kept
+    byte-for-byte (apart from surrounding whitespace), including quoted identifiers.
+    Unknown definition fields and extension namespaces remain part of the contract.
+    Binding constraints nested in producer evidence also remain part of it.
+    """
+    definition = body.get('definition') or {}
+    if not isinstance(definition, dict):
+        return 'invalid-definition'
+    contract = {k: v for k, v in definition.items() if k not in (
+        'question', 'description', 'review_status', 'version', 'extensions')}
+    contract['sql'] = str(contract.get('sql') or '').strip()
+    extensions = definition.get('extensions') or {}
+    if not isinstance(extensions, dict):
+        return 'invalid-extensions'
+    contract['extensions'] = {k: v for k, v in extensions.items()
+                              if k not in ('metrics_agent', 'atlan_analytics')}
+    constraints = []
+    def bindings(value, path=()):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in ('viewer_binds', 'withheld_binds', 'parameters', 'bindings',
+                           'mandatory_filters', 'required_filters') and child:
+                    constraints.append((path + (key,), child))
+                elif isinstance(child, (dict, list)):
+                    bindings(child, path + (key,))
+        elif isinstance(value, list):
+            for i, child in enumerate(value):
+                bindings(child, path + (str(i),))
+    bindings({k: extensions[k] for k in ('metrics_agent', 'atlan_analytics') if k in extensions})
+    contract['producer_constraints'] = constraints
+    return hashlib.sha256(json.dumps(contract, sort_keys=True, separators=(',', ':'),
+                                     ensure_ascii=False).encode()).hexdigest()
+
+
+def parameterized_candidate(candidate, live):
+    """Find exact template coverage for review, never prove equivalence or authorize reuse."""
+    a, b = candidate.get('definition', {}), live.get('definition', {})
+    if a.get('dialect') != b.get('dialect') or a.get('parameters') or not b.get('parameters'):
+        return False
+    names, pieces = [], []
+    for kind, text in scan(b.get('sql') or ''):
+        if kind != 'code':
+            pieces.append(re.escape(text))
+            continue
+        start = 0
+        for marker in re.finditer(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', text):
+            pieces.append(re.escape(text[start:marker.start()]))
+            pieces.append(r"('(?:''|[^'])*'|[-+]?\d+(?:\.\d+)?|TRUE|FALSE|NULL)")
+            names.append(marker.group(1))
+            start = marker.end()
+        pieces.append(re.escape(text[start:]))
+    declared = {p.get('name') for p in b['parameters'] if isinstance(p, dict)}
+    if not names or set(names) != declared:
+        return False
+    match = re.fullmatch(''.join(pieces), a.get('sql') or '')
+    if not match:
+        return False
+    literals = {}
+    for name, literal in zip(names, match.groups()):
+        if name in literals and literals[name] != literal:
+            return False
+        literals[name] = literal
+    return True
 
 
 # The edges a layer may ask for, as (source kind, target kind). `metric` declares only
@@ -824,6 +914,8 @@ def cmd_check(a) -> dict:
     check_publication_holds(d, metrics, queries, links)
     existing = load_json(d / "existing.json", []) or []
     local_checks = load_json(d / "candidate-checks.json", {}) or {}
+    from reconciliation import Review
+    review = Review(d, load_json, dump_json, reconciliation_hash, definition_hash)
     def held_execution(kind, body):
         record = local_checks.get(kind + ':' + str(body.get('name')), {})
         revision = hashlib.sha256(json.dumps(body.get('definition'), sort_keys=True, ensure_ascii=False,
@@ -838,7 +930,10 @@ def cmd_check(a) -> dict:
                       "Author the metrics and saved queries first, or import a finished run.")
     live_m = [e for e in existing if e.get("kind", "metric") == "metric"]
     live_q = [e for e in existing if e.get("kind") == "sql_query"]
-    by_sid = {e.get("source_id"): e for e in existing if e.get("source_id")}
+    by_sid = {}
+    for row in live_m:
+        if row.get('source_id'):
+            by_sid.setdefault(row['source_id'], []).append(row)
     by_ident: dict = {}
     for e in live_m:
         by_ident.setdefault(identity(e), []).append(e)
@@ -846,6 +941,8 @@ def cmd_check(a) -> dict:
 
     plan, refused, warnings = {"metrics": [], "queries": [], "links": []}, [], []
     seen_names, seen_display, seen_ident = {}, {}, {}
+    adopted = {}
+    metric_matches = []
     for i, body in enumerate(metrics):
         label = body.get("name") or f"metrics[{i}]"
         errs, warns = check_metric(body)
@@ -864,31 +961,90 @@ def cmd_check(a) -> dict:
         if missing:
             errs.append(f"cites shapes that are not in shapes.jsonl: {', '.join(missing[:5])}")
         action, match = "create", None
-        hit = by_sid.get(body["source_id"])
+        decision, selected, error = review.decision('metric', body, live_m)
+        if error:
+            errs.append(error)
+        sid_matches = by_sid.get(body['source_id'], [])
+        if len(sid_matches) > 1 and not decision:
+            errs.append('multiple live metrics have this source identity; resolve the ambiguity before publishing')
+        hit = sid_matches[0] if len(sid_matches) == 1 else None
+        from_sid = hit is not None
+        if decision:
+            hit = selected if decision['action'] != 'create' else None
         if hit is None and len(by_ident.get(ident, [])) == 1:
-            hit = by_ident[ident][0]
-            body["source_id"], body["name"] = hit.get("source_id") or body["source_id"], hit.get("name")
-            body["display_name"] = hit.get("display_name") or body.get("display_name")
-            warns.append(f"measures the same as live {hit.get('name')!r}: adopted its identity and frozen name")
+            if not decision:
+                hit = by_ident[ident][0]
         elif hit is None and len(by_ident.get(ident, [])) > 1:
-            errs.append("two live metrics measure the same thing: a person picks which one this revises")
+            if not decision:
+                errs.append('multiple live metrics match this calculation; compare their definitions before selecting one')
+                review.request('metric', body, by_ident[ident])
+        if hit is None and not decision:
+            names = {str(body.get(k) or '').casefold().replace('_', ' ').replace('-', ' ')
+                     for k in ('name', 'display_name')} - {''}
+            possible = [row for row in live_m if any(
+                str(row.get(k) or '').casefold().replace('_', ' ').replace('-', ' ') in names
+                for k in ('name', 'display_name'))]
+            if possible:
+                review.request('metric', body, possible)
+                errs.append('An existing metric may already answer this question; compare meaning and coverage before creating another.')
         if hit is not None:
             match = hit.get("id")
-            action = "reuse" if _same(body, hit) else "revise"
+            if not match:
+                errs.append('Read the complete existing metric with its artifact id before reconciling.')
+            live_errors, _ = check_metric({k: v for k, v in hit.items() if k in BODY_FIELDS})
+            if live_errors:
+                errs.append('The existing metric fails local validation; review its definition before adopting it.')
+            if not decision and review.stale_adoption('metric', body, hit):
+                review.request('metric', body, [hit])
+                errs.append('The reused metric changed remotely; review the new definition before continuing.')
+            action = decision['action'] if decision else "reuse" if _same(body, hit) else "revise"
             if identity(hit) != ident:
                 warns.append(f"changes what live {hit.get('name')!r} measures (its source, formula or mandatory "
                              "filters): show the person both definitions before it is revised")
-            if hit.get("name") != body.get("name"):
+            if from_sid and not decision and hit.get("name") != body.get("name"):
                 errs.append(f"revises {hit.get('name')!r} under a new name: a name is frozen at create")
         elif ("metric", body.get("name")) in live_names:
             errs.append("a different live metric already holds this name")
-        for e in errs:
-            refused.append({"kind": "metric", "item": label, "error": e})
-        warnings += [{"kind": "metric", "item": label, "warning": w} for w in warns]
         plan["metrics"].append({"name": body.get("name"), "action": action, "match_id": match,
                                 "source_id": body["source_id"], "ok": not errs})
+        metric_matches.append((body, hit, label, errs, warns, decision, from_sid))
+    # Resolve dependency names for comparison without changing candidate definitions first.
+    proposed_names = {label: hit['name'] for _, hit, label, errs, _, _, _ in metric_matches if hit and not errs}
+    for (body, hit, label, errs, warns, decision, from_sid), item in zip(metric_matches, plan['metrics']):
+        original = copy.deepcopy(body)
+        compared = copy.deepcopy(body)
+        if isinstance(compared['definition'].get('depends_on'), list):
+            compared['definition']['depends_on'] = [proposed_names.get(n, n) for n in compared['definition']['depends_on']]
+        if hit and not decision and not from_sid and not _same(compared, hit):
+            review.request('metric', body, [hit])
+            errs.append('The calculation matches but definition coverage differs; review reuse or an intentional revision.')
+        if hit:
+            item['action'] = decision['action'] if decision else 'reuse' if _same(compared, hit) else 'revise'
+        if hit and not errs:
+            if item['action'] == 'reuse':
+                review.adopt('metric', body, hit, local_checks, decision, original)
+            else:
+                body['name'] = hit['name']
+                body['display_name'] = hit.get('display_name') or body['display_name']
+                body['source_id'] = hit.get('source_id') or body['source_id']
+                current_version = hit.get('definition', {}).get('version')
+                if type(current_version) is not int or current_version < 1:
+                    errs.append('Read the current positive metric version before preparing a revision.')
+                else:
+                    body['definition']['version'] = current_version + 1
+            adopted[('metric', label)] = body['name']
+        item.update(name=body['name'], source_id=body['source_id'], ok=not errs)
+        refused += [{'kind': 'metric', 'item': label, 'error': e} for e in errs]
+        warnings += [{'kind': 'metric', 'item': label, 'warning': w} for w in warns]
     q_names = set()
-    q_by_sid = {e.get("source_id"): e for e in live_q if e.get("source_id")}
+    q_by_sid = {}
+    for row in live_q:
+        if row.get('source_id'):
+            q_by_sid.setdefault(row['source_id'], []).append(row)
+    q_by_contract = {}
+    for row in live_q:
+        if isinstance(row.get('definition'), dict) and isinstance(row['definition'].get('sql'), str):
+            q_by_contract.setdefault(query_identity(row), []).append(row)
     for i, body in enumerate(queries):
         label = body.get("name") or f"queries[{i}]"
         errs, warns = check_query(body)
@@ -898,17 +1054,83 @@ def cmd_check(a) -> dict:
         if body.get("name") in q_names:
             errs.append("name appears twice")
         q_names.add(body.get("name"))
-        hit = q_by_sid.get(body.get("source_id"))
-        action = ("reuse" if hit and _same(body, hit) else "revise") if hit else "create"
+        original = copy.deepcopy(body)
+        decision, selected, error = review.decision('sql_query', body, live_q)
+        if error:
+            errs.append(error)
+        sid_matches = q_by_sid.get(body.get('source_id'), [])
+        if len(sid_matches) > 1 and not decision:
+            errs.append('multiple live saved queries have this source identity; resolve the ambiguity before publishing')
+        hit = sid_matches[0] if len(sid_matches) == 1 else None
+        if decision:
+            hit = selected if decision['action'] != 'create' else None
+        equivalent = q_by_contract.get(query_identity(body), [])
+        if hit is None and not decision and len(equivalent) == 1:
+            hit = equivalent[0]
+            warns.append('same SQL and binding contract as live ' + repr(hit['name']) + ': reuse without replacing its documentation')
+        elif hit is None and not decision and len(equivalent) > 1:
+            review.request('sql_query', body, equivalent)
+            errs.append('multiple live saved queries have this execution contract: choose the existing artifact before publishing')
+        action = ("reuse" if hit and query_identity(body) == query_identity(hit) else "revise") if hit else "create"
+        if decision:
+            action = decision['action']
+        if hit and not hit.get('id'):
+            errs.append('Read the complete existing query with its artifact id before reconciling.')
+        if hit and check_query(hit)[0]:
+            errs.append('The existing query fails local validation; review its definition before adopting it.')
+        if hit and not decision and review.stale_adoption('sql_query', body, hit):
+            review.request('sql_query', body, [hit])
+            errs.append('The reused query changed remotely; review the new definition before continuing.')
+        if hit and hit.get('definition', {}).get('review_status') == 'rejected':
+            errs.append('The matching live query was rejected in review; do not reuse or replace it automatically.')
         if not hit and ("sql_query", body.get("name")) in live_names:
             errs.append("a different live saved query already holds this name")
+        if not hit and not decision:
+            possible = [row for row in live_q if parameterized_candidate(body, row)]
+            if possible:
+                review.request('sql_query', body, possible)
+                errs.append('An existing parameterized query may cover this statement; review its bindings and constraints before creating another.')
+        if hit and not errs:
+            if action == 'reuse':
+                review.adopt('sql_query', body, hit, local_checks, decision, original)
+            else:
+                body['source_id'] = hit.get('source_id') or body['source_id']
+                body['name'] = hit['name']
+                body['display_name'] = hit.get('display_name') or body['display_name']
+            adopted[('sql_query', label)] = body['name']
         for e in errs:
             refused.append({"kind": "sql_query", "item": label, "error": e})
         warnings += [{"kind": "sql_query", "item": label, "warning": w} for w in warns]
         plan["queries"].append({"name": body.get("name"), "action": action, "match_id": hit.get("id") if hit else None,
                                 "source_id": body.get("source_id"), "ok": not errs})
+    # Adopt identities as a graph operation, not just a change to the metric body.
+    # Kind is part of every key: a query and a metric may share a name.
+    for body, item in zip(metrics, plan['metrics']):
+        definition = body.get('definition') or {}
+        if item['action'] != 'reuse' and isinstance(definition.get('depends_on'), list):
+            definition['depends_on'] = [adopted.get(('metric', name), name)
+                                        for name in definition['depends_on']]
+    for link in links:
+        for end in ('from', 'to'):
+            endpoint = link.get(end) or {}
+            key = (endpoint.get('kind'), endpoint.get('name'))
+            if key in adopted:
+                endpoint['name'] = adopted[key]
+    for kind, items in (('metric', plan['metrics']), ('sql_query', plan['queries'])):
+        targets = {}
+        for item in items:
+            targets.setdefault(item['name'], []).append(item)
+        for name, matches in targets.items():
+            if len(matches) > 1:
+                for item in matches:
+                    item['ok'] = False
+                refused.append({'kind': kind, 'item': name,
+                                'error': 'multiple candidates resolve to this identity; combine their evidence before publishing'})
     m_names = {m.get("name") for m in metrics} | {e.get("name") for e in live_m}
-    all_q = q_names | {e.get("name") for e in live_q}
+    all_q = {q.get('name') for q in queries} | {e.get("name") for e in live_q}
+    refused_ends = {(kind, item['name']) for kind, items in
+                    (('metric', plan['metrics']), ('sql_query', plan['queries']))
+                    for item in items if not item['ok']}
     pairs = set()
     for i, ln in enumerate(links):
         frm, to, rel = ln.get("from") or {}, ln.get("to") or {}, ln.get("rel_type")
@@ -917,6 +1139,8 @@ def cmd_check(a) -> dict:
             pool = m_names if who.get("kind") == "metric" else all_q if who.get("kind") == "sql_query" else None
             if pool is None or who.get("name") not in pool:
                 errs.append(f"{end} {who.get('kind')}:{who.get('name')} is not in this layer or the workspace")
+            elif (who.get('kind'), who.get('name')) in refused_ends:
+                errs.append(f"{end} endpoint is refused in this plan; resolve it before writing the relationship")
         if frm == to:
             errs.append("a link from a metric to itself")
         if rel == "alternative":
@@ -942,11 +1166,18 @@ def cmd_check(a) -> dict:
         for e in errs:
             refused.append({"kind": "link", "item": f"links[{i}]", "error": e})
         plan["links"].append({**ln, "ok": not errs})
+    check_publication_holds(d, metrics, queries, links)
+    review.save()
+    if (d / 'candidate-checks.json').exists():
+        dump_json(d / 'candidate-checks.json', local_checks)
     dump_json(d / "metrics.json", metrics)
+    dump_json(d / "queries.json", queries)
+    dump_json(d / "links.json", links)
     counts = {k: {a_: sum(1 for x in plan[k] if x.get("action") == a_ and x["ok"]) for a_ in ("create", "revise", "reuse")}
               for k in ("metrics", "queries")}
     counts["links"] = sum(1 for x in plan["links"] if x["ok"])
-    plan.update({"counts": counts, "refused": refused, "warnings": warnings})
+    plan.update({"counts": counts, "refused": refused, "warnings": warnings,
+                 'coverage': review.coverage(metrics, queries)})
     dump_json(d / "plan.json", plan)
     return {"status": "ok" if not refused else "REFUSED", "counts": counts, "refused": len(refused),
             "warnings": len(warnings), "first_refusals": refused[:10], "plan": str(d / "plan.json")}
@@ -1135,6 +1366,7 @@ def selftest() -> dict:
         good["definition"]["extensions"]["atlan_analytics"]["shapes"] = [rows[0]["shape_id"]]
         dump_json(t / "run" / "metrics.json", [good])
         dump_json(t / "run" / "existing.json", [{"id": "metric_1", "kind": "metric", "name": "paid_rev",
+                                                  "display_name": good['display_name'], "description": good['description'],
                                                   "source_id": "x", "definition": good["definition"]}])
         r = cmd_check(argparse.Namespace(dir=str(t / "run")))
         plan = load_json(t / "run" / "plan.json")
@@ -1161,6 +1393,8 @@ def selftest() -> dict:
         child.update({"name": "refunded_share", "display_name": "Refunded Share",
                       "description": "Share of revenue refunded."})
         child["definition"]["output"]["alias"] = "refunded_share"
+        child["definition"]["formula"] = "SUM(DB.S.ORDERS.AMOUNT) / COUNT(*)"
+        child["definition"]["aggregation"] = {"type": "custom"}
         dump_json(t / "run" / "metrics.json", [base, child])
         link = {"from": {"kind": "metric", "name": "refunded_share"}, "to": {"kind": "metric", "name": "refunded_revenue"},
                 "attributes": {"why": "numerator"}}

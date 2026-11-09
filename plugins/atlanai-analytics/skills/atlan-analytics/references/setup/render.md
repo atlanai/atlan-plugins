@@ -16,21 +16,39 @@ Later updates omit `--overview-file`; source changes invalidate the earlier pros
 During engine work pass `--engine-dir <within-run-engine>` and retain `engine_run` in run.json.
 
 The result contains `snapshot` (an absolute local HTML path) and `pane` (bounded native text).
-`displayed: false` is intentional: the host must perform the next step. Update at the first
-metric, every meaningful check/phase transition, a hold, a choice change and the final handoff.
+`displayed: false` is intentional: the host must perform the next step. Save progress at the
+first metric, every meaningful check/phase transition, a hold, a choice change and the final handoff.
 Keep the same surface and metric selection. Never reopen a view the person dismissed unless
 they ask. No view action publishes, executes SQL, or changes an engine checkpoint.
 
 ## Claude Code CLI and Desktop Code: native side pane
 
-When the Analytics View companion's `show` tool is available, call it with `view` equal to the exact
-returned `pane` object. Desktop Code places it beside the transcript. In the CLI it uses a
-sidebar in wide fullscreen terminals and a framed dock above the prompt otherwise. It updates
-that pane on later calls. Its result reports whether placement succeeded or it was dismissed.
-The companion is `atlanai-analytics-view@atlan`; do not install it during ordinary setup unless
-the user requested installation. `/analytics-view` reopens the last pane. Its buttons use
+When the Analytics View companion's `follow` tool is available, start the packaged
+`experience_view.py --run-dir <run-dir>` using
+the host's managed preview process or long-running terminal tool. Follow the process rules
+below: retain its task handle, use the approved interpreter and do not daemonize it. Omit
+both connection flags before sign-in. Once identified, add `--host claude_code --server
+<observed-server>` together on a later launch if needed; never supply only one. Pass its exact
+`pane_url` to `follow` as `url`. Never point it at another local service. The pane reads the
+saved run every 2.5 seconds, including intent answers, engine checkpoints, checks and recovery.
+Keep `engine_run` in run.json current; no repeated `show` calls or generated payloads are needed.
+Desktop Code places it beside the transcript. The CLI uses a sidebar in wide fullscreen
+terminals and a framed dock above the prompt otherwise. Check the tool result for actual
+placement. If only the older `show` tool exists, pass the prepared `pane` as `view`, label it
+a saved snapshot and refresh it explicitly at meaningful transitions.
+Installing Analytics in Claude Code automatically includes its native view. Do not ask the
+person to find or install a separate view plugin. If an older installation lacks the tools,
+continue with the fallback below and explain once that updating Analytics and reloading
+plugins restores the included view. Do not change installations unless requested.
+After an authorized update, restart a CLI session before testing the new companion; an
+already-running session can retain the old code. Preserve and resume its existing run.
+If the feed is following but not displayed, offer `/analytics-view` first: this explicit
+command can place a pane in a narrow terminal. Do not diagnose a broken server or require
+fullscreen merely because automatic placement was declined.
+`/analytics-view` reopens the last pane. Its buttons use
 native prompt filling: the person submits the filled text to request pause, local mode or
-details. Inspect source and checks expands evidence in the pane itself.
+details. The pane confirms that a request was prepared; it does not claim to have applied it.
+Inspect source and checks expands evidence in the pane itself.
 
 A narrow terminal or headless session may not place a pane. Give the concise preview in chat
 and name the limitation once. Do not change permissions, terminal settings or policy to force

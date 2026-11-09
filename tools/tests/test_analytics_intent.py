@@ -32,7 +32,10 @@ class IntentCheckpoint(unittest.TestCase):
         self.assertEqual(second['continuation']['question']['options_from'], 'selected_domain')
         self.assertIn('Shipping time and delays', second['chat'])
         final = restarted.journey('purpose', answer='Find where delays happen')
-        self.assertEqual(final['continuation']['action'], 'build')
+        self.assertEqual(final['continuation']['action'], 'select-focus')
+        self.assertFalse(final['continuation']['needs_input'])
+        self.assertIsNone(restarted.experience(format='json')['sample'])
+        self.assertEqual(restarted.journey('select', focus='metric-source')['continuation']['action'], 'build')
         self.assertEqual(Project(self.run.root).journey()['interaction']['intent'], {
             'domain': 'Shipping time and delays', 'purpose': 'Find where delays happen'})
         after = self.fixture.fixture.files()
@@ -42,10 +45,13 @@ class IntentCheckpoint(unittest.TestCase):
     def test_changed_domain_clears_old_purpose_but_same_domain_does_not(self):
         self.run.journey('domain', answer='Shipping time')
         self.run.journey('purpose', answer='Locate delays')
+        self.run.journey('select', focus='metric-source')
         self.assertEqual(self.run.journey('domain', answer='Shipping time')['continuation']['action'], 'build')
         result = self.run.journey('domain', answer='Capacity utilization')
         self.assertEqual(result['continuation']['action'], 'choose-purpose')
         self.assertNotIn('purpose', result['interaction']['intent'])
+        self.assertIsNone(self.run.experience(format='json')['sample'])
+        self.assertTrue(result['interaction']['selection_pending'])
         self.assertNotIn('publication', self.run.current())
 
     def test_pause_local_details_and_resume_preserve_partial_answers(self):
@@ -63,7 +69,8 @@ class IntentCheckpoint(unittest.TestCase):
         self.assertEqual(self.run.journey()['continuation']['action'], 'choose-domain')
         self.run.journey('domain', answer='Capacity')
         result = self.run.journey('purpose', answer='Understand the capacity metric')
-        self.assertEqual(result['continuation']['action'], 'recover-access')
+        self.assertEqual(result['continuation']['action'], 'select-focus')
+        self.assertEqual(self.run.journey('select', focus='metric-source')['continuation']['action'], 'recover-access')
         self.assertEqual(self.run.experience(format='json')['auth_status'], 'permission_denied')
 
     def test_invalid_or_out_of_order_answers_leave_saved_work_unchanged(self):

@@ -531,6 +531,13 @@ def main():
                     if result.get('snapshot'):
                         compact['snapshot'] = result['snapshot']
                     compact['chat'] = result.get('chat', '')
+                    if 'phase' in result:
+                        import experience as presentation
+                        compact['chat'] = presentation.render_chat(result)[:1800]
+                        compact['focus'] = result.get('focus')
+                        sample = result.get('sample')
+                        compact['sample'] = ({k: sample[k] for k in ('id', 'name', 'status', 'status_label')}
+                                             if sample else None)
                     compact['next'] = 'Display the concise experience summary in chat; retain details in this artifact.'
                 output = json.dumps(compact)
             print(output)
