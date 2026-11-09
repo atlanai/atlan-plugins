@@ -153,4 +153,5 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
     model = experience.snapshot(run, host=host, server=server)
     return {'status': 'ok', 'chat': experience.render_chat(model, detail=action == 'details'),
             'interaction': model['interaction'], 'continuation': model['continuation'],
+            'checklist': model['checklist'],
             'remote_writes': False, 'executed': False}

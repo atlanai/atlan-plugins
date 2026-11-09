@@ -131,7 +131,6 @@ step, preserve the run and explain the problem and recovery without printing a s
 A plan-only or explanation-only request is complete once answered; it needs neither a metric
 preview nor permission to execute. During sign-in keep the task active until recovery ends.
 
-Prefer a verified native panel when available, otherwise a local snapshot or plain chat.
-Use one view and update it; if the user closes it, keep it closed unless asked to reopen it.
-Never imply a snapshot is live or show controls that cannot act. Publish decisions stay in
-chat. A missing panel must not prevent concise samples and progress in the CLI.
+Show setup progress as the checklist in the host's task list, read from the saved run.
+Open no panel, browser view or snapshot unless the person asks for one. Never imply a
+snapshot is live or show controls that cannot act. Publish decisions stay in chat.

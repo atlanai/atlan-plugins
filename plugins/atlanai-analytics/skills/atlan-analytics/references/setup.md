@@ -1,6 +1,7 @@
 # Prepare existing context for questions
 
 Use seven stages: **Inspect, Scope, Build, Check, Preview, Publish, Ready to ask**.
+The person sees them as six steps in [the setup checklist](setup/checklist.md).
 The result is released metrics and saved SQL in Atlan, used by this chat through MCP.
 An input folder is ordinary customer context. Never depend on a particular repository,
 sample schema or database name. Explicit agent and evaluation modes remain separate.
@@ -18,14 +19,19 @@ for "continue".
 
 ## Orient before work
 
+A bare `start` with no source or saved run reads [the start choice](setup/demo.md) first.
+The demo explains its environment, then runs this file unchanged on the demo repository.
+
 In at most 60 words, explain the outcome, next action and controls. For example: "I'll turn
 these dashboards and query history into metrics you can question here. First I'll check the
-sources, ask what matters to you and what you want to accomplish, then show a sample. You can narrow the scope, inspect details, keep drafts local or
-pause." Continue authorized work without another go-ahead. On resume, state the saved result
+sources, ask what matters to you and what you want to accomplish, then show a sample. The
+task list shows the six steps; two need you. You can narrow the scope, inspect details, keep
+drafts local or pause." Continue authorized work without another go-ahead. On resume, state the saved result
 and next action instead of repeating the introduction.
 
 Read [native conversation and saved choices](setup/workbench.md) on starting or resuming.
-Open and verify [the host view](setup/render.md) after inspection; update it through the run.
+Put [the setup checklist](setup/checklist.md) in the host's task list before the first helper
+call and keep it true to the saved run. It is the only progress display.
 Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
 run waits for an explicit resume; details requests do not resume work.
 
@@ -48,7 +54,9 @@ run whose candidates were never shown in chat starts at Preview.
 | Inspect or Scope | [inspect and scope](setup/inspect-scope.md) |
 | Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](metrics-engine.md), except setups whose inputs are all local files |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
-| A long helper run, a heartbeat or a panel | [progress and presentation](setup/progress.md) |
+| Starting, resuming or any stage change | [the setup checklist](setup/checklist.md) |
+| A long helper run or a heartbeat | [progress and presentation](setup/progress.md) |
+| The person asks for a visual view | [a view on request](setup/render.md) |
 
 ## Preview first, in this reply
 
@@ -85,6 +93,6 @@ factual counts, one sample with calculation, mandatory population/filter, source
 status, and two or three supported questions. Do not enumerate other metric names or append another next-step paragraph. Details-only requests end at their evidence;
 they are not completion handoffs and need no question suggestions or publication pitch.
 
-For the first useful reveal, optional visual inspection or question handoff, read
+For the first useful reveal or question handoff, read
 [the workbench interaction](setup/workbench.md). Preserve the same metric identity through
-refreshes and keep chat useful when the optional surface is dismissed.
+refreshes.

@@ -299,5 +299,5 @@ expressions in row filters. Valid separate aggregation subqueries and grouped wi
 calculations remain supported. The exporter repeats these checks before producing eligibility
 evidence. These checks do not replace warehouse execution or independent dashboard parity.
 
-Update the already opened Analytics view at meaningful phase changes with `PROJECT experience --format panel`.
-Follow the host rendering procedure in [setup/render.md](setup/render.md). Keep a dismissed view closed.
+Refresh [the setup checklist](setup/checklist.md) at meaningful phase changes with
+`PROJECT checklist --engine-dir <within-run-engine>`.

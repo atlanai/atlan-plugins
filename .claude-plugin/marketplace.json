@@ -77,25 +77,6 @@
         "permissions"
       ],
       "category": "development"
-    },
-    {
-      "name": "atlanai-analytics-view",
-      "displayName": "Analytics View",
-      "source": "./plugins/atlanai-analytics-view",
-      "description": "Native Analytics source overview, metric evidence and progress pane for Claude Code. Shows only supplied presentation data and fills prompts on explicit button clicks.",
-      "author": {
-        "name": "Atlan",
-        "url": "https://atlan.com"
-      },
-      "homepage": "https://github.com/atlanai/atlan-plugins",
-      "repository": "https://github.com/atlanai/atlan-plugins",
-      "license": "Apache-2.0",
-      "keywords": [
-        "atlan",
-        "analytics",
-        "preview"
-      ],
-      "category": "development"
     }
   ]
 }

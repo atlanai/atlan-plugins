@@ -1,6 +1,6 @@
 # Setup progress, workers and presentation
 
-Read this file before a long helper run or when the host has a panel API.
+Read this file before a long helper run.
 
 Use `PROJECT progress --stage <stage> --status <status>` at parent-owned stage transitions.
 `PROJECT progress` reads the latest state. Inspect/check operations also checkpoint their
@@ -30,15 +30,10 @@ metric or a resolved hold, not gate names, private paths or raw logs. Do not rep
 counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage.
 Report schema checks, executed examples and parity separately; diagnostics stay in details.
 
-Use native chat and its normal task/choice controls alongside the Analytics view opened
-after inspection. Verify that the host exposes its rendering API. `PROJECT experience
---format html` creates a system-styled local evidence snapshot, never a native or auto-updating
-sidepanel. Use `--format json` for an available host renderer and `--detail` for full evidence.
-If the person dismisses the surface, stay in chat until asked to reopen it. Do not invent a
-pause/publish button or embed chat decisions in an inert HTML control. CLI users get the same
-concise sample and factual progress as text, with native tasks/choices only when available.
-If rendering fails, use chat; presentation must not block generation or publication.
-
-The live Analytics view follows saved run state automatically. Save phase changes and intent
-answers to the run, not presentation-only text. Follow [render.md](render.md) to bind the
-view once; a legacy static view still needs explicit refreshes. Keep a dismissed view closed.
+Use native chat, its choice controls and [the setup checklist](checklist.md) in the host's
+task list. The heartbeat for long work is the checklist's active step, refreshed from
+`PROJECT checklist` with its real count; add a chat line only when a step ends or useful
+evidence appears. Save phase changes and intent answers to the run, so the checklist stays
+true. Open no panel or view unless the person asks for [a visual view](render.md). Do not
+invent a pause or publish button. If the task tool fails, use the one-line fallback in the
+checklist reference; presentation must not block generation or publication.

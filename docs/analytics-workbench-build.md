@@ -1,5 +1,7 @@
 # Analytics UI implementation
 
+Superseded in Analytics 0.6.25. The native pane, its companion mod and the live local preview were removed. Setup now shows progress as a six-step checklist in the host's task list, read from the saved run with `project.py checklist`. The rest of this page describes the removed design and is kept for history.
+
 Updated 9 November 2026 for Analytics 0.6.15 and Analytics View 0.1.2. Setup now opens an
 actual host view after inspecting the sources, before the business-focus question. It
 explains the material and possible analyses, asks the business focus and intended outcome

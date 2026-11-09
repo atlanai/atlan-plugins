@@ -1,6 +1,6 @@
 {
   "name": "atlanai-analytics",
-  "version": "0.6.24",
+  "version": "0.6.26",
   "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows.",
   "author": {
     "name": "Atlan",

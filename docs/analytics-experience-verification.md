@@ -1,5 +1,7 @@
 # Analytics experience verification
 
+Superseded in Analytics 0.6.25. The native pane, its companion mod and the live local preview were removed. Setup now shows progress as a six-step checklist in the host's task list, read from the saved run with `project.py checklist`. The rest of this page describes the removed design and is kept for history.
+
 9 November 2026 · Analytics 0.6.24 · Analytics View 0.1.9
 
 The Claude Desktop view uses the host's Box, Text and Button components. It inherits
