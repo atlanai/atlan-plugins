@@ -25,8 +25,9 @@ The first thing to type: *"Connect me to Atlan."*
 ## MCP server
 
 `atlan`, at `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). This is Atlan's MCP gateway in
-search mode. Five tools (`mcp__search_tools`, `mcp__describe_tools` and the runners
-`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's tools, and every MCP
+search mode. A few helpers (`mcp__search_tools`, `mcp__describe_tools`, the runners
+`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`, and the batch runner
+`mcp__call_read_tools`) reach the registry's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 

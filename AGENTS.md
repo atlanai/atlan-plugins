@@ -121,9 +121,10 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
 - **A workload is an add-on, not a core skill.** A workload built on the registry (analytics,
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
-  is their source of truth: the app behind the workload pins a commit of this repository to serve
-  the same files over MCP (app-metric does, for `atlanai-analytics`). A change here reaches that
-  app at its next pin bump, where its own tests run against the new text. An add-on depends on `atlanai` and declares no MCP server, hooks or
+  is their source of truth. The app behind the workload should pin a commit of this repository
+  to serve the same files over MCP, so a change here reaches it at its next pin bump. app-metric
+  does not yet: it serves its own copy of `atlan-analytics` from
+  `backend/defaults/skills/atlan-analytics/`, which has drifted from `plugins/atlanai-analytics`. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
@@ -238,8 +239,11 @@ repository holds no variant of its own.
    installed until it changes) and run `make build`. An add-on has its own `version` under
    `[[addons]]`, and a mod under `[[mods]]`; bump it when its content or manifest changes.
 2. Say what changes for users in the pull request's description; there is no changelog file.
-3. Merge to `main`. Tag each released plugin `<name>--v<version>` (`atlanai--v0.3.0`,
-   `atlanai-analytics--v0.4.0`), so a dependency with a version range resolves in Claude Code.
+3. Merge to `main`. The `Release tags` workflow tags each released plugin
+   `<name>--v<version>` (`atlanai--v0.3.0`, `atlanai-analytics--v0.4.0`) from its
+   `.claude-plugin/plugin.json`, so a dependency with a version range resolves in Claude Code.
+   agent-gateway's `atlanai-release-sync` workflow opens the pull request that moves its vendored
+   copy of `atlanai` within the hour.
    The repository is its own marketplace for every tool, so users get the new version on their
    tool's next marketplace refresh. Directory listings (Claude, Codex, Cursor)
    are pinned to a commit and move only when the listing is updated.
