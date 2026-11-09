@@ -33,7 +33,7 @@ Full mode refuses a call without that `session_id`.
 ## Translating a recipe written in full mode
 
 The registry's authoring skills (`atlan-author-skills`, `atlan-author-agents`,
-`atlan-author-knowledge`, `atlan-content`, `atlan-record-outputs`, `atlan-connect-repo`) write
+`atlan-author-knowledge`, `atlan-content`, `atlan-connect-repo`) and `atlan-share`'s run recording write
 calls in full mode, most of them after an opening `mcp__initialise`, like this:
 
 ```

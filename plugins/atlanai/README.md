@@ -47,11 +47,10 @@ call in a session you can review.
 | `atlan-author-agents` | Register an agent or harness, or link a repository's agent and its skills |
 | `atlan-author-knowledge` | Create, read or edit a knowledge bundle |
 | `atlan-connect-repo` | Register a repository, or publish its skills and agents to Atlan from GitHub CI |
-| `atlan-record-outputs` | Record what a run produced as an Atlan output |
-| `atlan-share` | Share a result with your team through Atlan, and post the hand-off to Slack |
+| `atlan-share` | Share, save or record a deliverable as an Atlan output, and post the hand-off to Slack |
 
-The registry's own apps write the last six. This plugin carries them unchanged, and the
-gateway also serves them as MCP resources.
+The five from `atlan-content` to `atlan-connect-repo`, and `atlan-share`'s recording of a run's
+output, began as the registry's own apps' recipes, and the gateway also serves them as MCP resources.
 
 ## Commands
 

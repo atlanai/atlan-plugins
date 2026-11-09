@@ -198,4 +198,4 @@ calls, giving the `file` and the `output` the same source key flat in `metadata`
 See `skills/atlan-get-started/references/edges.md` - it covers `output`'s edge
 alongside `agent`'s two.
 
-Mode rules in full: `skills/atlan-record-outputs/references/output-modes.md`.
+Mode rules in full: [output modes](output-modes.md).

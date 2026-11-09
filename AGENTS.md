@@ -68,8 +68,9 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   retrieval signal twice over: the harness matches requests against it, and the registry's
   search ranks on it once the skill is served from Atlan. Each skill opens its own session, so
   a task loads one skill, not `atlan-get-started` first. Every session carries every
-  description, so `make check` fails on one over 370 characters, and on a `SKILL.md` over 500
-  lines or 9 KiB. Keep the workflow in `SKILL.md` and move material only some requests need to
+  description, and hosts cut a long one in their skill list, so `make check` fails on one over
+  250 characters, and on a `SKILL.md` over 500 lines or 9 KiB. Keep the workflow in `SKILL.md`
+  and move material only some requests need to
   `references/`, each file cited with the condition for opening it. Teach decisions and point
   at live tools; do not paste reference data that will go stale.
 - **Search mode is the default.** Owned skills show calls as `mcp__call_tool { "name", "arguments",

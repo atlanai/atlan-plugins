@@ -1,6 +1,6 @@
 ---
 name: atlan-content
-description: Upload, read and version file content in Atlan, including text, staged binary uploads and a skill's pinned files. Use when someone wants to put a file, document or dataset into Atlan, read a file or a skill's files by handle, or add a new version of a file. Not for publishing a skill (atlan-author-skills) or editing knowledge (atlan-author-knowledge).
+description: Read, upload and version raw files in Atlan by handle, including staged binary uploads and a skill's pinned files. Use when asked to read a skill's files, upload a large or binary file, or append a file version. Not for deliverables (atlan-share).
 license: Apache-2.0
 ---
 
@@ -35,5 +35,7 @@ Treat signed upload URLs as credentials. Send a bearer only to a gateway ingest 
 never to a presigned storage URL. Keep the artifact ID when appending, use the observed
 head ETag, and read back the new ordinal. A new create is not an update.
 
-Skill bundles use `atlan-author-skills`' bundle publishing procedure. Knowledge edits
+A report, document, dashboard or dataset someone wants saved, recorded or shared is an `output`:
+load `atlan-share`, which uses this skill's staged upload for large or binary bytes. Skill
+bundles use `atlan-author-skills`' bundle publishing procedure. Knowledge edits
 use `atlan-author-knowledge`'s `apply_changes`; neither is a generic file append.
