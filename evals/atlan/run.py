@@ -98,6 +98,7 @@ def main() -> int:
     parser.add_argument("--plugin", default=str(ROOT / "plugins" / PLUGIN), help="the plugin folder to evaluate")
     parser.add_argument("--label", default="", help="a name for this run's results folder")
     parser.add_argument("--baseline", action="store_true", help="also run every case without the plugin")
+    parser.add_argument("--always-load", action="store_true", help="mark the emulated server alwaysLoad, so its tools are not deferred")
     parser.add_argument("extra", nargs="*", help="options passed to `claude plugin eval`, after --")
     args = parser.parse_args()
 
@@ -113,14 +114,15 @@ def main() -> int:
     for number, (settings, cases) in enumerate(selected.values()):
         group_out = out if len(selected) == 1 else out / f"group-{number}"
         group_out.mkdir(exist_ok=True)
-        code = run_group(args.plugin, settings, cases, group_out, args.extra, args.baseline) or code
+        code = run_group(args.plugin, settings, cases, group_out, args.extra, args.baseline, args.always_load) or code
         results.append(group_out / "result.json")
     for path in results:
         summarize(path)
     return code
 
 
-def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: list[str], baseline: bool = False) -> int:
+def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: list[str], baseline: bool = False,
+              always_load: bool = False) -> int:
     name = settings.get("plugin_name", PLUGIN)
     with tempfile.TemporaryDirectory(prefix="atlan-eval-") as tmp:
         plugin = Path(tmp) / name
@@ -134,6 +136,8 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
         emulator = HERE / "emulator" / "atlan_emulator.py"
         env = {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), **settings.get("env", {})}
         server = {"type": "stdio", "command": sys.executable, "args": [str(emulator)], "env": env}
+        if always_load:
+            server["alwaysLoad"] = True
         (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n", encoding="utf-8")
         suite = plugin / "evals"
         suite.mkdir()
