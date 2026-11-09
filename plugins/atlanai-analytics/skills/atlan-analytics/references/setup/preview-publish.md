@@ -38,7 +38,9 @@ Local-only completion needs no speculative authentication diagnosis or sign-in d
 ## 6. Choose the destination, reconcile and publish
 
 Reuse an explicit existing destination or ask once by accessible workspace name, with Keep
-local as an alternative. Explain it as where the team finds and reuses definitions. Never
+local as an alternative. List the person's own workspace (`user_default`) first and mark it
+recommended: only they see it, and it cannot clash with a colleague saving the same
+metrics. Shared workspaces follow, by name, for team reuse. Explain it as where the team finds and reuses definitions. Never
 offer or attempt API/CLI workspace creation. If none is accessible, retain the sample and
 run, then explain how to request access. Only an explicit new-workspace request gets the
 UI/admin route; refresh the list after the person resolves it. An explanation-only request

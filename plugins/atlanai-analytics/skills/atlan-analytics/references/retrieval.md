@@ -10,7 +10,7 @@ and apply [explanation checks](answer-checks.md). Label the answer "Local sample
 cite the local definition and check limitations. No sign-in or publication is needed.
 Do not record a Registry receipt, claim team availability or call a local draft a released
 definition. This explicit local route is never a fallback for a missing, withdrawn, rejected
-or changed release. Requests for governed/team answers still follow the release path below.
+or changed release. Requests for managed/team answers still follow the release path below.
 
 ## Released answers
 
@@ -64,4 +64,4 @@ Lead with the result and cite each metric or query by name, as a link to its pag
 ([definition links](definition-links.md)), never a bare artifact or release id. Retain executed SQL and bounded results; show SQL when asked.
 Never claim success from a query plan or failed execution. If no relevant release exists,
 explain the missing definition and offer to extend context. Setup follow-ups do not silently
-fall back to an ungoverned answer.
+fall back to an unmanaged answer.

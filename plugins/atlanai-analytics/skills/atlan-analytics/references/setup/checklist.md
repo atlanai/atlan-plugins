@@ -11,8 +11,8 @@ host's task list, the first one in progress:
 
 1. Read your sources
 2. Choose focus and goal
-3. Write metric definitions
-4. Check each definition's SQL
+3. Write metrics and queries
+4. Check each metric and query
 5. Review and choose where to save
 6. Ready for questions
 
@@ -29,7 +29,7 @@ opening stays within its word limit.
 
 `PROJECT checklist` returns the six steps from saved progress. Each step has `content` (its
 name, sharpened with real counts once they exist, such as `Read 4 sources` or `Check 15
-definitions`), `active` (what to show while it runs, such as `Checking definition 5 of 9`),
+metrics and queries`), `active` (what to show while it runs, such as `Checking 5 of 9`),
 `status` (`pending`, `in_progress` or `completed`) and `needs_you`. Add `--engine-dir` during
 engine work. `PROJECT journey` results carry the same `checklist`.
 
@@ -50,5 +50,5 @@ is known. The first metric and the final handoff keep their own rules.
 
 ## Without a task tool
 
-Where the host has no task tool, say `Step 3 of 6: Write metric definitions` once when each
+Where the host has no task tool, say `Step 3 of 6: Write metrics and queries` once when each
 step starts, using `step` and `of` from the helper. Never reprint the whole list.

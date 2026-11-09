@@ -222,7 +222,7 @@ provides them. Do not reconstruct responses from search results or local drafts.
 their release state and definition schemas. Old hand-normalized receipts must be fetched again.
 It stores IDs, release/version and definition hashes in the run, not reusable local definitions.
 The helper records host MCP evidence; it does not independently contact or verify Atlan.
-Unreleased items remain pending and are excluded from suggestions and governed answers.
+Unreleased items remain pending and are excluded from suggestions and managed answers.
 
 ## 5. Suggest questions, then let the user ask
 
