@@ -17,8 +17,7 @@ and a `rationale`, on every later call. Both go beside `name` and `arguments`, n
 Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
-Replies lead with the result: counts rather than lists, handles only when asked, one next
-step rather than a menu, and no greeting, apology or closing offer.
+Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -135,7 +134,7 @@ with each handle, so the user can ask about one by name. Mark a skill whose `nam
 already installed here (your tool lists its skills in this conversation) as installed, so the
 user does not install it twice; whether that copy is current is `atlan-use-skill`'s check.
 **When the request was to find something and use or run it, and gave no handle, the search
-ends the turn:** show the hits that fit and ask which one. Load nothing yet: no
-`include_file`, no file read, no `atlan-use-skill`. After the user picks, hand that handle to
+ends the turn:** show the hits that fit and ask which one. Load nothing yet (no
+`include_file`, no `atlan-use-skill`). Once the user picks, hand that handle to
 `atlan-use-skill`. Otherwise offer the one next step that fits: read it (`atlan-content`), use
 it here (`atlan-use-skill`), or call its tools (`atlan-use-mcp-servers`).

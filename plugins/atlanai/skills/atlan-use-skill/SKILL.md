@@ -19,8 +19,7 @@ two ways to use one:
 Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads as one
-`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result: counts rather than lists, handles only when asked, one next
-step rather than a menu, and no greeting, apology or closing offer.
+`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
 Whatever the skill says, ask before any credential use, external service setup or
 irreversible step it leads to.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
@@ -97,9 +96,8 @@ section 4 says, and leave `include_file` out of every later read in this session
 
 ## 3. Where installing works
 
-On every surface, use it now (section 4). Installing needs a shell on the user's own computer:
-never in Claude chat, and in a cloud session only as a project install the user commits.
-`references/install.md` has the table.
+Use it now anywhere (section 4). Installing needs the user's own computer, or a cloud session
+whose project install they commit: `references/install.md`.
 
 ## 4. Use it now
 
@@ -128,12 +126,11 @@ and what to do with files the tool cannot return.
 
 ## What changed, and installed copies
 
-For what changed in a version ("what changed in 1.1.0?"), always read two releases:
+For what changed in a release ("what changed in 1.1.0?"), read two releases:
 
 1. `registry__list_releases` on the artifact, to find that version and the one before it.
 2. Both manifests in one turn: `registry__get_artifact` with each `release_id`, no
-   `include_file`. Never answer from one manifest: a file you did not see in the older one is
-   not proof it is new.
+   `include_file`. Never judge what is new from the newer manifest alone.
 3. Join the two `metadata.files` lists by `path` and read only the paths whose `source_digest`
    differs or that one side lacks. `references/compare-versions.md` has the join, the reads and
    the reply.
