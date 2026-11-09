@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics
-description: Prepare links, local folders and BI exports for talk-to-data using dashboards, models and query history. Use when asked to set up or resume analytics or build an analytics agent from existing context. Publishes metrics and SQL to Atlan, then suggests questions. Not for one-off data questions (atlan-analytics-ask) or business policies (atlan-ontology).
+description: Set up talk-to-data from links, folders, BI exports and query history, publishing metrics and SQL to Atlan. Use when asked to set up or resume analytics, define a metric, or build an analytics agent. Not for data questions (atlan-analytics-ask).
 ---
 
 # Analytics context and talk-to-data

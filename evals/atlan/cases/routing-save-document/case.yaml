@@ -1,0 +1,88 @@
+schema_version: "1.1"
+name: routing-save-document
+tags: [routing,write]
+execution:
+  prompt: |
+    Put the churn report at reports/churn-q3.md into Atlan.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fires-atlan-share
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-share"'
+  - name: not-raw-file-storage
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-content"'
+    min: 0
+    max: 0
+  - name: goes-straight-to-the-skill
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-get-started"'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-write-before-a-yes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-write-before-a-yes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-write-before-a-yes
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: routes-to-share
+    type: llm
+    criteria: |
+      PASS if the reply makes no write, treats the report as something to record in Atlan once it has it, and asks for what is missing (the file, which does not exist here, or the workspace). FAIL if it writes to Atlan, invents the report, or says Atlan cannot record it.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
