@@ -9,14 +9,14 @@
     ],
     "preToolUse": [
       {
-        "matcher": "^MCP:mcp__call(?:_write)?_tool$",
+        "matcher": "^MCP:mcp__call(?:_(?:write|read))?_tool$",
         "command": "python3 \"${CURSOR_PLUGIN_ROOT:-.}/command-hooks/publish_hook.py\" pre --host cursor",
         "timeout": 30
       }
     ],
     "postToolUse": [
       {
-        "matcher": "^MCP:mcp__call(?:_write)?_tool$",
+        "matcher": "^MCP:mcp__call(?:_(?:write|read))?_tool$",
         "command": "python3 \"${CURSOR_PLUGIN_ROOT:-.}/command-hooks/publish_hook.py\" post --host cursor",
         "timeout": 10
       }

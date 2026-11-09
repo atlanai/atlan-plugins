@@ -185,7 +185,11 @@ and point at live tools instead of copying reference data that would go stale.
   (in Codex and Cursor only once you trust its hooks, and only where `python3` is installed):
   when the agent publishes a skill with `files_from`, it reads that one folder in your working
   tree, refuses links, credential files and folders, and anything outside the tree, and sends
-  the files only in that same call to Atlan. It reads nothing otherwise. The same hook reads
+  the files only in that same call to Atlan. It can also load one digest-bound local JSON batch
+  of metrics or saved queries into an Atlan bulk-create call, under the same path, credential
+  and size checks. When Analytics requests receipt recording, it saves native results as
+  immutable private run files and small tool-id mappings in `.atlan-receipt-pending/`.
+  The same hook reads
   `atlanai`'s public manifest on `main` at session start, so the agent can tell you once when an
   update is out (`ATLAN_PLUGIN_UPDATE_CHECK=0` turns it off), and in Claude Code may offer to
   draft feedback after a failed Atlan call (`DO_NOT_TRACK=1` turns it off). Feedback is shown to

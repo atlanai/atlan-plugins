@@ -964,8 +964,8 @@ class PublishHookTest(unittest.TestCase):
 
     def test_session_start_adds_the_line_publish_md_names(self) -> None:
         line = "Atlan publish helper is on: extension__skill__create accepts files_from."
-        self.assertEqual(self.run_hook("session-start", "codex", {})["hookSpecificOutput"]["additionalContext"], line)
-        self.assertEqual(self.run_hook("session-start", "cursor", {})["additional_context"], line)
+        self.assertEqual(self.run_hook("session-start", "codex", {})["hookSpecificOutput"]["additionalContext"], line + "\nAtlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].\nAtlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.")
+        self.assertEqual(self.run_hook("session-start", "cursor", {})["additional_context"], line + "\nAtlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].\nAtlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.")
         publish = (CORE / "skills" / "atlan-author-skills" / "references" / "publish.md").read_text(encoding="utf-8")
         # publish.md wraps its prose, so compare with its line breaks folded to spaces.
         self.assertIn(line, " ".join(publish.split()))

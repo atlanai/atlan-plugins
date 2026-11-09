@@ -194,6 +194,10 @@ the receipt. Do not combine release IDs from search with local authoring bodies,
 their hashes appear to match. Preserve the complete `registry__get_artifact` response for
 each item without selecting or rewriting fields. Wrap those raw responses in this input:
 
+When the core receipt helper is active, use [deterministic receipt recording](metrics/publish.md#record-native-receipts-without-copying-them-through-the-model)
+instead of manually writing the wrapper below. It captures native responses, validates them
+and records the same durable publication state. It does not skip release or link readbacks.
+
 ```json
 {
   "workspace_id": "workspace_example",

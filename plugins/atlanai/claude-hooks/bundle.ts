@@ -16,7 +16,7 @@ export const CREDENTIAL_DIRS = new Set(['.ssh', '.aws', '.gnupg', '.kube', '.doc
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 // Files that hold credentials by design: keys, dotenv, package-registry and machine logins, and
 // Terraform variables and state.
-const KEY_FILES =
+export const KEY_FILES =
   /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)/
 // A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
 // `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
@@ -367,7 +367,7 @@ export const isSkipped = (name: string, isDir: boolean): boolean => (isDir ? SKI
  * build the `files` map the create takes. The limits are per call, so `check` takes every folder
  * of one call at once.
  */
-export function check(folders: readonly { label: string; entries: readonly Entry[] }[]): Checked & { byFolder: Record<string, string>[] } {
+export function check(folders: readonly { label: string; entries: readonly Entry[] }[], requireSkill = true): Checked & { byFolder: Record<string, string>[] } {
   const problems: Problem[] = []
   const byFolder: Record<string, string>[] = []
   let count = 0
@@ -377,7 +377,7 @@ export function check(folders: readonly { label: string; entries: readonly Entry
     byFolder.push(files)
     const label = (rel: string) => (folders.length === 1 ? rel : `${folder.label}/${rel}`)
     const root = folder.entries.find(entry => entry.path === 'SKILL.md')
-    if (!root || root.kind !== 'file') problems.push(problem(label('SKILL.md'), 'missing-skill-md', `${folder.label} has no SKILL.md at its root`))
+    if (requireSkill && (!root || root.kind !== 'file')) problems.push(problem(label('SKILL.md'), 'missing-skill-md', `${folder.label} has no SKILL.md at its root`))
     for (const entry of [...folder.entries].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
       const where = label(entry.path)
       if (entry.kind === 'link') {

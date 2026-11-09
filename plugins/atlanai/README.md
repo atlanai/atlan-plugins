@@ -75,12 +75,25 @@ conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. 
 
 ## Privacy
 
-The plugin stores nothing on your machine and has no binaries. In Claude Code, Codex and Cursor
+The plugin has no binaries. In Claude Code, Codex and Cursor
 it runs one hook, the publish helper (in Codex and Cursor a Python script, once you trust the
 plugin's hooks): when the agent publishes a skill with `files_from`, it reads that one folder in
 your working tree (never a link, a credential file or folder, or anything outside the tree) and
 sends its files only in that same call to Atlan. It says it is on with one line beside the
 conversation's first request. Other tools run no code from it.
+
+The same helper loads metrics and saved-query create batches with `items_from`, when the
+Analytics plugin prepares them from a checked publication plan. It reads one digest-bound
+JSON file in the working tree, applies the same credential checks and 256 KiB limit, and
+sends its items in the existing Atlan bulk-create call. Without the helper, the empty inline
+items list refuses the call before writing. Revisions and release checks remain unchanged.
+
+Analytics can also request `receipt_dir` on guarded creates and released-definition or
+relationship reads. The helper removes that field before the Atlan call and records its
+native response in immutable private files inside the working tree. The same standard-library
+Python writer runs on all three hosts, with atomic writes and no symbolic links. Command
+hooks retain a small tool-id mapping in `.atlan-receipt-pending/` so the post-call event can
+find the destination. Receipt failure never retries a Registry write or marks a run complete.
 
 The same hook adds two notes for the agent, never for Atlan:
 

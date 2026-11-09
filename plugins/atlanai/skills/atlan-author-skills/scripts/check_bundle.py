@@ -303,6 +303,47 @@ def check(roots: list[Path]) -> dict:
     return check_files(folders)
 
 
+def check_bulk_items(data: bytes, kind: str, workspace: str) -> list:
+    """Validate a bounded metric/query batch using the same text and credential checks as skills."""
+    import json
+
+    if kind not in ("metric", "sql_query") or not isinstance(workspace, str) or not workspace:
+        raise ValueError("Choose a metric or saved-query kind and one workspace.")
+    if len(data) > MAX_BYTES:
+        raise ValueError("The payload exceeds 256 KiB; prepare smaller batches.")
+    items = json.loads(data.decode("utf-8"))
+    if not isinstance(items, list) or not 1 <= len(items) <= 100:
+        raise ValueError("A batch must contain 1 to 100 items.")
+    identities = set()
+    for item in items:
+        if (not isinstance(item, dict) or item.get("workspace_id") != workspace
+                or not isinstance(item.get("definition"), dict)
+                or not isinstance(item.get("name"), str) or not item["name"]
+                or not isinstance(item.get("source_id"), str) or not item["source_id"]):
+            raise ValueError("Every item needs a definition, name, source identity and the selected workspace.")
+        if item["source_id"] in identities:
+            raise ValueError("A batch repeats a source identity.")
+        identities.add(item["source_id"])
+
+    # Decode JSON escapes before scanning; otherwise an escaped token could evade the scanner.
+    def strings(value):
+        if isinstance(value, str):
+            yield value
+        elif isinstance(value, list):
+            for part in value:
+                yield from strings(part)
+        elif isinstance(value, dict):
+            for key, part in value.items():
+                yield key
+                yield from strings(part)
+
+    for text in (json.dumps(items, ensure_ascii=False, allow_nan=False, separators=(",", ":")), "\n".join(strings(items))):
+        checked = check_files([("payload", [("items.txt", text.encode("utf-8"))], [], True)])
+        if not checked["ok"]:
+            raise ValueError("The payload failed the text or credential checks; inspect it locally.")
+    return items
+
+
 def check_files(folders: list[tuple[str, list[tuple[str, bytes]], list[dict], bool]]) -> dict:
     """The checks on bytes already read: `(name, [(path, bytes)], walk problems, has SKILL.md)` per
     folder. The command hook reads each file once and checks the bytes it sends."""
