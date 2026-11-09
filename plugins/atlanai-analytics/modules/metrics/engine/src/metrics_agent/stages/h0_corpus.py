@@ -42,6 +42,8 @@ import hashlib
 import json
 import pathlib
 
+from metrics_agent.lib.literal_privacy import pii_reason
+
 
 from metrics_agent import plug_runtime as _runtime  # noqa: E402
 from metrics_agent.lib import artifacts, corpus as C, pii as _pii, stage
@@ -217,6 +219,12 @@ def body(ctx: stage.Ctx) -> None:
         for rec in reader():
             sql, n_exec, n_users, sess_db, sess_schema, ids, plug, names = rec
             seen += 1
+            reason = pii_reason(sql or "")
+            if reason:
+                # Reject before shapes, compiler prompts or provisional metrics exist.
+                # Only a reason count is recorded; never the identifying literal.
+                dropped['privacy_' + reason] += 1
+                continue
             clean = scrubber.text(sql or "")
             n_redacted += int(clean != (sql or ""))
             sql = clean

@@ -1,6 +1,7 @@
-import {describe,expect,test} from 'claude-code/testing'
-import {valid} from '../hooks/register'
+import {describe,expect,test,mock} from 'claude-code/testing'
+import {valid,validFeed} from '../hooks/register'
 const TOOL='mcp__atlanai-analytics-view__show'
+const FOLLOW='mcp__atlanai-analytics-view__follow'
 const view={phase:'Checking definitions',status:'running',summary:'Synthetic shipping model and query history.',domain:'Shipping cost',purpose:'Prepare reusable metrics',counts:'1 metrics, 0 queries, 0 saved, 0 held',metric:'Shipping cost',meaning:'Cost for shipped shipments.',calculation:'SUM(cost)',population:'Shipped shipments only',source:'Synthetic model',check:'SQL untested',next:'Check the definition.',snapshot_at:'2026-11-09T00:00:00Z',sources:['shipping.bim'],opportunities:['Cost by region'],warnings:[]}
 const pane={plugin:'atlanai-analytics-view',surface:'terminal',component:'Pane',requestId:'analytics-view',props:{title:'Analytics',isFocused:false,bodyColumns:60,placement:'dock',scroll:{offset:0,bodyRows:40},view:{}}} as const
 describe('Analytics native pane',()=>{
@@ -27,6 +28,18 @@ describe('Analytics native pane',()=>{
   const result=await $.tool.call({tool:TOOL,view})
   expect(JSON.stringify(result)).toContain('text_fallback')
  })
+ test('short terminal pane prioritizes the selected result and expands evidence on demand',async($,on)=>{
+  on('ui.open',()=>({value:{isPlaced:true}}))
+  await $.tool.call({tool:TOOL,view})
+  const ui=await $.ui.mount({...pane,props:{...pane.props,placement:'inline',bodyColumns:100,scroll:{offset:0,bodyRows:8}}})
+  expect((await ui.find({type:'Text',text:'Shipping cost · SQL untested'}))?.text).toBe('Shipping cost · SQL untested')
+  expect(await ui.find({type:'Text',text:view.summary})).toBeUndefined()
+  await ui.press({key:'evidence'})
+  expect((await ui.find({type:'Text',text:view.summary}))?.text).toBe(view.summary)
+  await ui.press({key:'compact'})
+  expect(await ui.find({type:'Text',text:view.summary})).toBeUndefined()
+  await ui.unmount()
+ })
  test('buttons reveal evidence and fill requests without executing them',async($,on)=>{
   const filled:string[]=[]
   on('ui.open',()=>({value:{isPlaced:true}}))
@@ -45,12 +58,62 @@ describe('Analytics native pane',()=>{
   on('ui.open',()=>{opened++;return {value:{isPlaced:true}}})
   on('prompt.fill',(_,e)=>{filled=e.text;return {isFilled:true}})
   await $.tool.call({tool:TOOL,view})
-  await $.tool.call({tool:TOOL,view:{...view,status:'paused',check:'SQL checked'}})
+  await $.tool.call({tool:TOOL,view:{...view,status:'paused',interaction_mode:'paused',check:'SQL checked'}})
   const ui=await $.ui.mount(pane)
   expect(opened).toBe(1)
   expect((await ui.find({type:'Text',text:'SQL checked'}))?.text).toBe('SQL checked')
   await ui.press({key:'pause'})
   expect(filled).toBe('Resume this analytics run from its saved checkpoint.')
   await ui.unmount()
+ })
+ test('only accepts the packaged loopback feed route',()=>{
+  expect(validFeed('http://127.0.0.1:43123/pane')).toBe(true)
+  for(const url of ['https://example.com/pane','http://localhost:43123/pane','http://127.0.0.1:65536/pane','http://127.0.0.1:43123/pane?file=.env','http://127.0.0.1:43123/run.json','http://user@127.0.0.1:43123/pane']) expect(validFeed(url)).toBe(false)
+ })
+ test('follows saved changes, labels stale evidence and recovers without reopening',async($,on)=>{
+  const clock=mock.clock(on)
+  let opened=0,broken=false
+  let latest={...view,interaction_mode:'active'}
+  on('ui.open',()=>{opened++;return {value:{isPlaced:true}}})
+  on('ui.close',()=>({value:undefined}))
+  on('http.fetch',(_,e)=>{
+   expect(e.url).toBe('http://127.0.0.1:43123/pane')
+   return {value:{status:broken?503:200,ok:!broken,headers:{},text:JSON.stringify(latest)}}
+  })
+  await $.tool.call({tool:FOLLOW,url:'http://127.0.0.1:43123/pane'})
+  const ui=await $.ui.mount(pane)
+  expect((await ui.find({type:'Text',text:/Following saved progress/}))?.text).toContain('automatically')
+  latest={...latest,domain:'Delivery time',check:'Recorded SQL check passed'}
+  await clock.advance(2500)
+  expect((await ui.find({type:'Text',text:'Delivery time'}))?.text).toBe('Delivery time')
+  expect((await ui.find({type:'Text',text:'Recorded SQL check passed'}))?.text).toBe('Recorded SQL check passed')
+  broken=true;await clock.advance(2500)
+  expect((await ui.find({type:'Text',text:/Updates unavailable/}))?.text).toContain('last received evidence')
+  broken=false;await clock.advance(2500)
+  expect((await ui.find({type:'Text',text:/Following saved progress/}))?.text).toContain('automatically')
+  expect(opened).toBe(1)
+  await ui.press({key:'hide'});await ui.unmount()
+  latest={...latest,check:'Completed'};await clock.advance(2500)
+  expect(opened).toBe(1)
+ })
+ test('engine waiting cannot turn a pause request into resume',async($,on)=>{
+  let filled=''
+  on('ui.open',()=>({value:{isPlaced:true}}))
+  on('prompt.fill',(_,e)=>{filled=e.text;return {isFilled:true}})
+  await $.tool.call({tool:TOOL,view:{...view,status:'paused',interaction_mode:'active'}})
+  const ui=await $.ui.mount(pane)
+  await ui.press({key:'pause'})
+  expect(filled).toBe('Pause this analytics run at its current checkpoint.')
+  expect((await ui.find({type:'Text',text:/Request prepared in chat/}))?.text).toContain('Submit it')
+  await ui.unmount()
+ })
+ test('terminal and desktop tool rows keep view JSON out of the normal transcript',async($,on)=>{
+  for(const surface of ['terminal','desktop'] as const){
+   const ui=await $.ui.mount({plugin:'atlanai-analytics-view',surface,component:'ToolUse',requestId:'view-update',
+    props:{tool_use_id:'view-update',tool:TOOL,input:{view},isRunning:false,isErrored:false,isInterrupted:false}})
+   expect((await ui.find({type:'Text',text:/Analytics · Update/}))?.text).toContain('evidence pane')
+   expect((await ui.find({type:'Text',text:/SUM\(cost\)/}))?.text).toBeUndefined()
+   await ui.unmount()
+  }
  })
 })

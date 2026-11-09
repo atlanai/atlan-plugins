@@ -14,18 +14,25 @@ def validate(value):
             or any(not isinstance(v, str) or not v.strip() or len(v) > 1000 for v in intent.values())
             or ('purpose' in intent and 'domain' not in intent)):
         raise ValueError('The saved business focus and purpose need repair before continuing.')
+    if 'intent_focus_required' in value and type(value['intent_focus_required']) is not bool:
+        raise ValueError('The saved intent selection needs repair before continuing.')
     return value
 
 
-def apply(model, saved):
+def apply(model, saved, explicit_focus=False):
     """Overlay user intent without changing evidence, check status or release counts."""
     mode = validate(saved)['mode'] if saved else 'active'
-    model['interaction'] = {'mode': mode, 'focus': model.get('focus'), 'intent': dict(saved.get('intent', {}))}
-    if mode != 'active':
-        model['phase'] = {**model['phase'], 'status': 'paused' if mode == 'paused' else 'local',
-                          'label': 'Your work is saved' if mode == 'paused' or model['counts']['released'] else 'Your drafts are saved locally'}
-        model['next_step'] = ('Resume here when ready; completed work will be reused.' if mode == 'paused'
-                              else 'Continue inspecting locally, or resume when you want to save definitions in Atlan.')
+    pending = saved.get('intent_focus_required', False) and not explicit_focus
+    model['interaction'] = {'mode': mode, 'focus': model.get('focus'), 'intent': dict(saved.get('intent', {})),
+                            'selection_pending': pending}
+    if pending:
+        # Intent is a selection checkpoint. Never silently show the first alphabetic
+        # metric or carry an earlier domain's focus into a new business question.
+        model['sample'] = None
+        model['focus'] = None
+    if mode == 'paused':
+        model['phase'] = {**model['phase'], 'status': 'paused', 'label': 'Your work is saved'}
+        model['next_step'] = 'Resume here when ready; completed work will be reused.'
         model['next_prompt'] = 'Resume this saved analytics run from its current checkpoint.'
     model['continuation'] = continuation(model)
     if model['continuation']['action'] in ('choose-domain', 'choose-purpose'):
@@ -33,6 +40,13 @@ def apply(model, saved):
         model['next_prompt'] = ('Help me choose the business area to focus on from these sources.'
                                 if model['continuation']['action'] == 'choose-domain'
                                 else 'Help me choose what to accomplish in the business area I selected.')
+    elif model['continuation']['action'] == 'select-focus':
+        model['next_step'] = model['continuation']['label']
+        model['next_prompt'] = 'Select the relevant saved metric for my business focus and purpose, then show its check status.'
+    elif model['continuation']['action'] == 'explore-local':
+        model['phase'] = {**model['phase'], 'status': 'local', 'label': 'Your definitions are available locally'}
+        model['next_step'] = 'Explore a supported question using local data, or inspect the remaining checks.'
+        model['next_prompt'] = 'Show a supported question I can explore with this local dataset and its check limitations.'
     return model
 
 
@@ -44,7 +58,7 @@ def continuation(model):
     # Ask after inspection, before authoring. Later-stage legacy runs retain their
     # checkpoint; an explicitly changed domain reopens the purpose question.
     intent_due = bool(intent) or model.get('intent_checkpoint', False)
-    if mode != 'active':
+    if mode == 'paused':
         code, label, needs_input = 'resume', 'Resume', True
     elif model['warnings']:
         code, label, needs_input = 'repair', 'Review saved evidence', False
@@ -54,7 +68,9 @@ def continuation(model):
         code, label, needs_input = 'choose-domain', 'What business area would you like to focus on?', True
     elif intent_due and not intent.get('purpose'):
         code, label, needs_input = 'choose-purpose', 'What would you like to accomplish in that area?', True
-    elif model['auth_status'] and model['auth_status'] != 'connected':
+    elif model['interaction'].get('selection_pending') and (model['items'] or counts['provisional']):
+        code, label, needs_input = 'select-focus', 'Selecting a metric for ' + intent.get('domain', 'your business focus'), False
+    elif mode != 'local' and model['auth_status'] and model['auth_status'] != 'connected' and not model.get('local_work_available'):
         code, label, needs_input = 'recover-access', 'Restore access', True
     elif phase['status'] == 'waiting-for-user':
         code, label, needs_input = 'resume', 'Resume', True
@@ -77,6 +93,8 @@ def continuation(model):
             'publish': ('publish', 'Continue the approved save plan', False),
             'ready': ('repair', 'Review saved evidence', False),
         }[stage]
+        if mode == 'local' and code in ('destination', 'publish'):
+            code, label, needs_input = 'explore-local', 'Choose a local question', True
     result = {'action': code, 'label': label, 'needs_input': needs_input,
               'surface': 'native_chat', 'host_executes': True}
     if code in ('choose-domain', 'choose-purpose'):
@@ -108,6 +126,7 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             raise ValueError('That definition is unavailable or ambiguous. Keep the existing selection.')
         saved['focus'] = model['sample']['id']
         saved['definition_hash'] = model['sample'].get('definition_hash')
+        saved['intent_focus_required'] = False
     elif action in ('domain', 'purpose'):
         if not isinstance(answer, str) or not answer.strip() or len(answer) > 1000:
             raise ValueError('Record the user\'s business focus or purpose in 1 to 1000 characters.')
@@ -117,6 +136,8 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
         answer = answer.strip()
         if action == 'domain' and intent.get('domain') != answer:
             intent.pop('purpose', None)
+        if intent.get(action) != answer:
+            saved['intent_focus_required'] = True
         intent[action] = answer
         saved['intent'] = intent
     elif action in ('pause', 'keep-local', 'resume'):

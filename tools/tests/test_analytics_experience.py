@@ -47,6 +47,89 @@ class AnalyticsExperience(unittest.TestCase):
              'version_id': 'version_example', 'channel': 'latest', 'definition_hash': digest(body['definition'])}]}
         self.write('run.json', state)
 
+    def test_execution_review_hold_and_release_are_independent(self):
+        query = {'name': 'shipping-query', 'display_name': 'Shipping cost by region',
+                 'definition': {'sql': 'SELECT SUM(cost) FROM shipments', 'review_status': 'needs_review',
+                                'extensions': {'metrics_agent': {'vq_id': 'h-example'}}}}
+        self.write('context/queries.json', [query])
+        self.write('context/candidate-checks.json', {'sql_query:shipping-query': {
+            'definition_hash': digest(query['definition']), 'status': 'executed'}})
+        model = experience.snapshot(self.run)
+        self.assertEqual(model['counts']['executed'], 1)
+        self.assertEqual(model['counts']['review_required'], 1)
+        self.assertEqual(model['counts']['held'], 0)
+        self.assertEqual(model['counts']['released'], 0)
+        item = model['items'][0]
+        self.assertIn('source review required', item['status_label'])
+        self.assertEqual(item['checks']['parity'], 'unmeasured')
+        self.assertIn('Shipping cost by region', '; '.join(item['provenance']))
+        self.assertNotIn('h-example', '; '.join(item['provenance']))
+        self.assertIn('queries need source review', experience.render_chat(model))
+
+    def test_query_review_count_includes_unreviewed_and_missing_without_losing_reviewed(self):
+        for status, expected in [('unreviewed', 1), (None, 1), ('reviewed', 0), ('verified', 0)]:
+            with self.subTest(status=status):
+                self.write('context/queries.json', [{'name': 'query-example', 'definition': {
+                    'sql': 'SELECT 1', 'review_status': status}}])
+                model = experience.snapshot(self.run)
+                self.assertEqual(model['counts']['review_required'], expected)
+                self.assertEqual(model['counts']['source_reviewed'], 1 - expected)
+
+    def test_metric_source_disclosure_resolves_query_names(self):
+        metric = self.candidate()
+        metric['definition']['extensions'] = {'metrics_agent': {'derived_from': ['h-example']}}
+        self.write('context/metrics.json', [metric])
+        self.write('context/queries.json', [{'name': 'source-query', 'display_name': 'Units shipped by region',
+            'definition': {'sql': 'SELECT SUM(units) FROM shipments',
+                           'extensions': {'metrics_agent': {'vq_id': 'h-example'}}}}])
+        model = experience.snapshot(self.run)
+        self.assertIn('Units shipped by region', '; '.join(model['sample']['provenance']))
+
+    def test_local_preparation_continues_while_registry_access_needs_attention(self):
+        self.candidate()
+        state = self.run.manifest()
+        state['execution'] = {'kind': 'sqlite', 'read_only': True}
+        self.write('run.json', state)
+        self.write('auth-recovery.json', {'status': 'login_required', 'host': 'claude_code', 'server': 'atlan'})
+        model = experience.snapshot(self.run)
+        self.assertEqual(model['auth_status'], 'login_required')
+        self.assertTrue(model['local_work_available'])
+        self.assertEqual(model['phase']['status'], 'running')
+        self.assertEqual(model['continuation']['action'], 'build')
+        self.assertIn('Local preparation can continue', ' '.join(model['handoff']['attention']))
+        self.write('progress.json', {'stage': 'publish', 'status': 'running'})
+        model = experience.snapshot(self.run)
+        self.assertEqual(model['phase']['status'], 'access_needed')
+        self.assertEqual(model['continuation']['action'], 'recover-access')
+
+    def test_handoff_distinguishes_local_checks_from_releases_and_coverage(self):
+        body = self.candidate()
+        self.write('context/candidate-checks.json', {'metric:shipped-units': {
+            'definition_hash': digest(body['definition']), 'status': 'example_executed'}})
+        selection = digest({key: body.get(key) for key in
+                            ('name', 'display_name', 'description', 'source_id', 'definition')})
+        note = {'kind': 'metric', 'selected_hash': selection,
+                'comparison': {'dimensions': 'Region only.', 'limitations': 'Channel remains local.'}}
+        self.write('context/plan.json', {'coverage': [note]})
+        model = experience.snapshot(self.run)
+        self.assertEqual(model['handoff']['released'], 0)
+        self.assertEqual(model['handoff']['local'], 1)
+        self.assertEqual(model['handoff']['coverage_notes'], 1)
+        self.assertIn('nothing from this run is shared', model['handoff']['usable_now'])
+        self.assertIn('1 have recorded execution checks', model['handoff']['usable_now'])
+        self.assertIn('Channel remains local', ' '.join(model['sample']['detail_notes']))
+        self.receipt(body)
+        model = experience.snapshot(self.run)
+        self.assertEqual(model['handoff']['released'], 1)
+        self.assertEqual(model['handoff']['local'], 0)
+        self.assertIn('matching release receipts', model['handoff']['usable_now'])
+        body['definition']['formula'] = 'SUM(s.units) * 2'
+        self.write('context/metrics.json', [body])
+        model = experience.snapshot(self.run)
+        self.assertEqual(model['handoff']['released'], 0)
+        self.assertEqual(model['handoff']['coverage_notes'], 0)
+        self.assertEqual(model['counts']['executed'], 0)
+
     def engine(self, sql='SELECT SUM(cost) FROM work'):
         layer = {'contract_version': '1.0', 'dialect': 'duckdb', 'scope': 'example', 'profile': 'history-only',
                  'objects': [{'vq_id': 'vq_1', 'sql': sql, 'question': 'What is total cost?'}]}

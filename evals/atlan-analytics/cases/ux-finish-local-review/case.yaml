@@ -1,0 +1,53 @@
+schema_version: "1.1"
+name: ux-finish-local-review
+tags: [analytics, reliability, setup, ux]
+execution:
+  prompt: |
+    Use Atlan Analytics for the final handoff at this completed synthetic setup checkpoint.
+    I selected Keep local. There are 2 metrics and 8 saved queries. Six definitions have
+    recorded execution checks. Two queries still need source review. Publication holds: zero.
+    Nothing was saved in Atlan and there are no release receipts. Dashboard parity is unmeasured.
+    The selected metric is Shipped units: SUM(s.units), only s.status = 'shipped', from the
+    shipping model and query history. Its SQL example executed. A region breakdown is supported
+    locally; no time comparison is supported. The sources and work are saved. No further tools
+    or sign-in are needed in this turn. Tell me what I can use, what needs attention and what is next.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: honest-local-handoff
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS only if the final reply distinguishes local/unshared work from team access, gives
+      the 2 metric/8 query counts and six recorded execution checks, and mentions two queries
+      needing source review despite zero publication holds. The sample is Shipped units,
+      SUM(s.units), restricted to s.status = 'shipped', from shipping model and query history.
+      Its SQL example executed earlier. The reply must show that formula and shipped-only
+      scope with honest prior example check, and preserve unmeasured dashboard parity.
+      A local next action can inspect the definition, review pending queries, or explore
+      total/region shipping using local data. It must not demand sign-in,
+      claiming all ten definitions verified, or implying team retrieval is ready.
+  - name: no-new-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

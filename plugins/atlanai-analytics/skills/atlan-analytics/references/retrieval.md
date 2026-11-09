@@ -1,5 +1,19 @@
 # Retrieve released context, then reach the data
 
+## Explicit local exploration
+
+When the person selected Keep local and asks about that prepared local dataset, answer as
+local exploration. Read the selected run's saved definitions, source evidence and execution
+binding. Use its read-only `PROJECT execute` with a JSON request containing `sql`, separate
+`parameters` and `limit`. Preserve the local definition's formula and filters, run fresh SQL,
+and apply [explanation checks](answer-checks.md). Label the answer "Local sample data" and
+cite the local definition and check limitations. No sign-in or publication is needed.
+Do not record a Registry receipt, claim team availability or call a local draft a released
+definition. This explicit local route is never a fallback for a missing, withdrawn, rejected
+or changed release. Requests for governed/team answers still follow the release path below.
+
+## Released answers
+
 The current harness owns authenticated Atlan calls. Every answer searches and reads fresh
 released definitions; local drafts, search snippets and remembered setup answers are not
 the definition source. No new agent or eval is required.
@@ -36,6 +50,9 @@ For a metric without suitable saved SQL, use `PROJECT retrieved "<readbacks.json
 SQL preserving the retrieved formula, joins, population, grain and mandatory filters, then
 use the recorded local or warehouse executor. Check denominators, join multiplication,
 truncation and date basis before answering. Say what could not be measured.
+For explanations, exclusions or comparisons, apply [explanation checks](answer-checks.md)
+to both saved-query and metric answers. Check all formula components before claiming an
+excluded population changes nothing; an unchanged ranking does not establish an unchanged total.
 
 For an ordinary question with no setup run, follow the Ask skill's released-context discovery
 and connection steps directly. Do not require setup, a local receipt, local files or DuckDB.
