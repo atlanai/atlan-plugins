@@ -1,0 +1,45 @@
+name: Release tags
+
+# Tags each released plugin `<name>--v<version>` (AGENTS.md, Releasing) when its manifest version
+# lands on main, so a dependency with a version range resolves in Claude Code. A tag that already
+# exists is left alone; it never moves.
+
+on:
+  push:
+    branches: [main]
+    paths: ['plugins/*/.claude-plugin/plugin.json']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-tags
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Tag versions that have no tag yet
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for manifest in plugins/*/.claude-plugin/plugin.json; do
+            tag="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(f"{m[\"name\"]}--v{m[\"version\"]}")' "$manifest")"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "$tag exists"
+            else
+              git tag -a "$tag" -m "$tag" "$GITHUB_SHA"
+              git push origin "refs/tags/$tag"
+              echo "::notice::tagged $tag at $GITHUB_SHA"
+            fi
+          done

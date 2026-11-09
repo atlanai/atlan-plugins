@@ -9,7 +9,7 @@ server URL ends in `?tools=full`.
 | | Search mode (default) | Full mode |
 |---|---|---|
 | URL | `https://api.atlan.com/mcp` | `https://api.atlan.com/mcp?tools=full` |
-| `tools/list` | Five fixed tools: search, describe and three runners | Every tool you can call, possibly hundreds |
+| `tools/list` | The helpers (search, describe, the runners and the batch read runner), `mcp__connect_server` and the core `registry__` reads | Every tool you can call, possibly hundreds |
 | Open a session | `objective` on the first search or runner call | `mcp__initialise { "objective", "client", "rationale" }` |
 | Call a tool | its runner, such as `mcp__call_read_tool { "name", "arguments", "session_id", "rationale" }` | `registry__… { …arguments, "session_id", "rationale" }` |
 
