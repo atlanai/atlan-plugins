@@ -22,10 +22,10 @@ classifiers = [
     "Topic :: Database",
     "Topic :: Scientific/Engineering :: Information Analysis",
 ]
-# The extractor is standard library only (Fabric REST over urllib), so the core is the one
-# dependency. It lives here, not in the core, because it is the only code that opens a network
-# connection or reads a credential.
-dependencies = ["metrics-agent"]
+# REST transport is standard library. Official Azure Identity 1.27.0 supplies certificate
+# and managed-identity credentials. Verified Azure/azure-sdk-for-python, MIT, released
+# before the 2026-11-02 cutoff. Authentication dependencies stay in this plug, never the core.
+dependencies = ["metrics-agent", "azure-identity==1.27.0"]
 
 [project.urls]
 Homepage = "https://github.com/atlanai/atlan-plugins"

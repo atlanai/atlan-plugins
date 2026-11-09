@@ -54,6 +54,28 @@ _WAREHOUSE_ERRNOS = {90073, 606}
 _SIGN_IN_ERRNOS = {390100, 390144, 250001, 390318, 390189}
 
 
+def connection_options(dsn):
+    """Convert declared connector options at the vendor boundary, never in the core."""
+    from metrics_agent.lib.engine import parse_kv
+    from snowflake.connector.connection import DEFAULT_CONFIGURATION
+
+    options = parse_kv(dsn)
+    for name, value in list(options.items()):
+        if name not in DEFAULT_CONFIGURATION or not isinstance(value, str):
+            continue
+        types = DEFAULT_CONFIGURATION[name][1]
+        types = types if isinstance(types, tuple) else (types,)
+        if bool in types and str not in types:
+            if value.lower() not in ('true', 'false'):
+                raise ValueError(f"Snowflake option {name} must be true or false")
+            options[name] = value.lower() == 'true'
+        elif int in types and str not in types:
+            if not re.fullmatch(r'[0-9]+', value):
+                raise ValueError(f"Snowflake option {name} must be a nonnegative integer")
+            options[name] = int(value)
+    return options
+
+
 def access_blocker(exc: BaseException) -> dict[str, Any] | None:
     """The access-report blocker for one of Snowflake's access refusals; None for any other
     error (a wrong column, a syntax error), which stays a failed statement."""
@@ -209,7 +231,7 @@ class SnowflakeDirect:
         def connect():
             import snowflake.connector as sf  # noqa: PLC0415 - only when a run uses it
 
-            kwargs = _engine.parse_kv(dsn)
+            kwargs = connection_options(dsn)
             # THE DATABASE TO CHECK AGAINST. A logged statement often names `SCHEMA.TABLE`,
             # relying on the session's database, and Snowflake refuses to EXPLAIN it on a
             # session with none. Offered by the setup interview and, until it was passed here,

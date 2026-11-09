@@ -113,7 +113,7 @@ class DatabricksModuleTests(unittest.TestCase):
             settings={'server_hostname':'example.cloud.databricks.com','http_path':'/sql/1.0/warehouses/example'}
             with mock.patch.dict(os.environ,{},clear=True),mock.patch.object(auth,'at_terminal',return_value=True):
                 options=auth.connection_options(settings)
-                assert options['auth_type']=='databricks-oauth' and 'access_token' not in options
+                assert callable(options['credentials_provider']) and 'access_token' not in options
             with mock.patch.dict(os.environ,{},clear=True),mock.patch.object(auth,'at_terminal',return_value=False):
                 try:auth.connection_options(settings)
                 except ValueError as exc:assert 'real terminal' in str(exc)
