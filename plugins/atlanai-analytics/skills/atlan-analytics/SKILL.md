@@ -1,9 +1,12 @@
 ---
 name: atlan-analytics
-description: Prepare BI sources for questions. Use for analytics setup, handoff, resume, metrics, building analytics agents, or creating/accessing an Atlan workspace via CLI/API. Not for data questions (atlan-analytics-ask).
+description: Set up analytics and answer workspace questions. Use for Atlan workspace access/creation, including explanation-only requests; BI sources, metrics, setup, resume, handoff or analytics agents. Not for data questions (atlan-analytics-ask).
 ---
 
 # Analytics context and talk-to-data
+
+For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
+and return. This includes explanation-only requests; do not start source inspection or publication.
 
 Keep updates and intent questions under 80 words total. Only a
 completed setup handoff may use 160: counts, one metric's calculation/population/source/checks,
@@ -11,10 +14,6 @@ then supported questions. Details may be longer. Do not list other metrics or re
 Attribute saved checks to the earlier run. After publication, answers retrieve definitions before SQL runs.
 For final handoffs, read [handoff rules](references/setup/preview-publish.md) and return.
 Keep execution, source review, holds and releases separate. Total definitions = metrics + queries.
-Workspace access/creation questions belong here even when the person wants only an
-explanation. For that request, read the destination rule in
-[handoff rules](references/setup/preview-publish.md), give one paragraph under 70 words and
-stop. Do not expand an unsupported action into a multi-step setup or publication plan.
 Use plain text for check labels; no emoji checklist or repeated status headings.
 
 On fresh setup, your next assistant message is the opening, before reading references,
