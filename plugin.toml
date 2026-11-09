@@ -90,7 +90,7 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.6.22"
+version = "0.6.23"
 # Claude installs the native presentation companion with Analytics. Other hosts
 # use the visual experience packaged in Analytics and never load Claude mods.
 claude_companions = ["atlanai-analytics-view"]
