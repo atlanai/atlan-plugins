@@ -14,7 +14,13 @@ export const SKIPPED_FILES = new Set(['.DS_Store'])
 export const CREDENTIAL_DIRS = new Set(['.ssh', '.aws', '.gnupg', '.kube', '.docker', '.azure', 'gcloud'])
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const KEY_FILES = /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx)$|^id_(?:rsa|dsa|ecdsa|ed25519)$)/
+// Files that hold credentials by design: keys, dotenv, package-registry and machine logins, and
+// Terraform variables and state.
+const KEY_FILES =
+  /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)/
+// A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
+// `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
+const NOT_SECRET = '[$<{*%]|(?:synthetic|example|dummy|fake|placeholder|changeme|redacted|your)'
 // The same patterns tools/lint.py refuses in this repository.
 const SECRETS: readonly (readonly [string, RegExp])[] = [
   ['GitHub token', /\bgh[pousr]_[A-Za-z0-9]{36,}\b/g],
@@ -24,6 +30,19 @@ const SECRETS: readonly (readonly [string, RegExp])[] = [
   ['Slack token', /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/g],
   ['API key', /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{32,}\b/g],
   ['JWT', /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g],
+  ['Google API key', /\bAIza[0-9A-Za-z_-]{35}/g],
+  ['Google OAuth client secret', /\bGOCSPX-[A-Za-z0-9_-]{28}/g],
+  ['Stripe live key', /\b(?:sk|rk)_live_[0-9A-Za-z]{24,}/g],
+  ['password in a URL', /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@<>{}$]+:(?!(?:password|passwd|pass|pwd|pw|secret|x+|\*+)@)(?![$<{%*])[^\s/@<>{}$]+@/gi],
+  [
+    'password',
+    new RegExp(
+      `(?<![A-Za-z0-9])[A-Za-z0-9_]*(?:password|passwd|client_secret|accountkey|sharedaccesskey)["']?[ \\t]*[:=][ \\t]*` +
+        `(?:"(?!${NOT_SECRET})[^"\\s]{8,}"|'(?!${NOT_SECRET})[^'\\s]{8,}'` +
+        `|(?!${NOT_SECRET})(?=[^\\s"'(),;&\\[\\]]*\\d)[^\\s"'(),;&\\[\\]]{8,}(?=[\\s;,&]|$))`,
+      'gi',
+    ),
+  ],
 ]
 
 const DIRECTION = new Set([0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069])

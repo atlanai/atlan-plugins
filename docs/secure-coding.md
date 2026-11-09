@@ -28,8 +28,10 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   session's roots, refuse `~`, UNC and drive-relative labels, and refuse a folder that is itself a
   link: `place` in `publish_hook.py` and in `register.ts`.
 - **Never walk into credentials.** Skip `.ssh`, `.aws`, `.gnupg`, `.kube`, `.docker`, `.azure` and
-  `gcloud`; refuse key files (`.env*`, `.pem`, `.key`, `.p12`, `.pfx`, `id_*`) and secret-shaped
-  content: `CREDENTIAL_DIRS` in `publish_hook.py` and `claude-hooks/bundle.ts`, and `KEY_FILES`
+  `gcloud`; refuse key files (`.env*`, `.pem`, `.key`, `.p12`, `.pfx`, `id_*`), login files
+  (`.npmrc`, `.netrc`, `.pgpass`, `.pypirc`, `.git-credentials`), Terraform variables and state
+  (`*.tfvars`, `*.tfstate`) and secret-shaped content, including passwords set to a literal or
+  inside a URL, with placeholders let through: `CREDENTIAL_DIRS` in `publish_hook.py` and `claude-hooks/bundle.ts`, and `KEY_FILES`
   and `SECRETS` in `plugins/atlanai/skills/atlan-author-skills/scripts/check_bundle.py` and
   `bundle.ts`.
 - **Bounded, no-follow reads.** 128 files, 256 KiB and depth 8 (`MAX_FILES`, `MAX_BYTES`,
