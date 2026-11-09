@@ -145,6 +145,13 @@ def validate(source: dict) -> None:
         names.add(mod["name"])
         if not SEMVER.match(mod["version"]):
             raise SystemExit(f"mod {mod['name']} version {mod['version']!r} is not SemVer")
+    mod_names = {mod["name"] for mod in source.get("mods", [])}
+    for addon in source.get("addons", []):
+        companions = addon.get("claude_companions", [])
+        if not isinstance(companions, list) or any(not isinstance(name, str) or name not in mod_names for name in companions):
+            raise SystemExit(f"add-on {addon['name']} claude_companions must name declared mods")
+        if len(companions) != len(set(companions)):
+            raise SystemExit(f"add-on {addon['name']} repeats a Claude companion")
     for name, entry in source.get("skills", {}).items():
         if set(entry) != {"display_name", "short_description", "prompt"}:
             raise SystemExit(f"[skills.{name}] needs exactly display_name, short_description and prompt")
@@ -176,6 +183,8 @@ def make_variant(source: dict, overrides: dict) -> dict:
     # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
     main, other = source["plugin"], variant["plugin"]
     for addon in variant.get("addons", []):
+        # Variants omit Claude mods, so they must not reference production companions.
+        addon.pop("claude_companions", None)
         addon["name"] = other["name"] + addon["name"].removeprefix(main["name"])
         # The add-on's label carries the variant's, so a variant installed beside these plugins
         # never shows two add-ons under one name.
@@ -297,7 +306,7 @@ def addon_outputs(source: dict, addon: dict) -> dict[str, dict]:
         f"{base}/.claude-plugin/plugin.json": {
             **addon_core(source, addon),
             "displayName": addon["display_name"],
-            "dependencies": [source["plugin"]["name"]],
+            "dependencies": [source["plugin"]["name"], *addon.get("claude_companions", [])],
         },
         f"{base}/.codex-plugin/plugin.json": {
             **addon_core(source, addon),
@@ -327,24 +336,22 @@ def mod_outputs(source: dict, mod: dict) -> dict[str, dict]:
 def addon_readme(source: dict, addon: dict) -> str:
     plugin, market = source["plugin"], source["marketplace"]["name"]
     slug = github_slug(plugin["repository"])
+    included = " and the native Analytics view" if addon.get("claude_companions") else ""
+    view_note = "No separate view installation is needed in Claude Code Desktop or CLI.\n" if addon.get("claude_companions") else ""
+    view_privacy = "The included Claude view uses native presentation hooks to display saved progress and prepare chat requests.\n" if addon.get("claude_companions") else ""
     return f"""# {addon['display_name']}
 
 {addon['long_description']}
 
 ## Install
 
-It uses the `{plugin['name']}` plugin's connection to Atlan and has no MCP server of its own.
-One command installs both into every coding agent on this machine:
-
-```
-npx plugins add {slug}
-```
-
-Or in Claude Code alone, which installs `{plugin['name']}` with it:
+In Claude Code, one command installs Analytics, `{plugin['name']}`{included} automatically:
 
 ```
 claude plugin install {addon['name']} --marketplace {slug}
 ```
+
+{view_note}
 
 Other hosts install plugins one at a time, so add `{plugin['name']}` first. In Codex:
 
@@ -356,8 +363,9 @@ codex plugin add {addon['name']}@{market}
 
 ## Privacy
 
-It has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
+Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may
 set up an isolated metrics-agent environment with pinned dependencies after authorization.
+{view_privacy}\
 Working files stay in your project. Input plugs use the source connections you select; Registry
 writes use the `{plugin['name']}` plugin's connection, signed in as you. See Atlan's
 [privacy notice]({plugin['privacy_policy_url']}).

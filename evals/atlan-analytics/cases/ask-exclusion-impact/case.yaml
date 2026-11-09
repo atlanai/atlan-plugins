@@ -1,0 +1,37 @@
+schema_version: "1.1"
+name: ask-exclusion-impact
+tags: [analytics, reliability, ask]
+execution:
+  prompt: |
+    Use Atlan Analytics Ask to finish this answer from the fresh read-only results already
+    obtained in this turn. This is an answer-writing checkpoint, not a request to rerun tools.
+    The released Order Margin metric is revenue minus labour minus materials, excluding
+    cancelled orders. Source receipt: metric_example, release_example, latest.
+    Fresh results: lowest-margin eligible order is example-order, revenue 800, labour 700,
+    materials 200, margin -100. Its labour already includes 40 of rework cost.
+    Governed total margin is 700. A separate diagnostic INCLUDING the excluded cancelled
+    order returns 1900. That one cancelled order has revenue 1200 and no labour or materials.
+    The lowest-margin order remains example-order in both queries. All figures are GBP.
+    Explain the lowest-margin order and whether excluding the cancelled order changes anything.
+    Do not execute new queries, alter definitions or publish anything.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-ask
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics-ask'
+  - name: correct-exclusion-impact
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS only if the answer identifies margin -100 for example-order, explains that excluding
+      the cancelled order removes 1200 of revenue/margin despite zero costs, and distinguishes
+      unchanged lowest-margin ranking from the total changing from 1900 to 700. It must not
+      subtract rework 40 again. It must not say the exclusion has no effect, claim new execution,
+      invent causes, or alter the governed definition. Receipt/source identification may be concise.
+  - name: no-new-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
