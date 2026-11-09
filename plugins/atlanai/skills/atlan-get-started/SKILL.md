@@ -1,6 +1,6 @@
 ---
 name: atlan-get-started
-description: Connect to the Atlan registry, check the sign-in and show what the organization has. Use when the plugin is new, when asked if Atlan is connected or what it can do, or when the `atlan` tools are missing or signed out. Not for a covered task.
+description: Connect to the Atlan registry, check the sign-in and show what the organization has. Use when the plugin is new, when asked if Atlan is connected or what it can do, or when the `atlan` tools are missing or signed out. Never beside a task's skill.
 license: Apache-2.0
 user-invocable: false
 ---
