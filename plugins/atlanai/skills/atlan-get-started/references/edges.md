@@ -2,11 +2,24 @@
 
 The one edges reference for every Atlan skill: skills, agents, outputs, knowledge and the rest.
 
-## Nothing is joined automatically
+## Nothing you create together is joined
 
 Creating two artifacts in one conversation creates two unrelated rows. Uploading a skill and
 an agent together does not link them; neither does creating a file "as part of" a skill. An
-edge exists because you asked for one, and the write's result is the edge it made.
+edge between your artifacts exists because you asked for one, and the write's result is the
+edge it made.
+
+Some edges are **derived** by an app after a write, and you do not write those:
+
+- the skill app reads each uploaded `SKILL.md` and writes `depends_on`, `next_step` and
+  `alternative` toward related skills, and its analysis writes `duplicate_of` and
+  `conflicts_with`; each carries `attributes.provenance: "content-derived"` and a `confidence`;
+- the agent app writes `uses_skill` from an agent's `skills` manifest (below);
+- the metric app writes a metric's `depends_on` from its definition.
+
+Newer gateways also record this in the edge's own `provenance` (`agent_inferred` or
+`system_derived` instead of `manual`). Derivation runs after the write returns, so read a
+skill's edges with `registry__get_related_artifacts` before writing any of these types by hand.
 
 ## An edge is declared by its **source** kind
 
@@ -16,7 +29,7 @@ create it there.
 
 | Source kind | `rel_type` | Target kinds |
 |---|---|---|
-| `skill` | `depends_on`, `next_step`, `alternative`, `duplicate_of`, `conflicts_with` | `skill` |
+| `skill` | `depends_on`, `next_step`, `alternative`, `duplicate_of`, `conflicts_with`, `replaced_by` | `skill` |
 | `skill` | `sourced_from` | `repo` |
 | `agent` | `uses_skill` | `skill` |
 | `agent` | `sub_agent` | `agent` |
@@ -48,7 +61,7 @@ first is a standing configuration on an agent, the second a fact about one deliv
 in its `attributes`. The sync writes it; create one by hand only when registering a repo's
 existing artifacts.
 
-## What the five skill edges mean
+## What the six skill edges mean
 
 | `rel_type` | Means |
 |---|---|
@@ -57,15 +70,16 @@ existing artifacts.
 | `alternative` | Two ways to do the same thing |
 | `duplicate_of` | Two skills that should be one |
 | `conflicts_with` | Running both is wrong |
+| `replaced_by` | This skill is deprecated; use that one. Written by whoever deprecates it |
 
 ## An agent's skills come from its manifest
 
 Do not write `uses_skill` by hand on an agent that has a `skills` manifest. The manifest,
 `[{ "skill_id": ..., "version_ordinal": ... }]` on the agent's own metadata, is the record of
 which skill versions that agent version loads, and the registry derives `uses_skill` from it:
-one edge per pinned skill, marked `provenance: manifest`, with every other `uses_skill` on the
-agent archived. A hand-written edge on such an agent is removed on its next write. Patch the
-manifest instead.
+one edge per pinned skill, marked `attributes.provenance: "manifest"` (and `provenance:
+system_derived` on newer gateways), with every other `uses_skill` on the agent archived. A
+hand-written edge on such an agent is removed on its next write. Patch the manifest instead.
 
 The hand-written form below is for an agent that has never written a manifest, and for the
 other edge types.
@@ -92,7 +106,10 @@ registry__relate_artifact {
 ```
 
 Safe to repeat: the edge is keyed on both ends and the type, so a second identical call
-changes nothing.
+changes nothing. A repeat is not a no-op when it differs: an older gateway replaces the
+edge's `attributes` with what you send (none, if you send none), and a newer one merges them.
+So never re-relate a derived edge just to confirm it, and when you restate one of yours, send
+every attribute you want kept.
 
 **If you are creating the source artifact anyway, create it linked.**
 `registry__create_artifact_linked` takes the same `kind` and `metadata` as a create plus
@@ -135,12 +152,12 @@ send that, and never both with different values.
 
 `subject_id` inside an output's `metadata` is its producer, not an edge end.
 
-## The three refusals, in the order they fire
+## The refusals, in the order they fire
 
 1. **Unknown `rel_type`**: 422, and the message **names the vocabulary**:
 
    > `banana` is not an edge type `skill` declares; it declares alternative, conflicts_with,
-   > depends_on, duplicate_of, next_step
+   > depends_on, duplicate_of, next_step, replaced_by, sourced_from
 
    Read the list out of the error rather than guessing again. If the type you wanted is not
    there, check the table above: it is probably declared on the other kind.
@@ -149,9 +166,9 @@ send that, and never both with different values.
 
    > `uses_skill` on `agent` may point at skill, not `agent`
 
-3. **Different workspaces**: 422:
-
-   > `<handle>` is in another workspace; a relationship's two ends must be in the same one
+3. **Missing or unreadable target**: 404. The target may be in another workspace of the
+   account, as long as you can read it; readers who cannot see that workspace get the far end
+   as `{id, kind, is_readable: false}`.
 
 The target's existence is checked **after** the vocabulary check, so a typo'd `rel_type`
 costs no lookup and tells you about the typo rather than about a missing artifact.
