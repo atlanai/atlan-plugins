@@ -41,11 +41,26 @@ another state through its environment (`emulator.json` beside the case, read by 
   reporting how many it left out in `diagnostics.unreleased_omitted_count`;
 - `ATLAN_EMULATOR_OPAQUE_PUBLISH=1`: `registry__publish_output` refuses a call that carries
   `idempotency_key` or `file.media_type` with a bare `400` "The request is not valid." that
-  names no field and writes nothing, as the dev gateway did in the 8 November eval.
+  names no field and writes nothing, as the dev gateway did in the 8 November eval;
+- `ATLAN_EMULATOR_DISABLED_SERVERS=slack,…`: those servers are registered but disabled: their
+  tools are not served, and every search lists them under `unavailable` with `reason`
+  `disabled`, as gateway 2.21.0 does (`HIDE_SERVERS` stays silent about its servers);
+- `ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT=1`: `registry__publish_output` on a source key that
+  already names an output is refused with the bare `409` text "The request conflicts with the
+  current state of the resource." and writes nothing, as gateway 2.21.0 did on 9 November; the
+  older route (`registry__append_artifact_version` on the file, then `registry__create_artifact`
+  with the same source key) still lands the next version;
+- `ATLAN_EMULATOR_SERVE_WITHDRAW=1`: `registry__withdraw_release` is served. Gateway 2.21.0 does
+  not serve it, so by default it is absent and `mcp__describe_tools` says so by name.
 
 The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
 `mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
 tool's tier refuses it and names the one to use, and search results name it in `run_with`.
+- `ATLAN_EMULATOR_LIVE_SURFACE=1`: the tool surface gateway 2.21.0 lists. `mcp__call_read_tools`
+  runs up to 8 reads in one call, each slot as `mcp__call_read_tool` would, and the most used
+  `registry__` reads (and `registry__create_artifact`) are listed by name and run directly with
+  `session_id` and `rationale` as their own arguments. Off by default: the suite's graders count
+  reads on `mcp__call_read_tool`, so only a case about the batch or direct path turns it on.
 """
 
 from __future__ import annotations
@@ -79,6 +94,13 @@ ANALYTICS = os.environ.get("ATLAN_EMULATOR_ANALYTICS") == "1"
 PLATFORM = int(os.environ.get("ATLAN_EMULATOR_PLATFORM") or 0)
 UNRELEASED = {h for h in os.environ.get("ATLAN_EMULATOR_UNRELEASED", "").split(",") if h}
 OPAQUE_PUBLISH = os.environ.get("ATLAN_EMULATOR_OPAQUE_PUBLISH") == "1"
+DISABLED = {s for s in os.environ.get("ATLAN_EMULATOR_DISABLED_SERVERS", "").split(",") if s}
+PUBLISH_VERSION_CONFLICT = os.environ.get("ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT") == "1"
+SERVE_WITHDRAW = os.environ.get("ATLAN_EMULATOR_SERVE_WITHDRAW") == "1"
+# The live tool surface: `mcp__call_read_tools` and the `registry__` tools listed by name. Off by
+# default, because the suite's graders count reads on `mcp__call_read_tool`; a case that tests the
+# batch or direct path sets it in its emulator.json.
+LIVE_SURFACE = os.environ.get("ATLAN_EMULATOR_LIVE_SURFACE") == "1"
 if ANALYTICS:
     _EXTRA = json.loads((HERE / "analytics.json").read_text(encoding="utf-8"))
     WORLD["tools"] = WORLD["tools"] + _EXTRA["tools"]
@@ -182,6 +204,49 @@ for _runner, _what in (("mcp__call_read_tool", "a read-only tool"), ("mcp__call_
     META_TOOLS.append(_base | {"name": _runner, "description": f"Run {_what} by its exact `name` and `arguments`, "
                                "with `session_id` (or `objective` on the first call) and `rationale` beside them. "
                                "A tool above this runner's tier is refused with the runner that runs it."})
+BATCH_TOOL = {
+    "name": "mcp__call_read_tools",
+    "description": (
+        "Run up to 8 independent read-only tools in one call, each as `mcp__call_read_tool` would run it. "
+        "`calls` holds `{name, arguments}` pairs; `results` answers them in the same order, each with its own "
+        "`isError`, so one failed slot does not fail the rest. `session_id` (or `objective` on the first call) "
+        "and `rationale` go beside `calls`."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["calls"],
+        "properties": {
+            "calls": {"type": "array", "minItems": 1, "maxItems": 8,
+                      "items": {"type": "object", "additionalProperties": False, "required": ["name", "arguments"],
+                                "properties": {"name": {"type": "string"}, "arguments": {"type": "object"}}}},
+            "objective": {"type": ["string", "null"]},
+            "rationale": {"type": "string"},
+            "session_id": {"type": "string"},
+        },
+    },
+}
+if LIVE_SURFACE:
+    META_TOOLS.append(BATCH_TOOL)
+
+# The `registry__` tools gateway 2.21.0 also lists by name, so a host's model calls them directly with
+# `session_id` and `rationale` as their own top-level arguments and no runner.
+DIRECT_TOOLS = ("registry__search_artifacts", "registry__get_artifact", "registry__list_workspaces",
+                "registry__get_artifact_counts", "registry__get_file_content", "registry__get_related_artifacts",
+                "registry__create_artifact")
+RAILS = {"session_id": {"type": "string"}, "rationale": {"type": "string"}, "objective": {"type": ["string", "null"]}}
+
+GATEWAY = {
+    "access": "any", "app_version": "2.21.0", "apps": "aggregate",
+    "features": ["risk_runners", "access_caps", "connect_server_listed", "called_tool_meta", "read_retry",
+                 "objective_window", "batch_reads", "result_budget"],
+    "limits": {"described_bytes": 65536, "described_tools": 100, "search_results": 20, "servers_per_lookup": 20},
+    "receipt_version": 1,
+    "runners": {"destructive": "mcp__call_tool", "read": "mcp__call_read_tool", "write": "mcp__call_write_tool"},
+    "schemas": "4a0db90e307825d0", "transport": "streamable_http",
+}
+DISABLED_NOTE = ("Registered in Atlan but disabled, so its tools cannot be found or called. Tell the user an admin "
+                 "can enable it in Atlan's MCP servers; do not use another product's tool in its place.")
 
 
 def tier(tool: dict) -> int:
@@ -193,9 +258,11 @@ def tier(tool: dict) -> int:
 
 
 class Refusal(Exception):
-    def __init__(self, status: int, code: str, detail: str):
+    """A refused call. `bare` is a gateway refusal that is the text alone: no `code`, no `field`."""
+
+    def __init__(self, status: int, code: str, detail: str, *, bare: bool = False):
         super().__init__(detail)
-        self.body = {"status": status, "code": code, "detail": detail}
+        self.body = detail if bare else {"status": status, "code": code, "detail": detail}
 
 
 state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}}
@@ -210,8 +277,18 @@ def tool_server(name: str) -> str:
 
 
 def served_tools() -> list[dict]:
-    """The tools this connection serves: the world's, less the hidden servers'."""
-    return [t for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE and t["name"] not in HIDE_TOOLS]
+    """The tools this connection serves: the world's, less the hidden and disabled servers' and the
+    tools gateway 2.21.0 does not serve."""
+    gone = HIDE_TOOLS | (set() if SERVE_WITHDRAW else {"registry__withdraw_release"})
+    return [t for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE | DISABLED and t["name"] not in gone]
+
+
+def listed_tools() -> list[dict]:
+    """`tools/list`: the meta-tools, then the served `DIRECT_TOOLS` with the rails as their own arguments."""
+    direct = [t for t in served_tools() if t["name"] in DIRECT_TOOLS] if LIVE_SURFACE else []
+    return META_TOOLS + [{"name": t["name"], "description": t["description"], "annotations": t.get("annotations", {}),
+                         "inputSchema": t["input_schema"] | {"properties": t["input_schema"].get("properties", {}) | RAILS}}
+                        for t in direct]
 
 
 def artifacts() -> dict:
@@ -316,6 +393,8 @@ def search_tools(args: dict) -> dict:
     limit = args.get("limit") or 5
     result = {"session_id": new or args["session_id"],
               "tools": [public(t, args.get("detail", "schema")) for _, _, t in scored[:limit]]}
+    if new:
+        result["gateway"] = GATEWAY
     connect = [c for c in WORLD["connect"] if words(" ".join(c["keywords"])) & query and (not servers or c["server"] in servers)]
     if connect:
         result["connect"] = [{k: v for k, v in c.items() if k != "keywords"} | {
@@ -326,7 +405,14 @@ def search_tools(args: dict) -> dict:
     else:
         result["next"] = ("Run a tool with `mcp__call_tool`, passing its `name` and `arguments`, and this "
                           "`session_id` (and a `rationale`) beside them at the top level.")
+    if DISABLED:
+        result["unavailable"] = [{"note": DISABLED_NOTE, "reason": "disabled", "server": s} for s in sorted(DISABLED)]
+        result["next"] = ("The servers in `unavailable` are registered in Atlan but disabled, so their tools cannot be "
+                          "found or called; tell the user an admin can enable them. " + result["next"])
     return result
+
+
+UNKNOWN_TOOL = "not a tool you can call; find tools with mcp__search_tools"
 
 
 def describe_tools(args: dict) -> dict:
@@ -338,6 +424,9 @@ def describe_tools(args: dict) -> dict:
     tools = [public(t) for t in served_tools()
              if (names and t["name"] in names) or (servers and tool_server(t["name"]) in servers)]
     out = {"tools": tools}
+    unknown = sorted(names - {t["name"] for t in tools})
+    if unknown:
+        out["unknown"] = [{"name": n, "note": UNKNOWN_TOOL} for n in unknown]
     if new or args.get("session_id"):
         out["session_id"] = new or args["session_id"]
     return out
@@ -417,10 +506,16 @@ def search_artifacts(a: dict) -> dict:
             hits.append((score, item))
     hits.sort(key=lambda h: -h[0])
     limit = a.get("limit", 10)
-    # Every hit here matched a query word; the gateway's fused hits say so in `match`.
-    return {"items": [(bare(h) if a.get("full") else summary(h)) | {"score": s / 100, "match": {"keyword": True}}
+    # Every hit here matched a query word; the gateway's fused hits say so in `match`, with the
+    # share of the query's words the hit carries as its `similarity`.
+    spaces = {w["id"]: w for w in WORLD["workspaces"]}
+    return {"items": [(bare(h) if a.get("full") else summary(h))
+                      | {"score": s / 100, "match": {"keyword": True, "similarity": round(s / max(len(query), 1), 3)},
+                         "is_released": bool(h.get("is_released")),
+                         "workspace_display_name": spaces.get(h["workspace_id"], {}).get("display_name"),
+                         "workspace_kind": spaces.get(h["workspace_id"], {}).get("kind")}
                       for s, h in hits[:limit]],
-            "page": {"limit": limit, "offset": 0}}
+            "page": {"limit": limit, "offset": 0, "has_more": len(hits) > limit}}
 
 
 SUMMARY = ("id", "kind", "name", "display_name", "description", "workspace_id", "project_id", "artifact_status",
@@ -525,6 +620,14 @@ def included_file(item: dict, path: str) -> dict:
         return file_content({"file_id": pin["file_id"], "version_ordinal": pin["file_version_ordinal"]})
     except Refusal as refused:
         return {"path": path, "file_id": pin["file_id"], "error": refused.body["detail"]}
+
+
+def with_properties(item: dict, keep: list[str]) -> dict:
+    """`get_artifact`'s `properties`: only those kind properties stay in `metadata`; the rest are
+    named in `omitted_properties` with the bytes each would have taken."""
+    meta = item.get("metadata") or {}
+    omitted = {k: len(json.dumps(v).encode()) for k, v in meta.items() if k not in keep}
+    return item | {"metadata": {k: v for k, v in meta.items() if k in keep}, "omitted_properties": omitted}
 
 
 def write(kind: str, a: dict) -> dict:
@@ -638,7 +741,20 @@ def dispatch(name: str, a: dict) -> dict:
     if name == "registry__withdraw_release":
         return withdraw_release(a)
     if name == "registry__list_workspaces":
-        return {"items": WORLD["workspaces"], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(WORLD["workspaces"])}}
+        rows = [{"org_wide": w["kind"] == "org_default", "parent_id": None} | w for w in WORLD["workspaces"]]
+        personal = next((w["id"] for w in rows if w["kind"] == "user_default"), None)
+        # Gateway 2.21.0 filters rather than pages: `kind`, `status` (active by default) and `query`.
+        status = a.get("status", "active")
+        if status != "all":
+            rows = [w for w in rows if w.get("workspace_status", "active") == status]
+        if a.get("kind"):
+            rows = [w for w in rows if w["kind"] == a["kind"]]
+        if a.get("query"):
+            needle = words(a["query"])
+            rows = [w for w in rows if needle & words(f"{w.get('name', '')} {w.get('display_name', '')} {w.get('description', '')}")]
+        limit = a.get("limit", 50)
+        return {"items": rows[:limit], "page": {"limit": limit, "offset": 0, "total": len(rows)},
+                "personal_workspace_id": personal}
     if name == "registry__search_artifacts":
         return search_artifacts(a)
     if name == "registry__list_artifacts":
@@ -653,6 +769,8 @@ def dispatch(name: str, a: dict) -> dict:
             found = found | {"included_file": included_file(found, a["include_file"])}
         if "include_files" in a:
             found = found | {"included_files": [included_file(found, path) for path in a["include_files"][:8]]}
+        if "properties" in a:
+            found = with_properties(found, a["properties"])
         return found
     if name == "registry__get_project":
         project = WORLD["projects"].get(a["project_id"])
@@ -1002,6 +1120,10 @@ def publish_output(a: dict) -> dict:
         return next((i for i in artifacts().values() if i["kind"] == kind
                      and (i["workspace_id"], i.get("source_type"), i.get("source_id")) == key), None)
 
+    if PUBLISH_VERSION_CONFLICT and holder("output"):
+        # Gateway 2.21.0 refuses a new version through this tool before writing anything, with the
+        # 409 text alone, edges or not.
+        raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.", bare=True)
     written = None
     if "file" in a:
         text = a["file"]["content"]
@@ -1095,9 +1217,56 @@ def call_tool(args: dict, runner: str = "mcp__call_tool") -> dict:
     return result
 
 
+def meta(name: str, via: str) -> dict:
+    """The `_meta` the gateway puts on a runner's result: the tool it ran and the runner."""
+    return {"com.atlan/called-tool": name, "com.atlan/called-via": via}
+
+
+def call_read_tools(args: dict) -> dict:
+    """`mcp__call_read_tools`: each slot runs as `mcp__call_read_tool` would and answers in its own
+    place, a refused slot as `isError` with the refusal as its text, so the rest still answer."""
+    calls = args.get("calls")
+    if not isinstance(calls, list) or not 1 <= len(calls) <= 8:
+        raise Refusal(400, "invalid_arguments", "`calls` holds 1 to 8 `{name, arguments}` pairs.")
+    if not args.get("rationale"):
+        raise Refusal(400, "rationale_required", "Add `rationale` beside `calls`: one first-person sentence on why you are making these reads.")
+    new = open_session(args)
+    results = []
+    for call in calls:
+        slot = {"name": call.get("name"), "arguments": call.get("arguments") or {}, "rationale": args["rationale"],
+                "session_id": SESSION}
+        try:
+            body, error = call_tool(slot, "mcp__call_read_tool"), False
+        except Refusal as refusal:
+            body, error = refusal.body, True
+        results.append({"_meta": meta(call.get("name"), "mcp__call_read_tool"), "name": call.get("name"),
+                        "content": [{"type": "text", "text": body if isinstance(body, str) else json.dumps(body)}],
+                        "isError": error, "resultType": "complete"})
+    out = {"results": results}
+    if new:
+        out = {"mcp_session_id": new} | out
+    return out
+
+
+def direct_call(name: str, args: dict) -> dict:
+    """A `registry__` tool listed by name: `session_id`, `rationale` and `objective` are its own
+    top-level arguments and the rest are the tool's, run at the tool's own tier."""
+    rails = {k: v for k, v in args.items() if k in RAILS}
+    # The gateway lists `rationale` as optional on a direct call, where the runners expect it.
+    rails.setdefault("rationale", "(not given)")
+    tool = next((t for t in served_tools() if t["name"] == name), None)
+    runner = RUNNER_OF[tier(tool)] if tool else "mcp__call_tool"
+    return call_tool(rails | {"name": name, "arguments": {k: v for k, v in args.items() if k not in RAILS}}, runner)
+
+
 HANDLERS = {"mcp__search_tools": search_tools, "mcp__describe_tools": describe_tools, "mcp__call_tool": call_tool,
             "mcp__call_read_tool": lambda a: call_tool(a, "mcp__call_read_tool"),
-            "mcp__call_write_tool": lambda a: call_tool(a, "mcp__call_write_tool")}
+            "mcp__call_write_tool": lambda a: call_tool(a, "mcp__call_write_tool"),
+            "mcp__call_read_tools": call_read_tools}
+if LIVE_SURFACE:
+    HANDLERS |= {name: (lambda a, n=name: direct_call(n, a)) for name in DIRECT_TOOLS}
+else:
+    HANDLERS.pop("mcp__call_read_tools")
 
 
 def log(entry: dict) -> None:
@@ -1115,7 +1284,7 @@ def handle(msg: dict) -> dict | None:
         return {"jsonrpc": "2.0", "id": rid, "result": {"protocolVersion": version, "capabilities": {"tools": {}},
                 "serverInfo": {"name": "atlan-eval-emulator", "version": "1"}}}
     if method == "tools/list":
-        tools = [] if SIGNED_OUT else CATALOG_TOOLS if CATALOG else META_TOOLS
+        tools = [] if SIGNED_OUT else CATALOG_TOOLS if CATALOG else listed_tools()
         return {"jsonrpc": "2.0", "id": rid, "result": {"tools": tools}}
     if method == "tools/call":
         params = msg.get("params") or {}
@@ -1127,19 +1296,22 @@ def handle(msg: dict) -> dict | None:
                              "and serves asset search, lineage and updates; it has no registry tools."}
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": body})
             return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": json.dumps(body)}], "isError": True}}
-        called = (params.get("arguments") or {}).get("name")
-        if RATE_LIMIT and params.get("name") in RUNNERS and called == RATE_LIMIT and not state["rate_limited"]:
+        # The tool a runner or a direct call runs, and the runner the switches below see it through.
+        direct = params.get("name") in DIRECT_TOOLS
+        called = params.get("name") if direct else (params.get("arguments") or {}).get("name")
+        via = "mcp__call_tool" if direct else params.get("name")
+        if RATE_LIMIT and via in RUNNERS and called == RATE_LIMIT and not state["rate_limited"]:
             state["rate_limited"] = True
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32003}})
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32003, "message": "rate_limited: the organization's "
                     "call budget is spent for the moment; retry after 2 seconds", "data": {"retry_after_seconds": 2}}}
-        if UNAVAILABLE and params.get("name") in RUNNERS and called == UNAVAILABLE and state.get("unavailable", 0) < 2:
+        if UNAVAILABLE and via in RUNNERS and called == UNAVAILABLE and state.get("unavailable", 0) < 2:
             state["unavailable"] = state.get("unavailable", 0) + 1
             log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": True, "result": {"code": -32603}})
             return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32603, "message": "service unavailable",
                     "data": {"server": "registry", "retryable": True, "retry_after_seconds": 1,
                              "code": "downstream_unavailable"}}}
-        if LOST_REPLY and params.get("name") in RUNNERS and called == LOST_REPLY and not state.get("lost"):
+        if LOST_REPLY and via in RUNNERS and called == LOST_REPLY and not state.get("lost"):
             # The relay cut the call after the create committed: the write stands, the reply is lost.
             state["lost"] = True
             try:
@@ -1161,7 +1333,10 @@ def handle(msg: dict) -> dict | None:
         except (KeyError, TypeError) as exc:
             body, error = {"status": 400, "code": "invalid_arguments", "detail": f"malformed arguments: {exc}"}, True
         log({"tool": params.get("name"), "arguments": params.get("arguments"), "error": error, "result": body})
-        return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": json.dumps(body)}], "isError": error}}
+        result = {"content": [{"type": "text", "text": body if isinstance(body, str) else json.dumps(body)}], "isError": error}
+        if params.get("name") in RUNNERS and called:
+            result["_meta"] = meta(called, params["name"])
+        return {"jsonrpc": "2.0", "id": rid, "result": result}
     if method == "ping":
         return {"jsonrpc": "2.0", "id": rid, "result": {}}
     return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": f"unknown method {method}"}}
