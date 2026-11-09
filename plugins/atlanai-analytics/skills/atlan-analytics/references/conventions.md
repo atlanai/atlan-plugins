@@ -16,7 +16,7 @@ explicit orchestration policy for phase approvals and continuation; these safety
   `mcp_session_id`: pass it as `session_id` on every later call, beside `name` and never inside
   `arguments`, with a one-line `rationale`. Send nothing else until that first call returns.
 - A read the host also lists by name (`registry__search_artifacts`, `registry__get_artifact`
-  and the other `registry__` reads beside the five tools) can be called directly once the
+  and the other `registry__` reads beside the search-mode helpers) can be called directly once the
   session is open, with `session_id` and `rationale` among its arguments.
 - **Full mode** (every tool listed): open the session with `mcp__initialise`, passing an
   `objective` and a `rationale`, then call each tool directly with its `session_id`.

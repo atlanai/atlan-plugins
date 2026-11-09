@@ -60,7 +60,7 @@ description = "Atlan's plugins for coding agents: the Atlan registry's MCP serve
 # The server key every Atlan plugin uses, the registry's own umbrella plugin included.
 server = "atlan"
 # The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
-# URL is search mode: five tools that reach the whole catalogue (see
+# URL is search mode: a few helper tools that reach the whole catalogue (see
 # plugins/atlanai/skills/atlan-get-started/references/full-mode.md).
 url = "https://api.atlan.com/mcp"
 # Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
