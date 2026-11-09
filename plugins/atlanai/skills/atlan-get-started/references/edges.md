@@ -15,7 +15,8 @@ Some edges are **derived** by an app after a write, and you do not write those:
   `alternative` toward related skills, and its analysis writes `duplicate_of` and
   `conflicts_with`; each carries `attributes.provenance: "content-derived"` and a `confidence`;
 - the agent app writes `uses_skill` from an agent's `skills` manifest (below);
-- the metric app writes a metric's `depends_on` from its definition.
+- the metric app writes a metric's `depends_on` and `replaced_by` from its definition, marked
+  `attributes.derived_from: "definition"`. Change the definition, not the edge.
 
 Newer gateways also record this in the edge's own `provenance` (`agent_inferred` or
 `system_derived` instead of `manual`). Derivation runs after the write returns, so read a
@@ -38,6 +39,8 @@ create it there.
 | `agent` | `uses_knowledge` | `knowledge` |
 | `agent` | `sourced_from` | `repo` |
 | `output` | `used_skill` | `skill` |
+| `metric` | `depends_on`, `replaced_by` | `metric` |
+| `sql_query` | `source_of`, `uses_metric` | `metric` |
 | `knowledge_concept` | `documents` | `output` |
 | `experiment` | `uses_context` | `skill`, `file`, `agent` |
 | `scorer` | `applies_to` | `skill`, `agent` |
@@ -71,6 +74,19 @@ existing artifacts.
 | `duplicate_of` | Two skills that should be one |
 | `conflicts_with` | Running both is wrong |
 | `replaced_by` | This skill is deprecated; use that one. Written by whoever deprecates it |
+
+## What the metric and saved-query edges mean
+
+| `rel_type` | Means |
+|---|---|
+| `depends_on` (metric) | This metric is computed from that one, or is a restriction of it. Derived from `definition.depends_on` |
+| `replaced_by` (metric) | This metric is retired; use that one. Derived from `definition.replaced_by` |
+| `source_of` (saved query) | This query is where that metric was authored or mined from |
+| `uses_metric` (saved query) | This query computes or reads a metric that it was not the source of |
+
+`metric` declares no `alternative`. Two metrics that are the same question at another grain, or
+two spellings of one measurement, are recorded on the metric's own
+`definition.extensions.related`, not as an edge; the registry refuses the edge with a 422.
 
 ## An agent's skills come from its manifest
 
