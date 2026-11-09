@@ -244,5 +244,5 @@ performed, including whether a trace was observed; and what is now powered:
 catalogue/profile, context graph, runtime identity, tracing/cost, eval subject
 selection, and output attribution, each marked ready or still requiring runtime
 work. Do not claim synchronization beyond installed CLI coverage. Runtime output
-provenance belongs to `skills/atlan-record-outputs/references/record.md`, not to static agent
+provenance belongs to `skills/atlan-share/references/record.md`, not to static agent
 configuration.

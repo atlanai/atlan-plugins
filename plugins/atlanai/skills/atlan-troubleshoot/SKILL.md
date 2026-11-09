@@ -1,6 +1,6 @@
 ---
 name: atlan-troubleshoot
-description: Diagnose a failing, refused or duplicated Atlan tool call, such as a sign-in error, a refused session, a 400, 409 or rate limit, a failed upload, a file that will not read or a server stuck behind connect. Use when any `atlan` MCP call errors or returns something unexpected.
+description: "Diagnose a failing, refused or duplicated Atlan tool call: a sign-in error, a refused session, a 400, 409 or rate limit, a failed upload, an unreadable file or a server stuck behind connect. Use when any `atlan` MCP call errors or looks wrong."
 license: Apache-2.0
 ---
 

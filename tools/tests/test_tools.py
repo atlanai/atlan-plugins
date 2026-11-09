@@ -489,7 +489,7 @@ class SkillLintTest(unittest.TestCase):
     def test_an_owned_skill_keeps_its_description_short_and_its_skill_md_small(self) -> None:
         long = "Use when testing. " + "x" * lint.MAX_OWNED_DESCRIPTION
         errors = self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n")
-        self.assertTrue(any("max 370" in e for e in errors), errors)
+        self.assertTrue(any("max 250" in e for e in errors), errors)
         self.assertEqual(self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n", owned=False), [])
         big = "---\nname: a\ndescription: Use when testing.\n---\n" + "word " * (lint.MAX_SKILL_BYTES // 5)
         errors = self.lint("a", big)
