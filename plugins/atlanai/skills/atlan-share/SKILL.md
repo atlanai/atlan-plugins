@@ -1,15 +1,16 @@
 ---
 name: atlan-share
-description: Share a result from this session with colleagues through Atlan and tell them in Slack. Use when the user says share, send, hand off or post this to their team, a colleague or Slack, or "share the new version". Not for publishing a skill (atlan-author-skills), recording an output for no audience (atlan-record-outputs) or other Slack calls (atlan-use-mcp-servers).
+description: Save, record or share a deliverable in Atlan as an output, and post it to Slack. Use when asked to share, send or hand this off, save or record a report in Atlan, or publish its new version. Not for skills (atlan-author-skills).
 license: Apache-2.0
 user-invocable: false
 ---
 
-# Sharing with colleagues through Atlan
+# Sharing and recording deliverables in Atlan
 
-Sharing is four steps: decide who it is for, record it where they can open it, hand back how to
-open it, and tell them if the user wants. The user answers one question and approves once, for
-all of step 3's writes.
+A report, document, dashboard or dataset goes into Atlan as an `output`, whether it is shared
+with colleagues or only recorded. That is four steps: decide who it is for, record it where they
+can open it, hand back how to open it, and tell them if the user wants. The user answers at most
+one question and approves once, for all of step 3's writes.
 Calls below are search-mode runner calls: `mcp__call_read_tool` for a read and
 `mcp__call_write_tool` for a create. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
@@ -41,7 +42,12 @@ after they say so, or after they remove it.
 
 ## 2. Decide who it is for
 
-Atlan shares by workspace, not by person. Default to the workspace the request names, then the
+**Recording with no audience** is the same output in a different workspace. When the user asks
+only to save, record or keep it in Atlan, or an agent run records its own deliverable, use the
+workspace the user names, else `.atlan/share.json`'s, else their `user_default` one from
+`registry__list_workspaces`. Ask nothing, and skip step 5.
+
+To share, remember Atlan shares by workspace, not by person. Default to the workspace the request names, then the
 one in `.atlan/share.json`, then the only team workspace; never to the user's personal one, which
 reaches nobody. With no default, ask one question. [Choosing the audience](references/audience.md)
 has the settings file, the workspace kinds and how to say each one.
@@ -59,7 +65,10 @@ the user what will be written in at most four lines, and write only on their yes
   file and makes the output's next version, and unchanged text writes no new file version.
 
 [Recording a share](references/write.md) has the calls, the chat fallback for large or binary
-files, and what each refusal means.
+files, and what each refusal means. For a deliverable an agent run produced, with its producer
+fields, a hosted link instead of a file, or a gateway without `publish_output`, follow
+[recording a run's output](references/record.md); [output modes](references/output-modes.md)
+has the `upload` and `link` rules in full.
 
 ## 4. Hand back how to open it
 

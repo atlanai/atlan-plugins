@@ -1,6 +1,6 @@
 ---
 name: atlan-continue
-description: Catch up on and continue an Atlan artifact someone handed over, named by its handle. Use when a prompt asks to continue, catch up on, open or resume something in Atlan and names a handle, as in `/atlanai:continue output_…` or the dashboard's "Catch me up on Atlan artifact … (output_…)". Not for searching (atlan-find-artifacts).
+description: "Continue an Atlan artifact handed over by its handle. Use when asked to continue or resume something in Atlan by its handle, as in `/atlanai:continue output_…` or \"Catch me up on Atlan artifact … (output_…)\". Not for search (atlan-find-artifacts)."
 license: Apache-2.0
 user-invocable: false
 ---
@@ -126,7 +126,7 @@ plain sentences, with no headings: the user can ask for more. If the prompt alre
 to do next, do that.
 Otherwise ask what they want next, offering the steps that fit the kind:
 
-- an `output`: revise it and record the result as a new output (`atlan-record-outputs`);
+- an `output`: revise it and record the result as a new output (`atlan-share`);
 - a `skill`: use it now or install it (`atlan-use-skill`), or publish an edited version
   (`atlan-author-skills`);
 - an `agent`: update its skills or configuration (`atlan-author-agents`).

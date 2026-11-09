@@ -1,6 +1,6 @@
 ---
 name: atlan-author-knowledge
-description: Create or edit a knowledge bundle in Atlan, the curated Markdown agents read, such as a glossary, table docs or runbooks. Use when the user wants to turn notes into Atlan knowledge, change a term in a bundle, or read a bundle to edit it. Not for uploading a single file (atlan-content) or finding what knowledge exists (atlan-find-artifacts).
+description: Create or edit a knowledge bundle in Atlan, the curated Markdown agents read, such as a glossary, table docs or runbooks. Use when turning notes into Atlan knowledge or changing a term. Not for metric definitions (atlan-analytics).
 license: Apache-2.0
 ---
 
@@ -25,6 +25,11 @@ Before the first write, check that this organization has the knowledge app:
 call answers `unknown_tool`, say in one line that the organization does not have Atlan's
 knowledge app and an admin can install it. Do not record the bundle as a generic `file` or
 artifact in its place.
+
+A metric's definition of record is the `metric` and its saved SQL that the Analytics add-on's
+`atlan-analytics` publishes, not a bundle. A bundle may explain a metric in prose for agents, with
+`resource` pointing at the published metric, but never restates its calculation; when the user
+wants to define or change a metric, use `atlan-analytics`, or say the Analytics add-on does it.
 
 Follow [the knowledge workflow](references/author.md) for creation, reading and editing.
 Load only the references that procedure calls for.

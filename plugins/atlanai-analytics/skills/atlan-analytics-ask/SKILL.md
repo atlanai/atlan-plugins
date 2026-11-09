@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-ask
-description: Answer data questions in this chat using published Atlan metrics and saved SQL, including a prepared local project and DuckDB. Use for follow-up questions after Analytics setup or questions about totals, rates, trends and breakdowns. Not for repo setup, metric authoring or a separate agent build (atlan-analytics).
+description: Answer data questions in this chat from published Atlan metrics and saved SQL, including a prepared local project and DuckDB. Use for totals, rates, trends, breakdowns and follow-ups after setup. Not for setup or metric authoring (atlan-analytics).
 ---
 
 # Answer a data question from governed context

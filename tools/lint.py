@@ -13,7 +13,7 @@ Skills (every plugins/<plugin>/skills/<dir>/SKILL.md):
   * a non-empty body.
 Every skill is also held to:
   * at most 500 lines and 9 KiB in SKILL.md (longer material goes in references/);
-  * a description of at most 370 characters, since every session carries it;
+  * a description of at most 250 characters, since every session carries it and hosts cut longer ones;
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
   * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
 Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`; commands
@@ -55,7 +55,7 @@ WHEN = re.compile(r"\bUse (?:when|for)\b")
 # Every installed skill's description sits in every session's context, so owned skills keep it
 # short; and SKILL.md is read whole whenever the skill loads, so detail goes in references/ that
 # the skill names with the condition for opening them. Lower these as skills get leaner.
-MAX_OWNED_DESCRIPTION = 370
+MAX_OWNED_DESCRIPTION = 250
 MAX_SKILL_BYTES = 9 * 1024
 # Backticked `atlan-…` words that are not skills in this plugin.
 NOT_SKILLS = {

@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.33"
+version = "0.5.35"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -60,7 +60,7 @@ description = "Atlan's plugins for coding agents: the Atlan registry's MCP serve
 # The server key every Atlan plugin uses, the registry's own umbrella plugin included.
 server = "atlan"
 # The registry's public MCP endpoint (Streamable HTTP, OAuth 2.1 resource server). The bare
-# URL is search mode: five tools that reach the whole catalogue (see
+# URL is search mode: a few helper tools that reach the whole catalogue (see
 # plugins/atlanai/skills/atlan-get-started/references/full-mode.md).
 url = "https://api.atlan.com/mcp"
 # Sent as the `X-Atlan-Client` header, `<client>/<version>`, so the gateway records which install
@@ -90,7 +90,7 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.6.8"
+version = "0.6.10"
 description = "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows."
 short_description = "Publish analytics context and ask your data with Atlan"
 long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into governed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. Ask how business objects relate and which tables hold them, check which policy applied on a date, or draft an ontology for review in Ontology Studio. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions."
@@ -162,8 +162,8 @@ short_description = "Archive, move, roll back or approve, seeing what depends on
 prompt = "Use $atlan-manage-artifacts to show what is waiting for my review in Atlan."
 
 [skills.atlan-share]
-display_name = "Share with Colleagues"
-short_description = "Share a result with your team and post it to Slack"
+display_name = "Share or Record an Output"
+short_description = "Save or share a deliverable in Atlan and post it to Slack"
 prompt = "Use $atlan-share to share this with my team in Atlan and post it to our Slack channel."
 
 [skills.atlan-continue]
@@ -200,11 +200,6 @@ prompt = "Use $atlan-author-skills to publish the skill in this folder to Atlan.
 display_name = "Register an Agent"
 short_description = "Catalogue an agent or harness in Atlan"
 prompt = "Use $atlan-author-agents to register the agent in this repository in Atlan."
-
-[skills.atlan-record-outputs]
-display_name = "Record an Output"
-short_description = "Record a deliverable as an Atlan output"
-prompt = "Use $atlan-record-outputs to record this deliverable as an Atlan output."
 
 [skills.atlan-analytics]
 display_name = "Atlan Analytics"

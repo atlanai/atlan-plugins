@@ -7,6 +7,5 @@ asking. A project setup answer with missing released context offers to extend th
 it does not silently fall back to an ungoverned answer.
 
 When the person asks to share the answer with colleagues, use the core plugin's `atlan-share`
-skill to record it and post the hand-off. To keep it without an audience, use
-`atlan-record-outputs`. Name the metric or saved query used. Do not send messages without
+skill to record it and post the hand-off; the same skill keeps it without an audience. Name the metric or saved query used. Do not send messages without
 the required authorization.
