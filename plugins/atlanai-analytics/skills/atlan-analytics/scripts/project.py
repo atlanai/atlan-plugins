@@ -70,10 +70,15 @@ class Project(ContextState):
         import journey
         return journey.advance(self, action, focus, host=host, server=server, answer=answer)
 
-    def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None):
+    def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None, overview_file=None):
         """Present existing evidence without advancing the engine or publication."""
         import experience
         model = experience.snapshot(self, engine_dir, focus=focus, host=host, server=server)
+        if overview_file is not None and format != 'panel':
+            raise ValueError('Source understanding belongs to the panel presentation.')
+        if format == 'panel':
+            import experience_view
+            return experience_view.prepare(self, model, self.read(safe_path(overview_file, self.root)) if overview_file else None)
         if format == 'json':
             return model
         chat = experience.render_chat(model, detail=detail)
@@ -465,7 +470,8 @@ def main():
     preview.add_argument('--kind', choices=('metric', 'sql_query'), default='metric')
     experience = sub.add_parser('experience')
     experience.add_argument('--engine-dir', type=Path)
-    experience.add_argument('--format', choices=('chat', 'html', 'json'), default='chat')
+    experience.add_argument('--format', choices=('chat', 'html', 'json', 'panel'), default='chat')
+    experience.add_argument('--overview-file', type=Path, help='Run-local JSON with the observed source summary and possible analyses')
     experience.add_argument('--detail', action='store_true')
     experience.add_argument('--focus', help='Exact saved metric identity to retain across refreshes')
     experience.add_argument('--host', choices=('claude_code', 'codex'))
@@ -501,7 +507,7 @@ def main():
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
-        elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
+        elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server, args.overview_file)
         elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage

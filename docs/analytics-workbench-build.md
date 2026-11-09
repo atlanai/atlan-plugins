@@ -1,79 +1,86 @@
-# Analytics native journey implementation
+# Analytics UI implementation
 
-Updated 9 November 2026 for the Analytics 0.6.12 pull request. This supersedes the first
-snapshot-only slice. The default product surface is the existing Claude/Codex conversation.
-There is no custom chat shell, palette, font system, new dependency, server or hook.
+Updated 9 November 2026 for Analytics 0.6.15 and Analytics View 0.1.2. Setup now opens an
+actual host view after inspecting the sources, before the business-focus question. It
+explains the material and possible analyses, asks the business focus and intended outcome
+separately, then retains one metric while its checks and progress change.
 
-The 0.6.12 candidate incorporates current main, including its metric relationship and batched
-read changes. Final repository checks pass: 401 tests with 21 optional skips, plus 116 and 55
-helper checks. Strict Analytics manifest and skill validation pass. Earlier version-specific
-measurements below remain historical evidence; the installed 0.6.10 copies were not replaced
-as part of preparing this pull request.
+## Host surfaces
 
-## Complete interaction path
-
-| Requirement | Implementation | Evidence |
+| Host | Actual surface | Verification |
 | --- | --- | --- |
-| Outcome before setup | Short opening, then authorized work | Shared setup and skill guidance; behavior coverage in the first-use suite |
-| Discover and narrow | Existing cached survey and source/page scope | Project survey/scope tests |
-| Understand the use case | Source summary, domain question, then a separate tailored purpose question; free text and known-answer reuse | Sequential intent, restart, CLI and behavioral tests |
-| First useful reveal | One actual provisional or checked metric, with population and honest status | Experience tests and native details behavior eval |
-| Build and check | Existing pinned engine and recorded schema/SQL checks | Engine acceptance plus local first-answer rehearsal |
-| Retain the metric | Exact identity persisted in interaction.json; missing/ambiguous identities require repair | Restart, changed-scope and beyond-first-page regressions |
-| Inspect at any point | Native chat/details; more candidates on request | CLI, behavior and browser tests |
-| Pause or keep local | Durable intent separate from engine/check/release evidence | Restart and no-mutation tests |
-| Recover and resume | Existing auth flow plus saved checkpoint routing; holds remain | Auth/hold and canceled-checkpoint regressions |
-| Choose destination and save | Existing workspace, reconciliation, release and readback workflow | Publisher acceptance and receipt validation |
-| First answer | Fresh released context followed by existing read-only executor | Real DuckDB answers change after source data changes; mismatched release refused |
-| Native presentation | Normal host messages, questions and task controls | Claude behavior eval; no custom UI theme in product files |
+| Codex desktop | Live local Browser panel | Rendered source overview and selected metric; evidence disclosure, catalog search and a saved selection/pause update worked without reopening |
+| Claude Desktop Code | Native Analytics plugin pane | Actual show tool returned displayed=true; pane visibly rendered; evidence expanded and Ask for details filled an editable prompt |
+| Claude Code CLI, classic renderer | Native framed dock above the prompt | Actual interactive PTY rendered the pane and reported placement |
+| Claude Code CLI, wide fullscreen | Native sidebar beside conversation | Interactive 180-column PTY with CLAUDE_CODE_NO_FLICKER=1 rendered the source summary, metric, checks and buttons beside the conversation |
+| Unsupported/headless host | Concise native chat | Placement failure is explicit; a prepared HTML file is never reported as visible |
 
-## How it is connected
+CLI layout follows [Claude's pane API](https://code.claude.com/docs/en/plugins/mods/interface).
+For one fullscreen session use `CLAUDE_CODE_NO_FLICKER=1 claude`. `/tui fullscreen` also
+works but saves the host preference; the plugin never changes that setting automatically.
+The renderer is a research preview. Desktop Code is tested; Claude web chat and Cowork are
+not claimed as tested native-mod surfaces.
 
-`project.py journey status` returns a compact chat view, saved mode and one host continuation.
-`domain` and `purpose` save the user's business focus and intended outcome. `select`, `pause`,
-`keep-local` and `resume` persist explicit choices. `details` and `status`
-are read-only. Presentation does not manufacture engine actions, authentication, publication
-or successful SQL. The host executes the corresponding existing stage procedure.
+## Implementation
 
-`experience` automatically uses the saved metric identity. Selection is resolved against the
-full bounded inventory before the first 100 items are rendered. A missing or ambiguous
-selection is visible and cannot silently become a different metric. Changed definitions do
-not inherit an older revision's execution checks or release receipt. Provisional-to-final
-merges use the engine's lineage, with an explained successor selection by the host.
+`project.py experience --format panel` writes an escaped local HTML snapshot and returns a
+bounded text payload for the native pane. It explicitly returns displayed=false until an
+actual host tool opens it. Source-understanding prose is stored separately from verification
+and bound to the current source signature. Changing surveyed sources invalidates stale prose.
 
-Pause records intent; the host also stops scheduling or safely cancels its running task before
-claiming work stopped. Keep local never withdraws an existing release. Resume does not clear
-holds, invent access, or authorize an unapproved destination. Completed local stages advance
-to their next local stage, never to Ready for questions without release receipts.
+The skill's setup/render.md connects this payload to the actual host. The new optional
+Claude-only `atlanai-analytics-view` mod registers a presentation tool and a reopen command.
+It keeps only bounded text in session memory, expands evidence locally and fills the native
+prompt for requests. Submitting that prompt remains the user's action. Dismissal survives
+subsequent updates within the session; `/analytics-view` explicitly reopens it.
 
-Optional HTML is a manually refreshed evidence document, using system fonts/colors and
-standard browser controls. It preserves SQL/source disclosure, search, status filters and
-copy-to-chat feedback. It has no network access or workflow mutation buttons. It opens only
-on request; chat remains useful if dismissed or unavailable.
+Codex uses a standard-library loopback preview process owned by the host terminal task.
+The page follows saved run evidence every 2.5 seconds, preserving open disclosures, search,
+status filtering and focus across updates. A failed refresh labels the retained evidence as
+stale. Copy-request buttons explicitly copy text for the user to submit in chat. They never
+claim to pause, execute SQL, or publish themselves. Closing a panel does not discard the run.
 
-## Validation and limits
+The existing journey persists domain, purpose, selection, pause and local-only choices.
+The selected definition retains its exact identity. Changed definitions cannot inherit older
+checks or release receipts. Presentation never manufactures execution, authentication or
+publication evidence. The host continues the existing engine and publication procedures.
 
-- Repository `make check` passes: 381 tests, 21 optional skips, plus 116 and 52 helper
-  self-checks. The final details-only adjustment was also verified by the focused suites.
+## Security-relevant surface
 
-- Nine new journey tests pass, including the joined local first-answer rehearsal.
-- The joined rehearsal executes survey, history intake, CSV preparation, binding, schema
-  checks, metric/query SQL checks, restart, receipt validation and fresh answers. Its input
-  data and authored definitions are synthetic; Registry transport uses complete test responses.
-- The existing pinned engine's all-gates acceptance test passes, including resume, export and
-  the existing publication plan. Authored gate responses in that test are deterministic fixtures.
-- Claude behavior eval `ux-native-local-details` passes all graders. It uses native chat, retains
-  the chosen metric, shows requested evidence and respects local-only mode and panel dismissal.
-- Browser checks pass for disclosure, search, status filters, copy feedback/fallback, mobile
-  width, dark mode and early/paused/access-denied snapshots, with no page errors.
-- Strict analytics manifest and skills validation pass. The full repository validation command
-  remains incompatible with this machine's Claude CLI `--profile` flag; it is not counted as passed.
+The preview listens only on 127.0.0.1 with a selected unused port. It serves only `/` and
+`/snapshot`, checks Host and Origin and rejects cross-site fetches. It exposes no directory,
+raw source route, write endpoint, credentials or CORS access. Source text is escaped and the
+page uses a hashed script CSP with no external assets. Requests and errors do not log source
+content. Stop the owned preview through the host task controls when finished.
 
-This is implementation and local/behavior validation, not a claim that an unfamiliar-user
-study or a fresh production publication was completed. Version 0.6.10 was installed locally
-in Claude Code and Codex, and both installed plugin trees matched the source files. The local
-first-answer rehearsal uses simulated Registry transport; it does not establish live
-publication readiness.
+The companion mod adds no MCP server, dependency, network access, file access, process
+execution, permission hook, auth change or Registry write. Its registered hooks concern only
+its own tool, command and pane. Presentation failures retain chat fallback. The portable
+Analytics add-on remains hookless. All manifests are generated from plugin.toml.
+
+## Validation and installation
+
+- `make check`: 406 tests, 21 optional skips, and 171 helper self-checks pass.
+- Native mod tests: five pass, covering payload bounds, actual rendering, dismissal,
+  same-pane updates, unplaced fallback, evidence expansion and editable prompt actions.
+- Fresh installed-skill setup in Claude Desktop inspected synthetic Power BI model/history
+  sources, opened the pane automatically, and displayed the first native business-focus
+  question beside the source explanation. The test stopped there without running the engine
+  or contacting Registry. This separately verifies skill-to-pane wiring, not only a direct
+  call to the presentation tool.
+- Read-only preview tests cover source-summary invalidation, escaping, Host/Origin/cross-site
+  boundaries, unsupported routes and writes, symlink rejection, state updates and no mutation.
+- Strict marketplace, Analytics manifest/skills and companion validation pass. Full
+  `make validate` remains incompatible with this installed CLI's `--profile directory` flag;
+  it is not counted as passed.
+- Analytics 0.6.15 is installed in Claude Code and Codex; Analytics View 0.1.2 is installed
+  in Claude Code. Runtime files match the repository source byte for byte. Start a fresh
+  session to load the new versions. Existing sessions may retain the previous skill.
+
+Host checks used synthetic shipping sources and local saved evidence. They establish
+rendering and interaction, not new production SQL execution or publication. The earlier
+DuckDB rehearsal below establishes changed answers against changed synthetic data, with
+simulated Registry transport. No unfamiliar-user delight study is claimed.
 
 ## 0.6.9 intent and native UX update
 
