@@ -66,6 +66,39 @@ The native view can lag by up to 45 minutes; describe coverage accordingly. Chat
 history capture remains available through [warehouse history](warehouses/query-history.md)
 when no direct connector is configured.
 
+### Direct Databricks history and verification
+
+The `databricks` feature installs the maintained `databricks-direct` package for native
+history, column metadata and read-only SQL checks. Reuse the selected workspace URL to derive
+its numeric `workspace_id`; retain the warehouse host and HTTP path as non-secret connection
+metadata. Discover and reuse an accessible SQL warehouse before asking the customer for those
+facts. Missing creation rights do not prove missing data access. Creating compute or changing
+permissions follows the host's authorization rules and is not part of credential discovery.
+
+Browser OAuth uses `sign_in: browser` and the same real-TTY procedure below. Token-based runs
+consume `DATABRICKS_TOKEN` from the environment or an approved secret-manager injection. Never
+copy a secret into chat, logs, run configuration or source files. Keep a saved credential's
+identity distinct from the person's browser identity when reporting administrator status.
+Reuse the customer's existing authentication route before asking for another credential.
+The maintained plug also accepts `sign_in: azure-browser`, `oauth-m2m` and `unified`.
+M2M consumes `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` from the environment.
+Unified authentication uses the official SDK's configured profile, CLI, Azure/Google or
+OIDC workload identity and refreshes its credentials. Select a non-secret `profile` or
+`sdk_auth_type` only when needed; the SDK profile or `DATABRICKS_HOST` must match the selected
+workspace. Use the package README's authentication table for the provider prerequisites.
+Never read a profile, token file or service-account key into chat. Username/password is
+unsupported. A configured route does not prove successful sign-in or data access.
+
+Native history always filters `system.query.history` by the selected workspace and bounded
+window. The table can cover multiple workspaces in the same region. A masked-text preflight
+runs before table-name filtering; missing visible SQL is an access blocker, not empty history.
+The native source lacks historical default catalog/schema, so unqualified physical table
+references block extraction. Offer an evidenced local export or qualified source statements;
+never invent past session context. CTE references remain supported. Keep the default 90 day
+window as absolute dates in the run, and narrow scope when the 5,000 group limit blocks.
+A Unity Catalog-disabled warehouse cannot read the native system table; distinguish that
+configuration issue from an unproven permission denial. Follow the package README for limits.
+
 ## 2. Prepare one engine run
 
 Metrics-only uses `.atlan-metrics/<slug>/engine/`; full builds and dashboards use
@@ -123,7 +156,7 @@ that the connector obtained API access.
 The wrapper preserves stdin and streams connector prompts through stderr while keeping its
 stdout JSON separate. Setup checks also retain terminal detection. Interactive preparation
 and each interactive advance have a 15 minute deadline; a timeout blocks the operation.
-Power BI device-code and browser PKCE routes use this path, as does Snowflake's
+Power BI device-code and browser PKCE routes and Databricks browser OAuth use this path, as does Snowflake's
 `authenticator=externalbrowser` and any native terminal MFA prompt. Environment-based routes
 remain available for unattended execution. Power BI still refuses interactive fallback when
 no terminal is attached. Do not fabricate a terminal in an unattended job to bypass that check.
