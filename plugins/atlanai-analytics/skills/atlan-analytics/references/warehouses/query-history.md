@@ -51,6 +51,12 @@ person selected an existing shape view.
 
 ## Databricks
 
+With the direct connector, use the maintained metrics module's `databricks` feature. Supply
+the selected numeric workspace ID, bounded tables and absolute dates. The native source is
+`system.query.history`, with explicit masking and namespace-context checks. See
+[the module procedure](../metrics-engine.md). The alternatives below are capture routes for
+existing authorized tools; keep their scope within the selected workspace.
+
 1. **A query-shape view an admin created once** (see **One-time setup**), read like Snowflake's.
 2. **`system.query.history`**, when the person can read system tables:
 

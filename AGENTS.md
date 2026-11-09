@@ -91,7 +91,12 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   sends `files_from` whenever the skill's folder is in the working directory, and where no hook
   expands it, the server refuses `files_from` by name before writing, and the skill sends `files`.
   So every other host, and Claude Code under `allowManagedHooksOnly`, keeps working for one extra
-  call. It comes in two forms, each named only from its own harness's manifest and never from
+  call. The same helper carries two notices, each one line to the model and each failing silent:
+  an update notice when main's `plugin.json` (`claude-hooks/release.ts`, written by the build)
+  names a later version, and, in Claude Code, an offer to draft feedback after a failed Atlan
+  call or one turn in fifty after Atlan work (`claude-hooks/notices.ts`). Feedback is drafted by
+  the model from `atlan-troubleshoot/references/feedback.md` and sent by the user; no hook sends
+  it. It comes in two forms, each named only from its own harness's manifest and never from
   `hooks/`, which Codex and Cursor read by default. `claude-hooks/` is a Claude Code hooks module,
   named by `"hooks"` in `.claude-plugin/plugin.json` (`claude_hooks` in `plugin.toml`).
   `command-hooks/` is one standard-library Python script, `publish_hook.py`, that imports
@@ -266,6 +271,9 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   tree, never through a link, never from a credential folder or key file, within 128 files and
   256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
   their counterparts in `claude-hooks/register.ts`).
+- **[MUST]** The hooks reach only the Atlan server and, for the update notice, the core's
+  `plugin.json` on this repository's `main`. They send nothing about the user or the session to
+  either, and no hook sends feedback.
 - **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
   change all three together, with tests.
 - **[MUST]** A hook fails open to the call as sent, never to a wider one (`main` in
