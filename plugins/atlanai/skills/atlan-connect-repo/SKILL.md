@@ -1,6 +1,6 @@
 ---
 name: atlan-connect-repo
-description: "Connect a GitHub repository to Atlan so its skills and agents publish automatically: register it, link artifacts to their source, or add the workflow that previews on pull requests and publishes on merge. Use when the user wants a repository kept in sync with Atlan or CI publication. Not for a one-off publish from a local folder (atlan-author-skills)."
+description: "Connect a GitHub repository to Atlan so its skills and agents publish on merge: register it, link artifacts to source, add the CI workflow. Use when a repository should stay in sync with Atlan. Not for a one-off publish (atlan-author-skills)."
 license: Apache-2.0
 ---
 

@@ -25,8 +25,9 @@ The first thing to type: *"Connect me to Atlan."*
 ## MCP server
 
 `atlan`, at `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). This is Atlan's MCP gateway in
-search mode. Five tools (`mcp__search_tools`, `mcp__describe_tools` and the runners
-`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's tools, and every MCP
+search mode. A few helpers (`mcp__search_tools`, `mcp__describe_tools`, the runners
+`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`, and the batch runner
+`mcp__call_read_tools`) reach the registry's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 
@@ -46,11 +47,10 @@ call in a session you can review.
 | `atlan-author-agents` | Register an agent or harness, or link a repository's agent and its skills |
 | `atlan-author-knowledge` | Create, read or edit a knowledge bundle |
 | `atlan-connect-repo` | Register a repository, or publish its skills and agents to Atlan from GitHub CI |
-| `atlan-record-outputs` | Record what a run produced as an Atlan output |
-| `atlan-share` | Share a result with your team through Atlan, and post the hand-off to Slack |
+| `atlan-share` | Share, save or record a deliverable as an Atlan output, and post the hand-off to Slack |
 
-The registry's own apps write the last six. This plugin carries them unchanged, and the
-gateway also serves them as MCP resources.
+The five from `atlan-content` to `atlan-connect-repo`, and `atlan-share`'s recording of a run's
+output, began as the registry's own apps' recipes, and the gateway also serves them as MCP resources.
 
 ## Commands
 

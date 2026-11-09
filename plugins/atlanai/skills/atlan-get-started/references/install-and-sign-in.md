@@ -119,8 +119,8 @@ Streamable HTTP with OAuth can use it:
 | Cursor | In `~/.cursor/mcp.json`: `{ "mcpServers": { "atlan": { "url": "https://api.atlan.com/mcp" } } }` |
 | VS Code | In `.vscode/mcp.json`: `{ "servers": { "atlan": { "type": "http", "url": "https://api.atlan.com/mcp" } } }` |
 
-Append `?tools=full` to the URL to list every tool directly instead of the five search-mode
-tools (see `full-mode.md`). Atlan's own setup guide is
+Append `?tools=full` to the URL to list every tool directly instead of the search-mode
+helpers (see `full-mode.md`). Atlan's own setup guide is
 https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client, with pages for
 [Claude Code](https://platform.atlan.com/clients/claude/how-tos/claude-code) and
 [Codex](https://platform.atlan.com/clients/openai/how-tos/codex).
