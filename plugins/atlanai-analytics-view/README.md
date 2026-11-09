@@ -3,7 +3,9 @@
 Show Analytics source understanding, business intent, one metric and saved progress beside
 the Claude Code conversation. Works in supported CLI and Desktop Code sessions.
 
-Install alongside Analytics: `claude plugin install atlanai-analytics-view@atlan`.
+Included automatically when installing Analytics. Use one command:
+`claude plugin install atlanai-analytics --marketplace atlanai/atlan-plugins`.
+This package is the Claude-specific presentation component, not a separate setup step.
 The Analytics skill starts its packaged local preview after inspection and binds the
 `follow` tool to its exact `pane_url`. Saved progress refreshes every 2.5 seconds without
 another model call. `/analytics-view` reopens a dismissed pane.
