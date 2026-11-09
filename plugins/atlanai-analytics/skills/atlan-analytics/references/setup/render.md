@@ -36,8 +36,11 @@ Desktop Code places it beside the transcript. The CLI uses a sidebar in wide ful
 terminals and a framed dock above the prompt otherwise. Check the tool result for actual
 placement. If only the older `show` tool exists, pass the prepared `pane` as `view`, label it
 a saved snapshot and refresh it explicitly at meaningful transitions.
-The companion is `atlanai-analytics-view@atlan`; do not install it during ordinary setup unless
-the user requested installation. `/analytics-view` reopens the last pane. Its buttons use
+Installing Analytics in Claude Code automatically includes its native view. Do not ask the
+person to find or install a separate view plugin. If an older installation lacks the tools,
+continue with the fallback below and explain once that updating Analytics and reloading
+plugins restores the included view. Do not change installations unless requested.
+`/analytics-view` reopens the last pane. Its buttons use
 native prompt filling: the person submits the filled text to request pause, local mode or
 details. The pane confirms that a request was prepared; it does not claim to have applied it.
 Inspect source and checks expands evidence in the pane itself.
