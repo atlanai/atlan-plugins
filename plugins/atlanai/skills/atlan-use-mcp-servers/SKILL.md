@@ -58,9 +58,9 @@ to both.
    A downstream tool that declares no annotations is listed with `run_with` `mcp__call_tool`
    whatever it does: run it there, and confirm with the user first unless its description says
    it only reads.
-A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
-in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
-Atlan is not answering. Never repeat a write: read it back first.
+   A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+   in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+   Atlan is not answering. Never repeat a write: read it back first.
 
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its

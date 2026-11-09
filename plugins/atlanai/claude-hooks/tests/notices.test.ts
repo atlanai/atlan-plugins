@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import { FEEDBACK_ON_FAILURE, isExpected, isNewer, marketplaceOf, updateNotice, versionOf } from '../notices'
-import { CAPABILITY } from '../register'
+import { CAPABILITY, ROUTING } from '../register'
 import { LATEST_URL, VERSION } from '../release'
 
 const READ = 'mcp__plugin_atlanai_atlan__mcp__call_read_tool'
@@ -84,7 +84,8 @@ describe('the update notice', () => {
     await $.prompt.submit(prompt('again'))
     expect(fetched).toEqual([LATEST_URL])
     expect(seen[0]?.[0]).toBe(CAPABILITY)
-    expect(seen[0]?.[1]).toContain(`is at ${VERSION} and ${later()} is released`)
+    expect(seen[0]?.[1]).toBe(ROUTING)
+    expect(seen[0]?.[2]).toContain(`is at ${VERSION} and ${later()} is released`)
     expect(seen[1]).toBe(undefined)
   })
 
@@ -94,7 +95,7 @@ describe('the update notice', () => {
     manifest(on, VERSION)
     const seen = contexts(on)
     await $.prompt.submit(prompt('hello'))
-    expect(seen).toEqual([[CAPABILITY]])
+    expect(seen).toEqual([[CAPABILITY, ROUTING]])
   })
 
   test('reads nothing when the user turned the check off', async ($, on) => {
@@ -104,7 +105,7 @@ describe('the update notice', () => {
     const seen = contexts(on)
     await $.prompt.submit(prompt('hello'))
     expect(fetched).toEqual([])
-    expect(seen).toEqual([[CAPABILITY]])
+    expect(seen).toEqual([[CAPABILITY, ROUTING]])
   })
 })
 

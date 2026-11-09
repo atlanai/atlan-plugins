@@ -43,6 +43,15 @@ export const PUBLISH = 'extension__skill__create'
 /** The line that tells the model the helper is on, once a conversation. publish.md sends `files_from` without waiting for it. */
 export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create accepts files_from.'
 
+/** Which atlanai skill fits which ask, for hosts that drop skill descriptions from a crowded listing. */
+export const ROUTING =
+  'Atlan skills by ask: find, browse or count what exists, or recent runs: atlan-find-artifacts; use, install or ' +
+  'update a registry skill: atlan-use-skill; publish a skill: atlan-author-skills; an agent: atlan-author-agents; ' +
+  'a glossary, runbook or other knowledge: atlan-author-knowledge; share, save or record a report or other output: ' +
+  'atlan-share; read or upload a raw file: atlan-content; archive, move, deprecate, release or approve: ' +
+  'atlan-manage-artifacts; connect a GitHub repo or CI: atlan-connect-repo; another product through Atlan: ' +
+  'atlan-use-mcp-servers; resume a handed-over handle: atlan-continue; an Atlan error: atlan-troubleshoot.'
+
 const NOT_SENT = 'Nothing was sent. Fix what is listed and call extension__skill__create again.'
 
 type Dollar = EngineInterface
@@ -326,7 +335,7 @@ export const register: Register = on => {
     const notes: string[] = []
     if (!told.has(session)) {
       told.add(session)
-      notes.push(CAPABILITY)
+      notes.push(CAPABILITY, ROUTING)
     }
     // Each note fails alone, so a fault in one never drops the capability line.
     if (!isUpdateTold) {
