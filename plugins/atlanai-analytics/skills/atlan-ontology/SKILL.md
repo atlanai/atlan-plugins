@@ -55,7 +55,7 @@ modes run every step.
    person's business terms, not SQL). Keep `max_resources` at 20 or less and raise
    `max_depth` to 2 only when the answer needs a second hop.
 2. When the question is about tables or joins, find the binding: `registry__list_artifacts`
-   (kind `ontology_binding`), resolve its `latest` release with `registry__list_releases` the
+   (kind `ontology_binding`, sent together with step 1's call), resolve its `latest` release with `registry__list_releases` the
    same way, and call
    `extension__ontology__get_binding_context` with `binding_id`, `release_id`, the same `query`
    and, when the binding was released against an older ontology release, `ontology_release_id`

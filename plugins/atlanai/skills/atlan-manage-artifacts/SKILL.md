@@ -17,7 +17,9 @@ Calls below are written in search mode, each through the runner its tool needs: 
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call, beside `name` and `arguments`, never inside. Once the session is
 open, a `registry__` read this host also lists by name can be called directly, with `session_id`
-and `rationale` as its own arguments and no runner. Before the first move, approve, release or
+and `rationale` as its own arguments and no runner. When the host lists `mcp__call_read_tools`, send up to 8
+independent reads as one call, `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`;
+otherwise in parallel. Before the first move, approve, release or
 withdraw in a session, read its arguments with `mcp__describe_tools`: they differ between gateways.
 Replies lead with the result: counts rather than lists, handles only when asked, one next step
 rather than a menu, and no greeting, apology or closing offer.

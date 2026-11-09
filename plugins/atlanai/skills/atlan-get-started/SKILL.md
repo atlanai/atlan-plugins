@@ -55,8 +55,8 @@ name ends (`…mcp__call_tool`).
   Reuse the returned `mcp_session_id` as `session_id`. Keep the `kind` filter: never list or
   page through every workspace.
 
-  Then learn what the organization has with three small reads, sent as parallel calls in one
-  turn, each carrying the session id and, like every call, a `rationale`:
+  Then learn what the organization has with three reads, in one `mcp__call_read_tools` call
+  when listed, else in parallel, each with `session_id` and `rationale`:
 
   ```
   mcp__call_read_tool { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" }, … }
