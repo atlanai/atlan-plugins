@@ -540,8 +540,12 @@ def outputs(source: dict) -> dict[str, dict]:
             "$schema": AGENT_PLUGINS_MCP_SCHEMA,
             "mcpServers": {mcp["server"]: {"type": "streamable-http", "url": mcp["url"], "headers": headers}},
         },
-        # Claude Code (CLI, desktop, IDE extensions) reads only these two.
-        f"{base}/.mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"], "headers": dict(headers)}}},
+        # Claude Code (CLI, desktop, IDE extensions) reads only these two. `alwaysLoad` exempts the
+        # server from tool search deferral, so its search-mode helpers are listed at full schema
+        # on the first turn instead of costing a turn to load: in the 9 November eval that cut the
+        # median task from 13.3 s to 11.8 s with no score loss, for about 1k tokens. Search mode
+        # lists only the helpers and a few core reads, so this is not the whole catalogue.
+        f"{base}/.mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"], "headers": dict(headers), "alwaysLoad": True}}},
         # No privacyPolicyUrl: claude.ai's organization sync strips it as unknown. The plugin
         # directory reads the privacy link from the README instead.
         f"{base}/.claude-plugin/plugin.json": {

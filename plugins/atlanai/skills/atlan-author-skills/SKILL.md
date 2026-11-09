@@ -29,8 +29,8 @@ goes through it whatever `run_with` a search answer names; the searches and read
 `mcp__call_read_tool`.
 
 1. **Search** with the user's words: `registry__search_artifacts` with `query`, `kind: "skill"`
-   and `limit: 3`. Judge each hit by its name and description; a hit with `match.keyword` false
-   and `match.similarity` under 0.45 is noise. Nothing close: say so in one line and go on. An
+   and `limit: 3`. Judge each hit by its name and description; a hit whose `match.quality` is
+   `weak` is noise. Nothing close: say so in one line and go on. An
    `active` skill that does the job: offer it first, as [creating](references/create.md) step 1
    says.
 2. **Draft.** A one-file skill the user described in a sentence or two: write its `SKILL.md`

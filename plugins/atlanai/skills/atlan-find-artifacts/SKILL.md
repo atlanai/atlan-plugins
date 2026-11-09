@@ -75,8 +75,8 @@ mcp__call_read_tool {
 - **Same name, different skill.** Two artifacts can share a `name` in different workspaces
   (a team's skill and someone's personal copy). Show the workspace and handle of each so the
   user can tell them apart.
-- **Weak hits are noise.** A hit with `match.keyword` false and `match.similarity` under 0.45
-  did not match; leave it out, even when it ranks first.
+- **Weak hits are noise.** A hit whose `match.quality` is `weak` did not match; leave it out,
+  even when it ranks first. Only a `strong` hit is a finding.
 - **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
   `semantic: true`) before concluding nothing exists. An artifact in a workspace the user
   cannot read is indistinguishable from one that does not exist, by design.
