@@ -123,7 +123,9 @@ the other artifact.
 ## One edge, three spellings
 
 Each tool names the two ends differently. Read the row for the tool you are calling: a guess the
-other way round can write a reversed edge wherever both kinds declare the type.
+other way round can write a reversed edge wherever both kinds declare the type. Newer gateways
+also take `to_id` for the target on the first two tools; `subject_id` works on every gateway, so
+send that, and never both with different values.
 
 | Tool | Source (declares `rel_type`) | Target |
 |---|---|---|
