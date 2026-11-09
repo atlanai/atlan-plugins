@@ -1,0 +1,59 @@
+schema_version: "1.1"
+name: ux-project-understanding
+tags: [analytics, setup, ux, intent]
+execution:
+  prompt: |
+    Use Atlan Analytics. This is a checkpoint after lightweight inspection of a synthetic
+    construction-operations project. Read plugin instructions only; no shell or service calls.
+    Found: one Power BI report with measures for margin, rework, material waste and late jobs;
+    110 historical queries on the same topics; sample tables for projects, crews, work logs,
+    material orders and site issues. No calculations have run and no joins have been validated.
+    The user has not selected a business focus or purpose. The test host exposes no native
+    question tool, so respond as the user would see this step in ordinary chat.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: project-understanding-before-choice
+    type: llm
+    focus: last_message
+    criteria: |
+      Inspected evidence: a Power BI report measuring margins, rework, material waste and late
+      jobs; 110 historical queries on those topics; synthetic/sample project, crew, work-log,
+      material-order and site-issue data. No calculations or validated joins. Neither intent
+      answer is known. PASS if before asking the business focus it gives two or three concise
+      sentences explaining source types and subject, the project's business meaning, and what
+      the sources could help analyse. At least two concrete possibilities should be clear, such
+      as job profitability/cost drivers, rework/material waste, or late-job performance. The
+      reply must retain the sample nature, ask what matters most with relevant choices/free
+      text, and wait. Counts and an option list alone are insufficient. FAIL on generic analytics
+      coverage language without business explanation, both interview questions at once, unrelated
+      shipping-capacity examples, invented findings, proven joins or executed SQL.
+  # Count words deterministically; the intent grader checks content and relevance.
+  - name: plain-reply
+    type: regex
+    target: last_message
+    pattern: '^(?:\s*\S+){1,100}\s*$'
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

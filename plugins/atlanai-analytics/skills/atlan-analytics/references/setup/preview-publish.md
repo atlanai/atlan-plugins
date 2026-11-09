@@ -4,32 +4,35 @@
 
 ## 5. Show the metrics before asking where to publish
 
-Automatically run `PROJECT preview --limit 5 --format chat`. Display its metric table and
-saved SQL in an assistant message before asking the next question. Include up to five actual
-metrics (all if fewer): name, meaning, calculation, model/history source and check status.
-The helper includes a history-derived SQL example when available. With only queries, show
-those as saved queries. Preserve SQL, filters and parameters; do not invent a metric or result.
-This preview may exceed the usual short reply limit. An HTML view is supplementary.
-Repeat the actual metric table and saved SQL in the final assistant answer, even if they
-were shown in commentary. This applies to success, Keep local and blocked sign-in outcomes.
-The final answer must be useful when the host collapses all intermediate progress messages.
-If a draft preview was already displayed, show changed definitions or check status before
-continuing. If none was displayed, render the full first preview now. Never infer that the
-user saw tool output. Rendering or linking a file does not complete this conversation step.
-Offer Publish, Show five, Show all and Keep local, using native choices when available.
-If publication was requested already, continue toward the destination and final plan without
-another intent question. Available preview actions still work immediately.
+Run `PROJECT experience --format chat` and display its one actual sample before the next
+question. Include its name, meaning and honest check status; make SQL, source and detailed
+checks available with `--detail`. With only queries, show one saved query as such. Preserve
+SQL, filters and parameters in details; never invent a metric or an executed result.
+Show one sample again in the final answer with factual published/local/held counts, even if
+it appeared in commentary. This applies to success, Keep local and blocked sign-in outcomes.
+The final answer must remain useful when intermediate progress collapses.
+If a sample already appeared, show a material definition/check change before continuing.
+A helper output or linked file is not a visible sample. Expand to five/all only on request.
+Use a short contextual choice when a decision is missing: an existing destination or Keep
+local. Mention Show details and Show more as available actions without repeating a menu after
+every step. If publication was requested already, continue under its existing authorization.
 
 **Show five:** run `PROJECT preview --limit 5 --format markdown` and display its text in the
 same response. **Show all:** use `--all`. Neither action selects a workspace, writes to Atlan,
 reruns extraction or restarts the workflow. Fewer/zero samples have explicit text outcomes.
-**Keep local:** preserve candidates and stop with an unshared status. Do not call them Atlan-ready.
+**Keep local:** run `PROJECT journey keep-local`, preserve candidates and stop with an
+unshared status. Do not call them Atlan-ready. This never withdraws earlier releases.
 Draft question ideas must say that retrieval-based answers require publication first.
+Do not claim that sign-in is needed unless this host actually returned an access failure.
+Local-only completion needs no speculative authentication diagnosis or sign-in detour.
 
 ## 6. Choose the destination, reconcile and publish
 
-Reuse an explicit destination or ask once by accessible workspace name. Explain it as where
-the team finds and reuses definitions. Fetch live kind schemas and existing definitions, then
+Reuse an explicit existing destination or ask once by accessible workspace name, with Keep
+local as an alternative. Explain it as where the team finds and reuses definitions. Never
+offer or attempt API/CLI workspace creation. If none is accessible, retain the sample and
+run, then explain how to request access. Only an explicit new-workspace request gets the
+UI/admin route; refresh the list after the person resolves it. Fetch live kind schemas and existing definitions, then
 run `MINE check` with that destination. Only now show actual create/revise/reuse/held counts.
 If reconciliation changes a candidate, show the changed preview. Follow [publication](../metrics/publish.md)
 for the concrete plan, missing authorization, idempotency, release policy and uncertain-write
@@ -44,8 +47,10 @@ meaning, population, dimensions and parameters, not just a similar metric name.
 
 ## 7. Ready to ask here
 
-Show actual released metric/query counts and verified artifact links, then three to five
-supported questions (fewer if needed), including history-derived questions where useful.
+Keep one real sample in the final answer with its calculation, mandatory population/filter,
+source and check status, alongside actual released/local/held counts and verified links.
+End with two or three supported questions (fewer if needed), including history-derived ones
+where useful. Say once that answers retrieve released definitions before running SQL.
 Preserve data-connection and unmeasured-parity limitations. Do not invent a time basis or
 dimension. Prefer the actual question stored on a released saved query. Add a period,
 grouping or comparison only when its date basis, dimension and join are evidenced in the

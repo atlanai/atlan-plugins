@@ -5,17 +5,19 @@
 0. Check the harness first. Build, eval and improve need a shell and either Claude Code's
    isolated Agent tool or the installed Claude/Codex CLI for the
    [question-only runner](eval/hosts.md). Record the selected runner in state. Without either,
-   stop with BLOCKED before Registry calls; ask and connect remain available. Never replace
+   stop before Registry calls and explain the missing requirement; ask and connect remain available. Never replace
    an unavailable isolated runner with the current conversation.
 1. Open a registry session as the conventions' **Registry calls** describes, with an
    `objective` naming the project. Keep the `session_id` for every later registry call. If no
-   Atlan MCP tools are available at all, stop with BLOCKED: the user needs the `atlan` plugin
+   Atlan MCP tools are available at all, stop and explain that the user needs the `atlan` plugin
    or the Atlan MCP server connected and signed in.
 2. Call `registry__list_workspaces` with `limit: 1`: it proves access and returns the total
-   without listing every workspace. If it fails or returns nothing, stop with BLOCKED: the
-   user needs to sign in to Atlan and be added to a workspace.
+   without listing every workspace. On an authentication failure, preserve local work and use
+   the supported sign-in recovery. A successful empty list is not an authentication failure:
+   preserve local work, offer Keep local, and explain that publication needs access to an
+   existing workspace. Never attempt workspace creation.
 3. Call `registry__get_kind_schema` for `metric`. An unknown kind means Metric Studio is not
-   installed for this account: stop with BLOCKED, and ask an Atlan admin to install Metric
+   installed for this account: stop and ask an Atlan admin to install Metric
    Studio from the Store.
 4. Find the **warehouse query tool** with the [warehouse discovery procedure](connect.md). It looks
    through Atlan first, then this harness's own connectors, asks the user to connect or add
@@ -77,4 +79,4 @@ An explicit argument (`/atlanai-analytics:atlan-analytics improve`) wins over th
 - **Experiments in the registry**: every run's score and session, visible in the
   agent's Evals and Sessions tabs.
 
-End with one status line per [shared conventions](conventions.md).
+End with the useful result or one recovery action per [shared conventions](conventions.md).

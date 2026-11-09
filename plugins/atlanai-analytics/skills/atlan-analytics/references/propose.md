@@ -72,5 +72,4 @@ the person the full record instead, so the draft is not lost, and say who can fi
 fix, the metric's owner (its `owner_id`); otherwise anyone who can edit the workspace.
 
 Tell the person the proposal's id, and that the owners review it on Metric Studio's metrics
-list, where `suggestion=<file id>` opens it directly. End with the status line from
-`conventions.md`.
+list, where `suggestion=<file id>` opens it directly. End naturally with the result and the owners' next action, as `conventions.md` describes.
