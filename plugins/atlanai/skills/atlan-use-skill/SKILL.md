@@ -54,10 +54,11 @@ Asked to install a skill already installed with the same text: say so and write 
   `{"query": "<the user's words>", "kind": "skill", "limit": 10}`, adding `"semantic": true`
   for a description. A hit with `match.keyword` false and `match.similarity` under 0.45 is
   noise: drop it, and when none is left, say no skill in Atlan fits. Show the results that fit,
-  each with its name, version and workspace, and let the user pick, even when only one fits.
-  Go straight to it only when the user named that exact skill and one hit has that name, or
-  when automatic checks are on and one hit is a clear match (Automatic checks, below). Never load a hit because
-  it ranked first: search ranks by wording, not by review.
+  each with its name, version and workspace, and ask which one. **That question ends the turn**,
+  even when only one fits and even when the request said "and use it": section 2's read comes
+  after the user picks. Go straight to it only when the user named that exact skill and one hit
+  has that name, or when automatic checks are on and one hit is a clear match (Automatic checks,
+  below). Search ranks by wording, not by review.
 
 ### Automatic checks
 
@@ -94,16 +95,11 @@ section 4 says, and leave `include_file` out of every later read in this session
 - `metadata.files` lists every file: `path`, `file_id`, `file_version_ordinal`, `size_bytes`,
   `media_type`. This is the pinned snapshot of the version you are reading.
 
-## 3. Choose the route for this surface
+## 3. Where installing works
 
-| Where you are | Route |
-|---|---|
-| Claude chat on the web, desktop or mobile, or any host with no shell | Use it now. Installing is not possible here, so do not try. |
-| A cloud session: Claude Code on the web, a CI runner, any container discarded when the session ends | Use it now. A project install lasts only if the user commits it, so offer that instead of a user-folder install. |
-| A terminal, IDE, desktop or Cowork session on the user's own computer | Use it now, or install it (section 5). |
-
-No tool that runs commands or writes files means no shell. A cloud session usually says so in
-its environment notes; when unsure, ask where they are running.
+On every surface, use it now (section 4). Installing needs a shell on the user's own computer:
+never in Claude chat, and in a cloud session only as a project install the user commits.
+`references/install.md` has the table.
 
 ## 4. Use it now
 
@@ -126,14 +122,23 @@ what the skill does from its file names, and do not substitute another skill.
 
 ## 5. Install it
 
-Only when the user said install, add, download or keep, and step 3 allows it. Read
+Only when the user said install, add, download or keep, on a surface section 3 allows. Read
 `references/install.md` first: it has the aireg route, the MCP route, each tool's skills folder
 and what to do with files the tool cannot return.
 
 ## What changed, and installed copies
 
-For what changed between versions, whether installed skills are up to date, or an update, read
-`references/compare-versions.md`: it compares manifests and reads only changed files.
+For what changed in a version ("what changed in 1.1.0?"), always read two releases:
+
+1. `registry__list_releases` on the artifact, to find that version and the one before it.
+2. Both manifests in one turn: `registry__get_artifact` with each `release_id`, no
+   `include_file`. Never answer from one manifest: a file you did not see in the older one is
+   not proof it is new.
+3. Join the two `metadata.files` lists by `path` and read only the paths whose `source_digest`
+   differs or that one side lacks. `references/compare-versions.md` has the join, the reads and
+   the reply.
+
+For whether installed skills are up to date, or an update, read `references/compare-versions.md`.
 
 ## Publishing changes back
 

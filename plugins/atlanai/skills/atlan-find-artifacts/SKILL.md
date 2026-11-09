@@ -1,6 +1,6 @@
 ---
 name: atlan-find-artifacts
-description: Search the Atlan registry for skills, agents, knowledge, MCP servers, files, outputs and agent runs. Use when asked what exists in Atlan, whether something exists, who owns it, what depends on it, which version agents use, or what agents ran.
+description: Search Atlan for skills, agents, knowledge, MCP servers, files, outputs and runs. Use when asked what Atlan has, what we know about a topic, to check Atlan for our definition of a term, who owns or uses an artifact, or what agents ran.
 license: Apache-2.0
 ---
 
@@ -31,11 +31,11 @@ Atlan is not answering. Never repeat a write: read it back first.
 | "What do we have?" "Find me skills" "How many?", with no task named | [Overview](#overview) with `registry__get_artifact_counts`, then a search for the user's task |
 | "What changed recently?" | `registry__list_artifacts` |
 | "Tell me about this one" | `registry__get_artifact` |
-| "What uses it, what does it use?" | `registry__get_related_artifacts`; for who is on which version, or how used it is, `references/adoption.md` |
+| "What uses it, what does it use?" | `registry__get_related_artifacts`, read with `references/adoption.md` |
 | "What does this skill or file actually say?" | `atlan-content` |
 | "Gather what we know for this task": skills, metrics, ontology and knowledge together | `mcp__retrieve_artifacts` |
 | "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` (`references/kinds.md`) |
-| "What can a kind hold?" | `registry__get_kind_schema` |
+| "What can a kind hold?" | `references/kinds.md`, then `registry__get_kind_schema` for a kind it does not list |
 | "Which workspaces can I see?" | `registry__list_workspaces` |
 | "What did my agents do yesterday?" "What ran, and did it fail?" | `registry__list_traces`, then `references/runs.md` |
 
@@ -69,8 +69,8 @@ mcp__call_read_tool {
   only when the user looks for their own upload under review. Still read `artifact_status` on
   every hit, and say which, rather than offering every hit as ready.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
-  and workspace, and let the user pick before anything loads. Never load a skill because it
-  ranked first. The one exception is the user's own standing instruction to check Atlan before
+  and workspace, and let the user pick before anything loads, even when the request says "and
+  use it". Never load a skill because it ranked first. The one exception is the user's own standing instruction to check Atlan before
   each task (an **Atlan registry skills** section in `AGENTS.md`): then `atlan-use-skill` loads
   a single clear match and names it in one line, and still asks when more than one fits.
 - **Same name, different skill.** Two artifacts can share a `name` in different workspaces
@@ -90,9 +90,12 @@ not its most recently changed rows, which is all a browse returns.
 1. **Count.** One call gives the total and the breakdown:
    `registry__get_artifact_counts { "kind": "skill", "group_by": "workspace_id" }` returns
    `total`, the number the user can see, and the largest groups with their counts. Group by
-   `kind` to answer "what do we have?" across every kind, leaving out the platform's own kinds
-   (`references/kinds.md`), or by `project_id`, `repo_id`,
-   `owner_id` or `artifact_status`. Name each workspace from `registry__list_workspaces`.
+   `kind` to answer "what do we have?" across every kind, or by `project_id`, `repo_id`,
+   `owner_id` or `artifact_status`.
+   **Platform kinds are not the catalogue.** `app`, `app_action`, `harness_vendor`, `model` and
+   `agent_framework` rows are the platform's own (often 80 of 100). Subtract them from `total`
+   and give the remainder as the answer, adding at most "not counting N platform records".
+   Name or count them by kind only when the user asks about apps or models. Name each workspace from `registry__list_workspaces`.
    Gateways without that tool: `registry__list_artifacts { "kind": "skill", "limit": 1 }`
    returns the total as `page.total`.
 2. **Ask or narrow.** If the user named no task, give the count and the breakdown and ask what
@@ -100,12 +103,6 @@ not its most recently changed rows, which is all a browse returns.
 3. **Say what you looked at.** Separate the catalogue's total from the rows you read: "392
    skills in total; these 10 are the closest to preview deploys", or "the 10 most recently
    changed", never a sample presented as the whole.
-
-## Kinds
-
-`skill`, `agent`, `output`, `knowledge`, `mcp_server`, `file` and `repo` are the kinds you will
-meet most; `references/kinds.md` says what each holds, for when the user asks. For an
-unfamiliar kind, `registry__get_kind_schema { "kind": "…" }` describes it.
 
 ## Gather context for a task
 
@@ -131,20 +128,14 @@ says whether it is usable: a `blocked` skill failed its security scan and its fi
 withheld. Pass `channel` (for example `latest`) or a `release_id` only when the user asks for
 a published release rather than the newest version.
 
-## Read the neighbourhood
-
-`registry__get_related_artifacts { "artifact_id": "…" }` returns typed edges in both
-directions: an agent's `uses_skill`, an output's `used_skill`, a skill's `sourced_from` repo.
-An end marked `is_readable: false` exists in a workspace the user cannot read; say that
-rather than guessing what it is. Edges are declared by their source kind, so to find the
-agents that use a skill, read the skill's incoming edges rather than its outgoing ones.
-
 ## Present results
 
 Lead with the answer. Show a short table of name, kind, workspace and a one-line description,
 with each handle, so the user can ask about one by name. Mark a skill whose `name` matches one
 already installed here (your tool lists its skills in this conversation) as installed, so the
 user does not install it twice; whether that copy is current is `atlan-use-skill`'s check.
-Offer the next step that fits:
-read it (`atlan-content`), use it here (`atlan-use-skill`), or call its tools
-(`atlan-use-mcp-servers`).
+**When the request was to find something and use or run it, and gave no handle, the search
+ends the turn:** show the hits that fit and ask which one. Load nothing yet: no
+`include_file`, no file read, no `atlan-use-skill`. After the user picks, hand that handle to
+`atlan-use-skill`. Otherwise offer the one next step that fits: read it (`atlan-content`), use
+it here (`atlan-use-skill`), or call its tools (`atlan-use-mcp-servers`).

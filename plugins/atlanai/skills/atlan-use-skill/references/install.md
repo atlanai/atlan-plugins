@@ -1,9 +1,20 @@
 # Installing a registry skill
 
-Open this only when the user asked to install, add, download or keep a skill, and the skill's
-step 3 says this surface can hold the files. You have already read the artifact (step 2): its
-`artifact_status` is `active` and `metadata.files` is the pinned file list. Prefer aireg on the
+Open this only when the user asked to install, add, download or keep a skill. You have already
+read the artifact (step 2): its `artifact_status` is `active` and `metadata.files` is the
+pinned file list. First check the surface can hold the files (below). Prefer aireg on the
 user's own computer; use the MCP route when aireg is missing or the user declines it.
+
+## Where installing works
+
+| Where you are | Route |
+|---|---|
+| Claude chat on the web, desktop or mobile, or any host with no shell | Use it now. Installing is not possible here, so do not try. |
+| A cloud session: Claude Code on the web, a CI runner, any container discarded when the session ends | Use it now. A project install lasts only if the user commits it, so offer that instead of a user-folder install. |
+| A terminal, IDE, desktop or Cowork session on the user's own computer | Use it now, or install it (below). |
+
+No tool that runs commands or writes files means no shell. A cloud session usually says so in
+its environment notes; when unsure, ask where they are running.
 
 ## With aireg
 
