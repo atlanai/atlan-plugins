@@ -84,13 +84,15 @@ Some gateways refuse `publish_output` without naming what is wrong. Neither refu
 - "The request is not valid." on a call that carries `idempotency_key`: the gateway derives a key
   per step that its registry does not accept, so every keyed call is refused. Leave
   `idempotency_key` out of `publish_output`.
-- A bare `409` when the same source key should publish a new version: often a `file.media_type`
-  that differs from the one the first version stored, which a version cannot change. Leave
-  `media_type` out after the first version; the file keeps its type.
+- A bare `409` ("The request conflicts with the current state of the resource.") when the same
+  source key should publish a new version: gateway 2.21.0 refuses every new version through
+  `publish_output`, with or without `edges`, whatever the call carries. Only a first share lands.
 
-Send the call once more without `idempotency_key` and `file.media_type`. Refused again: record through
+A call refused "not valid" that carried `idempotency_key` or `file.media_type` is sent once more
+without them. A bare `409` on a new version is not resent: record through
 [the older route](#when-publish_output-is-not-served) with the same source key, which reaches the
-same file and output. Never send the identical call a third time.
+same file and output and lands the next version under the same handle. Never send the identical
+call a third time.
 
 **Binary or larger files** follow the upload recipe in `skills/atlan-content/references/upload.md`
 first, with the same `source_type` and `source_id` on the `file`, then pass the returned `id`
