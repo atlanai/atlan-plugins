@@ -62,6 +62,42 @@ def pane(model, understanding):
             'next': clean(model['next_step']), 'snapshot_at': model['snapshot_at']}
 
 
+def activity(model):
+    """One line for what is happening now, counted where the run recorded a count."""
+    phase, progress = model['phase'], model.get('progress') or {}
+    done, total = progress.get('completed'), progress.get('total')
+    plural = lambda n, word: f'{n} {word}' + ('' if n == 1 else 's')
+    if phase.get('source') == 'project' and total and phase['status'] in ('running', 'complete', 'complete-with-held-items'):
+        finished = phase['status'] != 'running' or done == total
+        if phase['code'] == 'inspect':
+            if finished:
+                return 'Inspected ' + plural(total, 'source')
+            waiting = next((s['name'] for s in model['scope'] if s['status'] == 'pending_inspection'), '')
+            return f'Inspecting source {done + 1} of {total}' + (' · ' + waiting if waiting else '')
+        if phase['code'] == 'check':
+            return 'Checked ' + plural(total, 'definition') if finished else f'Checking definition {done + 1} of {total}'
+    if phase.get('source') == 'engine' and type(phase.get('completed_checkpoints')) is int and phase['status'] == 'working':
+        return f"{phase['label']} · step {phase['completed_checkpoints'] + 1}"
+    return phase['label']
+
+
+def pane_v2(model, understanding):
+    """The pane payload plus live detail. Served apart so an older companion keeps its shape."""
+    clean = lambda v, n=500: experience._text(v, n).replace('\n', ' ').replace('\t', ' ')
+    step = model.get('continuation') or {}
+    usable = [i for i in model['items'] if i.get('question') and i['status'] not in ('held', 'needs_review')]
+    if step.get('action') == 'ask':
+        usable = [i for i in usable if i['status'] == 'released']
+    elif step.get('action') != 'explore-local':
+        usable = []
+    return {**pane(model, understanding),
+            'now': clean(activity(model), 200),
+            'action': step.get('action', ''),
+            'needs': clean(step.get('label'), 200) if step.get('needs_input') else '',
+            'findings': [clean(s['name'] + (' · ' + s['detail'] if s.get('detail') else ''), 200) for s in model['scope'][:8]],
+            'questions': list(dict.fromkeys(clean(i['question'], 160) for i in usable))[:3]}
+
+
 STYLE = """
 :root{color-scheme:light dark}*{box-sizing:border-box}body{margin:0;background:Canvas;color:CanvasText;font:15px/1.55 system-ui}
 main{max-width:1060px;padding:28px;margin:auto}h1{font-size:26px;line-height:1.2;margin:8px 0}h2{font-size:18px;margin:0 0 10px}h3{font-size:15px}
@@ -163,13 +199,13 @@ def make_server(root, port=0, engine_dir=None, host=None, server=None):
             if (self.headers.get('Host') != origin[7:] or self.headers.get('Origin',origin)!=origin
                     or self.headers.get('Sec-Fetch-Site')=='cross-site'):
                 self.send_error(403);return
-            if self.path not in ('/', '/snapshot', '/pane'):
+            if self.path not in ('/', '/snapshot', '/pane', '/pane/v2'):
                 self.send_error(404);return
             try:
                 model=experience.snapshot(root, engine_dir, host=host, server=server)
                 understanding=overview(ReadOnly())
-                if self.path == '/pane':
-                    data=json.dumps(pane(model, understanding), ensure_ascii=False).encode()
+                if self.path in ('/pane', '/pane/v2'):
+                    data=json.dumps((pane if self.path == '/pane' else pane_v2)(model, understanding), ensure_ascii=False).encode()
                     if len(data)>64000: raise ValueError('Pane too large')
                 else:
                     page=render(model, understanding)

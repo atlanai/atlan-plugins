@@ -82,6 +82,24 @@ def _dict(value):
     return value if isinstance(value, dict) else {}
 
 
+def _source_detail(source):
+    """What inspection counted in one source: numbers the survey recorded, never content."""
+    status = source.get('status')
+    if status == 'pending_inspection':
+        return 'waiting to be read'
+    if isinstance(status, str) and (status.startswith('held') or status == 'needs_model_review'):
+        return 'needs review'
+    parts = []
+    counts = source.get('counts')
+    if isinstance(counts, dict):
+        parts = [f'{n} {_text(k, 40).replace("_", " ")}' for k, n in counts.items()
+                 if isinstance(k, str) and type(n) is int and 0 < n <= 10_000_000][:3]
+    records = source.get('records')
+    if type(records) is int and 0 < records <= 10_000_000:
+        parts.append(f'{records} query records')
+    return ', '.join(parts)
+
+
 def _sql(value, label='SQL'):
     if not isinstance(value, str) or not value:
         return '', ''
@@ -220,6 +238,7 @@ def _context_items(reader, state):
             items.append({'id': kind + ':' + name, 'kind': kind, 'source_id': _text(body.get('source_id'), 500),
                           'name': _text(body.get('display_name'), 200) or name,
                           'meaning': _text(body.get('description') or definition.get('question')),
+                          'question': _text(definition.get('question'), 160) if kind == 'sql_query' else '',
                           'population': _population(definition),
                           'calculation': calculation, 'sql': sql, 'sql_label': 'Saved SQL example',
                           'detail_notes': evidence_notes + [n for n in (calculation_note, sql_note) if n],
@@ -407,7 +426,10 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     sample = sample or (items[0] if items else None) or (engine['sample'] if engine else None)
     sources = _rows(state.get('sources', []))
     scope = [{'name': _text(s.get('path'), 200), 'kind': _text(s.get('kind'), 80),
-              'status': _text(s.get('status'), 80)} for s in sources[:100]]
+              'status': _text(s.get('status'), 80), 'detail': _source_detail(s)} for s in sources[:100]]
+    done, total = saved.get('completed_items'), saved.get('total_items')
+    counted = all(type(n) is int and 0 <= n <= MAX_ITEMS for n in (done, total)) and done <= total
+    progress = {'completed': done, 'total': total} if counted else {}
     selection = []
     scopes = state.get('scopes') or ({'selected': state['scope']} if state.get('scope') else {})
     for value in _dict(scopes).values():
@@ -475,7 +497,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         prompt = 'Resume this saved analytics run from its current checkpoint.'
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
             'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
-            'selected_pages': selection, 'counts': counts,
+            'selected_pages': selection, 'counts': counts, 'progress': progress,
             'sample': sample, 'items': items, 'items_truncated': len(items) > 100,
             'engine': engine, 'auth_status': auth_status if isinstance(auth_status, str) else None,
             'local_work_available': local_work_available,

@@ -45,10 +45,14 @@ already-running session can retain the old code. Preserve and resume its existin
 If the feed is following but not displayed, offer `/analytics-view` first: this explicit
 command can place a pane in a narrow terminal. Do not diagnose a broken server or require
 fullscreen merely because automatic placement was declined.
-`/analytics-view` reopens the last pane. Its buttons use
-native prompt filling: the person submits the filled text to request pause, local mode or
-details. The pane confirms that a request was prepared; it does not claim to have applied it.
-Inspect source and checks expands evidence in the pane itself.
+`/analytics-view` reopens the last pane, or drafts a resume request in a new session. Its
+buttons use native prompt filling: the person submits the filled text to request pause, local
+mode, details, the pending choice or a saved question. The pane confirms that a request was
+prepared; it does not claim to have applied it. Inspect source and checks expands evidence in
+the pane itself. The pane shows a counted `Now` line from the counts `PROJECT survey` and
+`PROJECT check` already save; nothing extra is needed. It
+notifies the person when the run waits on where to save, on access, on a repair or is ready,
+so do not repeat those notices in chat.
 
 A narrow terminal or headless session may not place a pane. Give the concise preview in chat
 and name the limitation once. Do not change permissions, terminal settings or policy to force

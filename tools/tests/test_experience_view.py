@@ -103,6 +103,50 @@ class LiveView(unittest.TestCase):
         model['interaction']['mode']='paused'
         self.assertEqual(view.pane(model,{})['status'],'paused')
 
+    def test_live_detail_is_counted_bounded_and_served_apart(self):
+        state=self.run.read(self.run.path)
+        state['sources'][0]['counts']={'measures':23,'tables':6,'hidden':0}
+        state['sources'][1]['records']=412
+        state['sources'][2]['status']='pending_inspection'
+        self.run.write(self.run.path,state)
+        self.run.write(self.run.root/'progress.json',{'stage':'inspect','status':'running','completed_items':2,'total_items':3})
+        live=view.pane_v2(experience.snapshot(self.run),{})
+        self.assertEqual(live['now'],'Inspecting source 3 of 3 · shipments.csv')
+        self.assertEqual(live['findings'],['shipping.bim · 23 measures, 6 tables','query_history.jsonl · 412 query records','shipments.csv · waiting to be read'])
+        self.assertEqual(live['questions'],[])
+        self.run.write(self.run.root/'progress.json',{'stage':'inspect','status':'complete','completed_items':3,'total_items':3})
+        self.assertEqual(view.pane_v2(experience.snapshot(self.run),{})['now'],'Inspected 3 sources')
+        self.run.write(self.run.root/'progress.json',{'stage':'check','status':'running','completed_items':4,'total_items':9})
+        self.assertEqual(view.pane_v2(experience.snapshot(self.run),{})['now'],'Checking definition 5 of 9')
+        # A count the run did not record is never invented.
+        self.run.write(self.run.root/'progress.json',{'stage':'check','status':'running','completed_items':9,'total_items':4})
+        self.assertEqual(view.pane_v2(experience.snapshot(self.run),{})['now'],'Checking the definitions')
+        self.run.write(self.run.root/'progress.json',{'stage':'preview','status':'running'})
+        model=experience.snapshot(self.run)
+        waiting=view.pane_v2(model,{})
+        self.assertEqual((waiting['action'],waiting['needs']),('destination','Choose where to save'))
+        self.assertNotIn('now',view.pane(model,{}))
+        # Questions are offered only where the run can answer them, never from held work.
+        self.run.journey('keep-local')
+        local=experience.snapshot(self.run)
+        offered=view.pane_v2(local,{})
+        self.assertEqual(offered['action'],'explore-local')
+        self.assertTrue(0<len(offered['questions'])<=3)
+        self.assertTrue(all('\n' not in q and len(q)<=160 for q in offered['questions']))
+        for item in local['items']: item['status']='held'
+        self.assertEqual(view.pane_v2(local,{})['questions'],[])
+        server=view.make_server(self.run.root)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            def read(path):
+                conn=http.client.HTTPConnection('127.0.0.1',server.server_port,timeout=5)
+                conn.request('GET',path);response=conn.getresponse();data=response.read();conn.close()
+                return response.status,data
+            self.assertNotIn('now',json.loads(read('/pane')[1]))
+            self.assertIn('now',json.loads(read('/pane/v2')[1]))
+            self.assertEqual(read('/pane/v3')[0],404)
+        finally:server.shutdown();server.server_close();thread.join()
+
     def test_native_feed_clears_access_error_after_current_host_read(self):
         import auth_recovery
         self.run.write(self.run.root/'auth-recovery.json', {

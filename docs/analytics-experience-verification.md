@@ -1,6 +1,6 @@
 # Analytics experience verification
 
-9 November 2026 · Analytics 0.6.24 · Analytics View 0.1.9
+9 November 2026 · Analytics 0.6.25 · Analytics View 0.2.0
 
 The Claude Desktop view uses the host's Box, Text and Button components. It inherits
 typography, theme and controls rather than rendering a scaled image. The default view
@@ -39,6 +39,11 @@ browser presentation with an explicit chat fallback when local serving is unavai
 - Desktop visual/disclosure evidence is from View 0.1.7. View 0.1.9 retains that layout
   and adds correct placement reporting and discovery-state controls, verified by native
   tests and actual CLI placement.
+- View 0.2.0 adds labelled Focus, Goal and Now rows, counted progress, a stall note, the
+  Needs you row, notifications, question buttons, SQL as code, a status-line fallback, a
+  resume pointer and compact rows for the packaged helper. Evidence for these is 20 native
+  tests and 8 feed tests. None has been observed in a live Desktop or CLI session yet, and
+  the behavioral sweep below predates them.
 - Latest full behavioral sweep: 7/12 cases, grader score 0.92. The dedicated workspace
   route subsequently loaded the skill in all three targeted runs; two passed every
   grader. The third correctly explained the UI/admin route but split the reply into
