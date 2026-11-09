@@ -17,16 +17,24 @@ another MCP server. Cancellation preserves checkpoints; uncertain remote writes 
 
 Normal structured helper results over 4 KiB become private result files. Read relevant fields
 from them instead of dumping logs. `--full` is for targeted diagnosis, not normal chat.
-At phase changes, first previews and useful count changes, show concise progress. For long
-work, consume `progress.json` and provide a truthful heartbeat every 30 to 60 seconds.
-Put the stage and remaining steps in the assistant message, not only helper output, for
-example `Check, step 4 of 7; 3 steps remain`, followed by actual counts. Report schema checks,
-SQL examples, parameter samples and formula comparisons separately. Do not call their sum
-"SQL checks" when some checks did not execute SQL.
-Keep diagnostics private and give one recovery step on failure.
+At phase changes, first previews and useful count changes, show one concise update. Use
+`PROJECT experience --format chat` for saved setup state; while the engine is active, add
+`--engine-dir <within-run-engine>` so its manifest supplies engine progress. Use an absolute
+engine path or `--engine-dir engine`, which is relative to the selected run.
+When access evidence spans hosts, pass `--host <claude_code-or-codex> --server <observed-id>`
+to `PROJECT experience` and `PROJECT journey`. Only a matching successful Registry read
+can establish that host's readiness. It cannot clear another host's sign-in request.
+Do not pass a cwd-relative engine path unchanged. For long work,
+provide a factual heartbeat every 30 to 60 seconds. Surface useful evidence such as a first
+metric or a resolved hold, not gate names, private paths or raw logs. Do not repeat unchanged
+counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage.
+Report schema checks, executed examples and parity separately; diagnostics stay in details.
 
-When the host has a panel API, open one surface and update it. `PROJECT preview --format html`
-creates an escaped local snapshot with working details controls and a refresh link. It is a
-snapshot, not a live service; regenerate before refreshing. Keep publication decisions in chat.
-CLI users always get text and samples, with native task tools only if available. If the rich
-renderer fails, display the Markdown result; optional UI never blocks the workflow.
+Default to native chat and its normal task/choice controls. Open an optional surface only
+when requested, after verifying the host actually exposes that API. `PROJECT experience
+--format html` creates a system-styled local evidence snapshot, never a native or auto-updating
+sidepanel. Use `--format json` for an available host renderer and `--detail` for full evidence.
+If the person dismisses the surface, stay in chat until asked to reopen it. Do not invent a
+pause/publish button or embed chat decisions in an inert HTML control. CLI users get the same
+concise sample and factual progress as text, with native tasks/choices only when available.
+If rendering fails, use chat; presentation must not block generation or publication.

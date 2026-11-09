@@ -1,4 +1,4 @@
-"""Record a host-owned sign-in task and its bounded readiness watch. No credential access.
+"""Record host-scoped Registry reads and host-owned sign-in tasks. No credential access.
 
 The host starts/polls the login task, opens Chrome and supplies observed results. This
 helper never authenticates, launches commands, reads credentials or makes Registry calls.
@@ -11,6 +11,7 @@ HOSTS = ('claude_code', 'codex')
 REASONS = ('sign_in', 'tools_missing', 'plugin_missing', 'disabled', 'permission_denied', 'connection_error')
 ACTIVE = ('login_required', 'waiting_auth', 'checking_mcp')
 STAGES = ('inspect', 'scope', 'build', 'check', 'preview', 'publish', 'ready')
+READ_FIELDS = {'host', 'server', 'status', 'read_tool', 'read_succeeded', 'observed_at'}
 
 
 def identifier(value):
@@ -52,6 +53,41 @@ def result(state):
     return reply
 
 
+def record_read(run, request, prior, now):
+    """Append current-host evidence without changing another host's recovery checkpoint."""
+    if set(request) != {'operation', 'host', 'server', 'read_tool', 'read_succeeded'}:
+        raise ValueError('Record only the current host, server and successful Registry read.')
+    host, server = request['host'], identifier(request['server'])
+    if (host not in HOSTS or request['read_tool'] != 'registry__list_workspaces'
+            or request['read_succeeded'] is not True):
+        raise ValueError('A successful current-host registry__list_workspaces read is required.')
+    path = run.root / 'registry-readiness.json'
+    saved = run.read(path) if path.exists() else {'schema_version': 1, 'observations': []}
+    if (not isinstance(saved, dict) or set(saved) != {'schema_version', 'observations'}
+            or type(saved['schema_version']) is not int or saved['schema_version'] != 1
+            or not isinstance(saved['observations'], list)):
+        raise ValueError('The saved host readiness observations are invalid; preserve them for review.')
+    for entry in saved['observations']:
+        if (not isinstance(entry, dict) or set(entry) != READ_FIELDS or entry['host'] not in HOSTS
+                or entry['status'] != 'connected' or entry['read_tool'] != 'registry__list_workspaces'
+                or entry['read_succeeded'] is not True or type(entry['observed_at']) not in (int, float)
+                or not 0 <= entry['observed_at'] < float('inf')):
+            raise ValueError('The saved host readiness observations are invalid; preserve them for review.')
+        identifier(entry['server'])
+    observation = {'host': host, 'server': server, 'status': 'connected',
+                   'read_tool': 'registry__list_workspaces', 'read_succeeded': True, 'observed_at': now}
+    saved['observations'].append(observation)
+    run.write(path, saved)
+    reply = {**observation, 'verification': 'host_reported_read', 'remote_writes': False,
+             'next_action': 'use_current_host_readiness', 'recovery_unchanged': True}
+    if prior:
+        reply['preserved_recovery'] = {key: prior[key] for key in
+                                      ('host', 'server', 'status', 'started_at', 'updated_at', 'task_id') if key in prior}
+        if (prior.get('host'), prior.get('server')) == (host, server) and prior.get('task_id') and prior.get('status') in ACTIVE:
+            reply['next_action'] = 'resolve_owned_sign_in_task'
+    return reply
+
+
 def advance(run, request, now=None):
     """Only allowlisted, content-free observations can enter the private checkpoint."""
     allowed = {'operation', 'host', 'reason', 'server', 'resume_stage', 'timeout_seconds',
@@ -62,7 +98,9 @@ def advance(run, request, now=None):
     path = run.root / 'auth-recovery.json'
     prior = run.read(path) if path.exists() else None
     operation = request.get('operation')
-    if operation == 'begin':
+    if operation == 'record_read':
+        return record_read(run, request, prior, now)
+    elif operation == 'begin':
         host, reason = request.get('host'), request.get('reason')
         stage, timeout = request.get('resume_stage', 'publish'), request.get('timeout_seconds', 600)
         if host not in HOSTS or reason not in REASONS or stage not in STAGES:
@@ -73,6 +111,7 @@ def advance(run, request, now=None):
         if prior and prior['status'] in ACTIVE:
             if now >= prior['deadline']:
                 prior['status'] = 'timed_out'
+                prior['updated_at'] = now
                 run.write(path, prior)
                 return result(prior)  # Return the owned task for cleanup before another attempt.
             if (prior['host'], prior['server']) != (host, server):
@@ -110,6 +149,7 @@ def advance(run, request, now=None):
             else:
                 raise ValueError('This observation does not apply to the current recovery state.')
     else:
-        raise ValueError('Use begin, poll or observe for sign-in recovery.')
+        raise ValueError('Use begin, poll or observe for recovery, or record_read for a successful current-host read.')
+    state['updated_at'] = now
     run.write(path, state)
     return result(state)
