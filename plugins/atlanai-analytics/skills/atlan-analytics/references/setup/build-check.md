@@ -55,3 +55,6 @@ actual revision-bound check evidence. Test representative parameters, excluded p
 and empty denominators. Never treat one parameter sample as exhaustive coverage.
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.
+
+Update the already opened Analytics view at meaningful phase changes with `PROJECT experience --format panel`.
+Follow the host rendering procedure in [render.md](render.md). Keep a dismissed view closed.
