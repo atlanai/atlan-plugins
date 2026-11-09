@@ -94,7 +94,7 @@ check it; you never save it.
 1. **Scope.** Agree on the domain and the target ontology in one question. The ontology must
    exist: if none fits, ask the person to create one in Ontology Studio
    (`https://api.atlan.com/ontology/v1/ui/`) and tell you its name.
-2. **Gather.** Start from what is already governed, in this order: released metrics and saved
+2. **Gather.** Start from what is already managed, in this order: released metrics and saved
    queries in the workspace (their populations and grains name the business objects), then
    the tables in scope with the warehouse query tool (`information_schema` columns and primary
    and foreign keys), then documents the person names. Read schemas only; never query business

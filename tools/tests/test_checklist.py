@@ -33,8 +33,8 @@ class Checklist(unittest.TestCase):
     def test_initial_list_names_six_steps_and_two_decisions(self):
         rows = checklist.initial()
         self.assertEqual([r['content'] for r in rows], [
-            'Read your sources', 'Choose focus and goal', 'Write metric definitions',
-            "Check each definition's SQL", 'Review and choose where to save', 'Ready for questions'])
+            'Read your sources', 'Choose focus and goal', 'Write metrics and queries',
+            'Check each metric and query', 'Review and choose where to save', 'Ready for questions'])
         self.assertEqual([r['status'] for r in rows], ['in_progress'] + ['pending'] * 5)
         self.assertEqual([r['id'] for r in rows if r['needs_you']], ['intent', 'review'])
 
@@ -64,11 +64,11 @@ class Checklist(unittest.TestCase):
         rows = {r['id']: r for r in result['steps']}
         self.assertEqual([r['status'] for r in result['steps']], ['completed', 'completed', 'completed', 'in_progress', 'pending', 'pending'])
         self.assertRegex(rows['build']['content'], r'^Write \d+ metrics? and \d+ quer(y|ies)$')
-        self.assertRegex(rows['check']['content'], r'^Check \d+ definitions?$')
-        self.assertEqual(rows['check']['active'], 'Checking definition 2 of 3')
+        self.assertRegex(rows['check']['content'], r'^Check \d+ (metric or query|metrics and queries)$')
+        self.assertEqual(rows['check']['active'], 'Checking 2 of 3')
         # A count the run did not save is never invented.
         self.progress(stage='check', status='running', completed_items=9, total_items=3)
-        self.assertEqual({r['id']: r for r in self.steps()['steps']}['check']['active'], 'Checking definitions')
+        self.assertEqual({r['id']: r for r in self.steps()['steps']}['check']['active'], 'Checking metrics and queries')
 
     def test_paused_and_local_runs_are_reported_as_they_are(self):
         fixture.seed_checked(self.run, 'checked')

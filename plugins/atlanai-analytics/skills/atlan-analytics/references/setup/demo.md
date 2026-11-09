@@ -22,6 +22,12 @@ or on your own?"
 
 ## Try the demo: a guided tour
 
+How the person feels at each point decides what to say. They arrive unsure what this is,
+get anxious when something runs with no explanation, lose the thread when a result appears
+with no reason to care, worry at sign-in about touching their company's data, and at the
+end want to know what they made and what to do with it. Each section below answers one of
+those. When in doubt, say what just happened, what it means, and what comes next.
+
 Assume the person knows nothing: not the firm, the data, what Atlan does, or why they will
 sign in. The demo is about one experience: watching existing sources become context. The
 context is made of metrics, each explained in plain words when it first appears. Before anything runs, they know what will happen, why,
@@ -56,9 +62,10 @@ Print this before any other tool call, reference read, file search or clone. Rep
 > **What context is.** It is what a new analyst has to learn before answering: what
 > "margin" means at Fixit, how it is worked out, which jobs count. Fixit already wrote that
 > down without meaning to, in its dashboard and in the queries its analysts ran. Atlan reads
-> those sources and turns them into context that anyone, or any AI, can use. The context is
-> a set of metrics: each one a number Fixit cares about, such as gross margin, with the
-> rule for working it out.
+> those sources and turns them into context that anyone, or any AI, can use. The context
+> holds two things. A metric is a number Fixit cares about, such as gross margin, with the
+> rule for working it out. A query is a ready-made question about the data, such as margin
+> by job.
 >
 > **What's in the demo**
 >
@@ -133,10 +140,15 @@ see the steps twice over, because a task list is easy to miss in a terminal:
 1. Read your sources: done, 1 dashboard, 110 past queries, 5 tables
 2. Choose what to build from: done, dashboard and past queries
 3. Turn sources into context: now
-4. Check the context on the data
+4. Check the context on the data: next
 5. Review and choose where to save
 6. Ready for questions
 ```
+
+Mark the step after the current one `next`, so the person always sees what is coming. When
+a step ends, close it in one line before the next tracker: "Step 3 done: 7 metrics and 12
+queries built. Next, step 4: I check each one on Fixit's data." A step that waits on the
+person says so: "Step 2 needs you: one choice."
 
 ### 3a. Say what and why at every moment
 
@@ -158,8 +170,8 @@ tracker. Skip a moment that does not happen in this run.
 | Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
 | Load data | Loading Fixit's 5 tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
 | First metric | Building one metric first: gross margin. | You see what the context looks like, and can judge it, before I build the rest. |
-| Build the rest | Building the other metrics from the sources you chose. | Rob's question needs more than margin: labour, materials, rework and late jobs explain what ate it. |
-| Check | Running every metric on Fixit's data. | A metric that returns nothing or nonsense would give wrong answers later; this catches it now. |
+| Build the rest | Building the other metrics and queries from the sources you chose. | Rob's question needs more than margin: labour, materials, rework and late jobs explain what ate it. |
+| Check | Running every metric and query on Fixit's data. | One that returns nothing or nonsense would give wrong answers later; this catches it now. |
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
 | Save | Saving the context to the workspace you chose. | From now on the agent and your colleagues read the same context. |
@@ -171,12 +183,13 @@ Never use file names, helper names or query-shape counts in these lines. After r
 sources, add one sentence on what they revealed, such as which questions the analysts
 asked most. Never leave a minute without a line; follow [progress](progress.md).
 
-**Say context and metrics.** The whole is the context; what it is made of, and what gets
-counted, is metrics: "Context built: 14 metrics", "saving 3 new metrics", "one metric,
-gross margin". Never say pieces. Where the run also holds saved queries, count them as
-saved queries beside the metrics. Say "the context behind this answer", not "the definition
-used". Never say metric definition, candidate, engine, reconciliation, hold or Registry to
-the person.
+**Two words for what gets built: metrics and queries.** The whole is the context. It holds
+metrics (a number Fixit cares about, with its rule) and queries (a ready-made question
+about the data, such as margin by job). Count them that way every time: "Context built: 7
+metrics and 12 queries", "saving 3 new metrics". Never call them pieces, calculations,
+KPIs, measures, definitions, saved questions or saved SQL; the dashboard has tiles, and
+what analysts ran is past queries. Say "the context behind this answer". Never say
+candidate, engine, reconciliation, hold or Registry to the person.
 
 ### 4. No focus or goal questions: ask what to build from
 
@@ -202,64 +215,85 @@ Scope the run to the answer through [inspect and scope](inspect-scope.md). With 
 only", author from the dashboard's measures alone and leave the past queries out. The data
 tables are used either way, to check the context.
 
-### 5. One example first, shown well, then ask
+### 5. One metric first: explain it, prove it, then ask
+
+This is where people get lost: a metric appears, they do not know where it came from or
+why it matters, and they are asked to build more. So build one, and do not ask anything
+until the person has seen four things: why it exists, what it is, that it works on real
+numbers, and that it is finished.
 
 Follow [build and check](build-check.md)'s first-candidate rule with gross margin: build
-it, run its check, and stop before building anything else. A card with no introduction is
-confusing, so print these three parts in order, as one ordinary reply. Every value is read
-from this run; never copy the layout's sample values.
+it, run its check, and stop. Then print the four parts below in order, as one ordinary
+reply. Every value comes from this run; never copy the sample values here, and never claim
+a check that did not run.
 
-First, what the person is about to see and why, as written:
+**Part 1, why this exists**, as written: "Here is the first metric I built: **gross
+margin**. Fixit's dashboard and its analysts' queries each worked margin out in their own
+way. A metric writes the rule down once, so the agent, and anyone who asks, uses the same
+one every time."
 
-"Here is the first metric I built: **gross margin**. Fixit's dashboard and
-queries each worked margin out in their own way. This writes the rule down once, so the
-agent, and anyone who asks, uses the same one every time. Read it top to bottom: what the
-number means, how it is worked out, which jobs count, where the rule came from, and proof
-that it runs on the data."
+**Part 2, the metric.** Two source rows, so the person sees what each source gave:
 
-Second, the card:
-
-> **Gross margin** · one metric in Fixit's context
+> **Gross margin** · metric 1 of Fixit's context
 >
 > | | |
 > | --- | --- |
 > | **What it means** | The profit on a job: what the client paid minus what the job cost. |
 > | **How it's worked out** | Contract value, minus crew hours times hourly rate, minus materials. |
 > | **Which jobs count** | Completed jobs only. |
-> | **Where it came from** | The dashboard's "Gross margin" tile, and 12 past queries that ask about it. |
-> | **Checked on Fixit's data** | Ran. Total margin across 7 jobs, with the figure. |
+> | **From the dashboard** | The "Gross margin" tile gave the formula. |
+> | **From past queries** | 12 queries asked about margin. They gave the breakdown by job and confirmed completed jobs only. |
+> | **How I checked it** | Ran it on Fixit's data: it returns a number for all 7 completed jobs, none blank, and the total matches the dashboard tile's own formula. |
+> | **Status** | Done. Built and checked. |
+
+With "Dashboard only", drop the past-queries row and say so in one line.
+
+**Part 3, see it work.** One job, broken down with real numbers, so the metric stops being
+abstract. Use the job with the lowest margin:
+
+> **Gross margin on one job: Buttercup Vale Wind Turbine Base**
 >
-> **On Fixit's data:** the three best and three worst jobs by margin, one line each.
+> | | |
+> | --- | --- |
+> | Client paid | £150,000 |
+> | Crew and machine hours | £98,400 |
+> | Materials | £61,250 |
+> | **Gross margin** | **−£9,650 (−6%)** |
+>
+> One rule, one job, every number traceable to a row in Fixit's data. Rob's question is
+> this same sum for every job, plus what drove the cost.
 
-Third, what happens next, as written: "If this matches how you would describe margin, I
-build the rest the same way. If something looks off, tell me and I fix it before going
-further."
+**Part 4, where this leaves you**, with actual counts: "That is 1 metric, built and
+checked. From the sources you chose I can build about 6 more metrics and the queries
+behind them, such as rework cost, material waste and late jobs, each checked the same way.
+If margin looks wrong to you, say so and I fix it before going further."
 
-Keep SQL out of the card. Then ask one native question, "This is one metric.
-Build the rest?":
+Keep SQL out of all four parts. Only then ask one native question, "Gross margin is built
+and checked. Build the rest?":
 
 | Option | Description |
 | --- | --- |
-| Build the rest (recommended) | The other metrics from the sources you chose, each checked the same way. |
+| Build the rest (recommended) | The other metrics and queries from the sources you chose, each checked the same way. A few minutes. |
 | Show how this one was built | The SQL and the source lines behind gross margin, then this question again. |
 | Stop here | Keep this one metric; nothing is saved to Atlan Trident. |
 
-On "Build the rest", finish steps 3 and 4. This card is the setup preview; do not show a
-second sample before the save question unless gross margin changed.
+On "Build the rest", finish steps 3 and 4, with a count as the work goes ("4 of 7 metrics
+built"). These four parts are the setup preview; do not show a second sample before the
+save question unless gross margin changed.
 
 ### 6. Context built: celebrate, then ask where to keep it
 
 When step 4 ends, before any save, sign-in or workspace question, print this block as an
 ordinary reply, in a code fence so the figure keeps its shape. Use the run's actual counts
 and the sources the person chose. Every count is true: when some metrics did not pass their
-check, say so on the third line ("12 of 14 checked, 2 need a look") and still show the block.
+check, say so on the third line ("17 of 19 checked, 2 need a look") and still show the block.
 
 ```
  \o/   Context built for Fixit's job margin
 
-       14 metrics
+       7 metrics and 12 queries
        from 1 dashboard and 110 past queries
-       14 of 14 checked on Fixit's data
+       19 of 19 checked on Fixit's data
 ```
 
 Under it, two lines: "This context is on your machine only. Atlan Trident is where your
@@ -275,21 +309,64 @@ Then ask one native question, "Where do you want to keep this context?":
 Only "Save to Atlan Trident" starts sign-in. With "Keep it on this machine", go straight to
 step 6 and answer from the local context.
 
-Where to save: before sign-in, say "A browser window opens; sign in to Atlan Trident with
-your work account." After sign-in, name the tenant and workspaces the result shows, never a guess.
-Suggest the person's own workspace: "Your personal workspace keeps the demo out of your
-team's way." When the context already exists there, say how much, where, and that it was
-reused rather than copied.
+**Sign-in.** People worry here about touching company data. Before the browser opens, say:
+"A browser window opens; sign in to Atlan Trident with your work account. Signing in
+changes nothing. Nothing is saved until you pick a workspace." After sign-in, name the
+tenant the result shows, never a guess.
 
-### 7. The payoff and the bridge (at most 160 words)
+**Workspace.** Ask one native question, "Which workspace should hold this context?". List
+the person's own workspace first (the `user_default` one from the workspace read):
+
+| Option | Description |
+| --- | --- |
+| Your personal workspace (recommended) | Only you see it. Nothing changes for your team, and it cannot clash with a colleague running the same demo. |
+| A shared workspace, by name | At most three, only ones the read returned. Everyone in it sees the demo metrics. |
+
+Never offer to create a workspace. With many shared workspaces, show the count and let the
+person name one; do not list them all.
+
+**Saving.** Saving goes in batches and can take a few minutes. Say so once, then give a
+count as it goes: "Saving to your personal workspace: 12 of 19 saved." Finish with one
+line: what was saved, where, and that it is now the context the agent reads.
+
+**Already there.** When some of the context already exists in that workspace, say how much,
+where, and why that is fine: "4 of the 7 metrics were already in your workspace from an
+earlier run, so I reused them instead of making copies; 3 are new."
+
+### 6a. When something does not go to plan
+
+Say what happened, that nothing is lost, and the one way forward. Never leave the person
+at an error.
+
+| What happened | What to say |
+| --- | --- |
+| A metric or query fails its check | "2 of 19 did not return sensible numbers, so I left them out of what gets saved. That is normal, and the other 17 are fine." Name the two only when asked. |
+| Sign-in is cancelled or times out | "Sign-in did not finish. Nothing is lost: the context is still on this machine. Try again, or keep it here and ask Rob's question now." |
+| Signed in, but no workspace to save to | "You are signed in, but you have no workspace to save to yet. Your Atlan admin can add you to one. Meanwhile the context works from this machine." |
+| A save is refused or stops part-way | "12 of 19 saved; the rest were refused. Nothing saved is lost." Then the one reason the result gave, and whether to retry. |
+| Counts differ from a colleague's run | "That is expected today: the number of queries built from the history can vary between runs. The metrics from the dashboard's four tiles are the ones to compare." |
+| Git or Python is missing | The one thing to install, then "run /atlanai-analytics:start again and it picks up here". |
+
+In every case the demo can still end on Rob's question, from the context on this machine.
+
+### 7. The payoff, then what you made (at most 200 words)
 
 The agent is this chat with the saved context; do not register, deploy or evaluate a
-separate agent, and say so only if asked. Answer Rob's question through the ask route: the job, the amount, what ate it, and the
-context behind it in one line. Say once that the answer came from the context built from
-Fixit's dashboard and queries, not from a guess at the tables. Name the metrics it used as
-links to their pages in Atlan Trident ([definition links](../definition-links.md)); never
-print metric or release ids. Offer two more questions the yard supports, such as rework cost
-by job or which jobs finished late. Close with:
+separate agent, and say so only if asked. Answer Rob's question through the ask route: the
+job, the amount and what ate it, with real numbers. Under the answer, name the metrics it
+used as links to their pages in Atlan Trident ([definition links](../definition-links.md));
+never print metric or release ids. Say once that the answer came from the context built
+from Fixit's dashboard and queries, not from a guess at the tables.
 
-"With your own data, the same steps turn your dashboards and your warehouse's query history
-into your team's context. Run /atlanai-analytics:start and choose Use my own data."
+Then close the loop, so the person leaves knowing what they made. Three short parts, with
+actual counts and names:
+
+- **What you built:** "A job profit agent for Fixit: 7 metrics and 12 queries, built from
+  1 dashboard and 110 past queries, checked on the data."
+- **Where it lives:** the workspace name in Atlan Trident, or "on this machine".
+- **Try next:** two more questions the context supports, such as rework cost by job or
+  which jobs finished late.
+
+End with: "With your own data, the same six steps turn your dashboards and your
+warehouse's query history into your team's context. Run /atlanai-analytics:start and
+choose Use my own data."

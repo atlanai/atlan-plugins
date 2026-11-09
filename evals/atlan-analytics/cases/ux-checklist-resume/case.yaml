@@ -9,8 +9,8 @@ execution:
     {"steps": [
      {"id": "sources", "content": "Read 4 sources", "active": "Reading your sources", "needs_you": false, "status": "completed"},
      {"id": "intent", "content": "Focus: Shipping cost", "active": "Waiting for your focus and goal", "needs_you": false, "status": "completed"},
-     {"id": "build", "content": "Write 3 metrics and 12 queries", "active": "Writing metric definitions", "needs_you": false, "status": "completed"},
-     {"id": "check", "content": "Check 15 definitions", "active": "Checking definition 6 of 15", "needs_you": false, "status": "in_progress"},
+     {"id": "build", "content": "Write 3 metrics and 12 queries", "active": "Writing metrics and queries", "needs_you": false, "status": "completed"},
+     {"id": "check", "content": "Check 15 metrics and queries", "active": "Checking 6 of 15", "needs_you": false, "status": "in_progress"},
      {"id": "review", "content": "Review and choose where to save", "active": "Waiting for your review", "needs_you": true, "status": "pending"},
      {"id": "ready", "content": "Ready for questions", "active": "Preparing questions", "needs_you": false, "status": "pending"}],
      "state": "running", "step": 4, "of": 6, "remote_writes": false}
@@ -30,7 +30,7 @@ graders:
   - name: keeps-sharpened-names
     type: tool_used
     tool: TaskCreate
-    input_match: 'Check 15 definitions'
+    input_match: 'Check 15 metrics and queries'
   - name: ticks-only-finished-steps
     type: tool_used
     tool: TaskUpdate
@@ -49,9 +49,9 @@ graders:
     criteria: |
       A saved setup run is resumed. Its helper reported six steps: three completed (4 sources
       read, focus Shipping cost, 3 metrics and 12 queries written), checking in progress at
-      definition 6 of 15, and review and ready-for-questions still pending. The steps are shown
+      6 of 15, and review and ready-for-questions still pending. The steps are shown
       in the host's task list. PASS if the reply, in under 80 words, states the saved result and
-      that checking the definitions is the step under way or next. FAIL if it reprints the six
+      that checking the metrics and queries is the step under way or next. FAIL if it reprints the six
       steps as a list or table, claims the checks finished or anything was saved to Atlan,
       repeats the fresh-setup introduction, re-asks for focus or goal, mentions a panel, pane
       or browser view, or uses an em dash or a closing offer.

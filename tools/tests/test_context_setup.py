@@ -158,12 +158,12 @@ class GenericSetup(unittest.TestCase):
 
     def test_chat_preview_handles_empty_query_only_and_untrusted_source_text(self):
         self.run.survey(self.estate)
-        self.assertIn('No metrics or saved queries', self.run.preview(format='chat'))
+        self.assertIn('No metrics or queries', self.run.preview(format='chat'))
         body = query()
         body['definition']['question'] = '![preview](https://example.com/track) <script>bad()</script>'
         self.run.write(self.run.context / 'queries.json', [body])
         text = self.run.preview(format='chat')
-        self.assertIn('0 metrics and 1 saved query', text)
+        self.assertIn('0 metrics and 1 query', text)
         self.assertIn(body['definition']['sql'], text)
         self.assertNotIn('![preview]', text)
         self.assertNotIn('<script>', text)

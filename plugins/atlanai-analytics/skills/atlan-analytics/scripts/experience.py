@@ -21,7 +21,7 @@ LABELS = {'draft': 'Draft', 'schema_checked': 'Schema checked; SQL untested',
           'held': 'Needs repair', 'released': 'Saved in Atlan',
           'provisional': 'Provisional; checks still pending', 'needs_review': 'Evidence needs review'}
 PHASES = {'inspect': 'Inspecting your sources', 'scope': 'Choosing what to include',
-          'build': 'Building your metric definitions', 'check': 'Checking the definitions',
+          'build': 'Building your metrics and queries', 'check': 'Checking the metrics and queries',
           'preview': 'Reviewing your metrics', 'publish': 'Saving to Atlan',
           'ready': 'Ready for questions'}
 ENGINE_PHASES = {'s0': 'Reading the selected inputs', 'a1': 'Reading dashboard definitions',
@@ -207,7 +207,7 @@ def _context_items(reader, state):
                             'not_recorded': 'Source review not recorded'}[review]
             evidence_notes = ['Execution: ' + (LABELS[execution] if execution != 'not_recorded' else 'not recorded for this revision'),
                               'Review: ' + review_label, 'Dashboard value parity: unmeasured',
-                              'Publication: ' + ('saved in Atlan' if status == 'released' else 'held' if status == 'held' else 'local')]
+                              'Publication: ' + ('saved in Atlan Trident' if status == 'released' else 'held' if status == 'held' else 'local')]
             selection_hash = digest({key: body.get(key) for key in
                                      ('name', 'display_name', 'description', 'source_id', 'definition')})
             reuse = next((_dict(row.get('comparison')) for row in coverage
@@ -254,7 +254,7 @@ def _engine(reader, directory):
     stages = _rows(manifest.get('stages', []))
     last = stages[-1] if stages else {}
     stage = _text(last.get('stage'), 100)
-    result = {'checkpoint': stage, 'label': ENGINE_PHASES.get(stage.split('_')[0], 'Building metric definitions'),
+    result = {'checkpoint': stage, 'label': ENGINE_PHASES.get(stage.split('_')[0], 'Building metrics and queries'),
               'status': module.get('status') if module.get('status') in ('prepared', 'paused', 'blocked', 'complete') else 'recorded',
               'completed_checkpoints': sum(s.get('verdict') == 'ok' and s.get('notes') != 'awaiting_decision' for s in stages),
               'recorded_at': _text(last.get('started_at'), 50), 'sample': None, 'provisional_count': 0}
@@ -448,12 +448,12 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         prompt = 'Resume this saved run after checking the existing Atlan connection.'
     all_released = bool(items) and counts['released'] == len(items) and not counts['held'] and not reader.issues
     if all_released and auth_status and auth_status != 'connected':
-        phase['label'] = 'Your definitions are saved in Atlan'
+        phase['label'] = 'Your metrics and queries are saved in Atlan Trident'
     if stage == 'ready' and not all_released:
         phase['label'] = 'Reviewing saved evidence'
     if (all_released and (not auth_status or auth_status == 'connected')
             and not (engine and engine['status'] == 'blocked')):
-        phase = {'code': 'ready', 'label': 'Your definitions are saved in Atlan', 'status': 'complete', 'source': 'release_receipts'}
+        phase = {'code': 'ready', 'label': 'Your metrics and queries are saved in Atlan Trident', 'status': 'complete', 'source': 'release_receipts'}
         next_text, prompt = 'Choose a question supported by these published definitions.', 'Show me questions supported by the definitions we just saved.'
     elif (stage == 'ready' and counts['released'] and counts['held']
           and all(i['status'] in ('released', 'held') for i in items)
@@ -543,12 +543,12 @@ def _code(value):
 
 def render_chat(model, detail=False):
     counts, sample = model['counts'], model['sample']
-    metrics = 'metric definition' if counts['metrics'] == 1 else 'metric definitions'
-    queries = 'saved query' if counts['queries'] == 1 else 'saved queries'
+    metrics = 'metric' if counts['metrics'] == 1 else 'metrics'
+    queries = 'query' if counts['queries'] == 1 else 'queries'
     lines = [model['phase']['label'] + '.',
-             f"{counts['metrics']} {metrics}, {counts['queries']} {queries}; {counts['released']} saved in Atlan."]
+             f"{counts['metrics']} {metrics}, {counts['queries']} {queries}; {counts['released']} saved in Atlan Trident."]
     if not model['items'] and counts['provisional']:
-        lines[1] = f"{counts['provisional']} provisional metric ideas; nothing saved in Atlan."
+        lines[1] = f"{counts['provisional']} provisional metric ideas; nothing saved in Atlan Trident."
     if model['scope']:
         source_label = 'source' if model['source_count'] == 1 else 'sources'
         lines.append(f"Scope: {model['source_count']} {source_label}" + (', pages: ' + _markdown(', '.join(model['selected_pages'][:3])) if model['selected_pages'] else '') + '.')
@@ -632,7 +632,7 @@ def _render_html_base(model):
             '</style><main>'
             + '<h1>' + esc(model['phase']['label']) + '</h1><small>Snapshot at ' + esc(model['snapshot_at'])
             + '. This view does not update itself. Ask in chat for a refreshed snapshot.</small><section class="summary" aria-label="Setup summary"><p>'
-            + f"{counts['metrics']} metric definitions · {counts['queries']} saved queries · {counts['released']} saved in Atlan · {counts['held']} need repair"
+            + f"{counts['metrics']} metrics · {counts['queries']} queries · {counts['released']} saved in Atlan Trident · {counts['held']} need repair"
             + '</p><p>Sources: ' + esc(scope) + '</p>'
             + ('<p>Selected pages: ' + esc(', '.join(model['selected_pages'])) + '</p>' if model['selected_pages'] else '')
             + '<p>' + esc(model['next_step']) + '</p></section>'

@@ -44,7 +44,7 @@ def apply(model, saved, explicit_focus=False):
         model['next_step'] = model['continuation']['label']
         model['next_prompt'] = 'Select the relevant saved metric for my business focus and purpose, then show its check status.'
     elif model['continuation']['action'] == 'explore-local':
-        model['phase'] = {**model['phase'], 'status': 'local', 'label': 'Your definitions are available locally'}
+        model['phase'] = {**model['phase'], 'status': 'local', 'label': 'Your metrics and queries are available locally'}
         model['next_step'] = 'Explore a supported question using local data, or inspect the remaining checks.'
         model['next_prompt'] = 'Show a supported question I can explore with this local dataset and its check limitations.'
     return model
@@ -86,8 +86,8 @@ def continuation(model):
         code, label, needs_input = {
             'inspect': ('inspect', 'Inspect the selected sources', False),
             'scope': ('scope', 'Confirm what to include', True),
-            'build': ('build', 'Continue building definitions', False),
-            'check': ('check', 'Check the definitions', False),
+            'build': ('build', 'Continue building metrics and queries', False),
+            'check': ('check', 'Check the metrics and queries', False),
             'show-preview': ('preview', 'Show the checked sample', False),
             'preview': ('destination', 'Choose where to save', True),
             'publish': ('publish', 'Continue the approved save plan', False),

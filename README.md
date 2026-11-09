@@ -80,7 +80,7 @@ covers each agent in detail.
 | Plugin | What it adds |
 |---|---|
 | [**AI Registry**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in the registry. Every other plugin here builds on it. |
-| [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your governed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
+| [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your managed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
 | [**Registry Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Registry reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, Shows each Atlan call as one readable line, lists what the session read and changed in a pane, follows a skill publish in a band above the prompt, and picks a skill to load with `/atlan skills`. Reports a broken connection on the status line. |
 
 ### AI Registry
@@ -147,7 +147,7 @@ These work in any host once you are signed in.
 | *"Publish the skill in this folder to Atlan."* | Bundles the folder, uploads it and creates a new version |
 | *"Sync this repository's skills to Atlan from GitHub."* | Sets up GitHub-to-Atlan sync for the repository |
 | *"Why did my last Atlan call fail?"* | Reads the error and the session record, and says what to fix |
-| *"What was revenue last quarter, by region, from our published metrics?"* | With Analytics: answers from a governed metric and names the definition it used |
+| *"What was revenue last quarter, by region, from our published metrics?"* | With Analytics: answers from a managed metric and names the definition it used |
 
 ## How it works
 

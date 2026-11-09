@@ -88,9 +88,9 @@ def chat(run, limit=5):
     queries = [c for c in items if c['kind'] == 'sql_query']
     selected = choose(metrics, limit)
     if not items:
-        return 'No metrics or saved queries are ready to preview. Author candidates from the surveyed sources first.\n'
+        return 'No metrics or queries are ready to preview. Author candidates from the surveyed sources first.\n'
     metrics_label = 'metric' if len(metrics) == 1 else 'metrics'
-    query_label = 'saved query' if len(queries) == 1 else 'saved queries'
+    query_label = 'query' if len(queries) == 1 else 'queries'
     lines = [f'Preview: {len(metrics)} {metrics_label} and {len(queries)} {query_label}.', '',
              'Local candidates are provisional until reconciled. Checks do not establish business certification or dashboard parity.', '']
     if selected:
@@ -125,7 +125,7 @@ def chat(run, limit=5):
 def markdown(run, limit=5, kind='metric'):
     items = [c for c in candidates(run) if c['kind'] == kind]
     selected = choose(items, limit)
-    label = 'metrics' if kind == 'metric' else 'saved queries'
+    label = 'metrics' if kind == 'metric' else 'queries'
     if not selected:
         return f'No {label} are ready to preview. Complete source inspection and author candidates, then preview again. No Registry writes were made.\n'
     lines = [f'Showing {len(selected)} of {len(items)} {label}. Local candidates are provisional until destination reconciliation.', '']

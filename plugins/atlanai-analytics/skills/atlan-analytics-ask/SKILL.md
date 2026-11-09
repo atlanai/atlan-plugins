@@ -3,7 +3,7 @@ name: atlan-analytics-ask
 description: Answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (atlan-analytics).
 ---
 
-# Answer a data question from governed context
+# Answer a data question from managed context
 
 Read [shared conventions](../atlan-analytics/references/conventions.md) first; its **Source of
 truth**, read-only SQL and safety rules apply. Answer here without creating a project,
@@ -124,7 +124,7 @@ Lead with the answer in one or two sentences: the number, its definition and win
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
 - **Source**: each metric or saved query used, by name, as a link to its page in Atlan
   Trident ([definition links](../atlan-analytics/references/definition-links.md)), never
-  a bare id; or **Not governed: no published metric covers this**, followed by the
+  a bare id; or **Not managed: no published metric covers this**, followed by the
   formula and filters you assumed;
 - **Caveats**: an unreviewed query, a partial window, an assumption about the question;
 - the SQL, only when the person asks to see it.

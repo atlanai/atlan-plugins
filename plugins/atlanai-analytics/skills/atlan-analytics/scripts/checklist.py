@@ -10,8 +10,8 @@ STOPPED = ('paused', 'canceled', 'waiting-for-user')
 STEPS = (
     ('sources', 'Read your sources', 'Reading your sources', False),
     ('intent', 'Choose focus and goal', 'Waiting for your focus and goal', True),
-    ('build', 'Write metric definitions', 'Writing metric definitions', False),
-    ('check', "Check each definition's SQL", 'Checking definitions', False),
+    ('build', 'Write metrics and queries', 'Writing metrics and queries', False),
+    ('check', 'Check each metric and query', 'Checking metrics and queries', False),
     ('review', 'Review and choose where to save', 'Waiting for your review', True),
     ('ready', 'Ready for questions', 'Preparing questions', False),
 )
@@ -74,14 +74,14 @@ def build(model):
                 active = phase['label']
         elif key == 'check':
             if total and (done[key] or at == 3):
-                content = 'Check ' + _plural(total, 'definition')
+                content = 'Check ' + _plural(total, 'metric or query', 'metrics and queries')
             if counted and at == 3:
-                active = f"Checking definition {progress['completed'] + 1} of {progress['total']}"
+                active = f"Checking {progress['completed'] + 1} of {progress['total']}"
         elif key == 'review':
             if local:
                 content = 'Review, kept local'
             elif counts['released']:
-                content = 'Save ' + _plural(counts['released'], 'definition') + ' to Atlan'
+                content = 'Save ' + _plural(counts['released'], 'metric or query', 'metrics and queries') + ' to Atlan Trident'
             if at == 5 and not done[key]:
                 active = 'Saving to Atlan'
                 needs_you = False
