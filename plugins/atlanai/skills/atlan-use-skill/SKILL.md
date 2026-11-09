@@ -1,6 +1,6 @@
 ---
 name: atlan-use-skill
-description: Use an Atlan registry skill here, install it, or check copies for updates. Use when the user asks to use, load, install, update or sync an Atlan skill or what changed in one, including 'Load the "…" skill from the Atlan skill registry' with its `skill_…` id, `/atlanai:use-skill` or standing instructions to check Atlan first. Not for publishing (atlan-author-skills).
+description: Use an Atlan registry skill here, install it, or check copies for updates. Use when asked to use, load, install, update or sync an Atlan skill, including 'Load the "…" skill from the Atlan skill registry' with its `skill_…` id.
 license: Apache-2.0
 user-invocable: false
 ---
