@@ -1,0 +1,75 @@
+schema_version: "1.1"
+name: ux-no-workspace-preserves-work
+tags: [analytics, setup, ux, workspace]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue this saved setup checkpoint. The existing Registry
+    connection succeeded, but registry__list_workspaces returned no active workspaces
+    accessible to this user. The core plugin is already installed. Do not retry tools or
+    execute commands in this test; the supplied read is the current evidence.
+
+    The run /workspace/.atlan-metrics/shipping-run has 3 local metric drafts and 2 saved
+    queries, with zero published items. One draft is Shipped units: total units on shipped
+    orders, SUM(s.units), status = 'shipped', source shipments model plus query history,
+    schema checked but SQL execution untested. The user has not asked for a new workspace.
+    We have finished the local work. What happens next?
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: existing-workspaces-only
+    type: llm
+    focus: last_message
+    criteria: |
+      Known checkpoint: Registry authentication succeeded, listing workspaces succeeded but
+      returned no active accessible workspace, and the core plugin is already installed.
+      The user has not requested a new workspace. PASS if the reply preserves local drafts,
+      names access to an existing workspace as the publishing requirement and permits keeping
+      the result local. FAIL if it proposes creating a workspace, guesses an ID, claims to
+      change identity or grants, diagnoses failed login, or asks to reinstall the plugin.
+  - name: visible-preserved-result
+    type: llm
+    focus: last_message
+    criteria: |
+      Saved run: /workspace/.atlan-metrics/shipping-run; 3 local metric drafts, 2 local saved
+      queries, zero published items. Example draft Shipped units means total units on shipped
+      orders, SUM(s.units), filter status = 'shipped', from the shipments model and query
+      history. Schema was checked earlier but SQL execution is untested. PASS if these counts
+      and one real draft appear in chat with calculation, population, source and untested
+      execution status, and the reply preserves continuing the saved run after access is fixed.
+      Naming the exact run path is optional; keeping the existing saved work is required.
+      FAIL on restarting extraction, silently discarding work or claiming Registry-backed
+      answers are already ready. The locally finished work is a valid result.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      The user asks what happens after local work finishes with no accessible workspace.
+      PASS if the reply gives a concise in-chat sample and one next action to gain access to
+      an existing workspace, while allowing Keep local. A preserved-run file link may accompany
+      but cannot replace the sample. FAIL on raw status footer, command wall, repeated plan
+      or generic closing offer. Describing the preserved local result is useful evidence.
+  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

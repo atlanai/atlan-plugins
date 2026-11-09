@@ -1,24 +1,30 @@
 ---
 name: atlan-analytics
-description: Set up talk-to-data from links, folders, BI exports and query history, publishing metrics and SQL to Atlan. Use when asked to set up or resume analytics, define a metric, or build an analytics agent. Not for data questions (atlan-analytics-ask).
+description: Prepare BI exports, models and query history for talk-to-data. Use when asked to set up or resume analytics, choose a workspace, define a metric, or build an analytics agent. Not for data questions (atlan-analytics-ask).
 ---
 
 # Analytics context and talk-to-data
 
-Keep progress updates and next-step explanations under 80 words unless a detailed procedure
-is requested. A next-step explanation is one paragraph about the requested action and its
-immediate checks. Use an inline option or command when useful; expand into command blocks,
-optional source formats or a full pipeline only when that detail was requested.
+Keep updates and intent questions under 80 words, including context and options. Only a
+completed setup handoff may use 160: counts, one metric's calculation/population/source/checks,
+then supported questions. Details may be longer. Do not list other metrics or
+repeat the pipeline.
+Attribute saved checks to the earlier run. After publication, answers retrieve definitions before SQL runs.
 
-Read [shared conventions](references/conventions.md) first. They define audit sessions,
+On fresh setup, your next assistant message is the opening, before reading references,
+surveying files or calling helpers. This includes survey-only requests. In 40 to 50 words,
+name the outcome, next step and controls: narrow scope, inspect details, keep local or pause.
+Honor existing choices. Survey-only requests stop after inspection. On resume, name the
+saved result and next step. Detail-only requests get only the requested evidence.
+
+Then read [shared conventions](references/conventions.md). They define audit sessions,
 task authorization, privacy and status reporting. Treat reads of the selected source,
 packaged-runtime initialization and generated-file reads as ordinary task steps. Once a
 publication destination is chosen for saving metrics, carry that authorization through the
 checked plan without an extra publish confirmation. Respect explicit draft/review requests.
 For new metric generation (metrics mode, or a setup run's Build stage), read
-[the metrics module](references/metrics-engine.md), also to explain it. A setup whose inputs
-are all local files, with no warehouse selected, instead uses the standard-library helper and
-SQLite ([build and check](references/setup/build-check.md)) and installs nothing. The module preserves the plug architecture and authored gates and hands artifacts to the
+[the metrics module](references/metrics-engine.md), also to explain it. A setup with only local
+files and no warehouse uses SQLite and installs nothing ([build and check](references/setup/build-check.md)). The module preserves the plug architecture and authored gates and hands artifacts to the
 existing publisher. Dispatch before mode-specific project conventions or preflight. A
 repository setup is not a full-agent build. Cloning a source repository the user asks to set
 up is a separate, supported task.
@@ -42,17 +48,21 @@ reply adds one line offering a separately deployed agent with an eval set (`buil
 and switches only when the person asks for it. A repository
 is an ordinary source input; its name and layout never select a special workflow.
 
-Survey before choosing inputs. Combine relevant declared models, dashboards, saved SQL and
-query history. Render actual metric names, meanings, calculations, sources and check status
-in chat before asking for a publication destination or proceeding to publish/reuse. Run
-`project.py preview --format chat` for the first five metrics and a saved SQL example.
-A helper result, counts, a file link or a generated HTML page alone does not show a preview.
-This visible checkpoint also applies on resume and when all definitions can be reused.
-Keep the metric table and saved SQL in the final answer too, including an authentication
-blocker. Commentary and linked files alone are not the final deliverable.
-Finish with released context in Atlan and supported questions in this conversation.
-The current harness plus the Atlan MCP connection is the talk-to-data interface. No agent package,
-registration, custom chat or eval is required. Reuse the selected run when resuming.
+Survey models, dashboards, SQL and query history. Explain the sources, business meaning and
+possible analyses inside the first question. Follow the [intent flow](references/setup/intent.md):
+business focus first, purpose second, using native choices and waiting for each missing answer.
+Even clear source scope needs this checkpoint. Then show one relevant metric with its meaning and
+honest check status before a destination question or publication/reuse. Use the read-only
+`project.py experience --format chat`, adding `--engine-dir <within-run-engine>` during
+engine work. `--detail` exposes that sample's SQL, source and checks. Show five or all only
+when requested. A helper result or file link is not a visible preview.
+This visible checkpoint applies on resume and reuse. In the final answer, one actual sample
+includes calculation, mandatory population/filter, source and check status, alongside factual
+published/local counts, including an access blocker. A plan-only request needs no preview.
+For team reuse, release context and suggest questions. For understanding alone, show the
+requested evidence and stop, without another question or publication pitch.
+Use this host and its Atlan MCP connection. Reuse the selected run; no new agent, custom chat
+or eval is required.
 If Registry tools are missing or sign-in is required, follow [connection recovery](references/auth-recovery.md)
 inside this task: diagnose the selected host connection, start the host's own sign-in, watch
 the real login task, verify a current-host Registry read and resume the saved stage.

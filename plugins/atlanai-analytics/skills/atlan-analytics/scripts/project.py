@@ -66,6 +66,27 @@ class Project(ContextState):
     def auth(self, request):
         return auth_recovery.advance(self, request)
 
+    def journey(self, action='status', focus=None, host=None, server=None, answer=None):
+        import journey
+        return journey.advance(self, action, focus, host=host, server=server, answer=answer)
+
+    def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None):
+        """Present existing evidence without advancing the engine or publication."""
+        import experience
+        model = experience.snapshot(self, engine_dir, focus=focus, host=host, server=server)
+        if format == 'json':
+            return model
+        chat = experience.render_chat(model, detail=detail)
+        if format == 'chat':
+            return chat
+        try:
+            self.write_text(self.root / 'experience.html', experience.render_html(model))
+        except (ValueError, OSError):
+            return {'status': 'text_fallback', 'chat': chat,
+                    'next': 'Show this metric in chat; the optional snapshot is unavailable.'}
+        return {'status': 'ok', 'snapshot': str(self.root / 'experience.html'), 'chat': chat,
+                'next': 'Show the chat summary. Open this snapshot only in an available, requested host surface.'}
+
     def archive_candidates(self):
         """Keep stale local work reviewable, but never present it as current scope."""
         folder = safe_path(self.root / 'previous-context' / uuid.uuid4().hex)
@@ -442,6 +463,20 @@ def main():
     preview.add_argument('--all', action='store_true')
     preview.add_argument('--format', choices=('markdown', 'html', 'chat'), default='markdown')
     preview.add_argument('--kind', choices=('metric', 'sql_query'), default='metric')
+    experience = sub.add_parser('experience')
+    experience.add_argument('--engine-dir', type=Path)
+    experience.add_argument('--format', choices=('chat', 'html', 'json'), default='chat')
+    experience.add_argument('--detail', action='store_true')
+    experience.add_argument('--focus', help='Exact saved metric identity to retain across refreshes')
+    experience.add_argument('--host', choices=('claude_code', 'codex'))
+    experience.add_argument('--server', help='Observed Atlan server identifier in that host')
+    import journey
+    conversation = sub.add_parser('journey')
+    conversation.add_argument('action', choices=journey.ACTIONS, nargs='?', default='status')
+    conversation.add_argument('--focus')
+    conversation.add_argument('--answer', help='User-supplied business area or purpose; never an unsubmitted suggestion')
+    conversation.add_argument('--host', choices=('claude_code', 'codex'))
+    conversation.add_argument('--server', help='Observed Atlan server identifier in that host')
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
@@ -457,6 +492,8 @@ def main():
             return 0
         if not args.run_dir:
             raise ProjectError('Select a run directory, or use location to choose a permitted one.')
+        if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
+            raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
         project = Project(args.run_dir)
         if args.command == 'survey': result = project.survey(args.folder)
         elif args.command == 'history': result = project.history()
@@ -464,6 +501,8 @@ def main():
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
+        elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
+        elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage
                       else project.read(project.root / 'progress.json'))
@@ -482,18 +521,23 @@ def main():
                     if result.get('snapshot'):
                         compact['snapshot'] = result['snapshot']
                     compact['next'] = 'Display actual samples in chat with preview --format chat; a file link alone is not a preview.'
+                elif args.command == 'experience':
+                    if result.get('snapshot'):
+                        compact['snapshot'] = result['snapshot']
+                    compact['chat'] = result.get('chat', '')
+                    compact['next'] = 'Display the concise experience summary in chat; retain details in this artifact.'
                 output = json.dumps(compact)
             print(output)
         return 0
     except KeyboardInterrupt:
-        if 'project' in locals():
+        if 'project' in locals() and args.command not in ('experience', 'journey'):
             path = project.root / 'progress.json'
             stage = project.read(path)['stage'] if path.exists() else 'inspect'
             progress.update(project, stage, 'canceled', 'resume')
         print(json.dumps({'status': 'canceled', 'next': 'Resume the same run; completed artifacts are retained.'}))
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
-        if 'project' in locals():
+        if 'project' in locals() and args.command not in ('experience', 'journey'):
             try:
                 path = project.root / 'progress.json'
                 if path.exists():

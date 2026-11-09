@@ -1,0 +1,59 @@
+schema_version: "1.1"
+name: ux-intent-domain
+tags: [analytics, setup, ux, intent]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue fresh setup from the completed lightweight inspection.
+    Read plugin instructions only in this checkpoint test; do not execute commands or contact services.
+    Inspection found a Power BI report, its model and query history about shipping operations,
+    plus sample shipment records, scheduled/actual delivery timestamps, warehouse capacity/occupancy
+    fields and shipping charges. All source pages are in scope. No numerical analysis has run.
+    The user has not yet selected a business focus or stated what they want to accomplish.
+    The host exposes no native question tool in this test, so use ordinary chat.
+    Show the next user-facing step before generating metrics.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: intent-sequence
+    type: llm
+    focus: last_message
+    criteria: |
+      Known evidence: inspection found a Power BI report, model and query history about shipping
+      operations, plus sample shipments, delivery timestamps, capacity/occupancy and charges.
+      No numerical analysis has run. Neither business focus nor purpose is known. PASS if the
+      reply names the source types, explains that this is shipping operations context and how
+      the sources could support analysis, before the question. Counts or a menu alone fail. It
+      and asks exactly the first business-focus question, with source-grounded options such as shipping
+      time/delays, capacity/utilization and costs, accepting free text. It must stop to wait for that
+      answer. FAIL if it asks the purpose at the same time, jumps directly to metric generation,
+      auto-selects shipping, substitutes a generic answer/check/publish menu, or claims UI buttons
+      that the test host does not expose, invents measured findings or implies production data.
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  # Count words deterministically; the intent grader checks content and relevance.
+  - name: plain-reply
+    type: regex
+    target: last_message
+    pattern: '^(?:\s*\S+){1,100}\s*$'

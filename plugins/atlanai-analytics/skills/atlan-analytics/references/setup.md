@@ -6,6 +6,8 @@ An input folder is ordinary customer context. Never depend on a particular repos
 sample schema or database name. Explicit agent and evaluation modes remain separate.
 
 `PROJECT` means `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>"`.
+It is command notation, not a shell string variable. Use separate argv entries or a shell
+function; zsh does not split a scalar containing an executable and its arguments.
 Python 3.10+ with its standard library is enough: CSV data is prepared into SQLite, which
 needs no package install. An existing `.duckdb` file still needs a runtime with DuckDB.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.
@@ -13,6 +15,27 @@ Missing Registry access follows [connection recovery](auth-recovery.md): inspect
 host, start the host's sign-in when required, watch its native task and resume after a
 successful Registry read. Continue independent local work while waiting; do not simply ask
 for "continue".
+
+## Orient before work
+
+In at most 60 words, explain the outcome, next action and controls. For example: "I'll turn
+these dashboards and query history into metrics you can question here. First I'll check the
+sources, ask what matters to you and what you want to accomplish, then show a sample. You can narrow the scope, inspect details, keep drafts local or
+pause." Continue authorized work without another go-ahead. On resume, state the saved result
+and next action instead of repeating the introduction.
+
+Read [native conversation and saved choices](setup/workbench.md) on starting or resuming.
+Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
+run waits for an explicit resume; details requests do not resume work.
+
+Explain what sources were found, what they reveal about the project's subject, and what
+they could help analyse. Keep that explanation in the first question's visible prompt; a
+count-only final reply or collapsed commentary is insufficient. Then establish [business focus and purpose](setup/intent.md)
+before authoring. Ask missing answers in two separate native question steps; retain answers
+already given. Technical source scope does not establish business intent.
+The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
+it does not require a destination or publication question. Render the question itself, without
+explaining the interview mechanics or showing helper commands.
 
 ## Read one stage file at a time
 
@@ -29,19 +52,21 @@ run whose candidates were never shown in chat starts at Preview.
 ## Preview first, in this reply
 
 **Visible preview is a required conversation step.** Before a destination question or
-publication/reuse, show actual candidates in an assistant message. Tool output, counts and
-an HTML link alone do not satisfy this step. This applies on resume and when everything
-already exists in Atlan. It is a presentation checkpoint, not another approval prompt.
+publication/reuse, show one real candidate with its meaning and honest check status in chat.
+Keep SQL, source and detailed checks available through details. Tool output, counts and a
+file link alone do not satisfy this step. This applies on resume and reuse, and adds no
+approval prompt. A plan-only request needs no generated preview.
 
-- When the conversation already holds the candidates (a pasted checkpoint, an earlier helper
-  result, a linked file you can read), render them now, in this same reply, before any
-  question: every supplied metric with its name, meaning, calculation, source and check
-  status, and each saved query's SQL verbatim, mandatory filters included. Do not ask whether
-  to show them and do not re-run anything to show them.
-- If the previous turn only linked a file, resume at Preview and render its content before
-  announcing Ready. Do not label the run complete while that visible step is still missing.
-- Repeat the table and SQL in the final answer of the run, whatever its outcome: hosts
-  collapse commentary, so the final answer must stand alone.
+- When candidates are already supplied or readable, show one in this reply before the next
+  destination question. Fresh intake establishes intent first; saved-preview and details requests
+  do not restart intake. Do not ask whether to show a sample or rerun generation. Expand to five/all only when
+  requested, preserving the supplied SQL, filters and evidence exactly in details.
+- If the previous turn only linked a file, resume at Preview and show one actual sample
+  before announcing Ready. The final answer keeps that sample and factual published/local/
+  held counts so it remains useful when commentary collapses.
+- Use `PROJECT experience --format chat` for the compact view. During engine work add
+  `--engine-dir <within-run-engine>`. `--detail` exposes that sample's SQL, source and checks.
+  This read-only view does not export, publish or change eligibility.
 
 On resume, reuse a readable run or candidate output already supplied in the conversation.
 If neither is available, ask only for the existing run directory. Do not search unrelated
@@ -51,8 +76,14 @@ file tool and show them directly. If the path is missing, name that one missing 
 
 ## Reply shape
 
-The preview table and saved SQL are the only part of a reply allowed past the 80-word limit.
-Around them: one line for what this turn did, one for the next step or the single question,
-then the status line. No headings, no stage-by-stage narration, no restated rules, no list of what was
-not done. When the candidates were reconciled, say in one sentence per changed count why
-(reused, kept local for validation, held), not the whole reconciliation.
+Keep the default reply under 80 words: the useful result, one sample when available, and
+one next action or question. Requested evidence or Show five/all may be longer. Use a natural
+ending, never a machine status token. Do not narrate every stage or repeat rules. Explain a
+material reconciled count change briefly, with detail available. A final handoff contains only
+factual counts, one sample with calculation, mandatory population/filter, source and check
+status, and two or three supported questions. Do not enumerate other metric names or append another next-step paragraph. Details-only requests end at their evidence;
+they are not completion handoffs and need no question suggestions or publication pitch.
+
+For the first useful reveal, optional visual inspection or question handoff, read
+[the workbench interaction](setup/workbench.md). Preserve the same metric identity through
+refreshes and keep chat useful when the optional surface is dismissed.

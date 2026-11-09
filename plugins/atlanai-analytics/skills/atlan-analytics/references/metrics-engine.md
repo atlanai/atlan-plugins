@@ -6,7 +6,10 @@ with no warehouse selected, does not use it: see [shared setup](setup.md) sectio
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<skill-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.
-Keep the runtime outside the installed plugin and outside an answering agent's workspace.
+Keep the runtime outside the installed plugin and any generated agent package. For local
+setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
+permitted cache. Never choose an OS/session scratch directory: the saved executor must remain
+usable after this chat ends. Reuse a compatible pinned runtime rather than reinstalling it.
 The module source lives under `modules/metrics/engine/`. This plugin owns its source changes and tests. Runtime identity hashes the current source.
 
 This procedure requires the complete Analytics plugin, including its `modules/` folder. A
@@ -104,6 +107,8 @@ Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode
 It runs the maintained configuration and plug checks, without the terminal interview.
 Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
+For a setup project, save its within-run engine directory as `engine_run` in `run.json`.
+The native journey then retains the provisional sample on resume without another path prompt.
 
 ### Native sign-in
 
@@ -154,6 +159,15 @@ Run `ENGINE advance --run <engine-dir> --model <actual-model-id>`.
   consistency, access or configuration issue. Never synthesize a success or skip a gate.
 
 `ENGINE status --run <engine-dir>` reports the saved result without re-running anything.
+After an engine gate or phase transition, use the setup helper's `PROJECT experience --format
+chat --engine-dir <within-run-engine>` to surface factual progress and the first provisional
+sample. It reads the engine manifest and available evidence without exporting or publishing.
+For `PROJECT`, use the absolute selected-run engine directory or the literal `engine`;
+relative paths resolve from the selected run, unlike `ENGINE --run` paths. A legacy engine
+outside that run is not readable by this view; use its engine status and retain chat output.
+Show one sample by default; `--detail` adds that sample's SQL, source and checks. Never claim
+provisional evidence is checked/released, invent progress percentages, or wait until export
+to show useful work. Keep authored gate instructions and raw logs out of the user narrative.
 Re-running advance resumes the engine; changing the configuration requires a reviewed new run.
 An existing runtime/project stays pinned, rather than silently adopting a newer engine.
 
@@ -164,6 +178,14 @@ assistant's authored work. Keep eval answers and gold outside all metric-generat
 ## 4. Export, then use the unchanged publisher
 
 Run `ENGINE export --run <engine-dir> --context <context-dir>` only after completion.
+For a setup run, use a fresh `<run-dir>/engine-export/`: survey/history already put files in
+`context/`, and the exporter correctly refuses an unrelated nonempty destination. After a
+successful export, copy its five files (`metrics.json`, `queries.json`, `links.json`,
+`metrics-source.json`, `publication-holds.json`) unchanged into the run's `context/` only
+when it has no existing candidate or publication state. Preserve survey/history files.
+On resume, reuse the existing export and checked context; never overwrite reconciled or
+published definitions. An intentional regeneration follows the existing scope invalidation
+procedure before installing its new bundle.
 It revalidates the core artifacts, checks the completion hashes and output privacy boundary,
 then projects `metrics.json`, `queries.json` and `links.json`. It preserves source identities,
 formulas, source SQL, filters, joins, dimensions, parameters and evidence. It neither rewrites

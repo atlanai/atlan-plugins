@@ -18,6 +18,27 @@ discover them through the host's tool inventory. If available, make one small re
 existing session, or the original task objective on the first call. A successful read proves
 this host can reach Registry; it does not grant publication or workspace write permission.
 
+When that read succeeds without a sign-in flow, record the actual observation directly:
+
+```json
+{"operation":"record_read","host":"codex","server":"atlan","read_tool":"registry__list_workspaces","read_succeeded":true}
+```
+
+Both host and server must name the connection just read. This appends a timestamped,
+host/server-scoped observation to `registry-readiness.json`; it leaves `auth-recovery.json`
+unchanged. Do not invent a failed connection, `begin` or login event to record an already
+working connection. A Codex read does not authenticate Claude or finish Claude's pending
+sign-in. The helper reports any preserved recovery and task ownership separately. Recording
+an independent read does not authorize switching or abandoning an owned sign-in task;
+complete or cancel that task through its owning host before changing the recovery connection.
+For the same connection's active owned task, the result asks to resolve that task first.
+
+Presentation may use this evidence only with explicit current host/server selection. Without
+that selection, retain the existing recovery state. An older successful read must not override
+a newer matching recovery observation; recovery writes carry `updated_at` as well as the
+attempt's `started_at`. A matching active owned task still needs resolution. These records
+are host-reported observations, not network checks performed by the helper or write grants.
+
 With shell access, inspect only the named plugin/connection using the client's supported
 list/get commands. Summarize enabled state and authentication status, never headers, tokens,
 environment values or credential files. Check CLI help before using a version-specific command.
@@ -94,7 +115,9 @@ On cancellation, failure or the ten-minute deadline, stop watching and cancel on
 owned login task if it is still running. Record `canceled`/`failed`; polling records expiry
 as `timed_out`. Give the relevant fallback below and the exact saved run directory. Do not
 restart OAuth indefinitely. A stale event from an older attempt cannot resume this run.
-Explicitly tell the user that the candidates and publication stage remain saved unchanged.
+Tell the user once that candidates and the pending stage are saved, then name the one missing
+action. After three failed attempts at the same step, stop that step; do not describe or start
+another attempt. Avoid a procedural recap when a short saved-state update answers the request.
 If a resumed `begin` returns `timed_out`, clean up its returned owned task before beginning
 another attempt. A permission-denied result also ends the owned watch without another login.
 
@@ -149,11 +172,13 @@ do not install it automatically as an authentication workaround.
 
 ## 4. Keep the metrics in the final answer
 
-If access is still unavailable, run `PROJECT preview --limit 5 --format chat` and include
-the actual metric table and saved SQL in the **final assistant answer**, followed by the
-one missing action, relevant installation/sign-in instructions and the saved-run resume step.
-Repeat the preview even if it appeared in commentary; hosts collapse progress messages.
-A file link can supplement this content but cannot replace it. Distinguish local checked
+If access is still unavailable, run `PROJECT experience --format chat` and include one real
+sample with its check status and factual local/published counts in the final answer. Add the
+one missing action, relevant host-specific installation/sign-in instructions and the saved-run
+resume step. Details expose SQL, source and checks without dumping them by default. Repeat
+the sample even if it appeared in commentary; progress may collapse. A file link supplements
+it. Say "Your drafts are saved; sign in to publish" rather than a machine status token. If
+no candidate exists, say so instead of fabricating one. Distinguish local checked
 candidates from released Atlan context; do not offer retrieval-backed answers until verified.
 When the preview comes from a saved/supplied checkpoint, label check results as prior-run
 evidence and state whether any SQL was executed in this turn. Do not imply a fresh check.
