@@ -8,7 +8,7 @@ license: Apache-2.0
 
 Read the error before acting, and key on its `code` (in the result's JSON, or in a JSON-RPC
 error's `data`) rather than its wording, which can change. Most refusals say exactly what to change, and repeating a
-write to see whether it works again is how duplicates get made. Reply with the one step that
+write to test it is how duplicates get made. Reply with the one step that
 fixes it, without apology.
 
 ## Connection and sign-in
@@ -62,5 +62,5 @@ A refused or incomplete create, update, relate, upload or file read (a `400`, `4
 | A search names the server under `unavailable` (`"reason": "disabled"`) | It is registered but disabled, so its tools cannot be found or called. Tell the user an admin can enable it in Atlan's MCP servers, and do not use another product's tool in its place. |
 | A server's tools never appear | It is disabled (`is_enabled: false`), `unreachable`, or quarantined after repeated failures. An editor of the server can test and re-enable it in the Atlan dashboard's MCP studio. |
 
-When none of these fit, report the tool name, the arguments you sent (without credentials or
-upload URLs), and the exact error text to the user.
+When none of these fit, report the tool, the arguments sent (no credentials or upload
+URLs) and the exact error. Then offer feedback once (`references/feedback.md`).
