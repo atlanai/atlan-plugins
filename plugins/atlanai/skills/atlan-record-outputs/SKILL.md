@@ -32,5 +32,5 @@ same source key publishes the next version, and unchanged text writes no new fil
 there is nothing to look up first. When it answers `output: null` with `output_error`, the
 file was saved: fix what the error names and send the same call again. When the gateway answers
 that the tool does not exist, follow [the older route](references/record.md#when-publish_output-is-not-served).
-A refusal that names no field ("The request is not valid.", or a bare `409` on a new version)
-wrote nothing: follow [refused with no field](references/record.md#refused-with-no-field).
+Send no `idempotency_key` to it, and `file.media_type` only on the first version. A refusal that
+names no field ("The request is not valid.", or a bare `409` on a new version) wrote nothing: follow [refused with no field](references/record.md#refused-with-no-field).

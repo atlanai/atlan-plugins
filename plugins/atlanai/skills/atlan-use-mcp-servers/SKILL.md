@@ -89,8 +89,9 @@ mcp__call_write_tool {
 }
 ```
 
-`mcp__connect_server` is not listed as a tool of its own. It stores a credential, so it runs
-through `mcp__call_write_tool` (or `mcp__call_tool`), never the read runner.
+When your tool lists `mcp__connect_server` by name (newer gateways, on a connection that can
+write), call it directly with `server`, `session_id` and `rationale`. Otherwise it runs through
+`mcp__call_write_tool` (or `mcp__call_tool`) as above, never the read runner: it stores a credential.
 The user is shown a sign-in link, and the call waits for them. `connected` means search again
 with `servers` set to it. `no_account` means the server needs no sign-in. If your tool cannot
 show the link, the call fails naming the account: ask the user to connect it in the Atlan
