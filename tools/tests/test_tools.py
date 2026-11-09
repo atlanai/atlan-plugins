@@ -5,8 +5,10 @@ from __future__ import annotations
 import contextlib
 import copy
 import hashlib
+import importlib.util
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -14,6 +16,7 @@ import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -843,8 +846,10 @@ class PublishHookTest(unittest.TestCase):
 
     def run_hook(self, entry: str, host: str, event: dict | str) -> dict | None:
         stdin = event if isinstance(event, str) else json.dumps(event)
+        # No update check: the notice has its own test, and these must not reach the network.
+        env = {**os.environ, "ATLAN_PLUGIN_UPDATE_CHECK": "0"}
         done = subprocess.run([sys.executable, "-I", str(self.SCRIPT), entry, "--host", host], input=stdin,
-                              capture_output=True, text=True, timeout=60, check=False)
+                              capture_output=True, text=True, timeout=60, check=False, env=env)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(done.stderr, "")
         return json.loads(done.stdout) if done.stdout else None
@@ -963,6 +968,35 @@ class PublishHookTest(unittest.TestCase):
         publish = (CORE / "skills" / "atlan-author-skills" / "references" / "publish.md").read_text(encoding="utf-8")
         # publish.md wraps its prose, so compare with its line breaks folded to spaces.
         self.assertIn(line, " ".join(publish.split()))
+
+    def test_session_start_says_how_to_update_when_main_is_ahead(self) -> None:
+        spec = importlib.util.spec_from_file_location("atlan_publish_hook", self.SCRIPT)
+        hook = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hook)
+        installed = json.loads((CORE / "plugin.json").read_text(encoding="utf-8"))["version"]
+        major, minor, _ = (int(part) for part in installed.split("."))
+        later = f"{major}.{minor + 1}.0"
+        fetched: list[str] = []
+
+        def main_at(version: str):
+            def fetch(url: str) -> str:
+                fetched.append(url)
+                return json.dumps({"name": "atlanai", "version": version})
+            return fetch
+
+        with mock.patch.dict(os.environ, {"ATLAN_PLUGIN_UPDATE_CHECK": ""}):
+            notice = hook.update_notice("codex", main_at(later))
+            self.assertIn(f"is at {installed} and {later} is released", notice)
+            self.assertIn("codex plugin marketplace upgrade atlan", notice)
+            self.assertIn("Cursor's plugin settings", hook.update_notice("cursor", main_at(later)))
+            for version in (installed, "0.0.1", "next", None):
+                self.assertIsNone(hook.update_notice("codex", main_at(version)), version)
+            self.assertIsNone(hook.update_notice("codex", lambda url: "<html>404</html>"))
+            self.assertEqual(fetched[0], build.latest_manifest_url(build.load()))
+        with mock.patch.dict(os.environ, {"ATLAN_PLUGIN_UPDATE_CHECK": "0"}):
+            fetched.clear()
+            self.assertIsNone(hook.update_notice("codex", main_at(later)))
+            self.assertEqual(fetched, [])
 
     def test_post_names_the_resend_or_the_read_back_after_a_lost_reply_and_the_findings_after_a_block(self) -> None:
         base = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
