@@ -45,6 +45,15 @@ class LiveView(unittest.TestCase):
         self.assertIn('Copy pause request',page)
         self.assertIn('connect-src',page)
 
+    def test_progress_does_not_mark_review_or_save_as_ready(self):
+        model=experience.snapshot(self.run)
+        for phase in ('build','check','preview','publish'):
+            for status in ('running','paused','local'):
+                model['phase'].update(code=phase,status=status)
+                self.assertIn('<span aria-current="step">Prepare</span>',view.render(model))
+        model['phase']['code']='ready'
+        self.assertIn('<span aria-current="step">Use</span>',view.render(model))
+
     def test_server_only_exposes_view_and_updates_saved_state(self):
         view.prepare(self.run,experience.snapshot(self.run),self.overview)
         before={str(p.relative_to(self.run.root)):p.read_bytes() for p in self.run.root.rglob('*') if p.is_file()}

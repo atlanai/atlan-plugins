@@ -1,6 +1,6 @@
 # Analytics UI implementation
 
-Updated 9 November 2026 for Analytics 0.6.14 and Analytics View 0.1.2. Setup now opens an
+Updated 9 November 2026 for Analytics 0.6.15 and Analytics View 0.1.2. Setup now opens an
 actual host view after inspecting the sources, before the business-focus question. It
 explains the material and possible analyses, asks the business focus and intended outcome
 separately, then retains one metric while its checks and progress change.
@@ -60,7 +60,7 @@ Analytics add-on remains hookless. All manifests are generated from plugin.toml.
 
 ## Validation and installation
 
-- `make check`: 405 tests, 21 optional skips, and 171 helper self-checks pass.
+- `make check`: 406 tests, 21 optional skips, and 171 helper self-checks pass.
 - Native mod tests: five pass, covering payload bounds, actual rendering, dismissal,
   same-pane updates, unplaced fallback, evidence expansion and editable prompt actions.
 - Fresh installed-skill setup in Claude Desktop inspected synthetic Power BI model/history
@@ -73,7 +73,7 @@ Analytics add-on remains hookless. All manifests are generated from plugin.toml.
 - Strict marketplace, Analytics manifest/skills and companion validation pass. Full
   `make validate` remains incompatible with this installed CLI's `--profile directory` flag;
   it is not counted as passed.
-- Analytics 0.6.14 is installed in Claude Code and Codex; Analytics View 0.1.2 is installed
+- Analytics 0.6.15 is installed in Claude Code and Codex; Analytics View 0.1.2 is installed
   in Claude Code. Runtime files match the repository source byte for byte. Start a fresh
   session to load the new versions. Existing sessions may retain the previous skill.
 
