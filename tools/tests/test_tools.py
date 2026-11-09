@@ -216,13 +216,28 @@ class AddonTest(unittest.TestCase):
 
     def test_each_addon_depends_on_the_core_and_declares_no_mcp_server(self) -> None:
         claude = self.documents[f"{self.base}/.claude-plugin/plugin.json"]
-        self.assertEqual(claude["dependencies"], [self.source["plugin"]["name"]])
+        self.assertEqual(claude["dependencies"], [self.source["plugin"]["name"], *self.addon.get("claude_companions", [])])
         for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
             document = self.documents[f"{self.base}/{path}"]
             self.assertEqual((document["name"], document["version"]), (self.addon["name"], self.addon["version"]), path)
             self.assertNotIn("mcpServers", document, path)
         self.assertNotIn(f"{self.base}/.mcp.json", self.documents)
         self.assertNotIn(f"{self.base}/mcp.json", self.documents)
+
+    def test_analytics_includes_the_native_view_only_on_claude(self) -> None:
+        claude = self.documents[f"{self.base}/.claude-plugin/plugin.json"]
+        self.assertIn("atlanai-analytics-view", claude["dependencies"])
+        for path in ("plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
+            self.assertNotIn("dependencies", self.documents[f"{self.base}/{path}"])
+            self.assertNotIn("atlanai-analytics-view", json.dumps(self.documents[f"{self.base}/{path}"]))
+        self.assertIn("native Analytics view automatically", build.addon_readme(self.source, self.addon))
+
+    def test_companions_must_be_unique_declared_mods(self) -> None:
+        for companions in (["unknown-view"], ["atlanai-analytics"], ["atlanai-analytics-view"] * 2, "atlanai-analytics-view", [None]):
+            broken = copy.deepcopy(self.source)
+            broken["addons"][0]["claude_companions"] = companions
+            with self.subTest(companions=companions), self.assertRaises(SystemExit):
+                build.validate(broken)
 
     def test_its_agent_plugins_manifest_keeps_to_the_closed_schema(self) -> None:
         allowed = {"$schema", "name", "version", "description", "author", "homepage", "repository", "license", "keywords", "extensions"}

@@ -3003,7 +3003,7 @@ def parse(path: pathlib.Path, report_index: dict | None = None,
 #   a directory      a crawler/Fabric extract: definition/model.tmdl  -> readers.powerbi
 #   .pbix            the binary, VertiPaq metadata only               -> readers.pbix
 #   .bim / .tmsl     Analysis Services Tabular, JSON                  -> readers.tabular
-_FORM_BY_SUFFIX = {".pbix": "pbix", ".bim": "tabular", ".tmsl": "tabular"}
+_FORM_BY_SUFFIX = {".pbix": "pbix", ".pbit": "pbit", ".bim": "tabular", ".tmsl": "tabular"}
 
 
 class PowerBIReader(FormulaCompiler):
@@ -3015,7 +3015,7 @@ class PowerBIReader(FormulaCompiler):
     # The formula languages it writes; its formulas compile through `FormulaCompiler`.
     languages = ("dax", "m-query")
     # `.tmdl` and `.json` are the files a model directory and its reports are made of.
-    suffixes = (".pbix", ".bim", ".tmsl", ".tmdl", ".json")
+    suffixes = (".pbix", ".pbit", ".bim", ".tmsl", ".tmdl", ".json")
 
     def detect(self, path: pathlib.Path) -> bool:
         if path.is_dir():
@@ -3031,14 +3031,9 @@ class PowerBIReader(FormulaCompiler):
             return found
         from metrics_agent.sockets import ReaderRefused  # noqa: PLC0415
 
-        if path.suffix.lower() == ".pbit":
-            raise ReaderRefused(
-                f"{path.name} is a Power BI TEMPLATE (.pbit), which is not supported.\n"
-                "  Open it in Power BI Desktop and save it as a .pbix, or export its semantic "
-                "model as TMDL or a .bim, and pass that.")
         raise ReaderRefused(
             f"the powerbi reader does not know how to read {path.name}.\n"
-            "  Supported: a semantic-model DIRECTORY (definition/model.tmdl), a .pbix, or a "
+            "  Supported: a semantic-model DIRECTORY (definition/model.tmdl), a .pbix, .pbit, or a "
             ".bim/.tmsl.\n"
             "  A crawler extract ROOT is not one of them — inventory it and pass one model:\n"
             "    python3 scripts/s_extract_inventory.py --extract <root> --out inventory.json")
@@ -3052,6 +3047,9 @@ class PowerBIReader(FormulaCompiler):
         opts = {k: v for k, v in opts.items() if k == "report_index"}
         kind = self.form(path)
         with _mquery.run_dialect(dialect):
+            if kind == "pbit":
+                from metrics_agent.plugs.readers import pbit  # noqa: PLC0415
+                return pbit.parse(path, **opts)
             if kind == "pbix":
                 from metrics_agent.plugs.readers import pbix  # noqa: PLC0415 - imports this module
                 return pbix.parse(path, **opts)

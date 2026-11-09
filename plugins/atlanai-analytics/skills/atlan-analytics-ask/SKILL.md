@@ -1,14 +1,13 @@
 ---
 name: atlan-analytics-ask
-description: Answer data questions in this chat from published Atlan metrics and saved SQL, including a prepared local project and DuckDB. Use for totals, rates, trends, breakdowns and follow-ups after setup. Not for setup or metric authoring (atlan-analytics).
+description: Answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (atlan-analytics).
 ---
 
 # Answer a data question from governed context
 
 Read [shared conventions](../atlan-analytics/references/conventions.md) first; its **Source of
-truth**, read-only SQL and safety rules apply. This skill answers in this conversation. It
-creates no project, eval, agent or registry write, and needs no subagents, so it works in any
-harness.
+truth**, read-only SQL and safety rules apply. Answer here without creating a project,
+eval, agent or registry write. No subagents are needed.
 
 If a setup run was selected, follow [setup retrieval](../atlan-analytics/references/retrieval.md)
 and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
@@ -102,6 +101,8 @@ scope and state this limitation once; never call the result dashboard-validated 
 the report cutoff as the current warehouse cutoff. A recorded failed check needs correction.
 
 ## 4. Query and check
+
+Apply [explanation checks](../atlan-analytics/references/answer-checks.md) to numerical claims.
 
 1. Write one SELECT or WITH statement that keeps the definition's formula, population, mandatory
    filters and grain, adding only the filters the question needs. Check column names against

@@ -94,7 +94,7 @@ def _sql(value, label='SQL'):
     return value, ''
 
 
-def _provenance(definition):
+def _provenance(definition, query_names=None):
     ext = _dict(definition.get('extensions'))
     analytics = _dict(ext.get('atlan_analytics'))
     declared = _dict(analytics.get('declared'))
@@ -107,9 +107,13 @@ def _provenance(definition):
     engine = _dict(ext.get('metrics_agent'))
     refs = engine.get('derived_from') or _dict(engine.get('card')).get('derived_from')
     if isinstance(refs, list) and refs:
-        result.append('Engine source queries: ' + ', '.join(_text(v, 100) for v in refs[:5]))
+        names = list(dict.fromkeys((query_names or {}).get(str(v), '') for v in refs))
+        names = [n for n in names if n]
+        result.append('Supporting queries: ' + '; '.join(names[:5]) if names else
+                      f'Source queries: {len(refs)} supporting statements; ask for their saved evidence')
     if isinstance(engine.get('vq_id'), str):
-        result.append('Engine query: ' + _text(engine['vq_id'], 100))
+        name = (query_names or {}).get(engine['vq_id']) or _text(definition.get('question'), 180)
+        result.append('Saved query: ' + name if name else 'Saved query with source evidence')
     return result or ['Source evidence not recorded in this preview']
 
 
@@ -149,6 +153,7 @@ def _holds(reader):
 
 def _context_items(reader, state):
     checks = _dict(reader.read('context/candidate-checks.json', {}))
+    coverage = _rows(_dict(reader.read('context/plan.json', {})).get('coverage', []))
     publication = _dict(state.get('publication'))
     receipts = {}
     for row in _rows(publication.get('artifacts', [])):
@@ -157,7 +162,14 @@ def _context_items(reader, state):
     holds, hold_evidence_valid = _holds(reader)
     held_names = {(r['kind'], r['name']) for r in holds}
     held_ids = {(r['kind'], r['source_id']) for r in holds}
-    items, seen = [], set()
+    items, seen, query_names = [], set(), {}
+    for query in _rows(reader.read('context/queries.json', [])):
+        definition = _dict(query.get('definition'))
+        producer = _dict(_dict(definition.get('extensions')).get('metrics_agent'))
+        label = _text(query.get('display_name') or definition.get('question') or query.get('name'), 180)
+        for key in (producer.get('vq_id'), query.get('source_id'), query.get('name')):
+            if isinstance(key, str) and label:
+                query_names[key] = label
     for kind, file in (('metric', 'metrics.json'), ('sql_query', 'queries.json')):
         for body in _rows(reader.read('context/' + file, [])):
             definition = body.get('definition')
@@ -171,6 +183,10 @@ def _context_items(reader, state):
             if check.get('definition_hash') == revision and isinstance(check.get('status'), str) and check['status'] in LABELS:
                 # A local check is not a publication receipt.
                 status = check['status'] if check['status'] != 'released' else 'draft'
+            execution = status if status in ('executed', 'example_executed') else 'not_recorded'
+            review = definition.get('review_status', 'not_recorded')
+            if review not in ('verified', 'reviewed', 'needs_review', 'unreviewed', 'rejected'):
+                review = 'not_recorded'
             if (publication.get('workspace_id') and not state.get('context_changed')
                     and (kind, name, revision) in receipts):
                 status = 'released'
@@ -186,15 +202,33 @@ def _context_items(reader, state):
                     sql = examples[0].get('sql')
             calculation, calculation_note = _sql(definition.get('formula') or definition.get('sql'), 'Calculation')
             sql, sql_note = _sql(sql)
+            review_label = {'verified': 'Source review recorded', 'reviewed': 'Source review recorded', 'needs_review': 'Source review required',
+                            'unreviewed': 'Source review pending', 'rejected': 'Source review rejected',
+                            'not_recorded': 'Source review not recorded'}[review]
+            evidence_notes = ['Execution: ' + (LABELS[execution] if execution != 'not_recorded' else 'not recorded for this revision'),
+                              'Review: ' + review_label, 'Dashboard value parity: unmeasured',
+                              'Publication: ' + ('saved in Atlan' if status == 'released' else 'held' if status == 'held' else 'local')]
+            selection_hash = digest({key: body.get(key) for key in
+                                     ('name', 'display_name', 'description', 'source_id', 'definition')})
+            reuse = next((_dict(row.get('comparison')) for row in coverage
+                          if row.get('kind') == kind and row.get('selected_hash') == selection_hash), {})
+            if reuse:
+                evidence_notes += ['Reuse ' + label + ': ' + _text(reuse.get(key), 600)
+                                   for key, label in (('population', 'population'), ('dimensions', 'coverage'),
+                                                      ('parameters', 'parameters'), ('limitations', 'limitations'))
+                                   if reuse.get(key)]
             items.append({'id': kind + ':' + name, 'kind': kind, 'source_id': _text(body.get('source_id'), 500),
                           'name': _text(body.get('display_name'), 200) or name,
                           'meaning': _text(body.get('description') or definition.get('question')),
                           'population': _population(definition),
                           'calculation': calculation, 'sql': sql, 'sql_label': 'Saved SQL example',
-                          'detail_notes': [n for n in (calculation_note, sql_note) if n],
-                          'status': status, 'status_label': LABELS[status],
-                          'provenance': _provenance(definition), 'definition_hash': revision,
-                          'evidence_file': 'context/' + file})
+                          'detail_notes': evidence_notes + [n for n in (calculation_note, sql_note) if n],
+                          'status': status, 'status_label': LABELS[status] + ('; ' + review_label.lower()
+                              if kind == 'sql_query' and review not in ('verified', 'reviewed') else ''),
+                          'checks': {'execution': execution, 'review': review, 'parity': 'unmeasured',
+                                     'publication': 'released' if status == 'released' else 'held' if status == 'held' else 'local'},
+                          'provenance': _provenance(definition, query_names), 'definition_hash': revision,
+                          'reuse': reuse, 'evidence_file': 'context/' + file})
     return items, holds
 
 
@@ -309,6 +343,7 @@ def host_scope(host, server):
 
 def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     """Project evidence into a view, without creating files, reading logs or following source paths."""
+    explicit_focus = focus is not None
     reader = _Reader(run if isinstance(run, (str, Path)) else getattr(run, 'root', run))
     state = _dict(reader.read('run.json', {}))
     saved = _dict(reader.read('progress.json', {}))
@@ -355,7 +390,8 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         else:
             engine = _engine(reader, directory)
         if engine and stage in ('inspect', 'scope', 'build') and engine['checkpoint']:
-            phase = {'code': 'build', 'label': engine['label'], 'status': engine['status'], 'source': 'engine',
+            phase = {'code': 'build', 'label': engine['label'],
+                     'status': 'working' if engine['status'] == 'paused' else engine['status'], 'source': 'engine',
                      'checkpoint': engine['checkpoint'], 'completed_checkpoints': engine['completed_checkpoints']}
     counts = {'metrics': sum(i['kind'] == 'metric' for i in items), 'queries': sum(i['kind'] == 'sql_query' for i in items),
               'draft': sum(i['status'] == 'draft' for i in items),
@@ -364,6 +400,9 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
                           | {(i['kind'], i['source_id'] or i['id'].split(':', 1)[1]) for i in items if i['status'] == 'held'}),
               'released': sum(i['status'] == 'released' for i in items),
               'provisional': engine['provisional_count'] if engine else 0}
+    counts.update(executed=sum(i['checks']['execution'] in ('executed', 'example_executed') for i in items),
+                  review_required=sum(i['kind'] == 'sql_query' and i['checks']['review'] not in ('verified', 'reviewed') for i in items),
+                  source_reviewed=sum(i['checks']['review'] in ('verified', 'reviewed') for i in items))
     sample = next((i for i in items if i['kind'] == 'metric' and i['status'] != 'held'), None)
     sample = sample or (items[0] if items else None) or (engine['sample'] if engine else None)
     sources = _rows(state.get('sources', []))
@@ -391,7 +430,12 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
                            'plugin_missing', 'disabled', 'permission_denied', 'connection_error', 'reload_required',
                            'failed', 'timed_out', 'canceled', 'unverified'):
         auth_status = None
-    if auth_status and auth_status != 'connected':
+    local_work_available = (stage in ('build', 'check')
+                            and _dict(state.get('execution')).get('kind') in ('sqlite', 'duckdb')
+                            and _dict(state.get('execution')).get('read_only') is True
+                            and (not items or counts['released'] < len(items)))
+    if (auth_status and auth_status != 'connected' and not local_work_available
+            and interaction.get('mode') != 'local'):
         phase['status'] = 'access_needed'
         next_text = {'waiting_auth': ('Finish sign-in in the opened browser. The saved run is preserved.' if auth.get('browser_opened') is True
                                       else 'Sign-in is pending. Open the sign-in page issued by the client.'),
@@ -434,6 +478,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
             'selected_pages': selection, 'counts': counts,
             'sample': sample, 'items': items, 'items_truncated': len(items) > 100,
             'engine': engine, 'auth_status': auth_status if isinstance(auth_status, str) else None,
+            'local_work_available': local_work_available,
             'intent_checkpoint': stage == 'scope' or (stage == 'inspect' and saved.get('status') in
                                   ('complete', 'complete-with-held-items', 'waiting-for-user')),
             'auth_host': auth.get('host') if auth.get('host') in ('claude_code', 'codex') else None,
@@ -442,9 +487,45 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
             'remote_writes': False, 'verification': 'saved_evidence_only', 'holds': holds}
     from experience_workbench import focus_sample
     from journey import apply
-    model = apply(focus_sample(model, focus), interaction)
+    model = apply(focus_sample(model, focus), interaction, explicit_focus=explicit_focus)
+    model['handoff'] = handoff(model)
     model['items'] = model['items'][:100]
     return model
+
+
+def handoff(model):
+    """Describe usable scope, outstanding evidence and the next action independently."""
+    counts = model['counts']
+    total = counts['metrics'] + counts['queries']
+    local = total - counts['released']
+    if counts['released']:
+        usable = f"{counts['released']} definitions have matching release receipts in Atlan."
+        if local:
+            usable += f" {local} remain local."
+    elif total:
+        usable = f"{total} definitions are available locally; nothing from this run is shared."
+    else:
+        usable = 'Source work is saved; no completed definition is available yet.'
+    if counts['executed']:
+        usable += f" {counts['executed']} have recorded execution checks."
+    attention = []
+    if counts['held']:
+        attention.append(f"{counts['held']} items need repair before publication.")
+    if counts['review_required']:
+        attention.append(f"{counts['review_required']} queries need source review.")
+    if total and not counts['executed']:
+        attention.append('No execution check is recorded for the current definitions.')
+    if total:
+        attention.append('Independent dashboard value parity is unmeasured.')
+    reuse = [i for i in model['items'] if i.get('reuse')]
+    if reuse:
+        attention.append(f"{len(reuse)} reused definitions have scope notes; inspect their coverage before using additional breakdowns.")
+    if model.get('auth_status') and model['auth_status'] != 'connected' and model['interaction']['mode'] != 'local':
+        attention.append('Atlan access still needs attention in this host.' +
+                         (' Local preparation can continue.' if model.get('local_work_available') else ''))
+    attention += model['warnings']
+    return {'usable_now': usable, 'attention': attention, 'next_step': model['next_step'],
+            'released': counts['released'], 'local': local, 'coverage_notes': len(reuse)}
 
 
 def _markdown(value):
@@ -470,6 +551,10 @@ def render_chat(model, detail=False):
         lines.append(f"Scope: {model['source_count']} {source_label}" + (', pages: ' + _markdown(', '.join(model['selected_pages'][:3])) if model['selected_pages'] else '') + '.')
     if counts['held']:
         lines.append(f"{counts['held']} items need repair before publication.")
+    if counts.get('review_required'):
+        lines.append(f"{counts['review_required']} queries need source review, separate from execution checks and publication holds.")
+    if model.get('handoff', {}).get('coverage_notes'):
+        lines.append(f"{model['handoff']['coverage_notes']} reused definitions have coverage limits retained in details.")
     intent = model.get('interaction', {}).get('intent', {})
     if intent.get('domain'):
         lines.append('Business focus: ' + _markdown(intent['domain']))

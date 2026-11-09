@@ -1,21 +1,32 @@
 ---
 name: atlan-analytics
-description: Prepare BI exports, models and query history for talk-to-data. Use when asked to set up or resume analytics, choose a workspace, define a metric, or build an analytics agent. Not for data questions (atlan-analytics-ask).
+description: Prepare BI sources for questions. Use for analytics setup, handoff, resume, metrics, building analytics agents, or creating/accessing an Atlan workspace via CLI/API. Not for data questions (atlan-analytics-ask).
 ---
 
 # Analytics context and talk-to-data
 
-Keep updates and intent questions under 80 words, including context and options. Only a
+Keep updates and intent questions under 80 words total. Only a
 completed setup handoff may use 160: counts, one metric's calculation/population/source/checks,
-then supported questions. Details may be longer. Do not list other metrics or
-repeat the pipeline.
+then supported questions. Details may be longer. Do not list other metrics or repeat the pipeline.
 Attribute saved checks to the earlier run. After publication, answers retrieve definitions before SQL runs.
+For final handoffs, read [handoff rules](references/setup/preview-publish.md) and return.
+Keep execution, source review, holds and releases separate. Total definitions = metrics + queries.
+Workspace access/creation questions belong here even when the person wants only an
+explanation. For that request, read the destination rule in
+[handoff rules](references/setup/preview-publish.md), give one paragraph under 70 words and
+stop. Do not expand an unsupported action into a multi-step setup or publication plan.
+Use plain text for check labels; no emoji checklist or repeated status headings.
 
 On fresh setup, your next assistant message is the opening, before reading references,
-surveying files or calling helpers. This includes survey-only requests. In 40 to 50 words,
+surveying files or calling helpers. In 40 to 50 words,
 name the outcome, next step and controls: narrow scope, inspect details, keep local or pause.
 Honor existing choices. Survey-only requests stop after inspection. On resume, name the
 saved result and next step. Detail-only requests get only the requested evidence.
+Fresh-folder opening:
+"I'll inspect the sources, explain what they cover, and ask what matters to you before
+preparing metrics for questions here. You'll see an example and its check status first.
+You can narrow the scope, ask for details, keep the work local, or pause at any point."
+Retain controls without requesting approval for already-authorized work.
 
 Then read [shared conventions](references/conventions.md). They define audit sessions,
 task authorization, privacy and status reporting. Treat reads of the selected source,
@@ -24,14 +35,12 @@ publication destination is chosen for saving metrics, carry that authorization t
 checked plan without an extra publish confirmation. Respect explicit draft/review requests.
 For new metric generation (metrics mode, or a setup run's Build stage), read
 [the metrics module](references/metrics-engine.md), also to explain it. A setup with only local
-files and no warehouse uses SQLite and installs nothing ([build and check](references/setup/build-check.md)). The module preserves the plug architecture and authored gates and hands artifacts to the
-existing publisher. Dispatch before mode-specific project conventions or preflight. A
+files and no warehouse uses SQLite and installs nothing ([build and check](references/setup/build-check.md)). Dispatch before mode-specific project conventions or preflight. A
 repository setup is not a full-agent build. Cloning a source repository the user asks to set
 up is a separate, supported task.
 
-The registry's own marketplace (`api.atlan.com/public/marketplace.git`) bundles this workflow
-in its `atlanai` plugin. Use the installed skill's namespace for the `atlanai-analytics:`
-prefixes below (`atlanai` in that bundle), and do not install this add-on beside it.
+The Registry marketplace bundles this workflow in `atlanai`. Use its installed namespace
+instead of `atlanai-analytics:` below; do not install this add-on beside that bundle.
 
 ## 0. Dispatch the requested mode first
 
@@ -45,14 +54,15 @@ supplied link, local folder, HTML dashboard or BI export ready for questions fol
 [shared setup](references/setup.md), then returns. A request to build an analytics or
 talk-to-data agent takes that route too: this chat with Atlan becomes the agent. Its first
 reply adds one line offering a separately deployed agent with an eval set (`build`) instead,
-and switches only when the person asks for it. A repository
-is an ordinary source input; its name and layout never select a special workflow.
+and switches only when the person asks for it. Repository names and layouts never select a special workflow.
 
 Open [the host view](references/setup/render.md) after inspection and update it through setup.
 Explain the sources, business meaning and
-possible analyses inside the first question. Follow the [intent flow](references/setup/intent.md):
-business focus first, purpose second, using native choices and waiting for each missing answer.
-Even clear source scope needs this checkpoint. Then show one relevant metric with its meaning and
+possible analyses inside the first question. Before the choices, explicitly say what the
+sources could help the person analyse. An inventory followed by option labels alone does
+not explain their value. Follow the [intent flow](references/setup/intent.md): business focus
+first, purpose second, using native choices and waiting for each missing answer.
+Even clear scope needs this checkpoint. Then show one metric with its meaning and
 honest check status before a destination question or publication/reuse. Use the read-only
 `project.py experience --format chat`, adding `--engine-dir <within-run-engine>` during
 engine work. `--detail` exposes that sample's SQL, source and checks. Show five or all only
@@ -70,27 +80,16 @@ the real login task, verify a current-host Registry read and resume the saved st
 Give the core Registry plugin's installation commands if recovery cannot complete. Never
 infer a missing coding-host plugin from a generic app-directory search.
 
-An explicit `dashboard` argument starts a new dashboard project with
-[dashboard through the metrics module](references/dashboard-agent.md). A saved dashboard-helper
-job resumes with [its original procedure](references/dashboard.md), which keeps the existing
-capture, independent checks and agent route. Optional inline cards
-are used only when their tools are already installed. Do not register another MCP server. Keep progress in native chat.
+For `dashboard`, use [dashboard through the metrics module](references/dashboard-agent.md).
+Resume saved dashboard-helper jobs with [their original procedure](references/dashboard.md),
+preserving capture, checks and agent routing. Use inline cards only with installed tools;
+never register another MCP server. Keep progress in native chat.
 
-If the first argument is exactly `metrics`, enter metrics-only mode. Treat the remaining
-arguments as scope. Read [the metrics workflow](references/metrics.md) and follow it from
-section 0. It checks registry access, asks only for the missing table scope and sources, then
-drafts metrics and saved queries from declared models, BI files or query history, whichever
-are in reach. Everything is previewed before it is published. Use `.atlan-metrics/<slug>/`,
-never `.atlan-analytics/` state.
-
-**Return after that branch. Do not continue below.** It runs none of these:
-- the full-agent preflight or the build/improve menu;
-- `EVAL init`, an eval set or an eval run;
-- agent registration, deployment, a smoke test or a baseline.
-
-A declared model or a BI file needs no warehouse connection. The query-log filter and
-`scripts/metrics_mine.py` are permitted. Starting an agent build later needs an explicit new
-request.
+If the first argument is exactly `metrics`, follow [the metrics workflow](references/metrics.md),
+with remaining arguments as scope, then returns. Use `.atlan-metrics/<slug>/`.
+Do not run full-agent preflight, eval, registration or deployment. Models and BI files
+need no warehouse; query-log filtering and `scripts/metrics_mine.py` are permitted.
+Starting an agent build later needs an explicit new request.
 
 If the first argument is exactly `propose`, read [the proposal workflow](references/propose.md),
 preview a proposal for its owners, and return: no metric save, full-agent preflight or eval.
@@ -124,19 +123,16 @@ Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over i
 | `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
 | `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
 
-Evaluation uses `scripts/analytics_eval.py`. It uses only the standard library and never
-touches the network: every registry write, eval results included, goes through the Atlan MCP
-server with the person's own sign-in.
+Evaluation uses `scripts/analytics_eval.py`, standard library only, with no network access.
+Registry writes, including eval results, use Atlan MCP with the person's sign-in.
 
 ## MCP resources
 
-With an installed plugin, paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics/`.
-With MCP only, read this skill at `atlan://defaults/skills/atlan-analytics/SKILL.md`;
-read a cited reference at the same base plus its relative path. Fetch supporting references
-and scripts through MCP resources when needed, preserving their relative directory layout
-locally before running a script. MCP does not expand plugin-local includes.
+Installed paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics/`. With MCP only,
+read `atlan://defaults/skills/atlan-analytics/SKILL.md` and cited relative references at that
+base. Fetch needed scripts/resources locally with their relative layout before execution;
+MCP does not expand plugin-local includes.
 
-Never expose credentials or identifying query literals. Gold SQL and results stay local and
-out of agent context; the failure analyst sees train traces only. Keep the two specialist
-agents, `atlan-analytics-grader` and `atlan-analytics-failure-analyst` (listed with the
-`atlanai-analytics:` prefix in Claude Code), isolated as documented.
+Never expose credentials or identifying query literals. Keep gold SQL/results local; failure
+analysis sees train traces only. Keep the `atlan-analytics-grader` and
+`atlan-analytics-failure-analyst` agents isolated as documented.

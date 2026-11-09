@@ -26,6 +26,7 @@ CASE_NAMES = {
     "ux-opening-orientation", "ux-one-metric-final", "ux-details-on-request",
     "ux-no-workspace-preserves-work", "ux-resume-held-auth", "ux-explicit-new-workspace",
     "ux-project-understanding", "ux-native-local-details", "ux-intent-domain", "ux-intent-purpose", "ux-intent-known",
+    "ux-finish-local-review",
 }
 
 
