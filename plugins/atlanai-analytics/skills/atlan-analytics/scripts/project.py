@@ -32,6 +32,9 @@ import local_prepare
 import metrics_mine as mine
 from analytics_eval import filter_querylog
 
+# Local engines the helper executes itself; SQLite needs only the standard library.
+LOCAL = ('duckdb', 'sqlite')
+
 class ProjectError(ValueError):
     pass
 
@@ -126,7 +129,7 @@ class Project(ContextState):
             item = {'source_id': 'src_' + digest(relative)[:16], 'path': relative, 'kind': kind,
                     'size_bytes': p.stat().st_size, 'status': 'available'}
             try:
-                if kind == 'duckdb':
+                if kind in LOCAL:
                     item['status'] = 'needs_binding'
                 elif p.stat().st_size > (1024 ** 3 if kind == 'powerbi' else 32 * 1024 ** 2):
                     item['status'] = 'held_size_limit'
@@ -293,9 +296,10 @@ class Project(ContextState):
         else:
             source_sql = definition['sql']
         binding = self.execution_binding()
-        if not binding or binding['kind'] != 'duckdb' or definition['dialect'].lower() != 'duckdb':
+        if not binding or binding['kind'] not in LOCAL or definition['dialect'].lower() != binding['kind']:
             raise ProjectError('Use the recorded read-only warehouse tool for this dialect and retain its check evidence.')
-        sql = ''.join(re.sub(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', r'$\1', text)
+        marker = '$' if binding['kind'] == 'duckdb' else ':'
+        sql = ''.join(re.sub(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', marker + r'\1', text)
                       if token_kind == 'code' else text for token_kind, text in mine.scan(source_sql))
         path = self.context / 'candidate-checks.json'
         checks = self.read(path) if path.exists() else {}
@@ -362,11 +366,14 @@ class Project(ContextState):
                 'source_ids': [s['source_id'] for s in state['sources'] if s['kind'] == 'query_history'],
                 'next': 'Author and reconcile metrics and saved queries using the existing metrics workflow.'}
 
-    def bind(self, database, tables=None):
+    def bind(self, database, tables=None, schema=None):
         state = self.current()
         # Binding is an explicit input independent of the report's filesystem location.
         path = safe_path(database)
-        binding = {'kind': 'duckdb', 'path': str(path), 'python': sys.executable, 'read_only': True}
+        kind = local_data.KINDS.get(path.suffix.lower(), 'duckdb')
+        binding = {'kind': kind, 'path': str(path), 'python': sys.executable, 'read_only': True}
+        if kind == 'sqlite':
+            binding['schema'] = schema or path.stem
         metadata = local_data.call(binding, 'inspect')
         selected = tables if tables is not None else metadata['tables']
         if not selected or not set(selected) <= set(metadata['tables']):
@@ -389,7 +396,7 @@ class Project(ContextState):
 
     def execute(self, request):
         state = self.current()
-        if not state.get('execution') or state['execution'].get('kind') != 'duckdb':
+        if not state.get('execution') or state['execution'].get('kind') not in LOCAL:
             raise ProjectError('Use the selected warehouse tool, or bind the local database before local execution.')
         return local_data.call(state['execution'], 'execute', request['sql'], request.get('parameters'),
                                request.get('limit', 100))
@@ -480,7 +487,7 @@ def main():
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
-    b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+')
+    b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
@@ -497,7 +504,7 @@ def main():
         if args.command == 'survey': result = project.survey(args.folder)
         elif args.command == 'history': result = project.history()
         elif args.command == 'status': result = project.current()
-        elif args.command == 'bind': result = project.bind(args.database, args.tables)
+        elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server, args.overview_file)
