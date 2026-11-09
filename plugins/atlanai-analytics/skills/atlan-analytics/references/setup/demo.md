@@ -40,69 +40,43 @@ tool description or status line. Setup's word limits do not apply to them.
 Print this before any other tool call, reference read, file search or clone. Replace
 `<folder>` with the current working folder's absolute path; that is the only change.
 
-> **You're building a job profit agent for Fixit & Co.**
+> **You're building a job profit agent for Fixit & Co.** About 15 minutes.
 >
-> By the end, this chat is an agent that can tell Fixit which jobs lost money and what ate
-> the profit, in plain English. You build it by turning Fixit's dashboard and past queries
-> into context.
+> Fixit is a made-up building firm. Its owner, Rob, keeps asking which jobs lost money and
+> why, and today that takes someone writing SQL. You turn Fixit's dashboard and past
+> queries into context, so this chat can answer him in plain English. None of your data is
+> used.
 >
-> Fixit & Co. is a made-up building firm. Rob runs the yard, Wanda does the building, Sprout
-> helps, and five machines (Dig, Tipper, Whirl, Flatt and Lanky) bill by the hour like crew.
-> Between July and October 2026 they ran 10 jobs, from a £150 cat flap to a £150,000 wind
-> turbine base. You need no construction knowledge: every question is about money and
-> time. The data is made up, so nothing of yours is used.
+> **The six steps**
 >
-> **The problem.** Rob keeps asking: *which job ate our margin last quarter, and what ate it?*
-> The numbers exist, but answering means someone writes SQL, and two analysts can get two
-> different answers.
+> 1. **Read your sources.** I download the demo files into
+>    `<folder>/analytics-agent-accelerator` and read them.
+> 2. **Choose what to build from.** You choose: the dashboard, or the dashboard plus past
+>    queries.
+> 3. **Turn sources into context.** I build one metric, show it to you, then build the rest.
+> 4. **Check the context on the data.** I run each one on Fixit's data.
+> 5. **Review and choose where to save.** You choose: Atlan Trident, where you sign in, or
+>    this machine. Nothing else leaves this folder.
+> 6. **Ready for questions.** You ask Rob's question and get the answer.
 >
-> **What you'll build.** A job profit agent. You turn Fixit's dashboard and past queries
-> into context, and with that context the agent gives anyone one checked answer.
+> **About Fixit**
 >
-> **What context is.** It is what a new analyst has to learn before answering: what
-> "margin" means at Fixit, how it is worked out, which jobs count. Fixit already wrote that
-> down without meaning to, in its dashboard and in the queries its analysts ran. Atlan reads
-> those sources and turns them into context that anyone, or any AI, can use. The context
-> holds two things. A metric is a number Fixit cares about, such as gross margin, with the
-> rule for working it out. A query is a ready-made question about the data, such as margin
-> by job.
+> Rob runs the yard with a crew of people and hired machines. From July to October 2026
+> they ran 10 jobs, from a £150 cat flap to a £150,000 wind turbine base. You need no
+> construction knowledge: every question is about money and time.
 >
-> **What's in the demo**
->
-> | What | In plain words |
+> | In the demo | |
 > | --- | --- |
-> | Jobs | Each job, its client and what it was worth (10) |
-> | Crew | People and machines, with hourly rates (8) |
-> | Work logs | Who worked on which job, which day, for how long (746) |
-> | Material orders | What each job bought, and how much was wasted (51) |
-> | Snags | Things that went wrong on site (11) |
-> | Dashboard | Power BI report with 4 tiles: margin, rework cost, material waste, late jobs |
-> | Query history | 110 different questions Fixit's analysts already asked, as SQL |
+> | Data | 5 tables: jobs (10), crew (8), work logs (746), material orders (51), snags (11) |
+> | Dashboard | Power BI, 4 tiles: gross margin, rework cost, material waste, late jobs |
+> | Query history | 110 questions Fixit's analysts already asked, as SQL |
 >
-> A job's cost is crew hours times hourly rate, plus materials. Its margin is what the
-> client paid minus that cost. The dashboard says what Fixit measures; the query history
-> shows how people actually ask.
->
-> **The six steps** (about 15 minutes; I show this list again as each step starts)
->
-> 1. **Read your sources.** I download the demo files from GitHub
->    (atlanai/analytics-agent-accelerator) into `<folder>/analytics-agent-accelerator`, then
->    read the dashboard and the past queries to learn how Fixit measures a job.
-> 2. **Choose what to build from.** You choose: the dashboard alone, or the dashboard
->    plus the past queries.
-> 3. **Turn sources into context.** I build one metric first, gross margin, and show it to
->    you: what it means, how it is worked out and which jobs count. You say whether to
->    build the rest.
-> 4. **Check the context on the data.** I run it on Fixit's data to check it gives sensible
->    numbers.
-> 5. **Review and choose where to save.** The context is built. You choose whether to save
->    it to Atlan Trident, where your company keeps context for its AI agents, or keep it
->    on this machine. Saving is when you sign in.
-> 6. **Ready for questions.** Your job profit agent is ready. You ask Rob's question and
->    get the answer, with the context it used.
->
-> Nothing of yours is read or changed. The only thing saved outside this folder is the
-> context, in the Atlan Trident workspace you pick in step 5.
+> Context is what a new analyst has to learn before answering: what "margin" means at
+> Fixit and how it is worked out. Fixit already wrote that down, in its dashboard and
+> queries. Atlan reads them and turns them into context any person or AI can use.
+
+Keep it this short. The summary and the six steps come first because people skim; the
+rest is there for anyone who reads on. Metrics are introduced at step 2, not here.
 
 Then ask one native question, "Ready to build?", with "Start building" and "Not now". On
 "Not now", stop and say "/atlanai-analytics:start" resumes it. After "Start building", print
@@ -174,7 +148,7 @@ tracker. Skip a moment that does not happen in this run.
 | Check | Running every metric and query on Fixit's data. | One that returns nothing or nonsense would give wrong answers later; this catches it now. |
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
-| Save | Saving the context to the workspace you chose. | From now on the agent and your colleagues read the same context. |
+| Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
 | Answer | Your job profit agent is ready. Answering Rob's question from the context. | It shows the agent uses what you built, not a guess at the tables. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
@@ -203,13 +177,18 @@ recording an unselected answer, for the demo only:
 
 After reading sources, ask one native question. Its visible prompt, with actual counts:
 
-"I'm building context for Fixit's job margin. I found a Power BI dashboard with 4 tiles,
-110 past queries and 5 data tables. What should I build the context from?"
+"I read Fixit's sources: a Power BI dashboard with 4 tiles, 110 past queries and 5 data
+tables. Next I turn them into metrics. A metric is a number Fixit cares about, such as
+gross margin, with the rule for working it out. Metrics are how the context is stored, so
+the agent uses the same rule every time. I build one first and show you, then the rest.
+What should I build them from?"
+
+This is the first time the person hears the word metric, so the prompt keeps all of it.
 
 | Option | Description |
 | --- | --- |
-| Dashboard and past queries (recommended) | Everything the dashboard measures, plus how Fixit's analysts actually ask. The fullest context. |
-| Dashboard only | Bring over the dashboard's 4 tiles as they are. Fastest. |
+| Dashboard and past queries (recommended) | The dashboard's 4 numbers, plus what Fixit's analysts actually ask. More metrics and queries, and a few minutes longer. |
+| Dashboard only | The dashboard's 4 numbers as metrics. Fastest. |
 
 Scope the run to the answer through [inspect and scope](inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data
@@ -227,10 +206,10 @@ it, run its check, and stop. Then print the four parts below in order, as one or
 reply. Every value comes from this run; never copy the sample values here, and never claim
 a check that did not run.
 
-**Part 1, why this exists**, as written: "Here is the first metric I built: **gross
-margin**. Fixit's dashboard and its analysts' queries each worked margin out in their own
-way. A metric writes the rule down once, so the agent, and anyone who asks, uses the same
-one every time."
+**Part 1, the win**, as written: "First result: Fixit now has one agreed way to work out
+**gross margin**. Until now the dashboard and the analysts' queries each did it their own
+way. This metric writes the rule down once, so the agent, and anyone who asks, gets the
+same number."
 
 **Part 2, the metric.** Two source rows, so the person sees what each source gave:
 
@@ -274,8 +253,12 @@ and checked. Build the rest?":
 | Option | Description |
 | --- | --- |
 | Build the rest (recommended) | The other metrics and queries from the sources you chose, each checked the same way. A few minutes. |
+| Ask a question now | Try gross margin straight away, such as which job had the lowest margin. Answered from this machine; this question comes back after. |
 | Show how this one was built | The SQL and the source lines behind gross margin, then this question again. |
-| Stop here | Keep this one metric; nothing is saved to Atlan Trident. |
+
+The card's source and check rows are the short account of how it was built; this option is
+for the person who wants the full one. A person who wants to stop says so in their own
+words: keep the one metric, save nothing to Atlan Trident.
 
 On "Build the rest", finish steps 3 and 4, with a count as the work goes ("4 of 7 metrics
 built"). These four parts are the setup preview; do not show a second sample before the
