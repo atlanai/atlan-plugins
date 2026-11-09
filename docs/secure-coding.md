@@ -104,3 +104,14 @@ planned edges before invoking the existing publication validator. Conflicts rema
 The Claude receipt hook reuses the absolute interpreter path returned by its successful local
 helper process, avoiding repeated environment-launcher startup. It still validates the request
 and destination before every call and validates and atomically records every response.
+
+## Identifying literals in analytics history
+
+The engine and local history filter share `literal_privacy.py`, and saved-query/card checks
+use the same reason classifier. A two-word capitalised literal is not proof of a person's
+name. Simple comparisons and literal IN lists can establish a place column or a supplier
+with an organisation suffix. Comments, string contents and unsupported expressions cannot
+provide that evidence. Unknown names and explicitly identifying customer/person values remain
+held, and every candidate literal is checked. This is a privacy-control change requiring owner
+review before merge, not an instruction to disable a gate or broaden data access. Diagnostics
+report categories without echoing the identifying value.

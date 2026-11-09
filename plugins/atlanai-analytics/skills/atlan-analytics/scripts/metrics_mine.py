@@ -37,7 +37,7 @@ import sys
 # No __pycache__ is written into the installed plugin's folder.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from analytics_eval import PII as _SHARED_PII, full_name_hit  # noqa: E402
+from analytics_eval import PII as _SHARED_PII, full_name_hit, pii_reason  # noqa: E402
 
 VERSION = "0.1.0"
 METRIC_SPEC = "1.0-draft.4"
@@ -517,13 +517,13 @@ _NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|countr
 
 
 def _pii(text: str):
-    if _EMAIL.search(text or ""):
-        return "an email address"
-    name = full_name_hit(text)
-    if name:
-        return f"a person's name ({name})"
-    if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
-        return "an identifier literal: make it a parameter, or leave the row out"
+    reason = pii_reason(text)
+    if reason == 'email':
+        return 'an email address'
+    if reason in ('full_name', 'person_name'):
+        return "a person's name"
+    if reason:
+        return 'an identifying literal: make it a parameter, or leave the row out'
     return None
 
 
