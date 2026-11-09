@@ -11,7 +11,7 @@ password, key or token. The statements for each warehouse are in
 ## 0. Reuse what state holds
 
 For a selected local project setup run, inspect its `run.json` through `project.py status`.
-If it holds `execution.kind: duckdb`, use [project setup](project.md#2-bind-data-once) and its
+If it holds `execution.kind: sqlite` or `duckdb`, use [project setup](project.md#2-bind-data-once) and its
 recorded interpreter. The local executor is a connection and takes precedence over warehouse
 discovery. Rebind if its schema changed; never silently select another database or server.
 
