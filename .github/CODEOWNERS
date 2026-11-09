@@ -2,17 +2,17 @@
 # (enforced by the "main protection" ruleset). Later lines take precedence over earlier ones.
 
 # Default owners for everything in the repository.
-*                              @shubhambatlan @bankavarun @anirudhagarwal-atlan
+*                              @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
 
 # Workflows, Dependabot and repository configuration.
-/.github/                      @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/.github/                      @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
 
 # Marketplace and plugin manifests.
-/plugin.toml                   @shubhambatlan @bankavarun @anirudhagarwal-atlan
-/.claude-plugin/               @shubhambatlan @bankavarun @anirudhagarwal-atlan
-/plugins/*/.claude-plugin/     @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/plugin.toml                   @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
+/.claude-plugin/               @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
+/plugins/*/.claude-plugin/     @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
 
 # Hooks run code on users' machines.
-/plugins/**/hooks/             @shubhambatlan @bankavarun @anirudhagarwal-atlan
-/plugins/**/claude-hooks/      @shubhambatlan @bankavarun @anirudhagarwal-atlan
-/plugins/**/command-hooks/     @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/plugins/**/hooks/             @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
+/plugins/**/claude-hooks/      @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
+/plugins/**/command-hooks/     @shubhambatlan @bankavarun @anirudhagarwal-atlan @shivanshpahwa24 @himanshu-sikaria @suseriAtlan
