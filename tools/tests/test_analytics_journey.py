@@ -98,12 +98,12 @@ class ConversationChoices(unittest.TestCase):
         self.run.journey('keep-local')
         self.fixture.write('auth-recovery.json', {'status': 'permission_denied'})
         for stage, status, expected in [('build', 'running', 'build'), ('check', 'complete', 'preview'),
-                                        ('preview', 'complete', 'explore-local')]:
+                                        ('preview', 'complete', 'explore-local'), ('ready', 'complete', 'explore-local')]:
             self.fixture.write('progress.json', {'stage': stage, 'status': status})
             model = self.run.experience(format='json')
             self.assertEqual(model['continuation']['action'], expected)
             self.assertEqual(model['interaction']['mode'], 'local')
-            if stage != 'preview':
+            if stage not in ('preview', 'ready'):
                 self.assertNotEqual(model['phase']['status'], 'local')
 
     def test_cli_bad_selection_does_not_mark_engine_failed(self):

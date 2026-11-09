@@ -1,10 +1,39 @@
 import {describe,expect,test,mock} from 'claude-code/testing'
 import {valid,validFeed} from '../hooks/register'
+import {visualBoard} from '../hooks/visual'
 const TOOL='mcp__atlanai-analytics-view__show'
 const FOLLOW='mcp__atlanai-analytics-view__follow'
 const view={phase:'Checking definitions',status:'running',summary:'Synthetic shipping model and query history.',domain:'Shipping cost',purpose:'Prepare reusable metrics',counts:'1 metrics, 0 queries, 0 saved, 0 held',metric:'Shipping cost',meaning:'Cost for shipped shipments.',calculation:'SUM(cost)',population:'Shipped shipments only',source:'Synthetic model',check:'SQL untested',next:'Check the definition.',snapshot_at:'2026-11-09T00:00:00Z',sources:['shipping.bim'],opportunities:['Cost by region'],warnings:[]}
 const pane={plugin:'atlanai-analytics-view',surface:'terminal',component:'Pane',requestId:'analytics-view',props:{title:'Analytics',isFocused:false,bodyColumns:60,placement:'dock',scroll:{offset:0,bodyRows:40},view:{}}} as const
 describe('Analytics native pane',()=>{
+ test('desktop starts with a visual board and reveals long evidence only on request',async($,on)=>{
+  on('ui.open',()=>({value:{isPlaced:true}}))
+  let filled=''
+  on('prompt.fill',(_,e)=>{filled=e.text;return {isFilled:true}})
+  await $.tool.call({tool:TOOL,view:{...view,phase_code:'preview',interaction_mode:'local',
+   stats:{metrics:1,queries:2,executed:3,review_required:2,released:0,held:0}}})
+  const ui=await $.ui.mount({...pane,surface:'desktop'})
+  const board=await ui.find({type:'Svg'})
+  expect(board?.props.alt).toContain('Shipping cost')
+  expect(board?.props.source).toContain('LOCAL ONLY')
+  expect(await ui.find({type:'Text',text:view.summary})).toBeUndefined()
+  expect(await ui.find({type:'Text',text:/Calculation:/})).toBeUndefined()
+  await ui.press({key:'evidence'})
+  expect((await ui.find({type:'Text',text:'Calculation: SUM(cost)'}))?.text).toBe('Calculation: SUM(cost)')
+  await ui.press({key:'sources'})
+  expect((await ui.find({type:'Text',text:view.summary}))?.text).toBe(view.summary)
+  await ui.press({key:'ask'})
+  expect(filled).toContain('source review')
+  await ui.unmount()
+ })
+ test('visual content cannot introduce SVG markup or remote resources',()=>{
+  const board=visualBoard({...view,metric:'<script>alert(1)</script>',domain:'<image href="https://example.com"/>'},false,true)
+  expect(board.source).not.toContain('<script>')
+  expect(board.source).not.toContain('<image ')
+  expect(board.source).toContain('&lt;script&gt;')
+  expect(valid({...view,stats:{metrics:1}})).toBe(false)
+  expect(valid({...view,phase_code:'publish-now'})).toBe(false)
+ })
  test('validates bounded text without commands',()=>{
   expect(valid(view)).toBe(true);expect(valid({...view,command:'publish'})).toBe(false)
   expect(valid({...view,summary:'x'.repeat(2001)})).toBe(false)

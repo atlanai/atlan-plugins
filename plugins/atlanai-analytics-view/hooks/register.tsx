@@ -1,4 +1,5 @@
 import type { Register } from 'claude-code'
+import {visualBoard} from './visual'
 
 const ID = 'analytics-view'
 const TOOL = 'mcp__atlanai-analytics-view__show'
@@ -6,11 +7,16 @@ const FOLLOW = 'mcp__atlanai-analytics-view__follow'
 const fields = ['phase', 'status', 'summary', 'domain', 'purpose', 'counts', 'metric', 'meaning', 'calculation', 'population', 'source', 'check', 'next', 'snapshot_at']
 const lists = ['sources', 'opportunities', 'warnings']
 const evidenceFields = ['sql', 'evidence', 'usable', 'attention']
+const statKeys = ['metrics','queries','executed','review_required','released','held']
 
 // Reject rather than truncate malformed updates. Source text is always rendered as Text.
 export function valid(value: any): boolean {
   return !!value && typeof value === 'object' && !Array.isArray(value)
-    && Object.keys(value).every(k => fields.includes(k) || lists.includes(k) || evidenceFields.includes(k) || k === 'interaction_mode')
+    && Object.keys(value).every(k => fields.includes(k) || lists.includes(k) || evidenceFields.includes(k) || ['interaction_mode','stats','phase_code'].includes(k))
+    && (value.phase_code === undefined || ['inspect','scope','build','check','preview','publish','ready'].includes(value.phase_code))
+    && (value.stats === undefined || (value.stats && typeof value.stats === 'object' && !Array.isArray(value.stats)
+      && Object.keys(value.stats).every(k=>statKeys.includes(k))
+      && statKeys.every(k=>Number.isInteger(value.stats[k]) && value.stats[k]>=0 && value.stats[k]<=10000000)))
     && (value.interaction_mode === undefined || ['active', 'paused', 'local'].includes(value.interaction_mode))
     && evidenceFields.every(k => value[k] === undefined || (typeof value[k] === 'string' && value[k].length <= 2000))
     && fields.every(k => typeof value[k] === 'string' && value[k].length <= 2000)
@@ -30,6 +36,7 @@ export const register: Register = on => {
   let dismissed = false
   let placed = false
   let details = false
+  let sources = false
   let feedback = ''
   let feed = ''
   let generation = 0
@@ -41,7 +48,7 @@ export const register: Register = on => {
     await $.tool.register({name:'follow', description:'Follow the saved Analytics run in the native pane. Start the packaged experience_view.py preview first, then pass its exact pane_url. Updates automatically; read-only; respects dismissal. Never pass an arbitrary service URL.',
       inputSchema:{type:'object',properties:{url:{type:'string',maxLength:40}},required:['url'],additionalProperties:false}})
     await $.tool.register({name:'show', description:'Display or update the Analytics source overview, selected metric and saved progress in the native side pane. Pass the exact pane payload from project.py experience --format panel. Presentation only; does not execute or publish. Respects dismissal.',
-      inputSchema:{type:'object', properties:{view:{type:'object', properties:{...Object.fromEntries([...[...fields,...evidenceFields].map(k=>[k,{type:'string',maxLength:2000}]),...lists.map(k=>[k,{type:'array',maxItems:8,items:{type:'string',maxLength:240}}])]),interaction_mode:{type:'string',enum:['active','paused','local']}},required:[...fields,...lists],additionalProperties:false}}, required:['view'],additionalProperties:false}})
+      inputSchema:{type:'object', properties:{view:{type:'object', properties:{...Object.fromEntries([...[...fields,...evidenceFields].map(k=>[k,{type:'string',maxLength:2000}]),...lists.map(k=>[k,{type:'array',maxItems:8,items:{type:'string',maxLength:240}}])]),phase_code:{type:'string',enum:['inspect','scope','build','check','preview','publish','ready']},stats:{type:'object',properties:Object.fromEntries(statKeys.map(k=>[k,{type:'integer',minimum:0,maximum:10000000}])),required:statKeys,additionalProperties:false},interaction_mode:{type:'string',enum:['active','paused','local']}},required:[...fields,...lists],additionalProperties:false}}, required:['view'],additionalProperties:false}})
     await $.command.register({name:ID,description:'Reopen the Analytics evidence pane',immediate:true})
     return next(e)
   }).catch(($,e,next)=>next(e))
@@ -61,10 +68,11 @@ export const register: Register = on => {
         if (!response.ok || response.text.length > 16000) throw new Error('Unavailable')
         const value = JSON.parse(response.text)
         if (!valid(value)) throw new Error('Invalid')
+        const changed=stale||!current||JSON.stringify({...current,snapshot_at:''})!==JSON.stringify({...value,snapshot_at:''})
         current = value
         stale = false
         if(!dismissed&&!placed&&!attemptedPlacement){attemptedPlacement=true;const opened=await $.ui.open({id:ID,title:'Analytics'});placed=opened.isPlaced}
-        $.ui.invalidate('ui.render')
+        if(changed) $.ui.invalidate('ui.render')
         return true
       } catch {
         if (version === generation) {stale = true; $.ui.invalidate('ui.render')}
@@ -108,6 +116,29 @@ export const register: Register = on => {
       try {const result=await $.prompt.fill({text});feedback=result.isFilled?'Request prepared in chat. Submit it to apply your choice.':'Could not prepare the request. Type your choice in chat.'}
       catch {feedback='Could not prepare the request. Type your choice in chat.'}
       $.ui.invalidate('ui.render')
+    }
+    if(e.surface==='desktop'){
+      const {Svg}=$.ui.resolve(e)
+      const board=visualBoard(v,stale,!!feed)
+      return <Box flexDirection="column" gap={1}>
+        <Svg source={board.source} alt={board.alt}/>
+        <Box flexDirection="row" flexWrap="wrap" gap={1}>
+          <Button key="evidence" label={details?'Close evidence':'Evidence'} onPress={()=>{details=!details;$.ui.invalidate('ui.render')}}/>
+          <Button key="sources" label={sources?'Close sources':'Sources'} onPress={()=>{sources=!sources;$.ui.invalidate('ui.render')}}/>
+          <Button key="ask" label={v.stats?.review_required?'Review queries':'Explore a question'} onPress={()=>void draft(v.stats?.review_required?'Show the queries that still need source review and the evidence needed to review them.':'Show a question supported by this analytics run, with its local or released scope.')}/>
+        </Box>
+        {sources?<Box flexDirection="column" gap={1}><Text bold>What we found</Text><Text>{v.summary||v.sources.join(', ')}</Text>{v.opportunities.map((s:string)=><Text key={s}>{s}</Text>)}</Box>:''}
+        {details?<Box flexDirection="column" gap={1}><Text bold>{v.metric+' · Evidence'}</Text><Text>{v.meaning}</Text><Text>{'Calculation: '+v.calculation}</Text><Text>{'Includes: '+v.population}</Text><Text>{v.source}</Text><Text>{v.evidence||v.check}</Text>{v.sql?<Text>{'Saved SQL: '+v.sql}</Text>:''}<Text dimColor>Saved checks are not fresh execution or proof of dashboard parity.</Text></Box>:''}
+        {v.warnings.map((s:string)=><Text key={s}>{s}</Text>)}
+        {stale?<Text>Updates unavailable. Showing the last received evidence.</Text>:''}
+        <Text>{v.next}</Text>
+        <Box flexDirection="row" flexWrap="wrap" gap={1}>
+          <Button key="pause" label={paused?'Resume…':'Pause…'} onPress={()=>void draft(paused?'Resume this analytics run from its saved checkpoint.':'Pause this analytics run at its current checkpoint.')}/>
+          <Button key="local" label="Keep local…" onPress={()=>void draft('Keep this analytics run local. Do not publish its definitions.')}/>
+          <Button key="hide" label="Hide" onPress={()=>{dismissed=true;placed=false;void $.ui.close({id:ID})}}/>
+        </Box>
+        <Text dimColor>{feedback||'Actions prepare a message in chat. Submit it to continue.'}</Text>
+      </Box>
     }
     // Inline terminal panes may expose only a few rows. Keep the current task
     // visible there; the full evidence is an explicit expansion, not a scroll hunt.

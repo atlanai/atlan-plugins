@@ -93,7 +93,7 @@ def continuation(model):
             'publish': ('publish', 'Continue the approved save plan', False),
             'ready': ('repair', 'Review saved evidence', False),
         }[stage]
-        if mode == 'local' and code in ('destination', 'publish'):
+        if mode == 'local' and stage in ('preview', 'publish', 'ready') and model['items']:
             code, label, needs_input = 'explore-local', 'Choose a local question', True
     result = {'action': code, 'label': label, 'needs_input': needs_input,
               'surface': 'native_chat', 'host_executes': True}
