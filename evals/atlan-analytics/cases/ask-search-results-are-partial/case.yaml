@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: ask-search-results-are-partial
+tags: [analytics, ask, coverage]
+execution:
+  prompt: |
+    What is our average customer satisfaction per flight? If there is no matching metric, tell me which published metrics you found instead.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: no-complete-inventory-from-ranked-search
+    type: llm
+    criteria: |
+      No supplied published metric defines customer satisfaction. The satisfaction search deliberately returns four nearby metrics from a larger workspace. Those four ranked hits are not a complete catalogue, and a search miss cannot prove universal absence.
+      PASS if no numeric satisfaction result is invented and any listed search hits are described as matching, nearby or closest results rather than the workspace's whole metric list. A complete inventory claim is acceptable only if the trace actually enumerated the full workspace inventory or obtained an authoritative count with the same scope.
+      FAIL if the answer says the workspace has only four metrics, treats the search hits as the full list, invents satisfaction data, or claims verified exhaustive absence from a limited search alone.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

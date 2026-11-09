@@ -3,10 +3,26 @@
 Open this for "what uses it, what does it use?", "who uses this skill?", "who is still on 1.0?",
 "is anyone using it?" or "which of our skills are used most?". Every call here is a read.
 
-Atlan records **who depends on** an artifact, as edges. It does not record how often a skill is
+For skills, Atlan records **who depends on** an artifact, as edges. It does not record how often a skill is
 loaded. Answer from the edges, and say once that load counts are not recorded yet when the user
 asked how much something is used. Never count usage by reading run traces: one run holds
 hundreds of steps, and runs you cannot see read as missing.
+
+## Metrics and saved queries
+
+Metric and saved-query reads are recorded, along with use reported by uploaded runs. Their
+Usage tab shows the available reads, users and runs. Dependency edges answer what links to
+an artifact; they do not establish how often it was read or used.
+
+For a metric or saved query, use any supported usage tool discovered in this session. If the
+MCP tools do not expose usage statistics, point to the artifact's Usage tab and say the counts
+cannot be retrieved through this connection. Never say Atlan does not record them, infer
+counts from dependency edges or count trace spans as usage. Do not invent an HTTP tool or
+fetch the stats endpoint outside the authenticated connection. Keep version claims tied to
+released readbacks or explicit version evidence.
+
+The skill-load rules below apply to skills. Metric reads and reported query use have different
+evidence and must not inherit the skill-load limitation.
 
 ## Reading the neighbourhood
 

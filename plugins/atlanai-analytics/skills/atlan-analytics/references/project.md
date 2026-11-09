@@ -247,3 +247,6 @@ one checked `PROJECT answer` operation. DuckDB executes locally; a warehouse ret
 `execute_in_host` with a validated query plan for the existing read-only tool. A plan is not
 an executed answer. Existing Atlan users can follow the same retrieval rules without a
 local run or publication receipt.
+
+A malformed request reports its JSON line and column without echoing the file contents.
+Correct that file and retry the same step; keep the existing run and completed artifacts.

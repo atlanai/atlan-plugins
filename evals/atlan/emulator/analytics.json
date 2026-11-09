@@ -1620,6 +1620,18 @@
     "otp_a15",
     "cancellation_rate"
    ]
+  },
+  {
+   "words": [
+    "satisfaction",
+    "csat"
+   ],
+   "order": [
+    "turnaround_time",
+    "block_time_variance",
+    "departure_delay_minutes",
+    "arrival_delay_minutes"
+   ]
   }
  ],
  "records": {

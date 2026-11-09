@@ -19,7 +19,9 @@ released definitions; local drafts, search snippets and remembered setup answers
 the definition source. No new agent or eval is required.
 
 For a selected setup run, read `PROJECT status` for its workspace, release IDs and executor.
-Search relevant metrics and saved queries in Atlan, fetch complete `registry__get_artifact`
+Treat ranked searches as matching subsets, never a complete workspace inventory. A missing
+hit means no relevant definition was found by that search. Search relevant metrics and saved
+queries in Atlan, fetch complete `registry__get_artifact`
 responses at a release, and retain the full definition and release metadata. Prioritize the
 selected estate. Use saved queries for detail questions or when they already answer the request.
 

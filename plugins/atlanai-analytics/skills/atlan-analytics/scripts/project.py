@@ -57,6 +57,13 @@ def file_hash(path):
 
 class Project(ContextState):
     """Keeps compatible project run state without creating dashboard or agent jobs."""
+    def read_request(self, path):
+        try:
+            return self.read(safe_path(path))
+        except json.JSONDecodeError as exc:
+            raise ProjectError(f'The request file is not valid JSON at line {exc.lineno}, column {exc.colno}. '
+                               'Correct the JSON and retry this step.') from None
+
     def current(self):
         state = self.manifest()
         if state.get('entrypoint') != 'project':
@@ -518,8 +525,8 @@ def main():
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage
                       else project.read(project.root / 'progress.json'))
-        elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
-        else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
+        elif args.command == 'acquisition': result = acquisition.cached(project, project.read_request(args.request))
+        else: result = getattr(project, args.command.replace('-', '_'))(project.read_request(args.request))
         if isinstance(result, str):
             print(result)
         else:

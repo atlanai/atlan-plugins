@@ -68,8 +68,8 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    context mode for entity names and join paths. A released metric still decides the formula,
    population and filters.
 
-**Nothing found** is an answer too: say the workspace has no published definition for the measure,
-then continue with your own SQL and its assumptions spelled out (step 5 labels it).
+Search hits are a subset. For missing definitions or coverage claims, follow
+[coverage rules](../atlan-analytics/references/metric-coverage.md).
 
 ## 3. Reach the data
 
