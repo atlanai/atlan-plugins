@@ -89,7 +89,7 @@ def render(model, understanding=None):
     esc = lambda v: html.escape(str(v), quote=True)
     counts, sample = model['counts'], model.get('sample')
     phase = model['phase']['code']
-    step = 'Discover' if phase in ('inspect', 'scope') else 'Prepare' if phase in ('build', 'check') else 'Use'
+    step = 'Discover' if phase in ('inspect', 'scope') else 'Use' if phase == 'ready' else 'Prepare'
     rail = ''.join('<span'+(' aria-current="step"' if s == step else '')+'>'+s+'</span>' for s in ('Discover','Prepare','Use'))
     summary = understanding.get('summary') or 'These are the sources found in your selected scope. Choose what matters in the conversation.'
     sources = ''.join('<span class="source">'+esc(s['name'])+'</span>' for s in model['scope'][:8])
