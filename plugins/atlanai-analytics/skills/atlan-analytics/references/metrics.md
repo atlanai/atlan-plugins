@@ -32,8 +32,10 @@ Explicit metrics mode and full builds retain their entry contracts below.
 1. Reuse the requested destination and publication intent. Local draft requests need no
    publication workspace. For Atlan saves, open the Registry session and verify the selected
    workspace. If the destination is unresolved, list accessible workspaces and ask once with
-   local drafts and those workspaces as the choices. Resolve an explicit personal-workspace
-   selection directly. Never choose the first accessible workspace silently.
+   Keep local and those existing workspaces as the choices. Resolve an explicit personal-workspace
+   selection directly. Never choose the first accessible workspace silently or attempt workspace
+   creation through API/CLI. With no accessible workspace, keep drafts and explain the access
+   needed. An explicit new-workspace request gets the UI/admin route, followed by a list refresh.
 2. Keep state in `.atlan-metrics/<slug>/state.json`, with `mode: "metrics"`,
    `ids.workspace_id` and `session_id` when connected, and set `phase` to `context`. Resume only a metrics
    state for this workspace and scope; when several match, ask which. Never read or resume
@@ -172,8 +174,8 @@ connected, and otherwise mark it untested.
 
 ## 5. Publish
 
-Read [publish](metrics/publish.md): preview, a yes, then the writes, through the registry's MCP
-tools only.
+Read [publish](metrics/publish.md): show the checked plan, carry forward existing scoped
+authorization, then make the writes through the registry's MCP tools only.
 
 ## 6. STOP gate
 

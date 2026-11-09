@@ -44,4 +44,4 @@ After phase 7:
 - Offer `atlan-analytics improve` as the next step (Recommended).
 - Set `phase` to `improve`.
 
-End with one status line.
+End with the useful result or one recovery action in natural language.
