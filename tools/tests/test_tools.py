@@ -51,7 +51,7 @@ class BuildTest(unittest.TestCase):
         headers = {"X-Atlan-Client": f"atlan-plugin/{self.source['plugin']['version']}"}
         # Exactly these keys: codex-cli 0.160.0 drops a server entry carrying `extensions`.
         self.assertEqual(documents["plugins/atlanai/mcp.json"]["mcpServers"][server], {"type": "streamable-http", "url": url, "headers": headers})
-        self.assertEqual(documents["plugins/atlanai/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers})
+        self.assertEqual(documents["plugins/atlanai/.mcp.json"]["mcpServers"][server], {"type": "http", "url": url, "headers": headers, "alwaysLoad": True})
 
     def test_agent_plugins_manifests_keep_to_the_closed_schema(self) -> None:
         documents = build.outputs(self.source)

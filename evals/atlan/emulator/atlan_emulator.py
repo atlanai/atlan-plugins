@@ -511,16 +511,32 @@ def search_artifacts(a: dict) -> dict:
             hits.append((score, item))
     hits.sort(key=lambda h: -h[0])
     limit = a.get("limit", 10)
-    # Every hit here matched a query word; the gateway's fused hits say so in `match`, with the
-    # share of the query's words the hit carries as its `similarity`.
+    # Every hit here matched a query word. The gateway's fused hits say how well in `match`, as it
+    # does with term coverage on: `terms` counts the query's words the hit holds, `keyword` is
+    # true past half of them, the share stands in for `similarity`, and `quality` is the label
+    # agent-gateway's `registry_mcp::match_quality` draws (search-2026-11-09-a-partial-keyword-hit-
+    # is-not-strong). It used to say `keyword: true` for every hit and carry no `quality`, so a
+    # skill's "trust a strong hit" step could not be measured here.
     spaces = {w["id"]: w for w in WORLD["workspaces"]}
     return {"items": [(bare(h) if a.get("full") else summary(h))
-                      | {"score": s / 100, "match": {"keyword": True, "similarity": round(s / max(len(query), 1), 3)},
+                      | {"score": s / 100, "match": match_of(s, len(query)),
                          "is_released": bool(h.get("is_released")),
                          "workspace_display_name": spaces.get(h["workspace_id"], {}).get("display_name"),
                          "workspace_kind": spaces.get(h["workspace_id"], {}).get("kind")}
                       for s, h in hits[:limit]],
             "page": {"limit": limit, "offset": 0, "has_more": len(hits) > limit}}
+
+
+STRONG_SIMILARITY = 0.45
+
+
+def match_of(matched: int, of: int) -> dict:
+    """A fused hit's `match` for one that holds `matched` of the query's `of` counted words."""
+    similarity = round(matched / max(of, 1), 3)
+    keyword = matched * 2 > of
+    strong = (keyword and matched >= of > 0) or similarity >= STRONG_SIMILARITY
+    return {"keyword": keyword, "terms": {"matched": matched, "of": of}, "similarity": similarity,
+            "quality": "strong" if strong else "weak"}
 
 
 SUMMARY = ("id", "kind", "name", "display_name", "description", "workspace_id", "project_id", "artifact_status",

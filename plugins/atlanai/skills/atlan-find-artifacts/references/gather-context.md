@@ -33,8 +33,8 @@ Read the result before answering from it:
 - **`matched_query_indexes` is not a ranking.** It can list every outcome for every item, so it
   does not say which item answers which need. Match items to outcomes by reading them.
 - **Platform records and servers are not answers.** Drop `app` and other platform kinds
-  (`references/kinds.md`) and MCP servers unless the user asked for a tool, and drop hits with
-  `match.keyword` false and `match.similarity` under 0.45.
+  (`references/kinds.md`) and MCP servers unless the user asked for a tool, and drop hits whose
+  `match.quality` is `weak`.
 - **The excerpt is the description.** For a saved query or a metric, read the artifact for its
   question, SQL or definition before quoting it.
 

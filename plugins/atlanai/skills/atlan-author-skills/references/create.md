@@ -26,9 +26,9 @@ The first call of the conversation sends `objective` instead of `session_id`.
   fit, and say how theirs will differ.
 - **A `pending_review` one:** someone already submitted it. Say who owns it before drafting a
   second.
-- **Nothing close:** say so in one line and go on. Judge by name and description. A hit with
-  `match.keyword` false and `match.similarity` under 0.45 is noise: unrelated skills scored 0.19
-  to 0.26 in a live search, so treat it as nothing close.
+- **Nothing close:** say so in one line and go on. Judge by name and description. A hit whose
+  `match.quality` is `weak` is noise: unrelated skills scored 0.19 to 0.32 and shared a word or
+  two with the query in live searches, so treat it as nothing close.
 
 A skill of that name already installed here counts too: offer to publish that one rather than
 writing another.

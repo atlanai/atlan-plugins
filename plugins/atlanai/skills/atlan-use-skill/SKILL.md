@@ -51,7 +51,7 @@ Asked to install a skill already installed with the same text: say so and write 
   instructions.
 - **Given only a name or a description**, search with `registry__search_artifacts` and
   `{"query": "<the user's words>", "kind": "skill", "limit": 10}`, adding `"semantic": true`
-  for a description. A hit with `match.keyword` false and `match.similarity` under 0.45 is
+  for a description. A hit whose `match.quality` is `weak` is
   noise: drop it, and when none is left, say no skill in Atlan fits. Show the results that fit,
   each with its name, version and workspace, and ask which one. **That question ends the turn**,
   even when only one fits and even when the request said "and use it": section 2's read comes

@@ -5,7 +5,8 @@
       "url": "https://api.atlan.com/mcp",
       "headers": {
         "X-Atlan-Client": "atlan-plugin/0.5.42"
-      }
+      },
+      "alwaysLoad": true
     }
   }
 }
