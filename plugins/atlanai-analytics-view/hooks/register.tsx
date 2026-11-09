@@ -1,5 +1,4 @@
 import type { Register } from 'claude-code'
-import {visualBoard} from './visual'
 
 const ID = 'analytics-view'
 const TOOL = 'mcp__atlanai-analytics-view__show'
@@ -118,25 +117,45 @@ export const register: Register = on => {
       $.ui.invalidate('ui.render')
     }
     if(e.surface==='desktop'){
-      const {Svg}=$.ui.resolve(e)
-      const board=visualBoard(v,stale,!!feed)
+      // Use the host's typography, colors, borders and buttons. A scaled image
+      // makes ordinary text oversized and cannot follow the user's host theme.
+      const stats=v.stats||{}
+      const count=(key:string)=>Number.isInteger(stats[key])?String(stats[key]):'—'
+      const local=v.interaction_mode==='local'
+      const active=['preview','publish','ready'].includes(v.phase_code)?2:v.metric?1:0
+      const meaning=v.meaning.match(/^.*?[.!?](?:\s|$)/)?.[0].trim()||v.meaning
       return <Box flexDirection="column" gap={1}>
-        <Svg source={board.source} alt={board.alt}/>
+        <Box flexDirection="row" justifyContent="space-between" gap={1}>
+          <Text bold>{v.domain||'Your analytics'}</Text>
+          <Text dimColor>{stale?'Updates unavailable':feed?'Live':'Saved snapshot'}</Text>
+        </Box>
+        <Text dimColor>{v.purpose||'Start with what matters to you'}</Text>
+        <Box flexDirection="row" gap={2} flexWrap="wrap">
+          {['Discover','Prepare','Use'].map((label,i)=><Text key={label} bold={i===active} dimColor={i!==active}>{(i<active?'✓ ':i===active?'● ':'○ ')+label}</Text>)}
+        </Box>
+        <Box flexDirection="row" gap={1} flexWrap="wrap">
+          {[['metrics','Metrics'],['queries','Queries'],['executed','SQL checks']].map(([key,label])=><Box key={key} flexDirection="column" flexGrow={1} borderStyle="round" borderDimColor paddingX={1} paddingY={1}><Text bold>{count(key)}</Text><Text dimColor>{label}</Text></Box>)}
+        </Box>
+        <Box flexDirection="column" gap={1} borderStyle="round" borderDimColor padding={1}>
+          <Box flexDirection="row" justifyContent="space-between" gap={1} flexWrap="wrap"><Text bold>{v.metric||'What matters to you?'}</Text><Text dimColor>{local?'Saved locally':Number(stats.released)>0?'Shared in Atlan':'In progress'}</Text></Box>
+          <Text>{v.metric?meaning:(v.summary||'Choose a business focus in chat. Your first metric will appear here.')}</Text>
+          <Text dimColor>{v.check||'Waiting for your business focus'}</Text>
+          <Button key="evidence" label={details?'Hide definition and checks':'View definition and checks'} onPress={()=>{details=!details;$.ui.invalidate('ui.render')}}/>
+        </Box>
+        {details?<Box flexDirection="column" gap={1}><Text bold>{v.metric+' · Evidence'}</Text><Text>{v.meaning}</Text><Text>{'Calculation: '+v.calculation}</Text><Text>{'Includes: '+v.population}</Text><Text>{v.source}</Text><Text>{v.evidence||v.check}</Text>{v.sql?<Text>{'Saved SQL: '+v.sql}</Text>:''}<Text dimColor>Saved checks are not fresh execution or proof of dashboard parity.</Text></Box>:''}
+        <Box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1} flexWrap="wrap">
+          <Text>{stats.review_required?`${stats.review_required} queries need source review`:v.metric?'Explore your saved definitions':'Understanding your sources'}</Text>
+          <Button key="ask" label={stats.review_required?'Review queries':'Explore a question'} onPress={()=>void draft(stats.review_required?'Show the queries that still need source review and the evidence needed to review them.':'Show a question supported by this analytics run, with its local or released scope.')}/>
+        </Box>
         <Box flexDirection="row" flexWrap="wrap" gap={1}>
-          <Button key="evidence" label={details?'Close evidence':'Evidence'} onPress={()=>{details=!details;$.ui.invalidate('ui.render')}}/>
-          <Button key="sources" label={sources?'Close sources':'Sources'} onPress={()=>{sources=!sources;$.ui.invalidate('ui.render')}}/>
-          <Button key="ask" label={v.stats?.review_required?'Review queries':'Explore a question'} onPress={()=>void draft(v.stats?.review_required?'Show the queries that still need source review and the evidence needed to review them.':'Show a question supported by this analytics run, with its local or released scope.')}/>
+          <Button key="sources" label={sources?'Hide sources':'View sources'} dimColor onPress={()=>{sources=!sources;$.ui.invalidate('ui.render')}}/>
+          {!local?<Button key="pause" label={paused?'Resume…':'Pause…'} dimColor onPress={()=>void draft(paused?'Resume this analytics run from its saved checkpoint.':'Pause this analytics run at its current checkpoint.')}/>:''}
+          {!local?<Button key="local" label="Keep local…" dimColor onPress={()=>void draft('Keep this analytics run local. Do not publish its definitions.')}/>:''}
         </Box>
         {sources?<Box flexDirection="column" gap={1}><Text bold>What we found</Text><Text>{v.summary||v.sources.join(', ')}</Text>{v.opportunities.map((s:string)=><Text key={s}>{s}</Text>)}</Box>:''}
-        {details?<Box flexDirection="column" gap={1}><Text bold>{v.metric+' · Evidence'}</Text><Text>{v.meaning}</Text><Text>{'Calculation: '+v.calculation}</Text><Text>{'Includes: '+v.population}</Text><Text>{v.source}</Text><Text>{v.evidence||v.check}</Text>{v.sql?<Text>{'Saved SQL: '+v.sql}</Text>:''}<Text dimColor>Saved checks are not fresh execution or proof of dashboard parity.</Text></Box>:''}
         {v.warnings.map((s:string)=><Text key={s}>{s}</Text>)}
         {stale?<Text>Updates unavailable. Showing the last received evidence.</Text>:''}
-        <Text>{v.next}</Text>
-        <Box flexDirection="row" flexWrap="wrap" gap={1}>
-          <Button key="pause" label={paused?'Resume…':'Pause…'} onPress={()=>void draft(paused?'Resume this analytics run from its saved checkpoint.':'Pause this analytics run at its current checkpoint.')}/>
-          <Button key="local" label="Keep local…" onPress={()=>void draft('Keep this analytics run local. Do not publish its definitions.')}/>
-          <Button key="hide" label="Hide" onPress={()=>{dismissed=true;placed=false;void $.ui.close({id:ID})}}/>
-        </Box>
+        <Text dimColor>{`${count('released')} shared in Atlan · ${count('held')} held`}</Text>
         <Text dimColor>{feedback||'Actions prepare a message in chat. Submit it to continue.'}</Text>
       </Box>
     }

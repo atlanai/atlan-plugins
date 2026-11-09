@@ -1,6 +1,6 @@
 {
   "name": "atlanai-analytics-view",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Native Analytics source overview, metric evidence and progress pane for Claude Code. Shows only supplied presentation data and fills prompts on explicit button clicks.",
   "author": {
     "name": "Atlan",
