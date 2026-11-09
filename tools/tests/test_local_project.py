@@ -458,6 +458,8 @@ class SQLiteFlow(unittest.TestCase):
         result = self.run.execute({'sql': "SELECT CAST(julianday(MAX(day)) - julianday(MIN(day)) AS INTEGER), "
                                           "date(MIN(day)), iif(COUNT(*) > 2, 'many', 'few') FROM site.work"})
         self.assertEqual(result['rows'], [[2, '2026-01-01', 'many']])
+        result = self.run.execute({'sql': "SELECT group_concat(kind, ',') FROM (SELECT DISTINCT kind FROM site.work ORDER BY kind)"})
+        self.assertEqual(result['rows'], [['build,rework']])
 
     def test_forbidden_queries_leave_database_unchanged(self):
         for query in ('DELETE FROM site.work', 'SELECT 1 FROM site.work; SELECT 2 FROM site.work',
