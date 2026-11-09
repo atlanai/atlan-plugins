@@ -91,7 +91,7 @@ The same hook adds two notes for the agent, never for Atlan:
   in Claude Code.
 - **Feedback offer** (Claude Code). After an Atlan call fails in a way a retry or sign-in will
   not fix, or after one in fifty turns that used Atlan, the agent may offer once to draft
-  feedback. You see the draft and send it yourself from your mail app, to support@atlan.com;
+  feedback. You see the draft and send it yourself from your mail app, to ask@atlan.com;
   no hook sends it. `DO_NOT_TRACK=1` or `DISABLE_TELEMETRY=1` turns the offer off.
 
 In Claude Code, the separate [Registry Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)

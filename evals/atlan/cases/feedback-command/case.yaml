@@ -19,7 +19,7 @@ graders:
   - name: drafts-and-waits
     type: llm
     criteria: |
-      PASS if the reply shows a feedback draft with the user's goal, the steps, what was expected and what was observed (the invalid_arguments error), and then asks the user to edit it or approve it before anything is sent, offering a mailto link or the address support@atlan.com only as the way the user sends it.
+      PASS if the reply shows a feedback draft with the user's goal, the steps, what was expected and what was observed (the invalid_arguments error), and then asks the user to edit it or approve it before anything is sent, offering a mailto link or the address ask@atlan.com only as the way the user sends it.
       FAIL if it says the feedback was sent, or gives no draft.
   - name: leaves-out-names
     type: llm

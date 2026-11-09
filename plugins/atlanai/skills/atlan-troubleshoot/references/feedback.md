@@ -37,10 +37,10 @@ workspace", not its name. Show the draft and ask the user to edit it or say yes.
 ## Send
 
 Nothing is sent by a tool. On the user's yes, give them a link that opens the draft in their mail
-app, addressed to support@atlan.com:
+app, addressed to ask@atlan.com:
 
 ```
-mailto:support@atlan.com?subject=<subject>&body=<draft>
+mailto:ask@atlan.com?subject=<subject>&body=<draft>
 ```
 
 The subject is `atlanai feedback: ` and five to eight words. Percent-encode both, with `%20` for a
