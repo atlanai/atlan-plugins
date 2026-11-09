@@ -796,6 +796,12 @@ def _same(a: dict, b: dict) -> bool:
     return keep(a.get("definition") or {}) == keep(b.get("definition") or {})
 
 
+# The edges a layer may ask for, as (source kind, target kind). `metric` declares only
+# depends_on and replaced_by, and the metric app writes both from the definition.
+LINK_TYPES = {"depends_on": ("metric", "metric"), "source_of": ("sql_query", "metric"),
+              "uses_metric": ("sql_query", "metric")}
+
+
 def check_publication_holds(directory, metrics=None, queries=None, links=None):
     """Enforce engine hold evidence without adding a dependency to legacy authored contexts."""
     root = pathlib.Path(directory)
@@ -913,13 +919,25 @@ def cmd_check(a) -> dict:
                 errs.append(f"{end} {who.get('kind')}:{who.get('name')} is not in this layer or the workspace")
         if frm == to:
             errs.append("a link from a metric to itself")
-        if rel not in ("depends_on", "alternative", "source_of"):
+        if rel == "alternative":
+            errs.append("metric declares no alternative edge: record a grain variant or alternative on both "
+                        "metrics' definition.extensions.related instead")
+        elif rel not in LINK_TYPES:
             errs.append(f"rel_type {rel!r} is not one the metric and sql_query kinds declare")
-        if rel == "source_of" and not (frm.get("kind") == "sql_query" and to.get("kind") == "metric"):
-            errs.append("source_of runs from a saved query to a metric")
+        elif LINK_TYPES[rel] != (frm.get("kind"), to.get("kind")):
+            errs.append(f"{rel} runs from a {LINK_TYPES[rel][0]} to a {LINK_TYPES[rel][1]}")
+        elif rel == "depends_on":
+            # The metric app writes this edge from the definition, so the definition must name it.
+            src = next((m for m in metrics if m.get("name") == frm.get("name")), None)
+            named = {str(n).strip() for n in ((src or {}).get("definition") or {}).get("depends_on") or []}
+            if src is None:
+                errs.append("depends_on from a metric outside this layer needs a revision of that metric")
+            elif to.get("name") not in named:
+                errs.append(f"add {to.get('name')!r} to {frm.get('name')!r}'s definition.depends_on: "
+                            "the metric app writes depends_on from the definition")
         key = (frm.get("name"), to.get("name"), rel)
-        if rel == "alternative" and (to.get("name"), frm.get("name"), rel) in pairs or key in pairs:
-            errs.append("asserted twice (alternative is symmetric)")
+        if key in pairs:
+            errs.append("asserted twice")
         pairs.add(key)
         for e in errs:
             refused.append({"kind": "link", "item": f"links[{i}]", "error": e})
@@ -969,8 +987,11 @@ def cmd_import_run(a) -> dict:
                               "to": {"kind": "metric", "name": ref_to_name[ref]}, "rel_type": "source_of",
                               "attributes": {"origin": "metrics-agent"}})
     for e in (load_json(run / "metric_relationships.json", {}) or {}).get("edges") or []:
+        # Grain variants and alternatives are no edge: x4 writes them to definition.extensions.related.
+        if (e.get("rel_type") or "depends_on") != "depends_on" or e.get("relation") in ("grain_variant", "alternative"):
+            continue
         links.append({"from": {"kind": "metric", "name": e.get("from")}, "to": {"kind": "metric", "name": e.get("to")},
-                      "rel_type": e.get("rel_type") or ("alternative" if e.get("relation") == "alternative" else "depends_on"),
+                      "rel_type": "depends_on",
                       "attributes": {k: v for k, v in {**(e.get("attributes") or {}), "relation": e.get("relation"),
                                                        "confidence": e.get("confidence")}.items() if v is not None}})
     dump_json(d / "metrics.json", metrics)
@@ -1135,6 +1156,30 @@ def selftest() -> dict:
         cmd_check(argparse.Namespace(dir=str(t / "run")))
         ok("revising a live metric's population is called out", any(
             "changes what live 'paid_rev' measures" in w["warning"] for w in load_json(t / "run" / "plan.json")["warnings"]))
+        base = json.loads(json.dumps(refunded))
+        child = json.loads(json.dumps(refunded))
+        child.update({"name": "refunded_share", "display_name": "Refunded Share",
+                      "description": "Share of revenue refunded."})
+        child["definition"]["output"]["alias"] = "refunded_share"
+        dump_json(t / "run" / "metrics.json", [base, child])
+        link = {"from": {"kind": "metric", "name": "refunded_share"}, "to": {"kind": "metric", "name": "refunded_revenue"},
+                "attributes": {"why": "numerator"}}
+        dump_json(t / "run" / "links.json", [{**link, "rel_type": "alternative"}, {**link, "rel_type": "depends_on"}])
+        cmd_check(argparse.Namespace(dir=str(t / "run")))
+        errors = [x["error"] for x in load_json(t / "run" / "plan.json")["refused"] if x["kind"] == "link"]
+        ok("links: alternative is refused toward extensions.related", any("extensions.related" in e for e in errors))
+        ok("links: depends_on the definition does not name is refused", any("definition.depends_on" in e for e in errors))
+        child["definition"]["depends_on"] = ["refunded_revenue"]
+        dump_json(t / "run" / "metrics.json", [base, child])
+        dump_json(t / "run" / "links.json", [{**link, "rel_type": "depends_on"},
+                                             {"from": {"kind": "metric", "name": "refunded_revenue"},
+                                              "to": {"kind": "metric", "name": "refunded_share"}, "rel_type": "uses_metric",
+                                              "attributes": {"why": "x"}}])
+        cmd_check(argparse.Namespace(dir=str(t / "run")))
+        plan = load_json(t / "run" / "plan.json")
+        ok("links: a depends_on the definition names passes; uses_metric runs from a saved query",
+           [x["ok"] for x in plan["links"]] == [True, False])
+        dump_json(t / "run" / "links.json", [])
     with tempfile.TemporaryDirectory() as d:
         t = pathlib.Path(d)
         (t / "tool.json").write_text(json.dumps({"isError": False, "content": [{"type": "text", "text": json.dumps(
