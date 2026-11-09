@@ -1,13 +1,14 @@
 import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { CAPABILITY, ROUTING, isKeyed, isLostReply } from '../register'
+import { CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY, isKeyed, isLostReply } from '../register'
 import type { Case } from './case'
 import { CASES } from './fixtures'
 
 const CALL = 'mcp__plugin_atlanai_atlan__mcp__call_tool'
 const PUBLISH = 'extension__skill__create'
 const CWD = '/work'
+const BULK = 'registry__create_artifacts'
 // The fixtures' stand-in, built here so no credential-shaped string is committed.
 const FAKE_AWS_KEY = 'AKIA' + 'ABCDEFGHIJKLMNOP'
 const SKILL = '---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n'
@@ -161,6 +162,147 @@ function skillsOf(call: Record<string, unknown> | undefined): Record<string, unk
   const args = call?.arguments as { skills?: Record<string, unknown>[] } | undefined
   return args?.skills ?? []
 }
+
+async function bulkCall(text: string, path = 'payload.json', changes: Record<string, unknown> = {}) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))
+  return { tool: CALL, name: BULK, rationale: 'Publish the checked definitions.', arguments: {
+    kind: 'sql_query', workspace_id: 'workspace_example', items: [], items_from: path,
+    items_sha256: Array.from(digest, b => b.toString(16).padStart(2, '0')).join(''), ...changes,
+  } }
+}
+
+const batchItem = { name: 'example-query', source_id: 'example-query', workspace_id: 'workspace_example',
+  definition: { sql: 'SELECT\n  COUNT(*)\nFROM example_orders', question: 'How many orders are there?' } }
+
+describe('deterministic receipt capture', () => {
+  test('strips the local destination and records the native result without a second tool call', async ($, on) => {
+    const disk = new Disk()
+    disk.add(CWD, { kind: 'dir' })
+    const sent = engine(on, disk)
+    const processes: string[] = []
+    on('process.run', (_, e) => {
+      processes.push(JSON.stringify(e))
+      return { value: { exitCode: 0, stdout: JSON.stringify({ ready: true, recorded: true, path: '/work/run/receipts/example.json' }), stderr: '' } }
+    })
+    const ran = await $.tool.call({ tool: CALL.replace('call_tool', 'call_read_tool'), name: 'registry__get_artifact',
+      arguments: { artifact_id: 'metric_example', channel: 'latest', receipt_dir: '/work/run/receipts' } } as never)
+    expect(sent.length).toBe(1)
+    expect(sent[0]?.arguments).toEqual({ artifact_id: 'metric_example', channel: 'latest' })
+    expect(processes.length).toBe(2)
+    expect(processes[1]).toContain('response_text')
+    expect(JSON.stringify(ran)).toContain('Atlan receipt saved')
+  })
+
+  test('reuses the resolved interpreter while retaining every preflight and capture', async ($, on) => {
+    const disk = new Disk()
+    disk.add(CWD, { kind: 'dir' })
+    const sent = engine(on, disk)
+    const processes: string[] = []
+    on('process.run', (_, e) => {
+      processes.push(JSON.stringify(e))
+      return { value: { exitCode: 0, stdout: JSON.stringify({ ready: true, recorded: true, python_executable: '/runtime/bin/python3' }), stderr: '' } }
+    })
+    for (const id of ['metric_first', 'metric_second']) await $.tool.call({ tool: CALL, name: 'registry__get_artifact',
+      arguments: { artifact_id: id, channel: 'latest', receipt_dir: '/work/run/receipts' } } as never)
+    expect(sent.length).toBe(2)
+    expect(processes.length).toBe(4)
+    expect(processes[0]).not.toContain('/runtime/bin/python3')
+    for (const process of processes.slice(1)) expect(process).toContain('/runtime/bin/python3')
+    expect(processes.filter(p => p.includes('response_text')).length).toBe(2)
+  })
+
+  test('keeps an executed result and never replays it when recording fails', async ($, on) => {
+    const disk = new Disk()
+    disk.add(CWD, { kind: 'dir' })
+    const sent = engine(on, disk)
+    let attempts = 0
+    on('process.run', () => ({ value: { exitCode: ++attempts === 1 ? 0 : 1, stdout: '{"ready":true}', stderr: '' } }))
+    const ran = await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: {
+      artifact_id: 'metric_example', channel: 'latest', receipt_dir: '/work/run/receipts' } } as never)
+    expect(sent.length).toBe(1)
+    expect(JSON.stringify(ran)).toContain('The tool already ran')
+    expect(JSON.stringify(ran)).toContain('never repeat a write')
+  })
+
+  test('refuses a bad receipt destination before dispatching the tool', async ($, on) => {
+    const disk = new Disk()
+    disk.add(CWD, { kind: 'dir' })
+    const sent = engine(on, disk)
+    on('process.run', () => ({ value: { exitCode: 1, stdout: '{"recorded":false}', stderr: '' } }))
+    await $.tool.call({ tool: CALL, name: 'registry__get_artifact', arguments: {
+      artifact_id: 'metric_example', channel: 'latest', receipt_dir: '/outside/receipts' } } as never)
+    expect(sent.length).toBe(0)
+  })
+})
+
+describe('local bulk publication', () => {
+  test('loads exact SQL for metrics and saved queries without changing audit context', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const text = JSON.stringify([batchItem])
+    disk.file(`${CWD}/payload.json`, text)
+    for (const kind of ['metric', 'sql_query']) await $.tool.call(await bulkCall(text, 'payload.json', { kind }) as never)
+    expect(sent.length).toBe(2)
+    for (const call of sent) {
+      expect((call.arguments as { items: unknown }).items).toEqual([batchItem])
+      expect(Object.keys(call.arguments as object).sort()).toEqual(['items', 'kind'])
+      expect(call.rationale).toBe('Publish the checked definitions.')
+    }
+    expect(disk.asked.some(path => path.includes('.env'))).toBe(false)
+  })
+
+  test('refuses changed digests, mixed workspaces, inline items and malformed JSON', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const text = JSON.stringify([batchItem])
+    disk.file(`${CWD}/payload.json`, text)
+    for (const changes of [{ items_sha256: '0'.repeat(64) }, { workspace_id: 'workspace_other' }, { items: [batchItem] }, { kind: 'agent' }]) {
+      await $.tool.call(await bulkCall(text, 'payload.json', changes) as never)
+    }
+    for (const invalid of ['{ private malformed content', '[]', JSON.stringify([batchItem, batchItem]), JSON.stringify([{ ...batchItem, workspace_id: 'workspace_other' }])]) {
+      disk.file(`${CWD}/payload.json`, invalid)
+      await $.tool.call(await bulkCall(invalid) as never)
+    }
+    expect(sent.length).toBe(0)
+  })
+
+  test('refuses links, outside paths and credential paths before reading bytes', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const text = JSON.stringify([batchItem])
+    disk.file('/outside/payload.json', text)
+    disk.add(`${CWD}/linked`, { kind: 'link', target: '/outside' })
+    disk.file(`${CWD}/.aws/payload.json`, text)
+    disk.file(`${CWD}/.env.json`, text)
+    for (const path of ['/outside/payload.json', 'linked/payload.json', '.aws/payload.json', '.env.json', '../outside/payload.json']) {
+      await $.tool.call(await bulkCall(text, path) as never)
+    }
+    expect(sent.length).toBe(0)
+    expect(disk.asked.some(path => path.startsWith('/outside'))).toBe(false)
+  })
+
+  test('scans decoded JSON strings and rejects payloads above the limit', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const token = 'sk-' + 'a'.repeat(35)
+    const secret = JSON.stringify([{ ...batchItem, description: token }]).replace(token, '\\u0073' + token.slice(1))
+    for (const text of [secret, ' '.repeat(256 * 1024 + 1)]) {
+      disk.file(`${CWD}/payload.json`, text)
+      await $.tool.call(await bulkCall(text) as never)
+    }
+    expect(sent.length).toBe(0)
+  })
+
+  test('leaves an unhooked empty batch unable to write and ignores other servers', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const call = await bulkCall(JSON.stringify([batchItem]))
+    await $.tool.call({ ...call, tool: 'mcp__other__mcp__call_tool' } as never)
+    expect(sent.length).toBe(1)
+    expect((sent[0]?.arguments as { items: unknown }).items).toEqual([])
+    expect(disk.asked.length).toBe(0)
+  })
+})
 
 describe('the shared bundle fixtures', () => {
   for (const one of CASES) {
@@ -409,7 +551,7 @@ describe('the capability line', () => {
     await $.prompt.submit(prompt('and another'))
     session = 'session-2'
     await $.prompt.submit(prompt('after clear'))
-    expect(contexts).toEqual([[CAPABILITY, ROUTING], undefined, [CAPABILITY, ROUTING]])
+    expect(contexts).toEqual([[CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY], undefined, [CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY]])
   })
 
   test('keeps the context a prompt already carries', async ($, on) => {
@@ -420,7 +562,7 @@ describe('the capability line', () => {
       return { text: e.text, context: e.context }
     })
     await $.prompt.submit(prompt('publish my skill', { context: ['from another hook'] }))
-    expect(contexts).toEqual([['from another hook', CAPABILITY, ROUTING]])
+    expect(contexts).toEqual([['from another hook', CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY]])
   })
 
   test('adds nothing to the system prompt', async ($, on) => {

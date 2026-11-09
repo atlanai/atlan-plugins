@@ -1,7 +1,8 @@
 // The atlanai publish helper, for Claude Code only. It lets `extension__skill__create` take
 // `files_from`, a folder in the working tree, in place of the skill's files: the hook reads that
 // folder, checks it with the rules of skills/atlan-author-skills/scripts/check_bundle.py, and sends
-// its files inline in the same call, each with its sha256. It reads nothing else and sends nowhere else.
+// its files inline in the same call, each with its sha256. Bulk creates can load one digest-bound
+// items_from JSON file instead of model-copied definitions, under the same read and routing limits.
 //
 // Beside it, notices.ts adds two one-line notes: that a newer release is out (from one read of the
 // public manifest on main, LATEST_URL), and an offer to draft feedback for Atlan after a failed
@@ -18,7 +19,7 @@
 
 import type { EngineInterface, Register } from 'claude-code'
 
-import { CREDENTIAL_DIRS, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
+import { CREDENTIAL_DIRS, KEY_FILES, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
 import {
   ATLAN_TOOL,
   FEEDBACK_ON_FAILURE,
@@ -38,8 +39,12 @@ import { LATEST_URL, VERSION } from './release'
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
  * under the plugin's server or one added by hand. Never another server's tool of a like name.
  */
-export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$/
+export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$/
 export const PUBLISH = 'extension__skill__create'
+export const BULK_PUBLISH = 'registry__create_artifacts'
+export const BULK_CAPABILITY = 'Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].'
+export const RECEIPT_CAPABILITY = 'Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.'
+const RECEIPT_OPERATIONS = new Set([BULK_PUBLISH, 'registry__get_artifact', 'registry__get_related_artifacts'])
 /** The line that tells the model the helper is on, once a conversation. publish.md sends `files_from` without waiting for it. */
 export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create accepts files_from.'
 
@@ -56,6 +61,73 @@ const NOT_SENT = 'Nothing was sent. Fix what is listed and call extension__skill
 
 type Dollar = EngineInterface
 type Folder = { label: string; entries: Entry[]; problems: Problem[] }
+
+/** The same bounded, atomic no-follow writer used by Codex and Cursor command hooks. */
+async function receiptProcess($: Dollar, runtime: { python: string }, mode: 'check' | 'capture', directory: unknown, request: Record<string, unknown>, response?: { text: string; isError?: boolean }) {
+  const payload = { cwd: await $.session.cwd(), roots: await roots($), receipt_dir: directory, request,
+    ...(response ? { response_text: response.text, is_error: response.isError === true } : {}) }
+  const ran = await $.process.run([runtime.python, `${$.plugin.root}/command-hooks/receipt_store.py`, mode], {
+    stdin: JSON.stringify(payload), timeoutMs: 5000,
+  })
+  if (ran.exitCode !== 0) throw new Error('Receipt recording is pending.')
+  const { python_executable: python, ...result } = JSON.parse(ran.stdout) as Record<string, unknown>
+  // Avoid repeatedly running an environment manager's launcher; every validation still runs.
+  if (typeof python === 'string' && python.startsWith('/') && !python.includes('\0')) runtime.python = python
+  return result
+}
+
+/** Load one reviewed batch. The remote fallback has an empty items list and cannot write. */
+export async function expandBulk($: Dollar, args: Record<string, unknown>): Promise<{ args: Record<string, unknown> } | { deny: string } | undefined> {
+  if (!('items_from' in args)) return undefined
+  const deny = { deny: 'The local publication batch was refused. Check its path, digest, workspace, size and content locally. Nothing was sent.' }
+  try {
+    if (!Array.isArray(args.items) || args.items.length !== 0 || Object.keys(args).sort().join(',') !== 'items,items_from,items_sha256,kind,workspace_id') return deny
+    if (!['metric', 'sql_query'].includes(String(args.kind)) || typeof args.workspace_id !== 'string' || !args.workspace_id) return deny
+    const label = args.items_from
+    if (typeof label !== 'string' || !label.endsWith('.json') || label.startsWith('~') || label.startsWith('//') || label.startsWith('\\\\') || /^[A-Za-z]:(?![\\/])/.test(label) || label.split(/[\\/]/).includes('..')) return deny
+    if (typeof args.items_sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(args.items_sha256)) return deny
+    const cwd = await $.session.cwd()
+    const sep = separatorOf(cwd)
+    const path = isAbsolute(label) ? label : `${trimEnd(cwd)}${sep}${label}`
+    const trees = await roots($)
+    const tree = trees.find(root => isUnder(path, root, sep))
+    if (!tree) return deny
+    let at = tree
+    const parts = path.slice(tree.length).split(/[\\/]/).filter(Boolean)
+    if (parts.length < 1 || parts.length > MAX_DEPTH) return deny
+    for (const [index, part] of parts.entries()) {
+      if (isCredentialDir(part) || KEY_FILES.test(part.toLowerCase())) return deny
+      at += sep + part
+      const own = await $.fs.stat(at)
+      if (own.isLink || own.kind !== (index === parts.length - 1 ? 'file' : 'dir')) return deny
+    }
+    const stat = await $.fs.stat(path, { resolve: true })
+    if (stat.isLink || stat.kind !== 'file' || !stat.realPath || !isUnder(stat.realPath, tree, sep) || stat.size > MAX_BYTES) return deny
+    const bytes = fromBase64((await $.fs.read(path, { as: 'bytes' })).base64)
+    if (bytes.length > MAX_BYTES) return deny
+    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
+    if (Array.from(hash, b => b.toString(16).padStart(2, '0')).join('') !== args.items_sha256) return deny
+    const checked = check([{ label: 'payload', entries: [{ path: parts[parts.length - 1] as string, kind: 'file', bytes }] }], false)
+    if (!checked.ok) return deny
+    const items: unknown = JSON.parse(Object.values(checked.files)[0] as string)
+    if (!Array.isArray(items) || items.length < 1 || items.length > 100) return deny
+    const ids = new Set<string>()
+    for (const item of items) {
+      if (!isRecord(item) || item.workspace_id !== args.workspace_id || !isRecord(item.definition) || typeof item.name !== 'string' || !item.name || typeof item.source_id !== 'string' || !item.source_id || ids.has(item.source_id)) return deny
+      ids.add(item.source_id)
+    }
+    // Scan decoded strings too, so JSON escapes cannot hide credentials or invisible text.
+    const strings = (value: unknown): string[] => typeof value === 'string' ? [value] : Array.isArray(value) ? value.flatMap(strings) : isRecord(value) ? Object.entries(value).flatMap(([key, part]) => [key, ...strings(part)]) : []
+    for (const text of [JSON.stringify(items), strings(items).join('\n')]) {
+      if (!check([{ label: 'payload', entries: [{ path: 'items.txt', kind: 'file', bytes: new TextEncoder().encode(text) }] }], false).ok) return deny
+    }
+    const expanded = { kind: args.kind, items }
+    if (new TextEncoder().encode(JSON.stringify(expanded)).length > MAX_BYTES) return deny
+    return { args: expanded }
+  } catch {
+    return deny
+  }
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -314,6 +386,7 @@ async function checkLatest($: Dollar): Promise<string | undefined> {
 }
 
 export const register: Register = on => {
+  const receiptRuntime = { python: 'python3' }
   // The conversations already told, by session id: a /clear goes on under a new id, and is told again.
   const told = new Set<string>()
   // The update notice, read once a process and given once; the conversations offered feedback; and
@@ -335,7 +408,7 @@ export const register: Register = on => {
     const notes: string[] = []
     if (!told.has(session)) {
       told.add(session)
-      notes.push(CAPABILITY, ROUTING)
+      notes.push(CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY)
     }
     // Each note fails alone, so a fault in one never drops the capability line.
     if (!isUpdateTold) {
@@ -373,18 +446,36 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
   on('tool.call', { tool: CALL_TOOL }, async ($, e, next) => {
     const call = e as unknown as { name?: unknown; arguments?: unknown }
-    if (call.name !== PUBLISH) return next(e)
+    if (call.name !== PUBLISH && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
     const args = argsOf(call.arguments)
     if (!args) return next(e)
-    const expanded = await expand($, args)
+    const { receipt_dir: receiptDir, ...native } = args
+    if (receiptDir !== undefined && (call.name === PUBLISH || call.name === BULK_PUBLISH && !('items_from' in native))) return { deny: 'Receipt capture on creates requires a guarded local batch.' }
+    const expanded = (call.name === BULK_PUBLISH ? await expandBulk($, native) : call.name === PUBLISH ? await expand($, native) : undefined) ?? (receiptDir !== undefined ? { args: native } : undefined)
     if (!expanded) return next(e)
     if ('deny' in expanded) return { deny: expanded.deny }
+    const request = { name: call.name, arguments: expanded.args }
+    if (receiptDir !== undefined) {
+      try {
+        await receiptProcess($, receiptRuntime, 'check', receiptDir, request)
+      } catch {
+        return { deny: 'The receipt destination could not be prepared. Nothing was sent.' }
+      }
+    }
     const sentAt = await $.clock.now()
     const sent = typeof call.arguments === 'string' ? JSON.stringify(expanded.args) : expanded.args
     // From here the call has run: nothing below may throw, or the .catch would send it again.
     const ran = await next({ ...e, arguments: sent } as typeof e)
     try {
-      if (ran.deny !== undefined || ran.isError !== true || !isLostReply(resultText(ran))) return ran
+      if (receiptDir !== undefined) {
+        try {
+          const saved = await receiptProcess($, receiptRuntime, 'capture', receiptDir, request, { text: resultText(ran), isError: ran.isError })
+          return { ...ran, context: [...(ran.context ?? []), `Atlan receipt saved: ${JSON.stringify(saved)}. Assemble receipts with the Analytics receipt helper; do not copy response bodies.`] }
+        } catch {
+          return { ...ran, context: [...(ran.context ?? []), 'Receipt recording is pending. The tool already ran. Reconcile its result; never repeat a write to repair a local receipt.'] }
+        }
+      }
+      if (call.name === BULK_PUBLISH || ran.deny !== undefined || ran.isError !== true || !isLostReply(resultText(ran))) return ran
       return { ...ran, context: [...(ran.context ?? []), readBackNote(sentAt, isKeyed(args))] }
     } catch {
       return ran

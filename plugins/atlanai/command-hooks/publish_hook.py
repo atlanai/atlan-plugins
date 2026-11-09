@@ -22,7 +22,8 @@ on stdout, or nothing. It is claude-hooks/register.ts for the harnesses that run
   an MCP tool `MCP:<tool>` in pre, without its server; this event names the server, so it is the
   check that the files only ever go to Atlan.
 
-It reads only the folders the call names, inside the session's working directory or workspace,
+Bulk creates also load a single digest-bound items_from JSON file, with an empty inline items list.
+It reads only the folders or batch file the call names, inside the session's working directory or workspace,
 and refuses links, credential folders and files, and anything outside. On any fault it exits 0
 with no output, so the call goes on unchanged and the skill app refuses files_from by name.
 """
@@ -41,7 +42,11 @@ import urllib.request
 from pathlib import Path
 
 PUBLISH = "extension__skill__create"
+BULK_PUBLISH = "registry__create_artifacts"
 CAPABILITY = "Atlan publish helper is on: extension__skill__create accepts files_from."
+BULK_CAPABILITY = "Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: []."
+RECEIPT_CAPABILITY = "Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying."
+RECEIPT_OPERATIONS = {BULK_PUBLISH, "registry__get_artifact", "registry__get_related_artifacts"}
 NOT_SENT = "Nothing was sent. Fix what is listed and call extension__skill__create again."
 CREDENTIAL_DIRS = {".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", "gcloud"}
 LOST = re.compile(r"\b(?:502|503|504)\b|bad gateway|service unavailable|gateway time-?out", re.IGNORECASE)
@@ -49,8 +54,8 @@ LOST = re.compile(r"\b(?:502|503|504)\b|bad gateway|service unavailable|gateway 
 # names the server (`atlan`, the key every Atlan plugin uses, or under a plugin prefix); Cursor names
 # only the tool, so mcp-guard checks its server.
 RUNNERS = {
-    "codex": re.compile(r"^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_write)?_tool$"),
-    "cursor": re.compile(r"^MCP:mcp__call(?:_write)?_tool$"),
+    "codex": re.compile(r"^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$"),
+    "cursor": re.compile(r"^MCP:mcp__call(?:_(?:write|read))?_tool$"),
 }
 ATLAN_HOST = re.compile(r"^(?:[a-z0-9-]+\.)*atlan\.com$")
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -118,6 +123,17 @@ def load_checker():
     return module
 
 
+def load_receipts():
+    spec = importlib.util.spec_from_file_location('atlan_receipt_store', PLUGIN_ROOT / 'command-hooks' / 'receipt_store.py')
+    module = importlib.util.module_from_spec(spec)
+    written, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = written
+    return module
+
+
 def problem(path: str, rule: str, fix: str) -> dict:
     return {"path": path, "line": None, "column": None, "rule": rule, "fix": fix}
 
@@ -136,14 +152,13 @@ def args_of(value):
 
 
 def publish_input(event: dict, host: str):
-    """The runner's input when this call is the Atlan gateway's skill create, else None. A tool of
-    the same shape on another server is never the create, so its files_from is never read."""
+    """Select Atlan's skill or bulk create; never read local files for another server."""
     tool = event.get("tool_name")
     tool_input = event.get("tool_input")
     runner = RUNNERS.get(host)
     if runner is None or not isinstance(tool, str) or not runner.match(tool) or not isinstance(tool_input, dict):
         return None
-    return tool_input if tool_input.get("name") == PUBLISH else None
+    return tool_input if tool_input.get("name") in ({PUBLISH} | RECEIPT_OPERATIONS) else None
 
 
 def is_atlan_server(event: dict) -> bool:
@@ -164,11 +179,12 @@ def guard(event: dict):
         return None
     tool_input = args_of(event.get("tool_input"))
     inner = tool_input.get("name") if tool_input else None
-    if inner != PUBLISH and event.get("tool_name") != PUBLISH:
+    if inner not in ({PUBLISH} | RECEIPT_OPERATIONS) and event.get("tool_name") not in ({PUBLISH} | RECEIPT_OPERATIONS):
         return None
     server = event.get("mcp_server_name") if isinstance(event.get("mcp_server_name"), str) else "this server"
-    return (f"The Atlan publish helper sends skill files only to the Atlan server, and {server!r} is not it. "
-            "Nothing was sent. Run extension__skill__create through the `atlan` server's runner.")
+    target = inner if inner in RECEIPT_OPERATIONS else PUBLISH
+    return (f"The Atlan publish helper sends local publication files only to the Atlan server, and {server!r} is not it. "
+            f"Nothing was sent. Run {target} through the `atlan` server's runner.")
 
 
 def trees(event: dict) -> list[str]:
@@ -284,9 +300,66 @@ def over_budget(checker, skills: list, folders: list, slots: list) -> list:
     return []
 
 
+def expand_bulk(tool_input: dict, event: dict):
+    """Load only an explicitly named, digest-bound batch; an unexpanded call has no items."""
+    args = args_of(tool_input.get("arguments"))
+    if not args or "items_from" not in args:
+        return None, None
+    try:
+        if args.get("items") != [] or set(args) != {"kind", "items", "items_from", "items_sha256", "workspace_id"}:
+            raise ValueError("Send an empty items list and only the documented local batch fields.")
+        label, expected = args["items_from"], args["items_sha256"]
+        if (not isinstance(label, str) or not label.endswith(".json") or label.startswith("~")
+                or ".." in Path(label).parts or not isinstance(expected, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", expected)):
+            raise ValueError("Name a JSON batch in the working tree and its SHA-256 digest.")
+        cwd = event.get("cwd") or os.getcwd()
+        path = os.path.abspath(os.path.join(cwd, label))
+        root = next((r for r in trees(event) if is_under(path, r)), None)
+        if root is None:
+            raise ValueError("The batch must be inside the working tree.")
+        parts = Path(os.path.relpath(path, root)).parts
+        checker = load_checker()
+        if not parts or len(parts) > checker.MAX_DEPTH:
+            raise ValueError("The batch path exceeds the publication helper's depth limit.")
+        if any(p.lower() in CREDENTIAL_DIRS or checker.KEY_FILES.search(p.lower()) for p in parts):
+            raise ValueError("Credential paths are never read.")
+        # Resolve each component through an open directory, never through a symbolic link.
+        fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            for part in parts[:-1]:
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+                os.close(fd)
+                fd = child
+            payload = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+            with os.fdopen(payload, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_size > checker.MAX_BYTES:
+                    raise ValueError("The batch must be a regular file of at most 256 KiB.")
+                data = stream.read(checker.MAX_BYTES + 1)
+        finally:
+            os.close(fd)
+        if hashlib.sha256(data).hexdigest() != expected:
+            raise ValueError("The batch changed; prepare and review it again.")
+        items = checker.check_bulk_items(data, args["kind"], args["workspace_id"])
+        new_args = {"kind": args["kind"], "items": items}
+        serialized = json.dumps(new_args, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        if len(serialized.encode("utf-8")) > checker.MAX_BYTES:
+            raise ValueError("The expanded call exceeds 256 KiB; prepare smaller batches.")
+        sent = serialized if isinstance(tool_input["arguments"], str) else new_args
+        return {**tool_input, "arguments": sent}, None
+    except (ValueError, OSError, UnicodeError):
+        # Never echo parser errors: their message can contain private input bytes.
+        return None, "The local publication batch was refused. Check its path, digest, workspace, size and content locally. Nothing was sent."
+
+
 def expand(tool_input: dict, event: dict):
     """(new input, None), (None, refusal text), or (None, None) when no skill names files_from."""
     args = args_of(tool_input.get("arguments"))
+    if tool_input.get("name") == BULK_PUBLISH:
+        return expand_bulk(tool_input, event)
+    if tool_input.get('name') != PUBLISH:
+        return None, None
     skills = args.get("skills") if args else None
     if not isinstance(skills, list) or not any(isinstance(s, dict) and "files_from" in s for s in skills):
         return None, None
@@ -418,28 +491,57 @@ def answer(entry: str, host: str, event: dict):
     codex = host == "codex"
     if entry == "session-start":
         notice = update_notice(host)
-        context = CAPABILITY if notice is None else f"{CAPABILITY}\n{notice}"
+        context = f"{CAPABILITY}\n{BULK_CAPABILITY}\n{RECEIPT_CAPABILITY}"
+        if notice is not None:
+            context += f"\n{notice}"
         return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context}} if codex else {"additional_context": context}
     if entry == "mcp-guard":
         refusal = guard(event) if not codex else None
         if refusal is None:
             return None
-        return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper kept skill files from a server that is not Atlan's."}
+        return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper kept local publication files from a server that is not Atlan's."}
     tool_input = publish_input(event, host)
     if tool_input is None:
         return None
     if entry == "pre":
-        new_input, refusal = expand(tool_input, event)
+        original_args = args_of(tool_input.get('arguments'))
+        receipt_dir = original_args.get('receipt_dir') if original_args else None
+        if receipt_dir is not None:
+            native = {k: v for k, v in original_args.items() if k != 'receipt_dir'}
+            if tool_input['name'] == BULK_PUBLISH and 'items_from' not in native:
+                return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Receipt capture on creates requires a guarded local batch."}} if codex else {"permission": "deny", "agent_message": "Receipt capture on creates requires a guarded local batch."}
+            stripped = {**tool_input, 'arguments': native}
+            expanded, refusal = expand(stripped, event)
+            new_input = expanded or stripped
+            if refusal is None:
+                try:
+                    load_receipts().prepare_pending(event, {'name': tool_input['name'], 'arguments': args_of(new_input['arguments'])}, receipt_dir, trees(event))
+                except Exception:
+                    refusal = 'The receipt destination could not be prepared. Nothing was sent.'
+            if isinstance(tool_input.get('arguments'), str):
+                new_input = {**new_input, 'arguments': json.dumps(args_of(new_input['arguments']))}
+        else:
+            new_input, refusal = expand(tool_input, event)
         if refusal is not None:
             if codex:
                 return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": refusal}}
-            return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper refused the skill folder; the agent was told why."}
+            return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper refused the local publication files; the agent was told why."}
         if new_input is None:
             return None
         if codex:
             return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "updatedInput": new_input}}
         return {"permission": "allow", "updated_input": new_input}
     if entry == "post":
+        if tool_input.get('name') in RECEIPT_OPERATIONS and event.get('tool_use_id'):
+            try:
+                recorded = load_receipts().finish_pending(event, trees(event), *response_text(event))
+                note = ('Atlan receipt saved: ' + json.dumps(recorded) + '. Assemble receipts with the Analytics receipt helper; do not copy response bodies.') if recorded else None
+            except Exception:
+                note = 'Receipt recording is pending. The tool already ran. Reconcile its result; never repeat a write to repair a local receipt.'
+            if note:
+                return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": note}} if codex else {"additional_context": note}
+        if tool_input.get("name") in RECEIPT_OPERATIONS:
+            return None  # Neither bulk creates nor readbacks use the skill-create retry notice.
         note = post_note(*response_text(event), with_key=keyed(tool_input))
         if note is None:
             return None

@@ -52,6 +52,23 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
 
 ## Avoid these anti-patterns
 
+Metric and saved-query batches use the same helper through `registry__create_artifacts`.
+`items_from` names one JSON file and `items_sha256` binds its bytes; the selected workspace
+must match every item. The inline `items` list must be empty, so an unavailable hook cannot
+write anything. The helper accepts no other kinds and retains the 256 KiB limit, no-link
+reads, credential checks and Atlan-only routing. Batch outcomes are independent; never apply
+the skill publisher's keyed retry rule to a bulk create.
+
+Opt-in `receipt_dir` capture strips its local field before a call. The shared
+`command-hooks/receipt_store.py` writer accepts only guarded metric/query creates, released
+artifact reads and relationship reads. It checks the request and native response, bounds
+each file to 256 KiB and uses directory descriptors, no-follow opens, private permissions,
+fsync and an atomic create-only link. Incomplete temporary files are never accepted.
+Command hooks save the pending destination under a hash of session/tool identity, because
+post-call input can have already been rewritten. No recording failure retries a remote
+mutation. The Analytics assembler checks hashes, exact definitions, release identity and
+planned edges before invoking the existing publication validator. Conflicts remain pending.
+
 - **Hand-editing generated manifests.** A changed URL or header in `.mcp.json` or `mcp.json`
   drifts from `plugin.toml` and fails `make check`; change `plugin.toml` and run `make build`.
 - **A second MCP server, hooks or `bin/` in an add-on or mod.** `lint_addon` and `lint_mod` in
@@ -83,3 +100,7 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
 - [ ] New skill text reads no files, env vars or credentials beyond its task and calls only the
       Atlan tools it names.
 - [ ] Workflow edits keep `contents: read`, SHA pins and `persist-credentials: false`.
+
+The Claude receipt hook reuses the absolute interpreter path returned by its successful local
+helper process, avoiding repeated environment-launcher startup. It still validates the request
+and destination before every call and validates and atomically records every response.

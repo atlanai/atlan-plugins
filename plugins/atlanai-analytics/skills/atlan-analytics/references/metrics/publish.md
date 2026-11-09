@@ -63,6 +63,75 @@ or ask for a workspace to show samples. Optional rich cards must fall back to th
 
 ## 2. Metrics
 
+### Load create batches from local files
+
+When the core hook announces `Atlan bulk publish helper is on`, prepare local batches instead
+of copying definitions or SQL into tool arguments:
+
+```bash
+python3 "<skill-dir>/scripts/publication_batches.py" --context "<context-dir>" --authorization "<project>/authorization.json" --workspace "<workspace-id>" --source "<original-asset-identity>"
+```
+
+Repeat `--source` for every selected source. The helper checks the existing task authorization,
+publication holds and checked plan, and writes immutable, digest-named JSON files inside the
+context. It returns small call descriptors, source identities and counts, never definition
+bodies. Only admitted `create` actions are batched, separated by kind, at most 25 items and
+240 KiB per file. No SQL is truncated. Revisions, reuse and links keep the procedures below.
+
+Send each returned descriptor's `name` and `arguments` through the Atlan write runner, adding
+the existing session and rationale beside them. Preserve `items: []`, `items_from`,
+`items_sha256`, `kind` and the selected `workspace_id` exactly. The hook verifies the digest,
+path, size, text and workspace, then replaces those local fields with the file's `items`.
+It uses the same Atlan call and sign-in; it never runs a REST publisher.
+
+Without the hook, the empty items list is refused before any create. Do not add inline items
+beside `items_from`. Use the normal inline bulk procedure below when hooks are unavailable;
+do not repeatedly probe an unavailable helper. A changed file requires preparation and review
+again, not editing its digest by hand. Keep the reviewed context fixed while sending batches.
+
+Read every returned slot by index against the descriptor's `source_ids`. Record successes
+before addressing failures. Never resend a complete partially successful batch. If the reply
+is lost, reconcile each source identity and exact definition/version before retrying anything;
+a repeated create can append a version. A confirmed failed subset needs its own checked,
+authorized plan and batch, excluding successful and uncertain items. Stop on an unexpected
+revision and reconcile it. Keep all normal release, link and complete readback checks.
+
+### Record native receipts without copying them through the model
+
+When the core hook also announces `Atlan receipt helper is on`, add `--record-receipts` to
+the batch-preparation command. Use its returned `receipt_dir` for this run's checked plan.
+The create descriptors already carry this local field. Keep a returned relative path relative
+to the same working directory. Add the same field to each
+`registry__get_artifact` read with `channel: latest` and each relationship verification read
+with `registry__get_related_artifacts`. The hook strips the field before dispatch and saves
+the native response locally. Other hosts keep the existing manual recording procedure.
+
+After the creates, inspect the captured state using counts and call descriptors only:
+
+```bash
+python3 "<skill-dir>/scripts/publication_receipts.py" --run-dir "<run-dir>" --receipts "<receipt-dir>" --workspace "<workspace-id>"
+```
+
+Send the returned `readback_calls` through the read runner. Continue the normal approved link
+procedure, then send `link_readback_calls` to capture its proofs. Do not copy raw tool
+responses into Write calls or Python literals. Do not read the full receipt files into the
+conversation merely to assemble them. The helper compares complete released definitions,
+SQL, identity and planned links with the checked bodies. A create response is not a release
+readback. A failed, missing, changed or conflicting receipt stays pending.
+
+Once the status is `ready`, repeat that command with `--finalize`. It assembles the native
+readbacks and invokes the existing publication validator and compact durable run receipts.
+Re-running it is safe and makes no Registry writes. The normal final counts/search checks
+remain. If local recording fails after a tool runs, preserve the result and reconcile live
+state; never repeat a write to repair a receipt. Missing readbacks can be read again safely.
+
+For an interrupted run, resume with the same receipt directory and run the helper first;
+complete only its missing reads and normal checked link work. Conflicting revisions require
+reconciliation and a fresh receipt set. A new run still reads live Registry inventory and
+runs the existing create/revise/reuse checker. Local receipts never replace that discovery
+or the fresh released-context retrieval required to answer questions. Each receipt set is
+bounded to 128 immutable files, with at most 256 KiB per native response file.
+
 - **Create:** `registry__create_artifacts` with kind `metric`, each body exactly as checked, in
   calls of at most 100 items and about 256 KB of JSON (the core plugin's **Batches** rule in
   `calling-tools.md`): about 25 full metric definitions to a call. Save each returned id against
