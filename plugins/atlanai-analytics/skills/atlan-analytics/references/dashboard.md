@@ -194,7 +194,7 @@ provisional run, use `dashboard_answer_plan` plus warehouse execution and label 
 Never use evaluation gold as the answer, fall back to a draft head, or carry a passing status
 into a changed filter/security/time scope. Keep the user's selected host and warehouse.
 
-End with a concise outcome and one status line. Keep IDs, hashes, paths and SQL out of routine
+End with a concise outcome and any next action in natural language. Keep IDs, hashes, paths and SQL out of routine
 progress messages; link the saved report when useful.
 
 ## Keep the visible experience small

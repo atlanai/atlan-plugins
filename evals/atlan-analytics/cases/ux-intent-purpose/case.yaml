@@ -1,0 +1,54 @@
+schema_version: "1.1"
+name: ux-intent-purpose
+tags: [analytics, setup, ux, intent]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue fresh setup. Read plugin instructions only; do not execute
+    commands or contact services in this checkpoint test. Source inspection and the domain question
+    are done. The user answered: Shipping time and delays. Purpose has not yet been supplied.
+    The source includes scheduled/actual delivery timestamps and region, with no cost data.
+    The host exposes no native question tool here, so use ordinary chat. Show the next step.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: intent-sequence
+    type: llm
+    focus: last_message
+    criteria: |
+      Known checkpoint: business focus Shipping time and delays is already chosen. Purpose is
+      missing. Source evidence includes delivery timestamps and region, with no cost data. PASS if
+      it asks only what the user wants to accomplish in delivery performance, with tailored options
+      covering finding delays, understanding delivery measures, and preparing reusable delivery
+      metrics, while allowing free text. It waits for the answer. FAIL if it reasks the business
+      focus, offers shipping cost analysis, generates metrics or presents both interview questions
+      at once. Do not require exactly these example words if the choices preserve the meanings.
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if this is a concise, natural next step, under 100 words, without a pipeline
+      dump, machine-status footer, custom app shell, forced celebration or unrelated offer.

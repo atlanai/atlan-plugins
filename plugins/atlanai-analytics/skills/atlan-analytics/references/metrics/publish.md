@@ -14,8 +14,8 @@ and export a new context. A held-only export stops with its reasons and sends no
 
 ## 1. Preview
 
-For setup runs, first show `project.py preview --format chat` in an assistant message if
-actual candidates have not yet been displayed. A file link, tool result or counts alone
+For setup runs, first show one actual sample from `project.py experience --format chat`
+in an assistant message if none has been displayed; details remain available on request. A file link, tool result or counts alone
 does not count. This also applies when every artifact is being reused; no extra approval
 is required for read-only reuse. Show changed definitions again after reconciliation.
 

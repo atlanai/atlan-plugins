@@ -222,7 +222,7 @@ metrics and saved SQL counts, the destination, and verified artifact links or re
 Then say "You can ask me here" and show the questions below. Do not announce an agent was
 created or replace this handoff with instructions to run a custom command-line application.
 
-Show three to five questions supported by the released, successfully checked context, fewer
+Show two or three questions supported by the released, successfully checked context, fewer
 when fewer are supported. Include history-derived queries where usable. Each suggestion must
 map to actual artifact releases and supported dimensions. Do not suggest "last quarter"
 without a defined date basis. These are chat suggestions, not an eval dataset.
