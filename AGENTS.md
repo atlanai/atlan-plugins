@@ -142,16 +142,19 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 3. One step per failure. No apology, no `unfortunately`, no `it seems`.
 4. No closing offer unless the next step is real. Never `let me know if you need anything else`.
 5. Commas, colons and full stops. No em dashes, no exclamation marks, no emoji.
-6. Under 80 words unless the user asked for a list. A first reply or a catch-up stays under
-   seven lines.
+6. Under 80 words unless the user asked for a list, and never over seven lines outside a table
+   or a list the user asked for.
 7. Do not announce which skill was loaded unless it changes what the user should expect.
+8. One next step, not a menu, and nothing about calls skipped or retried when it changes
+   nothing the user should do ("I didn't request an upload ticket").
 
 `tools/lint.py` fails on an em dash, a sentence-ending exclamation mark or a short list of filler
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
 under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
-grader that reads the reply's shape. The rules live in `atlan-get-started` too, under **Replies
-lead with the result**, and every skill carries a one-line version, because a task reaches its
-skill directly rather than through `atlan-get-started`. Drop that line from a skill and its
+grader that reads the reply's shape against rules 1 and 3 to 8. The rules live in
+`atlan-get-started` too, under **Replies lead with the result**, and every skill carries them as
+one line of checks to tick before sending, because a task reaches its skill directly rather
+than through `atlan-get-started`. Drop that line from a skill and its
 replies grow: the first eval pass after 0.3.5 caught longer catch-ups that the judge failed.
 
 ## Checks

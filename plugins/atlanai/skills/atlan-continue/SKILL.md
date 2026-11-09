@@ -124,7 +124,8 @@ from the session, the original request, the decisions made and the work that rem
 any gaps in what you could read, in one line. Keep the whole catch-up under seven lines of
 plain sentences, with no headings: the user can ask for more. If the prompt already says what
 to do next, do that.
-Otherwise ask what they want next, offering the steps that fit the kind:
+Otherwise ask what they want next in one question, naming at most two of the steps that fit
+the kind, never a menu of them all:
 
 - an `output`: revise it and record the result as a new output (`atlan-share`);
 - a `skill`: use it now or install it (`atlan-use-skill`), or publish an edited version
