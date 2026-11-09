@@ -16,8 +16,9 @@ For final handoffs, read [handoff rules](references/setup/preview-publish.md) an
 Keep execution, source review, holds and releases separate. Total definitions = metrics + queries.
 Use plain text for check labels; no emoji checklist or repeated status headings.
 
-On fresh setup, your next assistant message is the opening, before reading references,
-surveying files or calling helpers. In 40 to 50 words,
+A bare `start` with no source or saved run first offers the demo or own data
+([start choice](references/setup/demo.md), with its own word limits). Otherwise, on fresh setup, your next message is
+the opening, before reading references, surveying files or calling helpers. In 40 to 50 words,
 name the outcome, next step and controls: narrow scope, inspect details, keep local or pause.
 Honor existing choices. Survey-only requests stop after inspection. On resume, name the
 saved result and next step. Detail-only requests get only the requested evidence.
