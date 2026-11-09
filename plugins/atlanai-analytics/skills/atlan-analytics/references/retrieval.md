@@ -60,8 +60,8 @@ The pure `retrieval.validate(payload)` and `retrieval.query_plan(request, execut
 also support this case without a receipt; callers must supply actual fresh MCP responses.
 They do not contact or authenticate to Atlan themselves.
 
-Lead with the result and cite the metric/query name, actual artifact ID, release ID and
-verified UI link when available. Retain executed SQL and bounded results; show SQL when asked.
+Lead with the result and cite each metric or query by name, as a link to its page
+([definition links](definition-links.md)), never a bare artifact or release id. Retain executed SQL and bounded results; show SQL when asked.
 Never claim success from a query plan or failed execution. If no relevant release exists,
 explain the missing definition and offer to extend context. Setup follow-ups do not silently
 fall back to an ungoverned answer.

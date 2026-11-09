@@ -24,7 +24,7 @@ or on your own?"
 
 Assume the person knows nothing: not the firm, the data, what Atlan does, or why they will
 sign in. The demo is about one experience: watching existing sources become context. The
-person never has to learn what a metric is. Before anything runs, they know what will happen, why,
+context is made of metrics, each explained in plain words when it first appears. Before anything runs, they know what will happen, why,
 and what they will do. The fixed texts below are printed as written, in full, as ordinary
 replies. Do not shorten, summarize, merge or paraphrase them, and do not move them into a
 tool description or status line. Setup's word limits do not apply to them.
@@ -56,7 +56,9 @@ Print this before any other tool call, reference read, file search or clone. Rep
 > **What context is.** It is what a new analyst has to learn before answering: what
 > "margin" means at Fixit, how it is worked out, which jobs count. Fixit already wrote that
 > down without meaning to, in its dashboard and in the queries its analysts ran. Atlan reads
-> those sources and turns them into context that anyone, or any AI, can use.
+> those sources and turns them into context that anyone, or any AI, can use. The context is
+> a set of metrics: each one a number Fixit cares about, such as gross margin, with the
+> rule for working it out.
 >
 > **What's in the demo**
 >
@@ -81,19 +83,19 @@ Print this before any other tool call, reference read, file search or clone. Rep
 >    read the dashboard and the past queries to learn how Fixit measures a job.
 > 2. **Choose what to build from.** You choose: the dashboard alone, or the dashboard
 >    plus the past queries.
-> 3. **Turn sources into context.** I build one piece first, gross margin, and show it to
+> 3. **Turn sources into context.** I build one metric first, gross margin, and show it to
 >    you: what it means, how it is worked out and which jobs count. You say whether to
 >    build the rest.
 > 4. **Check the context on the data.** I run it on Fixit's data to check it gives sensible
 >    numbers.
 > 5. **Review and choose where to save.** The context is built. You choose whether to save
->    it to your company's Atlan, so anyone there can ask the same questions later, or keep
->    it on this machine. Saving is when you sign in.
+>    it to Atlan Trident, where your company keeps context for its AI agents, or keep it
+>    on this machine. Saving is when you sign in.
 > 6. **Ready for questions.** Your job profit agent is ready. You ask Rob's question and
 >    get the answer, with the context it used.
 >
 > Nothing of yours is read or changed. The only thing saved outside this folder is the
-> context, in the Atlan workspace you pick in step 5.
+> context, in the Atlan Trident workspace you pick in step 5.
 
 Then ask one native question, "Ready to build?", with "Start building" and "Not now". On
 "Not now", stop and say "/atlanai-analytics:start" resumes it. After "Start building", print
@@ -136,29 +138,45 @@ see the steps twice over, because a task list is easy to miss in a terminal:
 6. Ready for questions
 ```
 
-Under the tracker, print the step's line from this table, filling in actual counts:
+### 3a. Say what and why at every moment
 
-| Step | Line under the tracker |
-| --- | --- |
-| Read your sources | "Downloading the demo files, then reading the dashboard and the past queries to learn how Fixit measures a job. Under a minute." |
-| Choose what to build from | The sources question in section 4; no separate line. |
-| Turn sources into context | "Building one piece first, gross margin, so you can see what context looks like before I build the rest." |
-| Check the context on the data | "Running the context on Fixit's data to make sure it gives sensible numbers. About 3 minutes." |
-| Review and choose where to save | The celebration block in section 6; no separate line. |
-| Ready for questions | "Your job profit agent is ready. Now the payoff: Rob's question." |
+The person should never wonder what is happening or why. Before each moment below, print
+two short lines as an ordinary reply, at most 35 words together, in this shape:
 
-Print the first tracker right after "Start building", before reading setup's references or
-cloning. Within a step, keep work lines in the person's words ("Loading Fixit's five tables
-so the context can be checked"), never file names, helper names or query-shape counts.
-After reading sources, add one sentence on what they revealed, such as which questions the
-analysts asked most. Never leave a minute without a line; follow [progress](progress.md).
+```
+**Doing:** Reading Fixit's dashboard and 110 past queries.
+**Why:** They show how Fixit already measures a job, so the context matches the firm instead of my guess.
+```
 
-**Say context.** Wherever setup's replies would say metrics, metric definitions,
-definitions or saved SQL, the demo says context: "14 pieces of context", not "9 metrics and
-5 saved queries"; "the context behind this answer", not "the definition used". Name a single
-one by its business name, such as gross margin. Never say metric, candidate, engine,
-reconciliation, hold or Registry to the person. Only when asked what context is made of,
-say it holds named calculations and saved queries.
+Fill in actual counts and names. Use these, in order; the first of a step goes under its
+tracker. Skip a moment that does not happen in this run.
+
+| Moment | Doing | Why |
+| --- | --- | --- |
+| Download | Downloading Fixit's demo files into this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
+| Read sources | Reading the dashboard's 4 tiles and the 110 past queries. | They show how Fixit already measures a job, so the context matches the firm instead of my guess. |
+| Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
+| Load data | Loading Fixit's 5 tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
+| First metric | Building one metric first: gross margin. | You see what the context looks like, and can judge it, before I build the rest. |
+| Build the rest | Building the other metrics from the sources you chose. | Rob's question needs more than margin: labour, materials, rework and late jobs explain what ate it. |
+| Check | Running every metric on Fixit's data. | A metric that returns nothing or nonsense would give wrong answers later; this catches it now. |
+| Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
+| Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
+| Save | Saving the context to the workspace you chose. | From now on the agent and your colleagues read the same context. |
+| Answer | Your job profit agent is ready. Answering Rob's question from the context. | It shows the agent uses what you built, not a guess at the tables. |
+
+After a moment ends, give its result in one line with counts, in the past tense. Print the
+first tracker right after "Start building", before reading setup's references or cloning.
+Never use file names, helper names or query-shape counts in these lines. After reading
+sources, add one sentence on what they revealed, such as which questions the analysts
+asked most. Never leave a minute without a line; follow [progress](progress.md).
+
+**Say context and metrics.** The whole is the context; what it is made of, and what gets
+counted, is metrics: "Context built: 14 metrics", "saving 3 new metrics", "one metric,
+gross margin". Never say pieces. Where the run also holds saved queries, count them as
+saved queries beside the metrics. Say "the context behind this answer", not "the definition
+used". Never say metric definition, candidate, engine, reconciliation, hold or Registry to
+the person.
 
 ### 4. No focus or goal questions: ask what to build from
 
@@ -187,10 +205,21 @@ tables are used either way, to check the context.
 ### 5. One example first, shown well, then ask
 
 Follow [build and check](build-check.md)'s first-candidate rule with gross margin: build
-it, run its check, and stop before building anything else. Show it as the card below, as an
-ordinary reply, every value read from this run. Never copy the layout's sample values.
+it, run its check, and stop before building anything else. A card with no introduction is
+confusing, so print these three parts in order, as one ordinary reply. Every value is read
+from this run; never copy the layout's sample values.
 
-> **Gross margin** · one piece of Fixit's context
+First, what the person is about to see and why, as written:
+
+"Here is the first metric I built: **gross margin**. Fixit's dashboard and
+queries each worked margin out in their own way. This writes the rule down once, so the
+agent, and anyone who asks, uses the same one every time. Read it top to bottom: what the
+number means, how it is worked out, which jobs count, where the rule came from, and proof
+that it runs on the data."
+
+Second, the card:
+
+> **Gross margin** · one metric in Fixit's context
 >
 > | | |
 > | --- | --- |
@@ -202,14 +231,18 @@ ordinary reply, every value read from this run. Never copy the layout's sample v
 >
 > **On Fixit's data:** the three best and three worst jobs by margin, one line each.
 
-Keep SQL out of the card. Then ask one native question, "This is one piece of context.
+Third, what happens next, as written: "If this matches how you would describe margin, I
+build the rest the same way. If something looks off, tell me and I fix it before going
+further."
+
+Keep SQL out of the card. Then ask one native question, "This is one metric.
 Build the rest?":
 
 | Option | Description |
 | --- | --- |
-| Build the rest (recommended) | The other pieces from the sources you chose, each checked the same way. |
+| Build the rest (recommended) | The other metrics from the sources you chose, each checked the same way. |
 | Show how this one was built | The SQL and the source lines behind gross margin, then this question again. |
-| Stop here | Keep this one piece; nothing is saved to Atlan. |
+| Stop here | Keep this one metric; nothing is saved to Atlan Trident. |
 
 On "Build the rest", finish steps 3 and 4. This card is the setup preview; do not show a
 second sample before the save question unless gross margin changed.
@@ -218,25 +251,32 @@ second sample before the save question unless gross margin changed.
 
 When step 4 ends, before any save, sign-in or workspace question, print this block as an
 ordinary reply, in a code fence so the figure keeps its shape. Use the run's actual counts
-and the sources the person chose. Every count is true: when some pieces did not pass their
+and the sources the person chose. Every count is true: when some metrics did not pass their
 check, say so on the third line ("12 of 14 checked, 2 need a look") and still show the block.
 
 ```
  \o/   Context built for Fixit's job margin
 
-       14 pieces of context
+       14 metrics
        from 1 dashboard and 110 past queries
        14 of 14 checked on Fixit's data
 ```
 
-Under it, two lines: "This context is on your machine only. Saving it to Atlan lets anyone
-at your company, and any AI they use, ask the same questions and get the same answers."
-Then ask one native question, "Where do you want to keep this context?", with "Save to
-Atlan (recommended)" and "Keep it on this machine". Only "Save to Atlan" starts sign-in.
-With "Keep it on this machine", go straight to step 6 and answer from the local context.
+Under it, two lines: "This context is on your machine only. Atlan Trident is where your
+company keeps context for its AI agents. Saving it there lets anyone at your company, and
+any AI they use, ask the same questions and get the same answers."
+Then ask one native question, "Where do you want to keep this context?":
 
-Where to save: before sign-in, say "A browser window opens; sign in to your company's Atlan
-there." After sign-in, name the tenant and workspaces the result shows, never a guess.
+| Option | Description |
+| --- | --- |
+| Save to Atlan Trident (recommended) | Anyone at your company, and any AI they use, can ask the same questions later. You sign in to Atlan Trident. |
+| Keep it on this machine | Nothing leaves this machine; ask Rob's question here straight away. |
+
+Only "Save to Atlan Trident" starts sign-in. With "Keep it on this machine", go straight to
+step 6 and answer from the local context.
+
+Where to save: before sign-in, say "A browser window opens; sign in to Atlan Trident with
+your work account." After sign-in, name the tenant and workspaces the result shows, never a guess.
 Suggest the person's own workspace: "Your personal workspace keeps the demo out of your
 team's way." When the context already exists there, say how much, where, and that it was
 reused rather than copied.
@@ -246,7 +286,9 @@ reused rather than copied.
 The agent is this chat with the saved context; do not register, deploy or evaluate a
 separate agent, and say so only if asked. Answer Rob's question through the ask route: the job, the amount, what ate it, and the
 context behind it in one line. Say once that the answer came from the context built from
-Fixit's dashboard and queries, not from a guess at the tables. Offer two more questions the yard supports, such as rework cost
+Fixit's dashboard and queries, not from a guess at the tables. Name the metrics it used as
+links to their pages in Atlan Trident ([definition links](../definition-links.md)); never
+print metric or release ids. Offer two more questions the yard supports, such as rework cost
 by job or which jobs finished late. Close with:
 
 "With your own data, the same steps turn your dashboards and your warehouse's query history
