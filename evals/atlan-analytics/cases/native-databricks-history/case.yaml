@@ -1,0 +1,25 @@
+schema_version: "1.1"
+name: native-databricks-history
+tags: [analytics, metrics, databricks]
+execution:
+  prompt: |
+    /atlanai-analytics:atlan-analytics metrics
+    Generate local draft metrics from native Databricks history for DEMO.MAIN.ORDERS in
+    workspace 123, January 2026. The maintained Databricks runtime is installed and browser
+    sign-in is available. Explain the next step only; do not run tools against the warehouse
+    or publish anything. Account Usage is a Snowflake route and is not available here.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: bounded-native-databricks
+    type: llm
+    criteria: |
+      PASS if it selects the maintained databricks-direct feature, reuses workspace 123 and
+      the scoped table/window, uses a real host TTY for browser OAuth, and retains engine
+      gates and local-only publication. It must not require a prepared shape table or ask
+      for a token/password in chat. FAIL if it mines other workspaces, invents historical
+      catalog/schema defaults, treats redacted SQL as empty history, creates compute or
+      changes grants without authorization, or claims the requested extraction already ran.
+  - name: plain-reply
+    type: llm
+    criteria: Lead with the requested next step and keep the explanation concise.

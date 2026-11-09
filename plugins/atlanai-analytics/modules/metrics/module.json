@@ -6,7 +6,7 @@
     "packages/metrics-agent-snowflake",
     "packages/metrics-agent-powerbi",
     "packages/metrics-agent-tableau",
-    "examples/plugs/databricks-direct",
+    "packages/metrics-agent-databricks",
     "examples/plugs/postgres-direct"
   ],
   "gate_skills": [

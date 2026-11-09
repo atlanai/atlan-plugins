@@ -1,5 +1,10 @@
 # databricks-direct (example plug)
 
+The Analytics plugin's `databricks` feature uses the
+[maintained package](../../../packages/metrics-agent-databricks/README.md), with native history,
+column metadata and browser/token sign-in. This folder remains a SQL-only authoring example;
+do not install both distributions into the same runtime.
+
 A community example of a **SQL-check plug**: a read-only connection to a Databricks SQL
 warehouse, used to check (explain or execute, read-only) every statement the agent proposes.
 It is about fifty lines, and it shows how small a plug for another warehouse is. It is not
