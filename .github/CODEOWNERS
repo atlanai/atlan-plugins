@@ -1,0 +1,18 @@
+# Code owners. A change to a path below needs an approving review from one of its owners
+# (enforced by the "main protection" ruleset). Later lines take precedence over earlier ones.
+
+# Default owners for everything in the repository.
+*                              @shubhambatlan @bankavarun @anirudhagarwal-atlan
+
+# Workflows, Dependabot and repository configuration.
+/.github/                      @shubhambatlan @bankavarun @anirudhagarwal-atlan
+
+# Marketplace and plugin manifests.
+/plugin.toml                   @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/.claude-plugin/               @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/plugins/*/.claude-plugin/     @shubhambatlan @bankavarun @anirudhagarwal-atlan
+
+# Hooks run code on users' machines.
+/plugins/**/hooks/             @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/plugins/**/claude-hooks/      @shubhambatlan @bankavarun @anirudhagarwal-atlan
+/plugins/**/command-hooks/     @shubhambatlan @bankavarun @anirudhagarwal-atlan
