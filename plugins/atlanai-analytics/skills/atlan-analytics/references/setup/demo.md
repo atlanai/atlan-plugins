@@ -86,9 +86,9 @@ Print this before any other tool call, reference read, file search or clone. Rep
 >    build the rest.
 > 4. **Check the context on the data.** I run it on Fixit's data to check it gives sensible
 >    numbers.
-> 5. **Review and choose where to save.** You choose where to save the context. This is
->    when you sign in to your company's Atlan, so anyone there can ask the same questions
->    later.
+> 5. **Review and choose where to save.** The context is built. You choose whether to save
+>    it to your company's Atlan, so anyone there can ask the same questions later, or keep
+>    it on this machine. Saving is when you sign in.
 > 6. **Ready for questions.** Your job profit agent is ready. You ask Rob's question and
 >    get the answer, with the context it used.
 >
@@ -144,7 +144,7 @@ Under the tracker, print the step's line from this table, filling in actual coun
 | Choose what to build from | The sources question in section 4; no separate line. |
 | Turn sources into context | "Building one piece first, gross margin, so you can see what context looks like before I build the rest." |
 | Check the context on the data | "Running the context on Fixit's data to make sure it gives sensible numbers. About 3 minutes." |
-| Review and choose where to save | "Your last choice: where to save. Saving needs you signed in to your company's Atlan." |
+| Review and choose where to save | The celebration block in section 6; no separate line. |
 | Ready for questions | "Your job profit agent is ready. Now the payoff: Rob's question." |
 
 Print the first tracker right after "Start building", before reading setup's references or
@@ -214,13 +214,34 @@ Build the rest?":
 On "Build the rest", finish steps 3 and 4. This card is the setup preview; do not show a
 second sample before the save question unless gross margin changed.
 
+### 6. Context built: celebrate, then ask where to keep it
+
+When step 4 ends, before any save, sign-in or workspace question, print this block as an
+ordinary reply, in a code fence so the figure keeps its shape. Use the run's actual counts
+and the sources the person chose. Every count is true: when some pieces did not pass their
+check, say so on the third line ("12 of 14 checked, 2 need a look") and still show the block.
+
+```
+ \o/   Context built for Fixit's job margin
+
+       14 pieces of context
+       from 1 dashboard and 110 past queries
+       14 of 14 checked on Fixit's data
+```
+
+Under it, two lines: "This context is on your machine only. Saving it to Atlan lets anyone
+at your company, and any AI they use, ask the same questions and get the same answers."
+Then ask one native question, "Where do you want to keep this context?", with "Save to
+Atlan (recommended)" and "Keep it on this machine". Only "Save to Atlan" starts sign-in.
+With "Keep it on this machine", go straight to step 6 and answer from the local context.
+
 Where to save: before sign-in, say "A browser window opens; sign in to your company's Atlan
 there." After sign-in, name the tenant and workspaces the result shows, never a guess.
 Suggest the person's own workspace: "Your personal workspace keeps the demo out of your
 team's way." When the context already exists there, say how much, where, and that it was
 reused rather than copied.
 
-### 6. The payoff and the bridge (at most 160 words)
+### 7. The payoff and the bridge (at most 160 words)
 
 The agent is this chat with the saved context; do not register, deploy or evaluate a
 separate agent, and say so only if asked. Answer Rob's question through the ask route: the job, the amount, what ate it, and the
