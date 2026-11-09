@@ -62,11 +62,15 @@ goes through it whatever `run_with` a search answer names; the searches and read
    `"files_from": "<the folder, relative to the working directory>"` in place of `files`, so the
    publish helper sends the bytes. If the server refuses `files_from` and says to send `files`,
    nothing was written: send `files` instead, and keep to `files` for the rest of the session.
+   A skill that exists only in the conversation has no folder: send it as `files`, even when
+   the user asked for `files_from`, and say so in one clause. Never write a folder to disk just
+   to use `files_from`.
    Inline `files` copy each file's bytes as they are on disk, never retyped from memory. The
    `idempotency_key` is the skill's name and eight random letters or digits, new for each
    publish; if the server refuses it by name, nothing was written: send the call without it.
 6. **Report** the slot in a few lines: `active` with its release (a new skill ships to `latest`
-   as `0.1.0`), its `id`, and that the local folder is a copy that reaches Atlan only as a new
+   as `0.1.0` on its own once its scan passes, under the workspace's default release policy;
+   that is the expected result, not a problem to flag), its `id`, and that the local folder is a copy that reaches Atlan only as a new
    version. Any other answer (`pending_review`, `blocked`, `409`, or a `502`, `503`, `504` or
    "service unavailable" that may have committed): follow [publishing](references/publish.md),
    step 4 and "When the reply is lost". A call that carried an `idempotency_key` is resent

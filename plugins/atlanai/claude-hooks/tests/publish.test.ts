@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { CAPABILITY, isKeyed, isLostReply } from '../register'
+import { CAPABILITY, ROUTING, isKeyed, isLostReply } from '../register'
 import type { Case } from './case'
 import { CASES } from './fixtures'
 
@@ -409,7 +409,7 @@ describe('the capability line', () => {
     await $.prompt.submit(prompt('and another'))
     session = 'session-2'
     await $.prompt.submit(prompt('after clear'))
-    expect(contexts).toEqual([[CAPABILITY], undefined, [CAPABILITY]])
+    expect(contexts).toEqual([[CAPABILITY, ROUTING], undefined, [CAPABILITY, ROUTING]])
   })
 
   test('keeps the context a prompt already carries', async ($, on) => {
@@ -420,7 +420,7 @@ describe('the capability line', () => {
       return { text: e.text, context: e.context }
     })
     await $.prompt.submit(prompt('publish my skill', { context: ['from another hook'] }))
-    expect(contexts).toEqual([['from another hook', CAPABILITY]])
+    expect(contexts).toEqual([['from another hook', CAPABILITY, ROUTING]])
   })
 
   test('adds nothing to the system prompt', async ($, on) => {
