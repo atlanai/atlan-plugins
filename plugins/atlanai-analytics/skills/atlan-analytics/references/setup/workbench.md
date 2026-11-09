@@ -1,9 +1,10 @@
 # Native conversation from setup to first answer
 
 Read on starting or resuming setup. Claude and Codex own the interface: use their normal
-messages, task progress, code disclosures and question controls. Never create a new chat
-shell, palette, font system or navigation. Optional HTML is a plain, system-styled evidence
-snapshot opened only on request. It is not a native or live panel.
+messages, task progress, code disclosures and question controls. Open the actual Analytics
+view using [host rendering](render.md) after inspection, before the first intent question.
+Claude's companion mod supplies a native side pane; Codex uses its local Browser panel.
+Keep the same surface through the run. Use system styling, without another chat shell.
 
 ## One useful result, one next action
 
@@ -83,12 +84,12 @@ Use the existing host surface at each meaningful moment. Do not create a new app
 | Moment | Native presentation |
 | --- | --- |
 | Start | A short opening message before tool work. |
-| Inspection finishes | A visible business summary inside the first question: sources, project meaning and possible analyses, then focus choices and free text. |
+| Inspection finishes | Automatically opened source overview plus the business summary and focus choices in the native question. |
 | Business focus is answered | A separate purpose question tailored to that focus. Wait for its answer. |
 | Both answers are known | One sentence reflecting the goal and immediate action. No extra confirmation. |
-| First relevant metric is available | One metric preview in chat, with calculation, population, source and honest status. |
+| First relevant metric is available | Update the same view with the selected metric, calculation, population, source and honest status; summarize in chat. |
 | Meaningful work progresses | Existing task indicators where supported, plus a concise factual update. |
-| Details are requested | SQL code block and evidence in chat. Optional evidence document only on request. |
+| Details are requested | Working disclosure in the view or SQL and evidence in chat. |
 | Input or access is missing | One contextual question or the host's existing sign-in interface. |
 | Saving is appropriate | Destination and actual create/revise/reuse/held counts. Ask only for missing authorization. |
 | Context is released | The selected metric, verified links and supported questions; answer an existing question directly. |
