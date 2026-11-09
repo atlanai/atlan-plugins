@@ -25,14 +25,14 @@ workspace the agent's context will live in.
 
 ## Workspace
 
-1. Call `registry__list_workspaces`. Recommend, in this order:
-   - an empty workspace the user already created for this domain;
-   - otherwise a new one named after the domain.
-
-   Never recommend the org default workspace or a personal one for a shared agent.
-2. If a new workspace is needed, **the user creates it in the registry UI** (no tool here
-   creates workspaces). Give them the name to use, wait, then call
-   `registry__list_workspaces` again and pick it up.
+1. Call `registry__list_workspaces`. Offer existing accessible workspaces suited to the
+   requested audience, plus Keep local. Reuse a destination already selected. Do not silently
+   select a personal or organization-default workspace for a shared agent.
+2. Never offer or attempt workspace creation through an API/CLI. If no suitable workspace is
+   accessible, preserve the local scope and explain the access needed. Only when the user
+   explicitly asks for a new workspace, explain that an authorized person creates it in the
+   Registry UI or obtains admin help. Refresh `registry__list_workspaces` afterward; never
+   invent a workspace ID. Keep local pauses publication without discarding prepared work.
 3. Check it's empty or intended: `registry__list_artifacts` for kinds `metric`, `sql_query` and
    `agent`, filtered to that workspace. If it already holds artifacts, say so and ask whether
    to build on them.

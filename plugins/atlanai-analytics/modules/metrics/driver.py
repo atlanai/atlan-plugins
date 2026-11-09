@@ -26,7 +26,7 @@ DESCRIPTOR = HERE / 'module.json'
 FEATURES = {'snowflake': 'packages/metrics-agent-snowflake',
             'powerbi': 'packages/metrics-agent-powerbi',
             'tableau': 'packages/metrics-agent-tableau',
-            'databricks': 'examples/plugs/databricks-direct',
+            'databricks': 'packages/metrics-agent-databricks',
             'postgres': 'examples/plugs/postgres-direct', 'pbix': '.[pbix]', 'test': '.[dev]'}
 
 
@@ -132,7 +132,19 @@ def _setup(root, features):
         return {'status': 'ready', 'runtime': str(root), 'commit': data['commit'], 'reused': True}
     source = root / 'source'
     unpack(source)
-    venv.EnvBuilder(with_pip=True).create(root / 'venv')
+    # Standalone Python builds can resolve libpython relative to their executable.
+    # Keep that linkage, as the macOS/Linux venv CLI does, instead of copying the binary.
+    try:
+        venv.EnvBuilder(with_pip=True, symlinks=True).create(root / 'venv')
+    except subprocess.CalledProcessError as exc:
+        # Child diagnostics can contain private environment or package-registry data.
+        # Preserve the failed directory, but expose neither the command nor its output.
+        return {'status': 'BLOCKED', 'reason': 'Python could not create the isolated runtime.',
+                'bootstrap_error': {'type': 'CalledProcessError',
+                                    'exit_code': exc.returncode if type(exc.returncode) is int else None},
+                'runtime': str(root),
+                'fix': 'Use another approved Python 3.11 or 3.12 interpreter and a new durable runtime directory. '
+                       'The failed directory is preserved.'}
     python = root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
     constraints = str(source / 'constraints.txt')
     commands = [[str(python), '-m', 'pip', '--quiet', '--disable-pip-version-check', 'install', '-c', constraints, '--only-binary=:all:',

@@ -1,6 +1,7 @@
 # Kinds you will meet most
 
-Open this when a result carries a kind you need to explain, or the user asks what a kind holds.
+Open this when a result carries a kind you need to explain, the user asks what a kind holds, or
+the user asks what a project holds.
 
 | Kind | What it is |
 |---|---|
@@ -15,3 +16,21 @@ Open this when a result carries a kind you need to explain, or the user asks wha
 
 Other apps add kinds of their own (ontologies, objectives, models, metrics). When you meet an
 unfamiliar kind, `registry__get_kind_schema { "kind": "…" }` describes it.
+
+## Platform kinds
+
+`app`, `app_action`, `harness_vendor`, `model` and `agent_framework` are the platform's own
+records: the apps installed in the registry, their actions and the catalogues of vendors, models
+and frameworks. They can outnumber everything people made (80 of 90 artifacts on a new
+organization). In a "what do we have?" answer, subtract them from the total and give the
+remainder, adding at most "not counting N platform records"; never list them by kind or lead
+with them. Name or count them only when the user asks about apps or models.
+
+## Projects
+
+A project is a container, not an artifact: it has no releases and no typed relationships.
+`registry__get_project { "project_id": "project_…" }` returns its description, its
+`knowledge_urls` and the workspace it is in. What is in it comes from
+`registry__list_artifacts { "project_id": "project_…" }`, which lists artifacts homed in the
+project or linked into it; add `kind` to include a kind hidden from cross-kind discovery, such
+as `file`.

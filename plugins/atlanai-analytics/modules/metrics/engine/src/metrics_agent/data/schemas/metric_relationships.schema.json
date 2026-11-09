@@ -68,7 +68,7 @@
                     "grain_variant",
                     "alternative"
                   ],
-                  "description": "What the relationship IS, in metric terms. The stage maps it to the edge vocabulary \u2014 `derivation` and `restriction` write `depends_on`, the other two write the symmetric `alternative` \u2014 and carries this word itself in the edge's attributes, because `depends_on` is the same name for a ratio's numerator and for a narrowed population."
+                  "description": "What the relationship IS, in metric terms. The stage maps it to the edge vocabulary \u2014 `derivation` and `restriction` write `depends_on`, the other two write no edge and go to the cards' `definition.extensions.related`, because `metric` declares no `alternative` \u2014 and carries this word itself in the edge's attributes, because `depends_on` is the same name for a ratio's numerator and for a narrowed population."
                 },
                 "role": {
                   "type": [

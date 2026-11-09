@@ -3,7 +3,8 @@
 Connects your coding agent to the Atlan registry: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and
 skills that teach the agent to find what the organization already has, use it in the current
-project, and publish new work back.
+project, and publish new work back. Atlan's documentation is at
+[platform.atlan.com](https://platform.atlan.com/).
 
 ## Install
 
@@ -25,8 +26,9 @@ The first thing to type: *"Connect me to Atlan."*
 ## MCP server
 
 `atlan`, at `https://api.atlan.com/mcp` (Streamable HTTP, OAuth). This is Atlan's MCP gateway in
-search mode. Five tools (`mcp__search_tools`, `mcp__describe_tools` and the runners
-`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's tools, and every MCP
+search mode. A few helpers (`mcp__search_tools`, `mcp__describe_tools`, the runners
+`mcp__call_read_tool`, `mcp__call_write_tool` and `mcp__call_tool`, and the batch runner
+`mcp__call_read_tools`) reach the registry's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 
@@ -38,6 +40,7 @@ call in a session you can review.
 | `atlan-find-artifacts` | Search skills, agents, knowledge, MCP servers, files and outputs |
 | `atlan-use-skill` | Run a registry skill now, or install it in this project |
 | `atlan-use-mcp-servers` | Call Slack, Linear or any other server registered in Atlan, or register a new one |
+| `atlan-manage-artifacts` | Archive, move, deprecate, roll back or approve an artifact, showing what depends on it first, and see what waits for review |
 | `atlan-continue` | Pick up an artifact handed over from the Atlan dashboard |
 | `atlan-troubleshoot` | Diagnose sign-in errors, refusals, conflicts, rate limits and failed uploads |
 | `atlan-content` | Upload, read and version files in the registry, including a skill's files |
@@ -45,11 +48,10 @@ call in a session you can review.
 | `atlan-author-agents` | Register an agent or harness, or link a repository's agent and its skills |
 | `atlan-author-knowledge` | Create, read or edit a knowledge bundle |
 | `atlan-connect-repo` | Register a repository, or publish its skills and agents to Atlan from GitHub CI |
-| `atlan-record-outputs` | Record what a run produced as an Atlan output |
-| `atlan-share` | Share a result with your team through Atlan, and post the hand-off to Slack |
+| `atlan-share` | Share, save or record a deliverable as an Atlan output, and post the hand-off to Slack |
 
-The registry's own apps write the last six. This plugin carries them unchanged, and the
-gateway also serves them as MCP resources.
+The five from `atlan-content` to `atlan-connect-repo`, and `atlan-share`'s recording of a run's
+output, began as the registry's own apps' recipes, and the gateway also serves them as MCP resources.
 
 ## Commands
 
@@ -57,7 +59,8 @@ Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-sk
 `continue <output_…>` and `share`. Each loads the skill of the same task (`atlan-get-started`,
 `atlan-use-skill`, `atlan-continue`, `atlan-share`). Those four skills hide their own slash
 entries, and the commands hide themselves from the model, so the menu and the model's skill list
-each show every task once. The other skills are invoked by name
+each show every task once. `feedback [what happened]` drafts feedback for Atlan from the
+conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. The other skills are invoked by name
 (`/atlanai:atlan-author-skills`), or simply by asking.
 
 ## Alongside other Atlan plugins
@@ -78,6 +81,18 @@ plugin's hooks): when the agent publishes a skill with `files_from`, it reads th
 your working tree (never a link, a credential file or folder, or anything outside the tree) and
 sends its files only in that same call to Atlan. It says it is on with one line beside the
 conversation's first request. Other tools run no code from it.
+
+The same hook adds two notes for the agent, never for Atlan:
+
+- **Update notice.** At session start it reads the plugin's public manifest on this
+  repository's `main` (`raw.githubusercontent.com`, at most 2 seconds, nothing sent but the
+  request), and when a later version is released, the agent tells you once how to update.
+  `ATLAN_PLUGIN_UPDATE_CHECK=0` turns it off, as does `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`
+  in Claude Code.
+- **Feedback offer** (Claude Code). After an Atlan call fails in a way a retry or sign-in will
+  not fix, or after one in fifty turns that used Atlan, the agent may offer once to draft
+  feedback. You see the draft and send it yourself from your mail app, to ask@atlan.com;
+  no hook sends it. `DO_NOT_TRACK=1` or `DISABLE_TELEMETRY=1` turns the offer off.
 
 In Claude Code, the separate [Registry Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)
 changes how this plugin's calls behave: registry reads run without a prompt, writes, archives,

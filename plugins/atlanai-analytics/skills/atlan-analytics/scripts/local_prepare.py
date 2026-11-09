@@ -1,4 +1,4 @@
-"""Create a new DuckDB from explicitly selected, surveyed CSVs. No repository code."""
+"""Create a new DuckDB or SQLite database from explicitly selected, surveyed CSVs. No repository code."""
 import json
 import os
 from pathlib import Path
@@ -15,8 +15,8 @@ from local_data import DataError
 def prepare(root, sources, request):
     from project import safe_path, file_hash
     destination = safe_path(Path(root) / request['database'], root)
-    if destination.suffix.lower() != '.duckdb' or destination.exists():
-        raise DataError('Choose a new .duckdb path. Existing databases are never replaced.')
+    if destination.suffix.lower() not in ('.duckdb', '.sqlite') or destination.exists():
+        raise DataError('Choose a new .duckdb or .sqlite path. Existing databases are never replaced.')
     if not destination.parent.is_dir():
         raise DataError('Choose an existing project directory for the new database.')
     selections = request.get('tables')
@@ -45,7 +45,7 @@ def prepare(root, sources, request):
         raise DataError('Select at most 128 MiB of CSV data for local preparation.')
     # Build privately, then atomically link without replacing a concurrent destination.
     with tempfile.TemporaryDirectory(prefix='.atlan-prepare-', dir=destination.parent) as temporary:
-        staged = Path(temporary) / 'prepared.duckdb'
+        staged = Path(temporary) / ('prepared' + destination.suffix.lower())
         payload = {'database': str(staged), 'tables': tables}
         try:
             process = subprocess.run([sys.executable, '-I', __file__, '--worker'],
@@ -54,7 +54,7 @@ def prepare(root, sources, request):
         except subprocess.TimeoutExpired:
             raise DataError('Data preparation timed out. Select a smaller CSV scope.') from None
         if process.returncode or len(process.stdout) > 1_000_000:
-            raise DataError('Data preparation failed. Check the selected CSVs and DuckDB runtime.')
+            raise DataError('Data preparation failed. Check the selected CSVs and database runtime.')
         try:
             result = json.loads(process.stdout)
         except ValueError:
@@ -73,7 +73,46 @@ def prepare(root, sources, request):
             'next': 'Review inferred types and row counts, then bind this database.'}
 
 
+def sqlite_worker(payload):
+    import csv
+    import sqlite3
+    # A SQLite file is one schema: the tables are stored by name and attached under it on bind.
+    schemas = {item['table'].split('.')[0] for item in payload['tables']}
+    if len(schemas) != 1:
+        raise DataError('A SQLite database holds one schema. Map every CSV to the same schema.')
+
+    def column_type(values):
+        for name, cast in (('INTEGER', int), ('REAL', float)):
+            try:
+                [cast(v) for v in values if v != '']
+                return name
+            except ValueError:
+                pass
+        return 'TEXT'
+
+    output = []
+    with sqlite3.connect(payload['database']) as con:
+        for item in payload['tables']:
+            if not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*\.[A-Za-z_][A-Za-z_0-9]*', item['table']):
+                raise DataError('Use simple schema.table names from source evidence.')
+            table = item['table'].split('.')[1]
+            with open(item['path'], newline='') as f:
+                header, *rows = list(csv.reader(f))
+            if any(not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9 ]*', h) for h in header) or any(len(r) != len(header) for r in rows):
+                raise DataError('CSV preparation failed. Use a header row of simple column names and equal-length rows.')
+            types = [column_type([r[i] for r in rows]) for i in range(len(header))]
+            con.execute('CREATE TABLE "' + table + '" (' + ', '.join('"' + h + '" ' + t for h, t in zip(header, types)) + ')')
+            con.executemany('INSERT INTO "' + table + '" VALUES (' + ', '.join('?' * len(header)) + ')',
+                            [[None if v == '' else v for v in r] for r in rows])
+            output.append({'source_id': item['source_id'], 'table': item['table'], 'rows': len(rows),
+                           'columns': [{'name': h, 'type': t} for h, t in zip(header, types)]})
+    return {'status': 'ok', 'kind': 'sqlite', 'schema': schemas.pop(), 'tables': output,
+            'types': 'inferred_from_csv', 'remote_writes': False}
+
+
 def worker(payload):
+    if payload['database'].endswith('.sqlite'):
+        return sqlite_worker(payload)
     try:
         import duckdb
     except ImportError:

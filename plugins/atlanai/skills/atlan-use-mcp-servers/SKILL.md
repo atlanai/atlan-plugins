@@ -1,6 +1,6 @@
 ---
 name: atlan-use-mcp-servers
-description: Call the tools of MCP servers registered in Atlan (Slack, Linear, GitHub, Snowflake and others) through the one `atlan` connection, connect the user's account for one, or register a new remote server. Use when a task needs another product's tools and the user is on Atlan, or when asked to add an MCP server to Atlan.
+description: Call the tools of MCP servers registered in Atlan (Slack, Linear, GitHub, Snowflake and others) through the `atlan` connection, connect an account, or register a server. Use when a task needs another product's tools and the user is on Atlan.
 license: Apache-2.0
 ---
 
@@ -10,9 +10,7 @@ Atlan's MCP gateway puts every MCP server the organization registered behind the
 `atlan` connection. The user signs in to Atlan once; each downstream server is reached with
 the user's own connected account or a credential an admin linked, never with a key in chat.
 Every call is permission-checked and recorded in the session the user can audit later.
-Replies lead with the result: the first sentence is the answer or the step, counts rather
-than lists, handles only when asked, one next step rather than a menu, and no greeting,
-apology or closing offer.
+Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
 
 ## Your tool's own connector, or Atlan's
 
@@ -55,7 +53,14 @@ to both.
 2. Run the match with the runner its `run_with` names (`mcp__call_read_tool`,
    `mcp__call_write_tool` or `mcp__call_tool`), with the tool's exact name and arguments matching
    its schema, and `session_id` and a `rationale` beside `name` and `arguments`, never inside.
-   Never invent a name or an argument.
+   Never invent a name or an argument. Independent reads go out together: as one
+   `mcp__call_read_tools` call (up to 8) when the host lists it, otherwise in parallel.
+   A downstream tool that declares no annotations is listed with `run_with` `mcp__call_tool`
+   whatever it does: run it there, and confirm with the user first unless its description says
+   it only reads.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its
@@ -86,8 +91,9 @@ mcp__call_write_tool {
 }
 ```
 
-`mcp__connect_server` is not listed as a tool of its own. It stores a credential, so it runs
-through `mcp__call_write_tool` (or `mcp__call_tool`), never the read runner.
+When your tool lists `mcp__connect_server` by name (newer gateways, on a connection that can
+write), call it directly with `server`, `session_id` and `rationale`. Otherwise it runs through
+`mcp__call_write_tool` (or `mcp__call_tool`) as above, never the read runner: it stores a credential.
 The user is shown a sign-in link, and the call waits for them. `connected` means search again
 with `servers` set to it. `no_account` means the server needs no sign-in. If your tool cannot
 show the link, the call fails naming the account: ask the user to connect it in the Atlan

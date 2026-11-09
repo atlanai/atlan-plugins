@@ -45,8 +45,9 @@ spend a round; go to `skills/atlan-analytics/references/improve/04-stall.md`.
      release it.
    - **New saved query**: write the question, SQL and `usage_note`. Test the SQL with the
      warehouse query tool. Create it with `registry__create_artifact` (kind `sql_query`,
-     `review_status` `unreviewed`) and link it with `registry__relate_artifact` `source_of`
-     to its metric.
+     `review_status` `unreviewed`) and link it to its metric with `registry__relate_artifact`:
+     `source_of` when the metric is being created from this query in the same round,
+     `uses_metric` when the metric already existed.
    - **Usage note**: read the saved query's current head, change `definition.usage_note` in a
      copy of its full definition, then use the same revision procedure.
    - **Prompt, model or effort**: edit `.claude/agents/<slug>.md`, and mirror the prompt to

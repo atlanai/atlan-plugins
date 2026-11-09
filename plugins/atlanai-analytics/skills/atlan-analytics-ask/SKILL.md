@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-ask
-description: Answer data questions in this chat using published Trident metrics and saved SQL, including a prepared local project and DuckDB. Use for follow-up questions after Analytics setup or questions about totals, rates, trends and breakdowns. Not for repo setup, metric authoring or a separate agent build (atlan-analytics).
+description: Answer data questions in this chat from published Atlan metrics and saved SQL, including a prepared local project and DuckDB. Use for totals, rates, trends, breakdowns and follow-ups after setup. Not for setup or metric authoring (atlan-analytics).
 ---
 
 # Answer a data question from governed context
@@ -12,7 +12,7 @@ harness.
 
 If a setup run was selected, follow [setup retrieval](../atlan-analytics/references/retrieval.md)
 and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
-below using existing Trident context. Ordinary questions require no local run, publication
+below using existing Atlan context. Ordinary questions require no local run, publication
 receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
 
 ## 1. Frame the question
@@ -44,7 +44,7 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    sum of money; a count of crew is not revenue), allowing the synonyms its description lists.
    Sharing a dimension word such as "region" is not a match. When no hit measures it, the answer
    is "no published metric"; name the near misses you set aside in one line of the answer.
-3. Send these together, in the turn after the search:
+3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
    - **The kept hit's definition, when it is not the first**: `extension__metric__search_metrics`
      with its exact `name`, the `workspace_id` that hit carries (an exact name is refused
      without one), `include_definition: true` and `definition_view: "compact"`. Never answer
@@ -92,7 +92,7 @@ admin can add it from the Store. Then offer the smallest thing that answers the 
   person to run, and answer from what they paste back;
 - **Paste or attach the result** of a query, or a CSV export.
 
-End that turn with `NEEDS_CONTEXT`. The published definition still decides the formula and
+End with the missing input, not a status token. The published definition still decides the formula and
 filters, whatever the data source.
 
 A released dashboard metric may carry
@@ -136,4 +136,4 @@ conventions' **Source of truth** says.
 For missing definitions, corrections or a request to save/share the answer, follow
 [answer follow-ups](../atlan-analytics/references/ask-followups.md).
 
-End with one status line from the conventions.
+End naturally with the result or next action, as the conventions describe.

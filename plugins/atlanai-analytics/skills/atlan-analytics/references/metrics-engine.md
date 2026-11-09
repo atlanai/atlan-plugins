@@ -1,11 +1,15 @@
 # Run the metrics module
 
 Use this procedure for metrics-only work, the context phase of a full build, and new Power BI
-or Tableau dashboard projects. The plugin drives the conversation and Registry publication.
+or Tableau dashboard projects. A repository or folder setup whose inputs are all local files,
+with no warehouse selected, does not use it: see [shared setup](setup.md) section 3. The plugin drives the conversation and Registry publication.
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<skill-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.
-Keep the runtime outside the installed plugin and outside an answering agent's workspace.
+Keep the runtime outside the installed plugin and any generated agent package. For local
+setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
+permitted cache. Never choose an OS/session scratch directory: the saved executor must remain
+usable after this chat ends. Reuse a compatible pinned runtime rather than reinstalling it.
 The module source lives under `modules/metrics/engine/`. This plugin owns its source changes and tests. Runtime identity hashes the current source.
 
 This procedure requires the complete Analytics plugin, including its `modules/` folder. A
@@ -62,6 +66,39 @@ The native view can lag by up to 45 minutes; describe coverage accordingly. Chat
 history capture remains available through [warehouse history](warehouses/query-history.md)
 when no direct connector is configured.
 
+### Direct Databricks history and verification
+
+The `databricks` feature installs the maintained `databricks-direct` package for native
+history, column metadata and read-only SQL checks. Reuse the selected workspace URL to derive
+its numeric `workspace_id`; retain the warehouse host and HTTP path as non-secret connection
+metadata. Discover and reuse an accessible SQL warehouse before asking the customer for those
+facts. Missing creation rights do not prove missing data access. Creating compute or changing
+permissions follows the host's authorization rules and is not part of credential discovery.
+
+Browser OAuth uses `sign_in: browser` and the same real-TTY procedure below. Token-based runs
+consume `DATABRICKS_TOKEN` from the environment or an approved secret-manager injection. Never
+copy a secret into chat, logs, run configuration or source files. Keep a saved credential's
+identity distinct from the person's browser identity when reporting administrator status.
+Reuse the customer's existing authentication route before asking for another credential.
+The maintained plug also accepts `sign_in: azure-browser`, `oauth-m2m` and `unified`.
+M2M consumes `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` from the environment.
+Unified authentication uses the official SDK's configured profile, CLI, Azure/Google or
+OIDC workload identity and refreshes its credentials. Select a non-secret `profile` or
+`sdk_auth_type` only when needed; the SDK profile or `DATABRICKS_HOST` must match the selected
+workspace. Use the package README's authentication table for the provider prerequisites.
+Never read a profile, token file or service-account key into chat. Username/password is
+unsupported. A configured route does not prove successful sign-in or data access.
+
+Native history always filters `system.query.history` by the selected workspace and bounded
+window. The table can cover multiple workspaces in the same region. A masked-text preflight
+runs before table-name filtering; missing visible SQL is an access blocker, not empty history.
+The native source lacks historical default catalog/schema, so unqualified physical table
+references block extraction. Offer an evidenced local export or qualified source statements;
+never invent past session context. CTE references remain supported. Keep the default 90 day
+window as absolute dates in the run, and narrow scope when the 5,000 group limit blocks.
+A Unity Catalog-disabled warehouse cannot read the native system table; distinguish that
+configuration issue from an unproven permission denial. Follow the package README for limits.
+
 ## 2. Prepare one engine run
 
 Metrics-only uses `.atlan-metrics/<slug>/engine/`; full builds and dashboards use
@@ -103,6 +140,8 @@ Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode
 It runs the maintained configuration and plug checks, without the terminal interview.
 Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path
 and source revision in project state. The engine manifest owns stage progress; do not mirror it.
+For a setup project, save its within-run engine directory as `engine_run` in `run.json`.
+The native journey then retains the provisional sample on resume without another path prompt.
 
 ### Native sign-in
 
@@ -117,7 +156,7 @@ that the connector obtained API access.
 The wrapper preserves stdin and streams connector prompts through stderr while keeping its
 stdout JSON separate. Setup checks also retain terminal detection. Interactive preparation
 and each interactive advance have a 15 minute deadline; a timeout blocks the operation.
-Power BI device-code and browser PKCE routes use this path, as does Snowflake's
+Power BI device-code and browser PKCE routes and Databricks browser OAuth use this path, as does Snowflake's
 `authenticator=externalbrowser` and any native terminal MFA prompt. Environment-based routes
 remain available for unattended execution. Power BI still refuses interactive fallback when
 no terminal is attached. Do not fabricate a terminal in an unattended job to bypass that check.
@@ -153,6 +192,15 @@ Run `ENGINE advance --run <engine-dir> --model <actual-model-id>`.
   consistency, access or configuration issue. Never synthesize a success or skip a gate.
 
 `ENGINE status --run <engine-dir>` reports the saved result without re-running anything.
+After an engine gate or phase transition, use the setup helper's `PROJECT experience --format
+chat --engine-dir <within-run-engine>` to surface factual progress and the first provisional
+sample. It reads the engine manifest and available evidence without exporting or publishing.
+For `PROJECT`, use the absolute selected-run engine directory or the literal `engine`;
+relative paths resolve from the selected run, unlike `ENGINE --run` paths. A legacy engine
+outside that run is not readable by this view; use its engine status and retain chat output.
+Show one sample by default; `--detail` adds that sample's SQL, source and checks. Never claim
+provisional evidence is checked/released, invent progress percentages, or wait until export
+to show useful work. Keep authored gate instructions and raw logs out of the user narrative.
 Re-running advance resumes the engine; changing the configuration requires a reviewed new run.
 An existing runtime/project stays pinned, rather than silently adopting a newer engine.
 
@@ -163,6 +211,14 @@ assistant's authored work. Keep eval answers and gold outside all metric-generat
 ## 4. Export, then use the unchanged publisher
 
 Run `ENGINE export --run <engine-dir> --context <context-dir>` only after completion.
+For a setup run, use a fresh `<run-dir>/engine-export/`: survey/history already put files in
+`context/`, and the exporter correctly refuses an unrelated nonempty destination. After a
+successful export, copy its five files (`metrics.json`, `queries.json`, `links.json`,
+`metrics-source.json`, `publication-holds.json`) unchanged into the run's `context/` only
+when it has no existing candidate or publication state. Preserve survey/history files.
+On resume, reuse the existing export and checked context; never overwrite reconciled or
+published definitions. An intentional regeneration follows the existing scope invalidation
+procedure before installing its new bundle.
 It revalidates the core artifacts, checks the completion hashes and output privacy boundary,
 then projects `metrics.json`, `queries.json` and `links.json`. It preserves source identities,
 formulas, source SQL, filters, joins, dimensions, parameters and evidence. It neither rewrites
@@ -236,3 +292,6 @@ The card gate rejects nested aggregates in the same query scope and aggregate/wi
 expressions in row filters. Valid separate aggregation subqueries and grouped window
 calculations remain supported. The exporter repeats these checks before producing eligibility
 evidence. These checks do not replace warehouse execution or independent dashboard parity.
+
+Update the already opened Analytics view at meaningful phase changes with `PROJECT experience --format panel`.
+Follow the host rendering procedure in [setup/render.md](setup/render.md). Keep a dismissed view closed.

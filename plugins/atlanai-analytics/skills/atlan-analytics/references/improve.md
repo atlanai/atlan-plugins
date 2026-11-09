@@ -44,4 +44,4 @@ discipline:
 - **Report the validation delta with its sign-test p-value.** If it's not significant, say so
   and recommend not keeping the change. At hand-back, report the holdout once beside it.
 
-End with one status line.
+End with the useful result or one recovery action in natural language.

@@ -1,0 +1,67 @@
+schema_version: "1.1"
+name: ux-native-local-details
+tags: [analytics, setup, ux, native, resume]
+execution:
+  prompt: |
+    Use Atlan Analytics. In this test read plugin instructions only; do not execute commands,
+    create files or contact services. This is the complete saved checkpoint:
+    interaction mode is local, focus metric:shipped-units. There are 3 local definitions and
+    zero published items. Shipped units means units on shipped shipments, formula SUM(s.units),
+    mandatory filter s.status = 'shipped', source shipments model and query history.
+    Its SQL example is SELECT SUM(s.units) FROM shipping.shipments s WHERE s.status = 'shipped'.
+    Schema checks passed; SQL execution has not been tested. The other metrics are Shipping
+    cost and Shipped weight. The user closed the optional HTML snapshot earlier.
+
+    User now says: "Show me the SQL and what is included for that metric. Keep everything local."
+    Respond in the normal Claude conversation.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: native-details-without-resuming
+    type: llm
+    focus: last_message
+    criteria: |
+      The selected metric is Shipped units, local-only, nothing published. PASS if the reply
+      shows SELECT SUM(s.units) FROM shipping.shipments s WHERE s.status = 'shipped', explains
+      the shipped-only population, identifies shipments model/query history as source, and
+      says schema checked but SQL execution untested. It should use ordinary chat/code and
+      end at the requested evidence. FAIL if it changes the metric, restarts setup, requests
+      a destination, pitches publishing, suggests further questions, opens a panel, creates
+      a dashboard, claims execution, or uses a custom app shell instead of chat.
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-files
+    type: tool_used
+    tool: Write
+    min: 0
+    max: 0
+  - name: no-registry-read
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply is a concise, useful details view for Shipped units, with its SQL,
+      shipped-only population, source and honest untested execution status. Ordinary code
+      formatting is appropriate. FAIL on workflow menus, decorative app chrome, a machine
+      status footer, forced celebration or an unrelated next-action question.

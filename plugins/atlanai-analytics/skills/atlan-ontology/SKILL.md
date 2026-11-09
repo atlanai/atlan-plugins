@@ -1,6 +1,6 @@
 ---
 name: atlan-ontology
-description: "Use the organization's business ontology in Atlan: explain a business object, its joins and the tables bound to it, answer which policy or rule was in force on a date, or draft an ontology for review in Ontology Studio. Use when a question names business entities, relationships, terminology or policies, or someone wants to model their business."
+description: "Use the business ontology in Atlan: explain a business object and its joins, say which policy applied on a date, or draft an ontology. Use when a question names business entities, terms or policies. Not for metric numbers (atlan-analytics-ask)."
 ---
 
 # Business ontology
@@ -30,13 +30,13 @@ request, and ask once only when two modes fit equally well.
 
 Records mode runs steps 1 and 3 only, then section 3: `extension__ontology__get_records` takes
 no release id (each record it returns names the release it came from), and an uninstalled app
-shows as that call being refused as an unknown tool (stop with BLOCKED as step 2 says). Context and draft
+shows as that call being refused as an unknown tool (explain the missing app as step 2 says). Context and draft
 modes run every step.
 
 1. Open a registry session as the conventions describe, with an `objective` naming the domain.
 2. Confirm the Ontology app is installed: `mcp__describe_tools` (or the full tool list) shows
    `extension__ontology__get_context`, and `registry__get_kind_schema` knows `ontology`. If not,
-   stop with BLOCKED: an Atlan admin installs **Ontology** from the Store.
+   stop and explain that an Atlan admin installs **Ontology** from the Store.
 3. Find ontologies with `registry__list_artifacts` (kind `ontology`, no `workspace_id`): it
    lists every workspace you can read, and each row names its workspace, so you need no
    workspace listing first. With several, ask which one, recommending the one whose name or
@@ -55,7 +55,7 @@ modes run every step.
    person's business terms, not SQL). Keep `max_resources` at 20 or less and raise
    `max_depth` to 2 only when the answer needs a second hop.
 2. When the question is about tables or joins, find the binding: `registry__list_artifacts`
-   (kind `ontology_binding`), resolve its `latest` release with `registry__list_releases` the
+   (kind `ontology_binding`, sent together with step 1's call), resolve its `latest` release with `registry__list_releases` the
    same way, and call
    `extension__ontology__get_binding_context` with `binding_id`, `release_id`, the same `query`
    and, when the binding was released against an older ontology release, `ontology_release_id`
@@ -133,4 +133,4 @@ check it; you never save it.
    also happen in Studio, in that order. Offer the table mapping you found in step 2 as notes
    for the binding.
 
-End with one status line from the conventions.
+End with the useful result or one recovery action, in natural language, as the conventions describe.

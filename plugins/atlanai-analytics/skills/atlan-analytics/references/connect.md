@@ -11,7 +11,7 @@ password, key or token. The statements for each warehouse are in
 ## 0. Reuse what state holds
 
 For a selected local project setup run, inspect its `run.json` through `project.py status`.
-If it holds `execution.kind: duckdb`, use [project setup](project.md#2-bind-data-once) and its
+If it holds `execution.kind: sqlite` or `duckdb`, use [project setup](project.md#2-bind-data-once) and its
 recorded interpreter. The local executor is a connection and takes precedence over warehouse
 discovery. Rebind if its schema changed; never silently select another database or server.
 
@@ -82,10 +82,10 @@ from here.
 Ask:
 - `<slug> · warehouse · how to reach the warehouse`
 - **Ask an Atlan admin to add <warehouse> from the Store (Recommended)**: everyone on the team
-  reaches it through Atlan with their own sign-in. Stop with NEEDS_CONTEXT until it is added.
+  reaches it through Atlan with their own sign-in. Explain the missing connection and wait until it is added.
 - **Add one to this tool myself**: give the steps for this harness from
-  [adding a server here](warehouses/add-server.md), then stop with
-  NEEDS_CONTEXT and ask the person to run the skill again once it is connected.
+  [adding a server here](warehouses/add-server.md), then name
+  the missing connection and ask the person to run the skill again once it is connected.
 
 In metrics mode, add **No warehouse: use a declared model, a BI file or an export** and return
 without a tool when it is chosen.
@@ -130,4 +130,4 @@ The CLI is never required: with no shell, `tool` or `file` covers every harness.
 From here on, the skills call it "the warehouse query tool recorded in state". Write SQL in the
 recorded dialect, using the statements in [warehouses](warehouses.md).
 
-End with one status line.
+End with the useful result or one recovery action in natural language.

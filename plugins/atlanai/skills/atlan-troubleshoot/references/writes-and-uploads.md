@@ -12,10 +12,15 @@ incomplete. Key on the error's `code` and status, as in `SKILL.md`.
 | `409` creating a `file` | That `path` is taken in the workspace. Use a unique path, for example dated. |
 | `409` with `existing_artifact_id` from `extension__skill__create` | The bundle is byte-identical to the current version. Nothing to do. |
 | `409` on a skill name | A skill with that name has a different source identity. Reuse the existing skill's `workspace_id`, `source_type` and `source_id` to add a version, or pick another name. |
+| A create resent with its `idempotency_key` answers `201` again | The registry answered from its record of the first write: nothing new was written. Newer gateways say so with `replayed: true`. Do not count it as a second artifact. |
+| `409` `idempotency_conflict` | The `idempotency_key` was already used with different arguments. Use a new key for a changed call; reuse one only to resend the identical call. |
 | A batch call succeeded but items are missing | Batches report per slot. Read each slot and retry only the failed ones. |
 | `create_artifact_linked` created the artifact but not the edge | Fix the edge with `registry__relate_artifact` on the returned handle. Do not call it again. |
 | `publish_output` answered `output: null` with `output_error` | The file was saved and the output was not. Fix what `output_error` names and send the same call again: it pins the saved file. |
-| `publish_output` is not a tool on this connection | The gateway is older than the tool. Record with separate calls, as `skills/atlan-record-outputs/references/record.md` says under its older route. |
+| `publish_output` refuses with "The request is not valid." and names no field | Nothing was written. A keyed `publish_output` is always refused, and a new version cannot change the first one's `media_type`. Send the call once more without `idempotency_key` and `file.media_type`. Refused again: record through the older route in `skills/atlan-share/references/record.md`, with the same source key. |
+| `publish_output` refuses a new version with a bare `409` ("conflicts with the current state") | Nothing was written. Gateway 2.21.0 refuses every new version through this tool, edges or not. Do not resend it: append the file version with `registry__append_artifact_version` (the file's `etag` as `if_match`, its existing `path`), then `registry__create_artifact` the output with the same source key and the new `file_version_ordinal`, as `skills/atlan-share/references/record.md` says under its older route. |
+| `publish_output` is not a tool on this connection | The gateway is older than the tool. Record with separate calls, as `skills/atlan-share/references/record.md` says under its older route. |
+| A write is refused with "You do not have permission" and no reason | The user's role cannot create that kind in that workspace (an agent create needs more than a personal workspace on some organizations). Say which kind and workspace, and ask whether to use another workspace or an admin. Do not retry. |
 | A relationship type is refused | Edges are declared by the source kind. An agent-to-skill edge is created from the agent (`uses_skill`), an output-to-skill edge from the output (`used_skill`). |
 
 ## Uploads and content

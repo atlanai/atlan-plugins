@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Atlan Pte. Ltd.
+databricks_history:
+  default_days: 90
+  max_days: 365
+  max_shapes: 5000

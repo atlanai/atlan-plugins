@@ -1,6 +1,8 @@
 # Dashboard through the metrics module
 
-New Power BI and Tableau dashboard projects use the maintained metrics module. Existing
+New Power BI and Tableau dashboard projects use the maintained metrics module, except a
+setup whose inputs are all local files with no warehouse selected, which follows
+[build and check](setup/build-check.md) with SQLite. Existing
 saved dashboard-helper jobs resume [their original procedure](dashboard.md); do not migrate
 or overwrite one without an explicit choice. Keep identification, evidence and progress in
 native chat. No additional MCP server is installed.
