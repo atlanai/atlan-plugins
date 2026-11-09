@@ -26,7 +26,7 @@ DESCRIPTOR = HERE / 'module.json'
 FEATURES = {'snowflake': 'packages/metrics-agent-snowflake',
             'powerbi': 'packages/metrics-agent-powerbi',
             'tableau': 'packages/metrics-agent-tableau',
-            'databricks': 'examples/plugs/databricks-direct',
+            'databricks': 'packages/metrics-agent-databricks',
             'postgres': 'examples/plugs/postgres-direct', 'pbix': '.[pbix]', 'test': '.[dev]'}
 
 
