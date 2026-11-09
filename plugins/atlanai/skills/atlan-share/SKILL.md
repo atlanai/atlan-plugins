@@ -95,7 +95,8 @@ returned; do not add caveats about what they did not.
 
 ## 5. Tell people, when Slack is connected
 
-Post when the user asked to, or when `.atlan/share.json` names a `slack` destination. Otherwise
+Post when the user asked to. When `.atlan/share.json` names a `slack` destination, show the post
+and that destination and send on a yes: a saved destination answers where, not whether. Otherwise
 offer it in one line, and only if a Slack tool is reachable. Skip this step for a share only the
 user can open: the post would point colleagues at something they cannot see.
 
