@@ -50,6 +50,9 @@ from metrics_agent.lib import stage  # noqa: E402
 
 STAGE = "x4_relate"
 IN = "metric_cards.json"
+# What a grain variant or alternative becomes: `metric` declares no edge for either.
+RELATED_NOT_EDGE = ("definition.extensions.related on both cards, no edge "
+                    "(symmetric: assert once)")
 OUT = "metric_relationships.json"
 PROMPT = "x4_prompt.json"
 
@@ -274,10 +277,11 @@ def _emit(ctx: stage.Ctx) -> None:
             "grain_variant": {"means": "the same question as the target, counted at a "
                                        "different grain (accounts rather than contacts). NOT "
                                        "interchangeable — swapping them changes the number",
-                              "roles": [], "writes": "alternative (symmetric: assert once)"},
+                              "roles": [],
+                              "writes": RELATED_NOT_EDGE},
             "alternative": {"means": "two spellings of one measurement a reader may pick "
                                      "between", "roles": [],
-                            "writes": "alternative (symmetric: assert once)"},
+                            "writes": RELATED_NOT_EDGE},
         },
         "n_metrics": len(tasks),
         "n_with_candidates": sum(1 for t in tasks if t["candidates"]),
