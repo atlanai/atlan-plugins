@@ -84,6 +84,8 @@ class TableauCloud:
     credential_routes = (
         S.CredentialRoute("personal access token",
                           (R.SERVER_VAR, R.PAT_NAME_VAR, R.PAT_SECRET_VAR)),
+        S.CredentialRoute('supplied JWT', (R.SERVER_VAR, R.JWT_VAR)),
+        S.CredentialRoute('unified access token JWT', (R.SERVER_VAR, R.UAT_VAR)),
         S.CredentialRoute("connected app", (R.SERVER_VAR, R.CA_CLIENT_VAR, R.CA_SECRET_ID_VAR,
                                             R.CA_SECRET_VALUE_VAR, R.USERNAME_VAR)),
         S.CredentialRoute("username and password",
@@ -149,7 +151,11 @@ class TableauCloud:
         return tz
 
     def _api_version(self) -> str:
-        return str(self.settings.get("api_version") or R.policy_value("api_version"))
+        default = '3.27' if R.detect_route() == 'unified-access-token' else R.policy_value('api_version')
+        version = str(self.settings.get("api_version") or default)
+        if R.detect_route() == 'unified-access-token' and (not R.API_VERSION.fullmatch(version) or tuple(map(int, version.split('.'))) < (3, 27)):
+            raise R.TableauError('Unified access token sign-in needs REST API 3.27 or newer', fix='settings.tableau-cloud.api_version')
+        return version
 
     # -- check ---------------------------------------------------------------------------
     def check(self, settings: dict[str, Any]) -> S.CheckResult:

@@ -27,9 +27,11 @@ from __future__ import annotations
 import functools
 import ipaddress
 import json
+import math
 import os
 import pathlib
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -44,16 +46,20 @@ PASSWORD_VAR = "TABLEAU_PASSWORD"
 CA_CLIENT_VAR = "TABLEAU_CONNECTED_APP_CLIENT_ID"
 CA_SECRET_ID_VAR = "TABLEAU_CONNECTED_APP_SECRET_ID"
 CA_SECRET_VALUE_VAR = "TABLEAU_CONNECTED_APP_SECRET_VALUE"
+JWT_VAR = "TABLEAU_JWT"
+UAT_VAR = "TABLEAU_UAT"
 
 # The sign-in routes, in the order one is chosen when several are complete: the first whose
 # variables are all set wins. No setting names the route; the environment does.
 ROUTES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("personal-access-token", (PAT_NAME_VAR, PAT_SECRET_VAR)),
+    ("unified-access-token", (UAT_VAR,)),
+    ("jwt", (JWT_VAR,)),
     ("connected-app", (CA_CLIENT_VAR, CA_SECRET_ID_VAR, CA_SECRET_VALUE_VAR, USERNAME_VAR)),
     ("username-password", (USERNAME_VAR, PASSWORD_VAR)),
 )
 ENV = (SERVER_VAR, SITE_VAR, PAT_NAME_VAR, PAT_SECRET_VAR, USERNAME_VAR, PASSWORD_VAR,
-       CA_CLIENT_VAR, CA_SECRET_ID_VAR, CA_SECRET_VALUE_VAR)
+       CA_CLIENT_VAR, CA_SECRET_ID_VAR, CA_SECRET_VALUE_VAR, JWT_VAR, UAT_VAR)
 # What a missing route is reported as: alternatives, in `env_missing`'s "A+B or C" form.
 ANY_ROUTE = " or ".join("+".join(names) for _route, names in ROUTES)
 # The scopes a connected-app token asks for: one per kind of call the plug makes, nothing that
@@ -95,11 +101,13 @@ class TableauError(RuntimeError):
     """A refusal or a failed call, in words an operator can act on. Never holds a secret."""
 
     def __init__(self, message: str, *, status: int | None = None, code: str = "",
-                 fix: str = "") -> None:
+                 fix: str = "", retryable: bool = False) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
         self.fix = fix
+        self.retryable = retryable
+        self.retry_after = None
 
 
 # ── policy ───────────────────────────────────────────────────────────────────────────────
@@ -171,7 +179,8 @@ def internal_host(host: str) -> str | None:
     return None
 
 
-def check_server_url(url: str, allowed_suffixes: list[str] | None) -> str:
+def check_server_url(url: str, allowed_suffixes: list[str] | None,
+                     allowed_private_hosts: list[str] | None = None) -> str:
     """`TABLEAU_SERVER_URL`, validated: `https://host[:port]`, returned without a trailing
     slash. Raises `TableauError` naming the variable otherwise. The value itself is never
     repeated: only the host, once it is known to be a plain host."""
@@ -197,10 +206,17 @@ def check_server_url(url: str, allowed_suffixes: list[str] | None) -> str:
     except ValueError:
         raise TableauError(f"{SERVER_VAR} has a port that is not a number.", fix=fix) from None
     why = internal_host(host)
-    if why:
+    exact = host in [str(h).lower() for h in allowed_private_hosts or []]
+    ip = _address(host)
+    private_ip = ip is not None and any(ip in ipaddress.ip_network(net)
+        for net in (('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16') if ip.version == 4 else ('fc00::/7',)))
+    private_name = ip is None and host.endswith(_INTERNAL_SUFFIXES)
+    metadata_ip = ip is not None and ip in {ipaddress.ip_address(h) for h in _METADATA_HOSTS}
+    private_allowed = exact and (private_ip or private_name) and not metadata_ip and host not in (*_INTERNAL_NAMES, *_METADATA_HOSTS)
+    if why and not private_allowed:
         raise TableauError(f"{SERVER_VAR} points at {why}. Refused: the sign-in would carry a "
                            "live credential there.", fix=fix)
-    if allowed_suffixes:
+    if allowed_suffixes and not private_allowed:
         if not any(host == s.lstrip(".") or host.endswith(s if s.startswith(".") else "." + s)
                    for s in allowed_suffixes):
             raise TableauError(
@@ -214,7 +230,8 @@ def check_server_url(url: str, allowed_suffixes: list[str] | None) -> str:
 
 def server_from_env() -> str:
     return check_server_url(os.environ.get(SERVER_VAR, ""),
-                            policy_value("allowed_host_suffixes"))
+                            policy_value("allowed_host_suffixes"),
+                            policy_value("allowed_private_hosts"))
 
 
 def segment(value: str, what: str) -> str:
@@ -290,6 +307,32 @@ class Session:
     def request(self, method: str, path: str, *, query: dict | None = None,
                 body: dict | None = None, accept: str = "application/json",
                 limit: int | None = None, base: str | None = None) -> tuple[int, dict, bytes]:
+        attempts = policy_value('retry_attempts')
+        cap = policy_value('max_retry_after_seconds')
+        if type(attempts) is not int or not 1 <= attempts <= 10 or type(cap) is not int or cap < 1:
+            raise TableauError('Tableau retry policy needs 1 to 10 attempts and a positive wait cap')
+        for attempt in range(attempts):
+            try:
+                return self._request_once(method, path, query=query, body=body, accept=accept, limit=limit, base=base)
+            except TableauError as exc:
+                if attempt + 1 == attempts or not (exc.retryable or exc.status in (429, 500, 502, 503, 504)):
+                    raise
+                delay = min(2 ** attempt, cap)
+                if exc.retry_after is not None:
+                    try:
+                        delay = max(0, float(exc.retry_after))
+                    except ValueError:
+                        from email.utils import parsedate_to_datetime
+                        try:
+                            delay = max(0, parsedate_to_datetime(exc.retry_after).timestamp() - time.time())
+                        except (TypeError, ValueError, OverflowError):
+                            pass
+                if delay > cap or not math.isfinite(delay):
+                    raise TableauError('Tableau Retry-After exceeds the configured wait cap', status=exc.status) from None
+                time.sleep(delay)
+
+    def _request_once(self, method: str, path: str, *, query=None,
+                      body=None, accept="application/json", limit=None, base=None):
         """One call to this server. `path` is joined to the API root (or `base`); every
         variable part of it was checked with `segment` by the caller."""
         url = (base or self.api) + path
@@ -314,14 +357,16 @@ class Session:
                 return resp.status, dict(resp.headers.items()), raw
         except urllib.error.HTTPError as exc:
             raw = exc.read() if exc.fp is not None else b""
-            raise self._fail(f"{method} {self._label(path)}", exc.code, raw) from None
+            error = self._fail(f"{method} {self._label(path)}", exc.code, raw)
+            error.retry_after = exc.headers.get('Retry-After') if exc.headers else None
+            raise error from None
         except urllib.error.URLError as exc:
             reason = getattr(exc, "reason", exc)
             raise TableauError(f"could not reach the Tableau server "
-                               f"({type(reason).__name__})", fix=SERVER_VAR) from None
+                               f"({type(reason).__name__})", fix=SERVER_VAR, retryable=True) from None
         except (TimeoutError, OSError) as exc:
             raise TableauError(f"could not reach the Tableau server ({type(exc).__name__})",
-                               fix=SERVER_VAR) from None
+                               fix=SERVER_VAR, retryable=True) from None
 
     @staticmethod
     def _label(path: str) -> str:
@@ -359,6 +404,10 @@ class Session:
             creds = {"personalAccessTokenName": env[PAT_NAME_VAR],
                      "personalAccessTokenSecret": env[PAT_SECRET_VAR], "site": site}
             self._secrets = [env[PAT_SECRET_VAR], env[PAT_NAME_VAR]]
+        elif route in ('jwt', 'unified-access-token'):
+            jwt = env[UAT_VAR if route == 'unified-access-token' else JWT_VAR]
+            creds = {'jwt': jwt, 'site': site}
+            self._secrets = [jwt]
         elif route == "connected-app":
             jwt = connected_app_jwt(env[CA_CLIENT_VAR], env[CA_SECRET_ID_VAR],
                                     env[CA_SECRET_VALUE_VAR], env[USERNAME_VAR])
@@ -384,6 +433,8 @@ class Session:
                                         "the app may not act for, a user who is Unlicensed "
                                         "(no site role; checked live: 401001), or a scope the "
                                         "app does not allow",
+                       "jwt": "an expired JWT, invalid audience, missing scope or wrong site",
+                       "unified-access-token": "an expired JWT, disabled UAT, missing scope or wrong site (UAT needs REST API 3.27 or newer)",
                        "username-password": "a wrong user or password; on Tableau Cloud, "
                                             "password sign-in does not work when the user "
                                             "has multi-factor authentication or single "

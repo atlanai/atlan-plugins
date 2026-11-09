@@ -106,3 +106,10 @@ hold or a refused sign-in (`warehouse_sign_in_failed`), no SELECT on a table
 grant or the right name). Each statement it touches is `skipped_no_substrate` (unverified),
 never quarantined, and the run's `access_report.json` names the grant to ask the warehouse
 admin for.
+
+## Typed connector options
+
+The plug converts connector-declared boolean DSN fields from `true`/`false` to actual booleans
+and integer fields from decimal strings to integers. Invalid values are refused before
+connection, with the option name only. This includes OAuth refresh, keep-alive and timeout
+options. Conversion is owned by this plug; common DSN parsing remains vendor-neutral.

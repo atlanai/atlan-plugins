@@ -161,9 +161,15 @@ Power BI device-code and browser PKCE routes and Databricks browser OAuth use th
 remain available for unattended execution. Power BI still refuses interactive fallback when
 no terminal is attached. Do not fabricate a terminal in an unattended job to bypass that check.
 
-Tableau's native routes (personal access token, connected-app JWT, username/password) read
+Power BI also supports explicit certificate and managed-identity routes and renews acquired
+tokens during a fetch. See the installed plug README for the required environment variables.
+Supplied access tokens must be replaced externally when they expire.
+
+Tableau's native routes (personal access token, connected-app JWT, supplied JWT/UAT and username/password) read
 configured environment variables and do not need a terminal. Its browser-download and MCP
 capture alternatives continue to use their existing host tools.
+Private Tableau endpoints require an explicit exact-host entry in the operator's policy;
+never approve a host automatically or disable HTTPS verification to make it connect.
 
 ### Inherit approval behavior
 
