@@ -258,3 +258,6 @@ The card gate rejects nested aggregates in the same query scope and aggregate/wi
 expressions in row filters. Valid separate aggregation subqueries and grouped window
 calculations remain supported. The exporter repeats these checks before producing eligibility
 evidence. These checks do not replace warehouse execution or independent dashboard parity.
+
+Update the already opened Analytics view at meaningful phase changes with `PROJECT experience --format panel`.
+Follow the host rendering procedure in [setup/render.md](setup/render.md). Keep a dismissed view closed.
