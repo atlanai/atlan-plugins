@@ -1,5 +1,5 @@
 ---
-description: Try Atlan Analytics on demo data or set it up on your own dashboards, query history and data.
+description: Turn dashboards and query history into context you can ask questions of, on demo data or your own.
 disable-model-invocation: true
 ---
 

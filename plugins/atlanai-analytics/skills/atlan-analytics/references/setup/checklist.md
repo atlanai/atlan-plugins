@@ -16,8 +16,11 @@ host's task list, the first one in progress:
 5. Review and choose where to save
 6. Ready for questions
 
-Use the host's task tool: `TaskCreate` and `TaskUpdate` in Claude Code (`TodoWrite` where
-those are absent), `update_plan` in Codex, the todo tool in Cursor. Steps 2 and 5 are where
+Use the host's task tool, loading it first when it is listed but not loaded: `TaskCreate`
+and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's plan tool
+(`update_plan`) in the Claude desktop app and in Codex, the todo tool in Cursor. Update it
+in the same turn as every stage change, so the list on screen is never behind the run.
+Steps 2 and 5 are where
 the person decides. The opening says so in a few words, for example "The task list shows the
 six steps; two need you." Do not print the list in chat as well. The list is the plan, so the
 opening stays within its word limit.
