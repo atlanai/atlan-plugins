@@ -24,6 +24,9 @@
 # 2026-10-31T09:52Z, oauthlib/oauthlib) fixes CVE-2026-49272, which pip-audit now reports against
 # 4.0.0. Compiled with --exclude-newer-package oauthlib=2026-10-31T10:00Z and -P oauthlib; its
 # requirements are those of 4.0.0, so every other line is unchanged.
+# Connectivity update 2026-11-09: Azure Identity 1.27.0, Azure Core 1.41.0, MSAL 1.39.0
+# and MSAL Extensions 1.3.1 were verified against the 2026-11-02 release-age cutoff.
+# Existing transitive pins, including pyjwt and cryptography, are unchanged.
 # A package's own pin (pyproject.toml) must agree with its line here:
 # tests/test_constraints.py checks it. Move a pin in both places, with the suite.
 # Databricks unified authentication added 2026-11-09 (cutoff 2026-11-02): official SDK
@@ -36,6 +39,8 @@ asn1crypto==1.5.1
 atlanai==0.3.2
 attrs==26.1.0
 authlib==1.9.1
+azure-identity==1.27.0
+azure-core==1.41.0
 boolean-py==5.0
 boto3==1.43.108
 botocore==1.43.108
@@ -83,6 +88,8 @@ mdurl==0.1.2
 mmh3==5.3.1
 msgpack==1.2.3
 msgspec==0.21.1
+msal==1.39.0
+msal-extensions==1.3.1
 nanoid==2.0.0
 numpy==2.5.3 ; python_full_version >= '3.12'
 numpy==2.4.6 ; python_full_version < '3.12'

@@ -12,6 +12,10 @@ tableau:
   # (localhost, 10.x, 169.254.169.254, *.internal, *.local) is refused whatever this says.
   allowed_host_suffixes:
     - .online.tableau.com
+  # Exact RFC1918/ULA or internal DNS hosts only. Metadata and loopback stay refused.
+  allowed_private_hosts: []
+  retry_attempts: 3
+  max_retry_after_seconds: 30
   # The REST API version every call names. 3.19 is Tableau Server 2023.1 and every Tableau
   # Cloud site; an older server needs a lower one (settings.tableau-cloud.api_version).
   api_version: "3.19"
