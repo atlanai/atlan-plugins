@@ -45,6 +45,7 @@ fixes it, without apology.
 | `mcp__search_tools` finds nothing, or not the registry tool you expected | Search ranks every connected server. Call a tool you know by name (`registry__…`) directly, or pass `servers: ["registry"]`. An empty search does not mean the tool is missing. |
 | `mcp__connect_server` is not a tool | Older gateways do not list it. Run it through `mcp__call_write_tool` (or `mcp__call_tool`) with `name: "mcp__connect_server"` and `arguments: { "server": … }`. A connection opened read-only (`?access=read`) cannot run it at all. |
 | `403` "Only a project's Claw … can use the Claw session tools" | `extension__agent__session_read` and `session_list` serve a project's Claw, not a person's agent. Read a session through its traces instead (`atlan-continue`, step 2). |
+| `mcp__call_read_tools` answered but some `results` are errors | Each result stands alone, in the order sent. Fix each by its row here and resend only the failed reads. |
 | JSON-RPC `-32003`, `rate_limited` | The organization's call budget is spent for the moment. Wait, then retry reads. Retry a write only by reusing its `idempotency_key` with identical arguments. |
 
 ## Writes, uploads and content
