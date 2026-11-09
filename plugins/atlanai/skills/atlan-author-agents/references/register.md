@@ -115,4 +115,4 @@ refusals: `skills/atlan-get-started/references/edges.md`.
 ## Recording what a run produced
 
 That is a different kind and a different recipe:
-`skills/atlan-record-outputs/references/record.md`.
+`skills/atlan-share/references/record.md`.

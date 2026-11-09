@@ -7,12 +7,14 @@ register the repository, then link the artifacts the user chooses.
 
 ## Tools
 
-Open one audited session with `mcp__initialise`, then pass its `session_id` and a concrete
-first-person `rationale` on every later call.
+Your first call opens the session by sending `objective`; pass the id it returns as
+`session_id`, with a concrete first-person `rationale`, on every later call.
 
 - `registry__list_workspaces` to resolve the workspace the user names.
 - `extension__repo__register_repo` to register the repository, or to get the repo already
-  registered there for that remote. Safe to repeat.
+  registered there for that remote. Each call appends a version to a repo that exists, so
+  look for it first with `registry__list_artifacts` (`kind: "repo"`, the workspace) and call
+  this only when no row carries the normalized remote.
 - `registry__get_artifact` to read the repo back.
 - `registry__search_artifacts`, `registry__list_artifacts` and `registry__get_artifact` to find
   the skills, agents and scorers to link.
@@ -47,8 +49,11 @@ From the user's checkout, read:
 
 ## 3. Register the repository
 
-Call `extension__repo__register_repo` with `workspace_id`, `remote_url` exactly as git printed
-it, and `default_branch` when known (`contributors` only with consent). The gateway normalizes
+Look for the repo first: `registry__list_artifacts` with `kind: "repo"` and the workspace, and
+match the normalized remote (`github.com/acme/demo`) against each row's `name`. A match is the
+repo: read it back and go to step 4, because registering it again appends a version it does
+not need. Otherwise call `extension__repo__register_repo` with `workspace_id`, `remote_url`
+exactly as git printed it, and `default_branch` when known (`contributors` only with consent). The gateway normalizes
 the remote and derives the repo's name, so `git@github.com:acme/demo.git` and
 `https://github.com/acme/demo` are one repo named `github.com/acme/demo`. Do not send a `name`.
 

@@ -7,7 +7,7 @@ execution:
   prompt: |
     Catch me up on Atlan artifact "Q3 churn analysis" (output_01evalchurn), registry acme, source session session_01evalchurnsrc.
 
-    Use Atlan MCP and keep one session. If you see mcp__search_tools and mcp__call_tool (search mode), send an objective on your first search or call, then run each tool below with mcp__call_tool, passing the session_id it returned and a rationale beside name and arguments, never inside arguments. Otherwise (full mode) call mcp__initialise first, then pass its session_id and a rationale wherever a tool schema asks for them. Tool names may have a host prefix. Read registry__get_artifact, then registry__get_file_content for its manifest and primary file, passing each recorded file_version_ordinal as version_ordinal. Fetch referenced files at their recorded versions too; report unreadable binary or large files.
+    Use Atlan MCP and keep one session. If you see mcp__search_tools and mcp__call_tool (search mode), send an objective on your first search or call, then run each tool below with mcp__call_read_tool (mcp__call_tool only if it is not listed), passing the session_id it returned and a rationale beside name and arguments, never inside arguments. Otherwise (full mode) call mcp__initialise first, then pass its session_id and a rationale wherever a tool schema asks for them. Tool names may have a host prefix. Read registry__get_artifact, then registry__get_file_content for its manifest and primary file, passing each recorded file_version_ordinal as version_ordinal. Fetch referenced files at their recorded versions too; report unreadable binary or large files.
 
     Read the source session and its transcript. If a canonical message reader is available, page through it in recorded sequence. Otherwise call extension__agent__list_session_traces with the source session handle as its session_id. For each trace it lists, call extension__agent__get_trace and extension__agent__get_trace_spans with its trace_id, include: ["content"] and subject_id set to the source session handle; if that subject_id is refused, use the agent_ or harness_ handle in the artifact metadata.subject_id. Their session_id is your MCP session, never the source session. Follow all cursors. Diagnostic spans are reconstructed history: disclose missing, truncated or omitted content and uncertain chronology; never claim a complete transcript from them.
 
@@ -19,14 +19,26 @@ execution:
 graders:
   - name: reads-output
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"registry__get_artifact"[\s\S]*output_01evalchurn'
     min: 1
   - name: reads-file
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"registry__get_file_content"[\s\S]*file_01evalchurnmd'
     min: 1
+  - name: skips-claw-only-reader-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"extension__agent__session_(?:read|list)"'
+    min: 0
+    max: 0
+  - name: skips-claw-only-reader-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"extension__agent__session_(?:read|list)"'
+    min: 0
+    max: 0
   - name: skips-claw-only-reader
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
@@ -35,24 +47,60 @@ graders:
     max: 0
   - name: finds-runs
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"\s*:\s*"extension__agent__list_session_traces"'
     min: 1
   - name: opens-a-listed-run
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
     input_match: '"name"\s*:\s*"extension__agent__get_trace"'
     min: 1
+  - name: rails-beside-arguments-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
+  - name: rails-beside-arguments-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
+    min: 0
+    max: 0
   - name: rails-beside-arguments
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '"arguments"\s*:\s*\{[^{}]*(?:"session_id"\s*:\s*"mcp_session|"rationale"|"objective")'
     min: 0
     max: 0
+  - name: every-call-has-rationale-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: every-call-has-rationale-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
   - name: every-call-has-rationale
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
     input_match: '^(?![\s\S]*"rationale")'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-read-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
+    min: 0
+    max: 0
+  - name: no-unrequested-writes-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"(?:registry__(?:create|patch|archive|move|append|relate)\w*|extension__\w+__create\w*)"'
     min: 0
     max: 0
   - name: no-unrequested-writes
@@ -69,5 +117,5 @@ graders:
   - name: plain-reply
     type: llm
     criteria: |
-      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"),, a sentence announcing which skill was loaded when that changes nothing for the user, a menu of follow-up actions to choose from ("I can also…", "want me to A, B or C?"), a sentence about a call it skipped or retried when that changes nothing the user should do ("I didn't request an upload ticket", "the registry returned service unavailable twice"), or more than seven lines, not counting a table, a code block or a list the user asked for. Offering one concrete next step, or asking a question the user must answer, is fine.
       FAIL only if one of those appears.

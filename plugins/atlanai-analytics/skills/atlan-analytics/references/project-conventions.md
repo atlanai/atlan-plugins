@@ -2,7 +2,7 @@
 
 Read this with the [shared conventions](conventions.md) when a mode keeps a project directory:
 metrics, build, eval, improve, dashboard and propose. These rules beat anything a phase file
-says, except the explicit dashboard orchestration policy below; the shared conventions' registry calls, source of truth, safety and status line apply too.
+says, except the explicit dashboard orchestration policy below; the shared conventions' registry calls, source of truth, safety and natural reply endings apply too.
 
 `EVAL` means
 `python3 "<skill-dir>/scripts/analytics_eval.py" <command> --dir .atlan-analytics/<slug>`,

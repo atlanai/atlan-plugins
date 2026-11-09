@@ -1,0 +1,81 @@
+schema_version: "1.1"
+name: ux-details-on-request
+tags: [analytics, setup, ux, preview, details]
+execution:
+  prompt: |
+    Use Atlan Analytics. Show the details for the Shipped units sample, including its SQL,
+    source, population and checks. Use only this supplied saved checkpoint, without running
+    SQL or contacting Registry this turn.
+
+    Shipped units means total units on shipped orders. Formula: SUM(s.units). Mandatory filter:
+    s.status = 'shipped'. Grain: region. Source: shipments model and history shape shipping-01.
+    The checked saved query is:
+    SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' AND shipped_at >= $start_date GROUP BY region LIMIT 100
+    Parameter start_date is a date, bound separately, with sample value 2026-10-01.
+    Schema checks and that sample execution passed earlier. Other parameter values and
+    independent dashboard parity have not been checked. The metric and query are still local,
+    with zero published items. Show only this requested sample, not other candidates.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: exact-sql-and-evidence
+    type: llm
+    focus: last_message
+    criteria: |
+      This is a details-only reply for Shipped units, not a request to execute or publish.
+      Expected SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' AND shipped_at >= $start_date GROUP BY region LIMIT 100
+      PASS only if the reply shows that complete SQL in a code block and explains total units
+      on shipped orders, formula SUM(s.units), mandatory filter s.status = 'shipped', region
+      grain, shipments model and history shape shipping-01. Parameter start_date must be a date
+      bound separately, with 2026-10-01 identified as the sample binding, not substituted into
+      the SQL. Whitespace-only formatting is allowed; tokens, literals, operators and filters
+      must be unchanged. FAIL on an omitted filter, altered query or unrelated metric card.
+  - name: saved-sql-preserved
+    type: regex
+    target: last_message
+    pattern: '```(?:sql)?\s*SELECT\s+region\s*,\s*SUM\s*\(\s*units\s*\)\s+AS\s+shipped_units\s+FROM\s+shipping\s*\.\s*shipments\s+WHERE\s+status\s*=\s*''shipped''\s+AND\s+shipped_at\s*>=\s*\$start_date\s+GROUP\s+BY\s+region\s+LIMIT\s+100\s*```'
+  - name: honest-check-provenance
+    type: llm
+    focus: last_message
+    criteria: |
+      Known checkpoint: schema checks and the example using start_date = 2026-10-01 passed
+      earlier. Other parameter values and independent dashboard parity remain unchecked.
+      The metric and query remain local with zero published items. PASS if the reply preserves
+      these distinctions. Reporting earlier successful checks is correct, not evidence of a
+      new execution. FAIL if it claims SQL ran or Registry publication happened during this
+      turn, or generalizes the earlier sample to all parameter values or business correctness.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      The user explicitly requested Shipped units details: formula, SQL, source, population
+      and checks. PASS if the reply leads with this metric and presents that evidence readably.
+      Headings, bullets, a SQL block and an explanation of prior versus unperformed checks are
+      appropriate. No short-response word limit applies to this explicit details request.
+      FAIL on unrelated pipeline narration, extra questions or cards, invented UI interaction,
+      or a machine status footer such as DONE, DONE_WITH_CONCERNS, BLOCKED or NEEDS_CONTEXT.
+  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

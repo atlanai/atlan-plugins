@@ -5,14 +5,18 @@ from __future__ import annotations
 import contextlib
 import copy
 import hashlib
+import importlib.util
 import io
 import json
+import os
+import re
 import subprocess
 import sys
 import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -488,7 +492,7 @@ class SkillLintTest(unittest.TestCase):
     def test_an_owned_skill_keeps_its_description_short_and_its_skill_md_small(self) -> None:
         long = "Use when testing. " + "x" * lint.MAX_OWNED_DESCRIPTION
         errors = self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n")
-        self.assertTrue(any("max 370" in e for e in errors), errors)
+        self.assertTrue(any("max 250" in e for e in errors), errors)
         self.assertEqual(self.lint("a", f"---\nname: a\ndescription: {long}\n---\nbody\n", owned=False), [])
         big = "---\nname: a\ndescription: Use when testing.\n---\n" + "word " * (lint.MAX_SKILL_BYTES // 5)
         errors = self.lint("a", big)
@@ -560,6 +564,42 @@ class SkillLintTest(unittest.TestCase):
     def test_repository_content_passes(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(lint.main(), 0)
+
+
+class GatewayToolNamesTest(unittest.TestCase):
+    """The gateway tool names the skills quote are the ones MCP service serves (fixtures/gateway-tools.json)."""
+
+    TOOLS = json.loads((ROOT / "tools/tests/fixtures/gateway-tools.json").read_text())
+    # A gateway-namespace name: `mcp__` and one segment, not a host-prefixed or truncated one.
+    NAME = re.compile(r"(?<![A-Za-z0-9_])mcp__[a-z]+(?:_[a-z]+)*(?![A-Za-z0-9_])")
+
+    def texts(self):
+        for plugin in sorted((ROOT / "plugins").iterdir()):
+            for tree in ("skills", "commands", "agents"):
+                base = plugin / tree
+                if base.is_dir():
+                    for path in sorted(base.rglob("*.md")):
+                        yield path, path.read_text()
+
+    def test_every_quoted_gateway_tool_exists(self):
+        known = set(self.TOOLS["search_mode_helpers"]) | set(self.TOOLS["gateway_tools"])
+        unknown = {
+            f"{path.relative_to(ROOT)}: {name}"
+            for path, text in self.texts()
+            for name in self.NAME.findall(text)
+            if name not in known
+        }
+        self.assertEqual(set(), unknown)
+
+    def test_get_started_names_every_helper_and_no_count(self):
+        text = (ROOT / "plugins/atlanai/skills/atlan-get-started/SKILL.md").read_text()
+        for name in self.TOOLS["search_mode_helpers"]:
+            self.assertIn(f"`{name}`", text)
+        for path, text in self.texts():
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertNotRegex(
+                    text, r"(?i)\b(three|four|five|six|seven)\s+(search-mode\s+|fixed\s+|gateway\s+)?tools\b"
+                )
 
 
 class DashboardPromptTest(unittest.TestCase):
@@ -708,7 +748,8 @@ class VoiceTest(unittest.TestCase):
 
 
 # Built here, never written whole, so the repository's own secret lint stays quiet. The shared
-# fixtures carry it as `{{fake_aws_key}}`; a hook's own tests substitute the same string.
+# fixtures carry it as `{{fake_aws_key}}`, and other credentials in halves joined at `{{split}}`; a
+# hook's own tests substitute the same way.
 FAKE_AWS_KEY = "AKIA" + "ABCDEFGHIJKLMNOP"
 
 
@@ -735,7 +776,7 @@ class CheckBundleTest(unittest.TestCase):
     def build(case: dict, root: Path) -> None:
         for rel, text in case.get("files", {}).items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
-            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY)
+            text = text.replace("{{fake_aws_key}}", FAKE_AWS_KEY).replace("{{split}}", "")
             (root / rel).write_bytes(text.encode("utf-8"))
         for rel, data in case.get("binary", {}).items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -790,8 +831,10 @@ class PublishHookTest(unittest.TestCase):
 
     def run_hook(self, entry: str, host: str, event: dict | str) -> dict | None:
         stdin = event if isinstance(event, str) else json.dumps(event)
+        # No update check: the notice has its own test, and these must not reach the network.
+        env = {**os.environ, "ATLAN_PLUGIN_UPDATE_CHECK": "0"}
         done = subprocess.run([sys.executable, "-I", str(self.SCRIPT), entry, "--host", host], input=stdin,
-                              capture_output=True, text=True, timeout=60, check=False)
+                              capture_output=True, text=True, timeout=60, check=False, env=env)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(done.stderr, "")
         return json.loads(done.stdout) if done.stdout else None
@@ -910,6 +953,35 @@ class PublishHookTest(unittest.TestCase):
         publish = (CORE / "skills" / "atlan-author-skills" / "references" / "publish.md").read_text(encoding="utf-8")
         # publish.md wraps its prose, so compare with its line breaks folded to spaces.
         self.assertIn(line, " ".join(publish.split()))
+
+    def test_session_start_says_how_to_update_when_main_is_ahead(self) -> None:
+        spec = importlib.util.spec_from_file_location("atlan_publish_hook", self.SCRIPT)
+        hook = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hook)
+        installed = json.loads((CORE / "plugin.json").read_text(encoding="utf-8"))["version"]
+        major, minor, _ = (int(part) for part in installed.split("."))
+        later = f"{major}.{minor + 1}.0"
+        fetched: list[str] = []
+
+        def main_at(version: str):
+            def fetch(url: str) -> str:
+                fetched.append(url)
+                return json.dumps({"name": "atlanai", "version": version})
+            return fetch
+
+        with mock.patch.dict(os.environ, {"ATLAN_PLUGIN_UPDATE_CHECK": ""}):
+            notice = hook.update_notice("codex", main_at(later))
+            self.assertIn(f"is at {installed} and {later} is released", notice)
+            self.assertIn("codex plugin marketplace upgrade atlan", notice)
+            self.assertIn("Cursor's plugin settings", hook.update_notice("cursor", main_at(later)))
+            for version in (installed, "0.0.1", "next", None):
+                self.assertIsNone(hook.update_notice("codex", main_at(version)), version)
+            self.assertIsNone(hook.update_notice("codex", lambda url: "<html>404</html>"))
+            self.assertEqual(fetched[0], build.latest_manifest_url(build.load()))
+        with mock.patch.dict(os.environ, {"ATLAN_PLUGIN_UPDATE_CHECK": "0"}):
+            fetched.clear()
+            self.assertIsNone(hook.update_notice("codex", main_at(later)))
+            self.assertEqual(fetched, [])
 
     def test_post_names_the_resend_or_the_read_back_after_a_lost_reply_and_the_findings_after_a_block(self) -> None:
         base = {"cwd": "/", "tool_name": "mcp__atlan__mcp__call_tool", "tool_input": {"name": "extension__skill__create", "arguments": {}}}
@@ -1089,7 +1161,10 @@ class EvalCasesTest(unittest.TestCase):
     CASES = ROOT / "evals" / "atlan" / "cases"
     SWITCHES = {"ATLAN_EMULATOR_HIDE_SERVERS", "ATLAN_EMULATOR_LOST_REPLY", "ATLAN_EMULATOR_EMPTY", "ATLAN_EMULATOR_RATE_LIMIT", "ATLAN_EMULATOR_CATALOG",
                 "ATLAN_EMULATOR_SIGNED_OUT", "ATLAN_EMULATOR_SKILLS", "ATLAN_EMULATOR_UNAVAILABLE",
-                "ATLAN_EMULATOR_HIDE_TOOLS"}
+                "ATLAN_EMULATOR_HIDE_TOOLS", "ATLAN_EMULATOR_PLATFORM", "ATLAN_EMULATOR_UNRELEASED",
+                "ATLAN_EMULATOR_OPAQUE_PUBLISH", "ATLAN_EMULATOR_DISABLED_SERVERS",
+                "ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT", "ATLAN_EMULATOR_SERVE_WITHDRAW",
+                "ATLAN_EMULATOR_LIVE_SURFACE"}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1143,6 +1218,44 @@ class EvalCasesTest(unittest.TestCase):
             self.assertIn("atlan-[\\w-]+", text, case.name)
             for runner in ("call_tool", "call_read_tool", "call_write_tool", "search_tools"):
                 self.assertIn(f"tool: mcp__plugin_atlanai_atlan__mcp__{runner}\n", text, f"{case.name}: {runner}")
+
+    def test_graders_look_for_each_tool_on_the_runner_it_needs(self) -> None:
+        # The skills send a read through call_read_tool, a create through call_write_tool and only
+        # destructive tools through call_tool. A grader that counts a tool on another runner counts
+        # nothing, so a correct run fails it and a regression passes unseen.
+        import re
+
+        world = json.loads((ROOT / "evals" / "atlan" / "emulator" / "world.json").read_text(encoding="utf-8"))
+        tiers = {}
+        for tool in world["tools"]:
+            notes = tool.get("annotations", {})
+            tiers[tool["name"]] = 0 if notes.get("readOnlyHint") else (2 if notes.get("destructiveHint") else 1)
+        # The publish skill sends a skill create through call_tool, where its files_from helper runs.
+        tiers["extension__skill__create"] = 2
+        runners = {0: "call_read_tool", 1: "call_write_tool", 2: "call_tool"}
+        prefix = "mcp__plugin_atlanai_atlan__mcp__"
+        block = re.compile(r"(?m)^  - name: (\S+)\n((?:    .*\n)+)")
+        for case in self.cases():
+            text = (case / "case.yaml").read_text(encoding="utf-8")
+            forbidden: dict[str, set[str]] = {}
+            for name, body in block.findall(text):
+                tool = re.search(rf"(?m)^    tool: {prefix}(call_\w+)$", body)
+                if not tool or "type: tool_used" not in body:
+                    continue
+                match = re.search(r"(?m)^    input_match: '(.*)'$", body)
+                pattern = match.group(1) if match else ""
+                if re.search(r"(?m)^    max: 0$", body):
+                    forbidden.setdefault(pattern, set()).add(tool.group(1))
+                    continue
+                # A required call is made once, on one runner: copies on the others can never all pass.
+                self.assertFalse(name.endswith(("-on-read-runner", "-on-write-runner")), f"{case.name}: {name}")
+                used = {tiers[n] for n in re.findall(r"(?<!\w)((?:registry|extension__[a-z]+|slack|mcp)__[a-z_]+)", pattern) if n in tiers}
+                if len(used) == 1:
+                    self.assertEqual(tool.group(1), runners[used.pop()], f"{case.name}: {name}")
+            for pattern, found in forbidden.items():
+                if "search_tools" in found:
+                    continue
+                self.assertEqual(found, set(runners.values()), f"{case.name}: a forbidden call checked on {sorted(found)} only: {pattern}")
 
     def test_the_baseline_flag_adds_the_no_plugin_arm_and_the_summary_shows_it(self) -> None:
         self.assertEqual(self.runner.ablation(False), "none")

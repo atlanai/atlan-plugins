@@ -18,11 +18,24 @@ execution:
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
   - name: creates-inline-skill
+    # The create may run on call_tool or call_write_tool (run_with can name either), so this
+    # counts it in the trace across both runners.
+    type: regex
+    target: trace
+    pattern: '"name":"mcp__plugin_atlanai_atlan__mcp__call_(?:write_)?tool","input":\{"name":"extension__skill__create"[^\n]*"files"\s*:\s*\{[^\n]*"SKILL\.md"'
+    match: 'count:1'
+  - name: skips-upload-and-publication-on-read-runner
     type: tool_used
-    tool: mcp__plugin_atlanai_atlan__mcp__call_tool
-    input_match: '"name"\s*:\s*"extension__skill__create"[\s\S]*"files"[\s\S]*"SKILL.md"'
-    min: 1
-    max: 1
+    tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
+    input_match: '"name"\s*:\s*"(?:registry__request_file_upload|registry__create_artifact|extension__skill__publish)"'
+    min: 0
+    max: 0
+  - name: skips-upload-and-publication-on-write-runner
+    type: tool_used
+    tool: mcp__plugin_atlanai_atlan__mcp__call_write_tool
+    input_match: '"name"\s*:\s*"(?:registry__request_file_upload|registry__create_artifact|extension__skill__publish)"'
+    min: 0
+    max: 0
   - name: skips-upload-and-publication
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_tool
@@ -39,6 +52,5 @@ graders:
   - name: plain-reply
     type: llm
     criteria: |
-      PASS if the final reply opens with its result or next step, has no greeting,
-      apology, em dash, generic closing offer, or unnecessary skill-loading announcement.
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), a sentence announcing which skill was loaded when that changes nothing for the user, a menu of follow-up actions to choose from ("I can also…", "want me to A, B or C?"), a sentence about a call it skipped or retried when that changes nothing the user should do ("I didn't request an upload ticket", "the registry returned service unavailable twice"), or more than seven lines, not counting a table, a code block or a list the user asked for. Offering one concrete next step, or asking a question the user must answer, is fine.
       FAIL only if one of those appears.

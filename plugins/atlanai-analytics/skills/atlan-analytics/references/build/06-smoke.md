@@ -23,7 +23,7 @@ Goal: prove the agent answers end to end, and that its sessions appear in the re
       call and its result, the SQL and the answer). No dataset or experiment is created.
 5. Verify in the registry: open each session from `hillclimb/smoke/publish.json` with
    `registry__get_artifact` and check its tool calls are there. If one is missing, report
-   BLOCKED with what `publish-ack` returned.
+   explain the refusal returned by `publish-ack` in natural language.
 6. Show the user a compact table: question | answer | used context (names) | rows.
 
 Look out for:

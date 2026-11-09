@@ -1,6 +1,6 @@
 ---
 name: atlan-connect-repo
-description: "Connect a GitHub repository to Atlan so its skills and agents publish automatically: register it, link artifacts to their source, or add the workflow that previews on pull requests and publishes on merge. Use when the user wants a repository kept in sync with Atlan or CI publication. Not for a one-off publish from a local folder (atlan-author-skills)."
+description: "Connect a GitHub repository to Atlan so its skills and agents publish on merge: register it, link artifacts to source, add the CI workflow. Use when a repository should stay in sync with Atlan. Not for a one-off publish (atlan-author-skills)."
 license: Apache-2.0
 ---
 
@@ -17,11 +17,14 @@ In search mode, the default, run each tool named here through the runner for wha
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
 the session by sending `objective`. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads
-together in one turn. A create names its `workspace_id`: the one the user names, else
+together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the host lists it. A create names its `workspace_id`: the one the user names, else
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines.
+a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
 Registration and provenance alone do not prove that a publishing workflow ran.
 Use the checkout's canonical remote, verify the returned repository's workspace and remote,

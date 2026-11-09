@@ -38,7 +38,7 @@
       "name": "atlanai-analytics",
       "displayName": "Analytics",
       "source": "./plugins/atlanai-analytics",
-      "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Trident and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows.",
+      "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics, business ontology and explicit agent workflows.",
       "author": {
         "name": "Atlan",
         "url": "https://atlan.com"
@@ -75,6 +75,25 @@
         "registry",
         "mods",
         "permissions"
+      ],
+      "category": "development"
+    },
+    {
+      "name": "atlanai-analytics-view",
+      "displayName": "Analytics View",
+      "source": "./plugins/atlanai-analytics-view",
+      "description": "Native Analytics source overview, metric evidence and progress pane for Claude Code. Shows only supplied presentation data and fills prompts on explicit button clicks.",
+      "author": {
+        "name": "Atlan",
+        "url": "https://atlan.com"
+      },
+      "homepage": "https://github.com/atlanai/atlan-plugins",
+      "repository": "https://github.com/atlanai/atlan-plugins",
+      "license": "Apache-2.0",
+      "keywords": [
+        "atlan",
+        "analytics",
+        "preview"
       ],
       "category": "development"
     }

@@ -1,0 +1,4 @@
+{
+  "description": "Read-only Analytics progress and metric pane. No file access, network, execution or permission hooks.",
+  "modules": ["./register.tsx"]
+}

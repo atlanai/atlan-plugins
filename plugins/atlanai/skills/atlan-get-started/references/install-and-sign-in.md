@@ -91,6 +91,21 @@ npx skills add atlanai/atlan-plugins --skill atlan-get-started
 This copies skills but not the MCP server. Without `--skill` it offers every skill in the
 marketplace, add-ons included. Add the server as below.
 
+## Updating
+
+Claude Code keeps the version first installed until it is updated, so a fix released here does
+not reach an older install. `claude plugin list` shows the installed version. To move to the
+marketplace's current one:
+
+```
+claude plugin marketplace update atlan
+claude plugin update atlanai@atlan
+```
+
+Then `/reload-plugins` in a running session. Other tools: run the install step above again,
+or `npx plugins add atlanai/atlan-plugins` for every agent at once. Signing in again is not
+needed.
+
 ## The MCP server on its own
 
 The skills are optional; the server is what does the work. Any MCP client that speaks
@@ -104,8 +119,8 @@ Streamable HTTP with OAuth can use it:
 | Cursor | In `~/.cursor/mcp.json`: `{ "mcpServers": { "atlan": { "url": "https://api.atlan.com/mcp" } } }` |
 | VS Code | In `.vscode/mcp.json`: `{ "servers": { "atlan": { "type": "http", "url": "https://api.atlan.com/mcp" } } }` |
 
-Append `?tools=full` to the URL to list every tool directly instead of the five search-mode
-tools (see `full-mode.md`). Atlan's own setup guide is
+Append `?tools=full` to the URL to list every tool directly instead of the search-mode
+helpers (see `full-mode.md`). Atlan's own setup guide is
 https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client, with pages for
 [Claude Code](https://platform.atlan.com/clients/claude/how-tos/claude-code) and
 [Codex](https://platform.atlan.com/clients/openai/how-tos/codex).

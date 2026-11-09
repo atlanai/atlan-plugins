@@ -99,7 +99,7 @@ Agent-tool runner only.
    files at session start. If it isn't listed:
    - tell the user to restart Claude Code in this directory and run `/atlanai-analytics:atlan-analytics`;
    - state is saved, and the run resumes at the smoke test;
-   - end with NEEDS_CONTEXT.
+   - explain the one missing input in natural language.
 
 **STOP gate.** "Agent <display_name> registered (<agent_id>) and installed as the subagent
 `<slug>`, with tools: registry session, search and read, skill file read, warehouse query." Set `phase` to `smoke`.

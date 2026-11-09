@@ -1,0 +1,57 @@
+schema_version: "1.1"
+name: ux-explicit-new-workspace
+tags: [analytics, setup, ux, workspace]
+execution:
+  prompt: |
+    Use Atlan Analytics. I want a new workspace for these metrics. Can you create one
+    through the CLI/API? This is an explanation-only checkpoint; do not call Registry or run
+    commands. The plugin has saved local drafts and the current MCP supports listing existing
+    workspaces, not creating a workspace. Explain the next supported step briefly.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: uses-analytics-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'atlan-analytics'
+  - name: ui-admin-route
+    type: llm
+    focus: last_message
+    criteria: |
+      The user explicitly asks if the plugin can create a new workspace through CLI/API.
+      Known capabilities: the current MCP lists existing workspaces; it cannot create one.
+      Local drafts already exist. PASS if the explanation names that limitation, gives the
+      supported next action of using the Atlan UI or asking an administrator, preserves the
+      drafts and says to refresh/select an accessible workspace afterward. FAIL on invented
+      creation tools, endpoints, CLI commands, credentials, unverified UI section labels,
+      automatic identity changes or claims that a workspace was created during this turn.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      This is an explanation-only answer about an unsupported CLI/API workspace-creation
+      request. PASS if it is one concise paragraph ending with the supported next action,
+      without a status token, permission question, fabricated metric preview or full workflow
+      narration. No generated sample is required. A future refresh of accessible workspaces
+      after UI/admin action is correct; claiming to have done it in this turn is not.
+  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-read-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

@@ -389,6 +389,78 @@ export const CASES: readonly Case[] = [
     ]
   },
   {
+    "name": "credential-file-configs",
+    "about": "Package-registry and machine logins and Terraform variables are credential files",
+    "files": {
+      "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+      ".npmrc": "registry=https://registry.npmjs.org/\n",
+      ".netrc": "machine example.com\n",
+      "env/prod.tfvars": "region = \"eu-west-1\"\n"
+    },
+    "expect": "refuse",
+    "rules": [
+      "credential-file"
+    ]
+  },
+  {
+    "name": "credential-cloud-keys",
+    "about": "A Google API key and a Stripe live secret key",
+    "files": {
+      "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+      "config.md": "maps: AIza{{split}}SyA0123456789abcdefghijklmnopqrstuv\nbilling: sk_live{{split}}_0123456789abcdefghijklmn\n"
+    },
+    "expect": "refuse",
+    "rules": [
+      "credential"
+    ],
+    "at": [
+      [
+        "config.md",
+        1,
+        7
+      ],
+      [
+        "config.md",
+        2,
+        10
+      ]
+    ]
+  },
+  {
+    "name": "credential-passwords",
+    "about": "A password set to a literal, and one inside a connection string",
+    "files": {
+      "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+      "settings.ini": "db_pass{{split}}word = \"correcthorsebattery\"\nDB_URL=postgres{{split}}://admin:hunter2@db/app\n"
+    },
+    "expect": "refuse",
+    "rules": [
+      "credential"
+    ],
+    "at": [
+      [
+        "settings.ini",
+        1,
+        1
+      ],
+      [
+        "settings.ini",
+        2,
+        8
+      ]
+    ]
+  },
+  {
+    "name": "credential-near-misses",
+    "about": "Placeholders, lookups and publishable keys are not secrets",
+    "files": {
+      "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+      "references/setup.md": "password = os.environ[\"DB_PASSWORD\"]\nPASSWORD=$DB_PASSWORD\npassword: \"<your password>\"\nclient_secret: SecretStr\nConnect with postgres://user:<password>@db/app or postgres://user:password@db/app.\nThe publishable key starts pk_live_ and is safe in a page.\n",
+      "references/npmrc.md": "Never commit an .npmrc with a token.\n"
+    },
+    "expect": "send"
+  },
+  {
     "name": "files-and-files-from",
     "applies_to": [
       "hook"

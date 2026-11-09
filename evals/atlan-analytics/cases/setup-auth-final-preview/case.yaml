@@ -26,11 +26,12 @@ graders:
   - name: visible-final-content
     type: llm
     criteria: |
-      PASS only if the final assistant answer itself includes both metric definitions,
-      calculations, shipped-only population, sources and checked status, plus the supplied
-      saved SQL. A link or a reference to earlier commentary alone fails. It must distinguish
-      unpublished local candidates from released Trident context and not claim this turn
-      executed SQL. Fewer than five candidates is not a failure.
+      PASS only if the final answer itself shows one supplied metric's meaning,
+      calculation, shipped-only population, source and prior checked status, with factual
+      counts of 2 local metrics, 1 saved query and zero published items. SQL and the second
+      metric remain available through details. A link or earlier commentary alone fails.
+      It must distinguish local candidates from released Atlan context and must not imply
+      fresh SQL execution in this turn. The one-sample default does not waive provenance.
   - name: actionable-registry-install-fallback
     type: llm
     criteria: |

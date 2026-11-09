@@ -1,6 +1,6 @@
 ---
 name: atlan-author-skills
-description: Publish a skill to Atlan, or a new version of one, or write a new skill for the team and publish it. Use when the user wants to publish, upload, push or release a skill to Atlan, or update one already there. Not for loading or installing a registry skill (atlan-use-skill), publishing from GitHub CI (atlan-connect-repo) or a skill kept only on this computer.
+description: Publish a skill to Atlan or a new version of one, or write a team skill and publish it. Use when asked to publish, upload, push or release a skill to Atlan. Not for loading a registry skill (atlan-use-skill) or GitHub CI (atlan-connect-repo).
 license: Apache-2.0
 ---
 
@@ -11,11 +11,14 @@ In search mode, the default, run each tool named here through the runner for wha
 `mcp__call_tool` for anything destructive), with `session_id` and a first-person `rationale`
 beside `name` and `arguments`; your first call opens
 the session by sending `objective`. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads
-together in one turn. A create names its `workspace_id`: the one the user names, else
+together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the host lists it. A create names its `workspace_id`: the one the user names, else
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result in a few lines, and ask before every write.
+a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for. Ask before every write.
+A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
+in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+Atlan is not answering. Never repeat a write: read it back first.
 
 ## Quick path: one new text skill
 

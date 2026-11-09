@@ -25,6 +25,118 @@ class AuthRecovery(unittest.TestCase):
         return auth_recovery.advance(self.run, {'operation': 'observe', 'attempt_id': state['attempt_id'],
                                                'event': event, **fields}, now=now)
 
+    def record_read(self, now=110, **fields):
+        return auth_recovery.advance(self.run, {'operation': 'record_read', 'host': 'codex', 'server': 'atlan',
+                                               'read_tool': 'registry__list_workspaces', 'read_succeeded': True,
+                                               **fields}, now=now)
+
+    def test_successful_read_needs_no_invented_recovery_or_login(self):
+        state = self.record_read()
+        self.assertEqual((state['host'], state['server'], state['status']), ('codex', 'atlan', 'connected'))
+        self.assertEqual(state['verification'], 'host_reported_read')
+        self.assertFalse(state['remote_writes'])
+        for invented in ('reason', 'attempt_id', 'task_id', 'login_argv', 'deadline'):
+            self.assertNotIn(invented, state)
+        self.assertFalse((self.run.root / 'auth-recovery.json').exists())
+        path = self.run.root / 'registry-readiness.json'
+        self.assertEqual(self.run.read(path), {'schema_version': 1, 'observations': [{
+            'host': 'codex', 'server': 'atlan', 'status': 'connected',
+            'read_tool': 'registry__list_workspaces', 'read_succeeded': True, 'observed_at': 110}]})
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_other_host_read_keeps_pending_recovery_and_all_earlier_evidence(self):
+        self.begin(host='claude_code')
+        auth = self.run.root / 'auth-recovery.json'
+        before = auth.read_bytes()
+        self.run.write(self.run.context / 'metrics.json', [{'name': 'example-metric'}])
+        metrics_before = (self.run.context / 'metrics.json').read_bytes()
+        codex = self.record_read()
+        self.assertEqual(codex['preserved_recovery']['host'], 'claude_code')
+        self.assertEqual(codex['preserved_recovery']['status'], 'login_required')
+        first = self.run.read(self.run.root / 'registry-readiness.json')['observations']
+        self.record_read(now=111, host='claude_code', server='plugin:atlanai:atlan')
+        saved = self.run.read(self.run.root / 'registry-readiness.json')['observations']
+        self.assertEqual(saved[:1], first)
+        self.assertEqual([(row['host'], row['server']) for row in saved],
+                         [('codex', 'atlan'), ('claude_code', 'plugin:atlanai:atlan')])
+        self.assertEqual(before, auth.read_bytes())
+        self.assertEqual(metrics_before, (self.run.context / 'metrics.json').read_bytes())
+
+    def test_independent_read_does_not_switch_or_finish_an_owned_sign_in_task(self):
+        state = self.observe(self.begin(host='claude_code'), 'login_started', task_id='claude_job')
+        auth = self.run.root / 'auth-recovery.json'
+        before = auth.read_bytes()
+        current = self.record_read()
+        self.assertEqual(current['status'], 'connected')
+        self.assertEqual(current['host'], 'codex')
+        self.assertEqual(current['preserved_recovery']['task_id'], 'claude_job')
+        self.assertEqual(current['preserved_recovery']['status'], 'waiting_auth')
+        with self.assertRaises(ValueError):
+            self.begin(host='codex')  # Recording separate evidence cannot authorize a host switch.
+        same_host = self.record_read(host='claude_code', server='plugin:atlanai:atlan')
+        self.assertEqual(same_host['next_action'], 'resolve_owned_sign_in_task')
+        self.assertEqual(before, auth.read_bytes())
+        completed = self.observe(state, 'login_succeeded', task_id='claude_job', now=112)
+        self.assertEqual(completed['status'], 'checking_mcp')
+
+    def test_read_requires_exact_success_and_explicit_valid_host_server_without_extra_events(self):
+        self.begin(host='claude_code')
+        self.record_read()
+        paths = [self.run.root / name for name in ('auth-recovery.json', 'registry-readiness.json')]
+        before = [path.read_bytes() for path in paths]
+        invalid = [
+            {'host': None}, {'host': 'unknown'}, {'server': None}, {'server': ''},
+            {'server': 'https://example.com'}, {'server': 'atlan; command'},
+            {'read_tool': 'registry__get_artifact'}, {'read_succeeded': False},
+            {'read_succeeded': 1}, {'read_succeeded': 'true'}, {'reason': 'sign_in'},
+            {'event': 'login_succeeded'}, {'task_id': 'invented'}, {'token': 'example'},
+        ]
+        for extra in invalid:
+            with self.subTest(extra=extra), self.assertRaises(ValueError):
+                self.record_read(**extra)
+        for missing in ('host', 'server', 'read_tool', 'read_succeeded'):
+            request = {'operation': 'record_read', 'host': 'codex', 'server': 'atlan',
+                       'read_tool': 'registry__list_workspaces', 'read_succeeded': True}
+            del request[missing]
+            with self.subTest(missing=missing), self.assertRaises(ValueError):
+                auth_recovery.advance(self.run, request, now=120)
+        self.assertEqual(before, [path.read_bytes() for path in paths])
+
+    def test_malformed_readiness_is_preserved_instead_of_silently_reset(self):
+        path = self.run.root / 'registry-readiness.json'
+        for invalid in ({'schema_version': 1, 'observations': {}},
+                        {'schema_version': 1, 'observations': [{'host': 'codex'}]},
+                        {'schema_version': 1, 'observations': [], 'raw_output': 'unexpected'}):
+            with self.subTest(invalid=invalid):
+                self.run.write(path, invalid)
+                before = path.read_bytes()
+                with self.assertRaises(ValueError):
+                    self.record_read()
+                self.assertEqual(before, path.read_bytes())
+
+    def test_later_recovery_observation_has_a_fresh_timestamp_without_altering_read_evidence(self):
+        state = self.begin()
+        self.assertEqual(state['updated_at'], 100)
+        state = self.observe(state, 'login_started', task_id='job_123', now=101)
+        self.assertEqual(state['updated_at'], 101)
+        state = self.observe(state, 'login_succeeded', task_id='job_123', now=102)
+        self.record_read(now=103)
+        self.assertEqual(self.run.read(self.run.root / 'auth-recovery.json')['updated_at'], 102)
+        state = self.observe(state, 'failed', now=104)
+        self.assertEqual(state['started_at'], 100)
+        self.assertEqual(state['updated_at'], 104)
+        self.assertEqual(self.run.read(self.run.root / 'registry-readiness.json')['observations'][0]['observed_at'], 103)
+
+    def test_record_read_uses_existing_project_auth_cli_without_creating_recovery(self):
+        request = self.run.root / 'request.json'
+        request.write_text(json.dumps({'operation': 'record_read', 'host': 'codex', 'server': 'atlan',
+                                       'read_tool': 'registry__list_workspaces', 'read_succeeded': True}))
+        process = subprocess.run([sys.executable, '-I', str(fixtures.SCRIPTS / 'project.py'),
+                                  '--run-dir', str(self.run.root), 'auth', str(request)], text=True, capture_output=True)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)['status'], 'connected')
+        self.assertFalse((self.run.root / 'auth-recovery.json').exists())
+
     def test_host_task_completion_needs_a_current_host_read_before_auto_resume(self):
         state = self.begin()
         self.assertEqual(state['login_argv'], ['codex', 'mcp', 'login', 'atlan'])
@@ -67,6 +179,7 @@ class AuthRecovery(unittest.TestCase):
         state = self.observe(self.begin(timeout_seconds=30), 'login_started', task_id='job_123')
         expired = auth_recovery.advance(self.run, {'operation': 'poll'}, now=131)
         self.assertEqual(expired['status'], 'timed_out')
+        self.assertEqual(expired['updated_at'], 131)
         self.assertEqual(expired['stop_owned_task_if_running'], 'job_123')
         self.assertEqual(expired['next_action'], 'show_manual_recovery')
         self.assertIn('codex plugin add atlanai@atlan', expired['fallback']['install_commands'])
@@ -88,6 +201,7 @@ class AuthRecovery(unittest.TestCase):
         expired = auth_recovery.advance(self.run, {'operation': 'begin', 'host': 'codex',
                                                   'reason': 'sign_in'}, now=131)
         self.assertEqual(expired['status'], 'timed_out')
+        self.assertEqual(expired['updated_at'], 131)
         self.assertEqual(expired['attempt_id'], state['attempt_id'])
         self.assertEqual(expired['stop_owned_task_if_running'], 'job_123')
         self.assertNotIn('login_argv', expired)

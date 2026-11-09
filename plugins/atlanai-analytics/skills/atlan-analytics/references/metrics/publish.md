@@ -14,8 +14,8 @@ and export a new context. A held-only export stops with its reasons and sends no
 
 ## 1. Preview
 
-For setup runs, first show `project.py preview --format chat` in an assistant message if
-actual candidates have not yet been displayed. A file link, tool result or counts alone
+For setup runs, first show one actual sample from `project.py experience --format chat`
+in an assistant message if none has been displayed; details remain available on request. A file link, tool result or counts alone
 does not count. This also applies when every artifact is being reused; no extra approval
 is required for read-only reuse. Show changed definitions again after reconciliation.
 
@@ -120,13 +120,21 @@ Only after both ends exist, and only the approved list:
    source identity (or kind and name within the reviewed workspace), never by name alone.
 2. Read `registry__get_kind_schema` for each source kind, and write only the relation types and
    target kinds it declares.
-3. Read the existing links first, including the `depends_on` links the metric posthook derives.
-   A link that matches on source id, target id and `rel_type` is reused unchanged. One whose
-   metadata conflicts is held for review.
-4. Write each missing link with `registry__relate_artifact`, passing `artifact_id`,
-   `subject_id`, `rel_type`, and the link's `attributes` as attributes (`why`, `relation`,
-   `confidence`). For `source_of`, the saved query is the `artifact_id`.
-5. Read each one back, and record which links were created, reused and held.
+3. **`depends_on` is the metric app's to write**, from each metric's `definition.depends_on`,
+   after the metric is written. Never create one with `registry__relate_artifact`: an edge you
+   write first carries no `derived_from` marker, so the app never removes it when the
+   definition later drops that input. Read each metric's edges with
+   `registry__get_related_artifacts`. For a `depends_on` in the approved list that is missing,
+   call `extension__metric__resync_lineage` (with `metric_id`) once and read again; if it is
+   still missing, hold it and report it. Once the derived edge exists, restate it with `registry__relate_artifact`
+   passing only `attributes` (`why`, `relation`, `role`, `confidence`): the gateway merges them
+   into the derived edge and keeps its marker.
+4. For `source_of` and `uses_metric`, the saved query is the `artifact_id`. Read its existing
+   links first. A link that matches on source id, target id and `rel_type` is reused unchanged;
+   one whose metadata conflicts is held for review. Write each missing one with
+   `registry__relate_artifact`, passing `artifact_id`, `subject_id`, `rel_type`, and the
+   link's `attributes` (`why`, `confidence`).
+5. Read each one back, and record which links were created, reused, restated and held.
 
 Never derive links from other workspace artifacts, and never write workspace-wide.
 
