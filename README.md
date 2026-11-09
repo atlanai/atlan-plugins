@@ -106,7 +106,7 @@ The core plugin connects one MCP server, `atlan`, and teaches your agent when to
 In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-skill <skill_…>`,
 `/atlanai:continue <output_…>` and `/atlanai:share` run `atlan-get-started`, `atlan-use-skill`,
 `atlan-continue` and `atlan-share`; those four skills hide their own slash entries, so each task is
-listed once. In Codex, the plugin
+listed once. `/atlanai:feedback` drafts feedback for Atlan and leaves sending it to you. In Codex, the plugin
 runs `atlan-get-started` right after install, which offers to check Atlan for a fitting skill
 at the start of each task: on a yes it adds a short, marked note to `~/.codex/AGENTS.md`, and
 "stop checking Atlan for skills" removes it. In Claude Code, Registry Mods does the same. Run
@@ -184,7 +184,11 @@ and point at live tools instead of copying reference data that would go stale.
   (in Codex and Cursor only once you trust its hooks, and only where `python3` is installed):
   when the agent publishes a skill with `files_from`, it reads that one folder in your working
   tree, refuses links, credential files and folders, and anything outside the tree, and sends
-  the files only in that same call to Atlan. It reads nothing otherwise. `atlanai-mods` is code
+  the files only in that same call to Atlan. It reads nothing otherwise. The same hook reads
+  `atlanai`'s public manifest on `main` at session start, so the agent can tell you once when an
+  update is out (`ATLAN_PLUGIN_UPDATE_CHECK=0` turns it off), and in Claude Code may offer to
+  draft feedback after a failed Atlan call (`DO_NOT_TRACK=1` turns it off). Feedback is shown to
+  you and sent by you, never by a hook. `atlanai-mods` is code
   that runs inside Claude Code; its [README](plugins/atlanai-mods) lists every call it makes.
 - **Your sign-in, your permissions.** Every call carries your own OAuth sign-in, and Atlan
   enforces your organization's permissions on it. The plugins hold no credentials.

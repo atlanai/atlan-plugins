@@ -58,7 +58,8 @@ Claude Code and Cursor run these as `/atlanai:<command>`: `get-started`, `use-sk
 `continue <output_…>` and `share`. Each loads the skill of the same task (`atlan-get-started`,
 `atlan-use-skill`, `atlan-continue`, `atlan-share`). Those four skills hide their own slash
 entries, and the commands hide themselves from the model, so the menu and the model's skill list
-each show every task once. The other skills are invoked by name
+each show every task once. `feedback [what happened]` drafts feedback for Atlan from the
+conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. The other skills are invoked by name
 (`/atlanai:atlan-author-skills`), or simply by asking.
 
 ## Alongside other Atlan plugins
@@ -79,6 +80,18 @@ plugin's hooks): when the agent publishes a skill with `files_from`, it reads th
 your working tree (never a link, a credential file or folder, or anything outside the tree) and
 sends its files only in that same call to Atlan. It says it is on with one line beside the
 conversation's first request. Other tools run no code from it.
+
+The same hook adds two notes for the agent, never for Atlan:
+
+- **Update notice.** At session start it reads the plugin's public manifest on this
+  repository's `main` (`raw.githubusercontent.com`, at most 2 seconds, nothing sent but the
+  request), and when a later version is released, the agent tells you once how to update.
+  `ATLAN_PLUGIN_UPDATE_CHECK=0` turns it off, as does `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`
+  in Claude Code.
+- **Feedback offer** (Claude Code). After an Atlan call fails in a way a retry or sign-in will
+  not fix, or after one in fifty turns that used Atlan, the agent may offer once to draft
+  feedback. You see the draft and send it yourself from your mail app, to support@atlan.com;
+  no hook sends it. `DO_NOT_TRACK=1` or `DISABLE_TELEMETRY=1` turns the offer off.
 
 In Claude Code, the separate [Registry Mods](../atlanai-mods/README.md) plugin (`atlanai-mods`)
 changes how this plugin's calls behave: registry reads run without a prompt, writes, archives,

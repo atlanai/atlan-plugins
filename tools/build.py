@@ -383,6 +383,17 @@ def plugin_assets(source: dict) -> dict[str, str]:
     return files
 
 
+def latest_manifest_url(source: dict) -> str:
+    """The core's Agent Plugins manifest on the repository's main branch: merging to main is the
+    release (AGENTS.md, Releasing), so its `version` is the latest released one. The hooks read it
+    to say when an install is behind."""
+    repository = source["plugin"]["repository"].rstrip("/")
+    prefix = "https://github.com/"
+    if not repository.startswith(prefix):
+        raise SystemExit(f"[plugin] repository must be on {prefix} for the update notice: {repository}")
+    return f"https://raw.githubusercontent.com/{repository[len(prefix):]}/main/{core_dir(source)}/plugin.json"
+
+
 def hook_fixtures(source: dict) -> dict[str, str]:
     """The shared publish fixtures as a module the hooks' tests import, since a test runs with no
     file system. check_bundle.py's tests read the JSON itself."""
@@ -390,7 +401,12 @@ def hook_fixtures(source: dict) -> dict[str, str]:
         return {}
     cases = json.loads((ROOT / FIXTURES).read_text(encoding="utf-8"))["cases"]
     body = json.dumps(cases, indent=2, ensure_ascii=True)
+    plugin = source["plugin"]
     return {
+        f"{core_dir(source)}/claude-hooks/release.ts": "// Written by tools/build.py from plugin.toml: edit that file.\n\n"
+        "/** This build's version, and where main's manifest says the latest released one. */\n"
+        f"export const VERSION = {json.dumps(plugin['version'])}\n"
+        f"export const LATEST_URL = {json.dumps(latest_manifest_url(source))}\n",
         f"{core_dir(source)}/claude-hooks/tests/fixtures.ts": f"// Written by tools/build.py from {FIXTURES}: edit that file.\n\n"
         "import type { Case } from './case'\n\n"
         f"export const CASES: readonly Case[] = {body}\n"
