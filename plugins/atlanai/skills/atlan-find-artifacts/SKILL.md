@@ -1,6 +1,6 @@
 ---
 name: atlan-find-artifacts
-description: Search the Atlan registry for skills, agents, knowledge, MCP servers, files and outputs, and how they relate. Use when asked what exists in Atlan, whether a skill or agent already exists, who owns it, what depends on it or which version agents use.
+description: Search the Atlan registry for skills, agents, knowledge, MCP servers, files, outputs and agent runs. Use when asked what exists in Atlan, whether something exists, who owns it, what depends on it, which version agents use, or what agents ran.
 license: Apache-2.0
 ---
 
@@ -37,6 +37,7 @@ Atlan is not answering. Never repeat a write: read it back first.
 | "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` (`references/kinds.md`) |
 | "What can a kind hold?" | `registry__get_kind_schema` |
 | "Which workspaces can I see?" | `registry__list_workspaces` |
+| "What did my agents do yesterday?" "What ran, and did it fail?" | `registry__list_traces`, then `references/runs.md` |
 
 ## Search
 
