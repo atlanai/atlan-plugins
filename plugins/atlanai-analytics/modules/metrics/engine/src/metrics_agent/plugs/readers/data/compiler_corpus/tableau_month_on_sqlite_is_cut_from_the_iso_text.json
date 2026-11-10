@@ -1,0 +1,45 @@
+{
+  "name": "tableau_month_on_sqlite_is_cut_from_the_iso_text",
+  "dialect": "sqlite",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "m",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "MIN(DATETRUNC('month', [order_date]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       MIN(date(t.order_date, 'start of month')) AS m\nFROM   retail.fct_sales t\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "tableau.datetrunc",
+    "tableau.min"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "order_date",
+      "units_sold",
+      "capacity"
+    ]
+  },
+  "types": [
+    [
+      "fct_sales",
+      "order_date",
+      "date"
+    ]
+  ]
+}

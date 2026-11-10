@@ -392,6 +392,9 @@ class _Parser:
                     rule = self._function_rule("/")
                     term = _apply(_emit_for(rule, self.dialect), [term, right], "/")
                     continue
+                if op == "/" and self._tableau and str(self.dialect or "").lower() == "sqlite":
+                    term = f"CAST({term} AS REAL) / {right}"      # decimals, as the calc divides
+                    continue
                 if op in ("*", "/", "%"):
                     term = f"{term} {op} {right}"
                     continue
@@ -2191,10 +2194,12 @@ class _Parser:
             args = [", ".join(args)]
         _check_literal_args(emit, name, self.language, raw)
         _check_literal_values(emit, name, self.language, raw)
-        if self._tableau and up == "DATETRUNC" and len(raw) > 1 and self._is_date_field(raw[1]):
+        if self._tableau and up == "DATETRUNC" and len(raw) > 1 and self._is_date_field(raw[1]) \
+                and str(self.dialect or "").lower() != "sqlite":
             # Tableau reads a field as the type its data source declares. A custom SQL column
             # declared a date may hold the date as text (`substr(ts, 1, 10)`), which the
             # warehouse's own DATE_TRUNC does not take; on a true DATE the cast changes nothing.
+            # SQLite has no DATE type: its date functions read the ISO text as it is.
             args = [args[0], f"CAST({args[1]} AS DATE)"] + args[2:]
             self.used.append("engine.tableau_declared_date")
         if str(self.dialect or "").lower() in (emit.get("literal_backslash_escapes") or []):

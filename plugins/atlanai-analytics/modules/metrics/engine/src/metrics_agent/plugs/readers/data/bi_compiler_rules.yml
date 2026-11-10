@@ -1163,6 +1163,17 @@ rules:
       dialect_templates:
         bigquery: "DATETIME_TRUNC(CAST({1} AS DATETIME), {0!word})"
         tsql: "DATETRUNC({0!word}, {1})"
+      # SQLite has no DATE_TRUNC: a date is its ISO text, cut by its date functions.
+      part_arg: 0
+      part_templates:
+        sqlite:
+          year: "date({1}, 'start of year')"
+          quarter: "date({1}, 'start of month', '-' || ((CAST(strftime('%m', {1}) AS INTEGER) - 1) % 3) || ' months')"
+          month: "date({1}, 'start of month')"
+          day: "date({1})"
+          hour: "strftime('%Y-%m-%d %H:00:00', {1})"
+          minute: "strftime('%Y-%m-%d %H:%M:00', {1})"
+          second: "strftime('%Y-%m-%d %H:%M:%S', {1})"
       literal_values: {"0": [year, quarter, month, day, hour, minute, second]}
       days_back:
         snowflake: "DATEADD(day, -({n}), DATE_TRUNC('day', {d}))"
@@ -1620,7 +1631,10 @@ rules:
   # where SQL raises. Applied to `/` unless the divisor is a non-zero number literal.
   - id: tableau.divide_operator
     match: {language: tableau-calc, function: "/"}
-    emit: {template: "({0} / NULLIF({1}, 0))"}
+    emit:
+      template: "({0} / NULLIF({1}, 0))"
+      # SQLite divides two integers as integers (5 / 6 is 0); the calc divides as decimals.
+      dialect_templates: {sqlite: "(CAST({0} AS REAL) / NULLIF({1}, 0))"}
     tier: stable
     evidence: tableau-calc
 

@@ -23,10 +23,11 @@ through [connect](../connect.md). No data connection is needed to preview defini
 execution access, mark SQL untested and preserve source work.
 All sources, including the demos and local-only files, use [the metrics engine](../metrics-engine.md).
 For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
-`PROJECT prepare` to create a new `.duckdb` database. Configure `local-files` with the selected
-BI definitions, cleaned history and this database. Respect Dashboard only versus history scope.
-Existing SQLite inputs remain supported by the local checking helper; when the engine has no
-compatible SQL-check plug, retain parse-only evidence and run exact local checks separately.
+`PROJECT prepare` to create a new `.sqlite` database named after its schema. Configure
+`local-files` with the selected BI definitions, cleaned history and this database, and set the
+run's `dialect` to the file's engine (`sqlite`, or `duckdb` for an existing DuckDB file). Respect
+Dashboard only versus history scope. When the engine has no compatible SQL-check plug, retain
+parse-only evidence and run exact local checks separately.
 Do not create a second authoring path because an executor is unavailable.
 
 Reuse the existing survey, scope, business focus and interview answers. Prepare one engine

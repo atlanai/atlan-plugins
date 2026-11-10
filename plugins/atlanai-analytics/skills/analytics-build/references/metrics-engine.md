@@ -25,7 +25,7 @@ Use the conversation and project state to fill known settings. Discover missing 
 from `ENGINE discover`: the maintained plugs declare capabilities, custody, credential routes
 and setup questions. It reports variable names, never credential values.
 
-The core runtime supports query-history files, column-schema files, DuckDB verification and
+The core runtime supports query-history files, column-schema files, SQLite and DuckDB verification and
 the installed Power BI/Tableau readers. Add only needed features: `snowflake`, `powerbi`,
 `tableau`, `databricks`, `postgres`, or `pbix`. These install the maintained plug packages or
 optional binary reader. A new source is a registered plug/reader, never a core edit.
@@ -127,7 +127,7 @@ the main engine applies this bound while grouping and admitting captured history
 {
   "version": 1,
   "scope": "example-domain",
-  "dialect": "duckdb",
+  "dialect": "sqlite",
   "mode": "standalone",
   "inputs": {"history": ["local-files"], "schema": [], "bi": [], "sql_check": null},
   "settings": {"local-files": {"history": "/absolute/private/querylog.jsonl"}},

@@ -43,8 +43,14 @@ def prepare(root, sources, request):
                        'sha256': source['sha256']})
     if total > 128 * 1024 ** 2:
         raise DataError('Select at most 128 MiB of CSV data for local preparation.')
-    # DuckDB names the database after its file, so `tix.duckdb` makes `tix.orders` ambiguous.
+    # DuckDB names the database after its file, so `tix.duckdb` makes `tix.orders` ambiguous;
+    # a SQLite file is attached under its name, so `tix.sqlite` is the one that holds `tix.*`.
     stem = destination.stem.lower()
+    schemas = {n.split('.')[0] for n in names}
+    if destination.suffix.lower() == '.sqlite' and len(schemas) == 1 and stem not in schemas:
+        schema = schemas.pop()
+        raise DataError('Name the .sqlite file after its schema: ' + schema + '.sqlite holds '
+                        + schema + '.<table>.')
     if destination.suffix.lower() == '.duckdb' and any(n.split('.')[0] == stem for n in names):
         raise DataError('Name the .duckdb file differently from its schema "' + stem +
                         '": DuckDB names the database after the file, which makes '
