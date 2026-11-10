@@ -26,6 +26,25 @@ approves more than one version per yes.
 List each item with its name, kind, version, owner and status. Offer to review one, newest first.
 Do not open their files yet.
 
+## A scan that does not settle
+
+A `pending_review` version is not waiting on a person: its scan is running, or did not run to
+its end. When `registry__get_security_findings` answers `not_scanned` on a second read a few
+minutes after the first, say the scan is stuck and offer one rerun:
+
+- `registry__retrigger_artifact_action` with the `artifact_id` and `"action_name": "scan"`,
+  through `mcp__call_write_tool`, after a yes that names the artifact and version. It needs
+  update rights on the workspace, so the owner can ask for it as well as an admin.
+- Each call starts a new run. Send it once, and never again after a timeout or an unclear
+  answer: read the head back with `registry__get_artifact` and no `channel` instead.
+- It approves nothing. The version turns `active` or `blocked` when the new scan settles.
+- On a `blocked` version a rerun judges the same files again and reopens it to
+  `pending_review` meanwhile. Offer it only when the user says the scanner or its rules
+  changed; otherwise the fix is a corrected version from the owner, or an admin's approval.
+- When `mcp__describe_tools` answers that it is not a tool you can call, the gateway predates
+  it: say the scan cannot be restarted from here and that an admin can open the version in
+  the dashboard.
+
 ## Reviewing one item
 
 Send these reads together, as one `mcp__call_read_tools` call when the host lists it:

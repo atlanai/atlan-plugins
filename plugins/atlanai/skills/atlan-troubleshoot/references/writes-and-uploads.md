@@ -22,6 +22,7 @@ incomplete. Key on the error's `code` and status, as in `SKILL.md`.
 | `publish_output` is not a tool on this connection | The gateway is older than the tool. Record with separate calls, as `skills/atlan-share/references/record.md` says under its older route. |
 | A write is refused with "You do not have permission" and no reason | The user's role cannot create that kind in that workspace (an agent create needs more than a personal workspace on some organizations). Say which kind and workspace, and ask whether to use another workspace or an admin. Do not retry. |
 | A relationship type is refused | Edges are declared by the source kind. An agent-to-skill edge is created from the agent (`uses_skill`), an output-to-skill edge from the output (`used_skill`). |
+| A release or a move is refused with a `code` | `skills/atlan-manage-artifacts/references/refusals.md` maps each release code and each move refusal to its one step. |
 
 ## Uploads and content
 
@@ -31,6 +32,7 @@ incomplete. Key on the error's `code` and status, as in `SKILL.md`.
 | `PUT` returns `403` or the URL expired | Upload URLs expire (`expires_in_seconds`). Reserve a new one with `registry__request_file_upload`. |
 | `registry__get_file_content` refuses over the byte ceiling or as not UTF-8 | The tool returns text up to 256 KiB only. Say which file you could not read; do not guess its content. |
 | A skill has no `metadata.files` | Its `artifact_status` is `blocked`: it failed a security scan and its content is withdrawn. `registry__get_security_findings` says why: each finding's rule, file, lines and fix. |
-| A skill's `SKILL.md` answers `not found`, or lists `size_bytes: 0` | Its `artifact_status` is `pending_review`: that version waits for a reviewer and cannot be read until it is approved. |
+| A skill's `SKILL.md` answers `not found`, or lists `size_bytes: 0` | Its `artifact_status` is `pending_review`: that version's checks have not settled, and it cannot be read until its scan passes or a workspace admin approves it. Read it again shortly. |
+| A version stays `pending_review` and `registry__get_security_findings` keeps answering `not_scanned` | The scan did not run to its end. With the owner's or an admin's yes, start it once more: `registry__retrigger_artifact_action` with the `artifact_id` and `"action_name": "scan"`, through `mcp__call_write_tool`. Each call is a new run, so never send it twice, and never again after a timeout: read the head back instead. It approves nothing. Not a tool on this connection: the gateway predates it, so ask a workspace admin to look at the version in the dashboard. |
 | A handle such as `out_…` answers `not found` | Outputs are `output_…`. Ask for the handle as the dashboard shows it rather than guessing another. |
 | `not found` on a file you just saw listed | The file is withdrawn, or the version you asked for is not readable. Pass the `file_version_ordinal` the manifest gave you. |

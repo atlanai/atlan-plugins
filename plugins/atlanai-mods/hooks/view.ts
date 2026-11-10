@@ -2,7 +2,7 @@
 // artifacts this session touched, the confirmation card, the publish band and the skill picker.
 // Nothing here calls `$`, so each rule is tested without a session.
 
-import { CONSEQUENCE, argsOf, artifactOf, jsonObjects, type Related, type Summary } from './registry'
+import { CONSEQUENCE, argsOf, artifactOf, batchCalls, batchEntries, gatewayNameOf, jsonObjects, type Related, type Summary } from './registry'
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -62,8 +62,21 @@ function describeRaw(tool: string, input: unknown): string {
     const servers = Array.isArray(call.servers) ? call.servers.filter(isText) : []
     return servers.length > 0 ? `read the tools of ${servers.join(', ')}` : 'read tool definitions'
   }
-  const name = isText(call.name) ? call.name : ''
-  const args = argsOf(call.arguments)
+  if (tool.endsWith('__mcp__call_read_tools')) {
+    const calls = batchCalls(call) ?? []
+    if (calls.length === 0) return 'ran a batch of reads'
+    if (calls.length === 1) return describeNamed(calls[0]?.name ?? '', argsOf(calls[0]?.args))
+    const shown = calls.slice(0, 3).map(one => describeNamed(one.name, argsOf(one.args)))
+    return `ran ${calls.length} reads: ${shown.join('; ')}${calls.length > 3 ? `; and ${calls.length - 3} more` : ''}`
+  }
+  // A read listed by name carries the tool's own arguments as its input.
+  const direct = gatewayNameOf(tool)
+  if (direct?.startsWith('registry__')) return describeNamed(direct, call)
+  return describeNamed(isText(call.name) ? call.name : '', argsOf(call.arguments))
+}
+
+/** What one named gateway tool does with these arguments. */
+function describeNamed(name: string, args: Record<string, unknown>): string {
   if (name === 'extension__skill__create') {
     const names = publishNames(args)
     return names.length > 0 ? `published ${names.length === 1 ? 'skill' : 'skills'} ${names.join(', ')}` : 'published a skill'
@@ -135,6 +148,14 @@ function flatten(slot: Record<string, unknown>): Record<string, unknown> {
 
 /** What a gateway call came back with, in a few words, for the line under its row. */
 export function summarizeResult(text: string, isError: boolean): string {
+  const batch = batchEntries(text)
+  if (batch) {
+    const failed = batch.filter(entry => entry.isError).length
+    if (batch.length === 1 && batch[0]) return summarizeResult(batch[0].text, batch[0].isError)
+    const parts = batch.slice(0, 3).map(entry => clip(summarizeResult(entry.text, entry.isError), 60))
+    const head = failed === 0 ? `${batch.length} reads answered` : `${batch.length - failed} of ${batch.length} reads answered`
+    return clip(`${head}: ${parts.join('; ')}${batch.length > 3 ? `; and ${batch.length - 3} more` : ''}`, 220)
+  }
   if (isError) {
     const object = resultObject(text)
     const message = object ? field(object, 'message') || field(object, 'error') || field(object, 'detail') : ''
@@ -321,6 +342,6 @@ export function cardOf(callId: string, name: string, artifactId: string, summary
     ),
     dependents: (related?.dependents ?? []).map(one => ({ id: clip(one.id, 80), kind: clip(one.kind, 40), rel: clip(one.rel, 40) })),
     count: related === undefined ? -1 : related.count,
-    consequence: CONSEQUENCE[name] ?? '',
+    consequence: CONSEQUENCE[name.trim().toLowerCase()] ?? '',
   }
 }

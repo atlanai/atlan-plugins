@@ -381,6 +381,45 @@
    }
   },
   {
+   "name": "registry__get_file_contents",
+   "description": "Read the text of 1 to 8 file artifacts in one call, each at the version you name. Use it for files whose `file_id` and `file_version_ordinal` you already have from different artifacts' `metadata.files`; for files of one artifact, `registry__get_artifact`'s `include_files` reads them with the manifest. Each entry is read as `registry__get_file_content` reads it, in the order given: its `content`, or an `error` saying why it could not be read, which never fails the others.",
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "file_id": {
+         "type": "string"
+        },
+        "version_ordinal": {
+         "type": "integer"
+        }
+       },
+       "required": [
+        "file_id"
+       ]
+      }
+     }
+    },
+    "required": [
+     "files"
+    ]
+   }
+  },
+  {
    "name": "registry__create_artifact",
    "description": "Create one artifact of a registered kind. `metadata` carries `name` and `workspace_id` (required) flat alongside the kind's properties.",
    "annotations": {
@@ -412,6 +451,37 @@
     ]
    },
    "writes": "artifact"
+  },
+  {
+   "name": "registry__create_artifacts",
+   "description": "Create up to 100 artifacts of one kind in a single call. Each item is what `registry__create_artifact` takes as its `metadata`, including its own `workspace_id`. Each item succeeds or fails on its own: the result has one slot per item, in order. Retry only the failed items: resending the batch duplicates every item that worked. Refused outright: `agent`, and any kind needing content bytes.",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "kind": {
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+       "type": "object"
+      }
+     }
+    },
+    "required": [
+     "kind",
+     "items"
+    ]
+   }
   },
   {
    "name": "registry__patch_artifact",
@@ -699,6 +769,106 @@
     "required": [
      "artifact_id",
      "workspace_id"
+    ]
+   }
+  },
+  {
+   "name": "registry__relate_artifact",
+   "description": "Record a typed relationship from one artifact to another: what it depends on, what comes next, what replaces it. Read them back with `registry__get_related_artifacts`. Safe to repeat: the edge is identified by its two ends and its type. `rel_type` must be one the source kind admits: `registry__get_kind_schema`'s `relationships` says which.",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "artifact_id": {
+      "type": "string"
+     },
+     "subject_id": {
+      "type": "string"
+     },
+     "to_id": {
+      "type": "string"
+     },
+     "rel_type": {
+      "type": "string"
+     },
+     "attributes": {
+      "type": "object"
+     }
+    },
+    "required": [
+     "artifact_id",
+     "rel_type"
+    ]
+   }
+  },
+  {
+   "name": "registry__create_artifact_linked",
+   "description": "Create an artifact and relate it to one that already exists, in one write. The artifact and the relationship commit together or not at all: if the relationship is refused, nothing was created. `metadata` needs `name` and `workspace_id`, `subject_id` must be an artifact you can read, and `rel_type` must be one the new artifact's kind declares.",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "kind": {
+      "type": "string"
+     },
+     "metadata": {
+      "type": "object"
+     },
+     "subject_id": {
+      "type": "string"
+     },
+     "to_id": {
+      "type": "string"
+     },
+     "rel_type": {
+      "type": "string"
+     },
+     "attributes": {
+      "type": "object"
+     }
+    },
+    "required": [
+     "kind",
+     "metadata",
+     "rel_type"
+    ]
+   }
+  },
+  {
+   "name": "registry__retrigger_artifact_action",
+   "description": "Create a fresh run of a declared action against the artifact's current head, for example `scan` after a scanner failure left it `pending_review`. Requires workspace update authority. Each call creates a new run; do not blindly retry after a timeout. This does not approve content. To fix blocked content append a corrected version, or ask an admin for a reviewed exception with `registry__approve_artifact`.",
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false
+   },
+   "input_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "artifact_id": {
+      "type": "string"
+     },
+     "action_name": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "artifact_id",
+     "action_name"
     ]
    }
   },

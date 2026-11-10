@@ -1,21 +1,25 @@
 # Registry Mods
 
-A Claude Code mod for the `atlanai` plugin. Every Atlan registry call goes through one of three
+A Claude Code mod for the `atlanai` plugin. Most Atlan registry calls go through one of three
 runners (`mcp__call_read_tool`, `mcp__call_write_tool` or `mcp__call_tool`), so Claude Code's own
 permission rules see the runner, not the tool: they cannot tell a create from an archive run
-through `mcp__call_tool`. The mod knows the gateway by its tool names, so a gateway added by hand under another name
+through `mcp__call_tool`. Reads also arrive as a batch (`mcp__call_read_tools`, up to 8 in one
+call) and through the six registry reads the gateway lists by name (`registry__search_artifacts`,
+`registry__get_artifact`, `registry__list_workspaces`, `registry__get_artifact_counts`,
+`registry__get_related_artifacts`, `registry__get_file_content`); the mod handles all three forms. The mod knows the gateway by its tool names, so a gateway added by hand under another name
 (`claude mcp add atlan-prod …`) is covered too. This mod can:
 
 | What | How |
 |---|---|
-| Registry reads run without a prompt | Searches, reads and listings are allowed at the permission check. Your deny rules and your organization's limits still apply. |
+| Registry reads run without a prompt | Searches, reads and listings are allowed at the permission check, through a runner, in a batch or called by name. A batch is allowed only when every call in it is a registry read; one holding another server's tool is left to your rules. Your deny rules and your organization's limits still apply. |
 | Writes ask first | A create, patch, append or relate asks, and the prompt names the write. Turn this off with the `confirm_writes` option. |
-| Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`), read within 8 seconds. Where nobody can answer, as under `claude -p`, the call is refused. A name in another case, with spaces around it, or wrapped in a nested runner asks the same way. |
-| Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them, for the registry's tools and the apps' (`extension__…`) alike; another server's tool keeps an argument of the same name. The session's audit session is reused, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A call with no rationale is refused with the fix. |
+| Archive, approve and move always ask | The prompt names the artifact, its version and workspace, and what depends on it (`3 artifacts depend on it: agent ...`), read within 8 seconds. Where nobody can answer, as under `claude -p`, the call is refused. A name in another case, with spaces around it, wrapped in a nested runner or placed in a batch asks the same way. |
+| A release and its roll-back say what they do | A release's prompt says the version becomes the one its channel serves. A withdrawal's prompt names the release (`rel_…`) and says everyone on the channel moves back to the previous release, and that it cannot be undone. |
+| Calls arrive well formed | `session_id`, `rationale` and `objective` placed inside `arguments` are moved beside them, for the registry's tools and the apps' (`extension__…`) alike; another server's tool keeps an argument of the same name. The session's audit session is reused, for a batch and a read called by name too, and dropped only when the gateway refuses that session, never because a tool reported something else not found. A session this mod opens for its own checks stays its own. A runner or batch call with no rationale is refused with the fix. |
 | Outages are absorbed | When Atlan answers 502, 503 or 504, or a server behind it is briefly unavailable, Claude is told to repeat a read after the gateway's wait (2 seconds when it names none), at most 3 tries, and to read back before repeating a write; a lost skill publish is left to `atlanai`'s publish helper and the publish skill's read-back. The mod's own lookups retry once; before a permission prompt the retry waits at most 3 seconds, and is skipped when it would not finish within 8. |
 | Connection problems show | The status line says when Atlan needs a sign-in, cannot be reached, is not connected or is answering with temporary errors (`Atlan: degraded, retrying reads`). A failed check is diagnosed from its error, not reported as a timeout. It shows nothing while the connection works. |
 | A skipped guard shows | If another plugin answers the permission check for an Atlan write before this mod can, the write did not get its confirmation: the status line says `Atlan: write guard skipped` and `/atlan` says how many. `/atlan` also counts reads that another plugin answered first, which is why they may ask. See [when another plugin answers first](#when-another-plugin-answers-first). |
-| Atlan calls read as one line | Each Atlan call's row in the transcript says what it did and what came back (`Atlan · searched skills for "churn"`, then `7 found: pii-scrub 1.0.0, ...`) in place of the raw JSON. Ctrl+O shows the full call. |
+| Atlan calls read as one line | Each Atlan call's row in the transcript says what it did and what came back (`Atlan · searched skills for "churn"`, then `7 found: pii-scrub 1.0.0, ...`) in place of the raw JSON. A batch reads as `ran 2 reads: ...`, then how many answered. Ctrl+O shows the full call. |
 | The Atlan pane | A pane beside the chat lists the artifacts this session read, created, changed, archived or published, with their version and status, and copies an artifact's id. It opens by itself at the session's first change in Atlan, or with `/atlan pane`. |
 | A card for archive, approve and move | While one of these waits for your answer, the pane shows it as a card: the artifact, its version and workspace, each artifact that depends on it, and what the change does to everyone else. |
 | A band while a skill publishes | Above the prompt, each skill being published goes from sending to scanning to published (with its version), blocked or unchanged. A toast says when it lands. The band clears at your next request. |
@@ -81,8 +85,9 @@ See Claude Code's [Manage mods for your organization](https://code.claude.com/do
 It runs inside Claude Code with your permissions. `claude plugin validate plugins/atlanai-mods`
 lists every call it makes. It:
 
-- reads the input of the five Atlan gateway tools, and their results, to move rails and learn
-  the session id and tool annotations;
+- reads the input of the twelve Atlan gateway tools it handles (the three runners, the batch
+  runner, `mcp__search_tools`, `mcp__describe_tools` and the six registry reads listed by name),
+  and their results, to move rails and learn the session id and tool annotations;
 - calls the `atlan` server you signed in to, as you: `mcp__describe_tools` at session start
   (opens no audit session), `registry__get_artifact` and `registry__get_related_artifacts` before
   an archive, approve or move, and `registry__search_artifacts` for `/atlan search` and the skill

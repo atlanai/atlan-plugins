@@ -1,12 +1,13 @@
 // Registry Mods: a Claude Code mod for the atlanai plugin's `atlan` server.
 //
-// tool.check (mcp__call_tool): registry reads run without a prompt; writes ask, naming the
+// tool.check (the runners, the batch runner and the registry reads listed by name): registry
+//   reads run without a prompt, alone, in a batch or called by name; writes ask, naming the
 //   write; archive, approve and move always ask, naming what depends on the artifact, and the
 //   Atlan pane shows the same as a card while the question waits.
-// tool.call (the three gateway tools): moves session_id, rationale and objective out of
-//   `arguments`, reuses the session's open audit session, refuses a call with no rationale,
-//   learns tool annotations and the session id from results, and records what each call read,
-//   changed or published for the pane and the publish band.
+// tool.call (every gateway tool the mod handles): moves session_id, rationale and objective out
+//   of a runner's `arguments`, reuses the session's open audit session, refuses a runner or batch
+//   call with no rationale, learns tool annotations and the session id from results, and records
+//   what each call read, changed or published for the pane and the publish band.
 // ui.render: each gateway call's transcript row reads as one line of what it did and found; the
 //   `atlan` pane lists the artifacts this session touched; the band above the prompt follows a
 //   skill publish to its end; the `atlan-skills` pane picks a skill to load.
@@ -28,8 +29,15 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import {
+  BATCH_TOOL,
   CALL_TOOL,
+  CHECKED_TOOL,
+  DIRECT_READ,
+  batchCalls,
+  batchEffect,
+  batchEntries,
   capped,
+  gatewayNameOf,
   runnerCap,
   FIX,
   GATEWAY_TOOL,
@@ -97,6 +105,8 @@ const HINT_PAUSE_MS = 5 * 60 * 1000
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
+const BATCH_RATIONALE_HELP =
+  'Atlan needs a one-sentence `rationale` for every mcp__call_read_tools call, beside `calls` (not inside a call). Add it and call again.'
 const NO_APPROVER = 'Nobody can confirm it here (as under claude -p), so the Atlan mod refused it. Run it in a session where you can answer the prompt.'
 const GUARD_FAILED = 'The Atlan registry guard could not check this call, so it needs your confirmation.'
 const USAGE =
@@ -264,7 +274,7 @@ const BLAST: Budget = { totalMs: BLAST_BUDGET_MS, maxWaitSeconds: BLAST_RETRY_MA
 async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string, name: string, input: Record<string, unknown>): Promise<{ reason: string; card?: Card }> {
   const id = artifactOf(input.arguments)
   if (!id) return { reason: describeWrite(name, input.arguments) }
-  const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
+  const server = serverKeyOf(tool) ?? ''
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
     lookupWithRetry($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why, LOOKUP_MS, BLAST).then(valueOf),
@@ -539,13 +549,17 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: GATEWAY_TOOL }, async ($, e, next) => {
     const call = e as unknown as CallInput & { tool: string; tool_use_id?: string }
     const isCallTool = CALL_TOOL.test(call.tool)
+    const isBatch = BATCH_TOOL.test(call.tool)
+    // A read listed by name: its input is the tool's own arguments, `session_id` among them.
+    const direct = DIRECT_READ.test(call.tool) ? gatewayNameOf(call.tool) : undefined
     mem.seenServer = serverKeyOf(call.tool) ?? mem.seenServer
     const known = mem.session
     const { input } = repairRails(call, known, isCallTool)
-    if (isCallTool && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
-      return { deny: RATIONALE_HELP }
+    // A read called by name is left to the gateway: a deployment can serve it without the rail.
+    if ((isCallTool || isBatch) && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
+      return { deny: isBatch ? BATCH_RATIONALE_HELP : RATIONALE_HELP }
     }
-    const name = typeof input.name === 'string' ? input.name : ''
+    const name = direct ?? (typeof input.name === 'string' ? input.name : '')
 
     let started: Publish[] = []
     if (isCallTool && name === PUBLISH) {
@@ -578,9 +592,11 @@ export const register: Register = (on, options) => {
     else if (isError && known && input.session_id === known && isStaleSession(text)) mem.session = ''
 
     // The call that really ran, and what it does: a nested call_tool is judged by what it wraps.
-    const inner = isCallTool ? unwrap(name, input.arguments) : { name: call.tool.slice(call.tool.lastIndexOf('__mcp__') + 2), args: undefined }
-    const effect = classify(inner.name, await loadHints($))
-    if (isCallTool && call.tool_use_id) {
+    const hints = await loadHints($)
+    const batch = isBatch ? (batchCalls(input) ?? []) : []
+    const inner = isCallTool ? unwrap(name, input.arguments) : { name: direct ?? gatewayNameOf(call.tool) ?? '', args: undefined }
+    const effect = isBatch ? batchEffect(batch, hints) : classify(inner.name, hints)
+    if (CHECKED_TOOL.test(call.tool) && call.tool_use_id) {
       const wasChecked = mem.checked.delete(call.tool_use_id)
       if (!wasChecked && (effect === 'write' || effect === 'destructive')) {
         mem.unguarded += 1
@@ -591,7 +607,23 @@ export const register: Register = (on, options) => {
       }
     }
 
-    if (!isCallTool) await saveHints($, harvestHints(text))
+    if (!isCallTool && !isBatch && !direct) await saveHints($, harvestHints(text))
+
+    // What each call read: a batch answers its calls in order, a read by name is one call.
+    const reads = isBatch
+      ? (batchEntries(text) ?? []).map((entry, i) => ({ name: batch[i]?.name || entry.name, args: batch[i]?.args, text: entry.text, isError: entry.isError }))
+      : direct
+        ? [{ name: direct, args: input as unknown, text, isError }]
+        : []
+    if (reads.length > 0) {
+      let touched: Touch[] = []
+      for (const read of reads) {
+        if (mem.publishes.length > 0) mem.publishes = followPublish(mem.publishes, read.name, read.text, read.isError)
+        touched = [...touched, ...touchesOf(read.name, read.args, read.text, read.isError)]
+      }
+      if (touched.length > 0) mem.touches = mergeTouches(mem.touches, touched)
+      redraw($)
+    }
 
     if (isCallTool) {
       if (started.length > 0) {
@@ -635,7 +667,7 @@ export const register: Register = (on, options) => {
     return ran
   }).catch(($, e, next) => next(e))
 
-  on('tool.check', { tool: CALL_TOOL }, async ($, e, next) => {
+  on('tool.check', { tool: CHECKED_TOOL }, async ($, e, next) => {
     if (e.tool_use_id) {
       mem.checked.add(e.tool_use_id)
       // Bounded: a call whose run never reached tool.call leaves its id behind.
@@ -645,10 +677,29 @@ export const register: Register = (on, options) => {
     if (verdict.decision === 'deny') return verdict
 
     const outer = isRecord(e.input) ? e.input : {}
-    const inner = unwrap(outer.name, outer.arguments)
+    const hints = await loadHints($)
+    if (BATCH_TOOL.test(e.tool)) {
+      // Every call in a batch runs as the read runner runs it. A batch the gateway will refuse
+      // (no `calls`), or one holding a call the mod cannot judge, is left to the session's rules.
+      const calls = batchCalls(outer)
+      if (!calls) return verdict
+      const worst = batchEffect(calls, hints)
+      if (worst === 'read') {
+        if (e.ceiling === 'ask' || e.ceiling === 'deny') return verdict
+        return { decision: 'allow', reason: `Atlan: ${calls.length} ${calls.length === 1 ? 'call that only reads' : 'calls that only read'} the registry.` }
+      }
+      if (worst !== 'destructive') return verdict
+      // Archive, approve or move named in a batch: the gateway refuses it there, and it still asks.
+      const named = calls.find(call => capped(classify(call.name, hints), 'read', call.name) === 'destructive')
+      const reason = describeWrite(named?.name ?? '', named?.args)
+      return e.approver === undefined ? { decision: 'deny', reason: `${reason} ${NO_APPROVER}` } : { decision: 'ask', reason }
+    }
+    // A read listed by name carries its own arguments as the input; a runner names the call inside.
+    const direct = DIRECT_READ.test(e.tool) ? gatewayNameOf(e.tool) : undefined
+    const inner = direct ? { name: direct, args: outer as unknown } : unwrap(outer.name, outer.arguments)
     const name = inner.name
     const input: Record<string, unknown> = { ...outer, name, arguments: inner.args }
-    const effect = capped(classify(name, await loadHints($)), runnerCap(e.tool), name)
+    const effect = capped(classify(name, hints), runnerCap(e.tool), name)
 
     if (effect === 'unknown') return verdict
     if (effect === 'read') {

@@ -270,7 +270,8 @@ class Refusal(Exception):
         self.body = detail if bare else {"status": status, "code": code, "detail": detail}
 
 
-state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}}
+state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {},
+         "edges": {}, "reruns": {}}
 
 
 def words(text: str) -> set[str]:
@@ -643,6 +644,101 @@ def included_file(item: dict, path: str) -> dict:
         return {"path": path, "file_id": pin["file_id"], "error": refused.body["detail"]}
 
 
+MAX_FILES = 8
+
+
+def file_contents(a: dict) -> dict:
+    """`get_file_contents`, as the registry answers it: each entry read as `get_file_content` reads
+    it, in order, with an `error` in place of `content` for one that cannot be read. The call fails
+    only when no entry could be read."""
+    files = a["files"]
+    if not isinstance(files, list) or not 1 <= len(files) <= MAX_FILES or not all(isinstance(f, dict) and f.get("file_id") for f in files):
+        raise Refusal(400, "invalid_arguments", f"`files` takes 1 to {MAX_FILES} entries, each `{{file_id, version_ordinal}}`.")
+    out = []
+    for entry in files:
+        try:
+            out.append(file_content({k: v for k, v in entry.items() if k in ("file_id", "version_ordinal")}))
+        except Refusal as refused:
+            out.append({"file_id": entry["file_id"], "code": refused.body["code"], "error": refused.body["detail"]})
+    if all("error" in f for f in out):
+        raise Refusal(404, "not_found", "No file could be read; each entry in `files` says why.")
+    return {"files": out}
+
+
+def relation_target(a: dict) -> str:
+    """The artifact an edge points to: `subject_id` or `to_id`, exactly one, and one the caller can read."""
+    given = [a[k] for k in ("subject_id", "to_id") if a.get(k)]
+    if len(given) != 1:
+        raise Refusal(400, "invalid_arguments", "Give the artifact the relationship points to as `subject_id` or `to_id`, not both.")
+    return artifact(given[0])["id"]
+
+
+def declared(kind: str, rel_type: str) -> None:
+    """Refuse a relationship type the source kind does not declare, naming what it allows. A kind
+    whose schema lists no `relationships` admits any type, as an open relationship policy does."""
+    allowed = [r["rel_type"] for r in WORLD["kinds"].get(kind, {}).get("relationships", [])]
+    if allowed and rel_type not in allowed:
+        raise Refusal(422, "invalid_relationship", f"{kind} does not declare `{rel_type}`. It allows: {', '.join(allowed)}.")
+
+
+def relate(a: dict) -> dict:
+    """`relate_artifact`: one edge, keyed by its two ends and its type, so restating it updates it."""
+    source = artifact(a["artifact_id"])
+    target = relation_target(a)
+    declared(source["kind"], a["rel_type"])
+    key = (source["id"], a["rel_type"], target)
+    edge = state["edges"].get(key, {"from_id": source["id"], "to_id": target, "rel_type": a["rel_type"],
+                                    "relationship_status": "active", "attributes": {}})
+    edge["attributes"] = {k: v for k, v in (edge["attributes"] | (a.get("attributes") or {})).items() if v is not None}
+    state["edges"][key] = edge
+    return edge | {"note": "eval write recorded"}
+
+
+def create_many(a: dict) -> dict:
+    """`create_artifacts`: one slot per item, in order, each failing or succeeding on its own."""
+    items = a["items"]
+    if not isinstance(items, list) or not 1 <= len(items) <= 100:
+        raise Refusal(400, "invalid_arguments", "`items` takes 1 to 100 artifacts.")
+    if a["kind"] in ("agent", "file", "skill"):
+        raise Refusal(422, "unsupported_kind", f"{a['kind']} cannot be created in bulk. Create each with its own call.")
+    slots = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or not item.get("name") or not item.get("workspace_id"):
+            slots.append({"index": index, "ok": False, "error": "`name` and `workspace_id` are required."})
+            continue
+        made = write(a["kind"], {"metadata": item})
+        slots.append({"index": index, "ok": True, "artifact": {k: made[k] for k in ("id", "kind", "version_ordinal")}
+                      | {"id": f"{made['id']}{index:02d}" if made["version_ordinal"] == 1 else made["id"], "name": item["name"]}})
+    return {"items": slots, "created": sum(s["ok"] for s in slots), "failed": sum(not s["ok"] for s in slots)}
+
+
+def create_linked(a: dict) -> dict:
+    """`create_artifact_linked`: the artifact and its edge together, or neither."""
+    meta = a["metadata"] if isinstance(a["metadata"], dict) else {}
+    if not meta.get("name") or not meta.get("workspace_id"):
+        raise Refusal(400, "invalid_arguments", "`metadata` needs `name` and `workspace_id`.")
+    target = relation_target(a)
+    declared(a["kind"], a["rel_type"])
+    made = write(a["kind"], {"metadata": meta})
+    edge = {"from_id": made["id"], "to_id": target, "rel_type": a["rel_type"], "relationship_status": "active",
+            "attributes": a.get("attributes") or {}}
+    state["edges"][(made["id"], a["rel_type"], target)] = edge
+    return made | {"edges": [edge]}
+
+
+def retrigger(a: dict) -> dict:
+    """`retrigger_artifact_action`: a new run of a declared action on the head. Each call is a new
+    run, so a second one shows as `attempt: 2`; an active version has nothing to rerun."""
+    found = artifact(a["artifact_id"])
+    if a["action_name"] != "scan":
+        raise Refusal(422, "unknown_action", f"{found['kind']} declares no action named {a['action_name']!r}. It declares: scan.")
+    if found.get("artifact_status") == "active":
+        raise Refusal(409, "conflict", "This version is active: there is no failed or pending scan to run again.")
+    attempt = state["reruns"].get(found["id"], 0) + 1
+    state["reruns"][found["id"]] = attempt
+    return {"run_id": f"run_01evalrescan{attempt:02d}", "attempt": attempt, "reopened": found.get("artifact_status") == "blocked"}
+
+
 def with_properties(item: dict, keep: list[str]) -> dict:
     """`get_artifact`'s `properties`: only those kind properties stay in `metadata`; the rest are
     named in `omitted_properties` with the bytes each would have taken."""
@@ -807,14 +903,29 @@ def dispatch(name: str, a: dict) -> dict:
     if name == "registry__list_traces":
         return list_traces(a)
     if name == "registry__get_related_artifacts":
-        artifact(a["artifact_id"])
-        return {"items": WORLD["edges"].get(a["artifact_id"], [])}
+        found = artifact(a["artifact_id"])
+        # Edges this session wrote read back beside the fixture's, from either end.
+        written = [{"rel_type": e["rel_type"], "direction": "outgoing" if e["from_id"] == found["id"] else "incoming",
+                    "artifact_id": e["to_id"] if e["from_id"] == found["id"] else e["from_id"],
+                    "kind": (e["to_id"] if e["from_id"] == found["id"] else e["from_id"]).split("_")[0], "is_readable": True}
+                   for e in state["edges"].values() if found["id"] in (e["from_id"], e["to_id"])]
+        return {"items": WORLD["edges"].get(a["artifact_id"], []) + written}
     if name == "registry__get_kind_schema":
         if a["kind"] not in WORLD["kinds"]:
             raise Refusal(404, "not_found", f"No registered kind {a['kind']!r}.")
         return WORLD["kinds"][a["kind"]]
     if name == "registry__get_file_content":
         return file_content(a)
+    if name == "registry__get_file_contents":
+        return file_contents(a)
+    if name == "registry__relate_artifact":
+        return relate(a)
+    if name == "registry__create_artifacts":
+        return create_many(a)
+    if name == "registry__create_artifact_linked":
+        return create_linked(a)
+    if name == "registry__retrigger_artifact_action":
+        return retrigger(a)
     if name == "registry__get_security_findings":
         return security_findings(a)
     if name in ("extension__agent__list_session_traces",):
