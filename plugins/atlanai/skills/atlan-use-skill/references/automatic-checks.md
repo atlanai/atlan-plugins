@@ -13,7 +13,7 @@ task a skill installed here already covers. Then:
 | What the search returns | What to do |
 |---|---|
 | Exactly one clear match | Load it by its handle (the skill's step 2) and use it now, without asking. Open the reply with one line naming it, its version and workspace (`Using Atlan's pii-scrub 1.2.0 from Acme.`), then the skill's first step. |
-| Two or more that fit | Show them with name, version and workspace, and ask which. |
+| Two or more that fit | Show them with name, version and workspace, and ask which. The question ends the turn: do not start the task meanwhile, since the skill they pick decides how it is done. |
 | Nothing that fits | Go on with the task without a skill, and do not mention the check. |
 
 A **clear match** is `active`, and its description says when to use it in words that cover

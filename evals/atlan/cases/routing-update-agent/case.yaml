@@ -15,7 +15,7 @@ graders:
   - name: update-path
     type: llm
     criteria: |
-      PASS if the reply reads the agent, says which security-review version it pins now and which is latest, and asks once before publishing a new agent version (or explains the one thing it needs from the user, such as the agent's repository).
+      PASS if the reply reads the agent, says which security-review version it pins now and which is latest, and asks once before publishing a new agent version (or explains the one thing it needs from the user, such as the agent's repository). The agent pins security-review at version 1, which is the only released version, so saying it already uses the latest and changing nothing also passes.
       FAIL if it says it updated the agent without asking, or edits the skill instead of the agent.
   - name: rails-beside-arguments-on-read-runner
     type: tool_used
