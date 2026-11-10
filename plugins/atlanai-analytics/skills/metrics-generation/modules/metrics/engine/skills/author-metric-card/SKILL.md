@@ -534,6 +534,9 @@ one of them is a field `MetricDefinition` declares.** There is no `steps`, no
 estate cannot publish, and the answer is to express it in `source.sql`, which is the
 registry's own field for a source it does not model.
 
+A card is matched to its task by `name`. The task's `metric_id` is the prompt's own key: do not
+copy it onto the card, which takes no field its schema does not list.
+
 ### `dimensions[].required_join` : the join it reads through
 
 The join's name. `null` when the dimension reads a column of the base table. It is a hint
