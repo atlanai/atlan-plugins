@@ -1,55 +1,60 @@
 # Demo: context built, then where to keep it
 
+This moment is shared by all setup through [the presentation flow](presentation.md).
+For a demo, use its facts file. For own data, use the actual source, selected business
+focus, metric definition and checks in the saved run. Preserve the block's structure;
+adapt source-specific prose to the evidence, and omit unsupported tours or example rows.
+Never claim model/history agreement or disagreement without source evidence.
+
 **Why this moment matters.** It is the finish line of the hard part, and the person should
 feel they reached it. Skipping the celebration turns an achievement into a status update,
 and the choice that follows into a chore.
 
-**Two rules for this moment.** Your reasoning is never shown to the person: a note in
-your thinking is not a reply, however it is worded. So send the block below as reply text,
-in the same message as the question and before it. A question sent without the block above
-it is a failure: send the block first.
+**The celebration is the question's own text.** On current models, text written before a
+tool call reaches the person as a one-line progress note, and a native question is a tool
+call. A block printed before the save question is lost, however firmly it is asked for.
+What the question tool is handed arrives word for word, so the whole celebration goes in
+the question's text. The terminal keeps its line breaks and leading spaces, shows it with
+the options' descriptions, and leaves it in the transcript after the answer.
+
+Do not put it in an option `preview`: a preview is cut to a few lines on a short terminal,
+hides the descriptions and is gone once the person answers. Do not also print the block
+as text before the question; one short line that step 4 is done is enough there.
 
 Open the chosen demo's file again for its facts ([Fixit](demo-yard.md),
 [Ticketfuddle](demo-box-office.md)).
 
-This is the moment the person finished the hard part, and they should feel it. When step
-4 ends, before any save, sign-in or workspace question, print the block below whole and
-as written, as an ordinary reply, exactly as the welcome is printed. It is a fixed text:
-never replace it with a line such as "the checks passed, moving on". Keep it in its code
-fence so the confetti keeps its shape. The only changes are the values in
-`<angle brackets>`, filled from this run and the sources the person chose. Every count is
-true: when some did not pass their check, the last line says so ("17 of 19 checked on
-`<firm>`'s data, 2 need a look") and the block still prints.
+When step 4 ends, before any save, sign-in or workspace step, ask one native question with
+the values below. Fill `<angle brackets>` from this run and the sources the person chose.
+Every count is true: when some did not pass their check, the count line says so ("17 of
+19 checked on `<firm>`'s data, 2 need a look"), and the celebration still stands.
+
+- **header:** `Step 5 of 6`
+- **question:** the lines in the block below, with their line breaks and leading spaces.
+  The fence only marks the lines here; it is not part of the question. The counts and the
+  question come last, so they stay on screen if a short terminal scrolls the top away.
 
 ```
-  *   .  '   *    .   '  *   .    '   *  .   '    *   .
-    '    *   .    CONTEXT BUILT    .   *    '    .   *
-  .   *    '   .    *   '    .   *    '   .   *    '   .
+ *   .  '   *    .   '  *   .    '   *  .
+   '   *   .  CONTEXT BUILT  .   *   '
+ .   *    '   .    *   '    .   *    '  .
 
-    You turned <firm>'s dashboard and queries into context.
+You turned <firm>'s <dashboard and past queries> into context.
+That was the hard part: each number now has one agreed rule.
 
-      <N> metrics and <N> queries
-      built from <1 dashboard and N past queries>
-      <N> of <N> checked on <firm>'s data
+<N> metrics and <N> queries, <N> of <N> checked on <firm>'s data.
+
+Where should this context live?
 ```
-
-Then one line, as written: "That was the hard part. `<firm>`'s numbers now each have one
-agreed rule, and an agent can answer from them."
-
-Under it, say why the next choice matters, as written: "Right now this context lives in
-one folder on this machine, and only this chat can use it. In Atlan Trident it becomes the
-one place your agents look: each question finds the right metric, and everyone gets the
-same number from the same rule."
-
-Then ask one native question. The prompt carries the reason, because the lines above can
-collapse: "Step 5 of 6. Context built: `<N>` metrics and `<N>` queries, `<N>` of `<N>` checked.
-It works here, in this folder. Saved to Atlan Trident, any agent can find it and every
-answer uses the same rule. Where should it live?"
 
 | Option | Description |
 | --- | --- |
 | Save to Atlan Trident (recommended) | Agents find the right metric for each question, from any chat or tool. Everyone gets the same number, and a change to a rule reaches all of them at once. You sign in once. |
 | Keep it on this machine | Works in this folder only. Other chats, tools and colleagues cannot find it, so each would work the numbers out its own way. |
+
+Where there is no question tool at all, print the same lines as the last thing in the
+message, then the two choices in plain words, and call no tool after it: the last message
+of a turn is shown in full.
 
 The two reasons to save are retrieval (an agent finds the metric a question needs) and
 consistency (one rule, one number, for everyone). Keep both in the copy, in those plain
@@ -79,10 +84,12 @@ person name one; do not list them all.
 count as it goes: "Saving to your personal workspace: 12 of 19 saved." Finish with one
 line: what was saved, where, and that it is now the context the agent reads.
 
-**The address for proof links.** Once the save finishes, ask for the Trident address as
-[definition links](../definition-links.md) says, so the first answer already links to its
-proof. Ask it as the last message of the turn, in plain words, and go on when it is given
-or declined.
+**The address for proof links, without asking.** The person is signed in, so never stop
+to ask for a Trident address. In the same step as the workspace read, read the
+organization's root workspace once: `mcp__call_read_tool` with `registry__list_workspaces`
+and `{"kind": "org_default"}`. Keep the result. [Definition links](../definition-links.md)
+takes the organization's address from it for every proof list, and says what the list
+shows when it gives none.
 
 **Already there.** When some of the context already exists in that workspace, say how much,
 where, and why that is fine: "4 of the 7 metrics were already in your workspace from an

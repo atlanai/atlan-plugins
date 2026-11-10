@@ -12,5 +12,5 @@ profile recorded in `warehouse.profile`. Send the same read-only statements as `
   `PENDING` statement with `databricks api get /api/2.0/sql/statements/<statement_id>`.
 
 For the history pull, redirect the output to `<context-dir>/querylog.raw.json`, then run
-`MINE querylog <context-dir>/querylog.raw.json <context-dir>/querylog.jsonl`. It prints counts,
+`CONTEXT querylog <context-dir>/querylog.raw.json <context-dir>/querylog.jsonl`. It prints counts,
 never the rows.

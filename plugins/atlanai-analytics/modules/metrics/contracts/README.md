@@ -43,7 +43,7 @@ Compare its `properties.definition` with the shipped schema. If it differs, hold
 writes and identify the field; update the schema and regression tests before relying on a
 new contract. Do not add a network call per card or silently rewrite invalid bodies.
 
-Run `PROJECT check` for local drafts and `MINE check` on the exact reconciled publication
+Run `PROJECT check` for local drafts and `CONTEXT check` on the exact reconciled publication
 bodies. Both use these schema files before semantic inspection. Errors name the field path,
 including array indices. Repair the authored representation, preserve meaning and evidence,
 and recheck the changed revision before publishing. Reuse the checked JSON in the existing

@@ -5,7 +5,7 @@ workspace, scoped authorization, then publication and readbacks under the releas
 Omit helper command blocks unless commands were requested. Do not turn the explanation into
 another approval request.
 
-For an explanation of an explicit pre-dispatch helper refusal, keep the reply under 60 words.
+For an explanation of an explicit pre-dispatch helper refusal, explain the result and next action.
 Do not enumerate argument names or commands unless asked. For example: "Nothing was created.
 I will use the same connection with native arguments, dropping local fields instead of retrying
 the rejected descriptor. The checked definitions, workspace and receipt checks stay in place.
@@ -21,11 +21,11 @@ and export a new context. A held-only export stops with its reasons and sends no
 ## Contract preflight
 
 Follow the [publication contract](../../../../modules/metrics/contracts/README.md) for every
-input route, including local files that do not enter the engine. Read
+input route, including local files and demos through the same engine. Read
 `registry__get_kind_schema` once per kind in this publication session and compare its
 `properties.definition` with the checked-in metric and saved-query schemas. Reuse those
 schema reads throughout the session. Hold affected writes on a mismatch and report the field;
-never send an unsupported shape or bypass validation. Run `MINE check` again on the exact
+never send an unsupported shape or bypass validation. Run `CONTEXT check` again on the exact
 bodies after any repair. Keep the existing publication authorization and transport.
 
 ## 1. Preview
@@ -34,8 +34,8 @@ Before previewing the plan, follow [existing-work reconciliation](reconciliation
 its review requests and preserve coverage limitations in the handoff, including when the
 final plan reuses every artifact. A reusable total does not imply every proposed cut is covered.
 
-For setup runs, first show one actual sample from `project.py experience --format chat`
-in an assistant message if none has been displayed; details remain available on request. A file link, tool result or counts alone
+For setup runs, first show the full first-metric block from
+[the presentation flow](../setup/presentation.md) if it has not been displayed. A file link, tool result or counts alone
 does not count. This also applies when every artifact is being reused; no extra approval
 is required for read-only reuse. Show changed definitions again after reconciliation.
 
@@ -66,7 +66,7 @@ target. Record that ID only when the user approves this concrete plan. The helpe
   the user has not seen.
 
 A checked plan is not authorization by itself. The source and workspace must match the trusted
-conversation record. If the person drops items, rerun `MINE check` and keep the new plan within
+conversation record. If the person drops items, rerun `CONTEXT check` and keep the new plan within
 that scope. Existing producer logic, batching, ETags, idempotency, retries and release readbacks
 below are unchanged. Never ask again for file reads, or because the publication phase started.
 

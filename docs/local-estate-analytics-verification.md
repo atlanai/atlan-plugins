@@ -1,5 +1,9 @@
 # Analytics setup: implementation and verification
 
+Historical record: the generation routes and measurements below describe the earlier
+implementation. Current generation, including local files and demos, follows the single
+[metrics engine](metrics-module.md). The standalone miner and dashboard translator are retired.
+
 ## Sign-in recovery and final preview: 0.6.2
 
 The next participant run showed five draft metrics and saved SQL in commentary, then ended

@@ -1,0 +1,34 @@
+schema_version: "1.1"
+name: single-metric-engine
+tags: [analytics, setup, metrics, regression]
+execution:
+  prompt: |
+    We are at the Build checkpoint of the Fixit demo. The user chose Dashboard only,
+    and the local source survey is complete. Explain which generation path you will use
+    for the first metric and how Build the rest continues. This is a workflow checkpoint:
+    read the installed instructions, but do not run commands, inspect source files,
+    author metrics or call Registry tools in this turn. No metrics have been checked yet.
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: one-engine-for-preview-and-completion
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if both the first metric and the remaining dashboard metrics use the main metrics
+      engine and the same saved run. The first card uses its normal card-authoring gate and
+      a partial preview; completing the other answers resumes full validation before export.
+      Explain the visible first-metric definition and worked example, with actual checks only.
+      FAIL if the demo/local-file path bypasses the engine, uses a separate shape miner,
+      manual Registry-body authoring or standalone dashboard translator, restarts a second
+      generator for the rest, or claims the provisional preview is publishable or checked.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

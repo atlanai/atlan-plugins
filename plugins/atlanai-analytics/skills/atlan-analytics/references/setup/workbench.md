@@ -2,22 +2,22 @@
 
 Read on starting or resuming setup. Claude and Codex own the interface: use their normal
 messages, task list, code disclosures and question controls. Progress is
-[the setup checklist](checklist.md) in that task list. Open no side panel, browser view or
+[the setup checklist](checklist.md) in chat and that task list when available. Open no side panel, browser view or
 other surface unless the person asks for [a visual view](render.md).
 
 ## One useful result, one next action
 
 Orient before tools. Survey the supplied source and reuse existing acquisitions. Explain
 what was found, its business meaning and plausible analyses in the first question's visible
-prompt, not only in commentary. Establish [business focus and purpose](intent.md), even when
-source scope is clear. Render two short native questions sequentially, waiting for each
+prompt, not only in commentary. Use preset demo intent, or establish missing [business focus
+and purpose](intent.md) for own data. Render native questions sequentially, waiting for each
 missing answer; use ordinary chat if the host exposes no question control. Adapt the second
 question to the first answer. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
-Show one real metric as soon as the engine supplies evidence: its meaning, calculation,
-mandatory population, source and actual check status. A provisional definition has no measured
-value. Keep SQL and additional candidates available on request. Read the appropriate stage
+Use [the presentation flow](presentation.md) for the full first-metric block as soon as
+the run supplies its evidence. A provisional definition has no measured value. Keep SQL
+and additional candidates available on request. Read the appropriate stage
 procedure for the real engine action; the presentation helper never executes it.
 
 | Saved stage | Host behavior |
@@ -83,16 +83,17 @@ Use the existing host surface at each meaningful moment. Do not create a new app
 | Moment | Native presentation |
 | --- | --- |
 | Start | A short opening message before tool work. |
-| Start | The six-step checklist in the host's task list, before the first helper call. |
+| Start | The six-step checklist in chat and the host's task list when available, before the first helper call. |
 | Inspection finishes | Step 1 ticked with its source count, then the business summary and focus choices in the native question. |
 | Business focus is answered | A separate purpose question tailored to that focus. Wait for its answer. |
 | Both answers are known | One sentence reflecting the goal and immediate action. No extra confirmation. |
-| First relevant metric is available | The selected metric in chat with its calculation, population, source and honest status. |
-| Meaningful work progresses | The checklist updated from `PROJECT checklist`, plus one result line when a step ends. |
+| First relevant metric is available | The full first-metric block, including the rule and worked example. |
+| Meaningful work progresses | The full tracker in chat at each step change, with the task list updated from `PROJECT checklist`. |
 | Details are requested | SQL and evidence in chat. |
 | Input or access is missing | One contextual question or the host's existing sign-in interface. |
+| The collection is checked | The context-built celebration and save choice from the presentation flow. |
 | Saving is appropriate | Destination and actual create/revise/reuse/held counts. Ask only for missing authorization. |
-| Context is released | The selected metric, verified links and supported questions; answer an existing question directly. |
+| Context is released or kept local | The ready block, selected metric, available proof and supported questions; answer an existing question directly. |
 | A fresh query finishes | Answer first; native chart or table when useful and supported, then compact provenance. |
 | Pause or return | Saved result and next action, with the checklist rebuilt from the saved run, retaining both intent answers and metric selection. |
 

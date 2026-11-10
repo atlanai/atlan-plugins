@@ -17,8 +17,9 @@ another MCP server. Cancellation preserves checkpoints; uncertain remote writes 
 
 Normal structured helper results over 4 KiB become private result files. Read relevant fields
 from them instead of dumping logs. `--full` is for targeted diagnosis, not normal chat.
-At phase changes, first previews and useful count changes, show one concise update. Use
-`PROJECT experience --format chat` for saved setup state; while the engine is active, add
+At phase changes and first previews, follow [the presentation flow](presentation.md).
+For useful count changes between those moments, give a factual update. Read
+`PROJECT experience --format json` for saved setup state; while the engine is active, add
 `--engine-dir <within-run-engine>` so its manifest supplies engine progress. Use an absolute
 engine path or `--engine-dir engine`, which is relative to the selected run.
 When access evidence spans hosts, pass `--host <claude_code-or-codex> --server <observed-id>`
@@ -30,10 +31,9 @@ metric or a resolved hold, not gate names, private paths or raw logs. Do not rep
 counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage.
 Report schema checks, executed examples and parity separately; diagnostics stay in details.
 
-Use native chat, its choice controls and [the setup checklist](checklist.md) in the host's
-task list. The heartbeat for long work is the checklist's active step, refreshed from
-`PROJECT checklist` with its real count; add a chat line only when a step ends or useful
-evidence appears. Save phase changes and intent answers to the run, so the checklist stays
+Use native chat, its choice controls and [the setup checklist](checklist.md) in chat and
+the host's task list when available. Show the full tracker when a step starts; refresh
+`PROJECT checklist` with real counts during long work and report useful changes. Save phase changes and intent answers to the run, so the checklist stays
 true. Open no panel or view unless the person asks for [a visual view](render.md). Do not
-invent a pause or publish button. If the task tool fails, use the one-line fallback in the
-checklist reference; presentation must not block generation or publication.
+invent a pause or publish button. If the task tool fails, keep the full tracker in chat.
+Missing task UI does not block work; required visible moments still precede their choices.

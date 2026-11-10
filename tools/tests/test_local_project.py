@@ -15,9 +15,8 @@ SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
 sys.path.insert(0, str(SCRIPTS))
 from project import Project
 import local_data
-import metrics_mine as mine
+import context_contracts as mine
 from trident.powerbi_file import inspect_file, measure_type
-from trident.dax_sql import translate
 
 HAS_DUCKDB = importlib.util.find_spec('duckdb') is not None
 
@@ -81,11 +80,12 @@ class LocalProject(unittest.TestCase):
         self.assertEqual([m['resolved_datatype'] for m in inv['measures']],
                          ['decimal', 'integer', 'decimal', None])
 
-    def test_jsonl_intake_and_mining_do_not_lose_rows(self):
+    def test_jsonl_intake_preserves_rows_for_the_engine(self):
         self.seed(); self.run.survey(self.estate)
         result = self.run.history()
         self.assertEqual(result['intake']['rows_read'], 2)
-        self.assertEqual(result['shapes']['written'], 2)
+        self.assertEqual(len(mine.read_jsonl(result['history'])), 2)
+        self.assertFalse((self.run.context / 'shapes.jsonl').exists())
         self.assertEqual(mine._records({'SQL': 'SELECT 1', 'EXEC': 2})[0]['EXEC'], 2)
         self.assertEqual(mine._records({'content': [{'type': 'text', 'text': '{"sql":"SELECT 2"}'}]})[0]['sql'], 'SELECT 2')
 
@@ -245,13 +245,8 @@ class DuckDBFlow(unittest.TestCase):
         self.assertFalse((self.estate / 'prepared.duckdb').exists())
         self.assertFalse(list(self.estate.glob('.atlan-prepare-*')))
 
-    def test_native_dax_binding_executes_exact_value(self):
-        mapping = {'semantic_table': 'WORK', 'relation': ['site', 'work'],
-                   'rowset_equivalent': True, 'security_preserved': True,
-                   'columns': [{'semantic': 'cost', 'physical': 'cost', 'datatype': 'decimal'},
-                               {'semantic': 'kind', 'physical': 'kind', 'datatype': 'string'}]}
-        query = translate('CALCULATE(SUM(WORK[cost]), WORK[kind] = "rework")', mapping, {}, 'duckdb')
-        self.assertEqual(query['binding_style'], 'named_dollar')
+    def test_native_parameter_binding_executes_exact_value(self):
+        query = {'sql': 'SELECT SUM(cost) AS value FROM site.work WHERE kind=$p0', 'parameters': {'p0': 'rework'}}
         self.assertEqual(query['parameters'], {'p0': 'rework'})
         answer = self.run.execute(query)
         self.assertEqual(answer['rows'], [['14.75']])
@@ -411,12 +406,8 @@ class SQLiteFlow(unittest.TestCase):
             self.run.prepare(request)
         self.assertFalse((self.estate / 'prepared.sqlite').exists())
 
-    def test_native_dax_binding_executes_exact_value(self):
-        mapping = {'semantic_table': 'WORK', 'relation': ['site', 'work'],
-                   'rowset_equivalent': True, 'security_preserved': True,
-                   'columns': [{'semantic': 'cost', 'physical': 'cost', 'datatype': 'decimal'},
-                               {'semantic': 'kind', 'physical': 'kind', 'datatype': 'string'}]}
-        query = translate('CALCULATE(SUM(WORK[cost]), WORK[kind] = "rework")', mapping, {}, 'sqlite')
+    def test_native_parameter_binding_executes_exact_value(self):
+        query = {'sql': 'SELECT SUM(cost) AS value FROM site.work WHERE kind=:p0', 'parameters': {'p0': 'rework'}}
         self.assertEqual(query['parameters'], {'p0': 'rework'})
         self.assertEqual(self.run.execute(query)['rows'], [[14.75]])
 

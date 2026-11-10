@@ -180,6 +180,7 @@ def advance(run, runtime, model):
         handle.write(proc.stdout + proc.stderr)
     receipt['status'] = 'complete' if proc.returncode == 0 else 'paused' if proc.returncode == 3 else 'blocked'
     receipt.pop('outputs', None)
+    receipt.pop('first_metric', None)
     result = {'status': receipt['status'], 'run': str(run), 'log': str(log), 'engine_exit': proc.returncode,
               'approval_mode': receipt['approval_mode']}
     if proc.returncode == 0:
@@ -210,10 +211,48 @@ def advance(run, runtime, model):
     return result, 3 if proc.returncode == 3 else 0 if proc.returncode == 0 else 2
 
 
+def first_metric(run, runtime, model, metric_ref):
+    """Preview X3's accepted card without marking the complete X3 ingest as done."""
+    run, receipt = state(run, runtime)
+    if receipt['status'] != 'paused' or receipt.get('last_result', {}).get('gate', {}).get('id') != 'x3':
+        raise ValueError('Advance this run to the X3 card gate before previewing its first metric.')
+    receipt.pop('first_metric', None)
+    preview = ordinary(run / 'first-metric-preview.json')
+    preview.unlink(missing_ok=True)
+    write(run / 'module.json', receipt)
+    proc = run_with_terminal([sys.executable, '-m', 'metrics_agent.cli', 'stage', 'x3_emit',
+                              '--run', str(run), '--as', 'x3_preview', '--partial',
+                              '--from', str(run / 'answers/x3/*.json'), '--model', model],
+                             env=dict(os.environ, METRICS_AGENT_MODEL=model))
+    log = ordinary(run / 'first-metric.log')
+    log.touch(mode=0o600, exist_ok=True)
+    log.chmod(0o600)
+    log.write_text(proc.stdout + proc.stderr)
+    if proc.returncode:
+        return {'status': 'REFUSED', 'log': str(log), 'publishable': False,
+                'fix': 'Repair the X3 answer using the same gate instructions, then retry.'}, 2
+    cards = load(run / 'metric_cards.json')
+    selected = [c for c in cards['metrics'] if c['metric_ref'] == metric_ref]
+    if len(selected) != 1:
+        raise ValueError('Select exactly one accepted metric_ref from metric_cards.json.')
+    from first_metric import check
+    result = {'status': 'preview', 'run': str(run), 'publishable': False,
+              'card': selected[0], 'check': check(selected[0], load(run / 'run_inputs.json')),
+              'cards_sha256': digest(run / 'metric_cards.json'),
+              'next': 'Keep this answer, finish the remaining X3 answers, then advance this same run.'}
+    write(preview, result)
+    receipt['first_metric'] = {'path': str(preview), 'sha256': digest(preview),
+                               'metric_ref': metric_ref}
+    write(run / 'module.json', receipt)
+    # The full card and source results stay in the private file, not tool stdout.
+    return {'status': 'preview', 'path': str(preview), 'metric_ref': metric_ref,
+            'publishable': False, 'check': result['check']['result'], 'next': result['next']}, 0
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export'))
-    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id'):
+    parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'first-metric', 'status', 'parity-plan', 'export'))
+    for name in ('runtime', 'run', 'config', 'model', 'metric-ref', 'context', 'parity', 'source', 'destination', 'source-id'):
         parser.add_argument('--' + name)
     parser.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
     args = parser.parse_args()
@@ -230,6 +269,8 @@ def main():
             code = 2 if result['status'] == 'NEEDS_CONTEXT' else 0
         elif args.command == 'advance':
             result, code = advance(args.run, runtime, args.model)
+        elif args.command == 'first-metric':
+            result, code = first_metric(args.run, runtime, args.model, args.metric_ref)
         else:
             run, receipt = state(args.run, runtime)
             if args.command == 'status':

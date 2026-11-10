@@ -27,16 +27,16 @@ graders:
     type: tool_used
     tool: TaskCreate
     input_match: 'Review and choose where to save'
-  - name: plan-lives-in-the-task-list
+  - name: plan-visible-in-chat-and-task-list
     type: llm
     focus: last_message
     criteria: |
       The user asked for Atlan Analytics to help ask questions about dashboards and query
       history in /workspace/analytics-input. Nothing has been inspected. The six setup steps
-      are shown in the host's task list, not in chat. PASS if the reply is at most 60 words,
-      explains the outcome as metrics and questions in this chat, names surveying the sources
-      as the next action, and tells the person that the task list shows the steps or that some
-      steps need them. FAIL if the reply prints the six steps as a list or table, describes a
+      must appear in chat as well as the host's task list. PASS if the reply shows all six
+      steps with source inspection current and the others pending, explains the outcome as
+      metrics and questions in this chat, and names surveying the sources as the next action.
+      No word limit applies to this required display. FAIL if it omits the chat tracker, describes a
       side panel, pane or browser view, asks for permission or "go" to start the already
       requested survey, or claims anything was found.
   - name: plain-reply

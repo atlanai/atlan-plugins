@@ -21,47 +21,36 @@ Use [local source procedures](../project.md#2-bind-data-once) to select an execu
 of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
 through [connect](../connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
-Prepare CSVs into a new `.sqlite` database. It needs only the standard library, so do not
-check for, offer or install DuckDB or any other package for this step. Author SQL in the
-`sqlite` dialect with `:name` parameters. Translate history SQL written for another engine
-before checking it, and keep the original in the shape's provenance.
+All sources, including the demos and local-only files, use [the metrics engine](../metrics-engine.md).
+For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
+`PROJECT prepare` to create a new `.duckdb` database. Configure `local-files` with the selected
+BI definitions, cleaned history and this database. Respect Dashboard only versus history scope.
+Existing SQLite inputs remain supported by the local checking helper; when the engine has no
+compatible SQL-check plug, retain parse-only evidence and run exact local checks separately.
+Do not create a second authoring path because an executor is unavailable.
 
-When every selected input is a local file (BI files, CSVs, query-history files) and no
-warehouse is selected, author with [metrics authoring](../metrics/authoring.md) over this run's
-`PROJECT history` shapes, and check with `PROJECT check-query` and `check-metric` against the
-SQLite binding. Do not initialize the metrics module runtime for this case; it installs
-packages.
+Reuse the existing survey, scope, business focus and interview answers. Prepare one engine
+run under this setup run. Advance through its maintained gates. At X3, author the selected
+first metric using the returned card instructions, then run `ENGINE first-metric --run
+<engine-dir> --model <actual-model-id> --metric-ref <ref>`. Read the private preview and show
+[the full first-metric moment](demo-first-metric.md), including actual check limitations.
+Run an independent source-backed worked example before claiming its numbers. A preview is
+provisional and cannot be exported or published.
 
-Before authoring the full local collection, save one relevant candidate and its supporting
-query, select it with `PROJECT journey select`, and run its exact local check. Show the first
-result with its scope and check limitations, then expand the collection. Keep that first
-candidate when appending later ones. If execution is unavailable, show the source-backed
-draft and name the missing check; do not claim a checked result or stall all source work.
+When the person chooses Build the rest, preserve the accepted first-card answer, author the
+remaining X3 cards and advance the same run through all remaining gates. Do not restart or
+hand-write `metrics.json`. The core card gate and whole-card review apply to every card.
 
-Otherwise, for new supported metrics, use [the metrics module](../metrics-engine.md), preserving this setup
-run, scope and preview/publication order. Reuse the interview decisions; do not run another.
-Supported BI definitions and captured history enter through its input plugs and authored gates.
-Power BI templates (`.pbit`) now use the model and report together. Do not replace a supported
-template with its BIM sibling as a routine workaround. Query-history admission uses the same
-identifying-literal filter as local setup, before any authoring prompt; report exclusions as
-counts and reasons without reproducing the withheld values.
-For a configured direct Snowflake connection, select native Account Usage history; no shape
-table preparation is required. `PROJECT history` remains an optional capture path for local or
-chat-tool evidence, which must enter the module's common inputs before metric generation.
+After completion, export into a fresh `engine-export/` and install the unchanged metric,
+query, link, source-receipt and publication-hold files into this run's context as the engine
+procedure describes. Source/scope changes require a new engine run. Unsupported items remain
+held. No by-hand, legacy-shape or demo-only fallback is available.
+After export, select the previewed metric's matching candidate with `PROJECT journey select
+--focus <exact-identity>` so later review and ready moments keep the same business focus.
 
-Export the module's checked metrics, queries, links and structured publication holds into this
-run's context. Carry its source receipts through reconciliation and publication; source/scope
-changes require a new engine run, never edited pinned inputs. Existing legacy authored contexts
-and explicitly requested by-hand drafts use [metrics authoring](../metrics/authoring.md).
-Keep `context/metrics.json`, `queries.json` and `links.json` in existing formats. Include formula,
-grain, units, dimensions, mandatory filters, time semantics and provenance. Reconcile declared
-and history evidence; detail SQL remains a saved query. Unsupported formulas remain held.
-Write coherent candidate batches atomically and show one real draft as soon as useful.
-After an engine gate or phase transition, run `PROJECT experience --format chat --engine-dir
-<within-run-engine>` and show its factual change or sample. This reads provisional evidence;
-it does not export, change eligibility or publish. Keep Build as the stage while work remains.
-Use `--detail` when the user wants that sample's SQL, source and check evidence. The first
-useful preview must not wait for every check or for the engine to finish.
+After a gate or phase transition, run `PROJECT experience --format chat --engine-dir
+<within-run-engine>` and show factual progress. The first metric uses the full presentation
+block; a compact progress sample does not replace it. Keep Build as the stage while work remains.
 
 ## 4. Check the actual revisions
 
@@ -85,12 +74,10 @@ revenue on rows with no costs; distinguish an unchanged top result from an uncha
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.
 
-For local authored collections, finish the [whole-card source review](../metrics/authoring.md#review-the-whole-collection)
-before final handoff. Review descriptions, bindings, grain and all useful source-backed cuts;
-checking that examples execute is not that review. Repair authored omissions and rerun the
-changed revision's checks without another customer interview. Read the review plan after
-repairs: unchanged source- and dependency-bound card reviews carry forward, while affected
-cards require a fresh complete review. This never reuses SQL results across invocations.
+The engine's X3 whole-card review and later consistency checks own semantic review for the
+full collection. Repair source bindings, descriptions, grain or dimensions in that same run;
+then revalidate, export and rerun checks on changed revisions. SQL execution alone is not
+semantic review or dashboard parity.
 
 Save progress and candidate evidence at meaningful phase changes, then refresh
 [the checklist](checklist.md) from `PROJECT checklist`.

@@ -202,10 +202,10 @@ def export_context(run, context, receipt, parity=None):
     links = [link for link in links if all((link[end]['kind'], link[end]['name']) in endpoints for end in ('from', 'to'))]
     # Use the existing publisher's checks; never relax them to accommodate the new engine.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'skills/atlan-analytics/scripts'))
-    import metrics_mine
+    import context_contracts
     failures = []
-    for kind, bodies, check in (('metric', metrics, metrics_mine.check_metric),
-                                ('sql_query', saved, metrics_mine.check_query)):
+    for kind, bodies, check in (('metric', metrics, context_contracts.check_metric),
+                                ('sql_query', saved, context_contracts.check_query)):
         for body in bodies:
             errors, _ = check(body)
             if errors:

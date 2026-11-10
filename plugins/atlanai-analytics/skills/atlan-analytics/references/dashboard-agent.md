@@ -1,16 +1,13 @@
 # Dashboard through the metrics module
 
-New Power BI and Tableau dashboard projects use the maintained metrics module, except a
-setup whose inputs are all local files with no warehouse selected, which follows
-[build and check](setup/build-check.md) with SQLite. Existing
-saved dashboard-helper jobs resume [their original procedure](dashboard.md); do not migrate
-or overwrite one without an explicit choice. Keep identification, evidence and progress in
+All Power BI and Tableau projects, including local-only setup and demos, use the maintained
+metrics module. Existing saved dashboard jobs stay readable as source evidence; new generation
+or revisions use a new main-engine run. Keep identification, evidence and progress in
 native chat. No additional MCP server is installed.
 
 1. **Identify and capture.** Reuse the supplied original file or fetch once through the
    existing authorized browser/BI connector. Keep its source URL, title and identity. The
-   existing dashboard helper may identify or inventory a Power BI download, but do not run
-   its independent translator or prepare-context for a new engine project. Read
+   existing dashboard helper may identify or inventory a Power BI download, and retain capture evidence. Its retired translator and card exporter are unavailable. Read
    [Power BI capture](dashboard/powerbi-capture.md) when fetching Power BI. For Tableau,
    obtain the original workbook and its referenced datasource definitions. A missing file
    is a named gap, not a reason to infer definitions from chart values.

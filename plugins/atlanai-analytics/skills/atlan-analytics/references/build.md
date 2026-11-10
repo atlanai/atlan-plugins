@@ -28,7 +28,7 @@ their own question.
 - **The eval set is not context.** Questions and gold SQL written in phase 4 never feed phase
   3 or the prompt. If the user offers a benchmark file during phase 3, park it for phase 4.
 - **Phase 3 needs nothing installed.** It runs the metrics workflow, which uses this assistant
-  and a standard-library script, and reads declared models, BI files or query history,
+  and the main metrics engine, and reads declared models, BI files or query history,
   whichever are in reach. With none of them, it drafts definitions with the user, so the phase
   is never blocked.
 - **Registering an agent and writing the subagent file are outward-facing.** Preview both,

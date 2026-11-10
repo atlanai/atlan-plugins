@@ -4,13 +4,12 @@
 
 ## 5. Show the metrics before asking where to publish
 
-Run `PROJECT experience --format chat` and display its one actual sample before the next
-question. Include its name, meaning and honest check status; make SQL, source and detailed
-checks available with `--detail`. With only queries, show one saved query as such. Preserve
-SQL, filters and parameters in details; never invent a metric or an executed result.
-Show one sample again in the final answer with factual published/local/held counts, even if
-it appeared in commentary. This applies to success, Keep local and blocked sign-in outcomes.
-The final answer must remain useful when intermediate progress collapses.
+Read `PROJECT experience --format json` and use [the presentation flow](presentation.md)
+for the full first-metric block before the next question. Show its business definition,
+population, source, check result and evidenced example; SQL and further checks remain
+available with `--detail`. With only queries, show a saved query as such. Never invent a
+metric or an executed result. Retain the rule and check status in the final handoff with
+factual published/local/held counts so it remains useful when progress collapses.
 Use the saved evidence's separate counts: execution checks, source reviews needing attention,
 publication holds and released artifacts. Zero holds does not mean every query passed source
 review, and a successful SQL run does not establish dashboard value parity. Do not rename
@@ -48,7 +47,7 @@ gets one short paragraph: the unavailable creation capability, preserved local d
 the UI/admin action followed by refreshing accessible workspaces. Do not narrate a full
 publication workflow, speculate about CLI endpoints, or add an alternative destination menu.
 Fetch live kind schemas and existing definitions, then
-run `MINE check` with that destination. Only now show actual create/revise/reuse/held counts.
+run `CONTEXT check` with that destination. Only now show actual create/revise/reuse/held counts.
 If reconciliation changes a candidate, show the changed preview. Follow [publication](../metrics/publish.md)
 for the concrete plan, missing authorization, idempotency, release policy and uncertain-write
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
@@ -67,8 +66,9 @@ existing definition, explicitly record and show the uncovered capabilities using
 
 ## 7. Ready to ask here
 
-Structure the handoff around what the person can do now, what still needs attention and the
-next supported action. Use `PROJECT experience --format json`'s `handoff` when available.
+Use [the ready block](demo-ready.md), filled through [the presentation flow](presentation.md),
+for what the person can do now, what still needs attention and the next supported action.
+Use `PROJECT experience --format json`'s `handoff` as evidence when available.
 Local definitions are unshared; executed examples are saved checks; a published subset is
 usable only for its released scope. Do not label a whole collection ready because one sample
 worked. Mention remaining review warnings and uncovered reuse capabilities alongside holds.
@@ -77,19 +77,7 @@ or "ready for questions". If holds are zero but reviews remain, connect those fa
 "No publication holds; some queries still need source review." Substitute the actual count.
 Execution and source review are independent dimensions; never subtract one from the other
 or promise that reviewing two queries will make all definitions execution-checked.
-Prefer three short paragraphs, under 160 words, over repeated status headings. For example:
-
-"Prepared locally: 2 metrics and 8 saved queries. Six have recorded execution checks;
-2 queries still need source review despite zero publication holds. Nothing is released
-or available to the team in Atlan.
-
-Shipped units is SUM(s.units) for status = 'shipped', from the shipping model and query
-history. Its example ran earlier; dashboard value parity remains unmeasured.
-
-You can explore local shipped-unit totals or units by region. Time comparisons are not
-supported. Next, review the 2 outstanding queries."
-
-Use actual evidence, not this example's numbers. Explain a held metric's reason briefly.
+Use actual evidence to fill the ready block. Explain a held metric's reason.
 Do not append a new task to resolve it after the supported-question handoff. If the person
 asks to resolve it, inspect its source definition; do not ask them to invent a denominator.
 After displaying the sample, save `PROJECT progress --stage preview --status complete`

@@ -42,14 +42,6 @@ CASE = obj({'case_id': string(100), 'question': string(2000), 'metric_id': strin
            ('case_id', 'question', 'metric_id', 'capture_hash', 'definition_hash', 'reference', 'actual'))
 CHECK = obj({'observation': OBSERVATION, 'unavailable': UNAVAILABLE})
 MUTATION = {'job_id': string(28), 'expected_revision': {'type': 'integer', 'minimum': 0}}
-COLUMN_MAPPING = obj({'semantic': string(256), 'physical': string(256),
-                      'datatype': {'type': 'string', 'enum': ['integer','decimal','string','boolean','date','timestamp']}},
-                     ('semantic','physical','datatype'))
-MAPPING = obj({'semantic_table': string(256), 'relation': array(string(256), 3),
-               'rowset_sql': string(100000),
-               'columns': array(COLUMN_MAPPING, 500), 'rowset_equivalent': {'type':'boolean'},
-               'security_preserved': {'type':'boolean'}, 'mandatory_filters': array(FILTER, 50), 'evidence_ref':string(1000)},
-              ('semantic_table','relation','columns','rowset_equivalent','security_preserved','evidence_ref'))
 SNOW_CONFIG = obj({'connection': string(128), 'account': string(256), 'role': string(256), 'warehouse': string(256),
                    'database': string(256), 'schema': string(256), 'user': string(256),
                    'authenticator': {'type':'string','enum':['OAUTH_AUTHORIZATION_CODE','externalbrowser']}},
@@ -66,8 +58,6 @@ SCHEMAS = {
                                'evidence_ref': string(1000)}, (*MUTATION, 'source_url', 'title', 'evidence_ref')),
     'dashboard_capture': obj({**MUTATION, 'capture': CAPTURE}, (*MUTATION, 'capture')),
     'dashboard_read': obj({'job_id': string(28), 'include_definitions': {'type': 'boolean'}, 'definition_offset': {'type':'integer','minimum':0}, 'definition_limit': {'type':'integer','minimum':1,'maximum':10}}, ('job_id',)),
-    'dashboard_translate': obj({**MUTATION, 'dialect': {'type':'string','enum':['snowflake','postgres','sqlite','duckdb']},
-                                'mappings':array(MAPPING,100)}, (*MUTATION,'dialect','mappings')),
     'dashboard_evaluate': obj({**MUTATION, 'cases': array(CASE)}, (*MUTATION, 'cases')),
     'dashboard_plan_evals': obj({**MUTATION, 'questions': array(obj({'metric_id': string(100),
                                'question': string(2000), 'evidence_ref': string(1000)},
@@ -80,7 +70,6 @@ SCHEMAS = {
                                   (*MUTATION, 'case_id', 'capture_hash', 'definition_hash', 'plan_generation', 'reference', 'actual')),
     'dashboard_answer_plan': obj({'job_id': string(28), 'metric_id': string(100), 'context_hash': string(64)},
                                  ('job_id', 'metric_id', 'context_hash')),
-    'dashboard_export': obj({**MUTATION, 'workspace_id': string(128)}, tuple(MUTATION)),
 }
 DESCRIPTIONS = {
     'dashboard_import_file': 'Decode the explicitly downloaded Power BI file locally with PBIXRay and import every measure into the current identified dashboard. Confirm the file belongs to this report and supply its model reference and observed context. Reads PBIX binary or textual PBIT/BIM plus legacy/PBIR report layout; never executes M/DAX or uploads the file. Defaults to incomplete scope. Returns inventory UI and a private metadata file with mappings, relationships and security evidence for SQL authoring. Uses the preinstalled pinned runtime; never auto-installs dependencies.',
@@ -90,14 +79,12 @@ DESCRIPTIONS = {
     'dashboard_plan_evals': 'After metric SQL is built, freeze one dashboard-grounded question per captured measure. Optionally supply business questions with evidence references; they must preserve the compiled metric scope and scalar answer. Missing questions use explicit measure baselines. No gold values are invented. Resets earlier checks. Continue to real source/warehouse execution. This is dashboard parity, not held-out accuracy.',
     'dashboard_next_check': 'Get the next unrun planned check with exact source-measure request and warehouse SQL/bindings. No gold is returned. Host must execute both requests through authorized tools, then record results. Optional case_id retries an existing check. No network execution occurs in this local tool.',
     'dashboard_record_check': 'Record one planned check using observed source/warehouse results or explicit unavailable reasons. Require the task capture and definition hashes. Accumulates results without dropping other checks; pending and unsupported measures remain in coverage. Returns compact readiness and verified question suggestions.',
-    'dashboard_answer_plan': 'Route a resolved metric question to fresh warehouse SQL with separate bindings and current validation status. Requires exact context hash; changed scope requires new translation/checks. Does not execute a query or return eval gold. Use native chat for the final observed answer.',
+    'dashboard_answer_plan': 'Route a resolved metric question to fresh warehouse SQL with separate bindings and current validation status. Requires exact context hash; changed scope requires a new main-engine run and checks. Does not execute a query or return eval gold. Use native chat for the final observed answer.',
     'dashboard_identify': 'Show the first compact dashboard card only after authorized source access confirms its actual name. Bind the observed title and evidence to the exact source URL. Do not call from URL parsing alone. Inventory appears only after dashboard_capture completes.',
-    'dashboard_translate': 'Compile supported captured DAX into parameterized warehouse SQL using exact physical rowset/column mappings. Preserves CALCULATE filter replacement and blank/count semantics. Requires source transformation and security mappings, refuses unsupported constructs, records per-metric gaps, and invalidates prior evaluations. SQL candidates are not parity-validated until actual warehouse results are checked. No warehouse or source calls.',
     'dashboard_begin': 'Start from the exact Power BI report URL. Creates local job state and returns a scoped capture request. Does not access the report, authenticate, install a connector or claim success. Continue through the host browser/connector using the dashboard-agent skill.',
     'dashboard_capture': 'Normalize host-captured Power BI measures into native Registry draft-4 definitions, preserving DAX and source execution requirements. Capture all report filters, source types and identities. No guessed SQL, remote save or certification. Recapture invalidates old evals.',
     'dashboard_read': 'Read current source readiness, parity summary and optionally exact metric definitions. Never returns gold values or grader files. Use for reconnect/resume and answering with the declared warehouse executor and separate SQL bindings. Snapshot/reference gaps do not block the usable SQL subset, Registry publication or questions. Unconverted DAX remains a migration gap.',
     'dashboard_evaluate': 'Compare host-reported scalar dashboard references to executed answers at matching definition and filter hashes. Invalid scopes are unmeasured; errors are failures; zero and missing differ. Stores grader-only references locally. This is parity, not held-out accuracy or independent execution verification.',
-    'dashboard_export': 'Write local Registry metric draft envelope templates, runtime context, eval record drafts and the report. No network writes. Gold stays local and out of runtime context; Registry dataset drafts contain only gold digests. Existing source identity and live capabilities must be reconciled before any approved remote save.',
 }
 
 

@@ -40,7 +40,7 @@ SQLITE_FUNCTIONS = FUNCTIONS | {'like', 'date', 'datetime', 'julianday', 'iif', 
 
 
 def check_functions(sql, allowed=FUNCTIONS):
-    from metrics_mine import scan
+    from context_contracts import scan
     code = ''.join(text if kind == 'code' else text[1:-1] if kind == 'ident' else ' '
                    for kind, text in scan(sql))
     # CTE column declarations are names, not calls. Mask only the declaration
@@ -172,7 +172,7 @@ def sqlite_worker(request):
         sql = request['sql']
         if not isinstance(sql, str) or len(sql) > 200_000:
             raise DataError('Supply one bounded SELECT statement.')
-        from metrics_mine import scan
+        from context_contracts import scan
         code = ''.join(text if kind == 'code' else ' ' for kind, text in scan(sql))
         if not re.match(r'\s*(select|with)\b', code, re.I) or ';' in code.rstrip().rstrip(';'):
             raise DataError('Only one SELECT or WITH query is allowed.')
@@ -279,7 +279,7 @@ def worker(request):
             allowed.update((r[0], r[1], r[2]) for r in columns if r[1] + '.' + r[2] in selected)
             # get_table_names cannot bind parameters. Analyze a NULL-only copy;
             # the actual query below still uses the original SQL and bound values.
-            from metrics_mine import scan
+            from context_contracts import scan
             scope_sql = ''.join(re.sub(r'\$[A-Za-z_0-9]+\b', 'NULL', text) if kind == 'code' else text
                                 for kind, text in scan(sql))
             def parts(name):
