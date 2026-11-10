@@ -31,7 +31,9 @@ FEATURES = {'snowflake': 'packages/metrics-agent-snowflake',
 
 
 def ordinary(path):
-    path = Path(path).absolute()
+    # One folder has one name: `run/../..` and its plain spelling are the same runtime. With
+    # symbolic links refused, removing `..` by text names the folder the filesystem would.
+    path = Path(os.path.normpath(Path(path).absolute()))
     if any(p.is_symlink() for p in (path, *path.parents)):
         raise ValueError('Use ordinary private paths, not symbolic links.')
     return path
@@ -117,9 +119,29 @@ def setup(root, features):
         return _setup(root, features)
 
 
+SUPPORTED_PYTHON = ((3, 12), (3, 11))
+DISPATCHER = Path(__file__).resolve().parents[2] / 'scripts' / 'analytics_agent.py'
+
+
+def supported_python():
+    """A Python on PATH the pinned runtime is built with (its wheels are pinned per version),
+    or None. A machine's default `python3` may be newer than any of them."""
+    import shutil  # noqa: PLC0415
+    for major, minor in SUPPORTED_PYTHON:
+        found = shutil.which(f'python{major}.{minor}')
+        if not found:
+            continue
+        probe = subprocess.run([found, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
+                               capture_output=True, text=True, timeout=30)
+        if probe.returncode == 0 and probe.stdout.strip() == str((major, minor)):
+            return found
+    return None
+
+
 def _setup(root, features):
-    if sys.version_info[:2] not in ((3, 11), (3, 12)):
-        raise ValueError('Use Python 3.11 or 3.12 for the pinned metrics runtime.')
+    if sys.version_info[:2] not in SUPPORTED_PYTHON:
+        raise ValueError('Use Python 3.11 or 3.12 for the pinned metrics runtime: install one '
+                         '(python3.12 or python3.11 on PATH) and run setup again.')
     root = ordinary(root)
     data, sha = snapshot()
     selected = sorted(set(features))
@@ -235,6 +257,11 @@ def main(argv=None):
             sub.add_argument('--parity')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'setup' and sys.version_info[:2] not in SUPPORTED_PYTHON \
+                and (other := supported_python()):
+            # Built with this Python the runtime would be refused: run setup with one it takes.
+            rest = sys.argv[1:] if argv is None else list(argv)
+            return subprocess.run([other, '-I', str(DISPATCHER), 'metrics', *rest]).returncode
         if args.command == 'setup':
             result = setup(args.runtime, args.feature)
             code = 2 if result['status'] == 'BLOCKED' else 0

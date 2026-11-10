@@ -163,3 +163,11 @@ class SQLiteLineageTest(unittest.TestCase):
         named = [str(p.relative_to(src)) for d in ('lib', 'stages') for p in (src / d).glob('*.py')
                  if 'sqlite' in p.read_text().lower()]
         self.assertEqual(named, [])
+
+    def test_a_card_may_name_a_statement_table_by_schema_and_table(self):
+        from metrics_agent.stages import x3_emit
+        metric = {'sources': [{'vq_id': 'q1'}]}
+        stmts = {'q1': {'tables': ['SITE.SITE.PROJECTS', 'RAW.SALES.ORDERS']}}
+        known = x3_emit._statement_tables(metric, stmts)
+        self.assertTrue({'site.site.projects', 'site.projects', 'raw.sales.orders', 'sales.orders'} <= known)
+        self.assertNotIn('p.project_id', known)
