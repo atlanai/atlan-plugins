@@ -15,7 +15,8 @@ Every skill is also held to:
   * at most 500 lines and 9 KiB in SKILL.md (longer material goes in references/);
   * a description of at most 250 characters, since every session carries it and hosts cut longer ones;
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
-  * every backticked `atlan-...` skill name they cite exists, or is served by the gateway only.
+  * every backticked `atlan-...`, `analytics-...`, `metrics-generation` or `source-survey`
+    skill name they cite exists, or is served by the gateway only.
 Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`; commands
 also set `disable-model-invocation: true`.
 Skill names are unique across every plugin. Add-ons carry no MCP server, hooks or bin/ of their
@@ -50,7 +51,7 @@ PLUGIN_CONTENT = ("skills", "commands", "agents", "plugin.json", "mcp.json", ".m
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 XML_TAG = re.compile(r"<[A-Za-z/][^>]*>")
 CITED_PATH = re.compile(r"`((?:skills|references)/[A-Za-z0-9_./-]+\.md)`")
-CITED_SKILL = re.compile(r"`(atlan-[a-z0-9-]+)`")
+CITED_SKILL = re.compile(r"`((?:atlan|analytics)-[a-z0-9-]+|metrics-generation|source-survey)`")
 WHEN = re.compile(r"\bUse (?:when|for)\b")
 # Every installed skill's description sits in every session's context, so owned skills keep it
 # short; and SKILL.md is read whole whenever the skill loads, so detail goes in references/ that
@@ -60,8 +61,11 @@ MAX_SKILL_BYTES = 9 * 1024
 # Backticked `atlan-…` words that are not skills in this plugin.
 NOT_SKILLS = {
     "atlan-plugins",  # this repository's marketplace name
-    "atlan-dev",  # the suggested server name for the dev environment
 }
+# This repository is public and production's: another environment's hosts and plugin names are
+# written on top by that environment's gateway when it serves the pinned plugin (AGENTS.md,
+# Environments), so none of them appears in a tracked file. Examples use `dev.example`.
+NON_PRODUCTION = re.compile(r"\batlan\.(?:dev|engineering)\b|\batlanai?-dev\b")
 # A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
 # `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
 NOT_SECRET = r"[$<{*%]|(?:synthetic|example|dummy|fake|placeholder|changeme|redacted|your)"
@@ -181,6 +185,10 @@ def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT
         if size > MAX_SKILL_BYTES:
             errors.append(f"{relative}/SKILL.md: {size} bytes (max {MAX_SKILL_BYTES}); move material to references/")
         for path in directory.rglob("*.md"):
+            # A skill's `modules/` holds a vendored engine with its own docs and gate skills,
+            # whose citations resolve inside the engine, not against this skill.
+            if path.relative_to(directory).parts[0] == "modules":
+                continue
             content = path.read_text(encoding="utf-8")
             for cited in CITED_PATH.findall(content):
                 base = directory if cited.startswith("references/") else root
@@ -294,6 +302,17 @@ def lint_command_hooks(root: Path) -> list[str]:
             command = handler.get("command", "")
             if HOOK_SCRIPT not in command or "claude-hooks" in command or handler.get("type", "command") != "command":
                 errors.append(f"{path.relative_to(ROOT)}: every hook runs {HOOK_SCRIPT}, and nothing else")
+    copilot = root / "com.github.copilot" / "hooks" / "hooks.json"
+    if copilot.is_file():
+        document = json.loads(copilot.read_text(encoding="utf-8"))
+        expected = {}
+        for event, entry in (("preToolUse", "pre"), ("postToolUse", "post")):
+            expected[event] = [{"type": "command",
+                "bash": 'python3 "${COPILOT_PLUGIN_ROOT}/command-hooks/publish_hook.py" ' + entry + ' --host copilot',
+                "powershell": 'python3 "$env:COPILOT_PLUGIN_ROOT/command-hooks/publish_hook.py" ' + entry + ' --host copilot',
+                "timeoutSec": 30 if entry == "pre" else 10}]
+        if document != {"version": 1, "hooks": expected}:
+            errors.append(f"{copilot.relative_to(ROOT)}: Copilot hooks may only run the shared publication helper")
     return errors
 
 
@@ -407,6 +426,10 @@ def lint_repository(files: list[Path]) -> list[str]:
         for label, pattern in SECRETS:
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: looks like it contains a {label}")
+        for number, line in enumerate(text.splitlines(), 1):
+            if match := NON_PRODUCTION.search(line):
+                errors.append(f"{path.relative_to(ROOT)}:{number}: {match.group(0)!r} names a non-production "
+                              "environment; this public repository names production only (AGENTS.md, Environments)")
         if voice_scope(path):
             errors += lint_voice(path, text)
         if path.suffix == ".md" and path.is_relative_to(PLUGINS):

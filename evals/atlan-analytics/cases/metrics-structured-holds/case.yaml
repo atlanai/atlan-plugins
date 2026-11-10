@@ -3,7 +3,7 @@ name: metrics-structured-holds
 tags: [analytics, metrics, quality, publishing]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     A completed BI run contains 18 queries. C4 marks seven with compiler_review warnings
     from wrong findings. Six more single-member queries have uncaptured required member
     parameters in the source units; their review severity is risky. One explicitly declared

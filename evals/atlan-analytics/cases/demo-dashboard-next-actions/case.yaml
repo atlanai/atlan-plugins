@@ -1,0 +1,44 @@
+schema_version: "1.1"
+name: demo-dashboard-next-actions
+tags: [analytics, setup, demo, regression]
+execution:
+  prompt: |
+    Continue the Atlan Analytics Ticketfuddle demo from this completed checkpoint.
+    The selected demo context was checked earlier and kept local. The requested
+    dashboard has just been built at /tmp/synthetic-demo/ticketfuddle-dashboard.html.
+    All numbers came from accepted demo metrics. No source reads or execution are
+    needed in this turn. Show me the dashboard handoff and what I can do next.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: expected-handoff
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the response gives the supplied dashboard location and offers Ask more questions,
+      Continue building on real data and an exit choice. Design a dashboard may also
+      be offered. The real-data option continues in the same chat. FAIL if the reply
+      ends only with a restart command, automatically starts real-data setup, invents
+      new results, or claims the local dashboard was published.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the concrete result or next step in plain language,
+      without a greeting, apology, em dash, machine status footer or generic offer.
+      The demo's full ready block and native next-action choice have no word limit.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0

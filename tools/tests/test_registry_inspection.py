@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
-sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'plugins/atlanai-analytics/skills/atlan-analytics/scripts'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'plugins/atlanai-analytics/skills/analytics-build/scripts'))
 from registry_inspection import parse_response, inspect_contract, ReadCLI
 
 TARGET={'workspace_id':'workspace_example','gateway_origin':'https://registry.example.invalid'}

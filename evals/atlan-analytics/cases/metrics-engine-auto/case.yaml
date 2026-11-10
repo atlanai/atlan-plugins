@@ -3,7 +3,7 @@ name: metrics-engine-auto
 tags: [analytics, routing, metrics, approval]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     We already selected example-analytics as the workspace, demo.main.orders as the table,
     a local query-history export as the source, and DuckDB as the dialect. Use auto approval
     for routine local work. Show the next implementation step without running tools that

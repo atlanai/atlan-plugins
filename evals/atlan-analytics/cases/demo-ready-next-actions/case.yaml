@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: demo-ready-next-actions
+tags: [demo-flow-fix, analytics, setup, demo, regression]
+execution:
+  prompt: |
+    Use Atlan Analytics to finish the Fixit demo from this saved checkpoint.
+    The full dashboard-only collection is built: 4 metrics and 4 queries, all executed
+    successfully earlier on the demo data and kept on this machine. No publication
+    was requested. The collection review and celebration already appeared. No further
+    inspection or execution is needed. Give me the ready handoff. I have not chosen
+    a question or requested a dashboard yet.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: expected-handoff
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the visible ready handoff reports the existing local counts and offers
+      two or three concrete questions supported by the checked context immediately.
+      It must wait for a chosen question, without an Ask AI menu or dashboard/real-data menu.
+      FAIL if it inserts a next-action menu before the questions, answers a suggested
+      question, claims a dashboard was built, treats
+      local context as published, or starts inspecting real data without a selection.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the concrete result or next step in plain language,
+      without a greeting, apology, em dash, machine status footer or generic offer.
+      The demo's full ready block and native next-action choice have no word limit.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0

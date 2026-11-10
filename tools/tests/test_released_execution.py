@@ -10,10 +10,10 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 from project import Project, ProjectError
-import metrics_mine as mine
+import context_contracts as mine
 from test_local_project import readbacks
 
 HAS_DUCKDB = importlib.util.find_spec('duckdb') is not None

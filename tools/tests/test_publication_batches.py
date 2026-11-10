@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 CORE = ROOT / 'plugins/atlanai'
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import publication_batches as batches
 
@@ -46,7 +46,14 @@ class PublicationBatches(unittest.TestCase):
                          {'source_id': query(i)['source_id'], 'action': 'create', 'ok': True, 'match_id': None}
                          for i in range(count)]}}
         self.write(documents)
+        self.approve(documents)
         return documents
+
+    def approve(self, documents):
+        """The user's yes to this exact plan, as the skill records it."""
+        identity, _ = batches.publication_identity(workspace_id='workspace_example',
+            sources=['example-source'], documents=documents)
+        self.auth['approved_plans'] = [identity]
 
     def write(self, documents):
         for name, value in documents.items():
@@ -67,6 +74,7 @@ class PublicationBatches(unittest.TestCase):
         docs['queries'][1]['definition'].update(usage_note='Derived from the model; historical usage is unavailable.',
             review_status='unreviewed')
         self.write(docs)
+        self.approve(docs)
         event = self.event(self.prepare()['calls'][0])
         sent = hook.answer('pre', 'codex', event)['hookSpecificOutput']['updatedInput']
         self.assertEqual(sent['arguments']['items'], [{**q, 'workspace_id': 'workspace_example'} for q in docs['queries']])
@@ -117,8 +125,8 @@ class PublicationBatches(unittest.TestCase):
             row['action'] = action
         self.write(docs)
         with self.assertRaises(ValueError):
-            self.prepare()  # Revising is outside this authorization.
-        self.auth['allow_revisions'] = True
+            self.prepare()  # The changed plan, with its revision, is not yet approved.
+        self.approve(docs)
         result = self.prepare()
         self.assertEqual(result['deferred']['revise'], 1)
         self.assertEqual(result['deferred']['reuse'], 1)

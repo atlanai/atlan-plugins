@@ -10,7 +10,7 @@ graders:
   - name: fires-skill
     type: tool_used
     tool: Skill
-    input_match: 'atlan-(analytics|ontology)'
+    input_match: '(?:analytics-(?:build|ask)|metrics-generation|source-survey)'
   - name: reads-expected
     type: tool_used
     tool: Read

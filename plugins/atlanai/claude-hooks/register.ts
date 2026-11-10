@@ -11,7 +11,7 @@
 // Every hook here fails open: a bug passes the call on as the model wrote it, and the skill app
 // refuses `files_from` by name, saying to send `files`. So a fault costs speed, never a publish.
 //
-// The helper says it is on with one line beside the conversation's first prompt (prompt.submit's
+// The helper says it is on beside a prompt once a gateway runner is available (prompt.submit's
 // `context`), not in the system prompt. Claude Code's built-in cc-plugin-sec-default, seated
 // outermost for Team and Enterprise organizations and on machines with managed settings, passes
 // every installed plugin over on prompt.compose and prompt.context, and tells the session the hook
@@ -19,7 +19,7 @@
 
 import type { EngineInterface, Register } from 'claude-code'
 
-import { CREDENTIAL_DIRS, KEY_FILES, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
+import { CREDENTIAL_DIRS, KEY_FILES, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, credentials, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
 import {
   ATLAN_TOOL,
   FEEDBACK_ON_FAILURE,
@@ -37,13 +37,35 @@ import { LATEST_URL, VERSION } from './release'
 
 /**
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
- * under the plugin's server or one added by hand. Never another server's tool of a like name.
+ * under the plugin's server or an alias, narrowed by gatewayRunners before any local expansion.
  */
-export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$/
+// The host chooses the MCP connection and retains its normal permission checks. Recognize
+// the gateway's runner independently of the user-configured server key.
+export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+__mcp__call(?:_(?:write|read))?_tool$/
+const PLUGIN_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$/
+const ATLAN_ALIAS_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan(?:[-_][A-Za-z0-9_-]+)?__mcp__call(?:_(?:write|read))?_tool$/
+
+/** Aliases must also expose the gateway's discovery tools, not just a similarly named runner. */
+export function gatewayRunners(tools: readonly { name: string; mcp: boolean }[]): string[] {
+  const names = new Set(tools.filter(tool => tool.mcp).map(tool => tool.name))
+  return [...names].filter(name => {
+    if (!CALL_TOOL.test(name)) return false
+    if (PLUGIN_CALL_TOOL.test(name)) return true
+    // Tool names alone cannot establish an arbitrary server's origin. Without endpoint
+    // metadata, ambiguous names retain the native fallback and never load local bytes.
+    if (!ATLAN_ALIAS_CALL_TOOL.test(name)) return false
+    const prefix = name.slice(0, name.lastIndexOf('__mcp__'))
+    return names.has(`${prefix}__mcp__search_tools`) && names.has(`${prefix}__mcp__describe_tools`)
+  })
+}
 export const PUBLISH = 'extension__skill__create'
 export const BULK_PUBLISH = 'registry__create_artifacts'
 export const BULK_CAPABILITY = 'Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].'
 export const RECEIPT_CAPABILITY = 'Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.'
+/** A shared output's one-call tool: its inline `file.content` is checked for credentials before it leaves. */
+export const OUTPUT = 'registry__publish_output'
+/** How many credential matches a refusal lists. */
+const MAX_LISTED = 5
 const RECEIPT_OPERATIONS = new Set([BULK_PUBLISH, 'registry__get_artifact', 'registry__get_related_artifacts'])
 /** The line that tells the model the helper is on, once a conversation. publish.md sends `files_from` without waiting for it. */
 export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create accepts files_from.'
@@ -273,9 +295,51 @@ export function overBudget(skills: readonly unknown[], slots: readonly number[],
  * The create's arguments with every `files_from` replaced by the folder's `files`, or the text that
  * refuses the call, or undefined when no skill names `files_from`.
  */
+/**
+ * Why a shared output is not sent: its inline text matches a credential shape, by the rules a
+ * skill bundle is held to. Names the kind and where, never the value. undefined sends the call.
+ */
+export function outputRefusal(args: Record<string, unknown>): string | undefined {
+  const file = args.file
+  if (!isRecord(file) || typeof file.content !== 'string') return undefined
+  const found = credentials(file.content)
+  if (found.length === 0) return undefined
+  const label = typeof file.path === 'string' && file.path ? file.path : 'file.content'
+  const lines = found.slice(0, MAX_LISTED).map(([line, column, kind]) => `${label}:${line}:${column}: credential: matches the ${kind} pattern`)
+  if (found.length > MAX_LISTED) lines.push(`and ${found.length - MAX_LISTED} more`)
+  return `${lines.join('\n')}\nNothing was sent. Show the user each match with its value masked, then share only after they remove it or replace it with a placeholder.`
+}
+
+/**
+ * The credential problems in the `files` a create carries inline, by a folder's rules, and each
+ * inline file's size in bytes.
+ */
+export function inlineProblems(skills: readonly unknown[]): { problems: Problem[]; sizes: number[] } {
+  const carrying = [...skills.entries()].filter(([, skill]) => isRecord(skill) && !('files_from' in skill) && isRecord(skill.files)) as [number, { files: Record<string, unknown> }][]
+  const problems: Problem[] = []
+  const sizes: number[] = []
+  const encoder = new TextEncoder()
+  for (const [index, skill] of carrying) {
+    for (const [rel, text] of Object.entries(skill.files)) {
+      const label = carrying.length === 1 ? rel : `skills[${index}]/${rel}`
+      if (KEY_FILES.test(rel.slice(rel.lastIndexOf('/') + 1))) problems.push(problem(label, 'credential-file', 'looks like a credential file; leave it out'))
+      if (typeof text !== 'string') continue
+      sizes.push(encoder.encode(text).length)
+      for (const [line, column, kind] of credentials(text)) problems.push({ ...problem(label, 'credential', `matches the ${kind} pattern; remove it`), line, column })
+    }
+  }
+  return { problems, sizes }
+}
+
 export async function expand($: Dollar, args: Record<string, unknown>): Promise<{ args: Record<string, unknown> } | { deny: string } | undefined> {
   const skills = Array.isArray(args.skills) ? args.skills : undefined
-  if (!skills || !skills.some(skill => isRecord(skill) && 'files_from' in skill)) return undefined
+  if (!skills) return undefined
+  const inline = inlineProblems(skills)
+  if (!skills.some(skill => isRecord(skill) && 'files_from' in skill)) {
+    if (inline.problems.length === 0) return undefined
+    const bytes = inline.sizes.reduce((sum, size) => sum + size, 0)
+    return { deny: `${render({ ok: false, count: inline.sizes.length, bytes, problems: inline.problems })}\n${NOT_SENT}` }
+  }
   const cwd = await $.session.cwd()
   const trees = await roots($)
   const folders: Folder[] = []
@@ -299,7 +363,7 @@ export async function expand($: Dollar, args: Record<string, unknown>): Promise<
   )
   // A folder that could not be placed has nothing to check, and would only add a missing SKILL.md.
   const checked = check(folders.filter(folder => folder.problems.length === 0 || folder.entries.length > 0))
-  const problems = [...walked, ...checked.problems, ...overBudget(skills, slots, checked)]
+  const problems = [...walked, ...inline.problems, ...checked.problems, ...overBudget(skills, slots, checked)]
   if (problems.length > 0) return { deny: `${render({ ...checked, ok: false, problems })}\n${NOT_SENT}` }
   const out = [...skills]
   for (const [k, index] of slots.entries()) {
@@ -389,6 +453,7 @@ export const register: Register = on => {
   const receiptRuntime = { python: 'python3' }
   // The conversations already told, by session id: a /clear goes on under a new id, and is told again.
   const told = new Set<string>()
+  const capabilitiesTold = new Map<string, Set<string>>()
   // The update notice, read once a process and given once; the conversations offered feedback; and
   // those whose last turn called an Atlan tool, the only turns the sampled offer follows.
   let latest: Promise<string | undefined> | undefined
@@ -406,11 +471,24 @@ export const register: Register = on => {
     if (e.command !== undefined || e.isMeta === true) return next(e)
     const session = await $.session.id()
     const notes: string[] = []
+    // Discovery can finish after the first prompt. Announce only routes that exist now,
+    // and do not suppress a later capability just because routing was already shown.
+    let runners: string[] = []
+    try {
+      runners = gatewayRunners(await $.tool.list())
+    } catch { /* An unavailable inventory is not evidence that a helper is on. */ }
+    const capabilities = capabilitiesTold.get(session) ?? new Set<string>()
+    const writable = runners.some(name => !name.endsWith('__mcp__call_read_tool'))
+    if (writable && !capabilities.has(CAPABILITY)) notes.push(CAPABILITY)
     if (!told.has(session)) {
       told.add(session)
-      notes.push(CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY)
+      notes.push(ROUTING)
     }
-    // Each note fails alone, so a fault in one never drops the capability line.
+    if (writable && !capabilities.has(BULK_CAPABILITY)) notes.push(BULK_CAPABILITY)
+    if (runners.length && !capabilities.has(RECEIPT_CAPABILITY)) notes.push(RECEIPT_CAPABILITY)
+    for (const note of notes) if (note !== ROUTING) capabilities.add(note)
+    capabilitiesTold.set(session, capabilities)
+    // Each courtesy notice fails alone, preserving routing and available capabilities.
     if (!isUpdateTold) {
       try {
         latest ??= checkLatest($).catch(() => undefined)
@@ -446,10 +524,16 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
   on('tool.call', { tool: CALL_TOOL }, async ($, e, next) => {
     const call = e as unknown as { name?: unknown; arguments?: unknown }
-    if (call.name !== PUBLISH && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
+    if (call.name !== PUBLISH && call.name !== OUTPUT && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
     const args = argsOf(call.arguments)
     if (!args) return next(e)
+    if (call.name === OUTPUT) {
+      const refusal = outputRefusal(args)
+      if (refusal === undefined || (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool))) return next(e)
+      return { deny: refusal }
+    }
     const { receipt_dir: receiptDir, ...native } = args
+    if (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool)) return next(e)
     if (receiptDir !== undefined && (call.name === PUBLISH || call.name === BULK_PUBLISH && !('items_from' in native))) return { deny: 'Receipt capture on creates requires a guarded local batch.' }
     const expanded = (call.name === BULK_PUBLISH ? await expandBulk($, native) : call.name === PUBLISH ? await expand($, native) : undefined) ?? (receiptDir !== undefined ? { args: native } : undefined)
     if (!expanded) return next(e)

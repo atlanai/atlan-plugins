@@ -199,6 +199,11 @@ so read that first. `registry__get_artifact` carries no findings.
 
 `scanned_version_ordinal` says which version the findings are from. A `scan_status` of
 `not_scanned` on a `pending_review` skill means the scan has not finished: read again shortly.
+Still `not_scanned` after several reads a minute apart, the scan did not run to its end. Say so
+and offer to start it once more: `registry__retrigger_artifact_action` with the skill's
+`artifact_id` and `"action_name": "scan"`, through `mcp__call_write_tool`, after the user's yes.
+Each call is a new run and approves nothing: send it once, never again after a timeout, and
+follow the version as before.
 If `mcp__describe_tools` does not find `registry__get_security_findings`, the findings are only in
 the Atlan dashboard: ask the user to open the skill there and paste the finding.
 

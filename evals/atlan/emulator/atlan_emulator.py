@@ -55,7 +55,10 @@ another state through its environment (`emulator.json` beside the case, read by 
   older route (`registry__append_artifact_version` on the file, then `registry__create_artifact`
   with the same source key) still lands the next version;
 - `ATLAN_EMULATOR_SERVE_WITHDRAW=1`: `registry__withdraw_release` is served. Gateway 2.21.0 does
-  not serve it, so by default it is absent and `mcp__describe_tools` says so by name.
+  not serve it, so by default it is absent and `mcp__describe_tools` says so by name;
+- `ATLAN_EMULATOR_NOT_SCANNED=skill_01evalpending,…`: the scan of those artifacts never ran to
+  its end, so `registry__get_security_findings` answers `not_scanned` however often it is read,
+  until `registry__retrigger_artifact_action` starts a new run.
 
 The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
 `mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
@@ -80,6 +83,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WORLD = json.loads((HERE / "world.json").read_text(encoding="utf-8"))
 SESSION = "mcp_session_01evalsession00000000000000"
+# The world's caller. A run is a real Claude Code session on the account of whoever runs the eval,
+# and without this it takes that account for the caller and treats Dana's own files as another's.
+INSTRUCTIONS = ("You are signed in to Atlan as Dana (`user_dana`). Dana's Workspace is this person's personal "
+                "workspace, and what `user_dana` owns is theirs, whatever account the host session shows.")
 LOG = os.environ.get("ATLAN_EMULATOR_LOG")
 LATENCY_S = int(os.environ.get("ATLAN_EMULATOR_LATENCY_MS", "0")) / 1000
 HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") if s}
@@ -102,6 +109,7 @@ OPAQUE_PUBLISH = os.environ.get("ATLAN_EMULATOR_OPAQUE_PUBLISH") == "1"
 DISABLED = {s for s in os.environ.get("ATLAN_EMULATOR_DISABLED_SERVERS", "").split(",") if s}
 PUBLISH_VERSION_CONFLICT = os.environ.get("ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT") == "1"
 SERVE_WITHDRAW = os.environ.get("ATLAN_EMULATOR_SERVE_WITHDRAW") == "1"
+NOT_SCANNED = {h for h in os.environ.get("ATLAN_EMULATOR_NOT_SCANNED", "").split(",") if h}
 # The live tool surface: `mcp__call_read_tools` and the `registry__` tools listed by name. Off by
 # default, because the suite's graders count reads on `mcp__call_read_tool`; a case that tests the
 # batch or direct path sets it in its emulator.json.
@@ -270,7 +278,8 @@ class Refusal(Exception):
         self.body = detail if bare else {"status": status, "code": code, "detail": detail}
 
 
-state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}}
+state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}, "approved": {},
+         "edges": {}, "reruns": {}}
 
 
 def words(text: str) -> set[str]:
@@ -449,11 +458,15 @@ def head(item: dict) -> dict:
     any other line its newest reconciled version, so a read-back after a write sees it."""
     if item["kind"] != "file":
         newer = state["versions"].get(item["id"])
-        if not newer:
-            return item
-        line = ("name", "workspace_id", "source_type", "source_id")
-        return item | {"version_ordinal": newer["version_ordinal"],
-                       "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
+        if newer:
+            line = ("name", "workspace_id", "source_type", "source_id")
+            item = item | {"version_ordinal": newer["version_ordinal"],
+                           "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
+        # The head's version handle and etag, which `approve_artifact` takes back as preconditions.
+        ordinal = item.get("version_ordinal", 1)
+        status = state["approved"].get(item["id"], item.get("artifact_status"))
+        return {"version_id": f"ver_01eval{item['id'].split('_', 1)[1][-12:]}v{ordinal}", "etag": f'W/"v{ordinal}"'} | item | (
+            {"artifact_status": status} if status else {})
     state["heads"].setdefault(item["id"], {"etag": item["etag"], "version_ordinal": item["version_ordinal"],
                                            "content": WORLD["files"][item["id"]]["content"]})
     current = state["heads"][item["id"]]
@@ -491,6 +504,16 @@ def in_project(item: dict, project_id: str | None) -> bool:
     return project_id in item.get("project_ids", [])
 
 
+def labelled(row: dict) -> dict:
+    """A row with its workspace's display name and kind beside `workspace_id`, as the gateway labels
+    search hits, browse rows and workspace count groups, so no reader needs `list_workspaces` to
+    name one."""
+    space = next((w for w in WORLD["workspaces"] if w["id"] == row.get("workspace_id")), None)
+    if space is None:
+        return row
+    return row | {"workspace_display_name": space.get("display_name"), "workspace_kind": space.get("kind")}
+
+
 def search_artifacts(a: dict) -> dict:
     query = words(a.get("query", ""))
     hits = []
@@ -517,14 +540,16 @@ def search_artifacts(a: dict) -> dict:
     # gateway's `registry_mcp::match_quality` draws (search-2026-11-09-a-partial-keyword-hit-
     # is-not-strong). It used to say `keyword: true` for every hit and carry no `quality`, so a
     # skill's "trust a strong hit" step could not be measured here.
-    spaces = {w["id"]: w for w in WORLD["workspaces"]}
-    return {"items": [(bare(h) if a.get("full") else summary(h))
-                      | {"score": s / 100, "match": match_of(s, len(query)),
-                         "is_released": bool(h.get("is_released")),
-                         "workspace_display_name": spaces.get(h["workspace_id"], {}).get("display_name"),
-                         "workspace_kind": spaces.get(h["workspace_id"], {}).get("kind")}
-                      for s, h in hits[:limit]],
-            "page": {"limit": limit, "offset": 0, "has_more": len(hits) > limit}}
+    offset = a.get("offset", 0)
+    shown = hits[offset:offset + limit]
+    has_more = len(hits) > offset + limit
+    return {"items": [labelled((bare(h) if a.get("full") else summary(h))
+                               | {"score": s / 100, "match": match_of(s, len(query)),
+                                  "is_released": bool(h.get("is_released"))})
+                      for s, h in shown],
+            # `next_offset` is there only when more matched, as the gateway's `collapsed` writes it.
+            "page": {"limit": limit, "offset": offset, "has_more": has_more}
+            | ({"next_offset": offset + len(shown)} if has_more else {})}
 
 
 STRONG_SIMILARITY = 0.45
@@ -555,14 +580,16 @@ def summary(item: dict) -> dict:
 
 def browsed(a: dict) -> list[dict]:
     """What `list_artifacts` and `get_artifact_counts` see for these filters, most recent first."""
-    return [i for i in artifacts().values()
+    rows = [i for i in artifacts().values()
             if (not a.get("kind") or i["kind"] == a["kind"]) and i["kind"] != "session"
             and (a.get("kind") or i["kind"] != "file")
             and (not a.get("workspace_id") or i["workspace_id"] == a["workspace_id"])
+            and (not a.get("name") or i.get("name") == a["name"])
             and (not a.get("status") or i.get("artifact_status") == a["status"])
             and ("is_released" not in a or bool(i.get("is_released")) == a["is_released"])
             and related(i, a.get("related_to"))
             and in_project(i, a.get("project_id"))]
+    return sorted(rows, key=lambda i: i.get("updated_at") or "", reverse=True)
 
 
 def related(item: dict, rel: dict | None) -> bool:
@@ -603,9 +630,10 @@ def counts(a: dict) -> dict:
             tally[i.get(field)] = tally.get(i.get(field), 0) + 1
         groups = sorted(tally.items(), key=lambda g: -g[1])
         limit = a.get("limit", 20)
-        out |= {"group_by": field, "groups": [{field: k, "count": n} for k, n in groups[:limit]]}
+        # A workspace group carries its display name and kind; a project or repo group is a handle.
+        out |= {"group_by": field, "groups": [labelled({field: k, "count": n}) for k, n in groups[:limit]]}
         if len(groups) > limit:
-            out["note"] = f"{len(groups) - limit} smaller groups are not shown; raise limit to see them."
+            out["note"] = f"showing the {limit} largest of {len(groups)} groups; raise `limit` to see more"
     return out
 
 
@@ -643,6 +671,115 @@ def included_file(item: dict, path: str) -> dict:
         return {"path": path, "file_id": pin["file_id"], "error": refused.body["detail"]}
 
 
+def linked_file(item: dict) -> dict:
+    """`get_artifact`'s `include_linked_file`: the one file the artifact points at, as an `output`
+    does, at its recorded version."""
+    meta = item.get("metadata") or {}
+    if not meta.get("file_artifact_id"):
+        return {"error": "this artifact points at no file: it has no `metadata.file_artifact_id`"}
+    pin = {"file_id": meta["file_artifact_id"]} | (
+        {"version_ordinal": meta["file_version_ordinal"]} if meta.get("file_version_ordinal") is not None else {})
+    try:
+        return file_content(pin)
+    except Refusal as refused:
+        return {"file_id": pin["file_id"], "error": refused.body["detail"]}
+
+
+MAX_FILES = 8
+
+
+def file_contents(a: dict) -> dict:
+    """`get_file_contents`, as the registry answers it: each entry read as `get_file_content` reads
+    it, in order, with an `error` in place of `content` for one that cannot be read. The call fails
+    only when no entry could be read."""
+    files = a["files"]
+    if not isinstance(files, list) or not 1 <= len(files) <= MAX_FILES or not all(isinstance(f, dict) and f.get("file_id") for f in files):
+        raise Refusal(400, "invalid_arguments", f"`files` takes 1 to {MAX_FILES} entries, each `{{file_id, version_ordinal}}`.")
+    out = []
+    for entry in files:
+        try:
+            out.append(file_content({k: v for k, v in entry.items() if k in ("file_id", "version_ordinal")}))
+        except Refusal as refused:
+            out.append({"file_id": entry["file_id"], "code": refused.body["code"], "error": refused.body["detail"]})
+    if all("error" in f for f in out):
+        raise Refusal(404, "not_found", "No file could be read; each entry in `files` says why.")
+    return {"files": out}
+
+
+def relation_target(a: dict) -> str:
+    """The artifact an edge points to: `subject_id` or `to_id`, exactly one, and one the caller can read."""
+    given = [a[k] for k in ("subject_id", "to_id") if a.get(k)]
+    if len(given) != 1:
+        raise Refusal(400, "invalid_arguments", "Give the artifact the relationship points to as `subject_id` or `to_id`, not both.")
+    return artifact(given[0])["id"]
+
+
+def declared(kind: str, rel_type: str) -> None:
+    """Refuse a relationship type the source kind does not declare, naming what it allows. A kind
+    whose schema lists no `relationships` admits any type, as an open relationship policy does."""
+    allowed = [r["rel_type"] for r in WORLD["kinds"].get(kind, {}).get("relationships", [])]
+    if allowed and rel_type not in allowed:
+        raise Refusal(422, "invalid_relationship", f"{kind} does not declare `{rel_type}`. It allows: {', '.join(allowed)}.")
+
+
+def relate(a: dict) -> dict:
+    """`relate_artifact`: one edge, keyed by its two ends and its type, so restating it updates it."""
+    source = artifact(a["artifact_id"])
+    target = relation_target(a)
+    declared(source["kind"], a["rel_type"])
+    key = (source["id"], a["rel_type"], target)
+    edge = state["edges"].get(key, {"from_id": source["id"], "to_id": target, "rel_type": a["rel_type"],
+                                    "relationship_status": "active", "attributes": {}})
+    edge["attributes"] = {k: v for k, v in (edge["attributes"] | (a.get("attributes") or {})).items() if v is not None}
+    state["edges"][key] = edge
+    return edge | {"note": "eval write recorded"}
+
+
+def create_many(a: dict) -> dict:
+    """`create_artifacts`: one slot per item, in order, each failing or succeeding on its own."""
+    items = a["items"]
+    if not isinstance(items, list) or not 1 <= len(items) <= 100:
+        raise Refusal(400, "invalid_arguments", "`items` takes 1 to 100 artifacts.")
+    if a["kind"] in ("agent", "file", "skill"):
+        raise Refusal(422, "unsupported_kind", f"{a['kind']} cannot be created in bulk. Create each with its own call.")
+    slots = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or not item.get("name") or not item.get("workspace_id"):
+            slots.append({"index": index, "ok": False, "error": "`name` and `workspace_id` are required."})
+            continue
+        made = write(a["kind"], {"metadata": item})
+        slots.append({"index": index, "ok": True, "artifact": {k: made[k] for k in ("id", "kind", "version_ordinal")}
+                      | {"id": f"{made['id']}{index:02d}" if made["version_ordinal"] == 1 else made["id"], "name": item["name"]}})
+    return {"items": slots, "created": sum(s["ok"] for s in slots), "failed": sum(not s["ok"] for s in slots)}
+
+
+def create_linked(a: dict) -> dict:
+    """`create_artifact_linked`: the artifact and its edge together, or neither."""
+    meta = a["metadata"] if isinstance(a["metadata"], dict) else {}
+    if not meta.get("name") or not meta.get("workspace_id"):
+        raise Refusal(400, "invalid_arguments", "`metadata` needs `name` and `workspace_id`.")
+    target = relation_target(a)
+    declared(a["kind"], a["rel_type"])
+    made = write(a["kind"], {"metadata": meta})
+    edge = {"from_id": made["id"], "to_id": target, "rel_type": a["rel_type"], "relationship_status": "active",
+            "attributes": a.get("attributes") or {}}
+    state["edges"][(made["id"], a["rel_type"], target)] = edge
+    return made | {"edges": [edge]}
+
+
+def retrigger(a: dict) -> dict:
+    """`retrigger_artifact_action`: a new run of a declared action on the head. Each call is a new
+    run, so a second one shows as `attempt: 2`; an active version has nothing to rerun."""
+    found = artifact(a["artifact_id"])
+    if a["action_name"] != "scan":
+        raise Refusal(422, "unknown_action", f"{found['kind']} declares no action named {a['action_name']!r}. It declares: scan.")
+    if found.get("artifact_status") == "active":
+        raise Refusal(409, "conflict", "This version is active: there is no failed or pending scan to run again.")
+    attempt = state["reruns"].get(found["id"], 0) + 1
+    state["reruns"][found["id"]] = attempt
+    return {"run_id": f"run_01evalrescan{attempt:02d}", "attempt": attempt, "reopened": found.get("artifact_status") == "blocked"}
+
+
 def with_properties(item: dict, keep: list[str]) -> dict:
     """`get_artifact`'s `properties`: only those kind properties stay in `metadata`; the rest are
     named in `omitted_properties` with the bytes each would have taken."""
@@ -670,6 +807,42 @@ def write(kind: str, a: dict) -> dict:
         return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": ordinal,
                 "note": "eval write recorded"}
     return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "version_ordinal": 1,
+            "note": "eval write recorded"}
+
+
+NOT_CHECKED = ["the app's create hook, where the kind has one, and the checks it runs", "content scans, which run after the write"]
+
+
+def dry_run(kind: str, meta: dict, *, inline_file: bool = False) -> dict:
+    """A create's `dry_run` answer, as the gateway's `check_create` gives it: what the write would
+    do and what the check did not cover. Nothing is recorded."""
+    workspace = meta.get("workspace_id")
+    if not meta.get("name") or not workspace:
+        raise Refusal(400, "invalid_arguments", "`metadata.name` and `metadata.workspace_id` are required")
+    if workspace not in {w["id"] for w in WORLD["workspaces"]}:
+        raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+    key = (workspace, meta.get("source_type"), meta.get("source_id"))
+    live = next((i for i in artifacts().values() if i["kind"] == kind and key[2]
+                 and (i["workspace_id"], i.get("source_type"), i.get("source_id")) == key), None)
+    return {"dry_run": True, "committed": False, "would": "append_version" if live else "create", "kind": kind,
+            "workspace_id": workspace, "name": meta["name"], "artifact_id": live["id"] if live else None,
+            "properties_checked": True,
+            "not_checked": NOT_CHECKED + (["the inline file's own create, which runs the file kind's hook"] if inline_file else [])}
+
+
+def approve(a: dict) -> dict:
+    """`approve_artifact`: an admin's exception for exactly the head that was read. A head that is
+    not the one named, or one no gate holds, is refused and nothing changes."""
+    found = artifact(a["artifact_id"])
+    named = {"expected_version_id": found["version_id"], "if_match": found["etag"], "expected_status": found.get("artifact_status")}
+    stale = [k for k, v in named.items() if a[k] != v]
+    if stale:
+        raise Refusal(412, "precondition_failed", f"The head is not the one this approval names ({', '.join(stale)} "
+                      "differ). Read the artifact again, review that version, and approve with its values.")
+    if found.get("artifact_status") not in ("pending_review", "blocked"):
+        raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
+    state["approved"][found["id"]] = "active"
+    return {"id": found["id"], "kind": found["kind"], "version_id": found["version_id"], "artifact_status": "active",
             "note": "eval write recorded"}
 
 
@@ -773,28 +946,37 @@ def dispatch(name: str, a: dict) -> dict:
         if a.get("query"):
             needle = words(a["query"])
             rows = [w for w in rows if needle & words(f"{w.get('name', '')} {w.get('display_name', '')} {w.get('description', '')}")]
-        limit = a.get("limit", 50)
-        return {"items": rows[:limit], "page": {"limit": limit, "offset": 0, "total": len(rows)},
+        limit, offset = a.get("limit", 50), a.get("offset", 0)
+        return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(rows)},
                 "personal_workspace_id": personal}
     if name == "registry__search_artifacts":
         return search_artifacts(a)
     if name == "registry__list_artifacts":
         items = [head(i) for i in browsed(a)]
-        rows = [bare(i) for i in items] if a.get("full") else [summary(i) for i in items]
-        return {"items": rows[: a.get("limit", 50)], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(items)}}
+        rows = [labelled(bare(i) if a.get("full") else summary(i)) for i in items]
+        limit, offset = a.get("limit", 50), a.get("offset", 0)
+        return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(items)}}
     if name == "registry__get_artifact_counts":
         return counts(a)
     if name == "registry__get_artifact":
         found = released(artifact(a["artifact_id"]), a)
+        if a.get("include_linked_file"):
+            if "include_file" in a or "include_files" in a:
+                raise Refusal(400, "invalid_arguments", "give include_linked_file without include_file or include_files")
+            found = found | {"included_file": linked_file(found)}
         if "include_file" in a:
             found = found | {"included_file": included_file(found, a["include_file"])}
         if "include_files" in a:
             found = found | {"included_files": [included_file(found, path) for path in a["include_files"][:8]]}
         if "properties" in a:
             found = with_properties(found, a["properties"])
-        return found
+        # Named beside its handle, as a search hit's is, so a reply need not print the handle.
+        return labelled(found)
     if name == "registry__get_project":
-        project = WORLD["projects"].get(a["project_id"])
+        if ("project_id" in a) == ("name" in a):
+            raise Refusal(400, "invalid_arguments", "give project_id or name, not both")
+        named = [p for p in WORLD["projects"].values() if p.get("name") == a.get("name")]
+        project = WORLD["projects"].get(a["project_id"]) if "project_id" in a else (named[0] if len(named) == 1 else None)
         if not project:
             raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
         return project
@@ -804,17 +986,38 @@ def dispatch(name: str, a: dict) -> dict:
         return append_version(a)
     if name == "registry__publish_output":
         return publish_output(a)
+    if name == "registry__approve_artifact":
+        return approve(a)
+    if name == "registry__create_artifact" and a.get("dry_run"):
+        return dry_run(a["kind"], a.get("metadata") or {})
     if name == "registry__list_traces":
         return list_traces(a)
     if name == "registry__get_related_artifacts":
-        artifact(a["artifact_id"])
-        return {"items": WORLD["edges"].get(a["artifact_id"], [])}
+        found = artifact(a["artifact_id"])
+        # Edges this session wrote read back beside the fixture's, from either end.
+        written = [{"rel_type": e["rel_type"], "direction": "outgoing" if e["from_id"] == found["id"] else "incoming",
+                    "artifact_id": e["to_id"] if e["from_id"] == found["id"] else e["from_id"],
+                    "kind": (e["to_id"] if e["from_id"] == found["id"] else e["from_id"]).split("_")[0], "is_readable": True}
+                   for e in state["edges"].values() if found["id"] in (e["from_id"], e["to_id"])]
+        # Every fixture edge is one its source kind declares, and says so as the gateway's do.
+        edges = [{"declared": True} | e for e in WORLD["edges"].get(a["artifact_id"], []) + written]
+        return {"items": [e for e in edges if "declared" not in a or e["declared"] == a["declared"]]}
     if name == "registry__get_kind_schema":
         if a["kind"] not in WORLD["kinds"]:
             raise Refusal(404, "not_found", f"No registered kind {a['kind']!r}.")
         return WORLD["kinds"][a["kind"]]
     if name == "registry__get_file_content":
         return file_content(a)
+    if name == "registry__get_file_contents":
+        return file_contents(a)
+    if name == "registry__relate_artifact":
+        return relate(a)
+    if name == "registry__create_artifacts":
+        return create_many(a)
+    if name == "registry__create_artifact_linked":
+        return create_linked(a)
+    if name == "registry__retrigger_artifact_action":
+        return retrigger(a)
     if name == "registry__get_security_findings":
         return security_findings(a)
     if name in ("extension__agent__list_session_traces",):
@@ -842,6 +1045,8 @@ def dispatch(name: str, a: dict) -> dict:
         return {"items": spans[: a.get("limit", 20)], "page": {"limit": a.get("limit", 20), "total_spans": run["span_count"]}}
     if name in ANALYTICS_HANDLERS:
         return ANALYTICS_HANDLERS[name](a)
+    if name.endswith("__query_trace_stats"):
+        return trace_stats(name, a)
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
@@ -985,9 +1190,10 @@ ANALYTICS_HANDLERS = {"extension__metric__search_metrics": search_metrics, "exte
 
 def security_findings(a: dict) -> dict:
     """`get_security_findings`, as the registry answers it: the fixture's findings for a scanned
-    artifact, and `not_scanned` with no findings for any other one the caller can see."""
+    artifact, and `not_scanned` with no findings for any other one the caller can see, or one
+    whose scan is stuck."""
     found = artifact(a["artifact_id"])
-    if found["id"] in WORLD["findings"]:
+    if found["id"] in WORLD["findings"] and found["id"] not in NOT_SCANNED:
         return WORLD["findings"][found["id"]]
     return {"artifact_id": found["id"], "artifact_status": found.get("artifact_status"), "scan_status": "not_scanned",
             "counts": {"gating": 0, "total": 0}, "findings": [], "truncated": False,
@@ -1002,6 +1208,89 @@ def visible_run(name: str, a: dict) -> dict:
     if not run or (name.startswith("extension") and scope not in (run["subject_id"], run.get("session_id"))):
         raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
     return run
+
+
+STATS_DAYS = 60
+# What the emulator can count; any other measure the schema allows has no value in a window, as
+# `cost` has none on the gateway when no cost was stored.
+STATS_COUNTS = ("traces", "sessions", "skill_invocations")
+
+
+def trace_stats(name: str, a: dict) -> dict:
+    """Run statistics for one skill, agent or harness, in the trace engine's envelope: `scalar`
+    results, a `table` of rows by one dimension, or a `time_series` of day or week buckets. The
+    world's `usage` gives each subject its runs a day over the sixty days before now, so a window
+    counted from the wrong year holds nothing, as it would on the gateway."""
+    subject = a.get("skill_id") or a.get("subject_id")
+    prefixes = ("skill_",) if "__skill__" in name else ("agent_", "harness_")
+    if not subject:
+        raise Refusal(400, "invalid_arguments", "give `skill_id` or `subject_id`")
+    if not subject.startswith(prefixes) or subject not in artifacts():
+        raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+    q = a.get("query") or {}
+    missing = [k for k in ("start_time_unix_seconds", "end_time_unix_seconds", "request_type", "queries") if k not in q]
+    if missing:
+        raise Refusal(400, "invalid_arguments", f"`query` is missing {', '.join(missing)}")
+    start, end, shape = q["start_time_unix_seconds"], q["end_time_unix_seconds"], q["request_type"]
+    if end <= start:
+        raise Refusal(400, "invalid_arguments", "`end_time_unix_seconds` must be after `start_time_unix_seconds`")
+    if shape == "time_series" and q.get("bucket") not in ("day", "week"):
+        raise Refusal(400, "invalid_arguments", "`bucket` is required for `time_series`")
+    used = WORLD.get("usage", {}).get(subject, {})
+    now = int(time.time())
+
+    def runs(lo: int, hi: int, share: float = 1.0) -> float:
+        held = max(0, min(hi, now) - max(lo, now - STATS_DAYS * 86400))
+        return float(round(used.get("runs_per_day", 0) * share * held / 86400))
+
+    def value(measure: str, lo: int, hi: int, share: float = 1.0) -> float | None:
+        count = runs(lo, hi, share)
+        every = used.get("error_every", 0)
+        failed = count // every if every else 0.0
+        if measure in STATS_COUNTS:
+            return count
+        if measure in ("active_users", "active_visitors"):
+            people = used.get("visitors" if measure == "active_visitors" else "users", 0)
+            return float(min(people, count))
+        if measure in ("error_rate", "success_rate"):
+            rate = failed / count if count else None
+            return rate if rate is None or measure == "error_rate" else 1 - rate
+        return None
+
+    def data(lo: int, hi: int) -> dict:
+        if shape == "scalar":
+            return {"request_type": shape, "results": [
+                {"query_name": query["name"], "measure": query["measure"]} | present(value(query["measure"], lo, hi))
+                for query in q["queries"]]}
+        if shape == "time_series":
+            width = 86400 * (7 if q["bucket"] == "week" else 1)
+            return {"request_type": shape, "series": [
+                {"query_name": query["name"], "measure": query["measure"], "points": [
+                    {"timestamp_unix_seconds": at} | present(value(query["measure"], at, min(at + width, hi)))
+                    for at in range(lo, hi, width)]}
+                for query in q["queries"]]}
+        dims = (q["queries"][0].get("group_by") or [None])[0]
+        groups = used.get("by", {}).get(dims, {}) if dims else {"": used.get("runs_per_day", 0)}
+        total = sum(groups.values()) or 1
+        return {"request_type": shape,
+                "columns": ([{"name": dims, "column_type": "group"}] if dims else [])
+                + [{"name": query["name"], "column_type": "measure"} for query in q["queries"]],
+                "rows": [{"groups": {dims: key} if dims else {},
+                          "values": {query["name"]: value(query["measure"], lo, hi, part / total) for query in q["queries"]}}
+                         for key, part in groups.items()]}
+
+    out = {"data": data(start, end),
+           "meta": {"warnings": [], "window": {"start_time_unix_seconds": start, "end_time_unix_seconds": end},
+                    "as_of_unix_seconds": now}}
+    if q.get("compare") == "previous_period":
+        before = start - (end - start)
+        out["comparison"] = {"start_time_unix_seconds": before, "end_time_unix_seconds": start, "data": data(before, start)}
+    return out
+
+
+def present(value: float | None) -> dict:
+    """A statistics value as the trace engine sends it: left out when the window has none."""
+    return {} if value is None else {"value": value}
 
 
 def list_traces(a: dict) -> dict:
@@ -1136,6 +1425,8 @@ def publish_output(a: dict) -> dict:
         raise Refusal(400, "invalid_arguments", "give exactly one of `file` (text to store), `file_pin` (bytes already "
                       "uploaded) or `external_url` (a link)")
     key = (workspace, a["source_type"], a["source_id"])
+    if a.get("dry_run"):
+        return dry_run("output", meta | {"source_type": key[1], "source_id": key[2]}, inline_file="file" in a)
 
     def holder(kind: str) -> dict | None:
         return next((i for i in artifacts().values() if i["kind"] == kind
@@ -1303,7 +1594,7 @@ def handle(msg: dict) -> dict | None:
     if method == "initialize":
         version = (msg.get("params") or {}).get("protocolVersion", "2025-06-18")
         return {"jsonrpc": "2.0", "id": rid, "result": {"protocolVersion": version, "capabilities": {"tools": {}},
-                "serverInfo": {"name": "atlan-eval-emulator", "version": "1"}}}
+                "serverInfo": {"name": "atlan-eval-emulator", "version": "1"}, "instructions": INSTRUCTIONS}}
     if method == "tools/list":
         tools = [] if SIGNED_OUT else CATALOG_TOOLS if CATALOG else listed_tools()
         return {"jsonrpc": "2.0", "id": rid, "result": {"tools": tools}}

@@ -3,7 +3,7 @@ name: native-snowflake-history-denied
 tags: [analytics, metrics, snowflake]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     The snowflake-direct native history read was refused: our role cannot SELECT from
     SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY. Does that mean there were no queries?
     Explain the result and the available next step. Do not execute tools against the

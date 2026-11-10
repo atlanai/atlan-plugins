@@ -1,6 +1,6 @@
 ---
 name: atlan-author-knowledge
-description: Create or edit a knowledge bundle in Atlan, the curated Markdown agents read, such as a glossary, table docs or runbooks. Use when turning notes into Atlan knowledge or changing a term. Not for metric definitions (atlan-analytics).
+description: Create or edit a knowledge bundle in Atlan, the curated Markdown agents read, such as a glossary, table docs or runbooks. Use when turning notes into Atlan knowledge or changing a term. Not for metric definitions (analytics-build).
 license: Apache-2.0
 ---
 
@@ -15,7 +15,7 @@ together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the h
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for. Ask before every write.
+a failed call, a limit, a source key or full mode. Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried. Ask before every write.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -27,9 +27,9 @@ knowledge app and an admin can install it. Do not record the bundle as a generic
 artifact in its place.
 
 A metric's definition of record is the `metric` and its saved SQL that the Analytics add-on's
-`atlan-analytics` publishes, not a bundle. A bundle may explain a metric in prose for agents, with
+`analytics-build` publishes, not a bundle. A bundle may explain a metric in prose for agents, with
 `resource` pointing at the published metric, but never restates its calculation; when the user
-wants to define or change a metric, use `atlan-analytics`, or say the Analytics add-on does it.
+wants to define or change a metric, use `analytics-build`, or say the Analytics add-on does it.
 
 Follow [the knowledge workflow](references/author.md) for creation, reading and editing.
 Load only the references that procedure calls for.

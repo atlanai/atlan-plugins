@@ -17,7 +17,7 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 // Files that hold credentials by design: keys, dotenv, package-registry and machine logins, and
 // Terraform variables and state.
 export const KEY_FILES =
-  /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)/
+  /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)/i
 // A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
 // `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
 const NOT_SECRET = '[$<{*%]|(?:synthetic|example|dummy|fake|placeholder|changeme|redacted|your)'
@@ -83,6 +83,18 @@ function emojiBase(cp: number): boolean {
     (cp >= 0x25a0 && cp <= 0x25ff) ||
     [0x00a9, 0x00ae, 0x203c, 0x2049, 0x2934, 0x2935, 0x3030, 0x303d, 0x3297, 0x3299].includes(cp)
   )
+}
+
+/** Every credential shape in `text`, as [line, column, kind], in the order check_bundle.py finds them. */
+export function credentials(text: string, cps: readonly number[] = Array.from(text, c => c.codePointAt(0) as number)): [number, number, string][] {
+  const found: [number, number, string][] = []
+  for (const [kind, pattern] of SECRETS) {
+    for (const match of text.matchAll(pattern)) {
+      const [line, column] = position(cps, codePointIndex(text, match.index ?? 0))
+      found.push([line, column, kind])
+    }
+  }
+  return found
 }
 
 /** Every character in `cps` a reader cannot see, as [index, rule, what to do]. */
@@ -403,12 +415,7 @@ export function check(folders: readonly { label: string; entries: readonly Entry
         const [line, column] = position(cps, index)
         problems.push(problem(where, rule, fix, line, column))
       }
-      for (const [kind, pattern] of SECRETS) {
-        for (const match of text.matchAll(pattern)) {
-          const [line, column] = position(cps, codePointIndex(text, match.index ?? 0))
-          problems.push(problem(where, 'credential', `matches the ${kind} pattern; remove it`, line, column))
-        }
-      }
+      for (const [line, column, kind] of credentials(text, cps)) problems.push(problem(where, 'credential', `matches the ${kind} pattern; remove it`, line, column))
       if (entry.path === 'SKILL.md') {
         const keys = frontmatter(text)
         if (keys === undefined) {

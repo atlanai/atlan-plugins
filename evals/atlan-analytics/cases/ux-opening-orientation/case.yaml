@@ -13,7 +13,7 @@ graders:
   - name: uses-analytics-skill
     type: tool_used
     tool: Skill
-    input_match: 'atlan-analytics'
+    input_match: 'analytics-build'
   - name: orientation-and-control
     type: llm
     focus: last_message

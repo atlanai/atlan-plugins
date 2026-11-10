@@ -3,7 +3,7 @@ name: metrics-card-repair
 tags: [analytics, metrics, quality]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     A parse-only metric draft has formula COUNT(CASE WHEN COUNT(*) > 0 THEN 1 END).
     The source row expression was accidentally replaced by an outer aggregate with the same
     alias. The workspace is selected and saving is authorized. Explain the next step without

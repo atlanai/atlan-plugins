@@ -1,0 +1,11 @@
+interface:
+  display_name: "Source Survey"
+  short_description: "See what dashboards, query history and data a source holds"
+  default_prompt: "Use $source-survey to tell me what this folder's dashboards and queries cover."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

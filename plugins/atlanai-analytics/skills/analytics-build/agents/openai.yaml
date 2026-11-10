@@ -1,0 +1,11 @@
+interface:
+  display_name: "Atlan Analytics"
+  short_description: "Set up analytics on your own data, step by step"
+  default_prompt: "Use $analytics-build to set up this project so I can ask questions about its data."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
