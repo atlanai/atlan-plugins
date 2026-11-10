@@ -34,7 +34,7 @@ Before previewing the plan, follow [existing-work reconciliation](reconciliation
 its review requests and preserve coverage limitations in the handoff, including when the
 final plan reuses every artifact. A reusable total does not imply every proposed cut is covered.
 
-For setup runs, first show the full first-metric block from
+For setup runs, show the completed-collection review from
 [the presentation flow](../setup/presentation.md) if it has not been displayed. A file link, tool result or counts alone
 does not count. This also applies when every artifact is being reused; no extra approval
 is required for read-only reuse. Show changed definitions again after reconciliation.

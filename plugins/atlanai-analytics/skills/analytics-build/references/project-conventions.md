@@ -150,8 +150,8 @@ Use the single run index and recovery commands in [dashboard](dashboard.md).
 
 ## Talking to the user
 
-- Keep raw logs in files. Follow the shared setup presentation for the full first metric,
-  worked example, chat progress and ready handoff.
+- Keep raw logs in files. Follow the shared setup presentation for the completed-collection review,
+  chat progress and ready handoff.
 - Run long local jobs (a large query-history pull) with Bash `run_in_background: true`, and check the
   files on disk before trusting a completion notice.
 - For big authoring jobs (the metrics engine authored gates, many saved queries), split the work into chunks

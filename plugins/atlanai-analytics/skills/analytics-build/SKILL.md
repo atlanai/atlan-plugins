@@ -9,7 +9,7 @@ For workspace access or creation questions, follow [workspace help](references/s
 and return. This includes explanation-only requests; do not start source inspection or publication.
 
 For setup, follow [one presentation flow](references/setup/presentation.md): the full
-welcome, visible step tracker, first-metric definition and example, context-built
+welcome, visible step tracker, completed-collection review, context-built
 celebration and ready block. Read each moment's file when reached; do not replace it
 with a compact status update.
 Attribute saved checks to the earlier run. After publication, answers retrieve definitions before SQL runs.
@@ -35,9 +35,9 @@ packaged-runtime initialization and generated-file reads as ordinary task steps.
 publication destination is chosen for saving metrics, show the checked plan and publish only
 after the user approves that concrete plan. Respect explicit draft/review requests.
 For new metric generation (metrics mode, or a setup run's Build stage), read
-[the metrics module](references/metrics-engine.md), also to explain it. The first metric,
-the complete collection, demos and local-only setup all use this engine. Dispatch before
-mode-specific project conventions or preflight. A
+[the metrics module](references/metrics-engine.md), also to explain it. Demos, local-only
+setup and full builds all use this engine for the complete selected collection. Dispatch
+before mode-specific project conventions or preflight. A
 repository setup is not a full-agent build. Cloning a source repository the user asks to set
 up is a separate, supported task.
 
@@ -66,7 +66,7 @@ sources could help the person analyse. An inventory followed by option labels al
 not explain their value. Follow the [intent flow](references/setup/intent.md): business focus
 first, purpose second, using native choices and waiting for each missing answer.
 Use the demo's preset intent when a demo was chosen; otherwise resolve missing intent.
-Then follow the presentation flow's full first-metric block before a destination question
+Then follow the presentation flow's completed-collection review before a destination question
 or publication/reuse. Read evidence with `project.py experience --format json`, adding
 `--engine-dir <within-run-engine>` during engine work; `--detail` exposes SQL and checks.
 The block applies on resume and reuse as well. A plan-only request needs no preview.

@@ -25,8 +25,7 @@ All setup uses [one presentation flow](setup/presentation.md), with actual sourc
 
 Explain the outcome, next action and controls. For example: "I'll turn
 these dashboards and query history into metrics you can question here. First I'll check the
-sources, ask what matters to you and what you want to accomplish, then show the first metric's
-rule and a worked example. I'll show the six steps and where your choices matter. You can narrow the scope, inspect details, keep
+sources, ask what matters to you and what you want to accomplish, then build and check the selected collection before reviewing its results. I'll show the six steps and where your choices matter. You can narrow the scope, inspect details, keep
 drafts local or pause." Continue authorized work without another go-ahead. On resume, state the saved result
 and next action instead of repeating the introduction.
 
@@ -60,11 +59,12 @@ run whose candidates were never shown in chat starts at Preview.
 | A long helper run or a heartbeat | [progress and presentation](setup/progress.md) |
 | The person asks for a visual view | [a view on request](setup/render.md) |
 
-## Preview first, in this reply
+## Review the completed collection
 
 **Visible preview is a required conversation step.** Before a destination question or
-publication/reuse, show the full [first-metric block](setup/demo-first-metric.md), using
-the [presentation flow](setup/presentation.md) for the selected source. Tool output, counts and a
+publication/reuse, show the completed-collection review through
+the [presentation flow](setup/presentation.md), including actual counts and one relevant
+metric's rule, source and check status. Tool output, counts and a
 file link alone do not satisfy this step. This applies on resume and reuse, and adds no
 approval prompt. A plan-only request needs no generated preview.
 
@@ -87,7 +87,7 @@ file tool and show them directly. If the path is missing, name that one missing 
 
 ## Presentation and stopping point
 
-Follow [one presentation flow](setup/presentation.md) through the first metric,
+Follow [one presentation flow](setup/presentation.md) through the collection review,
 celebration and ready handoff. Explain material reconciled definition or count changes
 with their actual check status. Details-only requests end at their evidence; they are
 not completion handoffs and need no question suggestions or publication pitch.

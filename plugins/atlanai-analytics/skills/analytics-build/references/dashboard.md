@@ -1,7 +1,7 @@
 # Dashboard projects and saved jobs
 
 All metric generation follows [dashboard through the metrics module](dashboard-agent.md).
-This includes source compilation, the first-card preview, the complete collection, demos and
+This includes source compilation, the complete collection, demos and
 local files. The standalone dashboard translator and context generator have been removed.
 
 The dashboard helper retains source inspection and saved-job readback. Use `DASH status`
@@ -15,7 +15,7 @@ for reconciliation, authorization, release and readback. Local previews stay pro
 For independent agent evaluations, follow [eval-set creation](build/04-eval-set.md) and
 [agent setup](build/05-agent.md). Keep independent gold outside generation and distinguish
 SQL execution, dashboard parity and answering accuracy. Use the shared [presentation flow](setup/presentation.md)
-for the full first metric, progress and ready handoff.
+for the collection review, progress and ready handoff.
 
 Subsequent questions use `analytics-ask`, complete released definitions and fresh
 read-only execution. Existing saved legacy results remain evidence about their recorded
