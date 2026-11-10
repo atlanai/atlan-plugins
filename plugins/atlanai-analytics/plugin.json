@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics and explicit agent workflows.",
   "author": {
     "name": "Atlan",

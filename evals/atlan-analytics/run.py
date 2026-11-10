@@ -16,6 +16,7 @@ says.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import shutil
 import subprocess
@@ -32,7 +33,7 @@ SERVER = "atlan"
 TOOLS = f"mcp__plugin_{PLUGIN}_{SERVER}__*"
 
 sys.path.insert(0, str(ROOT / "evals" / "atlan"))
-from run import judge, summarize  # noqa: E402
+from run import case_filters, judge, summarize, without_case_filters  # noqa: E402
 
 
 def main() -> int:
@@ -55,13 +56,21 @@ def main() -> int:
         server = {"type": "stdio", "command": sys.executable, "args": [str(EMULATOR)],
                   "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), "ATLAN_EMULATOR_ANALYTICS": "1"}}
         (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n", encoding="utf-8")
-        shutil.copytree(HERE / "cases", plugin / "evals")
+        # `--case <glob>`, repeated, picks the cases to run, as in evals/atlan/run.py.
+        wanted = case_filters(args.extra)
+        cases = [case for case in sorted((HERE / "cases").iterdir()) if case.is_dir()
+                 and (not wanted or any(fnmatch.fnmatchcase(case.name, pattern) for pattern in wanted))]
+        if not cases:
+            print("no case matches", file=sys.stderr)
+            return 2
+        for case in cases:
+            shutil.copytree(case, plugin / "evals" / case.name)
         command = [
             "claude", "plugin", "eval", str(plugin),
             "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write",
             "--ablation", "none", "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *judge(args.extra), *args.extra,
+            "--output-dir", str(out), *judge(args.extra), *without_case_filters(args.extra),
         ]
         print("+", " ".join(command), flush=True)
         code = subprocess.run(command, check=False).returncode

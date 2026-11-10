@@ -1,6 +1,6 @@
 ---
 name: analytics-ask
-description: Answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (analytics-build).
+description: "Atlan Analytics Ask: answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (analytics-build)."
 ---
 
 # Answer a data question from managed context

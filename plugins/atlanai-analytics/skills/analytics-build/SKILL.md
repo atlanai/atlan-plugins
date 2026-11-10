@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Set up analytics and answer workspace questions. Use for Atlan workspace access/creation, including explanation-only requests; BI sources, metrics, setup, resume, handoff or analytics agents. Not for data questions (analytics-ask).
+description: "Atlan Analytics: set up analytics and answer workspace questions. Use for Atlan workspace access/creation, including explanation-only requests; BI sources, metrics, setup, resume, handoff or analytics agents. Not for data questions (analytics-ask)."
 ---
 
 # Analytics context and talk-to-data
