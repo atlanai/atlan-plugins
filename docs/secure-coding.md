@@ -17,8 +17,7 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
 ## Follow these patterns
 
 - **One HTTPS endpoint, from one source.** The MCP URL is `[mcp] url` in `plugin.toml`, and
-  `tools/build.py` refuses any URL that is not `https://`, including a variant's `[rewrite]`
-  URLs (`validate` and `load_variant`).
+  `tools/build.py` refuses any URL that is not `https://` (`validate`).
 - **Publish only to the Atlan server.** The command hook refuses `extension__skill__create` on any
   other server: `is_atlan_server` and `guard` in `plugins/atlanai/command-hooks/publish_hook.py`
   require HTTPS, an `atlan.com` host or subdomain, the `/mcp` path, no URL credentials or

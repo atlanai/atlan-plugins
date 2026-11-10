@@ -5,7 +5,7 @@ skills, commands and agents, and the manifests that describe them) plus the stan
 Python tools that build and check it. There is no service code here.
 
 [AGENTS.md](AGENTS.md) is the full rulebook: the layout, what is generated,
-variants and releases. Coding agents read it too. This page covers what you need to send a
+environments and releases. Coding agents read it too. This page covers what you need to send a
 first pull request.
 
 ## Ways to help

@@ -3,7 +3,6 @@
 
     python3 tools/build.py           # write the generated files
     python3 tools/build.py --check   # exit 1 if any generated file differs from plugin.toml
-    python3 tools/build.py --variant variant.toml --out DIR [--check]
     python3 tools/build.py --codex-directory DIR      # the core as a hookless package for OpenAI's directory
 
 Each tool reads a different file, so the same facts are written several times. Keeping one source
@@ -18,11 +17,9 @@ Claude Code treats the core's tools; it is listed in the Claude marketplace alon
 host loads a hooks module. Every plugin folder gets the listing logo and the LICENSE copied in,
 because a plugin cannot point outside its own folder.
 
-A variant is this marketplace under another name and endpoint, published from another repository:
-its TOML file overrides `[plugin]`, `[marketplace]` and `[mcp]` fields and lists `[rewrite]` pairs
-for the skills' text. `--variant` writes it into DIR: the marketplace files, and every plugin folder
-renamed after the variant, with the URLs, the plugins' names and the repository rewritten. This
-repository holds no variant of its own.
+Every file here names production (`https://api.atlan.com`, `https://app.atlan.com`). Another
+environment is served by that environment's gateway, which vendors the core at a pinned commit and
+writes its own name, server URL and hosts on top; nothing here is built per environment.
 
 `--codex-directory` writes the core as the package OpenAI's plugin directory accepts: the portable
 manifest, `mcp.json`, the skills and the assets, with no hooks, since the directory refuses a plugin
@@ -52,9 +49,8 @@ CLAUDE_MARKETPLACE_SCHEMA = "https://code.claude.com/schemas/marketplace.json"
 NAME = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 
-# Where every plugin lives, and the trees a plugin may carry.
+# Where every plugin lives.
 PLUGINS = "plugins"
-TREES = ("skills", "commands", "agents", "modules")
 # The core's hooks, by plugin.toml key: each harness's file, and the folder it must sit in.
 HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cursor_hooks": "command-hooks"}
 # Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
@@ -70,25 +66,11 @@ ZIP_TIME = (2026, 1, 1, 0, 0, 0)
 SKILL_METADATA = "agents/openai.yaml"
 # The longest starter prompt Codex shows in full.
 PROMPT_LIMIT = 128
-# What a variant repository takes as it is, beside its plugins.
-VERBATIM = ("LICENSE",)
-# Where a variant repository held its core before plugins moved under plugins/. --variant removes
-# them, so a repository written by an older build converges.
-LEGACY = ("skills", "commands", "assets", "plugin.json", "mcp.json", ".mcp.json",
-          ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json")
-# What a variant file may set, by table.
-OVERRIDES = {
-    "plugin": ("name", "display_name", "description", "short_description", "long_description", "homepage", "repository"),
-    "marketplace": ("name", "display_name", "description"),
-    "mcp": ("url", "client"),
-}
-
-
 def load(path: Path = ROOT / "plugin.toml") -> dict:
     with path.open("rb") as handle:
         source = tomllib.load(handle)
     validate(source)
-    # Checked here, not in validate(): a variant's plugin folder does not exist in this repository.
+    # Checked here, not in validate(): it reads the plugin folder on disk.
     for key, folder in HOOK_KEYS.items():
         hooks = source["plugin"].get(key)
         if hooks and not (hooks.startswith(f"./{folder}/") and (ROOT / core_dir(source) / hooks).is_file()):
@@ -127,8 +109,7 @@ def validate(source: dict) -> None:
     names = set()
     for addon in source.get("addons", []):
         check_name(addon["name"], "addons.name")
-        # The core's name as a prefix keeps an add-on beside its core in every plugin list, and
-        # is how a variant renames it.
+        # The core's name as a prefix keeps an add-on beside its core in every plugin list.
         if not addon["name"].startswith(f"{plugin['name']}-"):
             raise SystemExit(f"add-on {addon['name']!r} must be named {plugin['name']}-<workload>")
         if addon["name"] in names:
@@ -157,49 +138,6 @@ def validate(source: dict) -> None:
             raise SystemExit(f"[skills.{name}] needs exactly display_name, short_description and prompt")
         if f"${name}" not in entry["prompt"] or len(entry["prompt"]) > PROMPT_LIMIT:
             raise SystemExit(f"[skills.{name}] prompt must name ${name} in at most {PROMPT_LIMIT} characters")
-
-
-def load_variant(path: Path, source: dict) -> dict:
-    with path.open("rb") as handle:
-        overrides = tomllib.load(handle)
-    return make_variant(source, overrides)
-
-
-def make_variant(source: dict, overrides: dict) -> dict:
-    """The source with a variant file's overrides applied, checked against the source."""
-    variant = copy.deepcopy(source)
-    for table, fields in OVERRIDES.items():
-        unknown = set(overrides.get(table, {})) - set(fields)
-        if unknown:
-            raise SystemExit(f"variant [{table}] cannot set {', '.join(sorted(unknown))}")
-        variant[table].update(overrides.get(table, {}))
-    variant["rewrite"] = dict(overrides.get("rewrite", {}))
-    # A mod matches the production plugin's server names, so a variant does not carry one yet.
-    variant.pop("mods", None)
-    # So does the core's hooks module: the variant's plugin folder gets no claude-hooks/.
-    for key in HOOK_KEYS:
-        variant["plugin"].pop(key, None)
-    variant["keep"] = list(overrides.get("keep", []))
-    # Each add-on follows its core: atlanai-analytics becomes <variant>-analytics.
-    main, other = source["plugin"], variant["plugin"]
-    for addon in variant.get("addons", []):
-        # Variants omit Claude mods, so they must not reference production companions.
-        addon.pop("claude_companions", None)
-        addon["name"] = other["name"] + addon["name"].removeprefix(main["name"])
-        # The add-on's label carries the variant's, so a variant installed beside these plugins
-        # never shows two add-ons under one name.
-        if addon["display_name"].startswith(main["display_name"]):
-            addon["display_name"] = other["display_name"] + addon["display_name"].removeprefix(main["display_name"])
-        elif other["display_name"] != main["display_name"]:
-            addon["display_name"] = f"{other['display_name']} {addon['display_name']}"
-    validate(variant)
-    if variant["plugin"]["name"] == source["plugin"]["name"]:
-        raise SystemExit("a variant needs its own plugin name, or its commands collide with this one's")
-    if variant["marketplace"]["name"] == source["marketplace"]["name"]:
-        raise SystemExit("a variant needs its own marketplace name, so both can be added on one machine")
-    if not all(url.startswith("https://") for pair in variant["rewrite"].items() for url in pair):
-        raise SystemExit("every variant [rewrite] URL must be https")
-    return variant
 
 
 def core_dir(source: dict) -> str:
@@ -440,17 +378,17 @@ dependencies:
 """
 
 
-def skill_files(source: dict, target: dict) -> dict[str, str]:
-    """Every skill's Codex metadata for `target`, by path. The skills are the folders in this
-    repository's plugins; each needs a [skills.<name>] entry, and each entry a skill."""
+def skill_files(source: dict) -> dict[str, str]:
+    """Every skill's Codex metadata, by path. The skills are the folders in this repository's
+    plugins; each needs a [skills.<name>] entry, and each entry a skill."""
     files, listed = {}, set()
-    for ours, theirs in zip(plugin_dirs(source), plugin_dirs(target)):
-        for skill in sorted(path.parent.name for path in (ROOT / ours / "skills").glob("*/SKILL.md")):
-            if skill not in target.get("skills", {}):
-                raise SystemExit(f"plugin.toml has no [skills.{skill}] for {ours}/skills/{skill}")
+    for folder in plugin_dirs(source):
+        for skill in sorted(path.parent.name for path in (ROOT / folder / "skills").glob("*/SKILL.md")):
+            if skill not in source.get("skills", {}):
+                raise SystemExit(f"plugin.toml has no [skills.{skill}] for {folder}/skills/{skill}")
             listed.add(skill)
-            files[f"{theirs}/skills/{skill}/{SKILL_METADATA}"] = skill_metadata(target, skill)
-    unused = set(target.get("skills", {})) - listed
+            files[f"{folder}/skills/{skill}/{SKILL_METADATA}"] = skill_metadata(source, skill)
+    unused = set(source.get("skills", {})) - listed
     if unused:
         raise SystemExit(f"plugin.toml lists skills no plugin has: {', '.join(sorted(unused))}")
     return files
@@ -673,130 +611,14 @@ def github_slug(url: str) -> str:
     return urlparse(url).path.strip("/").removesuffix(".git")
 
 
-def rewrites(source: dict, variant: dict) -> dict[str, str]:
-    """What a variant's copy replaces: its own pairs, then every way a file names the plugin."""
-    main, other = source["plugin"], variant["plugin"]
-    market, other_market = source["marketplace"]["name"], variant["marketplace"]["name"]
-    pairs = dict(variant["rewrite"])
-    names = [(main["name"], other["name"])]
-    names += [(a["name"], b["name"]) for a, b in zip(source.get("addons", []), variant.get("addons", []))]
-    for old, new in names:
-        pairs.update(
-            {
-                f"plugin:{old}:": f"plugin:{new}:",
-                f"mcp__plugin_{old}_": f"mcp__plugin_{new}_",
-                f"{old}@{market}": f"{new}@{other_market}",
-                f"plugin install {old} ": f"plugin install {new} ",
-                # The plugin named on its own in prose: "install `atlanai` first".
-                f"`{old}`": f"`{new}`",
-                f"/{old}:": f"/{new}:",
-                # A skill named for the Skill tool, as the commands name theirs: `atlanai:atlan-continue`.
-                f"`{old}:": f"`{new}:",
-            }
-        )
-    pairs.update(
-        {
-            main["repository"]: other["repository"],
-            github_slug(main["repository"]): github_slug(other["repository"]),
-        }
-    )
-    # A kept string maps to itself, so the longer match protects it from a shorter pair.
-    pairs.update({kept: kept for kept in variant["keep"]})
-    return {old: new for old, new in pairs.items() if old}
-
-
-def rewrite(text: str, pairs: dict[str, str]) -> str:
-    """Every pair at once, longest match first, so no replacement is rewritten again."""
-    if not pairs:
-        return text
-    pattern = re.compile("|".join(re.escape(old) for old in sorted(pairs, key=len, reverse=True)))
-    return pattern.sub(lambda match: pairs[match.group(0)], text)
-
-
-def variant_readme(source: dict, variant: dict, variant_file: str) -> str:
-    plugin, mcp = variant["plugin"], variant["mcp"]
-    slug, market = github_slug(plugin["repository"]), variant["marketplace"]["name"]
-    addons = variant.get("addons", [])
-    addon_lines = ""
-    if addons:
-        names = ", ".join(f"`{addon['name']}@{market}`" for addon in addons)
-        addon_lines = f"\nAdd-ons install the same way and use this plugin's connection: {names}.\n"
-    return f"""# {plugin['display_name']}
-
-{plugin['long_description']}
-
-## Install
-
-Claude Code:
-
-```
-/plugin marketplace add {slug}
-/plugin install {plugin['name']}@{market}
-```
-
-Codex:
-
-```
-codex plugin marketplace add {slug}
-codex plugin add {plugin['name']}@{market}
-```
-
-Then sign in. In Claude Code, run `/mcp`, choose `plugin:{plugin['name']}:{mcp['server']}` and
-**Authenticate**. In Codex, run `codex mcp login {mcp['server']}`. The server is `{mcp['url']}`.
-{addon_lines}
-## Where this comes from
-
-The plugin's files are generated by `tools/build.py --variant` from
-{source['plugin']['repository']}. Change the skills and commands there. Change this
-plugin's name and endpoints in `{variant_file}`, the one plugin file written by hand.
-"""
-
 
 def plugin_dirs(source: dict) -> list[str]:
     """Every plugin folder, the core first."""
     return [core_dir(source), *(addon_dir(addon) for addon in source.get("addons", []))]
 
 
-def variant_sources(base):
-    """Authored plugin trees, excluding caches and generated engine test estates."""
-    return [p for top in TREES for p in sorted((base / top).rglob("*"))
-            if p.is_file() and "__pycache__" not in p.parts
-            and p.suffix not in (".pyc", ".pyo")
-            and not any(part in (".pytest_cache", "build", "dist", ".venv", "venv", ".git", ".mypy_cache", ".ruff_cache")
-                        or part.endswith(".egg-info") for part in p.relative_to(base).parts)
-            and "modules/metrics/engine/tests/fixtures/generated/" not in p.relative_to(base).as_posix()]
-
-
-def variant_files(source: dict, variant: dict, variant_file: str) -> dict[str, str]:
-    """Every file of a variant, by path inside its repository."""
-    texts = {path: render(document) for path, document in outputs(variant).items()}
-    texts.update(plugin_assets(variant))
-    pairs = rewrites(source, variant)
-    for ours, theirs in zip(plugin_dirs(source), plugin_dirs(variant)):
-        base = ROOT / ours
-        copied = variant_sources(base)
-        for path in copied:
-            # Module source is environment-neutral package code. Variant renaming applies
-            # to customer-facing skills, not Python packages or their test fixtures.
-            content = path.read_text(encoding="utf-8")
-            texts[f"{theirs}/{path.relative_to(base).as_posix()}"] = content if "modules" in path.relative_to(base).parts else rewrite(content, pairs)
-        if ours == core_dir(source):
-            # The core's README is written by hand; its title is the plugin's display name.
-            readme = (base / "README.md").read_text(encoding="utf-8")
-            title = f"# {source['plugin']['display_name']}\n"
-            if readme.startswith(title):
-                readme = f"# {variant['plugin']['display_name']}\n" + readme.removeprefix(title)
-            texts[f"{theirs}/README.md"] = rewrite(readme, pairs)
-    # After the copies, so the variant's own server URL wins over the rewritten one.
-    texts.update(skill_files(source, variant))
-    for relative in VERBATIM:
-        texts[relative] = (ROOT / relative).read_text(encoding="utf-8")
-    texts["README.md"] = variant_readme(source, variant, variant_file)
-    return texts
-
-
-def sync(texts: dict[str, str], root: Path, check: bool, owned: tuple[str, ...] = ()) -> list[str]:
-    """Write `texts` under `root`, or list what differs. Files at or under `owned` not in `texts` are stale."""
+def sync(texts: dict[str, str], root: Path, check: bool) -> list[str]:
+    """Write `texts` under `root`, or list what differs."""
     drift = []
     for relative, text in texts.items():
         path = root / relative
@@ -809,58 +631,35 @@ def sync(texts: dict[str, str], root: Path, check: bool, owned: tuple[str, ...] 
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         print(f"wrote {relative}")
-    for top in owned:
-        paths = [root / top] if (root / top).is_file() else sorted(p for p in (root / top).rglob("*") if p.is_file())
-        for path in paths:
-            relative = path.relative_to(root).as_posix()
-            if relative in texts:
-                continue
-            if check:
-                drift.append(relative)
-                continue
-            path.unlink()
-            print(f"removed {relative}")
     return drift
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="fail on drift instead of writing")
-    parser.add_argument("--variant", type=Path, help="a variant file: write that variant instead")
-    parser.add_argument("--out", type=Path, help="with --variant: the variant repository's root")
     parser.add_argument("--codex-directory", type=Path, metavar="DIR",
                         help="write the core as a hookless package for OpenAI's plugin directory into DIR")
     args = parser.parse_args(argv)
 
     source = load()
     if args.codex_directory:
-        if args.variant or args.check:
+        if args.check:
             parser.error("--codex-directory takes no other option")
         texts = {path: render(document) for path, document in outputs(source).items()}
         texts.update(plugin_assets(source))
-        texts.update(skill_files(source, source))
+        texts.update(skill_files(source))
         if sync(texts, ROOT, check=True):
             raise SystemExit("generated files are out of date; run python3 tools/build.py first")
         print(f"wrote {write_directory(source, args.codex_directory)}")
         for gap in directory_gaps(source):
             print(f"the directory listing also asks for {gap}, which plugin.toml does not set", file=sys.stderr)
         return 0
-    if args.variant:
-        if not args.out:
-            parser.error("--variant needs --out")
-        if args.out.resolve() == ROOT:
-            parser.error("--out must be the variant's own repository, not this one")
-        variant = load_variant(args.variant, source)
-        texts = variant_files(source, variant, args.variant.name)
-        drift = sync(texts, args.out, args.check, owned=(PLUGINS, *LEGACY))
-        target = f"python3 tools/build.py --variant {args.variant} --out {args.out}"
-    else:
-        texts = {path: render(document) for path, document in outputs(source).items()}
-        texts.update(plugin_assets(source))
-        texts.update(skill_files(source, source))
-        texts.update(hook_fixtures(source))
-        drift = sync(texts, ROOT, args.check)
-        target = "python3 tools/build.py"
+    texts = {path: render(document) for path, document in outputs(source).items()}
+    texts.update(plugin_assets(source))
+    texts.update(skill_files(source))
+    texts.update(hook_fixtures(source))
+    drift = sync(texts, ROOT, args.check)
+    target = "python3 tools/build.py"
 
     if drift:
         print(f"generated files differ from their source; run {target}:", file=sys.stderr)
