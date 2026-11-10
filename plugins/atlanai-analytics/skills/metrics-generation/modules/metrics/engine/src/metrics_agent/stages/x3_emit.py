@@ -379,9 +379,11 @@ def _unqualified(text: str) -> list[str]:
 
 
 def _statement_tables(metric: dict, stmts: dict) -> set[str]:
-    """The tables the metric's own statements read, lower-cased as they are written there."""
-    return {str(t).lower() for s in (metric.get("sources") or []) if isinstance(s, dict)
+    """The tables the metric's own statements read, lower-cased, by every name SQL resolves them
+    by: the full name and its trailing SCHEMA.TABLE (`site.projects` for SITE.SITE.PROJECTS)."""
+    full = {str(t).lower() for s in (metric.get("sources") or []) if isinstance(s, dict)
             for t in ((stmts.get(s.get("vq_id")) or {}).get("tables") or [])}
+    return full | {".".join(t.split(".")[-2:]) for t in full if t.count(".") >= 2}
 
 
 _MARKER = re.compile(r"\{\{\s*([A-Za-z_]\w*)\s*\}\}")

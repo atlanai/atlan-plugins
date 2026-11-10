@@ -53,9 +53,11 @@ welcome block whole before any other tool call, then ask "Ready to build?" as
 After "Start building", show the tracker, then do all of step 1's work:
 
 1. **Download.** The checkout is `<folder>/analytics-agent-accelerator`, the path the welcome
-   named. Reuse it when its origin is https://github.com/atlanai/analytics-agent-accelerator;
-   otherwise `git clone --depth 1` there. Never search other folders or the home directory
-   for a copy. Without git, ask the person to download the repository into that path.
+   named. Reuse it when its origin is https://github.com/atlanai/analytics-agent-accelerator,
+   after `git -C <checkout> pull --ff-only` so the demo is the published one; if it cannot
+   fast-forward, say so and ask before using it. Otherwise `git clone --depth 1` there. Never
+   search other folders or the home directory for a copy. Without git, ask the person to
+   download the repository into that path.
 2. **Read the sources.** Start a new setup run and inspect only the demo's source folder,
    with [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
    the person had asked to set up that folder from scratch.
