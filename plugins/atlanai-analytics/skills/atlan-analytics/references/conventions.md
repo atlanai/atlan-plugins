@@ -55,8 +55,8 @@ than choosing silently.
 - Read the user-selected source and generated project files as part of the task, without
   asking conversational permission to open each file. Keep host filesystem permissions intact.
 - Resolve publication intent and target once. A request to create/save metrics in the selected
-  workspace authorizes in-scope creates and source links. Show the checked plan as a concise
-  progress update and continue. Do not require another "publish please" after that decision.
+  workspace sets the target; it does not approve a plan. Show the checked plan's counts, target
+  and revisions, and write only after the user approves that concrete plan.
 - A draft-only or preview-only request never authorizes publication. Ask when the destination
   is unknown, an existing definition would change without authorization, or source/target scope
   changes. Manual review remains available when requested. Never archive or rename an artifact.

@@ -57,12 +57,13 @@ multiple selected assets. It reads the checked plan and all three body files, co
 from checked actions and returns a plan ID bound to those exact bodies, source identities and
 target. Record that ID only when the user approves this concrete plan. The helper returns:
 
-- `continue`: this publication is the requested outcome in the selected workspace, or this
-  exact plan was already approved. State the counts and target, then write without waiting
-  for a second yes.
+- `continue`: the user approved this exact plan. State the counts and target, then write.
 - `deferred`: the person requested drafts or a preview. Save the preview and stop.
-- `needs_context` or `needs_confirmation`: resolve the named missing target, changed scope,
-  unauthorized revision or explicit manual-review checkpoint once, then record the decision.
+- `needs_context`: resolve the named missing target, changed scope or unauthorized revision
+  once, then record the decision.
+- `needs_confirmation`: show the counts, target and every revision, ask once, and record the
+  plan ID in `approved_plans` only on a yes. A request to publish is not approval of a plan
+  the user has not seen.
 
 A checked plan is not authorization by itself. The source and workspace must match the trusted
 conversation record. If the person drops items, rerun `MINE check` and keep the new plan within
