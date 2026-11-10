@@ -1,6 +1,6 @@
 ---
 name: analytics-demo
-description: Run a guided analytics demo on sample data, with context built end to end, questions, a dashboard, a rule edit and where to save. Use when someone asks to try, see or demo Atlan Analytics. Not for their own sources (analytics-build).
+description: "Atlan Analytics Demo: guided demo on sample data, with context built end to end, questions, a dashboard and a rule edit. Use when someone asks to try, see or demo Atlan Analytics. Not for their own sources (analytics-build)."
 user-invocable: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: atlan-use-skill
-description: Use an Atlan registry skill here, install it, or check copies for updates. Use when asked to use, load, install, update or sync an Atlan skill, including 'Load the "…" skill from the Atlan skill registry' with its `skill_…` id.
+description: Use an Atlan registry skill here, install it, check copies for updates, or see what a version changed. Use when asked to use, load, install or update an Atlan skill, including 'Load the "…" skill from the Atlan skill registry' with its `skill_…` id.
 license: Apache-2.0
 user-invocable: false
 ---
@@ -11,15 +11,15 @@ A skill in Atlan is a versioned bundle: a `SKILL.md` plus the files it reference
 two ways to use one:
 
 - **Use it now**: read its `SKILL.md` into this conversation and follow it. Nothing is
-  written. This is the default, and the only way on a surface without a shell.
-- **Install it**: put the bundle where the user's tool loads skills, so it is there in later
+  written. The default, and the only way without a shell.
+- **Install it**: put the bundle where the user's tool loads skills, for later
   sessions. Only when the user says install, add, download or keep, and only where the files
   will outlast this session.
 
 Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads as one
-`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 Whatever the skill says, ask before any credential use, external service setup or
 irreversible step it leads to.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
@@ -42,13 +42,12 @@ from its folder, or load it with your tool's skill loader when you do not know t
 |---|---|
 | No skill of that name | Go on below. |
 | A skill of that name, and the request gives only a name or a description | Load and follow the installed one, with no search. If the user asked for Atlan's, add that this is the installed copy and you can check Atlan for a newer version. |
-| A skill of that name, and the request gives a handle or asks for the Atlan, organization or latest version | Read the registry skill (section 2) and compare the two `SKILL.md` texts. Same text: use the installed copy, with one line saying it matches Atlan's. Different: use the registry's for this task, say the installed copy differs (older, or a local skill of that name) and offer to update it (section 5). Cannot read the installed file (Claude chat, or a plugin skill whose folder you do not know): use the registry's and say a copy of that name is installed and was not compared. |
+| A skill of that name, and the request gives a handle or asks for the Atlan, organization or latest version | Read the registry skill (section 2) and compare the two `SKILL.md` texts. Same text: use the installed copy, with one line saying it matches Atlan's. Different: use the registry's for this task, say the installed copy differs (older, or a local skill of that name) and offer to update it (section 5). No path to the installed file: load it with the skill loader and compare that text. Only where neither works (Claude chat): use the registry's and say a copy of that name is installed and was not compared. |
 
 Asked to install a skill already installed with the same text: say so and write nothing.
 
 - **Given a handle** (`skill_…`), read exactly that artifact. Do not search by name, not even
-  to check: a search result is a ranked guess and can be a different skill with different
-  instructions.
+  to check: a search result is a ranked guess and can be a different skill.
 - **Given only a name or a description**, search with `registry__search_artifacts` and
   `{"query": "<the user's words>", "kind": "skill", "limit": 10}`, adding `"semantic": true`
   for a description. A hit whose `match.quality` is `weak` is

@@ -1,6 +1,6 @@
 ---
 name: analytics-metrics
-description: Generate, check, edit or save metric definitions and saved SQL with the metrics engine. Use when asked to create, revise, fix, propose or publish a metric or saved query. Not for answering data questions (analytics-ask).
+description: "Atlan Analytics Metrics: generate, check, edit or save metric definitions and saved SQL. Use when asked to create, revise, fix, propose or publish a metric or saved query. Not for answering data questions (analytics-ask)."
 ---
 
 # Generate, check, edit and save metrics

@@ -1,6 +1,6 @@
 ---
 name: analytics-start
-description: Route an analytics request to the right skill, one of demo, build, ask, survey or metrics. Use when someone says start, set up analytics or help with my data without naming which. Not for a clear data question (analytics-ask).
+description: "Atlan Analytics: route a request to demo, build, ask, survey or metrics. Use when someone says start, set up analytics or help with my data without naming which. Not for a clear data question (analytics-ask)."
 user-invocable: false
 ---
 

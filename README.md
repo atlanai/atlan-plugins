@@ -167,20 +167,23 @@ flowchart LR
   gateway --> servers
 ```
 
-The `atlan` server runs Atlan's MCP gateway in search mode. Three tools (`mcp__search_tools`,
-`mcp__describe_tools` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's
-tools and every MCP server your organization registered; connecting your account for one of
-those servers runs through `mcp__call_tool` as `mcp__connect_server`. The agent
-searches for the tool it needs instead of loading hundreds of schemas up front. Atlan checks
-your permissions on each call and records it in a session you can review.
+The `atlan` server runs Atlan's MCP gateway in search mode. A few helpers reach the registry's
+own tools, every Atlan app's tools and every MCP server your organization registered:
+`mcp__search_tools` and `mcp__describe_tools` find a tool, and a runner for each level of risk
+calls it (`mcp__call_read_tool` and its batch form `mcp__call_read_tools` for reads,
+`mcp__call_write_tool` for writes, `mcp__call_tool` for anything destructive), so your tool can
+let reads run and ask before the rest. `mcp__connect_server` connects your account for one of
+those servers. The agent searches for the tool it needs instead of loading hundreds of schemas
+up front. Atlan checks your permissions on each call and records it in a session you can review.
 
 The skills are plain Markdown. They teach the agent which tools to call and in what order,
 and point at live tools instead of copying reference data that would go stale.
 
 ## Privacy and security
 
-- **Little runs on your machine.** The add-ons are Markdown files: no hooks, no binaries, no
-  local storage. `atlanai` adds one hook, the publish helper, in Claude Code, Codex and Cursor
+- **Little runs on your machine.** The add-ons have no hooks and no binaries. Analytics' skills
+  run the Python helpers bundled with them and keep their working files in your project.
+  `atlanai` adds one hook, the publish helper, in Claude Code, Codex and Cursor
   (in Codex and Cursor only once you trust its hooks, and only where `python3` is installed):
   when the agent publishes a skill with `files_from`, it reads that one folder in your working
   tree, refuses links, credential files and folders, and anything outside the tree, and sends

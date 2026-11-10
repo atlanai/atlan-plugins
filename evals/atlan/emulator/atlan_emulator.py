@@ -55,7 +55,10 @@ another state through its environment (`emulator.json` beside the case, read by 
   older route (`registry__append_artifact_version` on the file, then `registry__create_artifact`
   with the same source key) still lands the next version;
 - `ATLAN_EMULATOR_SERVE_WITHDRAW=1`: `registry__withdraw_release` is served. Gateway 2.21.0 does
-  not serve it, so by default it is absent and `mcp__describe_tools` says so by name.
+  not serve it, so by default it is absent and `mcp__describe_tools` says so by name;
+- `ATLAN_EMULATOR_NOT_SCANNED=skill_01evalpending,…`: the scan of those artifacts never ran to
+  its end, so `registry__get_security_findings` answers `not_scanned` however often it is read,
+  until `registry__retrigger_artifact_action` starts a new run.
 
 The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
 `mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
@@ -102,6 +105,7 @@ OPAQUE_PUBLISH = os.environ.get("ATLAN_EMULATOR_OPAQUE_PUBLISH") == "1"
 DISABLED = {s for s in os.environ.get("ATLAN_EMULATOR_DISABLED_SERVERS", "").split(",") if s}
 PUBLISH_VERSION_CONFLICT = os.environ.get("ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT") == "1"
 SERVE_WITHDRAW = os.environ.get("ATLAN_EMULATOR_SERVE_WITHDRAW") == "1"
+NOT_SCANNED = {h for h in os.environ.get("ATLAN_EMULATOR_NOT_SCANNED", "").split(",") if h}
 # The live tool surface: `mcp__call_read_tools` and the `registry__` tools listed by name. Off by
 # default, because the suite's graders count reads on `mcp__call_read_tool`; a case that tests the
 # batch or direct path sets it in its emulator.json.
@@ -572,7 +576,7 @@ def summary(item: dict) -> dict:
 
 def browsed(a: dict) -> list[dict]:
     """What `list_artifacts` and `get_artifact_counts` see for these filters, most recent first."""
-    return [i for i in artifacts().values()
+    rows = [i for i in artifacts().values()
             if (not a.get("kind") or i["kind"] == a["kind"]) and i["kind"] != "session"
             and (a.get("kind") or i["kind"] != "file")
             and (not a.get("workspace_id") or i["workspace_id"] == a["workspace_id"])
@@ -581,6 +585,7 @@ def browsed(a: dict) -> list[dict]:
             and ("is_released" not in a or bool(i.get("is_released")) == a["is_released"])
             and related(i, a.get("related_to"))
             and in_project(i, a.get("project_id"))]
+    return sorted(rows, key=lambda i: i.get("updated_at") or "", reverse=True)
 
 
 def related(item: dict, rel: dict | None) -> bool:
@@ -961,7 +966,8 @@ def dispatch(name: str, a: dict) -> dict:
             found = found | {"included_files": [included_file(found, path) for path in a["include_files"][:8]]}
         if "properties" in a:
             found = with_properties(found, a["properties"])
-        return found
+        # Named beside its handle, as a search hit's is, so a reply need not print the handle.
+        return labelled(found)
     if name == "registry__get_project":
         if ("project_id" in a) == ("name" in a):
             raise Refusal(400, "invalid_arguments", "give project_id or name, not both")
@@ -1035,6 +1041,8 @@ def dispatch(name: str, a: dict) -> dict:
         return {"items": spans[: a.get("limit", 20)], "page": {"limit": a.get("limit", 20), "total_spans": run["span_count"]}}
     if name in ANALYTICS_HANDLERS:
         return ANALYTICS_HANDLERS[name](a)
+    if name.endswith("__query_trace_stats"):
+        return trace_stats(name, a)
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
@@ -1178,9 +1186,10 @@ ANALYTICS_HANDLERS = {"extension__metric__search_metrics": search_metrics, "exte
 
 def security_findings(a: dict) -> dict:
     """`get_security_findings`, as the registry answers it: the fixture's findings for a scanned
-    artifact, and `not_scanned` with no findings for any other one the caller can see."""
+    artifact, and `not_scanned` with no findings for any other one the caller can see, or one
+    whose scan is stuck."""
     found = artifact(a["artifact_id"])
-    if found["id"] in WORLD["findings"]:
+    if found["id"] in WORLD["findings"] and found["id"] not in NOT_SCANNED:
         return WORLD["findings"][found["id"]]
     return {"artifact_id": found["id"], "artifact_status": found.get("artifact_status"), "scan_status": "not_scanned",
             "counts": {"gating": 0, "total": 0}, "findings": [], "truncated": False,
@@ -1195,6 +1204,89 @@ def visible_run(name: str, a: dict) -> dict:
     if not run or (name.startswith("extension") and scope not in (run["subject_id"], run.get("session_id"))):
         raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
     return run
+
+
+STATS_DAYS = 60
+# What the emulator can count; any other measure the schema allows has no value in a window, as
+# `cost` has none on the gateway when no cost was stored.
+STATS_COUNTS = ("traces", "sessions", "skill_invocations")
+
+
+def trace_stats(name: str, a: dict) -> dict:
+    """Run statistics for one skill, agent or harness, in the trace engine's envelope: `scalar`
+    results, a `table` of rows by one dimension, or a `time_series` of day or week buckets. The
+    world's `usage` gives each subject its runs a day over the sixty days before now, so a window
+    counted from the wrong year holds nothing, as it would on the gateway."""
+    subject = a.get("skill_id") or a.get("subject_id")
+    prefixes = ("skill_",) if "__skill__" in name else ("agent_", "harness_")
+    if not subject:
+        raise Refusal(400, "invalid_arguments", "give `skill_id` or `subject_id`")
+    if not subject.startswith(prefixes) or subject not in artifacts():
+        raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+    q = a.get("query") or {}
+    missing = [k for k in ("start_time_unix_seconds", "end_time_unix_seconds", "request_type", "queries") if k not in q]
+    if missing:
+        raise Refusal(400, "invalid_arguments", f"`query` is missing {', '.join(missing)}")
+    start, end, shape = q["start_time_unix_seconds"], q["end_time_unix_seconds"], q["request_type"]
+    if end <= start:
+        raise Refusal(400, "invalid_arguments", "`end_time_unix_seconds` must be after `start_time_unix_seconds`")
+    if shape == "time_series" and q.get("bucket") not in ("day", "week"):
+        raise Refusal(400, "invalid_arguments", "`bucket` is required for `time_series`")
+    used = WORLD.get("usage", {}).get(subject, {})
+    now = int(time.time())
+
+    def runs(lo: int, hi: int, share: float = 1.0) -> float:
+        held = max(0, min(hi, now) - max(lo, now - STATS_DAYS * 86400))
+        return float(round(used.get("runs_per_day", 0) * share * held / 86400))
+
+    def value(measure: str, lo: int, hi: int, share: float = 1.0) -> float | None:
+        count = runs(lo, hi, share)
+        every = used.get("error_every", 0)
+        failed = count // every if every else 0.0
+        if measure in STATS_COUNTS:
+            return count
+        if measure in ("active_users", "active_visitors"):
+            people = used.get("visitors" if measure == "active_visitors" else "users", 0)
+            return float(min(people, count))
+        if measure in ("error_rate", "success_rate"):
+            rate = failed / count if count else None
+            return rate if rate is None or measure == "error_rate" else 1 - rate
+        return None
+
+    def data(lo: int, hi: int) -> dict:
+        if shape == "scalar":
+            return {"request_type": shape, "results": [
+                {"query_name": query["name"], "measure": query["measure"]} | present(value(query["measure"], lo, hi))
+                for query in q["queries"]]}
+        if shape == "time_series":
+            width = 86400 * (7 if q["bucket"] == "week" else 1)
+            return {"request_type": shape, "series": [
+                {"query_name": query["name"], "measure": query["measure"], "points": [
+                    {"timestamp_unix_seconds": at} | present(value(query["measure"], at, min(at + width, hi)))
+                    for at in range(lo, hi, width)]}
+                for query in q["queries"]]}
+        dims = (q["queries"][0].get("group_by") or [None])[0]
+        groups = used.get("by", {}).get(dims, {}) if dims else {"": used.get("runs_per_day", 0)}
+        total = sum(groups.values()) or 1
+        return {"request_type": shape,
+                "columns": ([{"name": dims, "column_type": "group"}] if dims else [])
+                + [{"name": query["name"], "column_type": "measure"} for query in q["queries"]],
+                "rows": [{"groups": {dims: key} if dims else {},
+                          "values": {query["name"]: value(query["measure"], lo, hi, part / total) for query in q["queries"]}}
+                         for key, part in groups.items()]}
+
+    out = {"data": data(start, end),
+           "meta": {"warnings": [], "window": {"start_time_unix_seconds": start, "end_time_unix_seconds": end},
+                    "as_of_unix_seconds": now}}
+    if q.get("compare") == "previous_period":
+        before = start - (end - start)
+        out["comparison"] = {"start_time_unix_seconds": before, "end_time_unix_seconds": start, "data": data(before, start)}
+    return out
+
+
+def present(value: float | None) -> dict:
+    """A statistics value as the trace engine sends it: left out when the window has none."""
+    return {} if value is None else {"value": value}
 
 
 def list_traces(a: dict) -> dict:

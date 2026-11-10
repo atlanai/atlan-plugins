@@ -21,7 +21,7 @@ together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the h
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+a failed call, a limit, a source key or full mode. Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -36,6 +36,8 @@ shortcut, and never force, rename, archive or recreate to bypass an identity con
 Preserve existing manifest keys and workflow policy. Check secret names only; never read,
 print or transfer credentials. Preview the selected artifacts and destination before writes.
 Report prepared, merged, published and read-back-verified states accurately.
+A repository with no skill or agent in it has nothing to sync: say so in one sentence and ask
+where they are, without describing the sync.
 
 Agent authoring and private runtime credentials belong to `atlan-author-agents`.
 Bundle authoring belongs to `atlan-author-skills`.

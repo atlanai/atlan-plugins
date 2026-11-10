@@ -30,9 +30,11 @@ graders:
     focus: last_message
     criteria: |
       PASS if the reply says it will read the sources in ./reports and report what they cover, what
-      they could help analyse and whether they are ready to use, and promises nothing beyond that.
-      FAIL if it promises to generate metrics or SQL, asks where to publish, pitches saving to Atlan,
-      or offers a demo/build/ask menu.
+      they could help analyse and whether they are ready to use.
+      Allowed, and never a reason to fail: offering a list of candidate metric names found in the
+      files, with no SQL generated.
+      FAIL only if it promises to generate metrics or SQL, asks where to publish, pitches saving to
+      Atlan, or offers a demo/build/ask menu.
   - name: plain-reply
     type: llm
     criteria: |

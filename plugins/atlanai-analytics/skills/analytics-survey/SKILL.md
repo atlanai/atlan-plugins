@@ -1,6 +1,6 @@
 ---
 name: analytics-survey
-description: Inventory an analytics source and check it is ready, with what it covers, access and candidate metric names. Use when asked what a dashboard, folder, BI export or warehouse holds or if it is usable. Not for generating metrics (analytics-metrics).
+description: "Atlan Analytics Survey: inventory a source and check it is ready, with what it covers and candidate metric names. Use when asked what a dashboard, folder, BI export or warehouse holds or if it is usable. Not for building metrics (analytics-metrics)."
 ---
 
 # Survey a source and check it is ready

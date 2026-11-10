@@ -13,6 +13,9 @@ for a before-and-after comparison. `--baseline` adds a no-plugin arm (`--ablatio
 with-without`): each case runs again without the plugin, and the summary prints both scores,
 so a skill that does no better than no skill at all shows up. Run it before a release.
 
+The LLM graders are judged by `sonnet` unless the options name another `--judge-model`: the
+eval's default judge failed replies that met every clause of a rubric.
+
 Cases tagged `negative` are prompts the plugin must leave alone: no Atlan skill loads and no
 Atlan tool is called. They keep shorter descriptions from widening what the skills claim.
 
@@ -49,6 +52,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SERVER = "atlan"
 PLUGIN = "atlanai"
+# The model that judges the LLM graders; see the docstring.
+JUDGE = "sonnet"
 SIDECAR_KEYS = {"env", "plugin_name", "allow_tools", "installed_skills"}
 INSTALLED = HERE / "fixtures" / "installed-skills"
 
@@ -149,10 +154,16 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
             "--allow-tools", tools_pattern(name), *settings.get("allow_tools", []), "Write",
             "--ablation", ablation(baseline), "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *scaffold(cases), *without_case_filters(extra),
+            "--output-dir", str(out), *scaffold(cases), *judge(extra), *without_case_filters(extra),
         ]
         print("+", " ".join(command), flush=True)
         return subprocess.run(command, check=False).returncode
+
+
+def judge(extra: list[str]) -> list[str]:
+    """The judge for the LLM graders, unless the caller's own options name one."""
+    named = any(arg == "--judge-model" or arg.startswith("--judge-model=") for arg in extra)
+    return [] if named else ["--judge-model", JUDGE]
 
 
 def scaffold(cases: list[Path]) -> list[str]:

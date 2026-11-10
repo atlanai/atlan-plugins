@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Build metrics and saved SQL from your own dashboards, BI exports or query history and publish them to Atlan. Use for setup on a source or business problem, resume, handoff, workspace access or analytics agents. Not for demos (analytics-demo).
+description: "Atlan Analytics Build: build metrics and saved SQL from your own dashboards, BI exports or query history. Use for setup on a source or business problem, resume, handoff, details or workspace access. Not for demos (analytics-demo)."
 ---
 
 # Analytics context and talk-to-data
