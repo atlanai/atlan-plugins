@@ -209,6 +209,25 @@ class DuckDBFlow(unittest.TestCase):
         self.assertEqual(float(answer['rows'][0][0]), 34.75)
         self.assertEqual((self.estate / 'prepared.duckdb').stat().st_mode & 0o777, 0o600)
 
+    def test_csv_dates_stay_text_as_the_source_wrote_them(self):
+        (self.estate / 'work.csv').write_text(
+            'kind,cost,sold_at\nbuild,20.50,2026-01-02 09:15:00\nrework,14.25,2026-01-03 17:40:00\n')
+        source = next(s for s in self.run.survey(self.estate)['sources'] if s['path'] == 'work.csv')
+        result = self.run.prepare({'database': 'prepared.duckdb', 'tables': [
+            {'source_id': source['source_id'], 'table': 'site.work'}]})
+        self.assertEqual([c['type'] for c in result['tables'][0]['columns']],
+                         ['VARCHAR', 'DOUBLE', 'VARCHAR'])
+        self.run.bind(result['database'])
+        answer = self.run.execute({'sql': 'SELECT MIN(substr(sold_at, 1, 10)) FROM site.work'})
+        self.assertEqual(answer['rows'], [['2026-01-02']])
+
+    def test_a_database_named_after_its_schema_is_refused(self):
+        request = self.preparation()
+        request['database'] = 'site.duckdb'
+        with self.assertRaisesRegex(ValueError, 'differently from its schema'):
+            self.run.prepare(request)
+        self.assertFalse((self.estate / 'site.duckdb').exists())
+
     def test_preparation_never_replaces_existing_database(self):
         request = self.preparation()
         request['database'] = self.database.name

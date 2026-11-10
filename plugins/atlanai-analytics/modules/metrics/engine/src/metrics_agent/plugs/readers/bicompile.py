@@ -248,6 +248,9 @@ class _Parser:
         # Set by compile_unit. A `Table[Column]` whose table reads ANOTHER warehouse table
         # cannot be bound to this statement's alias: see _bind.
         self.home: tuple[dict[str, str], str] | None = None
+        # The columns of a Tableau calc's own table its data source declares dates (lower),
+        # for a calc compiled without the statement's context (a calculated dimension).
+        self.declared_dates: frozenset[str] = frozenset()
         # The VAR scopes open at this point, innermost last: name (lower) -> compiled SQL.
         # A sub-parser for a CALCULATE argument shares them; an inlined measure does not, as
         # a measure cannot see the caller's variables.
@@ -311,6 +314,7 @@ class _Parser:
         sub = _Parser(tokens, self.rules, self.language, self.alias, self.dialect, self.colmap,
                       self.measures, row_filter, inlining)
         sub.home, sub.ctx, sub.row_level = self.home, self.ctx, self.row_level
+        sub.declared_dates = self.declared_dates
         sub.window, sub.date_set, sub.slots = self.window, self.date_set, self.slots
         sub.window_drop = self.window_drop
         sub.slot_drops = self.slot_drops
@@ -2187,6 +2191,12 @@ class _Parser:
             args = [", ".join(args)]
         _check_literal_args(emit, name, self.language, raw)
         _check_literal_values(emit, name, self.language, raw)
+        if self._tableau and up == "DATETRUNC" and len(raw) > 1 and self._is_date_field(raw[1]):
+            # Tableau reads a field as the type its data source declares. A custom SQL column
+            # declared a date may hold the date as text (`substr(ts, 1, 10)`), which the
+            # warehouse's own DATE_TRUNC does not take; on a true DATE the cast changes nothing.
+            args = [args[0], f"CAST({args[1]} AS DATE)"] + args[2:]
+            self.used.append("engine.tableau_declared_date")
         if str(self.dialect or "").lower() in (emit.get("literal_backslash_escapes") or []):
             # A dialect that reads `\` in a string literal as an escape: a pattern's
             # backslash (`\w`) is written doubled so the function receives it.
@@ -3072,6 +3082,16 @@ class _Parser:
             return False
         return self.ctx.is_text(_table_ref(toks[0][1]) or "", _column_ref(toks[0][1]))
 
+    def _is_date_field(self, toks) -> bool:
+        """A bare Tableau field its data source declares a date (not a date and time)."""
+        if len(toks) != 1 or toks[0][0] != "col":
+            return False
+        col = _column_ref(toks[0][1])
+        if self.ctx is None:
+            return col.lower() in self.declared_dates
+        table = str((self.home[1] if self.home else self.ctx.source) or "")
+        return self.ctx.is_date(table, col) or self.ctx.is_date(_bare(table), col)
+
     def _context_test(self, up: str, kind: str) -> str:
         """ISINSCOPE / ISFILTERED / HASONEVALUE of a column, read from the statement's
         context (seen live on a matrix with subtotals): ISINSCOPE is TRUE where the row groups
@@ -3860,6 +3880,10 @@ class _UnitContext:
         t = self.types.get((str(table).lower(), str(column).lower())) or ""
         return bool(re.match(r"(?i)^(string|text|varchar|char|nvarchar|nchar)\b", t))
 
+    def is_date(self, table: str, column: str) -> bool:
+        t = self.types.get((str(table).lower(), str(column).lower())) or ""
+        return t.strip().lower() == "date"
+
 
 _COMPARISONS = ("=", "<>", ">", "<", ">=", "<=")
 
@@ -4466,6 +4490,10 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             p = _Parser(_tokens(measures[formula_key], calc_language), rules, calc_language,
                         on, dialect, colmap, measures, None, (key, formula_key))
             p.lods = lod_reg
+            if calc_language == "tableau-calc":
+                home = {str(table or tables[0]).lower(), _bare(str(table or tables[0]))}
+                p.declared_dates = frozenset(c for (t, c), ty in (types or {}).items()
+                                             if t in home and str(ty).strip().lower() == "date")
             if calc_language == "dax" and table_of and colmap is None:
                 # A calculated column is evaluated on each row of its table (a row context):
                 # RELATED reads the related row, through the statement's join.

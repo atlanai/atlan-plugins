@@ -43,6 +43,12 @@ def prepare(root, sources, request):
                        'sha256': source['sha256']})
     if total > 128 * 1024 ** 2:
         raise DataError('Select at most 128 MiB of CSV data for local preparation.')
+    # DuckDB names the database after its file, so `tix.duckdb` makes `tix.orders` ambiguous.
+    stem = destination.stem.lower()
+    if destination.suffix.lower() == '.duckdb' and any(n.split('.')[0] == stem for n in names):
+        raise DataError('Name the .duckdb file differently from its schema "' + stem +
+                        '": DuckDB names the database after the file, which makes '
+                        + stem + '.<table> ambiguous.')
     # Build privately, then atomically link without replacing a concurrent destination.
     with tempfile.TemporaryDirectory(prefix='.atlan-prepare-', dir=destination.parent) as temporary:
         staged = Path(temporary) / ('prepared' + destination.suffix.lower())
@@ -134,7 +140,10 @@ def worker(payload):
                 schema, table = item['table'].split('.')
                 relation = '"' + schema + '"."' + table + '"'
                 con.execute('CREATE SCHEMA IF NOT EXISTS "' + schema + '"')
-                con.execute('CREATE TABLE ' + relation + ' AS SELECT * FROM read_csv(?, header=true)',
+                # Numbers or text, as the SQLite path types them: a CSV states no date type,
+                # and the source's own SQL reads its dates as the text it exported.
+                con.execute('CREATE TABLE ' + relation + ' AS SELECT * FROM read_csv(?, header=true, '
+                            'auto_type_candidates=[\'BIGINT\', \'DOUBLE\', \'VARCHAR\'])',
                             [item['path']])
                 rows = con.execute('SELECT COUNT(*) FROM ' + relation).fetchone()[0]
                 columns = con.execute('DESCRIBE ' + relation).fetchall()

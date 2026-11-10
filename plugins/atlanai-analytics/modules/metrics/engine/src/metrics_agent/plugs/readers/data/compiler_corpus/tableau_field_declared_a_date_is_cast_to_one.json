@@ -1,0 +1,44 @@
+{
+  "name": "tableau_field_declared_a_date_is_cast_to_one",
+  "dialect": "duckdb",
+  "unit": {
+    "unit_id": "c1",
+    "warehouse_tables": [
+      "retail.fct_sales"
+    ],
+    "group_by": [
+      "channel"
+    ],
+    "measures": [
+      {
+        "name": "first_order_month",
+        "aggregation": "custom",
+        "formula_language": "tableau-calc",
+        "formula": "MIN(DATETRUNC('month', [order_date]))"
+      }
+    ],
+    "filters": [],
+    "top_n": null,
+    "join_graph": []
+  },
+  "expect_sql": "SELECT t.channel,\n       MIN(DATE_TRUNC('month', CAST(t.order_date AS DATE))) AS first_order_month\nFROM   retail.fct_sales t\nGROUP BY t.channel",
+  "expect_coverage": "translated",
+  "rules_used": [
+    "engine.tableau_declared_date",
+    "tableau.datetrunc",
+    "tableau.min"
+  ],
+  "columns": {
+    "retail.fct_sales": [
+      "channel",
+      "order_date"
+    ]
+  },
+  "types": [
+    [
+      "fct_sales",
+      "order_date",
+      "date"
+    ]
+  ]
+}
