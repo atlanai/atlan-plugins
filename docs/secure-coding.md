@@ -50,7 +50,7 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   radius, and are refused where nobody can answer: `ALWAYS_CONFIRM` in
   `plugins/atlanai-mods/hooks/registry.ts` and `NO_APPROVER` in `hooks/register.tsx`.
 - **Subprocesses by argv list, with a timeout.** No shell strings in bundled scripts; see `run`
-  in `plugins/atlanai-analytics/skills/atlan-analytics/scripts/registry_inspection.py`.
+  in `plugins/atlanai-analytics/skills/analytics-build/scripts/registry_inspection.py`.
 - **Fence untrusted data in prompts.** The analytics runner labels approved instructions apart
   from `Untrusted input data` (`analytics_case.py`, same folder).
 - **CI least privilege.** `permissions: contents: read`, `persist-credentials: false`, SHA-pinned

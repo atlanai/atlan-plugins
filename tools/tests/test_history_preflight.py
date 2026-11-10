@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import analytics_eval
 

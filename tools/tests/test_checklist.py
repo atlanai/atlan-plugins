@@ -12,7 +12,7 @@ import analytics_ux_prototype as fixture
 import checklist
 import experience
 
-PROJECT = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts/project.py'
+PROJECT = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts/project.py'
 
 
 class Checklist(unittest.TestCase):

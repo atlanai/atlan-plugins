@@ -3,7 +3,7 @@ max_turns: 12
 allowed_tools: [Read, Glob, Grep]
 ---
 
-Read the atlan-analytics improvement loop instructions. We need to correct a metric's formula,
+Read the analytics-build improvement loop instructions. We need to correct a metric's formula,
 change a saved query's usage note, then undo the metric edit if the round loses. The current
 metric definition.version is 5 and the old content we would restore had definition.version 2.
 

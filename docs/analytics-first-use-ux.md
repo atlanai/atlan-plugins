@@ -158,7 +158,7 @@ an engine or claim real SQL execution/publication.
 From an existing real run, the portable adapter is:
 
 ```sh
-python3 plugins/atlanai-analytics/skills/atlan-analytics/scripts/project.py \
+python3 plugins/atlanai-analytics/skills/analytics-build/scripts/project.py \
   --run-dir /absolute/saved-run experience --format chat
 ```
 

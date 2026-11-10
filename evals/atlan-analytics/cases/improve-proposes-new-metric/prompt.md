@@ -3,7 +3,7 @@ max_turns: 12
 allowed_tools: [Read, Glob, Grep]
 ---
 
-Read the atlan-analytics improvement loop instructions. The failure analyst found that train
+Read the analytics-build improvement loop instructions. The failure analyst found that train
 failures come from a business concept no metric in the workspace covers. The person running the
 loop may not create metrics in that workspace, and only the current Registry MCP tools are
 available.

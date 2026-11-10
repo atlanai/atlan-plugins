@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(Path(__file__).parent / 'dashboard_cases'))
 import dashboard

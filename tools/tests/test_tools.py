@@ -199,7 +199,7 @@ class VariantTest(unittest.TestCase):
         variant = build.make_variant(self.source, overrides)
         files = build.variant_files(self.source, variant, "variant.toml")
         self.assertIn("plugins/atlanai-dev/skills/atlan-get-started/SKILL.md", files)
-        self.assertIn("plugins/atlanai-dev-analytics/skills/atlan-analytics/SKILL.md", files)
+        self.assertIn("plugins/atlanai-dev-analytics/skills/analytics-build/SKILL.md", files)
         mcp = json.loads(files["plugins/atlanai-dev/.mcp.json"])
         self.assertEqual(mcp["mcpServers"]["atlan"]["url"], "https://api.dev.example/mcp")
         self.assertIn("claude plugin install atlanai-dev --marketplace example/atlan-staging\n", files["plugins/atlanai-dev/skills/atlan-get-started/references/install-and-sign-in.md"])
@@ -280,7 +280,7 @@ class AddonTest(unittest.TestCase):
         claude = json.loads(files[f"{base}/.claude-plugin/plugin.json"])
         self.assertEqual(claude["dependencies"], ["atlan-staging"])
         self.assertTrue(json.loads(files[f"{base}/plugin.json"])["extensions"]["com.openai"]["interface"]["displayName"].startswith("Atlan (staging)"))
-        self.assertIn(f"{base}/skills/atlan-analytics/SKILL.md", files)
+        self.assertIn(f"{base}/skills/analytics-build/SKILL.md", files)
         self.assertIn(f"{base}/assets/logo.svg", files)
         self.assertFalse(any(path.startswith(f"{self.base}/") for path in files))
 
@@ -461,7 +461,7 @@ class SkillMetadataTest(unittest.TestCase):
         text = files[f"plugins/atlan-staging/skills/atlan-continue/{build.SKILL_METADATA}"]
         self.assertIn('url: "https://api.staging.example/mcp"', text)
         self.assertIn("Use $atlan-continue ", text)
-        self.assertIn(f"plugins/atlan-staging-analytics/skills/atlan-analytics/{build.SKILL_METADATA}", files)
+        self.assertIn(f"plugins/atlan-staging-analytics/skills/analytics-build/{build.SKILL_METADATA}", files)
 
 
 class FrontmatterTest(unittest.TestCase):
@@ -669,9 +669,9 @@ class DashboardPromptTest(unittest.TestCase):
 class MetricsStudioPromptTest(unittest.TestCase):
     """Metrics Studio (metric service `studio/src/lib/metrics-setup.ts`) sends these to set up metrics."""
 
-    # `/<plugin>:atlan-analytics metrics` in Claude Code, `$<plugin>:atlan-analytics metrics` in
-    # Codex, and over MCP alone `atlan://defaults/skills/atlan-analytics/SKILL.md`, metrics mode.
-    SKILL = "atlan-analytics"
+    # `/<plugin>:analytics-build metrics` in Claude Code, `$<plugin>:analytics-build metrics` in
+    # Codex, and over MCP alone `atlan://defaults/skills/analytics-build/SKILL.md`, metrics mode.
+    SKILL = "analytics-build"
 
     def setUp(self) -> None:
         self.addon = ROOT / "plugins" / build.load()["addons"][0]["name"]

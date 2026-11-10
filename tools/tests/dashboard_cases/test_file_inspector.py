@@ -5,7 +5,7 @@ import tempfile
 import unittest
 import zipfile
 
-spec=importlib.util.spec_from_file_location('file_inspector',Path(__file__).resolve().parents[3]/'plugins/atlanai-analytics/skills/atlan-analytics/scripts/dashboard_runtime/scripts/inspect_powerbi.py')
+spec=importlib.util.spec_from_file_location('file_inspector',Path(__file__).resolve().parents[3]/'plugins/atlanai-analytics/skills/analytics-build/scripts/dashboard_runtime/scripts/inspect_powerbi.py')
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 
 class FileInventory(unittest.TestCase):

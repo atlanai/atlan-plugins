@@ -71,7 +71,7 @@ class PublicationFlowCliTests(unittest.TestCase):
             def run():
                 (root / 'authorization.json').write_text(json.dumps(auth))
                 process = subprocess.run([sys.executable,
-                    str(PLUGIN / 'skills/atlan-analytics/scripts/analytics_flow.py'),
+                    str(PLUGIN / 'skills/analytics-build/scripts/analytics_flow.py'),
                     '--authorization', str(root / 'authorization.json'), '--context', str(root),
                     '--workspace', 'workspace_demo', '--source', 'source_demo'],
                     text=True, capture_output=True)

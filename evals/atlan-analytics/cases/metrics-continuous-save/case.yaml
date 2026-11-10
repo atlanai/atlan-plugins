@@ -3,7 +3,7 @@ name: metrics-continuous-save
 tags: [analytics, metrics, approval]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     Generate and save governed metrics from /project/source/report.pbix in workspace_example.
     The source has already been staged in the authorized project folder. Snowflake is the
     dialect. The packaged runtime is ready and a checked publication plan contains four new
