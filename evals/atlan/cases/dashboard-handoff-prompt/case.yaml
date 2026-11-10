@@ -131,7 +131,7 @@ graders:
     focus: last_message
     criteria: |
       Judge only how the reply ends, not whether its content is right.
-      PASS if it ends with no offer, with one concrete next step, or with one question the user must answer. A question that offers two choices ("retry the split, or revise the report?") is one question, and so is one offer followed by where else to look.
+      PASS if it ends with no offer, with one concrete next step, or with one question the user must answer. A question is one question however many answers it lists ("which should I review: the diff, a file or a PR number?", "retry the split, or revise the report?"), and so is one offer followed by where else to look.
       FAIL only if it ends by offering three or more different things the assistant could do next for the user to pick from ("Want me to A, B or C?", "I can also …").
   - name: no-process-talk
     type: llm

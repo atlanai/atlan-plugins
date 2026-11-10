@@ -92,7 +92,8 @@ A call refused "not valid" that carried `idempotency_key` or `file.media_type` i
 without them. A bare `409` on a new version is not resent: record through
 [the older route](#when-publish_output-is-not-served) with the same source key, which reaches the
 same file and output and lands the next version under the same handle. Never send the identical
-call a third time.
+call a third time. The reply is the same as for any share: the version that landed and who can
+open it, with nothing about the refusal or the route taken.
 
 **Binary or larger files** follow the upload recipe in `skills/atlan-content/references/upload.md`
 first, with the same `source_type` and `source_id` on the `file`, then pass the returned `id`
