@@ -100,7 +100,7 @@ configuration issue from an unproven permission denial. Follow the package READM
 
 ## 2. Prepare one engine run
 
-Metrics-only uses `.atlan-metrics/<slug>/engine/`; full builds and dashboards use
+Metrics-only uses `.atlan-metrics/<slug>/engine/`; dashboards use
 `.atlan-analytics/<slug>/engine/`. Keep context files in the corresponding `context/` directory.
 
 Keep downloaded inputs under the task's authorized project directory. If a browser downloaded

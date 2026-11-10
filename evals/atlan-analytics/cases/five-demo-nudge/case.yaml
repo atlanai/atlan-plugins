@@ -1,0 +1,32 @@
+schema_version: "1.1"
+name: five-demo-nudge
+tags: [analytics, five, demo, nudge]
+execution:
+  prompt: |
+    Continue the Fixit & Co. demo of Atlan Analytics.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    State of the demo run: the context is built and kept on this machine. The person asked one of
+    the demo's questions and got its answer. No dashboard has been built. No rule has been edited.
+    Show the next user-facing step.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-demo
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-demo"'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: one-nudge
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply offers a short set of next steps to choose from that includes designing a
+      dashboard, changing a rule to see what happens, and doing this on the person's own data (or
+      finishing), with the dashboard offered first or prominently, and then stops to wait. FAIL if it
+      starts a flow the person did not pick, offers to build the first metric or save again, offers
+      more than six options, or answers a question nobody asked.

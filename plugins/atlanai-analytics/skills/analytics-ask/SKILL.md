@@ -1,6 +1,7 @@
 ---
 name: analytics-ask
 description: Answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (analytics-build).
+user-invocable: false
 ---
 
 # Answer a data question from managed context
@@ -131,6 +132,7 @@ conventions' **Source of truth** says.
 ## 6. Close the gap
 
 For missing definitions, corrections or a request to save/share the answer, follow
-[answer follow-ups](../analytics-build/references/ask-followups.md).
+[answer follow-ups](../analytics-build/references/ask-followups.md). For a dashboard from
+the answers, an uncovered question or a wrong rule, follow [next steps](references/next-steps.md).
 
 End naturally with the result or next action, as the conventions describe.

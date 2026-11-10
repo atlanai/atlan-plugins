@@ -2,11 +2,11 @@
 
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
 trust, each one checked against the registry's contracts and previewed before it is written.
-Three entries use this file:
+Two entries use this file:
 - **metrics mode** (`/atlanai:analytics-build metrics` from the public Atlan marketplace,
   or `/atlanai-analytics:analytics-build metrics` from the separate add-on) starts at section 0
   and stops at section 6;
-- a **full agent build** reaches it from phase 3 and starts at section 1;
+
 - **project setup** arrives after its combined repo survey. Preserve that route's state,
   use both model and history evidence, and return to its publication receipts and questions.
 
@@ -15,8 +15,7 @@ module; the standard-library helpers retain validation and publication only. Bel
 - `CONTEXT` means `python3 "<skill-dir>/scripts/context_contracts.py"`. `<skill-dir>` is this skill's
   directory: `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build` in Claude Code, and otherwise the
   directory that holds this file's `references/`.
-- `<context-dir>` is `.atlan-metrics/<slug>/context` in metrics mode, and
-  `.atlan-analytics/<slug>/context` in a build.
+- `<context-dir>` is `.atlan-metrics/<slug>/context`.
 
 `CONTEXT` prints one JSON object. It exits 2 when BLOCKED, and 1 with `"status": "REFUSED"` when
 a check refuses an item.
@@ -146,6 +145,5 @@ If publication was declined, say the drafts remain in `<context-dir>`. Record th
 sources used in state as `context_run`.
 
 - **Metrics mode:** set `phase` to `complete`, return the Metric Studio link if one was
-  supplied, and stop. Do not move on to `eval_set`, register an agent, deploy, smoke test or
-  run an eval.
-- **Full agent build:** set `phase` to `eval_set` and wait at the phase gate.
+  supplied, and stop. 
+

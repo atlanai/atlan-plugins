@@ -1,0 +1,11 @@
+interface:
+  display_name: "Survey a Source"
+  short_description: "See what a source covers and whether it is ready"
+  default_prompt: "Use $analytics-survey to tell me what this folder's dashboards and queries cover."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

@@ -73,4 +73,4 @@ appear only when the question asks who. Never answer a question the person has n
 
 **Wrap up.** On "I'm done", or after the dashboard is built, add once: "With your own
 data, the same six steps turn your dashboards and your warehouse's query history into
-your team's context. Run /atlanai-analytics:start and choose Use my own data."
+your team's context. Run /atlanai-analytics:build with a dashboard link, folder or BI export."

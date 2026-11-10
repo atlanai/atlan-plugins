@@ -27,8 +27,7 @@ Open a registry session as **Registry calls** in the conventions describes, then
   (`registry__search_artifacts`, kind `metric`). If a metric already covers it, write nothing
   and point the person to it: the agent missed it, the metric isn't missing.
 - **Both:** list the workspace's proposals and apply the duplicate rules in
-  `skills/analytics-build/references/improve/03-loop.md` ("Proposing a metric fix" and
-  "Proposing a new metric"). If one already covers it, write nothing and tell the person; if
+  [the proposal record](propose-record.md). If one already covers it, write nothing and tell the person; if
   it was dismissed, say that its owners decided against it.
 
 ## 3. Draft
@@ -45,7 +44,7 @@ Open a registry session as **Registry calls** in the conventions describes, then
 ## 4. Attach this conversation as the run
 
 Run `EVAL session-run`, that is
-`python3 "<skill-dir>/scripts/analytics_eval.py" session-run`, with `<skill-dir>` as the project conventions say
+`python3 "<skill-dir>/scripts/analytics_eval.py" session-run`, with `<skill-dir>` as [project conventions](project-conventions.md) say
 (from Codex, add `--harness codex --session-id <its session id>`). Its `trace_id` names the
 trace this session becomes once the desktop app syncs it. Add one
 `evidence.runs` entry per question: `{trace_id, agent, question, asked_by, at}`, where `agent`
@@ -59,7 +58,7 @@ asked and when show in Metric Studio either way.
 ## 5. Preview, then write
 
 Preview the write as the conventions require: the target workspace and the record. Write only
-after a yes. Create it with `registry__create_artifact`, kind `file`, as `03-loop.md` describes:
+after a yes. Create it with `registry__create_artifact`, kind `file`, as [the proposal record](propose-record.md) describes:
 `media_type` `application/vnd.atlan.improvement+json`, the record in `source_metadata`
 `{"atlan_improvement": <record>}`, and `requested_by` `Atlan`. Name it for example
 `propose-<metric>-<YYYYMMDDHHMM>` at `improvements/metric/<metric>-<YYYYMMDDHHMM>.json`.

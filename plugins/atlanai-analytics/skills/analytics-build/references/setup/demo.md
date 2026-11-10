@@ -67,7 +67,7 @@ Then ask one native question, "Ready to build?":
 | Option | Description |
 | --- | --- |
 | Start building | Begin step 1: download the demo files into this folder and read them. |
-| Not now | Stop here; /atlanai-analytics:start picks it up later. |
+| Not now | Stop here; /atlanai-analytics:demo picks it up later. |
 
 The person may open the tour while the build runs; do not wait for them to finish looking.
 On "Not now", stop and repeat the tour link in one line, so they can explore meanwhile.

@@ -1,7 +1,7 @@
 {
   "name": "atlanai-analytics",
-  "version": "0.7.0",
-  "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics and explicit agent workflows.",
+  "version": "0.8.0",
+  "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -16,8 +16,7 @@
     "text-to-sql",
     "talk-to-data",
     "snowflake",
-    "databricks",
-    "evals"
+    "databricks"
   ],
   "logo": "assets/logo.svg"
 }

@@ -90,17 +90,17 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.7.0"
-description = "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics and explicit agent workflows."
+version = "0.8.0"
+description = "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics."
 short_description = "Publish analytics context and ask your data with Atlan"
-long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into managed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions."
-keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "evals"]
+long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into managed metrics and saved queries, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers and ask questions from released definitions."
+keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks"]
 category = "Data & Analytics"
 claude_category = "data"
 # Codex and Claude share the dashboard helper and question-only eval runner.
 default_prompts = [
   "Help me use this dashboard, folder or BI export to ask questions about my data",
-  "Build and test a talk-to-data agent from this Power BI dashboard",
+  "Turn this Power BI dashboard into metrics I can ask questions of",
   "Build metrics and saved queries for our support tables from the warehouse's query history",
 ]
 
@@ -200,10 +200,30 @@ display_name = "Register an Agent"
 short_description = "Catalogue an agent or harness in Atlan"
 prompt = "Use $atlan-author-agents to register the agent in this repository in Atlan."
 
-[skills.analytics-build]
+[skills.analytics-start]
 display_name = "Atlan Analytics"
-short_description = "Set up analytics, publish context and ask your data"
+short_description = "Find the right analytics skill for a request"
+prompt = "Use $analytics-start to help me get started with analytics on my data."
+
+[skills.analytics-demo]
+display_name = "Try the Demo"
+short_description = "Watch sample dashboards become context you can question"
+prompt = "Use $analytics-demo to show me Atlan Analytics on sample data."
+
+[skills.analytics-build]
+display_name = "Build From My Data"
+short_description = "Turn your dashboards and query history into metrics"
 prompt = "Use $analytics-build to set up this project so I can ask questions about its data."
+
+[skills.analytics-survey]
+display_name = "Survey a Source"
+short_description = "See what a source covers and whether it is ready"
+prompt = "Use $analytics-survey to tell me what this folder's dashboards and queries cover."
+
+[skills.analytics-metrics]
+display_name = "Create or Edit a Metric"
+short_description = "Generate, check, change or publish a metric"
+prompt = "Use $analytics-metrics to create a metric for on-time delivery rate from this folder."
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"

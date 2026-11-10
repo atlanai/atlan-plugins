@@ -10,5 +10,5 @@ The workflow surveys the available evidence, combines relevant models and query 
 previews metrics and saved SQL, publishes the reviewed context, and suggests questions in
 this harness. It waits for the person's question unless one was already supplied.
 
-Explicit `metrics`, `dashboard`, `build`, `eval` and `improve` retain their documented routes
+Explicit `metrics` and `dashboard` retain their documented routes
 in the main skill. Setup creates no separate agent, eval dataset or chat application.

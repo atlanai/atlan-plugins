@@ -6,10 +6,7 @@ Three distinct results appear in the experience:
 2. **Dashboard parity:** supplied report references versus observed answer results, bound to the exact capture, definition and context. This implementation compares scalars exactly, or numeric values within an explicitly supplied absolute tolerance. Types matter. Explicit `value:null` is an observed blank and can match another blank; an absent `value` is missing evidence, not blank. SQL actual observations require `executor:warehouse` and the current translation query hash. Missing/invalid references, stale definitions and mismatched contexts are unmeasured; execution errors are failed measured cases. Display all denominators.
 3. **Held-out question accuracy:** not implemented by this local parity tool. Display Not run. It requires an isolated answerer, a frozen held-out split, gold inaccessible to the answerer and transcript checks. Never infer it from parity or from a caller's “independent=true” flag.
 
-Use the existing Analytics build/eval workflow for independent evaluation. The
-[host runners](../eval/hosts.md) support Claude Code and Codex with a fresh question-only
-process and a transcript audit. They measure SQL answering from supplied released context;
-Registry retrieval needs a separate test.
+This add-on does not run an independent held-out evaluation.
 
 `dashboard_evaluate` stores references in local `grader-only.json`. Its read/exported runtime context does not expose that file. This is an API separation, not an OS sandbox: a fully privileged host could still read the local file. A genuinely blind benchmark needs a separately restricted process/toolset.
 
@@ -31,8 +28,7 @@ whose comparisons are unmeasured because report values are missing, the source c
 is unavailable, or snapshots differ. Each question carries its validation status. Failed SQL,
 known wrong results, incomplete security/filter scope and unconverted DAX are not suggested.
 
-`ready_with_warnings` permits continuing to Registry save/release, agent registration and
-questions. It never asserts publication or a passing score. Carry validation reasons and
+`ready_with_warnings` permits continuing to Registry save/release and questions. It never asserts publication or a passing score. Carry validation reasons and
 the report cutoff with each saved metric. Answer using fresh authorized warehouse results
 and disclose their cutoff when known; do not describe current results as historical report
 parity. Full validation still requires complete scope and every planned check passing.

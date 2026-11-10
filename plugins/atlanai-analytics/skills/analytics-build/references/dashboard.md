@@ -12,9 +12,7 @@ reuse the user's source, scope, mappings, destination and business focus.
 
 Use the existing publisher on completed engine exports. Read [publication](metrics/publish.md)
 for reconciliation, authorization, release and readback. Local previews stay provisional.
-For independent agent evaluations, follow [eval-set creation](build/04-eval-set.md) and
-[agent setup](build/05-agent.md). Keep independent gold outside generation and distinguish
-SQL execution, dashboard parity and answering accuracy. Use the shared [presentation flow](setup/presentation.md)
+Distinguish SQL execution from dashboard parity. Use the shared [presentation flow](setup/presentation.md)
 for the full first metric, progress and ready handoff.
 
 Subsequent questions use `analytics-ask`, complete released definitions and fresh

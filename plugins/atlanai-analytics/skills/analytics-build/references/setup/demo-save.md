@@ -107,7 +107,7 @@ at an error.
 | Signed in, but no workspace to save to | "You are signed in, but you have no workspace to save to yet. Your Atlan admin can add you to one. Meanwhile the context works from this machine." |
 | A save is refused or stops part-way | "12 of 19 saved; the rest were refused. Nothing saved is lost." Then the one reason the result gave, and whether to retry. |
 | Counts differ from a colleague's run | "That is expected today: the number of queries built from the history can vary between runs. The metrics from the dashboard's four tiles are the ones to compare." |
-| Git or Python is missing | The one thing to install, then "run /atlanai-analytics:start again and it picks up here". |
+| Git or Python is missing | The one thing to install, then "run /atlanai-analytics:demo again and it picks up here". |
 
 In every case the demo can still end on the question list, answered from the context on this machine.
 

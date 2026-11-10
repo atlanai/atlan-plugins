@@ -1,6 +1,6 @@
 interface:
-  display_name: "Atlan Analytics"
-  short_description: "Set up analytics, publish context and ask your data"
+  display_name: "Build From My Data"
+  short_description: "Turn your dashboards and query history into metrics"
   default_prompt: "Use $analytics-build to set up this project so I can ask questions about its data."
 dependencies:
   tools:

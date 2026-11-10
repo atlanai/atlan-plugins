@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Set up analytics and answer workspace questions. Use for Atlan workspace access/creation, including explanation-only requests; BI sources, metrics, setup, resume, handoff or analytics agents. Not for data questions (analytics-ask).
+description: Build metrics and saved SQL from your own dashboards, BI exports or query history and publish them to Atlan. Use for setup on a source or business problem, resume, handoff, workspace access or analytics agents. Not for demos (analytics-demo).
 ---
 
 # Analytics context and talk-to-data
@@ -17,8 +17,9 @@ For final handoffs, read [handoff rules](references/setup/preview-publish.md) an
 Keep execution, source review, holds and releases separate. Total definitions = metrics + queries.
 Use factual check labels and the presentation flow's step headings.
 
-A bare `start` with no source or saved run first offers the demo or own data
-([start choice](references/setup/demo.md)). Otherwise, on fresh setup, your next message is
+With no source, problem or saved run, load `analytics-demo`, which offers a demo or own
+data. This skill owns intent, the tracker and approvals; surveying is `analytics-survey`'s
+job and generation `analytics-metrics`'s. Otherwise, on fresh setup, your next message is
 the opening, before surveying files or calling helpers:
 name the outcome, next step and controls: narrow scope, inspect details, keep local or pause.
 Honor existing choices. Survey-only requests stop after inspection. On resume, name the
@@ -37,8 +38,7 @@ after the user approves that concrete plan. Respect explicit draft/review reques
 For new metric generation (metrics mode, or a setup run's Build stage), read
 [the metrics module](references/metrics-engine.md), also to explain it. The first metric,
 the complete collection, demos and local-only setup all use this engine. Dispatch before
-mode-specific project conventions or preflight. A
-repository setup is not a full-agent build. Cloning a source repository the user asks to set
+mode-specific project conventions or preflight. Cloning a source repository the user asks to set
 up is a separate, supported task.
 
 The Registry marketplace bundles this workflow in `atlanai`. Use its installed namespace
@@ -46,17 +46,14 @@ instead of `atlanai-analytics:` below; do not install this add-on beside that bu
 
 ## 0. Dispatch the requested mode first
 
-**Dispatch explicit modes first.** `dashboard`, `metrics`, `build`, `eval`, `improve`,
-`ask`, `connect` and `propose` retain their documented routes. Only the `build`
-mode or an explicit request to register, deploy or evaluate a separate agent uses the agent
-workflow.
+**Dispatch explicit modes first.** `dashboard`, `metrics`, `ask`, `connect` and `propose` retain their
+documented routes. This add-on does not deploy or evaluate a separate agent: when asked for
+one, say so in one line and offer setup here.
 
 Otherwise, `start`, `setup`, `query-history`, a bare invocation, or a request to make a
 supplied link, local folder, HTML dashboard or BI export ready for questions follows
 [shared setup](references/setup.md), then returns. A request to build an analytics or
-talk-to-data agent takes that route too: this chat with Atlan becomes the agent. Its first
-reply adds one line offering a separately deployed agent with an eval set (`build`) instead,
-and switches only when the person asks for it. Repository names and layouts never select a special workflow.
+talk-to-data agent takes that route too: this chat with Atlan becomes the agent. Repository names and layouts never select a special workflow.
 
 Show [the setup checklist](references/setup/checklist.md) in chat and in the host's task
 list when available, from the first action. Open no panel or view unless requested.
@@ -65,7 +62,8 @@ possible analyses inside the first question. Before the choices, explicitly say 
 sources could help the person analyse. An inventory followed by option labels alone does
 not explain their value. Follow the [intent flow](references/setup/intent.md): business focus
 first, purpose second, using native choices and waiting for each missing answer.
-Use the demo's preset intent when a demo was chosen; otherwise resolve missing intent.
+A stated problem answers the focus question. After intent,
+[commit on names](references/setup/names.md) before generation.
 Then follow the presentation flow's full first-metric block before a destination question
 or publication/reuse. Read evidence with `project.py experience --format json`, adding
 `--engine-dir <within-run-engine>` during engine work; `--detail` exposes SQL and checks.
@@ -87,39 +85,20 @@ never register another MCP server. Keep progress in native chat.
 
 If the first argument is exactly `metrics`, follow [the metrics workflow](references/metrics.md),
 with remaining arguments as scope, then returns. Use `.atlan-metrics/<slug>/`.
-Do not run full-agent preflight, eval, registration or deployment. Models and BI files
+Models and BI files
 need no warehouse; query-log filtering and `scripts/context_contracts.py` are permitted.
-Starting an agent build later needs an explicit new request.
 
 If the first argument is exactly `propose`, read [the proposal workflow](references/propose.md),
-preview a proposal for its owners, and return: no metric save, full-agent preflight or eval.
+preview a proposal for its owners, and return: no metric save.
 
 If the first argument is exactly `ask`, or there is no mode and the request is a data question
 (a number, a trend, why something changed) rather than metrics or agent work, load and follow
 this plugin's `analytics-ask` skill by name (in Claude Code, the Skill tool's
 `atlanai-analytics:analytics-ask`). It answers in the
-conversation from published definitions, then returns: no full-agent preflight, project, eval
-or agent.
+conversation from published definitions, then returns: no project or agent.
 
 If it is `connect`, follow [warehouse discovery](references/connect.md), then return.
 Use the selected project’s state when one exists; never resume another project silently.
-
-The remaining sections apply only to full-agent modes. Read
-[project conventions](references/project-conventions.md) when entering those modes.
-
-## 1. Preflight and resume
-
-Follow [full-agent preflight and saved project routing](references/full-agent.md).
-Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over it.
-
-| Mode | Procedure |
-| --- | --- |
-| `build` | [Build](references/build.md), purpose through baseline |
-| `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
-| `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
-
-Evaluation uses `scripts/analytics_eval.py`, standard library only, with no network access.
-Registry writes, including eval results, use Atlan MCP with the person's sign-in.
 
 ## MCP resources
 
@@ -128,6 +107,4 @@ read `atlan://defaults/skills/analytics-build/SKILL.md` and cited relative refer
 base. Fetch needed scripts/resources locally with their relative layout before execution;
 MCP does not expand plugin-local includes.
 
-Never expose credentials or identifying query literals. Keep gold SQL/results local; failure
-analysis sees train traces only. Keep the `atlan-analytics-grader` and
-`atlan-analytics-failure-analyst` agents isolated as documented.
+Never expose credentials or identifying query literals.

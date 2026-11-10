@@ -1,0 +1,33 @@
+schema_version: "1.1"
+name: five-route-start-vague
+tags: [analytics, five, routing, start]
+execution:
+  prompt: |
+    Help me get started with analytics.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-index-or-demo
+    type: tool_used
+    tool: Skill
+    input_match: 'analytics-(start|demo)'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: one-choice
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the person one clear choice of how to begin: either the three options
+      (try a demo, build from my data, ask a question) or the demo choice (the named demos or use my
+      own data), and stops to wait. FAIL if it starts inspecting files, begins a build or demo without
+      a choice, or lists internal modes such as metrics, connect, propose or eval.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

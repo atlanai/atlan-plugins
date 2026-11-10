@@ -1,0 +1,11 @@
+interface:
+  display_name: "Create or Edit a Metric"
+  short_description: "Generate, check, change or publish a metric"
+  default_prompt: "Use $analytics-metrics to create a metric for on-time delivery rate from this folder."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

@@ -54,6 +54,7 @@ run whose candidates were never shown in chat starts at Preview.
 | Entering | Read |
 | --- | --- |
 | Inspect or Scope | [inspect and scope](setup/inspect-scope.md) |
+| After intent, before Build, on own data | [commit on names](setup/names.md) |
 | Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](metrics-engine.md) for every source, including demos |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
 | Starting, resuming or any stage change | [the setup checklist](setup/checklist.md) |

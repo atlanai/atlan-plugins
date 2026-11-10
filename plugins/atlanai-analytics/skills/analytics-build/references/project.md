@@ -6,7 +6,7 @@ Preview local candidates before asking for an unknown destination workspace.
 
 Use the existing Analytics plugin to survey a local project, publish reusable context in
 Atlan, and answer questions through retrieval. No new plugin, repository, agent, eval,
-experiment or chat UI. Keep the existing explicit dashboard and agent workflows available.
+experiment or chat UI. Keep the existing explicit dashboard workflow available.
 
 Starter: **Help me set up <repository URL> and use Atlan Analytics so I can ask questions
 about its data.** A local folder works too. "Build an analytics agent from this repo" has

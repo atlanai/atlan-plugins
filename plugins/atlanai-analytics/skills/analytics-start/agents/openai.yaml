@@ -1,0 +1,11 @@
+interface:
+  display_name: "Atlan Analytics"
+  short_description: "Find the right analytics skill for a request"
+  default_prompt: "Use $analytics-start to help me get started with analytics on my data."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
