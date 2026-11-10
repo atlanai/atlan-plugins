@@ -1,9 +1,9 @@
 # Conventions every analytics skill follows
 
 These rules apply to every skill and mode in this plugin and beat anything a mode file says.
-A mode that keeps a full-agent project directory (build, eval, improve, dashboard, propose)
-also reads [project conventions](project-conventions.md) when it starts. Repository setup and
-metrics mode follow their own context-publication stages, without agent phase gates. Dashboard mode uses their
+A mode that keeps a project directory (metrics, dashboard, propose) also reads
+[project conventions](project-conventions.md) when it starts. Repository setup and metrics
+mode follow their own context-publication stages. Dashboard mode uses their
 explicit orchestration policy for phase approvals and continuation; these safety rules still apply.
 
 ## Registry calls
@@ -29,7 +29,7 @@ is none). A later question reuses them and skips discovery; look
 again only after a call is refused.
 
 Warehouse calls go through the read-only query tool recorded in state or held in this
-conversation, in its dialect. [Warehouse discovery](connect.md) finds it.
+conversation, in its dialect. [Warehouse discovery](../../analytics-survey/references/connect.md) finds it.
 
 ## Source of truth
 

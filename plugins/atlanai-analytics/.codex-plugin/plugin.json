@@ -1,7 +1,7 @@
 {
   "name": "atlanai-analytics",
-  "version": "0.7.1",
-  "description": "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics and explicit agent workflows.",
+  "version": "0.8.0",
+  "description": "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -17,13 +17,13 @@
     "talk-to-data",
     "snowflake",
     "databricks",
-    "evals"
+    "dashboards"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Analytics",
     "shortDescription": "Publish analytics context and ask your data with Atlan",
-    "longDescription": "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into managed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions.",
+    "longDescription": "The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own dashboards, BI exports and query history, in seven steps. analytics-survey says what a source holds and which metric names it offers. analytics-metrics generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.",
     "developerName": "Atlan",
     "category": "Data & Analytics",
     "capabilities": [
@@ -32,8 +32,8 @@
     ],
     "websiteURL": "https://atlan.com",
     "defaultPrompt": [
+      "Show me an Atlan Analytics demo",
       "Help me use this dashboard, folder or BI export to ask questions about my data",
-      "Build and test a talk-to-data agent from this Power BI dashboard",
       "Build metrics and saved queries for our support tables from the warehouse's query history"
     ],
     "brandColor": "#2026D2",

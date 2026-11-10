@@ -1,133 +1,116 @@
 ---
 name: analytics-build
-description: Set up analytics and answer workspace questions. Use for Atlan workspace access/creation, including explanation-only requests; BI sources, metrics, setup, resume, handoff or analytics agents. Not for data questions (analytics-ask).
+description: Atlan Analytics setup on your own data: survey, use case, scope, metrics, save, questions, dashboard. Use when setting up, resuming or handing off a run, showing its details, or for workspace access. Not for a demo (analytics-demo).
 ---
 
-# Analytics context and talk-to-data
+# Atlan Analytics on your own data: seven guided steps
+
+An orchestrator. It owns the conversation, intent, the tracker and approvals, and takes a
+person's own dashboards, folders, BI exports and query history to checked metrics they can
+question here. It calls the capability skills without letting them ask the person anything:
+`analytics-survey`, `analytics-metrics` and `analytics-ask`. Before the first helper call, and
+on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
+files and the review rule. This file sets their order and what the person sees.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
 and return. This includes explanation-only requests; do not start source inspection or publication.
 
-For setup, follow [one presentation flow](references/setup/presentation.md): the full
-welcome, visible step tracker, completed-collection review, context-built
-celebration and ready block. Read each moment's file when reached; do not replace it
-with a compact status update.
-Attribute saved checks to the earlier run. After publication, answers retrieve definitions before SQL runs.
-For final handoffs, read [handoff rules](references/setup/preview-publish.md) and return.
-Keep execution, source review, holds and releases separate. Total definitions = metrics + queries.
-Use factual check labels and the presentation flow's step headings.
+Then read [shared conventions](references/conventions.md): audit sessions, task
+authorization, privacy and status reporting. Reads of the selected source, packaged-runtime
+initialization and generated-file reads are ordinary task steps. Once a publication
+destination is chosen, show the checked plan and publish only after the person approves that
+concrete plan. Respect explicit draft or review requests.
 
-A bare `start` with no source or saved run first offers the demo or own data
-([start choice](references/setup/demo.md)). Otherwise, on fresh setup, your next message is
-the opening, before surveying files or calling helpers:
-name the outcome, next step and controls: narrow scope, inspect details, keep local or pause.
-Honor existing choices. Survey-only requests stop after inspection. On resume, name the
-saved result and next step. Detail-only requests get only the requested evidence.
-Fresh-folder opening:
-"I'll inspect the sources, explain what they cover, and ask what matters to you before
-preparing metrics for questions here. I'll show the six steps and where your choices matter.
-You can narrow the scope, ask for details, keep the work local, or pause at any point."
-Retain controls without requesting approval for already-authorized work.
+## Opening
 
-Then read [shared conventions](references/conventions.md). They define audit sessions,
-task authorization, privacy and status reporting. Treat reads of the selected source,
-packaged-runtime initialization and generated-file reads as ordinary task steps. Once a
-publication destination is chosen for saving metrics, show the checked plan and publish only
-after the user approves that concrete plan. Respect explicit draft/review requests.
-For new metric generation (metrics mode, or a setup run's Build stage), read
-[the metrics module](references/metrics-engine.md), also to explain it. Demos, local-only
-setup and full builds all use this engine for the complete selected collection. Dispatch
-before mode-specific project conventions or preflight. A
-repository setup is not a full-agent build. Cloning a source repository the user asks to set
-up is a separate, supported task.
+Two ways in:
 
-The Registry marketplace bundles this workflow in `atlanai`. Use its installed namespace
-instead of `atlanai-analytics:` below; do not install this add-on beside that bundle.
-
-## 0. Dispatch the requested mode first
-
-**Dispatch explicit modes first.** `dashboard`, `metrics`, `build`, `eval`, `improve`,
-`ask`, `connect` and `propose` retain their documented routes. Only the `build`
-mode or an explicit request to register, deploy or evaluate a separate agent uses the agent
-workflow.
-
-Otherwise, `start`, `setup`, `query-history`, a bare invocation, or a request to make a
-supplied link, local folder, HTML dashboard or BI export ready for questions follows
-[shared setup](references/setup.md), then returns. A request to build an analytics or
-talk-to-data agent takes that route too: this chat with Atlan becomes the agent. Its first
-reply adds one line offering a separately deployed agent with an eval set (`build`) instead,
-and switches only when the person asks for it. Repository names and layouts never select a special workflow.
-
-Show [the setup checklist](references/setup/checklist.md) in chat and in the host's task
-list when available, from the first action. Open no panel or view unless requested.
-Explain the sources, business meaning and
-possible analyses inside the first question. Before the choices, explicitly say what the
-sources could help the person analyse. An inventory followed by option labels alone does
-not explain their value. Follow the [intent flow](references/setup/intent.md): business focus
-first, purpose second, using native choices and waiting for each missing answer.
-Use the demo's preset intent when a demo was chosen; otherwise resolve missing intent.
-Then follow the presentation flow's completed-collection review before a destination question
-or publication/reuse. Read evidence with `project.py experience --format json`, adding
-`--engine-dir <within-run-engine>` during engine work; `--detail` exposes SQL and checks.
-The block applies on resume and reuse as well. A plan-only request needs no preview.
-For team reuse, release context and suggest questions. For understanding alone, show the
-requested evidence and stop, without another question or publication pitch.
-Use this host and its Atlan MCP connection. Reuse the selected run; no new agent, custom chat
-or eval is required.
-If Registry tools are missing or sign-in is required, follow [connection recovery](references/auth-recovery.md)
-inside this task: diagnose the selected host connection, start the host's own sign-in, watch
-the real login task, verify a current-host Registry read and resume the saved stage.
-Give the core Registry plugin's installation commands if recovery cannot complete. Never
-infer a missing coding-host plugin from a generic app-directory search.
-
-For `dashboard`, use [dashboard through the metrics module](references/dashboard-agent.md).
-Read saved dashboard-helper jobs through [legacy readback](references/dashboard.md),
-preserving capture and checks. Generating or revising their metrics uses a new main-engine run. Use inline cards only with installed tools;
-never register another MCP server. Keep progress in native chat.
-
-If the first argument is exactly `metrics`, follow [the metrics workflow](references/metrics.md),
-with remaining arguments as scope, then returns. Use `.atlan-metrics/<slug>/`.
-Do not run full-agent preflight, eval, registration or deployment. Models and BI files
-need no warehouse; query-log filtering and `scripts/context_contracts.py` are permitted.
-Starting an agent build later needs an explicit new request.
-
-If the first argument is exactly `propose`, read [the proposal workflow](references/propose.md),
-preview a proposal for its owners, and return: no metric save, full-agent preflight or eval.
-
-If the first argument is exactly `ask`, or there is no mode and the request is a data question
-(a number, a trend, why something changed) rather than metrics or agent work, load and follow
-this plugin's `analytics-ask` skill by name (in Claude Code, the Skill tool's
-`atlanai-analytics:analytics-ask`). It answers in the
-conversation from published definitions, then returns: no full-agent preflight, project, eval
-or agent.
-
-If it is `connect`, follow [warehouse discovery](references/connect.md), then return.
-Use the selected project’s state when one exists; never resume another project silently.
-
-The remaining sections apply only to full-agent modes. Read
-[project conventions](references/project-conventions.md) when entering those modes.
-
-## 1. Preflight and resume
-
-Follow [full-agent preflight and saved project routing](references/full-agent.md).
-Use `.atlan-analytics/<slug>/` and the saved phase; an explicit mode wins over it.
-
-| Mode | Procedure |
+| The person gave | Do |
 | --- | --- |
-| `build` | [Build](references/build.md), purpose through baseline |
-| `eval` | [Evaluate](references/eval.md), isolated cases and publishing over MCP |
-| `improve` | [Improve](references/improve.md), adopt, plan and train-only iteration |
+| A source (link, folder, BI export), with or without a problem | Open as below, then survey it |
+| A problem only, such as "churn by plan" | The problem is the focus: ask once for a source, then open |
+| Nothing, and no saved run | Ask once for a dashboard link, local folder or BI export, and mention that `analytics-demo` shows the same steps on made-up data |
 
-Evaluation uses `scripts/analytics_eval.py`, standard library only, with no network access.
-Registry writes, including eval results, use Atlan MCP with the person's sign-in.
+Your next message is the opening, before surveying files or calling helpers:
+
+"I'll survey your sources, explain what they cover, and ask what you want to use them for
+before generating metrics you can ask questions of here. I'll show the seven steps and where
+your choices matter. You can narrow the scope, ask for details, keep the work local, or pause
+at any point."
+
+Honor existing choices. Survey-only requests stop after step 1. On resume, read
+`PROJECT journey status`, name the saved result and the next step, and rebuild the tracker.
+Detail-only requests get only the requested evidence.
+
+## The seven steps
+
+Show [the checklist](references/setup/checklist.md) in chat and in the host's task list from
+the first action, with the full tracker at every step change. Follow
+[one presentation flow](references/setup/presentation.md): read each moment's file when
+reached and never replace a moment with a status line.
+
+1. **Survey your sources.** `analytics-survey` `inventory`, through
+   [inspect and scope](../analytics-survey/references/inspect-scope.md) section 1. Explain
+   what was found, its business meaning and what it could help analyse, inside the first
+   question's visible prompt; an inventory followed by option labels alone is not enough.
+2. **Clarify your use case.** Follow [the intent flow](references/setup/intent.md): business
+   focus first, purpose second, as native questions, waiting for each answer. A stated problem
+   answers the focus question. Then [commit on names](references/setup/names.md): the person
+   picks the metric names to build from `analytics-survey` `candidates`.
+3. **Select tables and dashboards.** Follow
+   [inspect and scope](../analytics-survey/references/inspect-scope.md) section 2: pages,
+   measures and the query-history tables the chosen names need.
+4. **Generate and check metrics.** `analytics-metrics` `generate` and `check` with the selection
+   and the whole survey, through [build and check](references/setup/build-check.md). Then
+   review the completed collection with actual counts and one representative metric.
+5. **Keep local or save to Atlan Trident.** Read
+   [context built and where to keep it](references/setup/save.md) and
+   [preview and publish](references/setup/preview-publish.md); `analytics-metrics` `save`.
+6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
+   question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
+7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).
+
+Keep execution, source review, holds and releases separate, with factual check labels and
+the tracker's step headings. Total definitions = metrics + queries. Attribute saved checks
+to the earlier run. After publication, answers retrieve definitions before SQL runs. Cloning
+a repository the person asks to set up is an ordinary step; repository names or layouts never
+select a special workflow.
+
+Use this host and its Atlan MCP connection. This chat with Atlan is the talk-to-data agent;
+this add-on does not deploy or evaluate a separate agent, and says so in one line when asked.
+If Registry tools are missing or sign-in is required, follow
+[connection recovery](references/auth-recovery.md) inside this task and resume the saved
+stage. Never infer a missing coding-host plugin from a generic app-directory search.
+
+## Explicit arguments
+
+These routes are reached only by name; the guided flow never offers them.
+
+- `metrics`: load the `analytics-metrics` skill and follow it with the remaining arguments
+  as scope. Metrics Studio sends `/atlanai-analytics:analytics-build metrics`, so this
+  hand-off stays. If the first argument is exactly `metrics`, no guided step runs.
+- `dashboard` or `propose`: load the `analytics-metrics` skill with that argument.
+- `connect`: load the `analytics-survey` skill with that argument.
+- `ask`, or a data question with no setup work: load the `analytics-ask` skill.
+
+In Claude Code, load a sibling skill with the Skill tool as `atlanai-analytics:<name>`. The
+Registry marketplace bundles these skills in `atlanai`; use its installed namespace instead,
+and do not install this add-on beside that bundle.
+
+## Hand-offs
+
+| From | To | Carries |
+| --- | --- | --- |
+| `analytics-demo` ("Continue building on real data") | here | Nothing but the connection. A demo run never becomes a build |
+| here | `analytics-ask` | The run, so answers read its context |
+| `analytics-ask` (no metric covers a question) | here | The question, as the problem |
+| here, when the survey finds no readable source | `analytics-demo` | Nothing |
 
 ## MCP resources
 
-Installed paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build/`. With MCP only,
-read `atlan://defaults/skills/analytics-build/SKILL.md` and cited relative references at that
-base. Fetch needed scripts/resources locally with their relative layout before execution;
-MCP does not expand plugin-local includes.
+Installed paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build/`; the sibling
+skills sit beside it. With MCP only, read `atlan://defaults/skills/analytics-build/SKILL.md`
+and cited relative references at that base. Fetch needed scripts locally with their relative
+layout before execution; MCP does not expand plugin-local includes.
 
-Never expose credentials or identifying query literals. Keep gold SQL/results local; failure
-analysis sees train traces only. Keep the `atlan-analytics-grader` and
-`atlan-analytics-failure-analyst` agents isolated as documented.
+Never expose credentials or identifying query literals.

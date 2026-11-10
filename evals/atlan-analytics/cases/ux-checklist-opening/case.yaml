@@ -14,26 +14,26 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'analytics-build'
-  - name: creates-the-six-steps
+  - name: creates-the-seven-steps
     type: tool_used
     tool: TaskCreate
-    min: 6
-    max: 6
-  - name: first-step-is-reading-sources
+    min: 7
+    max: 7
+  - name: first-step-is-surveying-sources
     type: tool_used
     tool: TaskCreate
-    input_match: 'Read your sources'
-  - name: review-step-is-listed
+    input_match: 'Survey your sources'
+  - name: save-step-is-listed
     type: tool_used
     tool: TaskCreate
-    input_match: 'Review and choose where to save'
+    input_match: 'Keep local or save to Atlan Trident'
   - name: plan-visible-in-chat-and-task-list
     type: llm
     focus: last_message
     criteria: |
       The user asked for Atlan Analytics to help ask questions about dashboards and query
-      history in /workspace/analytics-input. Nothing has been inspected. The six setup steps
-      must appear in chat as well as the host's task list. PASS if the reply shows all six
+      history in /workspace/analytics-input. Nothing has been inspected. The seven setup steps
+      must appear in chat as well as the host's task list. PASS if the reply shows all seven
       steps with source inspection current and the others pending, explains the outcome as
       metrics and questions in this chat, and names surveying the sources as the next action.
       No word limit applies to this required display. FAIL if it omits the chat tracker, describes a

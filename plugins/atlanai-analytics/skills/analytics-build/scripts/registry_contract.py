@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 
 
-CONTRACTS = Path(__file__).resolve().parents[3] / 'modules/metrics/contracts'
+CONTRACTS = Path(__file__).resolve().parents[2] / 'analytics-metrics/modules/metrics/contracts'
 FILES = {'metric': 'metric-definition.schema.json', 'sql_query': 'sql-query-definition.schema.json'}
 
 

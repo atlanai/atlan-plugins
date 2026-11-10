@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: five-route-metrics
+tags: [analytics, five, routing, metrics]
+execution:
+  prompt: |
+    The published on_time_departure_rate metric is wrong: it should exclude cancelled flights.
+    Another team owns it. Read plugin instructions only in this test and do not write to Atlan.
+    The host exposes no native question tool in this test, so use ordinary chat.
+    Say what happens next.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-metrics
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-metrics"'
+    min: 1
+  - name: reads-propose
+    type: tool_used
+    tool: Read
+    input_match: 'references/propose\.md'
+    min: 1
+  - name: no-registry-write
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: proposes-not-saves
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply says the change will go to the metric's owners as a proposal for their review
+      and that it does not save or change the published metric itself. It may list the steps of
+      drafting, checking and previewing that proposal, and ask for the details the proposal needs.
+      FAIL if it says it will edit, save or publish the metric
+      directly, or starts a full setup or demo.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

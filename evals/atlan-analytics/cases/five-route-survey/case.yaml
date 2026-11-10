@@ -1,0 +1,40 @@
+schema_version: "1.1"
+name: five-route-survey
+tags: [analytics, five, routing, survey]
+execution:
+  prompt: |
+    What do the dashboards and SQL files in ./reports cover, and can I use them? Don't build anything.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    Since nothing can run here, say in one short reply what you will inspect and what I will get back.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-survey
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-survey"'
+    min: 1
+  - name: no-engine
+    type: tool_used
+    tool: Read
+    input_match: 'references/metrics-engine\.md'
+    min: 0
+    max: 0
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: survey-only
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply says it will read the sources in ./reports and report what they cover, what
+      they could help analyse and whether they are ready to use, and promises nothing beyond that.
+      FAIL if it promises to generate metrics or SQL, asks where to publish, pitches saving to Atlan,
+      or offers a demo/build/ask menu.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.

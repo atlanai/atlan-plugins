@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-ENGINE = ROOT / 'plugins/atlanai-analytics/modules/metrics/engine'
+ENGINE = ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics/modules/metrics/engine'
 DEPENDENCIES = all(importlib.util.find_spec(name) for name in ('sqlglot', 'yaml', 'jsonschema'))
 
 if DEPENDENCIES:

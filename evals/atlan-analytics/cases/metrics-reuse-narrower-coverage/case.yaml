@@ -18,7 +18,7 @@ graders:
   - name: uses-analytics
     type: tool_used
     tool: Skill
-    input_match: 'analytics-build'
+    input_match: 'analytics-(build|metrics)'
   - name: preserves-existing-and-uncovered-work
     type: llm
     focus: last_message

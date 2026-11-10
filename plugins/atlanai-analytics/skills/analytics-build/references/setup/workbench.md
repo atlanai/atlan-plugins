@@ -70,7 +70,7 @@ missing input and next repair step; published alternatives require an explicit s
 
 After confirmed release readback, keep the same metric in the handoff. Suggest only questions
 supported by released formulas, dimensions, mandatory filters and the selected data path.
-Continue directly if the person already supplied a question. Follow [retrieval](../retrieval.md):
+Continue directly if the person already supplied a question. Follow [retrieval](../../../analytics-ask/references/retrieval.md):
 fetch fresh released context and execute fresh SQL. A warehouse plan is not an answer.
 Report the value, population, source release and any truncation or unmeasured parity. Keep SQL
 available in the native conversation. A failed query keeps the selected metric and run for
@@ -83,7 +83,7 @@ Use the existing host surface at each meaningful moment. Do not create a new app
 | Moment | Native presentation |
 | --- | --- |
 | Start | A short opening message before tool work. |
-| Start | The six-step checklist in chat and the host's task list when available, before the first helper call. |
+| Start | The flow's checklist in chat and the host's task list when available, before the first helper call. |
 | Inspection finishes | Step 1 ticked with its source count, then the business summary and focus choices in the native question. |
 | Business focus is answered | A separate purpose question tailored to that focus. Wait for its answer. |
 | Both answers are known | One sentence reflecting the goal and immediate action. No extra confirmation. |

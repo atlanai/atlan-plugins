@@ -184,6 +184,10 @@ def lint_skill(directory: Path, owned: bool, skills: set[str], root: Path = ROOT
         if size > MAX_SKILL_BYTES:
             errors.append(f"{relative}/SKILL.md: {size} bytes (max {MAX_SKILL_BYTES}); move material to references/")
         for path in directory.rglob("*.md"):
+            # A skill's `modules/` holds a vendored engine with its own docs and gate skills,
+            # whose citations resolve inside the engine, not against this skill.
+            if path.relative_to(directory).parts[0] == "modules":
+                continue
             content = path.read_text(encoding="utf-8")
             for cited in CITED_PATH.findall(content):
                 base = directory if cited.startswith("references/") else root

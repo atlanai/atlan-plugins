@@ -1,0 +1,11 @@
+interface:
+  display_name: "Generate Metrics"
+  short_description: "Turn dashboards and query history into checked metrics"
+  default_prompt: "Use $analytics-metrics to build metrics from our warehouse's query history."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"

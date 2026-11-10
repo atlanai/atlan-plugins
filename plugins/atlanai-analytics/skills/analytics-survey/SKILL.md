@@ -1,0 +1,91 @@
+---
+name: analytics-survey
+description: Survey a folder, dashboard link, BI export or warehouse: what it covers, candidate metric names, readiness. Use when asked what sources hold, which tables or pages to use, or if a source is usable. Not for building metrics (analytics-metrics).
+---
+
+# Survey a source and check it is ready
+
+A capability. It reads, it never writes to Atlan, and it authors no metric or SQL. A person
+can call it directly; `analytics-demo`, `analytics-build` and `analytics-ask` call it as a step.
+
+Read [shared conventions](../analytics-build/references/conventions.md) first: privacy,
+read-only SQL and status reporting apply. `PROJECT` means
+`python3 "<build-dir>/scripts/project.py" --run-dir "<run-dir>"`, where `<build-dir>` is the
+`analytics-build` skill's directory beside this one (`${CLAUDE_PLUGIN_ROOT}/skills/analytics-build`
+in Claude Code). Pass separate argv entries; zsh does not split a scalar holding a command.
+
+## Who is calling
+
+- **A flow called it** (demo, build or ask named the operation and the run): ask the person
+  nothing. Use the inputs given, write the result into the caller's run, and return. The
+  caller decides what the person sees.
+- **A person called it**: ask only for a missing source, once. Show the result as below and
+  stop: no generation, destination question or publication pitch. If they then want metrics,
+  hand to `analytics-build` with the survey already done.
+
+## Operations
+
+| Operation | Does | Procedure |
+| --- | --- | --- |
+| `inventory` | Reads every supplied source in full (models, dashboards, query history, SQL, local data) and says what they cover and could answer | [Inspect and scope](references/inspect-scope.md), section 1 |
+| `scope` | Selects pages, measures and query-history tables | [Inspect and scope](references/inspect-scope.md), section 2 |
+| `candidates` | Lists candidate metric names from the inventory, ranked by relevance to a stated focus or problem. Names only | Below |
+| `readiness` | Says whether work can proceed: source readable, data executable, Atlan reachable, published context present | Below |
+| `connect` | Finds and checks the warehouse query tool | [Warehouse discovery](references/connect.md) |
+
+Run `inventory` before `scope` and `candidates`; `readiness` and `connect` can run alone.
+Query history follows [query history](references/warehouses/query-history.md); a warehouse's
+dialect and statements are in [warehouses](references/warehouses.md), only the section for
+that warehouse. Reuse a supplied source and the selected run; never resume another project
+silently.
+
+### `inventory`
+
+1. Resolve the run with `PROJECT location --workspace "<working-directory>"`, unless a run
+   directory was supplied. The resolver creates nothing.
+2. Inspect: `PROJECT survey "<absolute-path>"` for a folder or file, a clone for a repository
+   link (never run its setup scripts), and the authorized host tools for a report link.
+
+### `candidates`: names before metrics
+
+The person commits to names, so a wrong focus costs one question and not a generation run.
+
+1. Take names from the inventory only: declared measures in models and dashboards, and
+   measures that recur in query history. Never invent a name the sources do not show.
+2. Rank by relevance to the focus or problem the caller passed. With none, rank by how many
+   sources show the measure.
+3. Return at most ten, each with its name, one line of plain meaning, and where it came from
+   (the dashboard tile, the model measure, or the count of past queries).
+4. Label every one as discovered, with SQL not generated and checks not run. Do not preview
+   SQL, run the engine or install its runtime for this operation.
+
+### `readiness`: one of three answers
+
+| Answer | Means | Next step to name |
+| --- | --- | --- |
+| `ready` | Sources are readable and, for answers, released context or an executor exists | None |
+| `partial` | Some coverage is held: a missing export, an untested executor, a sign-in not yet done | The one thing that unblocks the held part |
+| `none` | No readable source and no published context | Offer `analytics-demo` |
+
+Check only what the caller's goal needs: source access from the inventory; data execution
+through `connect` only when live numbers are needed; Atlan access only for saving or
+answering, with a failed read following
+[connection recovery](../analytics-build/references/auth-recovery.md).
+
+## What comes back
+
+The saved run holds the survey; `PROJECT journey status` and `PROJECT checklist` read it.
+Return to the caller, or show the person:
+
+- the source types found and their subject, in two or three sentences, and how they
+  complement each other;
+- two or three analyses the sources could support, phrased as things to learn;
+- for `candidates`, the ranked names; for `readiness`, the answer and its one next step.
+
+Counts alone do not show understanding. Use the inspector's actual count and noun: 110 history
+records are not 110 metrics. Keep file names and diagnostics in details. Distinguish sample,
+available, needs review, held and scan-limited inputs. Never invent tables, measures, user
+behaviour or findings.
+
+Before sending: the first sentence is the result; one next step, not a menu; no apology, no
+closing offer; commas and full stops, no em dashes or exclamation marks.

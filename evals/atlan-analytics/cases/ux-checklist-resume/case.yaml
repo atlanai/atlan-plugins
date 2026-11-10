@@ -6,14 +6,15 @@ execution:
     Use Atlan Analytics to resume my saved setup. This is a resume checkpoint: read plugin
     instructions only; do not execute commands or contact services in this test. The saved
     run's `project.py checklist` output is:
-    {"steps": [
-     {"id": "sources", "content": "Read 4 sources", "active": "Reading your sources", "needs_you": false, "status": "completed"},
-     {"id": "intent", "content": "Focus: Shipping cost", "active": "Waiting for your focus and goal", "needs_you": false, "status": "completed"},
-     {"id": "build", "content": "Write 3 metrics and 12 queries", "active": "Writing metrics and queries", "needs_you": false, "status": "completed"},
-     {"id": "check", "content": "Check 15 metrics and queries", "active": "Checking 6 of 15", "needs_you": false, "status": "in_progress"},
-     {"id": "review", "content": "Review and choose where to save", "active": "Waiting for your review", "needs_you": true, "status": "pending"},
-     {"id": "ready", "content": "Ready for questions", "active": "Preparing questions", "needs_you": false, "status": "pending"}],
-     "state": "running", "step": 4, "of": 6, "remote_writes": false}
+    {"flow": "build", "steps": [
+     {"id": "sources", "content": "Survey 4 sources", "active": "Surveying your sources", "needs_you": false, "status": "completed"},
+     {"id": "intent", "content": "Use case: Shipping cost", "active": "Waiting for your use case", "needs_you": false, "status": "completed"},
+     {"id": "scope", "content": "Select tables and dashboards", "active": "Waiting for your selection", "needs_you": false, "status": "completed"},
+     {"id": "metrics", "content": "Generate and check metrics", "active": "Checking 6 of 15", "needs_you": false, "status": "in_progress"},
+     {"id": "save", "content": "Keep local or save to Atlan Trident", "active": "Waiting for where to save", "needs_you": true, "status": "pending"},
+     {"id": "ask", "content": "Ask a question", "active": "Waiting for your question", "needs_you": true, "status": "pending"},
+     {"id": "dashboard", "content": "Build a dashboard", "active": "Waiting for your dashboard choice", "needs_you": true, "status": "pending"}],
+     "state": "running", "step": 4, "of": 7, "remote_writes": false}
     Rebuild the progress display from it and tell me where the run stands.
   max_turns: 24
   allowed_tools: [Read, Glob, Grep, Skill, TaskCreate, TaskUpdate]
@@ -22,15 +23,15 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'analytics-build'
-  - name: rebuilds-six-steps
+  - name: rebuilds-seven-steps
     type: tool_used
     tool: TaskCreate
-    min: 6
-    max: 6
+    min: 7
+    max: 7
   - name: keeps-sharpened-names
     type: tool_used
     tool: TaskCreate
-    input_match: 'Check.*(context|15 metrics)'
+    input_match: '(Generate and check metrics|Checking 6 of 15)'
   - name: ticks-only-finished-steps
     type: tool_used
     tool: TaskUpdate
@@ -47,13 +48,13 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      A saved setup run is resumed. Its helper reported six steps: three completed (4 sources
-      read, focus Shipping cost, 3 metrics and 12 queries written), checking in progress at
-      6 of 15, and review and ready-for-questions still pending. PASS if the reply shows all
-      six steps in chat with their saved status and counts, in addition to the task list,
+      A saved setup run is resumed. Its helper reported seven steps: three completed (4 sources
+      surveyed, use case Shipping cost, tables and dashboards selected), metric generation in
+      progress and checking 6 of 15, and saving, asking and the dashboard still pending. PASS
+      if the reply shows all seven steps in chat with their saved status and counts, in addition to the task list,
       and identifies checking as the current step. No word limit applies to this display.
       FAIL if it omits the chat tracker, claims checks finished or anything was saved to Atlan,
-      repeats the fresh-setup introduction, re-asks for focus or goal, mentions a panel, pane
+      repeats the fresh-setup introduction, re-asks for the use case, mentions a panel, pane
       or browser view, or uses an em dash or a closing offer.
   - name: no-shell
     type: tool_used

@@ -1,0 +1,33 @@
+schema_version: "1.1"
+name: five-route-demo
+tags: [analytics, five, routing, demo]
+execution:
+  prompt: |
+    Show me how Atlan Analytics works on sample data.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-demo
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-demo"'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: offers-datasets
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply explains in a sentence or two what Atlan Analytics does, offers the two demos
+      by name (Fixit & Co. and Ticketfuddle) and the option to use the person's own data, and stops to
+      wait for the choice. FAIL if it picks a demo itself, starts downloading or building, or offers
+      only a generic demo/build/ask menu without naming the two demos.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"), or a sentence announcing which skill was loaded when that changes nothing for the user. Offering one concrete next step, or asking a question the user must answer, is fine.
+      FAIL only if one of those appears.
