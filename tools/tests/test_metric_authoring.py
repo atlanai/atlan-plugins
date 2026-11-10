@@ -41,6 +41,17 @@ class CardExecution(unittest.TestCase):
         self.assertEqual(check['composition']['rows'], [[14.75]])
         self.assertEqual(check['composition']['coverage'], 'formula_source_mandatory_filters')
 
+    def test_metric_is_found_by_its_display_name_or_slug(self):
+        card = self.card()
+        card['name'] = 'Gross Margin'
+        self.save(card)
+        for name in ('gross-margin', 'metric:gross-margin', 'GROSS MARGIN'):
+            self.run.check_metric({'name': name})
+        self.assertIn('metric:Gross Margin', self.run.read(self.run.context / 'candidate-checks.json'))
+        with self.assertRaises(ValueError) as refused:
+            self.run.check_metric({'name': 'margin'})
+        self.assertIn('Saved: metric:Gross Margin', str(refused.exception))
+
     def test_formula_uses_its_own_parameter_bindings(self):
         card = self.card()
         card['definition'].update(formula='SUM(site.work.cost)',

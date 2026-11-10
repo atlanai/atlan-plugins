@@ -10,7 +10,7 @@ Atlan's MCP gateway puts every MCP server the organization registered behind the
 `atlan` connection. The user signs in to Atlan once; each downstream server is reached with
 the user's own connected account or a credential an admin linked, never with a key in chat.
 Every call is permission-checked and recorded in the session the user can audit later.
-Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 
 ## Your tool's own connector, or Atlan's
 

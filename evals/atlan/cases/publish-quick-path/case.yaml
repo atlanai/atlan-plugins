@@ -71,7 +71,27 @@ graders:
       PASS if the reply says the new skill was published to the user's own workspace (Dana's Workspace) and is active or released, and names its version or release (for example 0.1.0 on latest).
       FAIL if it says nothing was published, asks the user to approve again, or names another workspace.
   - name: plain-reply
+    type: regex
+    target: last_message
+    # Voice rules 1, 3, 4 and 5: no em dash, no exclamation, no pleasantry, apology or closing offer.
+    pattern: '^(?![\s\S]*(?:—|!(?:\s|$)|\b(?:[Gg]reat question|[Hh]appy to|[Cc]ertainly|[Ss]orry|[Aa]pologi[sz]e|[Uu]nfortunately|[Ll]et me know if|[Ff]eel free to|[Hh]ope this helps)\b))[\s\S]'
+  - name: reply-length
+    type: regex
+    target: last_message
+    # Voice rule 6, counted: at most 100 words. A table row or a fenced block counts as one,
+    # and each word is matched whole, so a long reply fails at once instead of backtracking.
+    pattern: '^(?:\s*(?=(```[\s\S]*?```|\|[^\n]*|\S+))\1){1,100}\s*$'
+  - name: one-next-step
     type: llm
+    focus: last_message
     criteria: |
-      PASS if the final reply opens with its result or the next step and has none of: a greeting or pleasantry ("Great", "Happy to", "Certainly"), an apology, an em dash, a generic closing offer with no concrete step ("let me know if you need anything else", "feel free to ask"),, a sentence announcing which skill was loaded when that changes nothing for the user, a menu of follow-up actions to choose from ("I can also…", "want me to A, B or C?"), a sentence about a call it skipped or retried when that changes nothing the user should do ("I didn't request an upload ticket", "the registry returned service unavailable twice"), or more than seven lines, not counting a table, a code block or a list the user asked for. Offering one concrete next step, or asking a question the user must answer, is fine.
-      FAIL only if one of those appears.
+      Judge only how the reply ends, not whether its content is right.
+      PASS if it ends with no offer, with one concrete next step, or with one question the user must answer. A question that offers two choices ("retry the split, or revise the report?") is one question, and so is one offer followed by where else to look.
+      FAIL only if it ends by offering three or more different things the assistant could do next for the user to pick from ("Want me to A, B or C?", "I can also …").
+  - name: no-process-talk
+    type: llm
+    focus: last_message
+    criteria: |
+      Judge only whether the reply reports the assistant's own mistakes or mechanics.
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

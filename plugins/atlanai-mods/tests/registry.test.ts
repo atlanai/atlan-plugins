@@ -623,6 +623,15 @@ describe('/atlan', () => {
     on('mcp.call', () => ({ value: text(DESCRIBED) }))
     const ran = await $.command.run(atlan(''))
     expect(ran.text).toContain('Atlan: connected through plugin:atlanai:atlan')
+    expect(ran.text).toContain('Skill suggestions are on: the first 300 characters of each request')
+  })
+
+  test('says nothing of skill suggestions when they are off', { options: { suggest_skills: false } }, async ($, on) => {
+    engine(on)
+    on('mcp.call', () => ({ value: text(DESCRIBED) }))
+    const ran = await $.command.run(atlan(''))
+    expect(ran.text).toContain('Atlan: connected through plugin:atlanai:atlan')
+    expect(ran.text).not.toContain('Skill suggestions')
   })
 
   test('reports a call that failed as a failure, not as a server that did not answer (X5a)', async ($, on) => {

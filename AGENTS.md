@@ -156,8 +156,13 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 
 `tools/lint.py` fails on an em dash, a sentence-ending exclamation mark or a short list of filler
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
-under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
-grader that reads the reply's shape against rules 1 and 3 to 8. The rules live in
+under `plugins/`, and in `plugin.toml`, outside code. Every core eval case carries the
+same reply graders, written from one definition by `tools/eval_graders.py` and held there by
+`make check`: `plain-reply` is a pattern for rules 1 and 3 to 5, `reply-length` counts rule 6's
+words (100, to leave room for names and code spans, with a table row or a fenced block counted
+as one; a case that needs more says so on a `# reply-words:` line with the reason, and a case
+whose reply is a draft names the graders that fit on a `# reply-graders:` line), and `one-next-step` and `no-process-talk` are one narrow
+question each to a judge for rules 7 and 8. A failure names the rule. The rules live in
 `atlan-get-started` too, under **Replies lead with the result**, and every skill carries them as
 one line of checks to tick before sending, because a task reaches its skill directly rather
 than through `atlan-get-started`. Drop that line from a skill and its

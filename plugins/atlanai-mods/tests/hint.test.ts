@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { HINT_SIMILARITY, hintLine, hintQuery, isHintable, isInstalled, skillMatches } from '../hooks/hint'
+import { HINT_NOTICE, HINT_SIMILARITY, hintLine, hintQuery, isHintable, isInstalled, skillMatches } from '../hooks/hint'
 
 const SESSION = 'mcp_session_01m6cb39bcesgadrp1h8b69m74'
 const CALL = 'mcp__plugin_atlanai_atlan__mcp__call_tool'
@@ -31,19 +31,28 @@ const FAKE_AWS_KEY = 'AKIA' + 'ABCDEFGHIJKLMNOP'
 const text = (value: string) => ({ content: [{ type: 'text', text: value }], isError: false })
 const prompt = (value: string) => ({ text: value, wait: false, origin: { kind: 'composer' as const } })
 
-type Seen = { searches: Record<string, unknown>[]; contexts: (readonly string[] | undefined)[] }
+type Seen = { searches: Record<string, unknown>[]; contexts: (readonly string[] | undefined)[]; toasts: string[] }
 
-/** The engine beneath the mod: a store, a clock, a gateway that answers the connection check and
- * the skill search with `answer`, and a prompt box that records what reached the model. */
+/** A machine that has already shown the hint's one-time notice, as every one has after its first request. */
+const TOLD = { 'hint-notice': true }
+
+/** The engine beneath the mod: a store holding `stored`, a clock, a gateway that answers the
+ * connection check and the skill search with `answer`, and a prompt box that records what reached
+ * the model. */
 function engine(
   on: On,
   answer: () => unknown = () => ({ value: text(`${FOUND}${RECEIPT}`) }),
   commands: string[] = [],
   check: () => unknown = () => ({ value: text(DESCRIBED) }),
+  stored: Record<string, unknown> = TOLD,
 ) {
-  const seen: Seen = { searches: [], contexts: [] }
-  mock.store(on)
+  const seen: Seen = { searches: [], contexts: [], toasts: [] }
+  mock.store(on, stored)
   on('ui.status', () => ({ value: undefined }))
+  on('ui.toast', (_, e) => {
+    seen.toasts.push(String((e as { text?: unknown }).text))
+    return { value: undefined }
+  })
   on('command.register', () => ({ value: { command: 'atlan' } }))
   on('command.list', () => ({ value: commands.map(name => ({ name, description: '', source: 'plugin' })) }))
   on('session.id', () => ({ value: 'conversation-1' }))
@@ -62,11 +71,19 @@ function engine(
   return { seen, clock }
 }
 
-/** Starts the session, so the connection check finds the gateway ready. */
-async function connect($: { session: { start: (e: { cwd: string; surface: 'terminal'; isInteractive: boolean }) => Promise<unknown> } }, clock: { settle: () => Promise<void> }) {
-  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+/** Starts the session, so the connection check finds the gateway ready. `isInteractive: false` is
+ * a session nobody watches. */
+async function connect(
+  $: { session: { start: (e: { cwd: string; surface: 'terminal'; isInteractive: boolean }) => Promise<unknown> } },
+  clock: { settle: () => Promise<void> },
+  isInteractive = true,
+) {
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive })
   await clock.settle()
 }
+
+/** An engine on a machine that has not shown the notice yet. */
+const newMachine = (on: On) => engine(on, undefined, undefined, undefined, {})
 
 describe('which prompts are searched', () => {
   test("skips commands, short prompts, a named skill's handle and credentials", () => {
@@ -272,11 +289,58 @@ describe('the prompt-time skill hint', () => {
     expect(seen.contexts).toEqual([undefined])
   })
 
-  test('is off with the suggest_skills option', { options: { suggest_skills: false } }, async ($, on) => {
-    const { seen, clock } = engine(on)
+  test('is off with the suggest_skills option, and then shows no notice', { options: { suggest_skills: false } }, async ($, on) => {
+    const { seen, clock } = newMachine(on)
     await connect($, clock)
     await $.prompt.submit(prompt('tell me a great startup joke'))
     expect(seen.searches).toEqual([])
     expect(seen.contexts).toEqual([undefined])
+    expect(seen.toasts).toEqual([])
+  })
+})
+
+describe('the one-time notice', () => {
+  test('is shown before anything is searched, and the first request is not sent', async ($, on) => {
+    const { seen, clock } = newMachine(on)
+    await connect($, clock)
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    expect(seen.searches).toEqual([])
+    expect(seen.contexts).toEqual([undefined])
+    expect(seen.toasts).toEqual([HINT_NOTICE])
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    await $.prompt.submit(prompt('draft the weekly revenue report for finance'))
+    expect(seen.searches).toHaveLength(2)
+    expect(seen.contexts[1]?.[0]).toContain(JOKES.id)
+    expect(seen.toasts).toEqual([HINT_NOTICE])
+  })
+
+  test('says what is sent and how to turn it off', () => {
+    expect(HINT_NOTICE).toContain('first 300 characters')
+    expect(HINT_NOTICE).toContain('suggest_skills')
+  })
+
+  test('is not spent on a request that would not be searched', async ($, on) => {
+    const { seen, clock } = newMachine(on)
+    await connect($, clock)
+    await $.prompt.submit(prompt("what's 2+2"))
+    await $.prompt.submit(prompt('/atlan'))
+    expect(seen.toasts).toEqual([])
+  })
+
+  test('where nobody can read it, nothing is shown and nothing is searched', async ($, on) => {
+    const { seen, clock } = newMachine(on)
+    await connect($, clock, false)
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    expect(seen.searches).toEqual([])
+    expect(seen.toasts).toEqual([])
+  })
+
+  test('a session nobody watches still searches on a machine that has been told', async ($, on) => {
+    const { seen, clock } = engine(on)
+    await connect($, clock, false)
+    await $.prompt.submit(prompt('tell me a great startup joke'))
+    expect(seen.searches).toHaveLength(1)
+    expect(seen.toasts).toEqual([])
   })
 })

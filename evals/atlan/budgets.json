@@ -1,0 +1,422 @@
+{
+ "append-conflict": {
+  "cost_usd": 0.1821,
+  "gateway": 2,
+  "turns": 5
+ },
+ "author-knowledge-routing": {
+  "cost_usd": 0.1305,
+  "gateway": 0,
+  "turns": 3
+ },
+ "browse-skills-overview": {
+  "cost_usd": 0.119,
+  "gateway": 1,
+  "turns": 4
+ },
+ "catalogue-without-platform-kinds": {
+  "cost_usd": 0.1191,
+  "gateway": 1,
+  "turns": 4
+ },
+ "codex-after-sign-in": {
+  "cost_usd": 0.2036,
+  "gateway": 4,
+  "turns": 6
+ },
+ "codex-not-signed-in": {
+  "cost_usd": 0.1069,
+  "gateway": 0,
+  "turns": 2
+ },
+ "command-get-started": {
+  "cost_usd": 0.1655,
+  "gateway": 4,
+  "turns": 5
+ },
+ "content-read-file": {
+  "cost_usd": 0.1483,
+  "gateway": 1,
+  "turns": 4
+ },
+ "continue-chat-sentence": {
+  "cost_usd": 0.2445,
+  "gateway": 7,
+  "turns": 7
+ },
+ "continue-command": {
+  "cost_usd": 0.2577,
+  "gateway": 6,
+  "turns": 7
+ },
+ "continue-without-agent-app": {
+  "cost_usd": 0.1784,
+  "gateway": 6,
+  "turns": 7
+ },
+ "create-skill-search-first": {
+  "cost_usd": 0.2423,
+  "gateway": 2,
+  "turns": 5
+ },
+ "dashboard-handoff-prompt": {
+  "cost_usd": 0.2445,
+  "gateway": 6,
+  "turns": 7
+ },
+ "empty-organization": {
+  "cost_usd": 0.1421,
+  "gateway": 4,
+  "turns": 5
+ },
+ "feedback-command": {
+  "cost_usd": 0.2054,
+  "gateway": 0,
+  "turns": 5
+ },
+ "find-existing-skill": {
+  "cost_usd": 0.1743,
+  "gateway": 1,
+  "turns": 4
+ },
+ "find-recent-runs": {
+  "cost_usd": 0.1995,
+  "gateway": 2,
+  "turns": 5
+ },
+ "find-recently-changed": {
+  "cost_usd": 0.1769,
+  "gateway": 1,
+  "turns": 4
+ },
+ "find-skill-suggests": {
+  "cost_usd": 0.1775,
+  "gateway": 2,
+  "turns": 5
+ },
+ "first-run": {
+  "cost_usd": 0.1597,
+  "gateway": 4,
+  "turns": 5
+ },
+ "gateway-unavailable": {
+  "cost_usd": 0.1453,
+  "gateway": 3,
+  "turns": 6
+ },
+ "gather-context": {
+  "cost_usd": 0.186,
+  "gateway": 2,
+  "turns": 5
+ },
+ "gather-context-unreleased": {
+  "cost_usd": 0.2393,
+  "gateway": 4,
+  "turns": 9
+ },
+ "inline-skill-without-upload": {
+  "cost_usd": 0.1794,
+  "gateway": 2,
+  "turns": 5
+ },
+ "install-skill": {
+  "cost_usd": 0.2042,
+  "gateway": 2,
+  "turns": 6
+ },
+ "installed-skills-up-to-date": {
+  "cost_usd": 0.2274,
+  "gateway": 1,
+  "turns": 7
+ },
+ "linear-not-connected": {
+  "cost_usd": 0.1755,
+  "gateway": 1,
+  "turns": 4
+ },
+ "list-mcp-servers": {
+  "cost_usd": 0.1513,
+  "gateway": 1,
+  "turns": 4
+ },
+ "live-surface-overview": {
+  "cost_usd": 0.1545,
+  "gateway": 2,
+  "turns": 5
+ },
+ "manage-approve-pending": {
+  "cost_usd": 0.19,
+  "gateway": 4,
+  "turns": 5
+ },
+ "manage-archive-shows-dependents": {
+  "cost_usd": 0.2327,
+  "gateway": 5,
+  "turns": 7
+ },
+ "manage-deprecate-replacement": {
+  "cost_usd": 0.181,
+  "gateway": 5,
+  "turns": 5
+ },
+ "manage-move-readout": {
+  "cost_usd": 0.2119,
+  "gateway": 5,
+  "turns": 6
+ },
+ "manage-move-to-personal": {
+  "cost_usd": 0.2183,
+  "gateway": 4,
+  "turns": 5
+ },
+ "manage-release-pending": {
+  "cost_usd": 0.1613,
+  "gateway": 1,
+  "turns": 4
+ },
+ "manage-review-queue": {
+  "cost_usd": 0.1941,
+  "gateway": 4,
+  "turns": 5
+ },
+ "manage-roll-back-no-withdraw": {
+  "cost_usd": 0.1896,
+  "gateway": 6,
+  "turns": 5
+ },
+ "manage-roll-back-release": {
+  "cost_usd": 0.225,
+  "gateway": 7,
+  "turns": 8
+ },
+ "manage-stuck-scan": {
+  "cost_usd": 0.1771,
+  "gateway": 3,
+  "turns": 5
+ },
+ "mcp-disabled-server": {
+  "cost_usd": 0.2046,
+  "gateway": 1,
+  "turns": 4
+ },
+ "negative-arithmetic": {
+  "cost_usd": 0.0621,
+  "gateway": 0,
+  "turns": 1
+ },
+ "negative-catalog-lineage": {
+  "cost_usd": 0.2005,
+  "gateway": 4,
+  "turns": 6
+ },
+ "negative-code-task": {
+  "cost_usd": 0.0649,
+  "gateway": 0,
+  "turns": 1
+ },
+ "negative-near-miss-skill-md": {
+  "cost_usd": 0.0815,
+  "gateway": 0,
+  "turns": 1
+ },
+ "negative-rewrite-tone": {
+  "cost_usd": 0.0657,
+  "gateway": 0,
+  "turns": 1
+ },
+ "project-contents": {
+  "cost_usd": 0.1791,
+  "gateway": 2,
+  "turns": 5
+ },
+ "publish-blocked-findings": {
+  "cost_usd": 0.202,
+  "gateway": 1,
+  "turns": 4
+ },
+ "publish-files-from-refused": {
+  "cost_usd": 0.1583,
+  "gateway": 2,
+  "turns": 5
+ },
+ "publish-lost-reply": {
+  "cost_usd": 0.149,
+  "gateway": 3,
+  "turns": 6
+ },
+ "publish-output-new-version": {
+  "cost_usd": 0.1971,
+  "gateway": 3,
+  "turns": 6
+ },
+ "publish-output-refused-no-field": {
+  "cost_usd": 0.1657,
+  "gateway": 3,
+  "turns": 6
+ },
+ "publish-quick-path": {
+  "cost_usd": 0.1939,
+  "gateway": 3,
+  "turns": 6
+ },
+ "rate-limited": {
+  "cost_usd": 0.1757,
+  "gateway": 4,
+  "turns": 7
+ },
+ "record-new-version": {
+  "cost_usd": 0.2966,
+  "gateway": 10,
+  "turns": 13
+ },
+ "register-mcp-server": {
+  "cost_usd": 0.1778,
+  "gateway": 2,
+  "turns": 5
+ },
+ "routing-ci-publish": {
+  "cost_usd": 0.2274,
+  "gateway": 0,
+  "turns": 4
+ },
+ "routing-publish-skill": {
+  "cost_usd": 0.151,
+  "gateway": 0,
+  "turns": 6
+ },
+ "routing-record-output": {
+  "cost_usd": 0.1832,
+  "gateway": 0,
+  "turns": 4
+ },
+ "routing-register-agent": {
+  "cost_usd": 0.1774,
+  "gateway": 0,
+  "turns": 5
+ },
+ "routing-save-document": {
+  "cost_usd": 0.1536,
+  "gateway": 0,
+  "turns": 5
+ },
+ "routing-update-agent": {
+  "cost_usd": 0.1671,
+  "gateway": 3,
+  "turns": 7
+ },
+ "share-asks-audience": {
+  "cost_usd": 0.1787,
+  "gateway": 1,
+  "turns": 4
+ },
+ "share-masks-credential": {
+  "cost_usd": 0.1295,
+  "gateway": 0,
+  "turns": 3
+ },
+ "share-new-version": {
+  "cost_usd": 0.2055,
+  "gateway": 3,
+  "turns": 6
+ },
+ "share-new-version-conflict": {
+  "cost_usd": 0.4007,
+  "gateway": 10,
+  "turns": 14
+ },
+ "share-team-and-slack": {
+  "cost_usd": 0.2899,
+  "gateway": 5,
+  "turns": 7
+ },
+ "skill-adoption-by-version": {
+  "cost_usd": 0.2109,
+  "gateway": 5,
+  "turns": 6
+ },
+ "skill-checks-clear-match": {
+  "cost_usd": 0.1883,
+  "gateway": 3,
+  "turns": 6
+ },
+ "skill-checks-injection": {
+  "cost_usd": 0.2189,
+  "gateway": 2,
+  "turns": 7
+ },
+ "skill-checks-two-matches": {
+  "cost_usd": 0.1516,
+  "gateway": 0,
+  "turns": 3
+ },
+ "skill-prompt-injection": {
+  "cost_usd": 0.1816,
+  "gateway": 1,
+  "turns": 5
+ },
+ "skill-usage-last-week": {
+  "cost_usd": 0.2087,
+  "gateway": 2,
+  "turns": 5
+ },
+ "skill-what-changed": {
+  "cost_usd": 0.2572,
+  "gateway": 5,
+  "turns": 6
+ },
+ "slack-read-through-atlan": {
+  "cost_usd": 0.2594,
+  "gateway": 3,
+  "turns": 7
+ },
+ "troubleshoot-signed-out": {
+  "cost_usd": 0.1108,
+  "gateway": 0,
+  "turns": 3
+ },
+ "troubleshoot-unavailable": {
+  "cost_usd": 0.1509,
+  "gateway": 0,
+  "turns": 2
+ },
+ "use-skill-ambiguous-name": {
+  "cost_usd": 0.154,
+  "gateway": 1,
+  "turns": 4
+ },
+ "use-skill-blocked": {
+  "cost_usd": 0.1435,
+  "gateway": 1,
+  "turns": 4
+ },
+ "use-skill-dashboard-handle": {
+  "cost_usd": 0.1699,
+  "gateway": 1,
+  "turns": 5
+ },
+ "use-skill-installed-by-name": {
+  "cost_usd": 0.0951,
+  "gateway": 0,
+  "turns": 2
+ },
+ "use-skill-installed-copy": {
+  "cost_usd": 0.1489,
+  "gateway": 1,
+  "turns": 5
+ },
+ "use-skill-pending-review": {
+  "cost_usd": 0.1474,
+  "gateway": 1,
+  "turns": 4
+ },
+ "who-uses-skill": {
+  "cost_usd": 0.1637,
+  "gateway": 3,
+  "turns": 6
+ },
+ "wrong-server": {
+  "cost_usd": 0.1009,
+  "gateway": 0,
+  "turns": 2
+ }
+}

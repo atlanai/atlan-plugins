@@ -376,6 +376,55 @@ class GatewayLabelsAndChecksTest(unittest.TestCase):
         self.assertNotIn("workspace_display_name", by_kind["groups"][0])
         row = self.read("registry__list_artifacts", {"kind": "output", "limit": 1})["items"][0]
         self.assertTrue(row["workspace_display_name"])
+        # One artifact read names it too, so a reply says "Marketing", not `workspace_…`.
+        one = self.read("registry__get_artifact", {"artifact_id": row["id"]})
+        self.assertEqual(one["workspace_display_name"], row["workspace_display_name"])
+        self.assertEqual(one["workspace_kind"], row["workspace_kind"])
+
+    def test_a_stuck_scan_answers_not_scanned_however_often_it_is_read(self) -> None:
+        findings = ("registry__get_security_findings", {"artifact_id": "skill_01evalpending"})
+        self.assertEqual(self.read(*findings)["scan_status"], "scanned")
+        self.m = load(ATLAN_EMULATOR_NOT_SCANNED="skill_01evalpending")
+        for _ in range(2):
+            body = self.read(*findings)
+            body = body.get("result", body)
+            self.assertEqual((body["scan_status"], body["findings"], body["artifact_status"]), ("not_scanned", [], "pending_review"))
+
+    def test_usage_statistics_count_runs_in_the_window_asked_for(self) -> None:
+        now = int(self.m.time.time())
+        week = {"start_time_unix_seconds": now - 7 * 86400, "end_time_unix_seconds": now}
+        stats = "extension__skill__query_trace_stats"
+        asked = week | {"request_type": "scalar", "queries": [
+            {"name": "runs", "measure": "traces"}, {"name": "people", "measure": "active_users"},
+            {"name": "spend", "measure": "cost"}]}
+        body = self.read(stats, {"skill_id": "skill_01evalsecrev01", "query": asked})
+        results = {row["query_name"]: row for row in body["data"]["results"]}
+        self.assertEqual(results["runs"], {"query_name": "runs", "measure": "traces", "value": 42.0})
+        self.assertEqual(results["people"]["value"], 9.0)
+        self.assertNotIn("value", results["spend"], "a measure with no data has no value, which is not zero")
+        self.assertEqual(body["meta"]["window"], week)
+        # The same week a year early holds nothing: a window counted from memory finds no runs.
+        early = {k: v - 365 * 86400 for k, v in week.items()}
+        body = self.read(stats, {"subject_id": "skill_01evalsecrev01", "query": asked | early})
+        self.assertEqual(body["data"]["results"][0]["value"], 0.0)
+        days = self.read(stats, {"skill_id": "skill_01evalsecrev01", "query": week | {
+            "request_type": "time_series", "bucket": "day", "compare": "previous_period",
+            "queries": [{"name": "runs", "measure": "traces"}]}})
+        self.assertEqual([point["value"] for point in days["data"]["series"][0]["points"]], [6.0] * 7)
+        self.assertEqual(days["comparison"]["end_time_unix_seconds"], week["start_time_unix_seconds"])
+        table = self.read(stats, {"skill_id": "skill_01evalsecrev01", "query": week | {
+            "request_type": "table", "queries": [{"name": "runs", "measure": "traces", "group_by": ["skill_version"]}]}})
+        self.assertEqual([(row["groups"], row["values"]) for row in table["data"]["rows"]],
+                         [({"skill_version": "2"}, {"runs": 35.0}), ({"skill_version": "1"}, {"runs": 7.0})])
+        # A skill nobody ran answers zero; an agent is asked through its own tool, by `subject_id`.
+        unused = self.read(stats, {"skill_id": "skill_01evaltfplan01", "query": asked})
+        self.assertEqual(unused["data"]["results"][0]["value"], 0.0)
+        agent = self.read("extension__agent__query_trace_stats", {"subject_id": "agent_01evalreviewbot", "query": asked})
+        self.assertEqual(agent["data"]["results"][0]["value"], 84.0)
+        for arguments in ({"query": asked}, {"skill_id": "agent_01evalreviewbot", "query": asked},
+                          {"skill_id": "skill_01evalsecrev01", "query": week | {"request_type": "time_series", "queries": []}}):
+            result, refused = self.run_tool("mcp__call_read_tool", stats, arguments)
+            self.assertTrue(result["isError"], refused)
 
     def test_offset_pages_a_browse_and_a_search_and_name_narrows_a_browse_to_one_line(self) -> None:
         first = self.read("registry__list_artifacts", {"kind": "skill", "limit": 2})

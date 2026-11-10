@@ -30,6 +30,7 @@ from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
 from local_data import safe_path, file_hash
+import journey
 import local_prepare
 import context_contracts as mine
 from analytics_eval import filter_querylog
@@ -266,9 +267,12 @@ class Project(ContextState):
 
     def check_execution(self, request, kind):
         items = metric_preview.candidates(self)
-        item = next((i for i in items if i['key'] == kind + ':' + request.get('name', '')), None)
+        keys = [i['key'] for i in items]
+        key = metric_preview.resolve_id(request.get('name', ''), keys, kind)
+        item = next((i for i in items if i['key'] == key), None)
         if not item:
-            raise ProjectError('Select an authored metric or saved query by name.')
+            raise ProjectError('Select an authored ' + ('metric' if kind == 'metric' else 'saved query')
+                               + ' by name. Saved: ' + metric_preview.id_hint(keys, kind) + '.')
         checker = mine.check_query if kind == 'sql_query' else mine.check_metric
         errors, warnings = checker(item['body'])
         if errors:
@@ -590,7 +594,8 @@ def main():
                     progress.update(project, project.read(path)['stage'], 'failed', 'review_held')
             except (ValueError, OSError, KeyError, TypeError):
                 pass  # A broken optional progress artifact cannot hide the original safe error.
-        print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked))
+        print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked,
+                                                                                journey.JourneyError))
                           else 'Project step could not complete. Check the selected files, source state and request fields.'}))
         return 2
 

@@ -9,75 +9,34 @@ tables load into `data/site.sqlite` inside that folder (the prepare request's `d
 ## The welcome
 
 Print this block next, before any other tool call, file search or clone. Print it whole and
-as written, as an ordinary reply. Replace `<folder>` with the current working folder's
-absolute path; that is the only change.
+as written, as an ordinary reply; it has nothing to fill in. Keep the step strip inside its
+code fence so its columns stay aligned.
 
-> **You're building a job profit agent for Fixit & Co.**
+> **Build a job profit agent for Fixit & Co. that answers questions about its jobs in plain
+> English, and shows the rule behind every number.**
 >
-> By the end, this chat is an agent that can tell Fixit which jobs lost money and why, in
-> plain English. You build it by turning Fixit's dashboard and past queries into context.
+> Some questions it will answer:
 >
-> **See it live first.** Fixit's dashboard, its data and the queries its analysts ran are
-> on a tour page you can click through:
-> https://atlanai.github.io/analytics-agent-accelerator/yard-tour/
-> Open it in your browser and look around. It is the same environment you are about to
-> build on, so the numbers you see there are the ones your agent will answer from.
+> - Fixit lost £6,360 on its biggest job, a £150,000 wind turbine base. **Why?**
+> - Which jobs finished late, once the contract's week of grace is allowed for?
+> - Where did rework cost the most?
+> - How much material ended up in the skip, and on which jobs?
 >
-> Fixit & Co. is a made-up building firm, with a crew of people and hired machines that
-> bill by the hour. Between July and October 2026 it ran 10 jobs, from a £150 cat flap to
-> a £150,000 wind turbine base. You need no construction knowledge: every question is
-> about money and time. The data is made up, so nothing of yours is used.
->
-> **The problem.** Fixit keeps asking one question: *which job lost the most margin last
-> quarter, and why?* The numbers exist, but answering means someone writes SQL, and two
-> analysts can get two different answers.
->
-> **What you'll build.** A job profit agent. You turn Fixit's dashboard and past queries
-> into context, and with that context the agent gives anyone one checked answer.
->
-> **What context is.** It is what a new analyst has to learn before answering: what
-> "margin" means at Fixit, how it is worked out, which jobs count. Fixit already wrote that
-> down without meaning to, in its dashboard and in the queries its analysts ran. Atlan reads
-> those sources and turns them into context that anyone, or any AI, can use. The context is
-> a set of metrics: each one a number Fixit cares about, such as gross margin, with the
-> rule for working it out.
->
-> **What's in the demo**
->
-> | What | In plain words |
+> | What you're working with | |
 > | --- | --- |
-> | Jobs | Each job, its client and what it was worth (10) |
-> | Crew | People and machines, with hourly rates (8) |
-> | Work logs | Who worked on which job, which day, for how long (746) |
-> | Material orders | What each job bought, and how much was wasted (51) |
-> | Snags | Things that went wrong on site (11) |
-> | Dashboard | Power BI report with 4 tiles: margin, rework cost, material waste, late jobs |
-> | Query history | 110 different questions Fixit's analysts already asked, as SQL |
+> | Dashboard | Power BI, 4 tiles: gross margin, rework cost, material waste, late jobs |
+> | Data | 10 jobs (July to October 2026), 8 crew and machines, 746 work logs, 51 material orders, 11 snags |
+> | Past queries | 110 questions Fixit's analysts already ran |
 >
-> A job's cost is crew hours times hourly rate, plus materials. Its margin is what the
-> client paid minus that cost. The dashboard says what Fixit measures; the query history
-> shows how people actually ask.
+> ```
+> ○─────────○─────────○─────────○─────────○
+> Pick      Build     Save to   Ask       Build a
+> sources   context   Atlan     questions report
+>           ~5 min                        (optional)
+> ```
 >
-> **The six steps** (about 15 minutes; I show this list again as each step starts)
->
-> 1. **Choose and load demo data.** I download the demo files from GitHub
->    (atlanai/analytics-agent-accelerator) into `<folder>/analytics-agent-accelerator`,
->    read the dashboard and the past queries to learn how Fixit measures a job, and
->    load its tables into a small database on this machine.
-> 2. **Choose what to build from.** You choose: the dashboard alone, or the dashboard
->    plus the past queries.
-> 3. **Build and check metrics.** I write the rule for each metric and run it on Fixit's data to check it gives sensible
->    numbers.
-> 4. **Keep local or save to Atlan Trident.** The context is built. You choose whether to
->    save it to Atlan Trident, where your company keeps context for its AI agents, or keep
->    it on this machine. Saving is when you sign in.
-> 5. **Ask a question.** Your job profit agent is ready. Choose a question, such as which job lost the most margin and why,
->    and see its answer with the context behind it.
-> 6. **Build a dashboard.** If you want one, I propose a layout from your metrics and
->    build it as a page you can open.
->
-> Nothing of yours is read or changed. The only thing saved outside this folder is the
-> context, in the Atlan Trident workspace you pick in step 4.
+> About 15 minutes. Made-up data; nothing of yours is touched. See the firm first:
+> https://atlanai.github.io/analytics-agent-accelerator/yard-tour/
 
 ## Facts for the later moments
 
