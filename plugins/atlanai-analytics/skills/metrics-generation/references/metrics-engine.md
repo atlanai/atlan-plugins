@@ -62,7 +62,7 @@ rather than truncating more than 5,000 SQL/context groups. Narrow a blocked scop
 A missing grant is an access limit, never an empty history or successful extraction. Offer an
 accessible shape table or local export; do not grant permissions or silently change routes.
 The native view can lag by up to 45 minutes; describe coverage accordingly. Chat MCP query
-history capture remains available through [warehouse history](../../analytics-survey/references/warehouses/query-history.md)
+history capture remains available through [warehouse history](../../source-survey/references/warehouses/query-history.md)
 when no direct connector is configured.
 
 ### Direct Databricks history and verification

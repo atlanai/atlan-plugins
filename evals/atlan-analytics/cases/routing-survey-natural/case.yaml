@@ -12,7 +12,7 @@ graders:
   - name: fires-survey-skill
     type: tool_used
     tool: Skill
-    input_match: 'analytics-survey'
+    input_match: 'source-survey'
   - name: reads-inspect-scope
     type: tool_used
     tool: Read

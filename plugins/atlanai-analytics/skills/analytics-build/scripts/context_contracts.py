@@ -735,7 +735,7 @@ def check_publication_holds(directory, metrics=None, queries=None, links=None):
     root = pathlib.Path(directory)
     if not (root / "metrics-source.json").exists() and not (root / "publication-holds.json").exists():
         return None
-    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-metrics"))
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "metrics-generation"))
     try:
         from modules.metrics.holds import enforce_context
         return enforce_context(root, metrics, queries, links)

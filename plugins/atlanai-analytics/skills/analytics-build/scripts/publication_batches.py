@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "analytics-metrics"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "metrics-generation"))
 from modules.workflow import Authorization
 from modules.metrics.publication import publication_identity
 from modules.metrics.holds import enforce_context

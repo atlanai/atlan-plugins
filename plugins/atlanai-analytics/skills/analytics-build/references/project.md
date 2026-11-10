@@ -116,7 +116,7 @@ with the schema used at preparation. Add `--tables schema.table ...` for a narro
 `context/database-schema.json` establish the physical columns and types. An embedded
 warehouse connector in a Power BI model does not override an explicitly selected local database.
 
-For an existing warehouse, reuse [connect](../../analytics-survey/references/connect.md) and its normal state. Do not require
+For an existing warehouse, reuse [connect](../../source-survey/references/connect.md) and its normal state. Do not require
 a local database or migrate data. Without execution access, continue authoring with checks marked
 untested; explain that fresh numerical answers need a data connection.
 
@@ -130,9 +130,9 @@ require separately reviewed support. Host sandboxing is still required for hosti
 Run `PROJECT history` when selected history was found. It captures and privacy-filters
 history under `context/`; it does not mine shapes or author candidates. Pass the returned
 clean history path to the main engine's `local-files` history input. For live history, use
-[query history](../../analytics-survey/references/warehouses/query-history.md) or the configured native plug.
+[query history](../../source-survey/references/warehouses/query-history.md) or the configured native plug.
 
-Follow [build and check](setup/build-check.md) and [the metrics engine](../../analytics-metrics/references/metrics-engine.md)
+Follow [build and check](setup/build-check.md) and [the metrics engine](../../metrics-generation/references/metrics-engine.md)
 for the full selected collection. Reuse the combined survey and
 interview; preserve this run's scope, workspace and state. Model compilation, proposal,
 merge, whole-card review and relationships have exactly one implementation in the engine.
@@ -156,7 +156,7 @@ not an agent eval set. Do not publish a query known to fail on an advertised par
 
 ## 4. Preview, publish and read back
 
-Use [existing publication](../../analytics-metrics/references/metrics/publish.md) for both `metric` and `sql_query` artifacts and
+Use [existing publication](../../metrics-generation/references/metrics/publish.md) for both `metric` and `sql_query` artifacts and
 their supported links. Show new/revised/reused/held counts, one actual metric, one history
 query, their SQL and checks, the full reviewable plan, and the destination. Reuse applicable
 authorization; obtain only missing authorization for the concrete scope. Keep existing
@@ -172,7 +172,7 @@ the receipt. Do not combine release IDs from search with local authoring bodies,
 their hashes appear to match. Preserve the complete `registry__get_artifact` response for
 each item without selecting or rewriting fields. Wrap those raw responses in this input:
 
-When the core receipt helper is active, use [deterministic receipt recording](../../analytics-metrics/references/metrics/publish.md#record-native-receipts-without-copying-them-through-the-model)
+When the core receipt helper is active, use [deterministic receipt recording](../../metrics-generation/references/metrics/publish.md#record-native-receipts-without-copying-them-through-the-model)
 instead of manually writing the wrapper below. It captures native responses, validates them
 and records the same durable publication state. It does not skip release or link readbacks.
 

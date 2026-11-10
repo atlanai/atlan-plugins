@@ -3,7 +3,7 @@
 Goal: `metric` and `sql_query` artifacts in a workspace, made from definitions people already
 trust, each one checked against the registry's contracts and previewed before it is written.
 Two entries use this file:
-- **metrics mode** (`analytics-metrics`, or the `metrics` argument of `analytics-build`, which
+- **metrics mode** (`metrics-generation`, or the `metrics` argument of `analytics-build`, which
   Metrics Studio sends) starts at section 0 and stops at section 6;
 - **project setup** arrives after its combined repo survey. Preserve that route's state,
   use both model and history evidence, and return to its publication receipts and questions.

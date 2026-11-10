@@ -74,4 +74,4 @@ pages' filters into one metric. Preserve each scoped variant as context or a sav
 Map selected semantic tables to evidenced physical relations. Supply `history_tables` in
 the scope request when narrowing history; the helper refuses unscoped mining after an explicit
 page selection. Review broader joins separately. For other formats use the same scope rules
-with [source readers](../../analytics-metrics/references/metrics/sources.md), retaining held coverage instead of inventing a parser.
+with [source readers](../../metrics-generation/references/metrics/sources.md), retaining held coverage instead of inventing a parser.

@@ -14,7 +14,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
-sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics'))
+sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation'))
 from modules.metrics import driver
 from modules.metrics.validation import assess
 
@@ -187,9 +187,9 @@ class SnapshotTests(unittest.TestCase):
 
     def test_incomplete_skill_only_install_reports_missing_plugin_module(self):
         with tempfile.TemporaryDirectory() as temp:
-            script = Path(temp) / 'skills/analytics-metrics/scripts/analytics_agent.py'
+            script = Path(temp) / 'skills/metrics-generation/scripts/analytics_agent.py'
             script.parent.mkdir(parents=True)
-            script.write_text((ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics/scripts/analytics_agent.py').read_text())
+            script.write_text((ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/scripts/analytics_agent.py').read_text())
             process = subprocess.run([sys.executable, str(script), 'metrics', '--help'],
                                      text=True, capture_output=True)
             self.assertEqual(process.returncode, 2)
@@ -391,7 +391,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert results[0] and results[0]==results[1],results
 """
         p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program,
-                            str(ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics')], capture_output=True, text=True)
+                            str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation')], capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stderr)
 
 
@@ -411,7 +411,7 @@ class RequiredFilterAcceptance(unittest.TestCase):
                    "from modules.metrics.required_filters import required_filter_holds; "
                    "q,u=json.load(sys.stdin); print(json.dumps(required_filter_holds(q,u)))")
         proc = subprocess.run([str(Path(RUNTIME).resolve() / 'venv/bin/python'), '-c', program,
-                               str(ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics')],
+                               str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation')],
                               input=json.dumps([evidence, {'units': [unit]}]), text=True, capture_output=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         return json.loads(proc.stdout)
@@ -492,7 +492,7 @@ class RuntimeAcceptance(unittest.TestCase):
         self.config.write_text(json.dumps(self.config_doc))
 
     def command(self, *args):
-        proc = subprocess.run([sys.executable, str(ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics/scripts/analytics_agent.py'), 'metrics',
+        proc = subprocess.run([sys.executable, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/scripts/analytics_agent.py'), 'metrics',
                                '--runtime', str(self.runtime), *map(str, args)], capture_output=True, text=True)
         try:
             data = json.loads(proc.stdout)
