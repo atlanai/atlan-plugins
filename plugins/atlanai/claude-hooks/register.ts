@@ -310,9 +310,36 @@ export function outputRefusal(args: Record<string, unknown>): string | undefined
   return `${lines.join('\n')}\nNothing was sent. Show the user each match with its value masked, then share only after they remove it or replace it with a placeholder.`
 }
 
+/**
+ * The credential problems in the `files` a create carries inline, by a folder's rules, and each
+ * inline file's size in bytes.
+ */
+export function inlineProblems(skills: readonly unknown[]): { problems: Problem[]; sizes: number[] } {
+  const carrying = [...skills.entries()].filter(([, skill]) => isRecord(skill) && !('files_from' in skill) && isRecord(skill.files)) as [number, { files: Record<string, unknown> }][]
+  const problems: Problem[] = []
+  const sizes: number[] = []
+  const encoder = new TextEncoder()
+  for (const [index, skill] of carrying) {
+    for (const [rel, text] of Object.entries(skill.files)) {
+      const label = carrying.length === 1 ? rel : `skills[${index}]/${rel}`
+      if (KEY_FILES.test(rel.slice(rel.lastIndexOf('/') + 1))) problems.push(problem(label, 'credential-file', 'looks like a credential file; leave it out'))
+      if (typeof text !== 'string') continue
+      sizes.push(encoder.encode(text).length)
+      for (const [line, column, kind] of credentials(text)) problems.push({ ...problem(label, 'credential', `matches the ${kind} pattern; remove it`), line, column })
+    }
+  }
+  return { problems, sizes }
+}
+
 export async function expand($: Dollar, args: Record<string, unknown>): Promise<{ args: Record<string, unknown> } | { deny: string } | undefined> {
   const skills = Array.isArray(args.skills) ? args.skills : undefined
-  if (!skills || !skills.some(skill => isRecord(skill) && 'files_from' in skill)) return undefined
+  if (!skills) return undefined
+  const inline = inlineProblems(skills)
+  if (!skills.some(skill => isRecord(skill) && 'files_from' in skill)) {
+    if (inline.problems.length === 0) return undefined
+    const bytes = inline.sizes.reduce((sum, size) => sum + size, 0)
+    return { deny: `${render({ ok: false, count: inline.sizes.length, bytes, problems: inline.problems })}\n${NOT_SENT}` }
+  }
   const cwd = await $.session.cwd()
   const trees = await roots($)
   const folders: Folder[] = []
@@ -336,7 +363,7 @@ export async function expand($: Dollar, args: Record<string, unknown>): Promise<
   )
   // A folder that could not be placed has nothing to check, and would only add a missing SKILL.md.
   const checked = check(folders.filter(folder => folder.problems.length === 0 || folder.entries.length > 0))
-  const problems = [...walked, ...checked.problems, ...overBudget(skills, slots, checked)]
+  const problems = [...walked, ...inline.problems, ...checked.problems, ...overBudget(skills, slots, checked)]
   if (problems.length > 0) return { deny: `${render({ ...checked, ok: false, problems })}\n${NOT_SENT}` }
   const out = [...skills]
   for (const [k, index] of slots.entries()) {
