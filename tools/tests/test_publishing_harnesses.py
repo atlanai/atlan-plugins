@@ -21,8 +21,13 @@ import publication_receipts
 class PublishingHarnesses(unittest.TestCase):
     def setUp(self):
         fixtures.ReceiptRecording.setUp(self)
+        documents = {name: json.loads((Path(self.ctx) / (name + '.json')).read_text())
+                     for name in ('plan', 'metrics', 'queries', 'links')}
+        plan_id, _ = publication_batches.publication_identity(
+            workspace_id=self.workspace, sources=['example-source'], documents=documents)
         self.prepared = publication_batches.prepare(self.ctx,
-            {'intent': 'publish', 'workspace_id': self.workspace, 'sources': ['example-source']},
+            {'intent': 'publish', 'workspace_id': self.workspace, 'sources': ['example-source'],
+             'approved_plans': [plan_id]},
             self.workspace, ['example-source'], True)
 
     def event(self, host, request, index, directory, style='rewritten'):

@@ -31,8 +31,8 @@ Retain controls without requesting approval for already-authorized work.
 Then read [shared conventions](references/conventions.md). They define audit sessions,
 task authorization, privacy and status reporting. Treat reads of the selected source,
 packaged-runtime initialization and generated-file reads as ordinary task steps. Once a
-publication destination is chosen for saving metrics, carry that authorization through the
-checked plan without an extra publish confirmation. Respect explicit draft/review requests.
+publication destination is chosen for saving metrics, show the checked plan and publish only
+after the user approves that concrete plan. Respect explicit draft/review requests.
 For new metric generation (metrics mode, or a setup run's Build stage), read
 [the metrics module](references/metrics-engine.md), also to explain it. A setup with only local
 files and no warehouse uses SQLite and installs nothing ([build and check](references/setup/build-check.md)). Dispatch before mode-specific project conventions or preflight. A

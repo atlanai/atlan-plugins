@@ -704,6 +704,40 @@ def _error_fields(raw: str) -> Tuple[str, str]:
     )
 
 
+# The only hosts the bearer token is for. Any other URL, such as a server-supplied
+# `continuationUri`, is refused before it is sent.
+TRUSTED_HOSTS = frozenset(urllib.parse.urlsplit(api).netloc for api in (FABRIC_API, PBI_API))
+
+
+def _origin(url: str) -> Tuple[str, str]:
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme.lower(), parts.netloc.lower()
+
+
+def _require_trusted(url: str) -> None:
+    scheme, host = _origin(url)
+    if scheme != "https" or host not in TRUSTED_HOSTS:
+        raise ApiError(0, "UntrustedHost", f"refusing to send the token to {scheme}://{host}")
+
+
+class _DropTokenOnCrossOriginRedirect(urllib.request.HTTPRedirectHandler):
+    """urllib repeats every header on a redirect; the token stays only on the same origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        follow = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if follow is not None and _origin(newurl) != _origin(req.full_url):
+            follow.remove_header("Authorization")
+        return follow
+
+
+_OPENER = urllib.request.build_opener(_DropTokenOnCrossOriginRedirect())
+
+
+def _open(request: urllib.request.Request, timeout: float):
+    """The one place a request with the token leaves the process."""
+    return _OPENER.open(request, timeout=timeout)
+
+
 class FabricClient:
     def __init__(
         self,
@@ -730,6 +764,7 @@ class FabricClient:
     def _request(
         self, method: str, url: str, body: Optional[dict] = None, *, _refreshed=False
     ) -> Tuple[int, Dict[str, str], Any]:
+        _require_trusted(url)
         data = json.dumps(body).encode() if body is not None else None
         headers = {"Authorization": f"Bearer {self._token}", "Accept": "application/json"}
         if data is not None:
@@ -743,7 +778,7 @@ class FabricClient:
                 self.pacer.wait()
             req = urllib.request.Request(url, data=data, headers=headers, method=method)
             try:
-                with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
+                with _open(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
                     raw = resp.read().decode() or ""
                     parsed = json.loads(raw) if raw.strip() else None
                     return resp.status, dict(resp.headers), parsed
@@ -771,6 +806,7 @@ class FabricClient:
     def download(self, url: str, target: str, *, _refreshed=False) -> Tuple[int, bytes]:
         """GET a file to `target` (owner-only), retrying a throttle or a 5xx like any call.
         Returns (bytes written, the first bytes, to tell a .pbix zip from a .rdl)."""
+        _require_trusted(url)
         headers = {"Authorization": f"Bearer {self._token}"}
         for attempt in range(1, self._attempts() + 1):
             if self._token_provider:
@@ -780,7 +816,7 @@ class FabricClient:
                 self.pacer.wait()
             req = urllib.request.Request(url, headers=headers, method="GET")
             try:
-                with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp, open_private(target, "wb") as out:
+                with _open(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp, open_private(target, "wb") as out:
                     head, size = b"", 0
                     while True:
                         chunk = resp.read(1 << 20)
