@@ -41,24 +41,30 @@ Atlan is not answering. Never repeat a write: read it back first.
 ```
 mcp__call_read_tool {
   "name": "registry__get_artifact",
-  "arguments": { "artifact_id": "output_…" },
+  "arguments": { "artifact_id": "output_…", "include_linked_file": true },
   "session_id": "mcp_session_…",
   "rationale": "Loading the artifact the user handed over from the Atlan dashboard."
 }
 ```
+
+`include_linked_file` is for an `output_…` handle: its file comes back as `included_file` in
+the same read, at its recorded version, so the primary file needs no `registry__get_file_content`
+call, even when the hand-off prompt names one. An `included_file.error` says why the file did
+not come through (binary, over 256 KiB, or no file): report that rather than guessing. Leave
+the argument out for any other kind, and when a gateway refuses it as unknown, read again
+without it and fetch the file as below.
 
 - **Not found** means it does not exist, the user cannot read it, or this connection is a
   different Atlan environment from the one the handle came from. Say which checks you made,
   do not guess at its content, and stop.
 - **Access denied** stops the hand-off. Do not look for the content another way.
 
-Then read its files with `registry__get_file_content`, which takes a `file_id`. An `output`
+Read any other file with `registry__get_file_content`, which takes a `file_id`. An `output`
 names its file in `metadata.file_artifact_id` (and `metadata.file_version_ordinal`), and a
 multi-file output lists the rest in `source_metadata.files`; other kinds list theirs in
-`metadata.files`. Read the manifest and the primary file
-first, passing each file's recorded `file_version_ordinal` as `version_ordinal`, then the
-files those reference, at their recorded versions too. Report any file that will not come
-through (binary, or over 256 KiB) rather than guessing at it.
+`metadata.files`. Pass each file's recorded `file_version_ordinal` as `version_ordinal`, and
+read the files the primary one references at their recorded versions too. Report any file
+that will not come through rather than guessing at it.
 
 What else to read depends on the kind:
 
@@ -79,25 +85,11 @@ Read it through its traces. The chat readers that tool search offers for "messag
 session" (`extension__agent__session_read`, `session_list`) serve only a project's Claw and
 refuse a person's agent; do not call them.
 
-Which trace readers you have depends on the organization's apps. Check once with
-`mcp__describe_tools { "servers": ["extension__agent"], "session_id": "…" }`: when it lists
-`extension__agent__list_session_traces`, follow the steps below; when it lists nothing, the
-organization has no agent app, and the registry's own readers, which every gateway serves,
-take their place:
+Which trace readers you have depends on the organization's apps. Check first, once, with
+`mcp__describe_tools { "servers": ["extension__agent"], "session_id": "…" }`, called by
+name like `mcp__search_tools`, never through a runner.
 
-- `registry__list_traces { "from": <Unix seconds>, "to": <Unix seconds> }` around the
-  artifact's `created_at`, with `user_id` set to its owner when that is not you. Pick the run
-  whose request matches the artifact;
-- `registry__get_trace { "trace_id": "…", "include": ["content"] }` for the request and the
-  final reply;
-- `registry__get_trace_spans { "trace_id": "…", "limit": 20 }`, paged with `cursor`, for what
-  those leave open. A run whose `error_count` is above zero has a step that failed, and the
-  final reply usually names the symptom, not the cause: read its spans and quote the failed
-  step's error before you say why something was not done. These take no `errors_only`
-  filter and no `session_id` argument, so they cannot narrow to the source session: say so
-  when more than one run could be it.
-
-With the agent app:
+When it lists `extension__agent__list_session_traces`:
 
 1. `extension__agent__list_session_traces` with the source session as `arguments.session_id`.
    That argument is the source session; the top-level `session_id` beside `arguments` stays
@@ -107,13 +99,26 @@ With the agent app:
    `get_trace_spans` take `subject_id` and `trace_id`. Pass the source session as
    `subject_id`, the same `session_…` you listed with. A gateway that refuses a session
    there predates that scope: use the agent or harness that ran it instead, from the output's
-   `metadata.subject_id` or `registry__get_related_artifacts`. `registry__get_trace` reads
-   the same run without either, for your own runs.
+   `metadata.subject_id` or `registry__get_related_artifacts`.
 3. Only for what the request and reply leave open, `extension__agent__get_trace_spans`, and
    narrow first: `errors_only: true` with `include: ["errors"]` for what went wrong and why,
-   `names` for a step such as `sql_query` or `load_skill`, and `max_chars` to cap each step. A session can hold hundreds
-   of steps, each up to hundreds of thousands of characters; do not page through all of them
-   with content.
+   `names` for a step such as `sql_query` or `load_skill`, and `max_chars` to cap each step.
+   A session can hold hundreds of steps; do not page through all of them with content.
+
+When it lists nothing, the organization has no agent app, and the registry's own readers,
+which every gateway serves, take their place:
+
+- `registry__list_traces { "from": <Unix seconds>, "to": <Unix seconds> }`, a day either side
+  of the artifact's `created_at`, with `user_id` set to its owner when that is not you. Count
+  the seconds from an anchor, never from memory: 2026-01-01T00:00:00Z is 1767225600, and a
+  day is 86400. Pick the run whose request matches the artifact.
+- `registry__get_trace { "trace_id": "…", "include": ["content"] }` for the request and the
+  final reply.
+- `registry__get_trace_spans { "trace_id": "…", "limit": 20 }`, paged with `cursor`, for what
+  those leave open. A run whose `error_count` is above zero has a step that failed: read its
+  spans and quote the failed step's error before you say why something was not done. These
+  take no `errors_only` filter and no `session_id` argument, so they cannot narrow to the
+  source session: say so when more than one run could be it.
 
 Traces are a reconstruction, not a transcript. Say what is missing, truncated or out of order,
 and never call a history rebuilt from traces complete. An empty result can mean the run was
@@ -123,7 +128,7 @@ recorded without content or that its runs are not yours to read; say which you k
 
 In a few lines: what the artifact is, who owns it and in which workspace, its version, and
 from the session, the original request, the decisions made and the work that remains. State
-any gaps in what you could read, in one line. Keep the whole catch-up under seven lines of
+any gaps in what you could read, in one line. Keep the whole catch-up under 80 words of
 plain sentences, with no headings or bullets: the user can ask for more. Name people and
 workspaces by display name; leave out handles the user did not give. For example:
 

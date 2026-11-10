@@ -6,7 +6,8 @@ import { jsonObjects } from './registry'
 import { clip } from './view'
 
 /** The least `match.similarity` a skill needs before the hint names it. In live searches the
- * skill that fit scored 0.52, and unrelated skills 0.17 to 0.26. */
+ * skill that fit scored 0.52, and unrelated skills 0.17 to 0.26. A hit the gateway itself labels
+ * `match.quality: "weak"` is left out whatever it scores, as the skills leave it out. */
 export const HINT_SIMILARITY = 0.45
 /** At most this many skills are named for one prompt. */
 export const HINT_MAX = 2
@@ -16,6 +17,11 @@ export const HINT_QUERY_CHARS = 300
 export const HINT_MIN_WORDS = 4
 /** How long a prompt waits for the search before it goes without a hint. */
 export const HINT_MS = 800
+/** What the person is told once on this machine, before any request is searched. */
+export const HINT_NOTICE =
+  "Atlan: from your next request, the first 300 characters of each request are searched against your organization's skills, so one that fits can be suggested. Turn this off with the suggest_skills option of atlanai-mods."
+/** The line `/atlan` adds while the hint is on. */
+export const HINT_STATUS = 'Skill suggestions are on: the first 300 characters of each request are searched against your organization\'s skills. Turn this off with the suggest_skills option.'
 
 /** Where a prompt came from when no person typed it: a background task, a schedule, another
  * session or a continuation. Those get no hint. */
@@ -33,8 +39,25 @@ const MACHINE_ORIGINS: ReadonlySet<string> = new Set([
 /** A skill's handle, which says the person already named the skill they want. */
 const HANDLE = /\bskill_[0-9a-z]{10,}\b/i
 
-/** Credential-shaped text: a prompt holding one is never sent to a search. */
-const SECRET = /-----BEGIN [A-Z ]*PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{30,}\b|\bxox[abprs]-[A-Za-z0-9-]{10,}\b|\bsk-[A-Za-z0-9_-]{20,}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./
+/** Credential-shaped text: a prompt holding one is never sent to a search. The kinds are those
+ * `atlanai`'s publish helper refuses in a skill bundle (`SECRETS` in its `claude-hooks/bundle.ts`),
+ * matched more loosely here: a false match only costs a hint. A mod cannot import another
+ * plugin's module, so add a kind to both. */
+const SECRETS: readonly RegExp[] = [
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/,
+  /\bgh[pousr]_[A-Za-z0-9]{30,}\b/,
+  /\bgithub_pat_[A-Za-z0-9_]{30,}\b/,
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}\b/,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./,
+  /\bAIza[0-9A-Za-z_-]{35}/,
+  /\bGOCSPX-[A-Za-z0-9_-]{28}/,
+  /\b(?:sk|rk)_live_[0-9A-Za-z]{24,}/,
+  // A password inside a URL: `scheme://user:password@host`.
+  /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@<>{}$]+:(?![$<{%*])[^\s/@<>{}$]+@/i,
+]
+const holdsSecret = (text: string): boolean => SECRETS.some(pattern => pattern.test(text))
 
 export type HintPrompt = { text: string; command?: unknown; isMeta?: true; origin?: { kind: string } }
 
@@ -46,7 +69,7 @@ export function isHintable(prompt: HintPrompt): boolean {
   const text = prompt.text.trim()
   if (text.startsWith('/') || text.startsWith('!')) return false
   if (text.split(/\s+/).filter(Boolean).length < HINT_MIN_WORDS) return false
-  return !HANDLE.test(text) && !SECRET.test(text)
+  return !HANDLE.test(text) && !holdsSecret(text)
 }
 
 /** The search's query: the prompt's first 300 characters, on one line. */
@@ -60,8 +83,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
 
 /**
- * The skills a `registry__search_artifacts` result found that clearly fit: active, released, at or
- * above the threshold, best first, at most HINT_MAX. A result in another shape finds none.
+ * The skills a `registry__search_artifacts` result found that clearly fit: active, released, not
+ * labelled a weak match, at or above the threshold, best first, at most HINT_MAX. A result in another shape finds none.
  */
 export function skillMatches(result: string, threshold = HINT_SIMILARITY): SkillMatch[] {
   for (const found of jsonObjects(result)) {
@@ -73,6 +96,8 @@ export function skillMatches(result: string, threshold = HINT_SIMILARITY): Skill
         if (!isRecord(item) || !isRecord(item.match)) return []
         const similarity = item.match.similarity
         const id = text(item.id)
+        // The gateway's own verdict comes first: the skills drop a weak hit, so the hint does too.
+        if (item.match.quality === 'weak') return []
         if (typeof similarity !== 'number' || similarity < threshold || !id.startsWith('skill_')) return []
         if (item.kind !== 'skill' || item.artifact_status !== 'active' || item.is_released === false) return []
         const name = text(item.name) || text(item.display_name)

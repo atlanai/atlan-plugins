@@ -99,112 +99,6 @@ class BuildTest(unittest.TestCase):
                 build.validate(broken)
 
 
-class VariantTest(unittest.TestCase):
-    """`build.py --variant`: this plugin under another name and endpoint, for another repository."""
-
-    OVERRIDES = {
-        "plugin": {"name": "atlan-staging", "display_name": "Atlan (staging)", "repository": "https://github.com/example/atlan-staging"},
-        "marketplace": {"name": "atlan-staging-plugins"},
-        "mcp": {"url": "https://api.staging.example/mcp", "client": "atlan-plugin-staging"},
-        "rewrite": {"https://api.atlan.com": "https://api.staging.example", "https://app.atlan.com": "https://app.staging.example"},
-        "keep": ["https://app.atlan.com/brain/cli/install.sh"],
-    }
-
-    def setUp(self) -> None:
-        self.source = build.load()
-        self.variant = build.make_variant(self.source, copy.deepcopy(self.OVERRIDES))
-        self.files = build.variant_files(self.source, self.variant, "variant.toml")
-
-    def test_its_manifests_and_marketplaces_carry_its_names_and_url(self) -> None:
-        for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
-            path = f"plugins/atlan-staging/{path}"
-            self.assertEqual(json.loads(self.files[path])["name"], "atlan-staging", path)
-        for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
-            document = json.loads(self.files[path])
-            self.assertEqual(document["name"], "atlan-staging-plugins", path)
-            self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging", "atlan-staging-analytics"], path)
-        server, version = self.source["mcp"]["server"], self.source["plugin"]["version"]
-        for path in ("plugins/atlan-staging/mcp.json", "plugins/atlan-staging/.mcp.json"):
-            entry = json.loads(self.files[path])["mcpServers"][server]
-            self.assertEqual(entry["url"], "https://api.staging.example/mcp", path)
-            self.assertEqual(entry["headers"], {"X-Atlan-Client": f"atlan-plugin-staging/{version}"}, path)
-
-    def test_it_copies_every_skill_and_command_and_rewrites_their_names(self) -> None:
-        main = self.source["plugin"]["name"]
-        for top in build.TREES:
-            for path in (CORE / top).rglob("*"):
-                if path.is_file():
-                    self.assertIn(f"plugins/atlan-staging/{path.relative_to(CORE).as_posix()}", self.files)
-        self.assertFalse(any(path.startswith(("plugins/atlanai/", "skills/", "commands/")) for path in self.files))
-        for path, text in self.files.items():
-            if path.endswith(".md"):
-                self.assertNotIn(f"/{main}:", text, path)
-                self.assertNotIn(f"plugin:{main}:", text, path)
-                self.assertNotIn(f"`{main}:", text, path)
-                self.assertNotIn(self.source["mcp"]["url"], text, path)
-        self.assertIn("`atlan-staging:atlan-continue`", self.files["plugins/atlan-staging/commands/continue.md"])
-        install = self.files["plugins/atlan-staging/skills/atlan-get-started/references/install-and-sign-in.md"]
-        self.assertIn("/plugin install atlan-staging@atlan-staging-plugins", install)
-        self.assertIn("`/plugin marketplace add example/atlan-staging`", install)
-        self.assertIn("claude plugin install atlan-staging --marketplace example/atlan-staging\n", install)
-        self.assertIn("(`atlan-staging` and\n`atlan-staging-analytics`)", install)
-
-    def test_pairs_apply_once_longest_first_and_kept_strings_stay(self) -> None:
-        pairs = build.rewrites(self.source, self.variant)
-        text = "See https://github.com/atlanai/atlan-plugins, run https://app.atlan.com/brain/cli/install.sh, open https://app.atlan.com."
-        self.assertEqual(
-            build.rewrite(text, pairs),
-            "See https://github.com/example/atlan-staging, run https://app.atlan.com/brain/cli/install.sh, open https://app.staging.example.",
-        )
-
-    def test_writes_into_another_folder_and_removes_stale_copies_and_the_old_root_layout(self) -> None:
-        owned = (build.PLUGINS, *build.LEGACY)
-        with tempfile.TemporaryDirectory() as temp:
-            out = Path(temp)
-            (out / "plugins/atlan-staging/skills/atlan-gone").mkdir(parents=True)
-            (out / "plugins/atlan-staging/skills/atlan-gone/SKILL.md").write_text("old\n")
-            (out / "skills/atlan-get-started").mkdir(parents=True)
-            (out / "skills/atlan-get-started/SKILL.md").write_text("old root layout\n")
-            (out / ".claude-plugin").mkdir()
-            (out / ".claude-plugin/plugin.json").write_text("{}\n")
-            (out / "mcp.json").write_text("{}\n")
-            (out / "variant.toml").write_text("kept\n")
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(build.sync(self.files, out, check=False, owned=owned), [])
-                self.assertEqual(build.sync(self.files, out, check=True, owned=owned), [])
-            for gone in ("plugins/atlan-staging/skills/atlan-gone/SKILL.md", "skills/atlan-get-started/SKILL.md", ".claude-plugin/plugin.json", "mcp.json"):
-                self.assertFalse((out / gone).exists(), gone)
-            self.assertEqual((out / "variant.toml").read_text(), "kept\n")
-            self.assertTrue((out / "README.md").is_file())
-            self.assertTrue((out / ".claude-plugin/marketplace.json").is_file())
-            self.assertTrue((out / "plugins/atlan-staging/README.md").is_file())
-
-    def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
-        for table, field, value in (
-            ("plugin", "name", "atlanai"),
-            ("marketplace", "name", "atlan"),
-            ("plugin", "version", "9.9.9"),
-            ("mcp", "url", "http://plain.example/mcp"),
-        ):
-            overrides = copy.deepcopy(self.OVERRIDES)
-            overrides[table][field] = value
-            with self.subTest(field=f"{table}.{field}"), self.assertRaises(SystemExit):
-                build.make_variant(self.source, overrides)
-
-    def test_a_dev_variant_follows_the_gateway_suffix_convention(self) -> None:
-        overrides = copy.deepcopy(self.OVERRIDES)
-        overrides["plugin"]["name"] = "atlanai-dev"
-        overrides["marketplace"]["name"] = "atlan-dev"
-        overrides["mcp"]["url"] = "https://api.dev.example/mcp"
-        variant = build.make_variant(self.source, overrides)
-        files = build.variant_files(self.source, variant, "variant.toml")
-        self.assertIn("plugins/atlanai-dev/skills/atlan-get-started/SKILL.md", files)
-        self.assertIn("plugins/atlanai-dev-analytics/skills/atlan-analytics/SKILL.md", files)
-        mcp = json.loads(files["plugins/atlanai-dev/.mcp.json"])
-        self.assertEqual(mcp["mcpServers"]["atlan"]["url"], "https://api.dev.example/mcp")
-        self.assertIn("claude plugin install atlanai-dev --marketplace example/atlan-staging\n", files["plugins/atlanai-dev/skills/atlan-get-started/references/install-and-sign-in.md"])
-
-
 class AddonTest(unittest.TestCase):
     """`[[addons]]`: workloads shipped as their own plugins that use the core's connection."""
 
@@ -273,18 +167,6 @@ class AddonTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build.validate(broken)
 
-    def test_a_variant_renames_each_addon_and_its_dependency_and_copies_its_files(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        base = "plugins/atlan-staging-analytics"
-        claude = json.loads(files[f"{base}/.claude-plugin/plugin.json"])
-        self.assertEqual(claude["dependencies"], ["atlan-staging"])
-        self.assertTrue(json.loads(files[f"{base}/plugin.json"])["extensions"]["com.openai"]["interface"]["displayName"].startswith("Atlan (staging)"))
-        self.assertIn(f"{base}/skills/atlan-analytics/SKILL.md", files)
-        self.assertIn(f"{base}/assets/logo.svg", files)
-        self.assertFalse(any(path.startswith(f"{self.base}/") for path in files))
-
-
 class ModTest(unittest.TestCase):
     """`[[mods]]`: Claude Code plugins whose hooks module acts on the core's tools."""
 
@@ -308,12 +190,6 @@ class ModTest(unittest.TestCase):
         self.assertIn(self.mod["name"], claude)
         for path in (".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
             self.assertNotIn(self.mod["name"], [p["name"] for p in self.documents[path]["plugins"]], path)
-
-    def test_a_variant_carries_no_mod(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        self.assertFalse(any("-mods" in path for path in files))
-        self.assertNotIn("-mods", files[".claude-plugin/marketplace.json"])
 
     def test_refuses_a_mod_without_the_core_prefix_or_named_like_an_addon(self) -> None:
         broken = copy.deepcopy(self.source)
@@ -376,12 +252,6 @@ class CoreHooksTest(unittest.TestCase):
                 self.assertNotIn("claude-hooks", json.dumps(document), path)
         self.assertEqual(lint.lint_core_hooks(ROOT / self.base), [])
 
-    def test_a_variant_carries_no_hooks_module(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        self.assertFalse(any("claude-hooks" in path for path in files))
-        self.assertNotIn('"hooks"', files["plugins/atlan-staging/.claude-plugin/plugin.json"])
-
     def test_the_hooks_tests_read_the_shared_fixtures(self) -> None:
         fixtures = build.hook_fixtures(self.source)[f"{self.base}/claude-hooks/tests/fixtures.ts"]
         cases = json.loads((ROOT / build.FIXTURES).read_text(encoding="utf-8"))["cases"]
@@ -424,7 +294,7 @@ class SkillMetadataTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.source = build.load()
-        self.files = build.skill_files(self.source, self.source)
+        self.files = build.skill_files(self.source)
 
     def test_every_skill_in_every_plugin_has_a_card_that_invokes_it_and_needs_the_atlan_server(self) -> None:
         skills = [path.parent for base in build.plugin_dirs(self.source) for path in sorted((ROOT / base / "skills").glob("*/SKILL.md"))]
@@ -448,20 +318,24 @@ class SkillMetadataTest(unittest.TestCase):
         unused["skills"]["atlan-gone"] = dict(self.source["skills"]["atlan-continue"], prompt="Use $atlan-gone.")
         for broken in (missing, unused):
             with self.assertRaises(SystemExit):
-                build.skill_files(broken, broken)
+                build.skill_files(broken)
         for prompt in ("Catch me up.", "Use $atlan-continue " + "x" * build.PROMPT_LIMIT):
             broken = copy.deepcopy(self.source)
             broken["skills"]["atlan-continue"]["prompt"] = prompt
             with self.subTest(prompt=prompt[:20]), self.assertRaises(SystemExit):
                 build.validate(broken)
 
-    def test_a_variant_card_names_the_variants_server_url(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        text = files[f"plugins/atlan-staging/skills/atlan-continue/{build.SKILL_METADATA}"]
-        self.assertIn('url: "https://api.staging.example/mcp"', text)
-        self.assertIn("Use $atlan-continue ", text)
-        self.assertIn(f"plugins/atlan-staging-analytics/skills/atlan-analytics/{build.SKILL_METADATA}", files)
+class EnvironmentTest(unittest.TestCase):
+    """The public repository names production only; each gateway writes its own hosts on top."""
+
+    def test_refuses_another_environments_hosts_and_plugin_names(self) -> None:
+        host = "atlan" + ".dev"
+        for text in (f"https://api.{host}/mcp", f"open https://app.{host}", "install atlanai" + "-dev"):
+            with self.subTest(text=text):
+                self.assertTrue(lint.NON_PRODUCTION.search(text))
+        for text in ("https://api.atlan.com/mcp", "https://api.dev.example/mcp", "atlanai-analytics", "atlan.developer"):
+            with self.subTest(text=text):
+                self.assertIsNone(lint.NON_PRODUCTION.search(text))
 
 
 class FrontmatterTest(unittest.TestCase):
@@ -607,6 +481,71 @@ class GatewayToolNamesTest(unittest.TestCase):
         }
         self.assertEqual(set(), unknown)
 
+    # A registry tool's name: `registry__` and its words. A placeholder (`registry__…`) and a
+    # family (`registry__get_`) are not names.
+    REGISTRY = re.compile(r"(?<![A-Za-z0-9_])registry__[a-z]+(?:_[a-z]+)+(?![A-Za-z0-9_])")
+    TIERS = {0: "read", 1: "write", 2: "destructive"}
+
+    def test_every_quoted_registry_tool_is_one_the_gateway_serves(self):
+        # The gateway holds the same check on its vendored copy, but only after its pin moves:
+        # a renamed or invented tool is caught here, in the pull request that writes it.
+        known = set(self.TOOLS["registry_tools"])
+        self.assertLessEqual(set(self.TOOLS["core_registry_reads"]), known)
+        unknown = {
+            f"{path.relative_to(ROOT)}: {name}"
+            for path, text in self.texts()
+            for name in self.REGISTRY.findall(text)
+            if name not in known
+        }
+        self.assertEqual(set(), unknown)
+
+    def test_the_emulator_serves_gateway_tools_at_the_gateway_tiers(self):
+        world = json.loads((ROOT / "evals/atlan/emulator/world.json").read_text(encoding="utf-8"))
+        known = self.TOOLS["registry_tools"]
+        served = {}
+        for tool in world["tools"]:
+            if not tool["name"].startswith("registry__"):
+                continue
+            notes = tool.get("annotations", {})
+            served[tool["name"]] = self.TIERS[0 if notes.get("readOnlyHint") else (2 if notes.get("destructiveHint") else 1)]
+        self.assertEqual({}, {name: tier for name, tier in served.items() if known.get(name) != tier})
+
+    def test_the_emulator_and_the_tier_fixture_follow_the_gateway_catalogue(self):
+        # An eval run against stale descriptions and schemas measures a gateway that no longer
+        # exists: the model picks tools and fills arguments from what the emulator advertises.
+        import sync_gateway_tools
+        stale = [str(path.relative_to(ROOT)) for path in sync_gateway_tools.drift()]
+        self.assertEqual([], stale, "run python3 tools/sync_gateway_tools.py")
+
+    def test_a_synced_emulator_tool_keeps_its_own_keys_and_gains_what_the_catalogue_adds(self):
+        import sync_gateway_tools
+        source = {"name": "registry__read", "description": "new", "annotations": {"readOnlyHint": True},
+                  "input_schema": {"type": "object", "properties": {"offset": {"type": "integer"}}}}
+        added = source | {"name": "registry__added"}
+        hidden = source | {"name": "registry__submit_feedback"}
+        world = {"workspaces": [], "tools": [
+            {"name": "registry__read", "description": "old", "annotations": {}, "input_schema": {}, "writes": "file"},
+            {"name": "extension__skill__create", "description": "kept", "annotations": {}, "input_schema": {}}]}
+        synced = sync_gateway_tools.synced_world(world, [source, added, hidden])
+        self.assertEqual(synced["tools"][0], source | {"writes": "file"})
+        self.assertEqual(synced["tools"][1], world["tools"][1])
+        self.assertEqual([tool["name"] for tool in synced["tools"][2:]], ["registry__added"])
+        self.assertEqual(synced["workspaces"], [])
+        names = sync_gateway_tools.synced_names({"registry_tools": {"registry__old": "write"}}, [source])
+        self.assertEqual(names["registry_tools"], {"registry__old": "write", "registry__read": "read"})
+
+    def test_the_emulator_serves_every_registry_tool_a_core_skill_names(self):
+        # An eval cannot pass through a tool the emulator lacks: the run stops at `tool_unavailable`.
+        world = json.loads((ROOT / "evals/atlan/emulator/world.json").read_text(encoding="utf-8"))
+        served = {tool["name"] for tool in world["tools"]}
+        named = {
+            name
+            for path, text in self.texts()
+            if path.is_relative_to(CORE)
+            for name in self.REGISTRY.findall(text)
+        }
+        self.assertEqual(set(), named - served)
+
     def test_get_started_names_every_helper_and_no_count(self):
         text = (ROOT / "plugins/atlanai/skills/atlan-get-started/SKILL.md").read_text()
         for name in self.TOOLS["search_mode_helpers"]:
@@ -669,9 +608,9 @@ class DashboardPromptTest(unittest.TestCase):
 class MetricsStudioPromptTest(unittest.TestCase):
     """Metrics Studio (metric service `studio/src/lib/metrics-setup.ts`) sends these to set up metrics."""
 
-    # `/<plugin>:atlan-analytics metrics` in Claude Code, `$<plugin>:atlan-analytics metrics` in
-    # Codex, and over MCP alone `atlan://defaults/skills/atlan-analytics/SKILL.md`, metrics mode.
-    SKILL = "atlan-analytics"
+    # `/<plugin>:analytics-build metrics` in Claude Code, `$<plugin>:analytics-build metrics` in
+    # Codex, and over MCP alone `atlan://defaults/skills/analytics-build/SKILL.md`, metrics mode.
+    SKILL = "analytics-build"
 
     def setUp(self) -> None:
         self.addon = ROOT / "plugins" / build.load()["addons"][0]["name"]
@@ -882,7 +821,7 @@ class PublishHookTest(unittest.TestCase):
                         (cwd / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
                         (cwd / ".ssh").mkdir()
                         (cwd / ".ssh" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
-                        skill = dict(case["call"])
+                        skill = json.loads(json.dumps(case["call"]).replace("{{fake_aws_key}}", FAKE_AWS_KEY))
                     else:
                         (cwd / "demo").mkdir()
                         CheckBundleTest.build(case, cwd / "demo")
@@ -964,8 +903,8 @@ class PublishHookTest(unittest.TestCase):
 
     def test_session_start_adds_the_line_publish_md_names(self) -> None:
         line = "Atlan publish helper is on: extension__skill__create accepts files_from."
-        self.assertEqual(self.run_hook("session-start", "codex", {})["hookSpecificOutput"]["additionalContext"], line + "\nAtlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].\nAtlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.")
-        self.assertEqual(self.run_hook("session-start", "cursor", {})["additional_context"], line + "\nAtlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].\nAtlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.")
+        self.assertEqual(self.run_hook("session-start", "codex", {})["hookSpecificOutput"]["additionalContext"], "Atlan local publish hooks are installed. Confirm support with one guarded empty-items batch; an explicit invalid_arguments refusal means use native arguments without local helper fields.")
+        self.assertEqual(self.run_hook("session-start", "cursor", {})["additional_context"], "Atlan local publish hooks are installed. Confirm support with one guarded empty-items batch; an explicit invalid_arguments refusal means use native arguments without local helper fields.")
         publish = (CORE / "skills" / "atlan-author-skills" / "references" / "publish.md").read_text(encoding="utf-8")
         # publish.md wraps its prose, so compare with its line breaks folded to spaces.
         self.assertIn(line, " ".join(publish.split()))
@@ -1110,9 +1049,6 @@ class PublishHookTest(unittest.TestCase):
         self.assertEqual(documents[f"{base}/.codex-plugin/plugin.json"]["hooks"], "./command-hooks/codex.json")
         self.assertEqual(documents[f"{base}/.cursor-plugin/plugin.json"]["hooks"], "./command-hooks/cursor.json")
         self.assertEqual(lint.lint_command_hooks(CORE), [])
-        variant = build.make_variant(build.load(), copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(build.load(), variant, "variant.toml")
-        self.assertFalse(any("command-hooks" in path for path in files))
 
 
 class CodexDirectoryTest(unittest.TestCase):
@@ -1163,10 +1099,15 @@ class SkillChecksTest(unittest.TestCase):
 
     def test_the_opt_in_block_and_the_rules_name_the_same_section(self) -> None:
         skills = CORE / "skills"
-        started = (skills / "atlan-get-started" / "references" / "codex-skill-checks.md").read_text(encoding="utf-8")
-        block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
-        self.assertIn("## Atlan registry skills", block)
-        self.assertIn("atlan-use-skill", block)
+        blocks = []
+        for host in ("codex", "cursor"):
+            started = (skills / "atlan-get-started" / "references" / f"{host}-skill-checks.md").read_text(encoding="utf-8")
+            block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
+            self.assertIn("## Atlan registry skills", block, host)
+            self.assertIn("atlan-use-skill", block, host)
+            self.assertIn(f"references/{host}-skill-checks.md", (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8"))
+            blocks.append(block)
+        self.assertEqual(blocks[0], blocks[1], "Codex and Cursor opt in with the same words")
         for name in ("atlan-use-skill", "atlan-find-artifacts", "atlan-get-started"):
             self.assertIn("**Atlan registry skills**", (skills / name / "SKILL.md").read_text(encoding="utf-8"), name)
 
@@ -1180,7 +1121,7 @@ class EvalCasesTest(unittest.TestCase):
                 "ATLAN_EMULATOR_HIDE_TOOLS", "ATLAN_EMULATOR_PLATFORM", "ATLAN_EMULATOR_UNRELEASED",
                 "ATLAN_EMULATOR_OPAQUE_PUBLISH", "ATLAN_EMULATOR_DISABLED_SERVERS",
                 "ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT", "ATLAN_EMULATOR_SERVE_WITHDRAW",
-                "ATLAN_EMULATOR_LIVE_SURFACE", "ATLAN_EMULATOR_ANALYTICS"}
+                "ATLAN_EMULATOR_LIVE_SURFACE", "ATLAN_EMULATOR_NOT_SCANNED", "ATLAN_EMULATOR_ANALYTICS"}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1199,7 +1140,9 @@ class EvalCasesTest(unittest.TestCase):
         for case in self.cases():
             text = (case / "case.yaml").read_text(encoding="utf-8")
             self.assertIn(f"name: {case.name}\n", text.splitlines(keepends=True), case.name)
-            self.assertIn("  - name: plain-reply\n", text.splitlines(keepends=True), case.name)
+            # A negative case is not the plugin's reply, so the Voice rules do not grade it.
+            carries = self.assertNotIn if re.search(r"^tags: \[[^\]]*\bnegative\b", text, re.MULTILINE) else self.assertIn
+            carries("  - name: plain-reply\n", text.splitlines(keepends=True), case.name)
 
     def test_every_sidecar_names_known_keys_and_switches_and_a_plugin_its_tools_pattern_matches(self) -> None:
         sidecars = [case / "emulator.json" for case in self.cases() if (case / "emulator.json").is_file()]
@@ -1225,6 +1168,56 @@ class EvalCasesTest(unittest.TestCase):
         self.assertEqual(self.runner.case_filters(["--runs", "1", "--case", "a", "--case", "b*"]), ["a", "b*"])
         self.assertEqual(self.runner.without_case_filters(["--runs", "1", "--case", "a", "--case", "b*", "-j", "4"]),
                          ["--runs", "1", "-j", "4"])
+
+    def test_every_case_carries_the_shared_reply_graders(self) -> None:
+        # One definition, written into every case: a copy edited by hand drifts, and a rule
+        # judged in one case and not the next makes two runs incomparable.
+        import eval_graders
+        stale = [str(path.relative_to(ROOT)) for path in eval_graders.drift()]
+        self.assertEqual([], stale, "run python3 tools/eval_graders.py")
+
+    def test_the_reply_patterns_pass_a_plain_reply_and_name_the_rule_a_reply_breaks(self) -> None:
+        import eval_graders
+
+        def passes(block: str, reply: str) -> bool:
+            # A regex grader passes when its pattern is found in the reply.
+            return re.search(re.search(r"pattern: '(.*)'", block).group(1), reply) is not None
+
+        plain = "Connected to Atlan. You can write to **Dana's Workspace** (yours).\n\nAcme has 23 skills. Which one?"
+        self.assertTrue(passes(eval_graders.PLAIN, plain))
+        for broken in ("Done \u2014 the file is saved.", "Saved!", "Saved! Next: review it.", "Sorry, that failed.",
+                       "Saved as v2. Let me know if you need anything else.", "Happy to help. Saved as v2.",
+                       "Saved as v2. Feel free to ask for more."):
+            self.assertFalse(passes(eval_graders.PLAIN, broken), broken)
+        # `!=` in code and a word that only starts like a filler are not the rule.
+        self.assertTrue(passes(eval_graders.PLAIN, "The filter is `status != archived`. Certainty is low."))
+        length = eval_graders.LENGTH.format(words=5)
+        self.assertTrue(passes(length, "one two three\nfour five\n"))
+        self.assertFalse(passes(length, "one two three four five six"))
+
+    def test_a_case_sets_its_own_word_limit_and_a_negative_case_keeps_only_its_own_graders(self) -> None:
+        import eval_graders
+        own = "name: x\ntags: [share]\ngraders:\n  - name: mine\n    type: llm\n"
+        self.assertIn("{1,100}", eval_graders.synced(own))
+        self.assertIn("{1,220}", eval_graders.synced("# reply-words: 220, the user asked for the changelog\n" + own))
+        table = eval_graders.synced("# reply-words: none, the reply is a table\n" + own)
+        self.assertNotIn("reply-length", table)
+        self.assertIn("one-next-step", table)
+        draft = eval_graders.synced("# reply-graders: plain-reply one-next-step, the reply is a draft\n" + own)
+        self.assertEqual(["mine", "plain-reply", "one-next-step"], re.findall(r"- name: (\S+)", draft))
+        with self.assertRaises(ValueError):
+            eval_graders.synced("# reply-graders: plain-reply tidy, a grader that does not exist\n" + own)
+        negative = eval_graders.synced(own.replace("[share]", "[negative,routing]"))
+        self.assertEqual(["mine"], re.findall(r"- name: (\S+)", negative))
+        # Synced text is a fixed point, and a hand-edited copy of a shared grader is replaced.
+        self.assertEqual(eval_graders.synced(table), table)
+        edited = eval_graders.synced(own).replace("FAIL only if it ends", "FAIL if it ends")
+        self.assertEqual(eval_graders.synced(edited), eval_graders.synced(own))
+
+    def test_the_runner_names_a_judge_unless_the_caller_does(self) -> None:
+        self.assertEqual(self.runner.judge(["--runs", "1"]), ["--judge-model", "sonnet"])
+        self.assertEqual(self.runner.judge(["--judge-model", "opus"]), [])
+        self.assertEqual(self.runner.judge(["--judge-model=opus"]), [])
 
     def test_negative_cases_forbid_every_atlan_skill_and_runner(self) -> None:
         negative = [case for case in self.cases() if "tags: [negative," in (case / "case.yaml").read_text(encoding="utf-8")]

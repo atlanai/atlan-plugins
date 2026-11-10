@@ -3,7 +3,7 @@ name: routing-metrics-arg
 tags: [analytics, routing]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics support tables in the acme workspace
+    /atlanai-analytics:analytics-build metrics support tables in the acme workspace
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:

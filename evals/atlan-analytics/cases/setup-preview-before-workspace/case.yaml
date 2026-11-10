@@ -25,7 +25,7 @@ graders:
   - name: uses-analytics-skill
     type: tool_used
     tool: Skill
-    input_match: 'atlan-analytics'
+    input_match: 'analytics-build'
   - name: visible-before-destination
     type: llm
     criteria: |
@@ -34,8 +34,10 @@ graders:
       question. It offers access to details or more candidates without dumping all five or
       the full saved SQL by default. Supplied populations and formulas must not change.
       A helper output or HTML link alone fails, as do invented results/publication or a
-      workspace question before the sample. The new default is one visible sample;
-      explicit Show five/all and detail requests retain their separate content checks.
+      workspace question before the sample. The preview must use the completed-collection review with a representative metric's
+      business-definition structure: meaning, calculation, population, source and check
+      status. An untested candidate must not acquire an invented result or worked-example
+      value. Explicit Show five/all and detail requests retain their content checks.
   - name: no-extra-approval-to-preview
     type: llm
     criteria: |
@@ -46,4 +48,4 @@ graders:
     type: llm
     criteria: |
       PASS if the reply leads with the preview or current stage, uses plain language and
-      has no greeting, apology, em dash or generic closing offer. Requested detail may exceed 80 words; the default stays concise. A concrete next choice after the visible preview is appropriate.
+      has no greeting, apology, em dash or generic closing offer. The collection review has no word limit. A concrete next choice after the visible preview is appropriate.

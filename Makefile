@@ -1,7 +1,7 @@
 # Every target is standard library Python except `validate`, which needs the claude CLI.
 PYTHON ?= python3
 # The analytics helpers' offline selftests run in `check`.
-ANALYTICS_SCRIPTS = plugins/atlanai-analytics/skills/atlan-analytics/scripts
+ANALYTICS_SCRIPTS = plugins/atlanai-analytics/skills/analytics-build/scripts
 
 .PHONY: check build lint test test-metrics-runtime site codex-directory validate eval eval-analytics
 
@@ -10,7 +10,7 @@ check:
 	$(PYTHON) tools/lint.py
 	$(PYTHON) -m unittest discover -s tools/tests -q
 	$(PYTHON) $(ANALYTICS_SCRIPTS)/analytics_eval.py selftest
-	$(PYTHON) $(ANALYTICS_SCRIPTS)/metrics_mine.py selftest
+	$(PYTHON) $(ANALYTICS_SCRIPTS)/context_contracts.py selftest
 
 build:
 	$(PYTHON) tools/build.py

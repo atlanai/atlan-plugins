@@ -10,7 +10,7 @@ Atlan's MCP gateway puts every MCP server the organization registered behind the
 `atlan` connection. The user signs in to Atlan once; each downstream server is reached with
 the user's own connected account or a credential an admin linked, never with a key in chat.
 Every call is permission-checked and recorded in the session the user can audit later.
-Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 
 ## Your tool's own connector, or Atlan's
 
@@ -62,6 +62,12 @@ to both.
    in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
    Atlan is not answering. Never repeat a write: read it back first.
 
+   Each hit says how well it fits under `match`: `quality` is `strong` or `weak`. A `weak` hit
+   shares few of the request's words and is often the wrong tool. Never run a weak hit that
+   writes until the user has confirmed the tool by name, and when every hit is weak, search
+   once more naming the product or with `servers` before saying no tool does this. A gateway
+   that sends no `match` predates it: judge each hit by its name and description.
+
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its
    place: a search for "create a Linear issue" can rank an Atlan app's own `create_issue`
@@ -76,6 +82,13 @@ its annotations: a `destructiveHint` tool needs an explicit yes for that specifi
 Approving a runner once in the host does not approve every tool it can run. The read runner
 refuses anything that is not a read and the write runner anything destructive, so a refusal
 names the runner to send the same call to; `mcp__call_tool` runs any tool.
+
+## Which servers are registered
+
+One read lists them: `registry__list_artifacts { "kind": "mcp_server", "limit": 50 }` through
+`mcp__call_read_tool`. `page.total` is the count and each row names its workspace
+(`workspace_display_name`); page with `offset` when the total is larger. Never enumerate
+servers with repeated searches: search ranks, it does not list.
 
 ## When a server needs the user's account
 

@@ -34,7 +34,6 @@ product go through the same responsible disclosure program.
 Fixes ship in the latest version of each plugin. Claude Code and the other hosts pick up a new
 version on their next marketplace refresh.
 
-## Atlan staff
+## Secure coding
 
-Report a suspected vulnerability privately in Atlan Slack, `#bu-security-and-it`. The rules for
-changing code here are in [docs/secure-coding.md](docs/secure-coding.md).
+The rules for changing code here are in [docs/secure-coding.md](docs/secure-coding.md).

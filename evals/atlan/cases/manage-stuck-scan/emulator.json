@@ -1,0 +1,5 @@
+{
+    "env": {
+        "ATLAN_EMULATOR_NOT_SCANNED": "skill_01evalpending"
+    }
+}

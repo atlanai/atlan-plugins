@@ -16,7 +16,7 @@ Calls below are search-mode runner calls: `mcp__call_read_tool` for a read and
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
-`{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+`{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel. Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -36,7 +36,9 @@ the request could mean several files, ask which. Then route by what it is:
 Read the content before sharing it. Stop and show the user, with values masked, anything that
 looks like a credential (a private key block, a token such as `sk-…`, `ghp_…`, `xox…` or
 `AKIA…`, a `password=` or connection string) or a list of people's personal details. Share only
-after they say so, or after they remove it.
+after they say so, or after they remove it. Where the publish helper runs, it refuses a
+`registry__publish_output` whose text still matches a credential shape, naming the line: mask
+the value or swap in a placeholder, then send again. Never route around the refusal.
 
 ## 2. Decide who it is for
 
@@ -93,7 +95,8 @@ only on a yes, with only the keys [Choosing the audience](references/audience.md
 Committing it gives the whole team the same default.
 
 When step 5 posts, the whole reply, post included, stays within four lines. Report what the tools
-returned; do not add caveats about what they did not.
+returned; do not add caveats about what they did not, and say nothing of which tool carried
+the write or of a call that was refused and sent another way.
 
 ## 5. Tell people, when Slack is connected
 

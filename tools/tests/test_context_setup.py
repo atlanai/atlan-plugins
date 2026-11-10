@@ -24,10 +24,10 @@ import retrieval
 def metric(number=1, history=False):
     return {'name': 'total-' + str(number), 'display_name': 'Total ' + str(number),
             'description': 'Total cost of work.', 'definition': {
-                'spec_version': '2.0', 'version': 1, 'dialect': 'duckdb', 'formula': 'SUM(s.cost)',
+                'spec_version': '2.0', 'version': 1, 'dialect': 'duckdb', 'formula': 'SUM(site.work.cost)',
                 'aggregation': {'type': 'sum'}, 'output': {'alias': 'value', 'datatype': 'decimal'},
                 'source': {'entity': 'site.work', 'table': 'site.work', 'alias': 's'},
-                'grain': ['kind'], 'dimensions': [], 'mandatory_filters': [],
+                'grain': 'One row per source work entry; key uniqueness is not declared.', 'dimensions': [], 'mandatory_filters': [],
                 'extensions': {'atlan_analytics': {'shapes': ['shape-example']} if history else {
                     'declared': {'kind': 'powerbi', 'ref': 'model.bim', 'name': 'Cost'}}}}}
 
@@ -57,7 +57,7 @@ class GenericSetup(unittest.TestCase):
 
     def seed_candidates(self):
         self.run.survey(self.estate)
-        import metrics_mine as mine
+        import context_contracts as mine
         cards = [metric(i, i % 2 == 0) for i in range(1, 7)]
         for card in cards:
             card['definition']['spec_version'] = mine.METRIC_SPEC
@@ -117,7 +117,7 @@ class GenericSetup(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Showing 5 of 6 metrics', result.stdout)
         self.assertEqual(result.stdout.count('\n### '), 5)
-        self.assertIn('SUM(s.cost)', result.stdout)
+        self.assertIn('SUM(site.work.cost)', result.stdout)
         self.assertIn('shape-example', result.stdout)
         self.assertIn('model.bim', result.stdout)
         self.assertNotIn('saved queries', result.stdout)
@@ -133,7 +133,7 @@ class GenericSetup(unittest.TestCase):
         with patch('metric_preview.html_snapshot', side_effect=RuntimeError('broken renderer')):
             result = self.run.preview(format='html')
         self.assertEqual(result['status'], 'text_fallback')
-        self.assertIn('SUM(s.cost)', result['markdown'])
+        self.assertIn('SUM(site.work.cost)', result['markdown'])
 
     def test_chat_preview_renders_both_sources_and_exact_history_sql_without_writes(self):
         cards = self.seed_candidates()
@@ -158,12 +158,12 @@ class GenericSetup(unittest.TestCase):
 
     def test_chat_preview_handles_empty_query_only_and_untrusted_source_text(self):
         self.run.survey(self.estate)
-        self.assertIn('No metrics or saved queries', self.run.preview(format='chat'))
+        self.assertIn('No metrics or queries', self.run.preview(format='chat'))
         body = query()
         body['definition']['question'] = '![preview](https://example.com/track) <script>bad()</script>'
         self.run.write(self.run.context / 'queries.json', [body])
         text = self.run.preview(format='chat')
-        self.assertIn('0 metrics and 1 saved query', text)
+        self.assertIn('0 metrics and 1 query', text)
         self.assertIn(body['definition']['sql'], text)
         self.assertNotIn('![preview]', text)
         self.assertNotIn('<script>', text)
@@ -183,14 +183,14 @@ class GenericSetup(unittest.TestCase):
         self.assertTrue(Path(compact['snapshot']).is_file())
         full = json.loads(Path(compact['result_file']).read_text())
         self.assertEqual(full['snapshot'], compact['snapshot'])
-        self.assertIn('SUM(s.cost)', full['markdown'])
+        self.assertIn('SUM(site.work.cost)', full['markdown'])
         self.assertIn('preview --format chat', compact['next'])
 
     def test_changed_definition_resets_checked_preview_and_progress(self):
         cards = self.seed_candidates()
         result = self.run.check()
         self.assertEqual(result['counts']['checked'], 7)
-        cards[0]['definition']['formula'] = 'SUM(s.cost) * 2'
+        cards[0]['definition']['formula'] = 'SUM(site.work.cost) * 2'
         self.run.write(self.run.context / 'metrics.json', cards)
         current = progress.update(self.run, 'preview', 'waiting-for-user', 'select_workspace')
         self.assertEqual(current['counts']['draft'], 1)
@@ -326,8 +326,9 @@ class GenericSetup(unittest.TestCase):
             self.run.scope({'source_id': report['source_id'], 'pages': ['overview'], 'history_tables': ['site.work']})
         self.assertEqual(len(self.run.current()['scopes']), 2)
         result = self.run.history()
-        self.assertEqual(result['shapes']['written'], 1)
-        self.assertEqual(result['shapes']['out_of_scope'], 1)
+        self.assertEqual(result['tables'], ['site.work'])
+        self.assertEqual(len(Path(result['history']).read_text().splitlines()), 2)
+        self.assertFalse((self.run.context / 'shapes.jsonl').exists())
 
     def test_markdown_cannot_render_source_images_and_keeps_quotes_readable(self):
         self.seed_candidates()
@@ -393,7 +394,7 @@ class SQLRegression(unittest.TestCase):
         self.assertEqual(self.run.execute({'sql': 'SELECT SUM(cost) FROM site.work'})['rows'], [['34.75']])
 
     def test_metric_example_execution_is_revision_bound_and_labeled_precisely(self):
-        import metrics_mine as mine
+        import context_contracts as mine
         body = metric()
         body['definition']['spec_version'] = mine.METRIC_SPEC
         body['definition']['examples'] = [{'source': 'declared:Cost', 'sql': 'SELECT SUM(cost) FROM site.work'}]
@@ -403,7 +404,7 @@ class SQLRegression(unittest.TestCase):
         self.run.check()
         self.assertEqual(metric_preview.candidates(self.run)[0]['status'], 'example_executed')
         self.assertIn('formula equivalence not established', self.run.preview())
-        body['definition']['formula'] = 'SUM(s.cost) * 2'
+        body['definition']['formula'] = 'SUM(site.work.cost) * 2'
         self.run.write(self.run.context / 'metrics.json', [body])
         self.assertEqual(metric_preview.candidates(self.run)[0]['status'], 'draft')
     def test_case_insensitive_identifiers_and_cte_column_lists(self):
@@ -416,6 +417,15 @@ class SQLRegression(unittest.TestCase):
     def test_cte_alias_does_not_hide_function_use_elsewhere(self):
         with self.assertRaises(ValueError):
             self.run.execute({'sql': 'WITH query(value) AS (SELECT 1) SELECT * FROM query(\'SELECT 1\')'})
+
+    def test_a_request_naming_other_parameters_holds_nothing(self):
+        import local_data
+        self.run.write(self.run.context / 'queries.json', [query(
+            'SELECT SUM(cost) FROM site.work WHERE kind={{kind}}')])
+        with self.assertRaisesRegex(local_data.ParameterError, 'bindings: kind'):
+            self.run.check_query({'name': 'work-total', 'parameters': {}})
+        self.run.check_query({'name': 'work-total', 'parameters': {'kind': 'build'}})
+        self.assertNotEqual(metric_preview.candidates(self.run)[0]['status'], 'held')
 
     def test_failed_parameter_sample_remains_held_after_successful_sample_and_schema_check(self):
         self.run.write(self.run.context / 'queries.json', [query(
@@ -431,7 +441,7 @@ class SQLRegression(unittest.TestCase):
         self.assertEqual(metric_preview.candidates(self.run)[0]['status'], 'held')
         bodies[0]['source_id'] = 'example/shape-cost'
         self.run.write(self.run.context / 'queries.json', bodies)
-        import metrics_mine as mine
+        import context_contracts as mine
         plan = mine.cmd_check(SimpleNamespace(dir=self.run.context))
         self.assertTrue(any('parameter sample failed' in r['error'] for r in plan['first_refusals']))
         self.assertFalse(self.run.read(self.run.context / 'plan.json')['queries'][0]['ok'])
