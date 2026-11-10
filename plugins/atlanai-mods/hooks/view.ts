@@ -39,6 +39,9 @@ const PAST: Record<string, string> = {
   approve: 'approved',
   move: 'moved',
   release: 'released',
+  publish: 'shared',
+  withdraw: 'withdrew',
+  retrigger: 'reran',
   delete: 'deleted',
   request: 'requested',
 }
@@ -93,12 +96,24 @@ function describeNamed(name: string, args: Record<string, unknown>): string {
     const [, verb = '', rest = ''] = registry
     const READ: Record<string, string> = { get: 'read', list: 'listed', query: 'queried', search: 'searched' }
     if (READ[verb]) return `${READ[verb]} ${rest.replace(/_/g, ' ')}`
+    if (name === 'registry__publish_output') return `shared ${outputOf(args)}`
+    if (name === 'registry__withdraw_release') return `withdrew release${isText(args.release_id) ? ` ${clip(args.release_id, 60)}` : ''}`
+    if (name === 'registry__retrigger_artifact_action')
+      return `reran ${isText(args.action_name) ? clip(args.action_name, 30) : 'an action'} on ${artifactOf(args) ?? 'an artifact'}`
     const target = verb === 'create' ? creationOf(args) : (artifactOf(args) ?? rest.replace(/_/g, ' '))
     return `${PAST[verb] ?? verb} ${target}`
   }
   const server = /^([a-z0-9-]+)__(.+)$/i.exec(name)
   if (server) return `${server[1]} · ${server[2]?.replace(/_/g, ' ')}`
   return name ? name.replace(/_/g, ' ') : 'called a tool'
+}
+
+/** The output a share records, by the name its arguments give it. */
+function outputOf(args: Record<string, unknown>): string {
+  const output = isRecord(args.output) ? args.output : args
+  const meta = isRecord(output.metadata) ? output.metadata : output
+  const name = field(meta, 'display_name') || field(meta, 'name') || field(args, 'name')
+  return name ? `output "${name}"` : 'an output'
 }
 
 /** The kind and name a create carries. */
@@ -201,7 +216,9 @@ export function touchesOf(name: string, args: unknown, text: string, isError: bo
   if (!object || name === 'registry__search_artifacts' || /^registry__(list|query)_/.test(name) || name === 'registry__get_related_artifacts') return []
   const verb = /^registry__([a-z]+)_/.exec(name)?.[1] ?? ''
   const action = name === 'extension__skill__create' ? 'published' : verb === 'get' ? 'read' : (PAST[verb] ?? verb)
-  const rows = name === 'extension__skill__create' ? slotsOf(object) : [object]
+  // A share answers with the output it recorded beside the file it saved: the output is the touch.
+  const shared = name === 'registry__publish_output' && isRecord(object.output) ? object.output : undefined
+  const rows = name === 'extension__skill__create' ? slotsOf(object) : [shared ?? object]
   const fallbackId = artifactOf(args) ?? ''
   return rows.flatMap(row => {
     const id = field(row, 'id') || field(row, 'artifact_id') || (rows.length === 1 ? fallbackId : '')

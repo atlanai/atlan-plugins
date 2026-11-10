@@ -389,6 +389,21 @@ describe('the guard', () => {
     expect(verdict.reason).toContain('Nobody can confirm it here')
   })
 
+  test("makes its own lookups through the read runner, which the gateway lets only read (B8)", async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    const runners: unknown[] = []
+    on('mcp.call', (_, e) => {
+      runners.push(e.tool)
+      const name = (e.args as { name?: string }).name
+      return { value: text(name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }
+    })
+    await $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' }, approver: 'user' })
+    await $.command.run(atlan('search pii'))
+    expect(runners.length).toBe(3)
+    expect(new Set(runners)).toEqual(new Set(['mcp__call_read_tool']))
+  })
+
   test('reads what depends on an artifact again after a transient failure', async ($, on) => {
     const clock = engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
@@ -580,7 +595,7 @@ describe('call repair', () => {
     expect(write.context?.at(-1)).toContain('may already have run')
   })
 
-  test('leaves a lost skill publish to the publish helper: the create takes no idempotency_key', async ($, on) => {
+  test('leaves a lost skill publish to the publish helper, which knows when its idempotency_key applies', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))

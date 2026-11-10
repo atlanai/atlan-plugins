@@ -30,6 +30,10 @@ Read the result before answering from it:
   `unreleased_omitted_count` above 0, the closest match may be a draft (a metric not yet released,
   for one). Send the same call once more with `released_only: false` added inside `retrieval`, and
   say which items are unreleased.
+- **Governed kinds with nothing are named.** `diagnostics.no_governed_sources_for` lists the
+  governed kinds (`metric`, `knowledge`, `ontology`) the scope holds none of. Say that plainly,
+  "no metrics are defined here yet", and do not search again for that kind. An absent list says
+  nothing either way: an older gateway does not send it, and a failed count sends none.
 - **`matched_query_indexes` is not a ranking.** It can list every outcome for every item, so it
   does not say which item answers which need. Match items to outcomes by reading them.
 - **Platform records and servers are not answers.** Drop `app` and other platform kinds
