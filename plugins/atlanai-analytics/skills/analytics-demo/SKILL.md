@@ -62,8 +62,9 @@ After "Start building", show the tracker, then do all of step 1's work:
 3. **Load the data.** Initialize or reuse the metrics engine's pinned runtime
    ([the metrics module](../analytics-metrics/references/metrics-engine.md), section 1), then
    use that runtime's Python with `PROJECT prepare` to load the demo's tables into a local
-   `.duckdb` database, as [build and check](../analytics-build/references/setup/build-check.md)
-   describes. Bind it once. Every later check runs on these rows.
+   `.sqlite` database named after their schema (`site.sqlite`, `tix.sqlite`), as
+   [build and check](../analytics-build/references/setup/build-check.md) describes. Bind it once
+   with `--schema`. Every later check runs on these rows.
 4. **Record the preset intent.** `PROJECT journey domain --answer "<focus to record>"`, then
    `PROJECT journey purpose --answer "<purpose to record>"`, from the facts file. The demo asks
    neither intent question.

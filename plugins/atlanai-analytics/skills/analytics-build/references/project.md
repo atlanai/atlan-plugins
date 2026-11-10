@@ -15,7 +15,7 @@ When the working project is already clear, **Set up this project for analytics**
 Do not ask the person to repeat a supplied folder or business question.
 
 `PROJECT` below means `python3 "<skill-dir>/scripts/project.py" --run-dir
-"<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and DuckDB preparation. The helper
+"<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and CSV preparation. The helper
 records the interpreter for later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
 unreviewed repository code simply because a README recommends it.
 The helper only writes local state; Registry operations use the existing Atlan MCP connection.
@@ -89,14 +89,14 @@ non-destructive local preparation using existing dependencies. The mapping selec
 survey source IDs, a new project-relative database path, and evidenced schema/table names:
 
 ```json
-{"database": "data/analytics.duckdb", "tables": [
+{"database": "data/site.sqlite", "tables": [
   {"source_id": "src_from_survey", "table": "site.work"}
 ]}
 ```
 
-For new CSV preparation use `.duckdb`, with the main engine runtime's Python, so the same
-read-only substrate supports engine checks and later questions. Existing SQLite bindings
-remain supported by the project helper; they do not select a different generator.
+For new CSV preparation use `.sqlite`, named after its one schema (`data/site.sqlite` holds
+`site.*`), with the main engine runtime's Python, so engine checks and later questions run on
+the same read-only SQLite file. Existing DuckDB files remain supported: bind them as they are.
 
 The destination's parent must exist. The helper accepts up to 32 CSVs (32 MiB each, 128 MiB
 total), checks survey hashes, restricts reads to those paths, and atomically creates a new
@@ -114,10 +114,10 @@ When one database clearly matches the selected estate, state the selection and r
 `PROJECT bind "<absolute database>"` (`.sqlite` or `.duckdb`). For SQLite add `--schema <name>`
 with the schema used at preparation. Add `--tables schema.table ...` for a narrower scope. With several plausible databases, ask for the pairing. The returned schema and
 `context/database-schema.json` establish the physical columns and types. An embedded
-Snowflake connector in a Power BI model does not override an explicitly selected DuckDB.
+warehouse connector in a Power BI model does not override an explicitly selected local database.
 
 For an existing warehouse, reuse [connect](../../analytics-survey/references/connect.md) and its normal state. Do not require
-DuckDB or migrate data. Without execution access, continue authoring with checks marked
+a local database or migrate data. Without execution access, continue authoring with checks marked
 untested; explain that fresh numerical answers need a data connection.
 
 The local adapter uses a read-only database, native parameter binding, bounded rows, memory
@@ -186,7 +186,7 @@ and records the same durable publication state. It does not skip release or link
     "is_released": true,
     "release": {"release_id": "rel_example", "version_id": "ver_example",
       "channel": "latest", "release_status": "released", "is_current": true},
-    "metadata": {"definition": {"spec_version": "1.0-draft.1", "dialect": "duckdb",
+    "metadata": {"definition": {"spec_version": "1.0-draft.1", "dialect": "sqlite",
       "question": "What is the total?", "sql": "SELECT ..."}}
   }]
 }
@@ -225,7 +225,7 @@ or the user's own question. Do not choose and run a sample silently. Continue th
 ## 6. Retrieval contract for every question
 
 Follow [retrieval](../../analytics-ask/references/retrieval.md). Saved queries use fresh complete MCP release readbacks and
-one checked `PROJECT answer` operation. DuckDB executes locally; a warehouse returns
+one checked `PROJECT answer` operation. A local SQLite or DuckDB file executes locally; a warehouse returns
 `execute_in_host` with a validated query plan for the existing read-only tool. A plan is not
 an executed answer. Existing Atlan users can follow the same retrieval rules without a
 local run or publication receipt.

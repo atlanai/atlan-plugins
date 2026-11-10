@@ -43,6 +43,13 @@ def prepare(root, sources, request):
                        'sha256': source['sha256']})
     if total > 128 * 1024 ** 2:
         raise DataError('Select at most 128 MiB of CSV data for local preparation.')
+    # A SQLite file is attached under its name, so `tix.sqlite` is the one that holds `tix.*`.
+    stem = destination.stem.lower()
+    schemas = {n.split('.')[0] for n in names}
+    if destination.suffix.lower() == '.sqlite' and len(schemas) == 1 and stem not in schemas:
+        schema = schemas.pop()
+        raise DataError('Name the .sqlite file after its schema: ' + schema + '.sqlite holds '
+                        + schema + '.<table>.')
     # Build privately, then atomically link without replacing a concurrent destination.
     with tempfile.TemporaryDirectory(prefix='.atlan-prepare-', dir=destination.parent) as temporary:
         staged = Path(temporary) / ('prepared' + destination.suffix.lower())

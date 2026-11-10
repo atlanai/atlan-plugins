@@ -86,3 +86,55 @@ class ShapeIdentityTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class SQLiteEstateTest(unittest.TestCase):
+    """A SQLite estate is checked on SQLite: its runner, and the compiler's SQLite forms."""
+
+    @classmethod
+    def setUpClass(cls):
+        CompiledSizeTest.setUpClass()
+
+    def setUp(self):
+        import tempfile
+        self.dir = Path(tempfile.mkdtemp())
+        self.db = self.dir / 'shop.sqlite'
+        con = sqlite3.connect(self.db)
+        con.execute('CREATE TABLE orders (channel TEXT, order_date TEXT, sold INTEGER, seats INTEGER)')
+        con.executemany('INSERT INTO orders VALUES (?, ?, ?, ?)',
+                        [('web', '2025-06-06', 5, 6), ('web', '2025-06-20 09:00:00', 4, 6),
+                         ('app', '2025-07-02', 1, 6)])
+        con.commit(); con.close()
+
+    def test_the_runner_reads_the_file_under_its_stem_and_nothing_else(self):
+        from metrics_agent.plugs import local_files
+        with local_files.LocalFiles({'database': str(self.db)}, dialect='sqlite').sql_runner() as run:
+            self.assertEqual(run.kind, 'sqlite')
+            self.assertEqual(run.fetch('SELECT SUM(sold) FROM shop.orders', 10)[1], [(10,)])
+            self.assertEqual(run.columns_of('shop.orders'), ['channel', 'order_date', 'sold', 'seats'])
+            with self.assertRaises(sqlite3.DatabaseError):
+                run._engine._conn.execute(f"ATTACH '{self.dir / 'other.sqlite'}' AS other")
+
+    def compile(self, formula, group_by):
+        unit = {'unit_id': 'u', 'warehouse_tables': ['shop.orders'], 'group_by': group_by,
+                'measures': [{'name': 'm', 'aggregation': 'custom', 'formula_language': 'tableau-calc',
+                              'formula': formula}],
+                'filters': [], 'top_n': None, 'join_graph': []}
+        result = bicompile.compile_unit(unit, RULES, 'sqlite',
+                                        columns={'shop.orders': {'channel', 'order_date', 'sold', 'seats'}})
+        self.assertEqual(result.coverage, 'translated', result.reason)
+        con = sqlite3.connect(':memory:')
+        con.execute(f"ATTACH '{self.db}' AS shop")
+        return result, con.execute(result.sql).fetchall()
+
+    def test_a_month_is_cut_from_the_iso_text(self):
+        result, rows = self.compile("MIN(DATETRUNC('month', [order_date]))", ['channel'])
+        self.assertNotIn('CAST(', result.sql)
+        self.assertEqual(sorted(rows), [('app', '2025-07-01'), ('web', '2025-06-01')])
+
+    def test_a_ratio_of_whole_numbers_divides_as_decimals(self):
+        _, rows = self.compile('SUM([sold]) / SUM([seats])', ['channel'])
+        self.assertEqual(dict(rows), {'app': 1 / 6, 'web': 9 / 12})
+        _, rows = self.compile('SUM([sold]) / 4', ['channel'])
+        self.assertEqual(dict(rows), {'app': 0.25, 'web': 2.25})

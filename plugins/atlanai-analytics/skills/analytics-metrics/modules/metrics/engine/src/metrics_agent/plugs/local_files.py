@@ -11,7 +11,7 @@ Everything a run can read without a network:
 * **BI definitions**: a folder or file of BI definitions that an installed BI reader reads
   (`metrics_agent.readers`: the core ships Tableau and Power BI). This plug only finds the
   files, by the suffixes the installed readers declare; the reader `bi_vendor` names reads them.
-* **SQL check**: a read-only DuckDB database.
+* **SQL check**: a read-only SQLite or DuckDB database, by its suffix.
 
 It is also where an assistant skill lands what it fetched: the skill writes these files and the
 core runs with this plug. A `bi` folder holding a `capture_manifest.json` is a capture
@@ -31,7 +31,7 @@ Settings (all optional, all paths):
     schema        the schema JSON file
     bi            the BI folder or file
     bi_vendor     the installed BI reader that reads `bi`
-    database      the DuckDB file (default: $METRICS_AGENT_WAREHOUSE_DSN)
+    database      the SQLite or DuckDB file (default: $METRICS_AGENT_WAREHOUSE_DSN)
 """
 from __future__ import annotations
 
@@ -63,8 +63,8 @@ class _SetupQuestions:
                                    kind="path"),
                    S.SetupQuestion("bi_vendor", "Which BI tool wrote those files?",
                                    kind="choice", choices=_vendors())),
-            "sql_check": (S.SetupQuestion("database", "Path to the DuckDB database the SQL is "
-                                          "checked against", kind="path"),),
+            "sql_check": (S.SetupQuestion("database", "Path to the SQLite or DuckDB database "
+                                          "the SQL is checked against", kind="path"),),
             "schema": (S.SetupQuestion("schema", "Path to a JSON file mapping DB.SCHEMA.TABLE "
                                        "to its columns (name, datatype, description)",
                                        kind="path"),),
@@ -145,6 +145,76 @@ class DuckDBRunner:
 
     def __exit__(self, *exc: Any) -> None:
         self.close()
+
+
+# A database file by suffix: these are SQLite, anything else is DuckDB.
+SQLITE_SUFFIXES = (".sqlite", ".sqlite3", ".db")
+
+
+class SQLiteRunner:
+    """A read-only SQLite file, attached under its stem: `site.sqlite` holds `site.*`, as a
+    SQLite estate names its tables. The socket wraps it so a write never reaches it."""
+
+    kind = "sqlite"
+
+    def __init__(self, database: str, dialect: str = "sqlite") -> None:
+        self.database = database
+        self.dialect = dialect
+        self.schema = pathlib.Path(database).stem
+        from metrics_agent.lib import engine as _engine
+
+        def connect():
+            import sqlite3  # noqa: PLC0415
+
+            con = sqlite3.connect("file::memory:", uri=True)
+            con.execute(f'ATTACH DATABASE ? AS "{self.schema}"',
+                        (pathlib.Path(database).resolve().as_uri() + "?mode=ro",))
+            con.execute("PRAGMA query_only = ON")
+            # The file is the only thing a statement may read: no second ATTACH or DETACH.
+            con.set_authorizer(lambda action, *_: sqlite3.SQLITE_DENY if action in (
+                sqlite3.SQLITE_ATTACH, sqlite3.SQLITE_DETACH) else sqlite3.SQLITE_OK)
+            return con
+
+        self._engine = _engine.Engine("sqlite", database, dialect, connector=connect)
+
+    def connect(self) -> None:
+        self._engine.connect()
+
+    def explain(self, sql: str) -> int:
+        return self._engine.explain(sql)
+
+    def fetch(self, sql: str, limit: int):
+        return self._engine.fetch(sql, limit)
+
+    def scan(self, sql: str, batch: int) -> Iterator[list[tuple]]:
+        return self._engine.scan(sql, batch)
+
+    def columns_of(self, table: str) -> list[str]:
+        """SQLite has no `information_schema`: its own `table_info` names the columns."""
+        name = table.split(".")[-1].strip('"')
+        self._engine.connect()
+        rows = self._engine._conn.execute(
+            "SELECT name FROM pragma_table_info(?, ?)", (name, self.schema)).fetchall()
+        return [r[0] for r in rows]
+
+    def columns_of_many(self, tables: list[str]) -> dict[str, list[str]]:
+        return {t: self.columns_of(t) for t in tables}
+
+    def close(self) -> None:
+        self._engine.close()
+
+    def __enter__(self) -> "SQLiteRunner":
+        self.connect()
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
+
+
+def _runner(database: str, dialect: str | None = None) -> "DuckDBRunner | SQLiteRunner":
+    if pathlib.Path(database).suffix.lower() in SQLITE_SUFFIXES:
+        return SQLiteRunner(database, dialect or "sqlite")
+    return DuckDBRunner(database, dialect or "duckdb")
 
 
 class LocalFiles:
@@ -244,8 +314,8 @@ class LocalFiles:
             try:
                 from metrics_agent.socket_gates import ReadOnlyRunner  # noqa: PLC0415
 
-                with ReadOnlyRunner(DuckDBRunner(str(_paths(settings["database"])[0])),
-                                    "duckdb") as ro:
+                runner = _runner(str(_paths(settings["database"])[0]))
+                with ReadOnlyRunner(runner, runner.dialect) as ro:
                     ro.fetch("SELECT 1", 1)
             except Exception as exc:  # noqa: BLE001 - the check reports, it never raises
                 return fail("database", f"database: could not open it read-only "
@@ -340,9 +410,9 @@ class LocalFiles:
         return out
 
     # -- SQL check -----------------------------------------------------------------------
-    def sql_runner(self) -> DuckDBRunner | None:
+    def sql_runner(self) -> DuckDBRunner | SQLiteRunner | None:
         database = self.settings.get("database") or os.environ.get("METRICS_AGENT_WAREHOUSE_DSN")
-        return DuckDBRunner(str(database), self.dialect) if database else None
+        return _runner(str(database), self.dialect) if database else None
 
     def resolve_scope(self, refs: list[str]) -> S.Scope:
         raise S.NotSupported("local-files does not resolve asset names; list the tables")

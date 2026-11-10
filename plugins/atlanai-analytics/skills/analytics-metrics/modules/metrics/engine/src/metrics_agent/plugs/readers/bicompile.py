@@ -388,6 +388,9 @@ class _Parser:
                     rule = self._function_rule("/")
                     term = _apply(_emit_for(rule, self.dialect), [term, right], "/")
                     continue
+                if op == "/" and self._tableau and str(self.dialect or "").lower() == "sqlite":
+                    term = f"CAST({term} AS REAL) / {right}"      # decimals, as the calc divides
+                    continue
                 if op in ("*", "/", "%"):
                     term = f"{term} {op} {right}"
                     continue
