@@ -40,21 +40,25 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit
 
 PUBLISH = "extension__skill__create"
 BULK_PUBLISH = "registry__create_artifacts"
 CAPABILITY = "Atlan publish helper is on: extension__skill__create accepts files_from."
 BULK_CAPABILITY = "Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: []."
 RECEIPT_CAPABILITY = "Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying."
+LOCAL_CAPABILITY = "Atlan local publish hooks are installed. Confirm support with one guarded empty-items batch; an explicit invalid_arguments refusal means use native arguments without local helper fields."
 RECEIPT_OPERATIONS = {BULK_PUBLISH, "registry__get_artifact", "registry__get_related_artifacts"}
 NOT_SENT = "Nothing was sent. Fix what is listed and call extension__skill__create again."
 CREDENTIAL_DIRS = {".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", "gcloud"}
 LOST = re.compile(r"\b(?:502|503|504)\b|bad gateway|service unavailable|gateway time-?out", re.IGNORECASE)
 # The gateway's runners that can carry the create, by the name each harness gives them in pre. Codex
-# names the server (`atlan`, the key every Atlan plugin uses, or under a plugin prefix); Cursor names
-# only the tool, so mcp-guard checks its server.
+# names a configured server, which may be an alias; Cursor names only the tool, so mcp-guard
+# checks its server. The wildcard admits future keys, while publish_input checks the origin
+# metadata or a conventional Atlan server name before any file expansion.
 RUNNERS = {
-    "codex": re.compile(r"^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$"),
+    "codex": re.compile(r"^mcp__[A-Za-z0-9_-]+__mcp__call(?:_(?:write|read))?_tool$"),
+    "copilot": re.compile(r"^(?:mcp__[A-Za-z0-9_-]+__|[A-Za-z0-9_-]+[/\-])mcp__call(?:_(?:write|read))?_tool$"),
     "cursor": re.compile(r"^MCP:mcp__call(?:_(?:write|read))?_tool$"),
 }
 ATLAN_HOST = re.compile(r"^(?:[a-z0-9-]+\.)*atlan\.com$")
@@ -155,9 +159,18 @@ def publish_input(event: dict, host: str):
     """Select Atlan's skill or bulk create; never read local files for another server."""
     tool = event.get("tool_name")
     tool_input = event.get("tool_input")
-    runner = RUNNERS.get(host)
+    runner = RUNNERS.get(event.get('_host', host))
     if runner is None or not isinstance(tool, str) or not runner.match(tool) or not isinstance(tool_input, dict):
         return None
+    # When the host supplies origin metadata, it overrides any name-based routing.
+    has_origin = event.get('url') or event.get('mcp_server_url') or event.get('command')
+    if has_origin and not is_atlan_server(event):
+        return None
+    if not has_origin and host != 'cursor':
+        named = re.fullmatch(r'mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan(?:[-_][A-Za-z0-9_-]+)?__mcp__call(?:_(?:write|read))?_tool', tool)
+        copilot_named = event.get('_host') == 'copilot' and re.fullmatch(r'atlan(?:[-_][A-Za-z0-9_-]+)?[/\-]mcp__call(?:_(?:write|read))?_tool', tool)
+        if not named and not copilot_named:
+            return None
     return tool_input if tool_input.get("name") in ({PUBLISH} | RECEIPT_OPERATIONS) else None
 
 
@@ -165,10 +178,17 @@ def is_atlan_server(event: dict) -> bool:
     """Whether Cursor's beforeMCPExecution event names the Atlan server: by its URL's host, which
     must be atlan.com's, when the event carries one, else by its name (`atlan`, or one ending in
     `-atlan` or `_atlan`). A launch command (a stdio server) is never Atlan's."""
+    if event.get('command'):
+        return False
     url = event.get("mcp_server_url") or event.get("url")
     if isinstance(url, str) and url:
-        host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", url.strip().lower()).split("/", 1)[0].rsplit("@", 1)[-1].split(":", 1)[0]
-        return bool(ATLAN_HOST.match(host))
+        try:
+            parsed = urlsplit(url)
+            return (parsed.scheme == 'https' and parsed.username is None and parsed.password is None
+                    and parsed.port in (None, 443) and parsed.query in ('', 'tools=full') and not parsed.fragment
+                    and parsed.path.rstrip('/') == '/mcp' and bool(ATLAN_HOST.fullmatch(parsed.hostname or '')))
+        except ValueError:
+            return False
     name = event.get("mcp_server_name")
     return not event.get("command") and isinstance(name, str) and bool(re.fullmatch(r"(?:[\w-]*[_-])?atlan", name))
 
@@ -486,12 +506,61 @@ def post_note(text: str, is_error: bool | None, with_key: bool = False) -> str |
     return None
 
 
+def copilot_event(event):
+    """Normalize Copilot's documented camelCase and VS Code-compatible hook payloads."""
+    result = event.get('toolResult', event.get('tool_result', {}))
+    text = result.get('textResultForLlm', result.get('text_result_for_llm')) if isinstance(result, dict) else result
+    failed = isinstance(result, dict) and result.get('resultType', result.get('result_type')) not in (None, 'success')
+    response = {'isError': True, 'content': [{'type': 'text', 'text': text}]} if failed and isinstance(text, str) else text
+    return {**event, 'session_id': event.get('sessionId', event.get('session_id', '')),
+            'tool_name': event.get('toolName', event.get('tool_name')),
+            'tool_input': args_of(event.get('toolArgs', event.get('tool_input'))),
+            'tool_response': response}
+
+
+def recording_event(event, request):
+    # Copilot supplies no tool-use id. Bind the pending destination to the actual native
+    # arguments instead. Conflicting destinations block at prepare_pending, never misroute.
+    if event.get('_host') == 'copilot' and not event.get('tool_use_id'):
+        digest = hashlib.sha256(json.dumps(request, sort_keys=True, separators=(',', ':'),
+                                          ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+        return {**event, 'tool_use_id': digest}
+    return event
+
+
+def copilot_answer(result, entry):
+    if not result:
+        return result
+    specific = result.get('hookSpecificOutput', {})
+    if entry == 'pre':
+        if specific.get('permissionDecision') == 'deny':
+            return {'permissionDecision': 'deny', 'permissionDecisionReason': specific['permissionDecisionReason']}
+        # Rewriting inputs must not grant permission. Leave the host's approval flow intact.
+        return {'modifiedArgs': specific['updatedInput']} if 'updatedInput' in specific else None
+    note = specific.get('additionalContext')
+    return {'additionalContext': note} if note else None
+
+
 def answer(entry: str, host: str, event: dict):
     """The JSON the harness reads, or None for no output."""
+    if host == 'copilot':
+        normalized = {**copilot_event(event), '_host': 'copilot'}
+        if entry == 'post' and isinstance(normalized.get('tool_input'), dict):
+            args = args_of(normalized['tool_input'].get('arguments'))
+            if args is not None:
+                native = {k: v for k, v in args.items() if k != 'receipt_dir'}
+                request = {'name': normalized['tool_input'].get('name'), 'arguments': native}
+                if 'items_from' in native:
+                    expanded, refusal = expand_bulk(request, normalized)
+                    if refusal or expanded is None:
+                        return {'additionalContext': 'Receipt recording is pending. Reconcile the executed result; never repeat a write.'}
+                    request = expanded
+                normalized = recording_event(normalized, request)
+        return copilot_answer(answer(entry, 'codex', normalized), entry)
     codex = host == "codex"
     if entry == "session-start":
         notice = update_notice(host)
-        context = f"{CAPABILITY}\n{BULK_CAPABILITY}\n{RECEIPT_CAPABILITY}"
+        context = LOCAL_CAPABILITY
         if notice is not None:
             context += f"\n{notice}"
         return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context}} if codex else {"additional_context": context}
@@ -515,7 +584,9 @@ def answer(entry: str, host: str, event: dict):
             new_input = expanded or stripped
             if refusal is None:
                 try:
-                    load_receipts().prepare_pending(event, {'name': tool_input['name'], 'arguments': args_of(new_input['arguments'])}, receipt_dir, trees(event))
+                    request = {'name': tool_input['name'], 'arguments': args_of(new_input['arguments'])}
+                    event = recording_event(event, request)
+                    load_receipts().prepare_pending(event, request, receipt_dir, trees(event))
                 except Exception:
                     refusal = 'The receipt destination could not be prepared. Nothing was sent.'
             if isinstance(tool_input.get('arguments'), str):
@@ -553,7 +624,7 @@ def main(argv: list[str]) -> int:
     try:
         entry = argv[0] if argv else ""
         host = argv[argv.index("--host") + 1] if "--host" in argv else ""
-        if host not in ("codex", "cursor"):
+        if host not in ("codex", "cursor", "copilot"):
             return 0
         event = json.loads(sys.stdin.read() or "{}")
         result = answer(entry, host, event if isinstance(event, dict) else {})

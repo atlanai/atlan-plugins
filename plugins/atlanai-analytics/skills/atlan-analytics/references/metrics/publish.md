@@ -5,6 +5,12 @@ workspace, scoped authorization, then publication and readbacks under the releas
 Omit helper command blocks unless commands were requested. Do not turn the explanation into
 another approval request.
 
+For an explanation of an explicit pre-dispatch helper refusal, keep the reply under 60 words.
+Do not enumerate argument names or commands unless asked. For example: "Nothing was created.
+I will use the same connection with native arguments, dropping local fields instead of retrying
+the rejected descriptor. The checked definitions, workspace and receipt checks stay in place.
+Automatic recording is unavailable on this route; no alias setting or account change is needed."
+
 Every write goes through the registry's MCP tools with the person's own sign-in. Nothing here
 calls the registry's REST API, holds a token or runs a push script. Publish only what
 `plan.json` marks `ok`. The checker enforces `publication-holds.json` for engine exports.
@@ -75,11 +81,12 @@ or ask for a workspace to show samples. Optional rich cards must fall back to th
 
 ### Load create batches from local files
 
-When the core hook announces `Atlan bulk publish helper is on`, prepare local batches instead
-of copying definitions or SQL into tool arguments:
+Prepare guarded local batches before copying definitions or SQL into tool arguments. Use the
+current host's discovered Atlan runner, whatever its server is named. A capability notice
+is useful evidence, but a missing notice does not prove that a hook is unavailable:
 
 ```bash
-python3 "<skill-dir>/scripts/publication_batches.py" --context "<context-dir>" --authorization "<project>/authorization.json" --workspace "<workspace-id>" --source "<original-asset-identity>"
+python3 "<skill-dir>/scripts/publication_batches.py" --record-receipts --context "<context-dir>" --authorization "<project>/authorization.json" --workspace "<workspace-id>" --source "<original-asset-identity>"
 ```
 
 Repeat `--source` for every selected source. The helper checks the existing task authorization,
@@ -94,9 +101,14 @@ the existing session and rationale beside them. Preserve `items: []`, `items_fro
 path, size, text and workspace, then replaces those local fields with the file's `items`.
 It uses the same Atlan call and sign-in; it never runs a REST publisher.
 
-Without the hook, the empty items list is refused before any create. Do not add inline items
-beside `items_from`. Use the normal inline bulk procedure below when hooks are unavailable;
-do not repeatedly probe an unavailable helper. A changed file requires preparation and review
+Without the hook, the empty items list is refused before any create. If `invalid_arguments`
+explicitly rejects `items_from` as undeclared, no create was dispatched: treat the file helper
+as unavailable for that connection. Do not send the same descriptor again or add inline items
+beside `items_from`. Remove `items_from`, `items_sha256`, `workspace_id` and `receipt_dir` from
+the top-level remote arguments and use the normal native bulk procedure below, retaining
+`workspace_id` inside every item. Stop expecting automatic receipts on that unsupported route. A timeout, lost reply, partial outcome or local receipt
+failure is not this refusal: reconcile it before any further write. Do not repeatedly probe
+an unavailable helper. A changed file requires preparation and review
 again, not editing its digest by hand. Keep the reviewed context fixed while sending batches.
 
 Read every returned slot by index against the descriptor's `source_ids`. Record successes
@@ -108,8 +120,11 @@ revision and reconcile it. Keep all normal release, link and complete readback c
 
 ### Record native receipts without copying them through the model
 
-When the core hook also announces `Atlan receipt helper is on`, add `--record-receipts` to
-the batch-preparation command. Use its returned `receipt_dir` for this run's checked plan.
+The preparation command requests deterministic recording with `--record-receipts`. After
+an actual call reports `Atlan receipt saved`, use its returned `receipt_dir` for this run's checked plan.
+An installed-hook notice alone does not establish that this host can rewrite inputs or expose
+complete outputs. On an unsupported route, use native MCP arguments and the normal receipt
+procedure below; never claim that automatic recording ran.
 The create descriptors already carry this local field. Keep a returned relative path relative
 to the same working directory. Add the same field to each
 `registry__get_artifact` read with `channel: latest` and each relationship verification read

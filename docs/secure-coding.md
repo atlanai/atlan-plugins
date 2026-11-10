@@ -21,9 +21,15 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   URLs (`validate` and `load_variant`).
 - **Publish only to the Atlan server.** The command hook refuses `extension__skill__create` on any
   other server: `is_atlan_server` and `guard` in `plugins/atlanai/command-hooks/publish_hook.py`
-  accept a server whose URL host is `atlan.com` or a subdomain (`ATLAN_HOST`) or, when the host
-  gives no URL, one named `atlan` or ending in `_atlan` or `-atlan`. The Claude module binds only
-  Atlan's runner names (`CALL_TOOL` in `plugins/atlanai/claude-hooks/register.ts`).
+  require HTTPS, an `atlan.com` host or subdomain, the `/mcp` path, no URL credentials or
+  fragment, and only the optional `tools=full` query when the host supplies a URL. A stdio launch command is refused.
+  Without URL metadata, command hooks retain the conventional Atlan namespace, including
+  aliased names such as `atlan-personal`. Wildcard runner matching handles other aliases when
+  the event supplies a valid origin. Claude Code exposes no server URL in its hook tool
+  inventory: `gatewayRunners` recognizes conventional Atlan aliases only alongside their
+  gateway search and describe tools. Ambiguous server names use the native fallback without
+  reading local bytes, even if they expose similarly named discovery tools. These names identify the configured route, not a cryptographic server
+  identity. The host's configured connection and permissions remain the trust boundary.
 - **`files_from` stays inside the working tree.** Resolve the real path, require it under the
   session's roots, refuse `~`, UNC and drive-relative labels, and refuse a folder that is itself a
   link: `place` in `publish_hook.py` and in `register.ts`.
@@ -104,3 +110,11 @@ planned edges before invoking the existing publication validator. Conflicts rema
 The Claude receipt hook reuses the absolute interpreter path returned by its successful local
 helper process, avoiding repeated environment-launcher startup. It still validates the request
 and destination before every call and validates and atomically records every response.
+
+Copilot loads its command adapter from `com.github.copilot/hooks/hooks.json`. The adapter
+accepts both documented payload spellings and returns `modifiedArgs` without an `allow`
+decision. Since Copilot omits tool-use ids, its pending receipt key binds the current session
+to the exact native request. A conflicting destination blocks before dispatch. Original and
+rewritten post-call arguments resolve to the same checked request; a changed local batch
+leaves recording pending. Post-call failures never dispatch another tool. Unsupported or
+redacted outputs cannot establish a completed publication.

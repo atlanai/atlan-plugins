@@ -32,6 +32,7 @@ function tools(on: On, answer: { text: string; isError: boolean }) {
 
 /** The engine's clock and an empty environment, which every hook here reads. */
 function world(on: On, variables: Record<string, string> = {}) {
+  on('tool.list', () => ({ value: [{ name: READ.replace('call_read_tool', 'call_write_tool'), description: 'Gateway runner', mcp: true }] }))
   mock.clock(on, { now: Date.UTC(2026, 10, 9, 10, 0, 0) })
   mock.env(on, variables)
 }
