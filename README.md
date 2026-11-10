@@ -241,7 +241,7 @@ own plugin, named `atlanai-<workload>`. A Claude Code mod ships the same way, as
 ## Contributing
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to set up and run
-the checks, and [AGENTS.md](AGENTS.md) for the layout rules, variants and releases. Everyone
+the checks, and [AGENTS.md](AGENTS.md) for the layout rules, environments and releases. Everyone
 taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License

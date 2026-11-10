@@ -99,112 +99,6 @@ class BuildTest(unittest.TestCase):
                 build.validate(broken)
 
 
-class VariantTest(unittest.TestCase):
-    """`build.py --variant`: this plugin under another name and endpoint, for another repository."""
-
-    OVERRIDES = {
-        "plugin": {"name": "atlan-staging", "display_name": "Atlan (staging)", "repository": "https://github.com/example/atlan-staging"},
-        "marketplace": {"name": "atlan-staging-plugins"},
-        "mcp": {"url": "https://api.staging.example/mcp", "client": "atlan-plugin-staging"},
-        "rewrite": {"https://api.atlan.com": "https://api.staging.example", "https://app.atlan.com": "https://app.staging.example"},
-        "keep": ["https://app.atlan.com/brain/cli/install.sh"],
-    }
-
-    def setUp(self) -> None:
-        self.source = build.load()
-        self.variant = build.make_variant(self.source, copy.deepcopy(self.OVERRIDES))
-        self.files = build.variant_files(self.source, self.variant, "variant.toml")
-
-    def test_its_manifests_and_marketplaces_carry_its_names_and_url(self) -> None:
-        for path in ("plugin.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json"):
-            path = f"plugins/atlan-staging/{path}"
-            self.assertEqual(json.loads(self.files[path])["name"], "atlan-staging", path)
-        for path in (".claude-plugin/marketplace.json", ".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
-            document = json.loads(self.files[path])
-            self.assertEqual(document["name"], "atlan-staging-plugins", path)
-            self.assertEqual([p["name"] for p in document["plugins"]], ["atlan-staging", "atlan-staging-analytics"], path)
-        server, version = self.source["mcp"]["server"], self.source["plugin"]["version"]
-        for path in ("plugins/atlan-staging/mcp.json", "plugins/atlan-staging/.mcp.json"):
-            entry = json.loads(self.files[path])["mcpServers"][server]
-            self.assertEqual(entry["url"], "https://api.staging.example/mcp", path)
-            self.assertEqual(entry["headers"], {"X-Atlan-Client": f"atlan-plugin-staging/{version}"}, path)
-
-    def test_it_copies_every_skill_and_command_and_rewrites_their_names(self) -> None:
-        main = self.source["plugin"]["name"]
-        for top in build.TREES:
-            for path in (CORE / top).rglob("*"):
-                if path.is_file():
-                    self.assertIn(f"plugins/atlan-staging/{path.relative_to(CORE).as_posix()}", self.files)
-        self.assertFalse(any(path.startswith(("plugins/atlanai/", "skills/", "commands/")) for path in self.files))
-        for path, text in self.files.items():
-            if path.endswith(".md"):
-                self.assertNotIn(f"/{main}:", text, path)
-                self.assertNotIn(f"plugin:{main}:", text, path)
-                self.assertNotIn(f"`{main}:", text, path)
-                self.assertNotIn(self.source["mcp"]["url"], text, path)
-        self.assertIn("`atlan-staging:atlan-continue`", self.files["plugins/atlan-staging/commands/continue.md"])
-        install = self.files["plugins/atlan-staging/skills/atlan-get-started/references/install-and-sign-in.md"]
-        self.assertIn("/plugin install atlan-staging@atlan-staging-plugins", install)
-        self.assertIn("`/plugin marketplace add example/atlan-staging`", install)
-        self.assertIn("claude plugin install atlan-staging --marketplace example/atlan-staging\n", install)
-        self.assertIn("(`atlan-staging` and\n`atlan-staging-analytics`)", install)
-
-    def test_pairs_apply_once_longest_first_and_kept_strings_stay(self) -> None:
-        pairs = build.rewrites(self.source, self.variant)
-        text = "See https://github.com/atlanai/atlan-plugins, run https://app.atlan.com/brain/cli/install.sh, open https://app.atlan.com."
-        self.assertEqual(
-            build.rewrite(text, pairs),
-            "See https://github.com/example/atlan-staging, run https://app.atlan.com/brain/cli/install.sh, open https://app.staging.example.",
-        )
-
-    def test_writes_into_another_folder_and_removes_stale_copies_and_the_old_root_layout(self) -> None:
-        owned = (build.PLUGINS, *build.LEGACY)
-        with tempfile.TemporaryDirectory() as temp:
-            out = Path(temp)
-            (out / "plugins/atlan-staging/skills/atlan-gone").mkdir(parents=True)
-            (out / "plugins/atlan-staging/skills/atlan-gone/SKILL.md").write_text("old\n")
-            (out / "skills/atlan-get-started").mkdir(parents=True)
-            (out / "skills/atlan-get-started/SKILL.md").write_text("old root layout\n")
-            (out / ".claude-plugin").mkdir()
-            (out / ".claude-plugin/plugin.json").write_text("{}\n")
-            (out / "mcp.json").write_text("{}\n")
-            (out / "variant.toml").write_text("kept\n")
-            with contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(build.sync(self.files, out, check=False, owned=owned), [])
-                self.assertEqual(build.sync(self.files, out, check=True, owned=owned), [])
-            for gone in ("plugins/atlan-staging/skills/atlan-gone/SKILL.md", "skills/atlan-get-started/SKILL.md", ".claude-plugin/plugin.json", "mcp.json"):
-                self.assertFalse((out / gone).exists(), gone)
-            self.assertEqual((out / "variant.toml").read_text(), "kept\n")
-            self.assertTrue((out / "README.md").is_file())
-            self.assertTrue((out / ".claude-plugin/marketplace.json").is_file())
-            self.assertTrue((out / "plugins/atlan-staging/README.md").is_file())
-
-    def test_refuses_a_variant_that_reuses_a_name_or_sets_unknown_fields(self) -> None:
-        for table, field, value in (
-            ("plugin", "name", "atlanai"),
-            ("marketplace", "name", "atlan"),
-            ("plugin", "version", "9.9.9"),
-            ("mcp", "url", "http://plain.example/mcp"),
-        ):
-            overrides = copy.deepcopy(self.OVERRIDES)
-            overrides[table][field] = value
-            with self.subTest(field=f"{table}.{field}"), self.assertRaises(SystemExit):
-                build.make_variant(self.source, overrides)
-
-    def test_a_dev_variant_follows_the_gateway_suffix_convention(self) -> None:
-        overrides = copy.deepcopy(self.OVERRIDES)
-        overrides["plugin"]["name"] = "atlanai-dev"
-        overrides["marketplace"]["name"] = "atlan-dev"
-        overrides["mcp"]["url"] = "https://api.dev.example/mcp"
-        variant = build.make_variant(self.source, overrides)
-        files = build.variant_files(self.source, variant, "variant.toml")
-        self.assertIn("plugins/atlanai-dev/skills/atlan-get-started/SKILL.md", files)
-        self.assertIn("plugins/atlanai-dev-analytics/skills/analytics-build/SKILL.md", files)
-        mcp = json.loads(files["plugins/atlanai-dev/.mcp.json"])
-        self.assertEqual(mcp["mcpServers"]["atlan"]["url"], "https://api.dev.example/mcp")
-        self.assertIn("claude plugin install atlanai-dev --marketplace example/atlan-staging\n", files["plugins/atlanai-dev/skills/atlan-get-started/references/install-and-sign-in.md"])
-
-
 class AddonTest(unittest.TestCase):
     """`[[addons]]`: workloads shipped as their own plugins that use the core's connection."""
 
@@ -273,18 +167,6 @@ class AddonTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build.validate(broken)
 
-    def test_a_variant_renames_each_addon_and_its_dependency_and_copies_its_files(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        base = "plugins/atlan-staging-analytics"
-        claude = json.loads(files[f"{base}/.claude-plugin/plugin.json"])
-        self.assertEqual(claude["dependencies"], ["atlan-staging"])
-        self.assertTrue(json.loads(files[f"{base}/plugin.json"])["extensions"]["com.openai"]["interface"]["displayName"].startswith("Atlan (staging)"))
-        self.assertIn(f"{base}/skills/analytics-build/SKILL.md", files)
-        self.assertIn(f"{base}/assets/logo.svg", files)
-        self.assertFalse(any(path.startswith(f"{self.base}/") for path in files))
-
-
 class ModTest(unittest.TestCase):
     """`[[mods]]`: Claude Code plugins whose hooks module acts on the core's tools."""
 
@@ -308,12 +190,6 @@ class ModTest(unittest.TestCase):
         self.assertIn(self.mod["name"], claude)
         for path in (".agents/plugins/marketplace.json", ".cursor-plugin/marketplace.json"):
             self.assertNotIn(self.mod["name"], [p["name"] for p in self.documents[path]["plugins"]], path)
-
-    def test_a_variant_carries_no_mod(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        self.assertFalse(any("-mods" in path for path in files))
-        self.assertNotIn("-mods", files[".claude-plugin/marketplace.json"])
 
     def test_refuses_a_mod_without_the_core_prefix_or_named_like_an_addon(self) -> None:
         broken = copy.deepcopy(self.source)
@@ -376,12 +252,6 @@ class CoreHooksTest(unittest.TestCase):
                 self.assertNotIn("claude-hooks", json.dumps(document), path)
         self.assertEqual(lint.lint_core_hooks(ROOT / self.base), [])
 
-    def test_a_variant_carries_no_hooks_module(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        self.assertFalse(any("claude-hooks" in path for path in files))
-        self.assertNotIn('"hooks"', files["plugins/atlan-staging/.claude-plugin/plugin.json"])
-
     def test_the_hooks_tests_read_the_shared_fixtures(self) -> None:
         fixtures = build.hook_fixtures(self.source)[f"{self.base}/claude-hooks/tests/fixtures.ts"]
         cases = json.loads((ROOT / build.FIXTURES).read_text(encoding="utf-8"))["cases"]
@@ -424,7 +294,7 @@ class SkillMetadataTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.source = build.load()
-        self.files = build.skill_files(self.source, self.source)
+        self.files = build.skill_files(self.source)
 
     def test_every_skill_in_every_plugin_has_a_card_that_invokes_it_and_needs_the_atlan_server(self) -> None:
         skills = [path.parent for base in build.plugin_dirs(self.source) for path in sorted((ROOT / base / "skills").glob("*/SKILL.md"))]
@@ -448,20 +318,24 @@ class SkillMetadataTest(unittest.TestCase):
         unused["skills"]["atlan-gone"] = dict(self.source["skills"]["atlan-continue"], prompt="Use $atlan-gone.")
         for broken in (missing, unused):
             with self.assertRaises(SystemExit):
-                build.skill_files(broken, broken)
+                build.skill_files(broken)
         for prompt in ("Catch me up.", "Use $atlan-continue " + "x" * build.PROMPT_LIMIT):
             broken = copy.deepcopy(self.source)
             broken["skills"]["atlan-continue"]["prompt"] = prompt
             with self.subTest(prompt=prompt[:20]), self.assertRaises(SystemExit):
                 build.validate(broken)
 
-    def test_a_variant_card_names_the_variants_server_url(self) -> None:
-        variant = build.make_variant(self.source, copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(self.source, variant, "variant.toml")
-        text = files[f"plugins/atlan-staging/skills/atlan-continue/{build.SKILL_METADATA}"]
-        self.assertIn('url: "https://api.staging.example/mcp"', text)
-        self.assertIn("Use $atlan-continue ", text)
-        self.assertIn(f"plugins/atlan-staging-analytics/skills/analytics-build/{build.SKILL_METADATA}", files)
+class EnvironmentTest(unittest.TestCase):
+    """The public repository names production only; each gateway writes its own hosts on top."""
+
+    def test_refuses_another_environments_hosts_and_plugin_names(self) -> None:
+        host = "atlan" + ".dev"
+        for text in (f"https://api.{host}/mcp", f"open https://app.{host}", "install atlanai" + "-dev"):
+            with self.subTest(text=text):
+                self.assertTrue(lint.NON_PRODUCTION.search(text))
+        for text in ("https://api.atlan.com/mcp", "https://api.dev.example/mcp", "atlanai-analytics", "atlan.developer"):
+            with self.subTest(text=text):
+                self.assertIsNone(lint.NON_PRODUCTION.search(text))
 
 
 class FrontmatterTest(unittest.TestCase):
@@ -1151,9 +1025,6 @@ class PublishHookTest(unittest.TestCase):
         self.assertEqual(documents[f"{base}/.codex-plugin/plugin.json"]["hooks"], "./command-hooks/codex.json")
         self.assertEqual(documents[f"{base}/.cursor-plugin/plugin.json"]["hooks"], "./command-hooks/cursor.json")
         self.assertEqual(lint.lint_command_hooks(CORE), [])
-        variant = build.make_variant(build.load(), copy.deepcopy(VariantTest.OVERRIDES))
-        files = build.variant_files(build.load(), variant, "variant.toml")
-        self.assertFalse(any("command-hooks" in path for path in files))
 
 
 class CodexDirectoryTest(unittest.TestCase):
