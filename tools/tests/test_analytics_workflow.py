@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 PLUGIN = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics'
-sys.path.insert(0, str(PLUGIN / 'skills/analytics-metrics'))
+sys.path.insert(0, str(PLUGIN / 'skills/metrics-generation'))
 from modules.workflow import Authorization
 
 

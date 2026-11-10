@@ -109,7 +109,7 @@ This is the first time the person hears the word metric, so the prompt keeps all
 | Dashboard and past queries (recommended) | The dashboard's 4 numbers, plus what `<firm>`'s analysts actually ask. More metrics and queries, and a few minutes longer. |
 | Dashboard only | The dashboard's 4 numbers as metrics. Fastest. |
 
-Scope the run to the answer through [inspect and scope](../../analytics-survey/references/inspect-scope.md). With "Dashboard
+Scope the run to the answer through [inspect and scope](../../source-survey/references/inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data
 tables are used either way, to check the context. Continue through the complete build and
 checks after this choice, with factual progress updates and no intermediate metric-list

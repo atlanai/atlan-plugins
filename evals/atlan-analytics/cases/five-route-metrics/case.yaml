@@ -13,7 +13,7 @@ graders:
   - name: loads-metrics
     type: tool_used
     tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-metrics"'
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?metrics-generation"'
     min: 1
   - name: reads-propose
     type: tool_used

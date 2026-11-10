@@ -48,7 +48,7 @@ the UI/admin action followed by refreshing accessible workspaces. Do not narrate
 publication workflow, speculate about CLI endpoints, or add an alternative destination menu.
 Fetch live kind schemas and existing definitions, then
 run `CONTEXT check` with that destination. Only now show actual create/revise/reuse/held counts.
-If reconciliation changes a candidate, show the changed preview. Follow [publication](../../../analytics-metrics/references/metrics/publish.md)
+If reconciliation changes a candidate, show the changed preview. Follow [publication](../../../metrics-generation/references/metrics/publish.md)
 for the concrete plan, missing authorization, idempotency, release policy and uncertain-write
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
 release and full MCP readback. Record receipts with `PROJECT publication` as the local
@@ -62,7 +62,7 @@ released definition, with its reason. Preserve those local candidates and covera
 do not silently drop SQL merely to avoid a publication decision. Full coverage requires equivalent
 meaning, population, dimensions and parameters, not just a similar metric name. For a narrower
 existing definition, explicitly record and show the uncovered capabilities using
-[reconciliation](../../../analytics-metrics/references/metrics/reconciliation.md); keep their original candidates local.
+[reconciliation](../../../metrics-generation/references/metrics/reconciliation.md); keep their original candidates local.
 
 ## 7. Ready to ask here
 

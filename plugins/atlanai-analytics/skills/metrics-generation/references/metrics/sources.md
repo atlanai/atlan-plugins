@@ -12,7 +12,7 @@ The engine reconciles both through the same proposal, merge, card and relationsh
   report filters, security, lineage and physical mappings. Detection is not parser support.
   An unsupported reader or formula is a named hold, never a switch to manual card generation.
 - **Query history:** use the supplied export or the scoped read-only capture in
-  [query history](../../../analytics-survey/references/warehouses/query-history.md). `CONTEXT querylog` normalizes saved exports;
+  [query history](../../../source-survey/references/warehouses/query-history.md). `CONTEXT querylog` normalizes saved exports;
   the identifying-literal filter runs before the engine sees them. `PROJECT history` performs
   those capture steps for a surveyed project. The engine alone groups and mines statements.
 - **Local CSV data:** use [local preparation](../../../analytics-build/references/project.md#2-bind-data-once) for a read-only

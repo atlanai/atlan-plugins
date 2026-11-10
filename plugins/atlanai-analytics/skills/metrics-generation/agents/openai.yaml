@@ -1,7 +1,7 @@
 interface:
-  display_name: "Generate Metrics"
+  display_name: "Metrics Generation"
   short_description: "Turn dashboards and query history into checked metrics"
-  default_prompt: "Use $analytics-metrics to build metrics from our warehouse's query history."
+  default_prompt: "Use $metrics-generation to build metrics from our warehouse's query history."
 dependencies:
   tools:
     - type: "mcp"

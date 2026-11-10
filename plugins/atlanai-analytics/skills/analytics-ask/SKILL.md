@@ -1,6 +1,6 @@
 ---
 name: analytics-ask
-description: Answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (analytics-metrics).
+description: Answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (metrics-generation).
 ---
 
 # Answer a data question from managed context
@@ -75,7 +75,7 @@ This is an available data connection; do not ask for Snowflake or a new MCP serv
 the binding across turns and use fresh released definitions and fresh query results.
 
 Find the warehouse query tool with steps 0 to 2 of
-[warehouse discovery](../analytics-survey/references/connect.md): a record this conversation
+[warehouse discovery](../source-survey/references/connect.md): a record this conversation
 or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
 connectors. Hold what you find, or that there is none, for the rest of the conversation.
 
@@ -83,7 +83,7 @@ With no warehouse tool, do not stop and do not run the rest of discovery for a o
 question. Open the answer by saying no warehouse is reachable through Atlan, and that an Atlan
 admin can add it from the Store. Then offer the smallest thing that answers the question:
 - **Run the SQL yourself**: write the statement from the definition, in the dialect it names
-  (that dialect's section of [warehouses](../analytics-survey/references/warehouses.md)), for the
+  (that dialect's section of [warehouses](../source-survey/references/warehouses.md)), for the
   person to run, and answer from what they paste back;
 - **Paste or attach the result** of a query, or a CSV export.
 

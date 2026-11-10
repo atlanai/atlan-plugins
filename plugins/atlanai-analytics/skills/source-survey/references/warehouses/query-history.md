@@ -11,7 +11,7 @@ writes a user name.
 
 When using the metrics module with its `snowflake` feature and a configured direct connection,
 prefer its native `history_source: account_usage` route. It needs no prepared shape table and
-uses the existing common plug contract. See [the module procedure](../../../analytics-metrics/references/metrics-engine.md).
+uses the existing common plug contract. See [the module procedure](../../../metrics-generation/references/metrics-engine.md).
 The numbered alternatives below apply when capturing through chat SQL tools or when the
 person selected an existing shape view.
 
@@ -54,7 +54,7 @@ person selected an existing shape view.
 With the direct connector, use the maintained metrics module's `databricks` feature. Supply
 the selected numeric workspace ID, bounded tables and absolute dates. The native source is
 `system.query.history`, with explicit masking and namespace-context checks. See
-[the module procedure](../../../analytics-metrics/references/metrics-engine.md). The alternatives below are capture routes for
+[the module procedure](../../../metrics-generation/references/metrics-engine.md). The alternatives below are capture routes for
 existing authorized tools; keep their scope within the selected workspace.
 
 1. **A query-shape view an admin created once** (see **One-time setup**), read like Snowflake's.

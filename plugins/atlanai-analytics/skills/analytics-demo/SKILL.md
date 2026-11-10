@@ -57,10 +57,10 @@ After "Start building", show the tracker, then do all of step 1's work:
    otherwise `git clone --depth 1` there. Never search other folders or the home directory
    for a copy. Without git, ask the person to download the repository into that path.
 2. **Read the sources.** Start a new setup run and inspect only the demo's source folder,
-   with [inspect and scope](../analytics-survey/references/inspect-scope.md) section 1, as if
+   with [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
    the person had asked to set up that folder from scratch.
 3. **Load the data.** Initialize or reuse the metrics engine's pinned runtime
-   ([the metrics module](../analytics-metrics/references/metrics-engine.md), section 1), then
+   ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1), then
    use that runtime's Python with `PROJECT prepare` to load the demo's tables into a local
    `.sqlite` database named after their schema (`site.sqlite`, `tix.sqlite`), as
    [build and check](../analytics-build/references/setup/build-check.md) describes. Bind it once
@@ -76,14 +76,14 @@ sources revealed.
 
 Ask the sources question from [the tour rules](references/tour.md): dashboard and past
 queries (recommended), or dashboard only. Scope the run to the answer through
-[inspect and scope](../analytics-survey/references/inspect-scope.md) section 2. The data
+[inspect and scope](../source-survey/references/inspect-scope.md) section 2. The data
 tables are used either way, to check the context.
 
 ## 3. Build and check metrics
 
 The demo has no first-metric preview and asks no build-the-rest question. Run the metrics
 engine as
-[the metrics module](../analytics-metrics/references/metrics-engine.md) describes, up to its
+[the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every
 card without a metric-list checkpoint or another build confirmation. Keep proposal and
 deduplication details internal; show brief progress about building and checking context.
@@ -95,7 +95,7 @@ data, through [build and check](../analytics-build/references/setup/build-check.
 When every check has run, read [context built and where to keep it](../analytics-build/references/setup/save.md).
 The celebration is the save question's own text. Saving reads the person's workspaces with
 `registry__list_workspaces` (`user_default` for the personal destination) and writes
-in batches with `registry__create_artifacts`, as [publication](../analytics-metrics/references/metrics/publish.md)
+in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
 describes.
 
 ## 5 and 6. Ask a question, build a dashboard

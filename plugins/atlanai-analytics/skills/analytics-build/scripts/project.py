@@ -37,7 +37,7 @@ import context_contracts as mine
 from analytics_eval import filter_querylog
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
-_card_path = Path(__file__).resolve().parents[2] / 'analytics-metrics/modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
+_card_path = Path(__file__).resolve().parents[2] / 'metrics-generation/modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
 _card_spec = importlib.util.spec_from_file_location('analytics_card_sql', _card_path)
 _card_sql = importlib.util.module_from_spec(_card_spec)
 _card_spec.loader.exec_module(_card_sql)

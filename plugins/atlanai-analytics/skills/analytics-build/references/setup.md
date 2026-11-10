@@ -53,8 +53,8 @@ run whose candidates were never shown in chat starts at Preview.
 
 | Entering | Read |
 | --- | --- |
-| Inspect or Scope | [inspect and scope](../../analytics-survey/references/inspect-scope.md), the `analytics-survey` skill's procedure |
-| Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](../../analytics-metrics/references/metrics-engine.md) for every source, including demos |
+| Inspect or Scope | [inspect and scope](../../source-survey/references/inspect-scope.md), the `source-survey` skill's procedure |
+| Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](../../metrics-generation/references/metrics-engine.md) for every source, including demos |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
 | Starting, resuming or any stage change | [the setup checklist](setup/checklist.md) |
 | A long helper run or a heartbeat | [progress and presentation](setup/progress.md) |

@@ -1,5 +1,5 @@
 ---
-name: analytics-metrics
+name: metrics-generation
 description: Generate, check, edit or save metrics and saved SQL from dashboards, BI exports, models or query history. Use when asked to build, mine, refresh, fix, propose or publish a metric. Not for answering a data question (analytics-ask).
 ---
 
@@ -14,7 +14,7 @@ Read [shared conventions](../analytics-build/references/conventions.md) first: t
 authorization, privacy, read-only SQL and status reporting apply.
 
 Paths:
-- `<metrics-dir>` is this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/analytics-metrics`
+- `<metrics-dir>` is this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/metrics-generation`
   in Claude Code). `ENGINE` means `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics
   --runtime <runtime>`.
 - `<build-dir>` is the `analytics-build` skill's directory beside it. It holds the shared
@@ -34,7 +34,7 @@ plugin when the dispatcher reports missing module files.
   source for `generate`, the metric for `edit`, the destination for `save`. Then show the
   definition and its check status and stop.
 
-Every operation needs a survey. With none in the run, run `analytics-survey` `inventory` first.
+Every operation needs a survey. With none in the run, run `source-survey` `inventory` first.
 
 ## Operations
 

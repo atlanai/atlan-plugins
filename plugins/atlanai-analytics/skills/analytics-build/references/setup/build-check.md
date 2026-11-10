@@ -19,9 +19,9 @@ Local exploration and understanding-only requests do not need this sign-in step.
 
 Use [local source procedures](../project.md#2-bind-data-once) to select an executor independently
 of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
-through [connect](../../../analytics-survey/references/connect.md). No data connection is needed to preview definitions. Without
+through [connect](../../../source-survey/references/connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
-All sources, including the demos and local-only files, use [the metrics engine](../../../analytics-metrics/references/metrics-engine.md).
+All sources, including the demos and local-only files, use [the metrics engine](../../../metrics-generation/references/metrics-engine.md).
 For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
 `PROJECT prepare` to create a new `.sqlite` database named after its schema. Configure
 `local-files` with the selected BI definitions, cleaned history and this database, and set the

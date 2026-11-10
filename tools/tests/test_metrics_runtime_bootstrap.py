@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics'))
+sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation'))
 from modules.metrics import driver
 
 

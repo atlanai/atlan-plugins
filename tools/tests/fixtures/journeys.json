@@ -962,7 +962,7 @@
   {
    "id": "analytics-connect-warehouse",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-survey",
+   "skill": "source-survey",
    "title": "Find and prove the warehouse query tool",
    "route": "Reuse the tool in state, else search Atlan for a SQL tool and run its check",
    "calls": {
@@ -1003,7 +1003,7 @@
   {
    "id": "analytics-bootstrap-metrics",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-metrics",
+   "skill": "metrics-generation",
    "title": "Bootstrap metrics and saved queries from query history",
    "route": "Workspace, overlap check, batched creates, read back",
    "calls": {
@@ -1079,7 +1079,7 @@
   {
    "id": "analytics-hand-author",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-metrics",
+   "skill": "metrics-generation",
    "title": "Hand-author a small metric set",
    "route": "Workspace, one batched create, read back",
    "calls": {
@@ -1138,7 +1138,7 @@
   {
    "id": "analytics-propose",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-metrics",
+   "skill": "metrics-generation",
    "title": "Propose a corrected metric to its owners",
    "route": "Find the definition, read it, save the proposal",
    "calls": {

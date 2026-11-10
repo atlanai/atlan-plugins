@@ -1,6 +1,6 @@
 ---
-name: analytics-survey
-description: Survey a folder, dashboard link, BI export or warehouse: what it covers, candidate metric names, readiness. Use when asked what sources hold, which tables or pages to use, or if a source is usable. Not for building metrics (analytics-metrics).
+name: source-survey
+description: Survey a folder, dashboard link, BI export or warehouse: what it covers, candidate metric names, readiness. Use when asked what sources hold, which tables or pages to use, or if a source is usable. Not for building metrics (metrics-generation).
 ---
 
 # Survey a source and check it is ready

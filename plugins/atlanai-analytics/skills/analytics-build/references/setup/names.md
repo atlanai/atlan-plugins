@@ -19,7 +19,7 @@ Both then reach this step with a focus and a survey of every supplied source.
 
 ## 1. Get the candidates
 
-Call `analytics-survey` `candidates` with the focus or problem. It returns at most ten
+Call `source-survey` `candidates` with the focus or problem. It returns at most ten
 names from the sources, ranked by relevance, each with one line of meaning and where it
 came from. It generates no SQL and runs no check.
 
@@ -46,7 +46,7 @@ question: record the selection and continue.
 
 Record the selection in the run, then select tables and dashboards (step 3) and enter
 [Build](build-check.md). Call
-`analytics-metrics` `generate` with the selection and the whole survey: it reads every
+`metrics-generation` `generate` with the selection and the whole survey: it reads every
 source before authoring, and authors the selected names and what they depend on. The collection review's representative metric is the top selected name.
 
 If the survey's readiness is `none`, do not ask this question. Say the one thing that is

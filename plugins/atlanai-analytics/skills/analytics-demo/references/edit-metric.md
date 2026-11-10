@@ -21,7 +21,7 @@ new rule needs.
 
 ## 2. Make the change
 
-Call `analytics-metrics` `edit` on that metric with the chosen change. It changes the
+Call `metrics-generation` `edit` on that metric with the chosen change. It changes the
 definition through the engine, re-runs the check and returns the old rule, the new rule and
 both check results. The metric keeps its identity; this is a revision, not a new metric.
 
@@ -48,7 +48,7 @@ question, use the demo's first question.
 
 - Context kept on this machine: the change is saved in the run. Say so in one line.
 - Context saved to Atlan Trident: ask one native question, "Save this change for everyone
-  who uses the metric?" On yes, call `analytics-metrics` `save`, which publishes a revision
+  who uses the metric?" On yes, call `metrics-generation` `save`, which publishes a revision
   of the same metric after the person approves the plan. On no, the change stays on this
   machine and the published metric is unchanged; say which one answers from now on.
 

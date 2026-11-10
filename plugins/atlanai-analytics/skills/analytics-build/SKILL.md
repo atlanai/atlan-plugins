@@ -8,7 +8,7 @@ description: Atlan Analytics setup on your own data: survey, use case, scope, me
 An orchestrator. It owns the conversation, intent, the tracker and approvals, and takes a
 person's own dashboards, folders, BI exports and query history to checked metrics they can
 question here. It calls the capability skills without letting them ask the person anything:
-`analytics-survey`, `analytics-metrics` and `analytics-ask`. Before the first helper call, and
+`source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
 
@@ -49,23 +49,23 @@ the first action, with the full tracker at every step change. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line.
 
-1. **Survey your sources.** `analytics-survey` `inventory`, through
-   [inspect and scope](../analytics-survey/references/inspect-scope.md) section 1. Explain
+1. **Survey your sources.** `source-survey` `inventory`, through
+   [inspect and scope](../source-survey/references/inspect-scope.md) section 1. Explain
    what was found, its business meaning and what it could help analyse, inside the first
    question's visible prompt; an inventory followed by option labels alone is not enough.
 2. **Clarify your use case.** Follow [the intent flow](references/setup/intent.md): business
    focus first, purpose second, as native questions, waiting for each answer. A stated problem
    answers the focus question. Then [commit on names](references/setup/names.md): the person
-   picks the metric names to build from `analytics-survey` `candidates`.
+   picks the metric names to build from `source-survey` `candidates`.
 3. **Select tables and dashboards.** Follow
-   [inspect and scope](../analytics-survey/references/inspect-scope.md) section 2: pages,
+   [inspect and scope](../source-survey/references/inspect-scope.md) section 2: pages,
    measures and the query-history tables the chosen names need.
-4. **Generate and check metrics.** `analytics-metrics` `generate` and `check` with the selection
+4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
-   [preview and publish](references/setup/preview-publish.md); `analytics-metrics` `save`.
+   [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
 6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
    question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
 7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).
@@ -86,11 +86,11 @@ stage. Never infer a missing coding-host plugin from a generic app-directory sea
 
 These routes are reached only by name; the guided flow never offers them.
 
-- `metrics`: load the `analytics-metrics` skill and follow it with the remaining arguments
+- `metrics`: load the `metrics-generation` skill and follow it with the remaining arguments
   as scope. Metrics Studio sends `/atlanai-analytics:analytics-build metrics`, so this
   hand-off stays. If the first argument is exactly `metrics`, no guided step runs.
-- `dashboard` or `propose`: load the `analytics-metrics` skill with that argument.
-- `connect`: load the `analytics-survey` skill with that argument.
+- `dashboard` or `propose`: load the `metrics-generation` skill with that argument.
+- `connect`: load the `source-survey` skill with that argument.
 - `ask`, or a data question with no setup work: load the `analytics-ask` skill.
 
 In Claude Code, load a sibling skill with the Skill tool as `atlanai-analytics:<name>`. The

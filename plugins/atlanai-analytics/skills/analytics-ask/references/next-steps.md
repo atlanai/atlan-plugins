@@ -17,11 +17,11 @@ one next step, not a menu:
   `analytics-build` with the question as the problem, so its focus question is already
   answered.
 - The metric belongs to another team: offer a proposal for its owners, through
-  `analytics-metrics` `edit`.
+  `metrics-generation` `edit`.
 
 ## The answer's rule is wrong
 
 Ask what should change, in one question, unless they already said. Then call
-`analytics-metrics` `edit` with the metric and the change. It revises a definition the
+`metrics-generation` `edit` with the metric and the change. It revises a definition the
 person owns, or proposes the change to its owners when they do not. Re-answer the question
 with the changed rule only after the edit's check passes, and say which rule answered.
