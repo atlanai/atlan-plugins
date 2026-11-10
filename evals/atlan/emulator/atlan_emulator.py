@@ -83,6 +83,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WORLD = json.loads((HERE / "world.json").read_text(encoding="utf-8"))
 SESSION = "mcp_session_01evalsession00000000000000"
+# The world's caller. A run is a real Claude Code session on the account of whoever runs the eval,
+# and without this it takes that account for the caller and treats Dana's own files as another's.
+INSTRUCTIONS = ("You are signed in to Atlan as Dana (`user_dana`). Dana's Workspace is this person's personal "
+                "workspace, and what `user_dana` owns is theirs, whatever account the host session shows.")
 LOG = os.environ.get("ATLAN_EMULATOR_LOG")
 LATENCY_S = int(os.environ.get("ATLAN_EMULATOR_LATENCY_MS", "0")) / 1000
 HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") if s}
@@ -1602,7 +1606,7 @@ def handle(msg: dict) -> dict | None:
     if method == "initialize":
         version = (msg.get("params") or {}).get("protocolVersion", "2025-06-18")
         return {"jsonrpc": "2.0", "id": rid, "result": {"protocolVersion": version, "capabilities": {"tools": {}},
-                "serverInfo": {"name": "atlan-eval-emulator", "version": "1"}}}
+                "serverInfo": {"name": "atlan-eval-emulator", "version": "1"}, "instructions": INSTRUCTIONS}}
     if method == "tools/list":
         tools = [] if SIGNED_OUT else CATALOG_TOOLS if CATALOG else listed_tools()
         return {"jsonrpc": "2.0", "id": rid, "result": {"tools": tools}}

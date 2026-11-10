@@ -1,23 +1,18 @@
 #!/usr/bin/env bash
-# The plan the prompt names: without it a run stops to ask for the file and never checks Atlan.
 set -euo pipefail
-cat > plan.txt <<'PLAN'
+# The plan the prompt names, so the run reaches the skill check instead of stopping at a missing file.
+cat > plan.txt <<'EOF'
 Terraform will perform the following actions:
 
-  # aws_security_group_rule.ingress_ssh will be created
-  + resource "aws_security_group_rule" "ingress_ssh" {
-      + cidr_blocks = ["0.0.0.0/0"]
-      + from_port   = 22
-      + to_port     = 22
-      + protocol    = "tcp"
-      + type        = "ingress"
+  # aws_s3_bucket.reports will be created
+  + resource "aws_s3_bucket" "reports" {
+      + bucket = "example-reports"
     }
 
-  # aws_db_instance.orders must be replaced
--/+ resource "aws_db_instance" "orders" {
-      ~ engine_version = "14.9" -> "15.4" # forces replacement
-        identifier     = "orders-prod"
+  # aws_iam_role_policy.reader will be updated in-place
+  ~ resource "aws_iam_role_policy" "reader" {
+      ~ policy = jsonencode({ Statement = [{ Action = "s3:*", Resource = "*" }] })
     }
 
-Plan: 2 to add, 0 to change, 1 to destroy.
-PLAN
+Plan: 1 to add, 1 to change, 0 to destroy.
+EOF

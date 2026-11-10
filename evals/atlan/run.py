@@ -13,6 +13,11 @@ for a before-and-after comparison. `--baseline` adds a no-plugin arm (`--ablatio
 with-without`): each case runs again without the plugin, and the summary prints both scores,
 so a skill that does no better than no skill at all shows up. Run it before a release.
 
+After the groups run, one `suite:` line counts the cases that passed every grader and the cases
+that passed every outcome grader, the tone graders (`TONE`) set apart; a group that left no
+result is named and fails the run. Then metrics.py prints each run's cost against `budgets.json`
+and writes `metrics.csv` beside the results; runs keep their traces (`--keep-temp`) for that.
+
 The LLM graders are judged by `sonnet` unless the options name another `--judge-model`: the
 eval's default judge failed replies that met every clause of a rubric.
 
@@ -54,6 +59,8 @@ SERVER = "atlan"
 PLUGIN = "atlanai"
 # The model that judges the LLM graders; see the docstring.
 JUDGE = "sonnet"
+# The graders on how a reply reads, which every case carries; the rest grade what it did.
+TONE = {"plain-reply", "reply-length", "one-next-step", "no-process-talk"}
 SIDECAR_KEYS = {"env", "plugin_name", "allow_tools", "installed_skills"}
 INSTALLED = HERE / "fixtures" / "installed-skills"
 
@@ -81,7 +88,8 @@ def groups(cases: Path, wanted: list[str]) -> dict[str, tuple[dict, list[Path]]]
 
 def case_filters(extra: list[str]) -> list[str]:
     """The `--case <glob>` filters among the options passed through to `claude plugin eval`."""
-    return [extra[i + 1] for i, arg in enumerate(extra) if arg == "--case" and i + 1 < len(extra)]
+    spaced = [extra[i + 1] for i, arg in enumerate(extra) if arg == "--case" and i + 1 < len(extra)]
+    return spaced + [arg.split("=", 1)[1] for arg in extra if arg.startswith("--case=")]
 
 
 def without_case_filters(extra: list[str]) -> list[str]:
@@ -93,9 +101,14 @@ def without_case_filters(extra: list[str]) -> list[str]:
             skip = False
         elif arg == "--case":
             skip = True
-        else:
+        elif not arg.startswith("--case="):
             out.append(arg)
     return out
+
+
+def measured(extra: list[str]) -> list[str]:
+    """The options with `--keep-temp`, so each run's trace outlives it for metrics.py to read."""
+    return extra if "--keep-temp" in extra else ["--keep-temp", *extra]
 
 
 def main() -> int:
@@ -107,22 +120,23 @@ def main() -> int:
     parser.add_argument("extra", nargs="*", help="options passed to `claude plugin eval`, after --")
     args = parser.parse_args()
 
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out = HERE / "results" / (f"{stamp}-{args.label}" if args.label else stamp)
-    out.mkdir(parents=True)
     selected = groups(HERE / "cases", case_filters(args.extra))
     if not selected:
         print("no case matches", file=sys.stderr)
         return 2
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out = HERE / "results" / (f"{stamp}-{args.label}" if args.label else stamp)
+    out.mkdir(parents=True)
     code = 0
-    results = []
+    results = {}
     for number, (settings, cases) in enumerate(selected.values()):
         group_out = out if len(selected) == 1 else out / f"group-{number}"
         group_out.mkdir(exist_ok=True)
         code = run_group(args.plugin, settings, cases, group_out, args.extra, args.baseline, args.always_load) or code
-        results.append(group_out / "result.json")
-    for path in results:
-        summarize(path)
+        results[group_out / "result.json"] = [case.name for case in cases]
+    code = summarize(results) or code
+    sys.stdout.flush()
+    subprocess.run([sys.executable, str(HERE / "metrics.py"), str(out), "--csv", str(out / "metrics.csv")], check=False)
     return code
 
 
@@ -154,7 +168,7 @@ def run_group(source: str, settings: dict, cases: list[Path], out: Path, extra: 
             "--allow-tools", tools_pattern(name), *settings.get("allow_tools", []), "Write",
             "--ablation", ablation(baseline), "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *scaffold(cases), *judge(extra), *without_case_filters(extra),
+            "--output-dir", str(out), *scaffold(cases), *judge(extra), *measured(without_case_filters(extra)),
         ]
         print("+", " ".join(command), flush=True)
         return subprocess.run(command, check=False).returncode
@@ -196,14 +210,34 @@ def summary_lines(data: dict) -> list[str]:
         failed = sorted({g["name"] for r in runs for g in r.get("graders", []) if not g.get("passed")})
         errors = sorted({r["error"] for r in runs if r.get("error")})
         without = f"  {arm_score(case['arms']['without']):4.2f}" if case["arms"].get("without") else ("     -" if baseline else "")
-        lines.append(f"  {arm_score(runs):4.2f}{without}  {case['name']:<30} {', '.join(failed + errors)}")
+        tone = " [tone only]" if failed and not errors and set(failed) <= TONE else ""
+        lines.append(f"  {arm_score(runs):4.2f}{without}  {case['name']:<30} {', '.join(failed + errors)}{tone}")
     return lines
 
 
-def summarize(path: Path) -> None:
-    if not path.is_file():
-        return
-    print("\n" + "\n".join(summary_lines(json.loads(path.read_text(encoding="utf-8")))))
+def right(case: dict) -> bool:
+    """Whether every run of the case did the right thing: no error, and no failed grader but tone ones."""
+    return all(not r.get("error") and all(g.get("passed") or g["name"] in TONE for g in r.get("graders", []))
+               for r in case["arms"]["with"])
+
+
+def summarize(results: dict[Path, list[str]]) -> int:
+    """Each group's summary, then one line for the suite. 1 when a group left no result."""
+    total = passed = outcome = 0
+    lost = False
+    for path, names in results.items():
+        total += len(names)
+        if not path.is_file():
+            lost = True
+            print(f"\nno result for {path.parent.name}: {', '.join(names)}")
+            continue
+        data = json.loads(path.read_text(encoding="utf-8"))
+        print("\n" + "\n".join(summary_lines(data)))
+        passed += sum(all(r.get("passed") for r in case["arms"]["with"]) for case in data.get("cases", []))
+        outcome += sum(right(case) for case in data.get("cases", []))
+    print(f"\nsuite: {passed}/{total} cases passed every grader, {outcome}/{total} passed every outcome grader "
+          f"(all but {', '.join(sorted(TONE))})")
+    return 1 if lost else 0
 
 
 if __name__ == "__main__":
