@@ -84,9 +84,11 @@ import {
   type SkillRow,
   type Touch,
 } from './view'
-import { HINT_MS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, type HintPrompt, type SkillMatch } from './hint'
+import { HINT_MS, HINT_NOTICE, HINT_STATUS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, type HintPrompt, type SkillMatch } from './hint'
 
 const HINTS_KEY = 'hints'
+/** Set once this machine has been shown the skill hint's notice. */
+const NOTICE_KEY = 'hint-notice'
 const LOOKUP_MS = 6000
 /** The most a permission prompt waits on the blast-radius reads, a retry included, and the most
  * it sleeps before that retry whatever `retry_after_seconds` says. */
@@ -157,6 +159,10 @@ type Memory = {
   /** The hint's circuit breaker, kept across conversations: it is about the gateway, not the
    * prompt. `timeouts` in a row, the time the pause ends, and whether a search is still out. */
   hintBreaker: { timeouts: number; pausedUntil: number; isSearching: boolean }
+  /** Whether the person has been told what the hint sends: read from the store once a session. */
+  isHintTold: boolean
+  /** False where nobody reads a toast (as under claude -p): the notice cannot be shown there. */
+  isInteractive: boolean
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -340,7 +346,7 @@ async function probe($: Dollar, mem: Memory): Promise<AtlanHealth> {
   return { state, server: '', detail, checkedAt: await $.clock.now() }
 }
 
-function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): string {
+function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean, suggestSkills: boolean): string {
   const session = mem.session
   const lines = [
     health.state === 'ready' ? `Atlan: connected through ${health.server} (${health.detail}).` : `Atlan: ${health.state} (${health.detail}).`,
@@ -353,6 +359,7 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
         : 'Writes follow your permission rules. Archive, approve, move, release and roll-back always ask, and are refused where nobody can answer.',
     )
     lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
+    if (suggestSkills) lines.push(HINT_STATUS)
   }
   if (mem.unguarded > 0) lines.push(`${UNGUARDED} Writes this session: ${mem.unguarded}. Check which plugins answer permission prompts with /plugin.`)
   if (mem.unguardedReads > 0)
@@ -418,11 +425,31 @@ async function firstAnswer($: Dollar, mem: Memory, servers: readonly string[], a
 }
 
 /**
+ * Whether the person has been told what the hint sends. The first prompt that would be searched
+ * on this machine shows the notice instead and is not searched, so nothing leaves unannounced;
+ * the store remembers it for every later session. Where nobody can read a toast, nothing is
+ * shown, remembered or searched.
+ */
+async function isHintAnnounced($: Dollar, mem: Memory): Promise<boolean> {
+  if (mem.isHintTold) return true
+  if ((await $.store.get(NOTICE_KEY)) === true) {
+    mem.isHintTold = true
+    return true
+  }
+  if (!mem.isInteractive) return false
+  $.ui.toast(HINT_NOTICE)
+  await $.store.set(NOTICE_KEY, true)
+  mem.isHintTold = true
+  return false
+}
+
+/**
  * The context lines that name registry skills which clearly fit the prompt, or none. Searched once
  * per prompt text a conversation, through the server the connection check found (or each one in
  * turn while the check has not settled, as on a session's first prompt); signed out, missing or
- * offline, nothing is searched. Each skill is named once a conversation, and never when a skill
- * of that name is installed here. Never throws.
+ * offline, nothing is searched, and nothing before the person has been told once what a search
+ * sends. Each skill is named once a conversation, and never when a skill of that name is
+ * installed here. Never throws.
  */
 async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<string[]> {
   if (!isHintable(prompt)) return []
@@ -434,6 +461,7 @@ async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<s
   // while: each search would only add its wait to the prompt and load a struggling gateway.
   if (health?.state === 'degraded' && now - health.checkedAt < HINT_PAUSE_MS) return []
   if (now < breaker.pausedUntil) return []
+  if (!(await isHintAnnounced($, mem))) return []
   const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   const session = await $.session.id()
   if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
@@ -511,9 +539,12 @@ export const register: Register = (on, options) => {
     picker: { query: '', state: 'idle', rows: [], total: 0, note: '' },
     hint: { session: '', named: new Set(), searches: new Map() },
     hintBreaker: { timeouts: 0, pausedUntil: 0, isSearching: false },
+    isHintTold: false,
+    isInteractive: true,
   }
 
   on('session.start', async ($, e, next) => {
+    mem.isInteractive = e.isInteractive !== false
     await $.command.register({
       name: 'atlan',
       description: 'Atlan connection status; /atlan search <words>, /atlan skills to pick a skill, /atlan pane for what this session touched',
@@ -550,7 +581,7 @@ export const register: Register = (on, options) => {
     if (sub !== '' && sub !== 'status' && sub !== 'doctor') return { text: USAGE }
     const health = await probe($, mem)
     setHealth($, mem, health)
-    return { text: report(mem, health, confirmWrites) }
+    return { text: report(mem, health, confirmWrites, suggestSkills) }
   })
 
   on('prompt.submit', async ($, e, next) => {

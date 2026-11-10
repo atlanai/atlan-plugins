@@ -17,6 +17,11 @@ export const HINT_QUERY_CHARS = 300
 export const HINT_MIN_WORDS = 4
 /** How long a prompt waits for the search before it goes without a hint. */
 export const HINT_MS = 800
+/** What the person is told once on this machine, before any request is searched. */
+export const HINT_NOTICE =
+  "Atlan: from your next request, the first 300 characters of each request are searched against your organization's skills, so one that fits can be suggested. Turn this off with the suggest_skills option of atlanai-mods."
+/** The line `/atlan` adds while the hint is on. */
+export const HINT_STATUS = 'Skill suggestions are on: the first 300 characters of each request are searched against your organization\'s skills. Turn this off with the suggest_skills option.'
 
 /** Where a prompt came from when no person typed it: a background task, a schedule, another
  * session or a continuation. Those get no hint. */
