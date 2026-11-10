@@ -1,7 +1,7 @@
 import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY, isKeyed, isLostReply } from '../register'
+import { gatewayRunners, CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY, isKeyed, isLostReply } from '../register'
 import type { Case } from './case'
 import { CASES } from './fixtures'
 
@@ -236,6 +236,64 @@ describe('deterministic receipt capture', () => {
 })
 
 describe('local bulk publication', () => {
+  test('publishes exact file bodies and saves receipts through an aliased gateway', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const prefix = 'mcp__atlan-c360__mcp__'
+    on('tool.list', () => ({ value: ['call_write_tool', 'call_read_tool', 'search_tools', 'describe_tools'].map(name => ({ name: prefix + name, description: 'Gateway tool', mcp: true })) }))
+    const recorded: Record<string, unknown>[] = []
+    on('process.run', (_, e) => {
+      recorded.push(JSON.parse(e.init?.stdin ?? '{}'))
+      return { value: { exitCode: 0, stdout: '{"ready":true,"recorded":true}', stderr: '' } }
+    })
+    const text = JSON.stringify([batchItem])
+    disk.file(`${CWD}/payload.json`, text)
+    const call = await bulkCall(text, 'payload.json', { receipt_dir: '/work/run/receipts' })
+    const ran = await $.tool.call({ ...call, tool: prefix + 'call_write_tool' } as never)
+    expect(sent.length).toBe(1)
+    expect(sent[0]?.arguments).toEqual({ kind: 'sql_query', items: [batchItem] })
+    expect(recorded.length).toBe(2)
+    expect(recorded[1]?.request).toEqual({ name: BULK, arguments: sent[0]?.arguments })
+    expect(JSON.stringify(ran)).toContain('Atlan receipt saved')
+    await $.tool.call({ tool: prefix + 'call_read_tool', name: 'registry__get_artifact', arguments: {
+      artifact_id: 'sql_query_example', channel: 'latest', receipt_dir: '/work/run/receipts' } } as never)
+    expect(sent.length).toBe(2)
+    expect(sent[1]?.arguments).toEqual({ artifact_id: 'sql_query_example', channel: 'latest' })
+    expect(recorded.length).toBe(4)
+  })
+
+  test('recognizes Atlan aliases while keeping ambiguous server names unexpanded', () => {
+    for (const server of ['atlan-c360', 'atlan_personal', 'plugin_example_atlan-personal']) {
+      const prefix = `mcp__${server}__mcp__`
+      const names = ['call_tool', 'call_write_tool', 'call_read_tool', 'search_tools', 'describe_tools']
+      const tools = names.map(name => ({ name: prefix + name, mcp: true }))
+      expect(gatewayRunners(tools)).toEqual(names.slice(0, 3).map(name => prefix + name))
+      expect(gatewayRunners(tools.slice(0, 3))).toEqual([])
+    }
+  })
+
+  test('does not infer a foreign origin from gateway-shaped discovery tools', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const prefix = 'mcp__foreign_gateway__mcp__'
+    on('tool.list', () => ({ value: ['call_write_tool', 'search_tools', 'describe_tools'].map(name => ({ name: prefix + name, description: 'Gateway tool', mcp: true })) }))
+    const call = await bulkCall(JSON.stringify([batchItem]))
+    await $.tool.call({ ...call, tool: prefix + 'call_write_tool' } as never)
+    expect(sent.length).toBe(1)
+    expect(disk.asked.length).toBe(0)
+    expect(sent[0]?.arguments).toEqual(call.arguments)
+  })
+
+  test('leaves an unrecognized server unchanged without reading local files', async ($, on) => {
+    const disk = new Disk()
+    const sent = engine(on, disk)
+    const call = await bulkCall(JSON.stringify([batchItem]))
+    const ran = await $.tool.call({ ...call, tool: 'mcp__atlan-c360__mcp__call_write_tool' } as never)
+    expect(sent.length).toBe(1)
+    expect(disk.asked.length).toBe(0)
+    expect(sent[0]?.arguments).toEqual(call.arguments)
+  })
+
   test('loads exact SQL for metrics and saved queries without changing audit context', async ($, on) => {
     const disk = new Disk()
     const sent = engine(on, disk)
@@ -537,9 +595,11 @@ describe('a lost reply', () => {
 })
 
 describe('the capability line', () => {
+  const inventory = (on: On) => on('tool.list', () => ({ value: [{ name: CALL, description: 'Gateway runner', mcp: true }] }))
   const prompt = (text: string, extra: Record<string, unknown> = {}) => ({ text, wait: false, origin: { kind: 'composer' as const }, ...extra })
 
   test('rides the first prompt of a conversation once, and again after /clear', async ($, on) => {
+    inventory(on)
     let session = 'session-1'
     on('session.id', () => ({ value: session }))
     const contexts: (readonly string[] | undefined)[] = []
@@ -555,6 +615,7 @@ describe('the capability line', () => {
   })
 
   test('keeps the context a prompt already carries', async ($, on) => {
+    inventory(on)
     on('session.id', () => ({ value: 'session-1' }))
     const contexts: (readonly string[] | undefined)[] = []
     on('prompt.submit', (_, e) => {
@@ -563,6 +624,36 @@ describe('the capability line', () => {
     })
     await $.prompt.submit(prompt('publish my skill', { context: ['from another hook'] }))
     expect(contexts).toEqual([['from another hook', CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY]])
+  })
+
+  test('does not announce an unavailable or read-only publishing route', async ($, on) => {
+    on('session.id', () => ({ value: 'session-1' }))
+    on('tool.list', () => ({ value: [{ name: CALL.replace('call_tool', 'call_read_tool'), description: 'Read runner', mcp: true }] }))
+    const contexts: (readonly string[] | undefined)[] = []
+    on('prompt.submit', (_, e) => { contexts.push(e.context); return { text: e.text, context: e.context } })
+    await $.prompt.submit(prompt('publish'))
+    expect(contexts).toEqual([[ROUTING, RECEIPT_CAPABILITY]])
+  })
+
+  test('waits for discovery and announces a route when it becomes available', async ($, on) => {
+    on('session.id', () => ({ value: 'session-1' }))
+    let ready = false
+    on('tool.list', () => ({ value: ready ? [{ name: CALL, description: 'Gateway runner', mcp: true }] : [] }))
+    const contexts: (readonly string[] | undefined)[] = []
+    on('prompt.submit', (_, e) => { contexts.push(e.context); return { text: e.text, context: e.context } })
+    await $.prompt.submit(prompt('hello'))
+    ready = true
+    await $.prompt.submit(prompt('publish'))
+    expect(contexts).toEqual([[ROUTING], [CAPABILITY, BULK_CAPABILITY, RECEIPT_CAPABILITY]])
+  })
+
+  test('does not announce an alias without its gateway discovery tools', async ($, on) => {
+    on('session.id', () => ({ value: 'session-1' }))
+    on('tool.list', () => ({ value: [{ name: 'mcp__atlan-c360__mcp__call_write_tool', description: 'Gateway runner', mcp: true }] }))
+    const contexts: (readonly string[] | undefined)[] = []
+    on('prompt.submit', (_, e) => { contexts.push(e.context); return { text: e.text, context: e.context } })
+    await $.prompt.submit(prompt('publish'))
+    expect(contexts).toEqual([[ROUTING]])
   })
 
   test('adds nothing to the system prompt', async ($, on) => {

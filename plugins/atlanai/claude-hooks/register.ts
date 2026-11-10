@@ -11,7 +11,7 @@
 // Every hook here fails open: a bug passes the call on as the model wrote it, and the skill app
 // refuses `files_from` by name, saying to send `files`. So a fault costs speed, never a publish.
 //
-// The helper says it is on with one line beside the conversation's first prompt (prompt.submit's
+// The helper says it is on beside a prompt once a gateway runner is available (prompt.submit's
 // `context`), not in the system prompt. Claude Code's built-in cc-plugin-sec-default, seated
 // outermost for Team and Enterprise organizations and on machines with managed settings, passes
 // every installed plugin over on prompt.compose and prompt.context, and tells the session the hook
@@ -37,9 +37,27 @@ import { LATEST_URL, VERSION } from './release'
 
 /**
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
- * under the plugin's server or one added by hand. Never another server's tool of a like name.
+ * under the plugin's server or an alias, narrowed by gatewayRunners before any local expansion.
  */
-export const CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$/
+// The host chooses the MCP connection and retains its normal permission checks. Recognize
+// the gateway's runner independently of the user-configured server key.
+export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+__mcp__call(?:_(?:write|read))?_tool$/
+const PLUGIN_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan__mcp__call(?:_(?:write|read))?_tool$/
+const ATLAN_ALIAS_CALL_TOOL = /^mcp__(?:plugin_[A-Za-z0-9_-]+_)?atlan(?:[-_][A-Za-z0-9_-]+)?__mcp__call(?:_(?:write|read))?_tool$/
+
+/** Aliases must also expose the gateway's discovery tools, not just a similarly named runner. */
+export function gatewayRunners(tools: readonly { name: string; mcp: boolean }[]): string[] {
+  const names = new Set(tools.filter(tool => tool.mcp).map(tool => tool.name))
+  return [...names].filter(name => {
+    if (!CALL_TOOL.test(name)) return false
+    if (PLUGIN_CALL_TOOL.test(name)) return true
+    // Tool names alone cannot establish an arbitrary server's origin. Without endpoint
+    // metadata, ambiguous names retain the native fallback and never load local bytes.
+    if (!ATLAN_ALIAS_CALL_TOOL.test(name)) return false
+    const prefix = name.slice(0, name.lastIndexOf('__mcp__'))
+    return names.has(`${prefix}__mcp__search_tools`) && names.has(`${prefix}__mcp__describe_tools`)
+  })
+}
 export const PUBLISH = 'extension__skill__create'
 export const BULK_PUBLISH = 'registry__create_artifacts'
 export const BULK_CAPABILITY = 'Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].'
@@ -389,6 +407,7 @@ export const register: Register = on => {
   const receiptRuntime = { python: 'python3' }
   // The conversations already told, by session id: a /clear goes on under a new id, and is told again.
   const told = new Set<string>()
+  const capabilitiesTold = new Map<string, Set<string>>()
   // The update notice, read once a process and given once; the conversations offered feedback; and
   // those whose last turn called an Atlan tool, the only turns the sampled offer follows.
   let latest: Promise<string | undefined> | undefined
@@ -406,11 +425,24 @@ export const register: Register = on => {
     if (e.command !== undefined || e.isMeta === true) return next(e)
     const session = await $.session.id()
     const notes: string[] = []
+    // Discovery can finish after the first prompt. Announce only routes that exist now,
+    // and do not suppress a later capability just because routing was already shown.
+    let runners: string[] = []
+    try {
+      runners = gatewayRunners(await $.tool.list())
+    } catch { /* An unavailable inventory is not evidence that a helper is on. */ }
+    const capabilities = capabilitiesTold.get(session) ?? new Set<string>()
+    const writable = runners.some(name => !name.endsWith('__mcp__call_read_tool'))
+    if (writable && !capabilities.has(CAPABILITY)) notes.push(CAPABILITY)
     if (!told.has(session)) {
       told.add(session)
-      notes.push(CAPABILITY, ROUTING, BULK_CAPABILITY, RECEIPT_CAPABILITY)
+      notes.push(ROUTING)
     }
-    // Each note fails alone, so a fault in one never drops the capability line.
+    if (writable && !capabilities.has(BULK_CAPABILITY)) notes.push(BULK_CAPABILITY)
+    if (runners.length && !capabilities.has(RECEIPT_CAPABILITY)) notes.push(RECEIPT_CAPABILITY)
+    for (const note of notes) if (note !== ROUTING) capabilities.add(note)
+    capabilitiesTold.set(session, capabilities)
+    // Each courtesy notice fails alone, preserving routing and available capabilities.
     if (!isUpdateTold) {
       try {
         latest ??= checkLatest($).catch(() => undefined)
@@ -450,6 +482,7 @@ export const register: Register = on => {
     const args = argsOf(call.arguments)
     if (!args) return next(e)
     const { receipt_dir: receiptDir, ...native } = args
+    if (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool)) return next(e)
     if (receiptDir !== undefined && (call.name === PUBLISH || call.name === BULK_PUBLISH && !('items_from' in native))) return { deny: 'Receipt capture on creates requires a guarded local batch.' }
     const expanded = (call.name === BULK_PUBLISH ? await expandBulk($, native) : call.name === PUBLISH ? await expand($, native) : undefined) ?? (receiptDir !== undefined ? { args: native } : undefined)
     if (!expanded) return next(e)

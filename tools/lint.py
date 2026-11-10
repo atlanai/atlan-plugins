@@ -294,6 +294,17 @@ def lint_command_hooks(root: Path) -> list[str]:
             command = handler.get("command", "")
             if HOOK_SCRIPT not in command or "claude-hooks" in command or handler.get("type", "command") != "command":
                 errors.append(f"{path.relative_to(ROOT)}: every hook runs {HOOK_SCRIPT}, and nothing else")
+    copilot = root / "com.github.copilot" / "hooks" / "hooks.json"
+    if copilot.is_file():
+        document = json.loads(copilot.read_text(encoding="utf-8"))
+        expected = {}
+        for event, entry in (("preToolUse", "pre"), ("postToolUse", "post")):
+            expected[event] = [{"type": "command",
+                "bash": 'python3 "${COPILOT_PLUGIN_ROOT}/command-hooks/publish_hook.py" ' + entry + ' --host copilot',
+                "powershell": 'python3 "$env:COPILOT_PLUGIN_ROOT/command-hooks/publish_hook.py" ' + entry + ' --host copilot',
+                "timeoutSec": 30 if entry == "pre" else 10}]
+        if document != {"version": 1, "hooks": expected}:
+            errors.append(f"{copilot.relative_to(ROOT)}: Copilot hooks may only run the shared publication helper")
     return errors
 
 

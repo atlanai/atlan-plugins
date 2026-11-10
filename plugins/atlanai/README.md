@@ -75,18 +75,37 @@ conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. 
 
 ## Privacy
 
-The plugin has no binaries. In Claude Code, Codex and Cursor
-it runs one hook, the publish helper (in Codex and Cursor a Python script, once you trust the
+The plugin has no binaries. In Claude Code, Codex, Cursor and GitHub Copilot CLI
+it runs one hook, the publish helper (outside Claude Code, a Python script, once you trust the
 plugin's hooks): when the agent publishes a skill with `files_from`, it reads that one folder in
 your working tree (never a link, a credential file or folder, or anything outside the tree) and
-sends its files only in that same call to Atlan. It says it is on with one line beside the
-conversation's first request. Other tools run no code from it.
+sends its files in that same call to the configured Atlan connection. Server aliases such as
+`atlan-personal` need no plugin setting. In Claude Code, capability notes follow the available
+gateway tool inventory; command hosts report installation without promising input rewriting
+or complete result access. Copilot discovers its adapter in `com.github.copilot/hooks/`.
+Other tools run no code from it.
 
 The same helper loads metrics and saved-query create batches with `items_from`, when the
 Analytics plugin prepares them from a checked publication plan. It reads one digest-bound
 JSON file in the working tree, applies the same credential checks and 256 KiB limit, and
 sends its items in the existing Atlan bulk-create call. Without the helper, the empty inline
 items list refuses the call before writing. Revisions and release checks remain unchanged.
+
+| Host | File publishing and receipts |
+| --- | --- |
+| Claude Code | Gateway discovery recognizes Atlan-named aliases; the module expands files and records native results. |
+| Codex | Command hooks recognize Atlan aliases and use the shared receipt writer. |
+| Cursor desktop | Command hooks use the server URL when provided and retain the existing MCP guard. |
+| GitHub Copilot CLI | Plugin hooks normalize native payloads, rewrite inputs without granting permission and record results. |
+| Other or restricted hosts | Try one guarded batch, then use native MCP arguments if local fields are explicitly refused. |
+
+A host must support input rewriting and expose complete tool results for automatic receipts.
+Cursor cloud ignores HTTP MCP input rewrites and redacts outputs, so it uses the native
+fallback. This changes the transfer cost, not the checked definitions or release requirements.
+No helper switches accounts, adds a connection or reads credentials. Wildcard matching of
+runner names never grants tool permission. When a host supplies a server URL, the command
+adapter requires an Atlan HTTPS MCP endpoint before reading local files. Hosts without origin
+metadata use conventional Atlan names; ambiguous aliases retain the native fallback.
 
 Analytics can also request `receipt_dir` on guarded creates and released-definition or
 relationship reads. The helper removes that field before the Atlan call and records its
