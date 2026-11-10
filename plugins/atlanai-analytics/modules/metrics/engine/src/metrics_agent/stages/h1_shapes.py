@@ -72,18 +72,23 @@ def analytical(row: dict) -> bool:
     return bool(f.get("aggs") or f.get("groups") or f.get("filter_cols"))
 
 
-def skeleton(row: dict) -> tuple:
+def skeleton(row: dict, tree=None) -> tuple:
     """What makes two queries THE SAME SHAPE: same tables, aggregates, groupings and filter
     columns — the structure, with the literals dropped. Two analysts asking the same question
     of two quarters are one shape, and only the most-adopted of them is carried.
 
     Tables by their FULL name: the same table name in two databases is two relations, and
-    keying on the leaf collapsed a query on one into the other's shape."""
+    keying on the leaf collapsed a query on one into the other's shape.
+
+    Only FILTER literals are dropped. A literal that defines the metric (a CASE label in a
+    measure, a DATE_TRUNC grain) is part of the shape when the parsed `tree` is given: `Won`
+    and `Lost` deals are two metrics, not two quarters of one."""
     f = row.get("feat") or {}
-    return (tuple(sorted(str(t).lower() for t in row.get("tables", []))),
-            tuple(sorted((f.get("aggs") or [])[:6])),
-            tuple(sorted((f.get("groups") or [])[:6])),
-            tuple(sorted((f.get("filter_cols") or [])[:8])))
+    key = (tuple(sorted(str(t).lower() for t in row.get("tables", []))),
+           tuple(sorted((f.get("aggs") or [])[:6])),
+           tuple(sorted((f.get("groups") or [])[:6])),
+           tuple(sorted((f.get("filter_cols") or [])[:8])))
+    return key if tree is None else (*key, tuple(S.defining_literals(tree)))
 
 
 def family_of(row: dict, strategy: str) -> str:
@@ -212,12 +217,16 @@ def body(ctx: stage.Ctx) -> None:
         elif flattened_with_comment(row.get("sql") or ""):
             n_still_flat += 1
         score = trust(weights, int(row.get("users") or 0), int(row.get("exec") or 0))
-        key = skeleton(row)
+        try:
+            tree = S.parse(row["sql"], dialect)
+        except Exception:
+            tree = None   # a shape whose literals we cannot read still selects normally
+        key = skeleton(row, tree)
         try:
             # The values the statement restricts a column TO: IN members one by one, BETWEEN
             # bounds, comparison literals. A whole `('A', 'B')` list, a column compared to a
             # column and an excluded value are none of them observed values.
-            for col, v in S.observed_literals(S.parse(row["sql"], dialect)):
+            for col, v in (S.observed_literals(tree) if tree is not None else []):
                 seen_values.setdefault(key, {}).setdefault(col, []).append(
                     {"value": v, "n_exec": int(row.get("exec") or 0),
                      "n_users": int(row.get("users") or 0), _pii.NAMES_KEY: names})
