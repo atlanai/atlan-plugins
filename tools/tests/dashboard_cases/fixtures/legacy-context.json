@@ -1,0 +1,227 @@
+[
+  {
+    "definition": {
+      "aggregation": {
+        "reaggregation": "none",
+        "type": "custom"
+      },
+      "dialect": "sqlite",
+      "examples": [
+        {
+          "parameters": {
+            "p0": "Direct",
+            "p1": true
+          },
+          "source": "declared_dashboard",
+          "sql": "SELECT (SELECT CASE WHEN COUNT(*) = 0 THEN NULL ELSE (COUNT(DISTINCT s.\"id\") + CASE WHEN COUNT(*) > COUNT(s.\"id\") THEN 1 ELSE 0 END) END\nFROM \"warehouse_accounts\" AS s\nWHERE ((UPPER(s.\"source\") = UPPER({{p0}}) OR s.\"source\" IS NULL)) AND (s.\"active\" = {{p1}})) AS \"value\""
+        }
+      ],
+      "extensions": {
+        "atlan_analytics": {
+          "check": "untested",
+          "dashboard_validation": {
+            "dashboard_data_as_of": "2026-10-01",
+            "heldout_accuracy": "not_run",
+            "parity": "unmeasured",
+            "reasons": []
+          },
+          "declared": [
+            "powerbi:19ff968c924203e12ef9cf3777594fbb85510bac1bb141b5e62d0b79d2986709"
+          ],
+          "execution": "scalar derived relation; evaluate once at the captured scope"
+        },
+        "trident_dashboard": {
+          "captured_context": {
+            "data_as_of": "2026-10-01",
+            "filters": [
+              {
+                "column": "Source",
+                "table": "Accounts",
+                "values": [
+                  "Direct",
+                  null
+                ]
+              }
+            ],
+            "page": "Overview",
+            "security_scope": "current signed-in caller"
+          },
+          "certification": "not_asserted",
+          "execution": {
+            "allowed_relations": [
+              "\"warehouse_accounts\""
+            ],
+            "backend": "warehouse",
+            "binding_style": "named_colon",
+            "dialect": "sqlite",
+            "parameters": {
+              "p0": "Direct",
+              "p1": true
+            },
+            "required_capability": "warehouse_readonly_bound_query",
+            "result_shape": "scalar_query",
+            "sql": "SELECT (SELECT CASE WHEN COUNT(*) = 0 THEN NULL ELSE (COUNT(DISTINCT s.\"id\") + CASE WHEN COUNT(*) > COUNT(s.\"id\") THEN 1 ELSE 0 END) END\nFROM \"warehouse_accounts\" AS s\nWHERE ((UPPER(s.\"source\") = UPPER(:p0) OR s.\"source\" IS NULL)) AND (s.\"active\" = :p1)) AS \"value\"",
+            "warehouse_sql_available": true
+          },
+          "format": 1,
+          "identity_kind": "upstream_id",
+          "mapping_evidence": "synthetic:source-mapping",
+          "mapping_hash": "3fec9ad6a0e1fafbfc6443cf090a152e5d33500284427aec53f42e27408d87cc",
+          "original_dax": "CALCULATE(DISTINCTCOUNT('Accounts'[ID]), 'Accounts'[Active] = TRUE())",
+          "scope_complete": true,
+          "source_description": "Synthetic active-account count.",
+          "source_evidence": "synthetic:model-metadata:1",
+          "source_language": "dax",
+          "source_url": "https://app.powerbi.com/groups/11111111-1111-1111-1111-111111111111/reports/22222222-2222-2222-2222-222222222222/Overview",
+          "sql_validation": "execution_evidence_is_separate"
+        }
+      },
+      "formula": "dashboard_value.\"value\"",
+      "output": {
+        "alias": "value",
+        "datatype": "integer"
+      },
+      "provenance": {
+        "derived_from": [
+          "synthetic:model-metadata:1"
+        ],
+        "proposed_by": "trident-dashboard",
+        "source": "powerbi_report"
+      },
+      "source": {
+        "alias": "dashboard_value",
+        "entity": "\"warehouse_accounts\"",
+        "parameters": [
+          {
+            "datatype": "string",
+            "default": "Direct",
+            "name": "p0"
+          },
+          {
+            "datatype": "boolean",
+            "default": true,
+            "name": "p1"
+          }
+        ],
+        "sql": "(SELECT (SELECT CASE WHEN COUNT(*) = 0 THEN NULL ELSE (COUNT(DISTINCT s.\"id\") + CASE WHEN COUNT(*) > COUNT(s.\"id\") THEN 1 ELSE 0 END) END\nFROM \"warehouse_accounts\" AS s\nWHERE ((UPPER(s.\"source\") = UPPER({{p0}}) OR s.\"source\" IS NULL)) AND (s.\"active\" = {{p1}})) AS \"value\") AS dashboard_value"
+      },
+      "spec_version": "1.0-draft.4",
+      "version": 1
+    },
+    "description": "Synthetic active-account count.",
+    "display_name": "Active accounts",
+    "name": "dashboard-metric-65fa05f897847543f4dd70d0",
+    "source_id": "powerbi:19ff968c924203e12ef9cf3777594fbb85510bac1bb141b5e62d0b79d2986709",
+    "source_type": "external",
+    "source_version": "f1807bc74eab1fc007821ca48abd86de6571b349eaa4384f9e23545aa206550d"
+  },
+  {
+    "definition": {
+      "aggregation": {
+        "reaggregation": "none",
+        "type": "custom"
+      },
+      "dialect": "sqlite",
+      "examples": [
+        {
+          "parameters": {
+            "p0": "Direct"
+          },
+          "source": "declared_dashboard",
+          "sql": "SELECT (SELECT SUM(s.\"amount\")\nFROM \"warehouse_accounts\" AS s\nWHERE ((UPPER(s.\"source\") = UPPER({{p0}}) OR s.\"source\" IS NULL))) AS \"value\""
+        }
+      ],
+      "extensions": {
+        "atlan_analytics": {
+          "check": "untested",
+          "dashboard_validation": {
+            "dashboard_data_as_of": "2026-10-01",
+            "heldout_accuracy": "not_run",
+            "parity": "unmeasured",
+            "reasons": []
+          },
+          "declared": [
+            "powerbi:4bf2c964c349314f27707b32002b50a4ac449eb047e93efc3f62953fe97d0322"
+          ],
+          "execution": "scalar derived relation; evaluate once at the captured scope"
+        },
+        "trident_dashboard": {
+          "captured_context": {
+            "data_as_of": "2026-10-01",
+            "filters": [
+              {
+                "column": "Source",
+                "table": "Accounts",
+                "values": [
+                  "Direct",
+                  null
+                ]
+              }
+            ],
+            "page": "Overview",
+            "security_scope": "current signed-in caller"
+          },
+          "certification": "not_asserted",
+          "execution": {
+            "allowed_relations": [
+              "\"warehouse_accounts\""
+            ],
+            "backend": "warehouse",
+            "binding_style": "named_colon",
+            "dialect": "sqlite",
+            "parameters": {
+              "p0": "Direct"
+            },
+            "required_capability": "warehouse_readonly_bound_query",
+            "result_shape": "scalar_query",
+            "sql": "SELECT (SELECT SUM(s.\"amount\")\nFROM \"warehouse_accounts\" AS s\nWHERE ((UPPER(s.\"source\") = UPPER(:p0) OR s.\"source\" IS NULL))) AS \"value\"",
+            "warehouse_sql_available": true
+          },
+          "format": 1,
+          "identity_kind": "upstream_id",
+          "mapping_evidence": "synthetic:source-mapping",
+          "mapping_hash": "3fec9ad6a0e1fafbfc6443cf090a152e5d33500284427aec53f42e27408d87cc",
+          "original_dax": "SUM('Accounts'[Amount])",
+          "scope_complete": true,
+          "source_description": "Synthetic active-account count.",
+          "source_evidence": "synthetic:model-metadata:1",
+          "source_language": "dax",
+          "source_url": "https://app.powerbi.com/groups/11111111-1111-1111-1111-111111111111/reports/22222222-2222-2222-2222-222222222222/Overview",
+          "sql_validation": "execution_evidence_is_separate"
+        }
+      },
+      "formula": "dashboard_value.\"value\"",
+      "output": {
+        "alias": "value",
+        "datatype": "decimal"
+      },
+      "provenance": {
+        "derived_from": [
+          "synthetic:model-metadata:1"
+        ],
+        "proposed_by": "trident-dashboard",
+        "source": "powerbi_report"
+      },
+      "source": {
+        "alias": "dashboard_value",
+        "entity": "\"warehouse_accounts\"",
+        "parameters": [
+          {
+            "datatype": "string",
+            "default": "Direct",
+            "name": "p0"
+          }
+        ],
+        "sql": "(SELECT (SELECT SUM(s.\"amount\")\nFROM \"warehouse_accounts\" AS s\nWHERE ((UPPER(s.\"source\") = UPPER({{p0}}) OR s.\"source\" IS NULL))) AS \"value\") AS dashboard_value"
+      },
+      "spec_version": "1.0-draft.4",
+      "version": 1
+    },
+    "description": "Synthetic active-account count.",
+    "display_name": "Total amount",
+    "name": "dashboard-metric-d57aa839133c8155538d12e8",
+    "source_id": "powerbi:4bf2c964c349314f27707b32002b50a4ac449eb047e93efc3f62953fe97d0322",
+    "source_type": "external",
+    "source_version": "f1807bc74eab1fc007821ca48abd86de6571b349eaa4384f9e23545aa206550d"
+  }
+]

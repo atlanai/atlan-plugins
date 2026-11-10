@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from modules.workflow import Authorization
 from modules.metrics.publication import publication_identity
 from modules.metrics.holds import enforce_context
-import metrics_mine
+import context_contracts
 
 
 MAX_ITEMS = 25
@@ -37,8 +37,8 @@ def prepare(context, authorization, workspace, sources, record_receipts=False):
         raise ValueError('Publication is not authorized for this exact plan and workspace.')
     batches = []
     deferred = {'revise': 0, 'reuse': 0, 'held': 0}
-    for lane, kind, check in (('metrics', 'metric', metrics_mine.check_metric),
-                              ('queries', 'sql_query', metrics_mine.check_query)):
+    for lane, kind, check in (('metrics', 'metric', context_contracts.check_metric),
+                              ('queries', 'sql_query', context_contracts.check_query)):
         bodies = documents[lane]
         by_source = {body['source_id']: body for body in bodies}
         if len(by_source) != len(bodies):
@@ -120,7 +120,7 @@ def main():
         result = prepare(args.context, authorization, args.workspace, args.source, args.record_receipts)
         print(json.dumps(result))
         return 0
-    except (ValueError, OSError, KeyError, TypeError, metrics_mine.Blocked):
+    except (ValueError, OSError, KeyError, TypeError, context_contracts.Blocked):
         print(json.dumps({'status': 'REFUSED', 'reason': 'Recheck the publication plan, authorization, holds and local batch files.'}))
         return 2
 

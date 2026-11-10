@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import stat
 
-import metrics_mine
+import context_contracts
 from project import Project
 from retrieval import releases
 
@@ -55,7 +55,7 @@ def assemble(run_dir, receipt_dir, workspace, finalize=False):
     context = project.context
     plan = json.loads((context / 'plan.json').read_text())
     bodies = {lane: json.loads((context / (lane + '.json')).read_text()) for lane in ('metrics', 'queries', 'links')}
-    metrics_mine.check_publication_holds(context, bodies['metrics'], bodies['queries'], bodies['links'])
+    context_contracts.check_publication_holds(context, bodies['metrics'], bodies['queries'], bodies['links'])
     expected = {}
     for lane, kind in (('metrics', 'metric'), ('queries', 'sql_query')):
         by_source = {b['source_id']: b for b in bodies[lane]}
@@ -165,7 +165,7 @@ def main():
         result = assemble(args.run_dir, args.receipts, args.workspace, args.finalize)
         print(json.dumps(result))
         return 0 if result['status'] == 'ready' else 2
-    except (ValueError, OSError, KeyError, TypeError, metrics_mine.Blocked):
+    except (ValueError, OSError, KeyError, TypeError, context_contracts.Blocked):
         print(json.dumps({'status': 'pending', 'recorded': False,
                           'reason': 'Receipts are incomplete, conflicting or outside the checked plan. Reconcile live state and capture fresh readbacks; do not repeat writes.'}))
         return 2

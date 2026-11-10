@@ -15,8 +15,7 @@ When the working project is already clear, **Set up this project for analytics**
 Do not ask the person to repeat a supplied folder or business question.
 
 `PROJECT` below means `python3 "<skill-dir>/scripts/project.py" --run-dir
-"<project>/.atlan-metrics/<slug>"`. Use a Python 3.10+ runtime; SQLite needs nothing else.
-Only an existing `.duckdb` file needs an approved Python with DuckDB installed. The helper
+"<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and DuckDB preparation. The helper
 records the interpreter for later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
 unreviewed repository code simply because a README recommends it.
 The helper only writes local state; Registry operations use the existing Atlan MCP connection.
@@ -90,15 +89,14 @@ non-destructive local preparation using existing dependencies. The mapping selec
 survey source IDs, a new project-relative database path, and evidenced schema/table names:
 
 ```json
-{"database": "data/analytics.sqlite", "tables": [
+{"database": "data/analytics.duckdb", "tables": [
   {"source_id": "src_from_survey", "table": "site.work"}
 ]}
 ```
 
-Use a `.sqlite` destination: it needs only the standard library. A SQLite file holds one
-schema, so map every CSV to the same schema name; bind attaches the file under that name,
-so `site.work` resolves. SQLite has no catalog level: write `schema.table`, never
-`catalog.schema.table`.
+For new CSV preparation use `.duckdb`, with the main engine runtime's Python, so the same
+read-only substrate supports engine checks and later questions. Existing SQLite bindings
+remain supported by the project helper; they do not select a different generator.
 
 The destination's parent must exist. The helper accepts up to 32 CSVs (32 MiB each, 128 MiB
 total), checks survey hashes, restricts reads to those paths, and atomically creates a new
@@ -129,39 +127,19 @@ require separately reviewed support. Host sandboxing is still required for hosti
 
 ## 3. Combine evidence and author both context types
 
-Run `PROJECT history` when history was found. This uses the existing normalizer, privacy
-filter and shape miner, writing clean history and ranked shapes under `context/`. Show the
-intake, filtered and limited counts. These are query shapes, not a count of verified metrics.
-For live history, use the bounded extraction in [query history](warehouses/query-history.md).
+Run `PROJECT history` when selected history was found. It captures and privacy-filters
+history under `context/`; it does not mine shapes or author candidates. Pass the returned
+clean history path to the main engine's `local-files` history input. For live history, use
+[query history](warehouses/query-history.md) or the configured native plug.
 
-Follow [metrics](metrics.md), source discovery, authoring and checking, using this run's
-`context/`. Preserve its `run.json`; maintain metrics-mode `state.json` with `entrypoint:
-project`, the original question and selected workspace. Use the live artifact contracts.
-The combined survey already chose the sources and establishes table scope where unambiguous;
-skip the metrics-mode source menu and repeated scope questionnaire. Reuse an already known workspace. If none is known, author provisional candidates and preview
-them first; select the destination in the shared setup publication stage. Do not require an
-agent name, agent package, eval set or full-agent preflight.
-Combine Power BI declarations, supported semantic models, rowset SQL and history evidence.
-Use `trident.dax_sql.translate` for supported scalar DAX, with the bound database's dialect:
-`sqlite` with `:name` bindings or `duckdb` with `$name` bindings; the runtime package is beside the helper under `scripts/dashboard_runtime`.
-Types may be derived from a supported expression and declared columns, never display format.
-Unresolved types, transformations and unsupported DAX remain held per measure.
-
-Produce the existing `metrics.json`, `queries.json` and `links.json`. Keep named measures,
-grain, units, dimensions, filters, date semantics and provenance in metrics. Keep a reusable
-question, SQL, parameters, result shape and supporting evidence in each saved query. Detail
-queries need not become metrics. Review rowset/security equivalence before translating;
-do not map semantic tables directly to base tables by name alone. Reconcile duplicates and
-conflicting definitions with the existing source-of-truth rules. Do not silently discard
-history-derived questions because the dashboard already has tiles.
-
-Account for all scoped sources/candidates with usable, reused, duplicate or held status.
-Chunk authoring as the existing workflow describes. Frequency ranks history candidates but
-does not certify them. Do not invent definitions solely from column names or treat all query
-shapes as separate metrics. Report truncation and partial coverage explicitly.
+Follow [build and check](setup/build-check.md) and [the metrics engine](metrics-engine.md)
+for both the first-card preview and the full collection. Reuse the combined survey and
+interview; preserve this run's scope, workspace and state. Model compilation, proposal,
+merge, whole-card review and relationships have exactly one implementation in the engine.
+Do not call a standalone dashboard translator or author Registry bodies by hand.
 
 Run `PROJECT check` for provisional local schema checks before a workspace is selected.
-Run `MINE check` against the actual workspace schemas and existing definitions before publishing. For local execution checks, save an
+Run `CONTEXT check` against the actual workspace schemas and existing definitions before publishing. For local execution checks, save an
 ordinary JSON request with `sql`, separate `parameters` and optional `limit` (1 to 1000), then
 run `PROJECT execute "<request.json>"`. Use schema-qualified base tables and native `$name`
 bindings; convert Registry `{{name}}` placeholders outside SQL literals to native bindings,

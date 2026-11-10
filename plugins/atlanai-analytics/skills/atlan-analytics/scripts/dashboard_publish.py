@@ -11,7 +11,7 @@ import re
 from types import SimpleNamespace
 
 from trident.core import Service, clean, digest, require
-import metrics_mine
+import context_contracts
 
 
 class Publisher:
@@ -29,7 +29,7 @@ class Publisher:
         self.store.write(self.path, state)
 
     def hold_identity(self):
-        evidence = metrics_mine.check_publication_holds(self.root)
+        evidence = context_contracts.check_publication_holds(self.root)
         return hashlib.sha256(json.dumps(evidence, sort_keys=True, separators=(",", ":"),
                                         ensure_ascii=False).encode()).hexdigest() if evidence is not None else None
 
@@ -49,7 +49,7 @@ class Publisher:
         source_ids = [a["source_id"] for a in existing if a.get("source_id")]
         require(len(source_ids) == len(set(source_ids)), "Resolve duplicate source identities before publishing.")
         self.store.write(self.root / "existing.json", existing)
-        metrics_mine.cmd_check(SimpleNamespace(dir=str(self.root)))
+        context_contracts.cmd_check(SimpleNamespace(dir=str(self.root)))
         checked = self.read(self.root / "plan.json")
         bodies = {b["source_id"]: b for b in self.read(self.root / "metrics.json")}
         live = {a["id"]: a for a in existing}

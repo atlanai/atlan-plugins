@@ -33,13 +33,14 @@ Open a registry session as **Registry calls** in the conventions describes, then
 
 ## 3. Draft
 
-- **New metric:** draft the complete definition, following the metric body in
-  `skills/atlan-analytics/references/metrics/authoring.md` and reusing the population, filters
-  and tables of related metrics in the workspace. Test its SQL with the warehouse query tool
-  when it is connected; otherwise say in the proposal's `rationale` that it is untested, and
-  name any table or column you assumed.
-- **Fix:** read the metric's head with `registry__get_artifact` (no release selector) and
-  change only the fields the correction needs.
+- **New metric:** generate the definition through [the main metrics engine](metrics-engine.md)
+  from source-backed model or SQL evidence, using related released metrics to establish
+  population, filters and scope. Complete its gates and use the exported definition in the
+  proposal. Without execution access, record that check limitation in the rationale.
+- **Fix:** read the current head with `registry__get_artifact` (no release selector).
+  Calculation, population or source changes use the same engine and source evidence. Propose
+  its checked revision. Metadata-only corrections can retain the existing definition.
+
 
 ## 4. Attach this conversation as the run
 

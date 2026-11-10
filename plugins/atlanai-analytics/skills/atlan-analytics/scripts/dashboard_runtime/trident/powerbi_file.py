@@ -37,7 +37,7 @@ def inspect_file(path, allow_report_only=False):
 
 def measure_type(measure, inventory):
     """Infer only the supported scalar AST from declared column types, never formatting."""
-    from .dax_sql import Parser, TranslationGap
+    from .dax_syntax import Parser, TranslationGap
     types = {'int64':'integer', 'integer':'integer', 'double':'decimal', 'decimal':'decimal',
              'datetime':'timestamp', 'timestamp':'timestamp', 'date':'date',
              'string':'string', 'boolean':'boolean'}

@@ -30,7 +30,7 @@ graders:
   - name: keeps-sharpened-names
     type: tool_used
     tool: TaskCreate
-    input_match: 'Check 15 metrics and queries'
+    input_match: 'Check.*(context|15 metrics)'
   - name: ticks-only-finished-steps
     type: tool_used
     tool: TaskUpdate
@@ -49,10 +49,10 @@ graders:
     criteria: |
       A saved setup run is resumed. Its helper reported six steps: three completed (4 sources
       read, focus Shipping cost, 3 metrics and 12 queries written), checking in progress at
-      6 of 15, and review and ready-for-questions still pending. The steps are shown
-      in the host's task list. PASS if the reply, in under 80 words, states the saved result and
-      that checking the metrics and queries is the step under way or next. FAIL if it reprints the six
-      steps as a list or table, claims the checks finished or anything was saved to Atlan,
+      6 of 15, and review and ready-for-questions still pending. PASS if the reply shows all
+      six steps in chat with their saved status and counts, in addition to the task list,
+      and identifies checking as the current step. No word limit applies to this display.
+      FAIL if it omits the chat tracker, claims checks finished or anything was saved to Atlan,
       repeats the fresh-setup introduction, re-asks for focus or goal, mentions a panel, pane
       or browser view, or uses an em dash or a closing offer.
   - name: no-shell

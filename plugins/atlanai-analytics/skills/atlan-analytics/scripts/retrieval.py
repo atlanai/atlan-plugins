@@ -4,7 +4,7 @@ This module does not contact Atlan. The parent obtains readbacks with its own MC
 connection and dispatches warehouse plans through an existing read-only tool.
 """
 import re
-import metrics_mine as mine
+import context_contracts as mine
 from context_state import digest
 
 class RetrievalError(ValueError):

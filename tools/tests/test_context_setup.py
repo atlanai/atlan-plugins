@@ -57,7 +57,7 @@ class GenericSetup(unittest.TestCase):
 
     def seed_candidates(self):
         self.run.survey(self.estate)
-        import metrics_mine as mine
+        import context_contracts as mine
         cards = [metric(i, i % 2 == 0) for i in range(1, 7)]
         for card in cards:
             card['definition']['spec_version'] = mine.METRIC_SPEC
@@ -326,8 +326,9 @@ class GenericSetup(unittest.TestCase):
             self.run.scope({'source_id': report['source_id'], 'pages': ['overview'], 'history_tables': ['site.work']})
         self.assertEqual(len(self.run.current()['scopes']), 2)
         result = self.run.history()
-        self.assertEqual(result['shapes']['written'], 1)
-        self.assertEqual(result['shapes']['out_of_scope'], 1)
+        self.assertEqual(result['tables'], ['site.work'])
+        self.assertEqual(len(Path(result['history']).read_text().splitlines()), 2)
+        self.assertFalse((self.run.context / 'shapes.jsonl').exists())
 
     def test_markdown_cannot_render_source_images_and_keeps_quotes_readable(self):
         self.seed_candidates()
@@ -393,7 +394,7 @@ class SQLRegression(unittest.TestCase):
         self.assertEqual(self.run.execute({'sql': 'SELECT SUM(cost) FROM site.work'})['rows'], [['34.75']])
 
     def test_metric_example_execution_is_revision_bound_and_labeled_precisely(self):
-        import metrics_mine as mine
+        import context_contracts as mine
         body = metric()
         body['definition']['spec_version'] = mine.METRIC_SPEC
         body['definition']['examples'] = [{'source': 'declared:Cost', 'sql': 'SELECT SUM(cost) FROM site.work'}]
@@ -431,7 +432,7 @@ class SQLRegression(unittest.TestCase):
         self.assertEqual(metric_preview.candidates(self.run)[0]['status'], 'held')
         bodies[0]['source_id'] = 'example/shape-cost'
         self.run.write(self.run.context / 'queries.json', bodies)
-        import metrics_mine as mine
+        import context_contracts as mine
         plan = mine.cmd_check(SimpleNamespace(dir=self.run.context))
         self.assertTrue(any('parameter sample failed' in r['error'] for r in plan['first_refusals']))
         self.assertFalse(self.run.read(self.run.context / 'plan.json')['queries'][0]['ok'])

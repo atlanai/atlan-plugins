@@ -30,7 +30,7 @@ _FULL_NAME_OK = re.compile(r"'%?(?:Pending Ruling|Not Applicable|Closed Won|Clos
                            r"New York|Human Assisted|First Response)%?'")
 
 
-PII = dict(PII_RULES)  # metrics_mine checks cards with these same rules: one policy, not two copies
+PII = dict(PII_RULES)  # context_contracts checks cards with these same rules: one policy, not two copies
 
 
 def full_name_hit(text: str):

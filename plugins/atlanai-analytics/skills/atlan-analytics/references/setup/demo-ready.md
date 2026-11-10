@@ -1,5 +1,11 @@
 # Demo: ready for questions
 
+This moment is shared by all setup through [the presentation flow](presentation.md).
+For a demo, use its facts file. For own data, use the actual source, selected business
+focus, metric definition and checks in the saved run. Preserve the block's structure;
+adapt source-specific prose to the evidence, and omit unsupported tours or example rows.
+Never claim model/history agreement or disagreement without source evidence.
+
 **Why this moment matters.** It is where the person learns what they made and what it can
 do, and takes over. The ready block and the question list hand them the agent; answering
 for them takes that away.
@@ -35,9 +41,11 @@ numbers. Every answer has three parts, in this order:
 
 1. **The answer**, led by the number or the name, then what explains it.
 2. **Proof in Atlan Trident**: one line per metric and query the answer used, each a link
-   to its page, as [definition links](../definition-links.md) says. Never print metric or
-   release ids. With the context only on this machine, the list says there is nothing to
-   open yet and that saving to Atlan Trident gives each answer its links.
+   to its page, as [definition links](../definition-links.md) says. Read that file before
+   the first answer. Never print metric or release ids, and never ask for a Trident address
+   before answering: the link's address comes from the workspace read at the save step.
+   With the context only on this machine, the list says there is nothing to open yet and
+   that saving to Atlan Trident gives each answer its links.
 3. **One follow-up**, as a native question: "Want to turn this context into a dashboard?"
 
 | Option | Description |

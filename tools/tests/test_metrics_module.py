@@ -118,6 +118,20 @@ class InputStagingTests(unittest.TestCase):
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_retired_generators_cannot_be_invoked(self):
+        import context_contracts
+        from project import Project
+        from trident.core import Service
+        self.assertFalse(hasattr(Project, 'candidates'))
+        self.assertFalse(hasattr(Project, 'review_cards'))
+        self.assertFalse(hasattr(context_contracts, 'cmd_shapes'))
+        self.assertFalse(hasattr(context_contracts, 'cmd_import_run'))
+        with tempfile.TemporaryDirectory() as temp:
+            service = Service(Path(temp).resolve())
+            for operation in ('dashboard_translate', 'dashboard_export'):
+                with self.assertRaisesRegex(ValueError, 'main metrics engine'):
+                    service.dispatch(operation, {})
+
     def test_concurrent_runtime_operations_refuse_and_resume_after_release(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
@@ -529,11 +543,24 @@ else:
             self.assertNotIn(data['gate']['id'], seen, data)
             seen.append(data['gate']['id'])
             self.answer(data['gate'])
+            if data['gate']['id'] == 'x3':
+                preview_code, preview = self.command('first-metric', '--run', self.run,
+                                                     '--model', 'synthetic-test', '--metric-ref', 'revenue')
+                self.assertEqual(preview_code, 0, preview)
+                self.assertFalse(preview['publishable'])
+                first = json.loads(Path(preview['path']).read_text())
+                self.assertEqual(first['check']['result'], 'pass', first)
+                self.assertEqual(first['check']['sample'], [['30']])
+                self.assertEqual(json.loads((self.run / 'module.json').read_text())['status'], 'paused')
+                self.assertEqual(self.command('export', '--run', self.run, '--context', self.context)[0], 2)
         self.assertEqual(data['status'], 'complete', data)
         self.assertEqual(seen, ['m2', 'x1', 'x2', 'x3', 'x4'])
         code, exported = self.command('export', '--run', self.run, '--context', self.context)
         self.assertEqual(code, 0, exported)
         self.assertEqual((exported['metrics'], exported['queries'], exported['links']), (1, 1, 1))
+        completed = json.loads((self.run / 'metric_cards.json').read_text())['metrics'][0]
+        self.assertEqual(completed['source_id'], first['card']['source_id'])
+        self.assertEqual(completed['formula'], first['card']['formula'])
         import dashboard  # Loads the existing publisher's bundled runtime, as its CLI does.
         from dashboard_publish import Publisher
         publisher = Publisher(self.context)
@@ -571,6 +598,87 @@ else:
         code, blocked = self.command('export', '--run', self.run, '--context', self.root / 'other-context')
         self.assertEqual(code, 2)
         self.assertIn('changed after completion', blocked['reason'])
+
+    def test_partial_first_card_uses_core_validation_and_resumes_full_collection(self):
+        self.history.write_text(self.history.read_text() + json.dumps({
+            'query_text': 'SELECT COUNT(*) AS order_count FROM demo.main.orders',
+            'exec_count': 20, 'user_count': 2}) + '\n')
+        self.assertEqual(self.command('prepare', '--run', self.run, '--config', self.config)[0], 0)
+        self.assertEqual(self.command('first-metric', '--run', self.run, '--model', 'synthetic-test',
+                                      '--metric-ref', 'revenue')[0], 2)
+        first = None
+        for _ in range(8):
+            code, data = self.command('advance', '--run', self.run, '--model', 'synthetic-test')
+            if code == 0:
+                break
+            self.assertEqual(code, 3, data)
+            gate = data['gate']
+            self.answer(gate)
+            target = Path(gate['answers'].replace('*', 'reply'))
+            body = json.loads(target.read_text())
+            prompt = json.loads(Path(gate['prompt']).read_text())
+            if gate['id'] == 'm2':
+                queries = {q['vq_id']: q for task in prompt['tasks'] for q in task['queries']}
+                for query in body['queries']:
+                    counted = 'COUNT' in queries[query['vq_id']]['sql'].upper()
+                    query.update(name='Order count' if counted else 'Total Revenue',
+                                 question='How many orders are there?' if counted else 'What is total revenue?',
+                                 description='The number of orders.' if counted else 'The total amount earned from orders.')
+            elif gate['id'] == 'x1':
+                for statement in body['statements']:
+                    for metric in statement['metrics']:
+                        if 'COUNT' in metric['expression'].upper():
+                            metric.update(name='Order count', aggregation='count', unit='count',
+                                          definition='The number of orders.', why_a_metric='The business tracks order volume.')
+            elif gate['id'] == 'x2':
+                proposals = [p for group in prompt['groups'] for p in group['proposals']]
+                template = body['metrics'][0]
+                body['metrics'] = []
+                for proposal in proposals:
+                    counted = proposal['name'] == 'Order count'
+                    body['metrics'].append({**template, 'name': proposal['name'],
+                        'definition': 'The number of orders.' if counted else template['definition'],
+                        'expression': proposal['expression'], 'aggregation': 'count' if counted else 'sum',
+                        'unit': 'count' if counted else 'USD',
+                        'sources': [{'proposal_id': proposal['proposal_id'], 'vq_id': proposal['vq_id'],
+                                     'name_as_proposed': proposal['name']}],
+                        'merge_reasoning': 'Distinct measurements of the same order population.'})
+            elif gate['id'] == 'x3':
+                for metric in body['metrics']:
+                    if metric['name'] == 'Order count':
+                        metric.update(description='The number of orders.', formula='COUNT(*)',
+                                      aggregation={'type': 'count', 'reaggregation': 'sum'},
+                                      output={'alias': 'order_count', 'datatype': 'integer', 'unit': 'count'})
+                full = copy.deepcopy(body)
+                revenue = next(m for m in body['metrics'] if m['name'] == 'Revenue')
+                body = {'metrics': [revenue]}
+                target.write_text(json.dumps(body))
+                args = ('first-metric', '--run', self.run, '--model', 'synthetic-test', '--metric-ref', 'revenue')
+                code, preview = self.command(*args)
+                self.assertEqual(code, 0, {**preview, 'log': (self.run / 'first-metric.log').read_text()[-3000:]})
+                first = json.loads(Path(preview['path']).read_text())
+                self.assertEqual(first['check']['sample'], [['30']])
+                partial = json.loads((self.run / 'metric_cards.json').read_text())
+                self.assertEqual(partial['partial']['n_authored'], 1)
+                self.assertEqual(partial['partial']['n_merged'], 2)
+                self.assertEqual(self.command('export', '--run', self.run, '--context', self.context)[0], 2)
+                revenue['formula'] = 'SUM(SUM(demo.main.orders.amount))'
+                target.write_text(json.dumps(body))
+                self.assertEqual(self.command(*args)[0], 2)
+                self.assertFalse((self.run / 'first-metric-preview.json').exists())
+                self.assertNotIn('first_metric', json.loads((self.run / 'module.json').read_text()))
+                body = full
+            target.write_text(json.dumps(body))
+        self.assertEqual(data['status'], 'complete', data)
+        self.assertIsNotNone(first)
+        cards = json.loads((self.run / 'metric_cards.json').read_text())
+        self.assertNotIn('partial', cards)
+        self.assertEqual(len(cards['metrics']), 2)
+        revenue = next(m for m in cards['metrics'] if m['metric_ref'] == 'revenue')
+        self.assertEqual(revenue, first['card'])
+        code, exported = self.command('export', '--run', self.run, '--context', self.context)
+        self.assertEqual(code, 0, exported)
+        self.assertEqual(exported['metrics'], 2)
 
     def test_no_engine_registry_destination_or_observer_and_no_early_export(self):
         for field, value in (('publish', ['registry-rest']), ('observers', ['atlan-trace'])):

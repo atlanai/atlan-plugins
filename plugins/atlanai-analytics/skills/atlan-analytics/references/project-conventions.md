@@ -14,7 +14,7 @@ A relative file argument resolves from `--dir`, so pass paths as the phase files
 It prints one JSON object. Exit 0 = ok, 1 = error, **2 = BLOCKED**: show the user its `reason`
 and `fix` in two lines and stop that phase. Don't work around a BLOCKED.
 
-`MINE` means `python3 "<skill-dir>/scripts/metrics_mine.py" <command>`, where `<skill-dir>` is
+`CONTEXT` means `python3 "<skill-dir>/scripts/context_contracts.py" <command>`, where `<skill-dir>` is
 this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/atlan-analytics` in Claude Code). It is
 standard library only, and its JSON output and exit codes follow the same rules as `EVAL`'s,
 with one more status: `check` prints `REFUSED`, exit 1, when some items failed. They are listed
@@ -140,7 +140,7 @@ Use the single run index and recovery commands in [dashboard](dashboard.md).
   - any literal compared with a person's, customer's or record's ID column, however short;
   - UUIDs and prefixed IDs such as `cus_8Hk2Lm9`.
 
-  `MINE check` applies the same rules to everything a card publishes: formula, filters, joins,
+  `CONTEXT check` applies the same rules to everything a card publishes: formula, filters, joins,
   dimensions and their values, parameter defaults, examples with their SQL and result rows, and
   the description. A sample value under a person column (`customer_name`, `email`) is refused
   whatever it looks like.
@@ -150,10 +150,11 @@ Use the single run index and recovery commands in [dashboard](dashboard.md).
 
 ## Talking to the user
 
-- Detail belongs in files (`brief.md`, `narrative.md`), not in chat.
+- Keep raw logs in files. Follow the shared setup presentation for the full first metric,
+  worked example, chat progress and ready handoff.
 - Run long local jobs (a large query-history pull) with Bash `run_in_background: true`, and check the
   files on disk before trusting a completion notice.
-- For big authoring jobs (the metrics authoring passes, many saved queries), split the work into chunks
+- For big authoring jobs (the metrics engine authored gates, many saved queries), split the work into chunks
   and give each chunk to a worker: a fresh subagent from the Agent tool that gets the chunk's
   files and the authoring rules, and nothing from `eval/`. Workers write answer files only; you
   run every ingest and every registry write.

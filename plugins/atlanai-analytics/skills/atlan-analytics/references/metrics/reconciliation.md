@@ -1,7 +1,7 @@
 # Reuse existing work without replacing its meaning
 
 Read complete existing definitions into `existing.json` for the chosen workspace before
-`MINE check`. Keep that inventory current while preparing the plan. A list of names is not
+`CONTEXT check`. Keep that inventory current while preparing the plan. A list of names is not
 enough. The checker reuses exact contracts, keeps the full existing definition and updates
 typed relationship endpoints. It never treats matching sample totals as proof of equivalence.
 Preserve `id`, `kind`, `name`, `display_name`, `description`, `source_id` and `definition`.
@@ -39,7 +39,7 @@ Replace the example with the actual comparison. `reuse` selects the complete exi
 despite a suggested match. A decision authorizes no remote mutation. The normal publication
 scope and approval rules still apply. Stale hashes or ambiguous targets require a fresh review.
 
-Rerun `MINE check`. Inspect `plan.json` including its `coverage` notes; they persist on repeat
+Rerun `CONTEXT check`. Inspect `plan.json` including its `coverage` notes; they persist on repeat
 checks. Original candidates and their checks remain in `reconciliation-history.json`. The
 checker moves execution evidence across a rename only if the exact definition is unchanged.
 After any definition adoption or revision, recheck the selected definition and representative

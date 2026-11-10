@@ -32,7 +32,7 @@ graders:
       Shipped units means total units on shipped orders, calculated as SUM(s.units), with the
       mandatory filter s.status = 'shipped', from the shipments model and query history.
       Its SQL example executed successfully earlier; independent dashboard parity is unmeasured.
-      PASS only if the reply shows those counts and one concise Shipped units sample containing
+      PASS only if the reply shows those counts and the full Shipped units business definition containing
       meaning, calculation, mandatory population/filter, source and honest prior check status.
       FAIL on other metric cards or inventories, a link in place of the sample, invented
       definitions or a claim of verified dashboard parity. Full SQL is not required here.
@@ -55,8 +55,8 @@ graders:
     focus: last_message
     criteria: |
       This is a final handoff from a saved checkpoint: 7 metrics and 4 queries were published
-      earlier, one further metric is held locally. PASS if the reply is at most 160 words,
-      leads with that result, and ends naturally with supported questions, the next-answer
+      earlier, one further metric is held locally. PASS if the reply shows the ready block
+      and selected metric's rule with factual counts, then ends with supported questions, the next-answer
       retrieval behavior or a material limitation. No machine status footer such as DONE,
       DONE_WITH_CONCERNS, BLOCKED or NEEDS_CONTEXT is allowed. Historical published status
       and an honest held-item limitation are useful facts, not prohibited workflow narration.
