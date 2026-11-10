@@ -103,7 +103,7 @@ managed**. The place they are saved is **Atlan Trident**: write "saved in Atlan 
 Before setup or metric-generation tools run, explain the outcome, immediate next action
 and the user's controls. Source discovery explains the sources and what they can answer.
 All setup follows [one presentation flow](setup/presentation.md): visible steps, the full
-first-metric definition and example, the context-built celebration and the ready block.
+completed-collection review, the context-built celebration and the ready block.
 Read each moment's file when reached and use its visible delivery method. These files are
 the presentation contract. Local draft question ideas must say that publication is needed
 before Registry-backed answers. A file link or helper output does not replace the explanation.

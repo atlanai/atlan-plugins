@@ -45,8 +45,7 @@ question: record the selection and continue.
 
 Record the selection in the run, then enter [Build](build-check.md). Call
 `analytics-metrics` `generate` with the selection and the whole survey: it reads every
-source before authoring, and authors the selected names and what they depend on. The first
-metric shown is the top selected name.
+source before authoring, and authors the selected names and what they depend on. The collection review's representative metric is the top selected name.
 
 If the survey's readiness is `none`, do not ask this question. Say the one thing that is
 missing and offer `analytics-demo`.

@@ -510,6 +510,30 @@ class GatewayToolNamesTest(unittest.TestCase):
             served[tool["name"]] = self.TIERS[0 if notes.get("readOnlyHint") else (2 if notes.get("destructiveHint") else 1)]
         self.assertEqual({}, {name: tier for name, tier in served.items() if known.get(name) != tier})
 
+    def test_the_emulator_and_the_tier_fixture_follow_the_gateway_catalogue(self):
+        # An eval run against stale descriptions and schemas measures a gateway that no longer
+        # exists: the model picks tools and fills arguments from what the emulator advertises.
+        import sync_gateway_tools
+        stale = [str(path.relative_to(ROOT)) for path in sync_gateway_tools.drift()]
+        self.assertEqual([], stale, "run python3 tools/sync_gateway_tools.py")
+
+    def test_a_synced_emulator_tool_keeps_its_own_keys_and_gains_what_the_catalogue_adds(self):
+        import sync_gateway_tools
+        source = {"name": "registry__read", "description": "new", "annotations": {"readOnlyHint": True},
+                  "input_schema": {"type": "object", "properties": {"offset": {"type": "integer"}}}}
+        added = source | {"name": "registry__added"}
+        hidden = source | {"name": "registry__submit_feedback"}
+        world = {"workspaces": [], "tools": [
+            {"name": "registry__read", "description": "old", "annotations": {}, "input_schema": {}, "writes": "file"},
+            {"name": "extension__skill__create", "description": "kept", "annotations": {}, "input_schema": {}}]}
+        synced = sync_gateway_tools.synced_world(world, [source, added, hidden])
+        self.assertEqual(synced["tools"][0], source | {"writes": "file"})
+        self.assertEqual(synced["tools"][1], world["tools"][1])
+        self.assertEqual([tool["name"] for tool in synced["tools"][2:]], ["registry__added"])
+        self.assertEqual(synced["workspaces"], [])
+        names = sync_gateway_tools.synced_names({"registry_tools": {"registry__old": "write"}}, [source])
+        self.assertEqual(names["registry_tools"], {"registry__old": "write", "registry__read": "read"})
+
     def test_the_emulator_serves_every_registry_tool_a_core_skill_names(self):
         # An eval cannot pass through a tool the emulator lacks: the run stops at `tool_unavailable`.
         world = json.loads((ROOT / "evals/atlan/emulator/world.json").read_text(encoding="utf-8"))

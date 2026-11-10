@@ -133,7 +133,7 @@ clean history path to the main engine's `local-files` history input. For live hi
 [query history](warehouses/query-history.md) or the configured native plug.
 
 Follow [build and check](setup/build-check.md) and [the metrics engine](metrics-engine.md)
-for both the first-card preview and the full collection. Reuse the combined survey and
+for the full selected collection. Reuse the combined survey and
 interview; preserve this run's scope, workspace and state. Model compilation, proposal,
 merge, whole-card review and relationships have exactly one implementation in the engine.
 Do not call a standalone dashboard translator or author Registry bodies by hand.

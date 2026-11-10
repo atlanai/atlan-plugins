@@ -7,5 +7,4 @@ Load this plugin's `analytics-demo` skill with `$ARGUMENTS` (in Claude Code, the
 `atlanai-analytics:analytics-demo`). With no demo named, ask its start choice first, without
 narrating which skill or file is being read. A demo exists so the person understands the
 plugin by watching it work: the blocks it prints at each moment are the point, and the build
-is how to reach them. After each flow, offer what the demo can do next, as the skill
-describes. "Use my own data" hands to the `analytics-build` skill.
+is how to reach them. After each flow, ask the next-action choice the skill describes. "Use my own data" hands to the `analytics-build` skill.

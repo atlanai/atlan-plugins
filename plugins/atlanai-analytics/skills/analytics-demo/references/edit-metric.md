@@ -5,7 +5,7 @@ context matters: change one rule once, and every answer that uses it changes wit
 
 ## 1. Offer one real change
 
-Open the chosen demo's file for its first metric. Propose one change that a person at the
+Pick one metric from the built context that the demo's questions use. Propose one change that a person at the
 firm could plausibly want, taken from the metric's own rule: a population it excludes, a
 threshold it uses, or a cost it leaves out. Say the current rule in one sentence, then ask
 one native question:
@@ -14,7 +14,7 @@ one native question:
 | --- | --- |
 | The proposed change | One line: what the rule would count instead. |
 | My own change | The person types it. |
-| Leave it as it is | Return to the nudge. |
+| Leave it as it is | Return to the next-action choice. |
 
 Never propose a change the demo's data cannot show: the tables must hold the column the
 new rule needs.
@@ -52,4 +52,4 @@ question, use the demo's first question.
   of the same metric after the person approves the plan. On no, the change stays on this
   machine and the published metric is unchanged; say which one answers from now on.
 
-Then return to the demo's nudge.
+Then return to the demo's next-action choice.

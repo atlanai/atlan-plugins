@@ -91,10 +91,9 @@ Every generation route follows [the metrics module](metrics-engine.md): local fi
 BI models, query history and full builds. There is no separate shape miner or by-hand card
 pipeline. `PROJECT history` only captures and filters history for the engine's common input.
 
-For the first-metric moment, answer one X3 card using its maintained gate instructions and
-run `ENGINE first-metric`. Show the full rule and worked example with actual check results.
-To build the rest, keep that answer, finish the remaining X3 answers and `ENGINE advance`
-the same run. Partial previews are not publication bundles.
+Answer the engine gates for the complete selected collection and continue `ENGINE advance`
+in the same run until validation finishes. Keep progress visible, then review the accepted
+collection and its checks. Do not add a mid-build customer decision between cards.
 
 ## 3. Export accepted context
 

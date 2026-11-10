@@ -1,6 +1,6 @@
 ---
 name: analytics-demo
-description: Run a guided analytics demo on sample data, with one metric end to end, questions, a dashboard, an edit and where to save. Use when someone asks to try, see or demo Atlan Analytics. Not for their own sources (analytics-build).
+description: Run a guided analytics demo on sample data, with context built end to end, questions, a dashboard, a rule edit and where to save. Use when someone asks to try, see or demo Atlan Analytics. Not for their own sources (analytics-build).
 user-invocable: false
 ---
 
@@ -36,18 +36,17 @@ step instead of repeating the welcome.
 ## 2. The flows
 
 Each flow has the same contract: what it needs, what it shows, what it calls. Run
-`first-metric` first. After any flow ends, section 3 picks what to offer.
+`build-context` first. After any flow ends, section 3 picks what to offer.
 
 | Flow | Needs | Shows | Calls |
 | --- | --- | --- | --- |
-| `first-metric` | A chosen dataset | The step tracker, the sources question, then [the first metric](../analytics-build/references/setup/demo-first-metric.md): its rule, population, source, check and worked example | `analytics-survey` `inventory`; `analytics-metrics` `generate` and `check` |
-| `save` | `first-metric` done | [Context built and where to keep it](../analytics-build/references/setup/demo-save.md): the celebration, actual counts, this machine or Atlan Trident | `analytics-metrics` `save` |
-| `questions` | `save` done | [Ready for questions](../analytics-build/references/setup/demo-ready.md): the ready block and the demo's questions. Answer only one the person picks or types | `analytics-ask` |
-| `dashboard` | One answer given | A layout in words, one confirmation, then a page the person can open | `analytics-ask`, [turn answers into a dashboard](../analytics-ask/references/next-steps.md) |
-| `edit-metric` | `first-metric` done | [Edit a metric](references/edit-metric.md): the rule before and after, and how one answer changes | `analytics-metrics` `edit`; `analytics-ask` |
+| `build-context` | A chosen dataset | The step tracker and the sources question, then the whole collection built and checked, reviewed with one representative metric, in [context built and where to keep it](../analytics-build/references/setup/demo-save.md): the celebration, actual counts, this machine or Atlan Trident | `analytics-survey` `inventory`; `analytics-metrics` `generate`, `check` and `save` |
+| `questions` | `build-context` done | [Ready for questions](../analytics-build/references/setup/demo-ready.md): the ready block and the demo's questions. Answer only one the person picks or types | `analytics-ask` |
+| `dashboard` | `build-context` done | A layout in words, one confirmation, then a page the person can open, as ready for questions describes | `analytics-ask` |
+| `edit-metric` | `build-context` done | [Edit a metric](references/edit-metric.md): the rule before and after, and how one answer changes | `analytics-metrics` `edit`; `analytics-ask` |
 
-The technical stages inside `first-metric` and `save` are the ones in
-[the guided tour](../analytics-build/references/setup/demo.md), sections 2 to 7: the demo
+The technical stages inside `build-context` are the ones in
+[the guided tour](../analytics-build/references/setup/demo.md), sections 2 to 6: the demo
 repository, the tracker at every step, the "Doing" and "Why" lines, the preset focus and
 purpose, and the rule to read each moment's file when it arrives. Follow them as written.
 The capabilities run without asking the person anything, because the demo supplies the
@@ -55,38 +54,37 @@ focus, the purpose and the source choice.
 
 A new flow is one reference file and one row in this table.
 
-## 3. After each flow: one nudge
+## 3. After each flow: one next-action choice
 
-When a flow ends, ask one native question that offers what is now possible. Offer only
-flows whose needs are met and that have not run, at most three, plus the way out:
+When a flow ends, ask the next-action question in
+[ready for questions](../analytics-build/references/setup/demo-ready.md), "What would you
+like to do next?". It has four options, the most a native question takes:
 
-| Option | When to offer | Does |
+| Slot | Option | Does |
 | --- | --- | --- |
-| Ask a question | `save` done | `questions` |
-| Design a dashboard | One answer given, no dashboard yet | `dashboard` |
-| Change a rule and see what happens | `first-metric` done, no edit yet | `edit-metric` |
-| Try the other demo | Any time after `questions` | Section 1, a new run |
-| Do this on my data | Always, last | Load `analytics-build`. Carry nothing over |
-| I'm done | Always | Wrap up in one line |
+| 1 | Ask AI | `questions` |
+| 2 | Design a dashboard, until one is built. After that, Change a rule and see what happens, until one edit is done | `dashboard`, then `edit-metric` |
+| 3 | Continue building on real data | Enter `analytics-build` in the same chat, as ready for questions describes. A separate run; the demo's intent, sources and approvals do not carry over |
+| 4 | I'm done | Finish with where the context and any dashboard live |
 
-Keep the order the person would want next: after `first-metric`, lead with saving; after
-`questions`, lead with the dashboard; after `dashboard`, lead with the edit. Never offer a
-flow twice in one run, and never start one the person did not pick.
+A person can type any flow's name at any time; a typed or supplied action takes precedence
+over asking again. Never start a flow the person did not pick, and never answer a question
+they did not choose.
 
 ## 4. State
 
 The demo's run records the dataset and what has been built; `PROJECT journey status` and
 `PROJECT checklist` read it. Which flows ran is read from the run and the conversation:
-a saved destination means `save` ran, a built page means `dashboard` ran. A demo run never
-continues as a build of the person's own data, and a build never resumes as a demo.
+a saved destination means `build-context` finished, a built page means `dashboard` ran. A
+demo run never continues as a build of the person's own data, and a build never resumes as
+a demo.
 
 ## 5. Rules for every moment
 
 - Reasoning is never shown to the person. Anything they must read is reply text or a
   question's visible prompt, sent before the question.
 - Never name a person at the demo firm. Say metrics and queries; the whole is the context.
-- Never answer a question the person has not chosen.
 - Only "Save to Atlan Trident" starts sign-in.
 
 Before sending: the first sentence is the result or the step; one next step, not a menu
-beyond the nudge; no apology, no closing offer; no em dashes or exclamation marks.
+beyond the next-action choice; no apology, no closing offer; no em dashes or exclamation marks.

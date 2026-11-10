@@ -299,8 +299,11 @@ class RegistryToolCoverageTest(unittest.TestCase):
         self.assertEqual((body["from_id"], body["to_id"], body["attributes"]), ("skill_01evalsecrev01", "skill_01evalsecrev02", {"note": "second"}))
         self.assertEqual(len(self.m.state["edges"]), 1)
         _, related = self.run_tool("mcp__call_read_tool", "registry__get_related_artifacts", {"artifact_id": "skill_01evalsecrev02"})
-        self.assertIn({"rel_type": "replaced_by", "direction": "incoming", "artifact_id": "skill_01evalsecrev01", "kind": "skill",
-                       "is_readable": True}, related["items"])
+        self.assertIn({"declared": True, "rel_type": "replaced_by", "direction": "incoming", "artifact_id": "skill_01evalsecrev01",
+                       "kind": "skill", "is_readable": True}, related["items"])
+        _, undeclared = self.run_tool("mcp__call_read_tool", "registry__get_related_artifacts",
+                                      {"artifact_id": "skill_01evalsecrev02", "declared": False})
+        self.assertEqual(undeclared["items"], [])
         result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact",
                                      {"artifact_id": "skill_01evalsecrev01", "rel_type": "replaced_by"})
         self.assertEqual(body["code"], "invalid_arguments")
@@ -342,6 +345,99 @@ class RegistryToolCoverageTest(unittest.TestCase):
         self.assertEqual(body["code"], "conflict")
         result, body = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"action_name": "publish"})
         self.assertEqual(body["code"], "unknown_action")
+
+
+class GatewayLabelsAndChecksTest(unittest.TestCase):
+    """What the gateway's tool definitions promise beyond the first set, which the synced
+    `world.json` now advertises: workspace names on counts and browse rows, paging by offset, an
+    output's file in the same read, a create checked without writing, and an approval pinned to
+    the head that was read."""
+
+    def setUp(self) -> None:
+        self.m = load()
+        self.rails = {"session_id": self.m.SESSION, "rationale": "Testing the emulator."}
+
+    def run_tool(self, runner: str, name: str, arguments: dict) -> tuple[dict, dict]:
+        return call(self.m, runner, self.rails | {"name": name, "arguments": arguments})
+
+    def read(self, name: str, arguments: dict) -> dict:
+        result, body = self.run_tool("mcp__call_read_tool", name, arguments)
+        self.assertFalse(result["isError"], body)
+        return body
+
+    def test_a_workspace_count_group_and_a_browse_row_name_their_workspace(self) -> None:
+        counted = self.read("registry__get_artifact_counts", {"kind": "skill", "group_by": "workspace_id", "limit": 2})
+        self.assertEqual(len(counted["groups"]), 2)
+        for group in counted["groups"]:
+            self.assertTrue(group["workspace_display_name"], group)
+            self.assertIn(group["workspace_kind"], ("default", "org_default", "user_default"))
+        self.assertRegex(counted["note"], r"^showing the 2 largest of \d+ groups; raise `limit` to see more$")
+        by_kind = self.read("registry__get_artifact_counts", {"group_by": "kind"})
+        self.assertNotIn("workspace_display_name", by_kind["groups"][0])
+        row = self.read("registry__list_artifacts", {"kind": "output", "limit": 1})["items"][0]
+        self.assertTrue(row["workspace_display_name"])
+
+    def test_offset_pages_a_browse_and_a_search_and_name_narrows_a_browse_to_one_line(self) -> None:
+        first = self.read("registry__list_artifacts", {"kind": "skill", "limit": 2})
+        second = self.read("registry__list_artifacts", {"kind": "skill", "limit": 2, "offset": 2})
+        self.assertEqual(second["page"]["offset"], 2)
+        self.assertFalse({i["id"] for i in first["items"]} & {i["id"] for i in second["items"]})
+        named = self.read("registry__list_artifacts", {"kind": "skill", "name": "security-review"})
+        self.assertEqual({i["name"] for i in named["items"]}, {"security-review"})
+        page = self.read("registry__search_artifacts", {"query": "security review", "kind": "skill", "limit": 1})["page"]
+        self.assertEqual(page["next_offset"], 1)
+        rest = self.read("registry__search_artifacts", {"query": "security review", "kind": "skill", "offset": page["next_offset"]})
+        self.assertNotIn("next_offset", rest["page"])
+        self.assertEqual(self.read("registry__list_workspaces", {"limit": 1, "offset": 1})["page"]["offset"], 1)
+
+    def test_a_project_reads_by_handle_or_by_exact_name_and_never_both(self) -> None:
+        by_name = self.read("registry__get_project", {"name": "payments"})
+        self.assertEqual(by_name, self.read("registry__get_project", {"project_id": "project_01evalpayments"}))
+        for arguments in ({}, {"name": "payments", "project_id": "project_01evalpayments"}):
+            result, body = self.run_tool("mcp__call_read_tool", "registry__get_project", arguments)
+            self.assertEqual(body["code"], "invalid_arguments")
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_project", {"name": "no-such"})
+        self.assertEqual(body["code"], "not_found")
+
+    def test_an_output_reads_with_its_file_in_one_call(self) -> None:
+        body = self.read("registry__get_artifact", {"artifact_id": "output_01evalchurn", "include_linked_file": True})
+        self.assertEqual(body["included_file"]["file_id"], "file_01evalchurnmd")
+        self.assertTrue(body["included_file"]["content"])
+        skill = self.read("registry__get_artifact", {"artifact_id": "skill_01evaloncall", "include_linked_file": True})
+        self.assertIn("points at no file", skill["included_file"]["error"])
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_artifact",
+                                     {"artifact_id": "output_01evalchurn", "include_linked_file": True, "include_file": "SKILL.md"})
+        self.assertEqual(body["code"], "invalid_arguments")
+
+    def test_a_dry_run_says_what_a_create_would_do_and_writes_nothing(self) -> None:
+        before = len(self.m.artifacts())
+        publish = {"metadata": {"name": "october-incident-review", "workspace_id": "workspace_01evalplatform"},
+                   "source_type": "local", "source_id": "claude/october-incident-review",
+                   "file": {"path": "review.md", "content": "# Review"}, "dry_run": True}
+        result, body = self.run_tool("mcp__call_write_tool", "registry__publish_output", publish)
+        self.assertFalse(result["isError"], body)
+        self.assertEqual((body["dry_run"], body["committed"], body["would"], body["artifact_id"]),
+                         (True, False, "append_version", "output_01evalincident"))
+        self.assertIn("the inline file's own create, which runs the file kind's hook", body["not_checked"])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact",
+                                     {"kind": "knowledge", "metadata": {"name": "runbooks", "workspace_id": "workspace_01evaldana"},
+                                      "dry_run": True})
+        self.assertEqual((body["would"], body["artifact_id"]), ("create", None))
+        self.assertEqual((len(self.m.artifacts()), self.m.state["versions"], self.m.state["created"]), (before, {}, {}))
+
+    def test_an_approval_holds_only_for_the_head_that_was_read(self) -> None:
+        head = self.read("registry__get_artifact", {"artifact_id": "skill_01evalpending"})
+        named = {"artifact_id": head["id"], "expected_version_id": head["version_id"], "if_match": head["etag"],
+                 "expected_status": head["artifact_status"]}
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", named | {"if_match": 'W/"v1"'})
+        self.assertEqual((result["isError"], body["code"]), (True, "precondition_failed"))
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", {"artifact_id": head["id"], "version_ordinal": 2})
+        self.assertEqual(body["code"], "invalid_arguments")
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", named)
+        self.assertFalse(result["isError"], body)
+        self.assertEqual(self.read("registry__get_artifact", {"artifact_id": head["id"]})["artifact_status"], "active")
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", named | {"expected_status": "active"})
+        self.assertEqual(body["code"], "conflict")
 
 
 if __name__ == "__main__":

@@ -25,8 +25,8 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply offers a short set of next steps to choose from that includes designing a
-      dashboard, changing a rule to see what happens, and doing this on the person's own data (or
-      finishing), with the dashboard offered first or prominently, and then stops to wait. FAIL if it
-      starts a flow the person did not pick, offers to build the first metric or save again, offers
-      more than six options, or answers a question nobody asked.
+      PASS if the reply offers a short set of next steps to choose from that includes asking a
+      question, designing a dashboard and continuing on the person's own data, plus a way to
+      finish, with at most four options, and then stops to wait. FAIL if it starts a flow the
+      person did not pick, offers to build or save the context again, offers more than four
+      options, or answers a question nobody asked.
