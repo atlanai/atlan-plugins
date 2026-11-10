@@ -122,7 +122,7 @@ Apply [explanation checks](../atlan-analytics/references/answer-checks.md) to nu
 
 Lead with the answer in one or two sentences: the number, its definition and window ("CSAT,
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
-- **Source**: each metric or saved query used, by name, as a link to its page in Atlan
+- **Proof**: always, each metric or query used, by name, as a link to its page in Atlan
   Trident ([definition links](../atlan-analytics/references/definition-links.md)), never
   a bare id; or **Not managed: no published metric covers this**, followed by the
   formula and filters you assumed;
