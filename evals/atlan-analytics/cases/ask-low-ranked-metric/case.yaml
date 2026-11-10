@@ -10,7 +10,7 @@ graders:
   - name: fires-ask
     type: tool_used
     tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-analytics-ask"'
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-ask"'
   - name: reads-the-low-ranked-metric-by-name-and-workspace
     type: tool_used
     tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool

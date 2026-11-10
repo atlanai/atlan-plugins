@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 
-SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import context_contracts as mine
 import test_local_project as fixtures

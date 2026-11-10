@@ -1,6 +1,6 @@
 ---
 name: atlan-analytics-failure-analyst
-description: Reads TRAIN-split eval transcripts of a talk-to-data agent and proposes ONE change (a registry metric or saved-query version, a new metric, a usage note, the agent prompt, or the model) that fixes the costliest failure behaviour, or buckets the remaining failures by root cause. Spawned fresh each round by atlan-analytics improve.
+description: Reads TRAIN-split eval transcripts of a talk-to-data agent and proposes ONE change (a registry metric or saved-query version, a new metric, a usage note, the agent prompt, or the model) that fixes the costliest failure behaviour, or buckets the remaining failures by root cause. Spawned fresh each round by analytics-build improve.
 tools: Read, Grep, Glob
 model: inherit
 ---

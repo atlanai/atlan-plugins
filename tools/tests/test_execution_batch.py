@@ -6,7 +6,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import local_data
 import test_local_project as fixtures

@@ -17,7 +17,7 @@ def plans(cards):
 
 
 def assess(plan, check):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'skills/atlan-analytics/scripts'))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'skills/analytics-build/scripts'))
     from analytics_eval import grade
     if check.get('sql_sha256') != plan['sql_sha256']:
         raise ValueError('Parity evidence refers to different metric SQL.')

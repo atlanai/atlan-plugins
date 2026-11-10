@@ -1,0 +1,47 @@
+# Build a talk-to-data agent
+
+Read [shared conventions](conventions.md) and [project conventions](project-conventions.md) first. Work in the project directory
+`.atlan-analytics/<slug>/`. Seven phases, each ending in a STOP gate or a checkpoint. Read the
+reference file when you enter a phase.
+
+Before phase 1, show the table below and ask once to go ahead. That yes covers the local steps
+that can be redone: writing `brief.md`, `tables.txt` and the eval files, and the split. Choosing
+the workspace, trusting answers, every registry write and the cost of the baseline each keep
+their own question.
+
+| # | phase | reference | the user decides | produces |
+|---|---|---|---|---|
+| 1 | purpose | [01-purpose](build/01-purpose.md) | audience, 5–10 real questions (checkpoint) | `brief.md` |
+| 2 | scope | [02-scope](build/02-scope.md) | ≤5 tables, the workspace | `tables.txt`, `workspace_id` |
+| 3 | context | [03-context](build/03-context.md) | the source of trusted SQL, publish | metrics + saved queries in the workspace |
+| 4 | eval_set | [04-eval-set](build/04-eval-set.md) | which questions and answers are trusted | `eval/cases.jsonl`, `eval/answers.jsonl`, `eval/split.json` |
+| 5 | agent | [05-agent](build/05-agent.md) | name, model, the system prompt | registered agent + `.claude/agents/<slug>.md` |
+| 6 | smoke | [06-smoke](build/06-smoke.md) | nothing (checkpoint) | 3 answered questions, sessions visible in the registry |
+| 7 | baseline | [07-baseline](build/07-baseline.md) | nothing (confirm the run's size) | baseline experiment in the registry |
+
+## Rules specific to building
+
+- **Scope:** five tables or fewer, 5–10 sample questions, 20–50 eval cases.
+- **Context before prompt.** When the agent is wrong, the fix is usually a definition (a
+  metric, a saved query, a usage note), not more prompt text. Say this when the user reaches
+  for the prompt.
+- **The eval set is not context.** Questions and gold SQL written in phase 4 never feed phase
+  3 or the prompt. If the user offers a benchmark file during phase 3, park it for phase 4.
+- **Phase 3 needs nothing installed.** It runs the metrics workflow, which uses this assistant
+  and the main metrics engine, and reads declared models, BI files or query history,
+  whichever are in reach. With none of them, it drafts definitions with the user, so the phase
+  is never blocked.
+- **Registering an agent and writing the subagent file are outward-facing.** Preview both,
+  then ask.
+
+## When it finishes
+
+After phase 7:
+
+- State the baseline validation and train pass rates, with the noise band `±1/sqrt(n·reps)`.
+  The holdout is still unscored; it is read once, when an improve loop hands back.
+- List the three most common failure classes.
+- Offer `analytics-build improve` as the next step (Recommended).
+- Set `phase` to `improve`.
+
+End with the useful result or one recovery action in natural language.

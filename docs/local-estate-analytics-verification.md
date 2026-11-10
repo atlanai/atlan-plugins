@@ -146,7 +146,7 @@ symlinks are refused, SQL uses bound parameters and scoped tables, and no new de
 MCP server or credential is introduced. Format detection is not a parsing guarantee;
 unsupported readers and translations retain visible held status.
 
-Current entry: [shared setup](../plugins/atlanai-analytics/skills/atlan-analytics/references/setup.md).
+Current entry: [shared setup](../plugins/atlanai-analytics/skills/analytics-build/references/setup.md).
 New regression coverage: [context setup tests](../tools/tests/test_context_setup.py).
 
 ## Earlier 0.5.14 verification
@@ -400,8 +400,8 @@ studio successfully. This is a platform presentation issue, not a failed Registr
 
 ## Main implementation files
 
-- [Project workflow](../plugins/atlanai-analytics/skills/atlan-analytics/references/project.md)
-- [Local project helper](../plugins/atlanai-analytics/skills/atlan-analytics/scripts/project.py)
-- [DuckDB executor](../plugins/atlanai-analytics/skills/atlan-analytics/scripts/local_data.py)
+- [Project workflow](../plugins/atlanai-analytics/skills/analytics-build/references/project.md)
+- [Local project helper](../plugins/atlanai-analytics/skills/analytics-build/scripts/project.py)
+- [DuckDB executor](../plugins/atlanai-analytics/skills/analytics-build/scripts/local_data.py)
 - [Integration tests](../tools/tests/test_local_project.py)
 - [Natural prompt routing case](../evals/atlan-analytics/cases/routing-project-natural/case.yaml)

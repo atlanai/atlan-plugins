@@ -17,7 +17,7 @@ graders:
   - name: uses-analytics
     type: tool_used
     tool: Skill
-    input_match: 'atlan-analytics'
+    input_match: 'analytics-build'
   - name: honest-local-handoff
     type: llm
     focus: last_message

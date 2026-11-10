@@ -12,7 +12,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics'))
 from modules.metrics import driver
@@ -144,7 +144,7 @@ class SnapshotTests(unittest.TestCase):
 
     def test_incomplete_skill_only_install_reports_missing_plugin_module(self):
         with tempfile.TemporaryDirectory() as temp:
-            script = Path(temp) / 'skills/atlan-analytics/scripts/analytics_agent.py'
+            script = Path(temp) / 'skills/analytics-build/scripts/analytics_agent.py'
             script.parent.mkdir(parents=True)
             script.write_text((SCRIPTS / 'analytics_agent.py').read_text())
             process = subprocess.run([sys.executable, str(script), 'metrics', '--help'],

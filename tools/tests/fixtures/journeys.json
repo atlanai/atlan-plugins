@@ -755,7 +755,7 @@
   {
    "id": "analytics-ask-governed",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics-ask",
+   "skill": "analytics-ask",
    "title": "Answer a number from a released metric",
    "route": "One metric search across workspaces with one definition (opens the session), warehouse check, query",
    "calls": {
@@ -823,7 +823,7 @@
   {
    "id": "analytics-ask-ungoverned",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics-ask",
+   "skill": "analytics-ask",
    "title": "Answer with no published definition",
    "route": "One metric search across workspaces, saved queries without SQL, then ad hoc SQL labelled not governed",
    "calls": {
@@ -904,7 +904,7 @@
   {
    "id": "analytics-ask-low-rank",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics-ask",
+   "skill": "analytics-ask",
    "title": "Answer when the right metric ranks low and no warehouse is registered",
    "route": "One metric search (opens the session); then, together, the kept hit's definition by name and its workspace, and the warehouse search; no warehouse, so SQL to run and NEEDS_CONTEXT",
    "calls": {
@@ -968,7 +968,7 @@
   {
    "id": "analytics-connect-warehouse",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Find and prove the warehouse query tool",
    "route": "Reuse the tool in state, else search Atlan for a SQL tool and run its check",
    "calls": {
@@ -1009,7 +1009,7 @@
   {
    "id": "analytics-bootstrap-metrics",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Bootstrap metrics and saved queries from query history",
    "route": "Workspace, overlap check, batched creates, read back",
    "calls": {
@@ -1085,7 +1085,7 @@
   {
    "id": "analytics-hand-author",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Hand-author a small metric set",
    "route": "Workspace, one batched create, read back",
    "calls": {
@@ -1144,7 +1144,7 @@
   {
    "id": "analytics-propose",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Propose a corrected metric to its owners",
    "route": "Find the definition, read it, save the proposal",
    "calls": {
@@ -1200,7 +1200,7 @@
   {
    "id": "analytics-build-agent",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Build an answering agent (preflight and registration)",
    "route": "Preflight once per conversation, then register the agent; the phases between are gated by the user",
    "calls": {
@@ -1264,7 +1264,7 @@
   {
    "id": "analytics-eval-publish",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Publish a 40-case eval (32 run, 2 reps)",
    "route": "Scorer, dataset, records, experiment, 64 sessions in one bulk call, filled message batches, results, completion",
    "calls": {
@@ -1387,7 +1387,7 @@
   {
    "id": "analytics-improve",
    "plugin": "atlanai-analytics",
-   "skill": "atlan-analytics",
+   "skill": "analytics-build",
    "title": "Adopt an agent and run one improve round",
    "route": "Adopt by exact identity, then per round: a context change, an eval run and its publish",
    "calls": {
@@ -1433,248 +1433,14 @@
    "measured": null
   },
   {
-   "id": "analytics-ontology-explain",
-   "plugin": "atlanai-analytics",
-   "skill": "atlan-ontology",
-   "title": "Explain an object and its joins",
-   "route": "Ontologies across workspaces (opens the session), app check and release in parallel, context, binding release and context",
-   "calls": {
-    "cold": [
-     {
-      "tool": "registry__list_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "ontology"
-      }
-     },
-     {
-      "tool": "mcp__describe_tools",
-      "runner": "direct",
-      "args": {
-       "servers": [
-        "extension__ontology"
-       ]
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "registry__get_kind_schema",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "ontology"
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "registry__list_releases",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<ontology>"
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "extension__ontology__get_context",
-      "runner": "call_read_tool",
-      "args": {
-       "release_id": "<current>",
-       "query": "<object>"
-      }
-     },
-     {
-      "tool": "registry__list_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "ontology_binding"
-      }
-     },
-     {
-      "tool": "registry__list_releases",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<binding>"
-      }
-     },
-     {
-      "tool": "extension__ontology__get_binding_context",
-      "runner": "call_read_tool",
-      "args": {
-       "release_id": "<latest>",
-       "query": "<object>"
-      }
-     }
-    ],
-    "warm": [
-     {
-      "tool": "extension__ontology__get_context",
-      "runner": "call_read_tool",
-      "args": {
-       "release_id": "<current>",
-       "query": "<object>"
-      }
-     },
-     {
-      "tool": "extension__ontology__get_binding_context",
-      "runner": "call_read_tool",
-      "args": {
-       "release_id": "<latest>",
-       "query": "<object>"
-      }
-     }
-    ]
-   },
-   "budget": {
-    "cold": 8,
-    "warm": 2
-   },
-   "targets": {
-    "preflight_max_kb": 2
-   },
-   "measured": null
-  },
-  {
-   "id": "analytics-ontology-records",
-   "plugin": "atlanai-analytics",
-   "skill": "atlan-ontology",
-   "title": "Find the policy in force on a date",
-   "route": "Find the ontology, then records as of the date, 10 at a time",
-   "calls": {
-    "cold": [
-     {
-      "tool": "registry__list_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "ontology"
-      }
-     },
-     {
-      "tool": "extension__ontology__get_records",
-      "runner": "call_read_tool",
-      "args": {
-       "as_of": "<date>",
-       "limit": 10,
-       "query": "<one or two key words>"
-      }
-     }
-    ],
-    "warm": [
-     {
-      "tool": "extension__ontology__get_records",
-      "runner": "call_read_tool",
-      "args": {
-       "as_of": "<date>",
-       "limit": 10,
-       "query": "<one or two key words>"
-      }
-     }
-    ]
-   },
-   "budget": {
-    "cold": 2,
-    "warm": 1
-   },
-   "targets": {
-    "max_kb": 24
-   },
-   "measured": null
-  },
-  {
-   "id": "analytics-ontology-draft",
-   "plugin": "atlanai-analytics",
-   "skill": "atlan-ontology",
-   "title": "Draft an OWL ontology for Studio",
-   "route": "Target ontology; its release beside the released metrics and saved queries; existing context beside the schemas; import preview",
-   "calls": {
-    "cold": [
-     {
-      "tool": "registry__list_artifacts",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "ontology"
-      }
-     },
-     {
-      "tool": "registry__list_releases",
-      "runner": "call_read_tool",
-      "args": {
-       "artifact_id": "<ontology>"
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "extension__metric__search_metrics",
-      "runner": "call_read_tool",
-      "args": {
-       "workspace_id": "<ws>",
-       "query": "<domain>",
-       "include_definition": true,
-       "definition_limit": 2
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "extension__metric__search_queries",
-      "runner": "call_read_tool",
-      "args": {
-       "workspace_id": "<ws>",
-       "query": "<domain>",
-       "limit": 5,
-       "include_sql": false
-      },
-      "group": "g1"
-     },
-     {
-      "tool": "extension__ontology__get_context",
-      "runner": "call_read_tool",
-      "args": {
-       "release_id": "<current>",
-       "query": "<domain>"
-      },
-      "group": "g2"
-     },
-     {
-      "tool": "warehouse.query",
-      "runner": "warehouse",
-      "args": {
-       "sql": "<information_schema columns and keys>"
-      },
-      "group": "g2"
-     },
-     {
-      "tool": "extension__ontology__get_import_preview",
-      "runner": "call_read_tool",
-      "args": {
-       "document": "<turtle>"
-      }
-     }
-    ],
-    "warm": [
-     {
-      "tool": "extension__ontology__get_import_preview",
-      "runner": "call_read_tool",
-      "args": {
-       "document": "<turtle>"
-      }
-     }
-    ]
-   },
-   "budget": {
-    "cold": 7,
-    "warm": 1
-   },
-   "targets": null,
-   "measured": null
-  },
-  {
    "id": "flow-review-15",
    "plugin": "both",
    "skill": null,
    "title": "The flow review's 15-step live flow",
-   "route": "Connect, find metrics across 51 workspaces, ontology preflight, a governed ask, publish a 40-case eval",
+   "route": "Connect, find metrics across 51 workspaces, a governed ask, publish a 40-case eval",
    "includes": [
     "registry-get-started",
     "analytics-ask-governed",
-    "analytics-ontology-explain",
     "analytics-eval-publish"
    ],
    "calls": null,
@@ -1688,7 +1454,6 @@
      4,
      6
     ],
-    "ontology_preflight_max_kb": 2,
     "partial_searches": 0,
     "eval_message_steps": 5,
     "eval_publish_steps_after_T10": 8,

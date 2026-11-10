@@ -584,9 +584,9 @@ class DashboardPromptTest(unittest.TestCase):
 class MetricsStudioPromptTest(unittest.TestCase):
     """Metrics Studio (metric service `studio/src/lib/metrics-setup.ts`) sends these to set up metrics."""
 
-    # `/<plugin>:atlan-analytics metrics` in Claude Code, `$<plugin>:atlan-analytics metrics` in
-    # Codex, and over MCP alone `atlan://defaults/skills/atlan-analytics/SKILL.md`, metrics mode.
-    SKILL = "atlan-analytics"
+    # `/<plugin>:analytics-build metrics` in Claude Code, `$<plugin>:analytics-build metrics` in
+    # Codex, and over MCP alone `atlan://defaults/skills/analytics-build/SKILL.md`, metrics mode.
+    SKILL = "analytics-build"
 
     def setUp(self) -> None:
         self.addon = ROOT / "plugins" / build.load()["addons"][0]["name"]

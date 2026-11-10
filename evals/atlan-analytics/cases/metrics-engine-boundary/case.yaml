@@ -3,7 +3,7 @@ name: metrics-engine-boundary
 tags: [analytics, routing, metrics, publishing]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     Explain how a new run from an existing query-history export will make metrics and
     publish them. Use the embedded metrics-agent. Do not execute this run yet.
   max_turns: 12

@@ -19,7 +19,7 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 from context_state import ContextState, digest, ordinary  # noqa: E402
 import experience  # noqa: E402

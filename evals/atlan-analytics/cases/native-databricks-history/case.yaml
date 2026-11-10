@@ -3,7 +3,7 @@ name: native-databricks-history
 tags: [analytics, metrics, databricks]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     Generate local draft metrics from native Databricks history for DEMO.MAIN.ORDERS in
     workspace 123, January 2026. The maintained Databricks runtime is installed and browser
     sign-in is available. Explain the next step only; do not run tools against the warehouse

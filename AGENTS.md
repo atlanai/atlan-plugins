@@ -61,7 +61,8 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `plugin.toml`: a display name, a short description and a starter prompt that invokes it as
   `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
   `agents/openai.yaml`, and fails on a skill without one.
-- **Skills this repository owns** are named `atlan-<task>`, one task each, with a description
+- **Skills this repository owns** are named `atlan-<task>` in the core and `<workload>-<task>` in an
+  add-on (`analytics-build`, `analytics-ask`), one task each, with a description
   that says when to use the skill rather than what it is: the action, then `Use when` (or
   `Use for`) with the words people say, then `Not for` naming the nearest sibling skill.
   `make check` fails on a description without `Use when` or `Use for`. The description is the
@@ -128,9 +129,9 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
   is their source of truth. The app behind the workload should pin a commit of this repository
-  to serve the same files over MCP, so a change here reaches it at its next pin bump. metric service
-  does not yet: it serves its own copy of `atlan-analytics` from
-  `backend/defaults/skills/atlan-analytics/`, which has drifted from `plugins/atlanai-analytics`. An add-on depends on `atlanai` and declares no MCP server, hooks or
+  to serve the same files over MCP, so a change here reaches it at its next pin bump. The metric
+  service does: it copies `analytics-build` into `backend/defaults/skills/analytics-build/` at a
+  pinned commit, and its sync workflow opens the bump on each release. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.

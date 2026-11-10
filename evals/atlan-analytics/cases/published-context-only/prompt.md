@@ -3,7 +3,7 @@ max_turns: 12
 allowed_tools: [Read, Glob, Grep]
 ---
 
-Read the atlan-analytics answering-agent template. Explain how the generated agent should handle
+Read the analytics-build answering-agent template. Explain how the generated agent should handle
 this synthetic scenario, without querying a registry or warehouse:
 
 Search finds Revenue revision ver_draft_4 with a formula including cancelled orders. Reading

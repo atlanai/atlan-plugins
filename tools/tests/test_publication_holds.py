@@ -13,7 +13,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / 'plugins/atlanai-analytics'
-SCRIPTS = PLUGIN / 'skills/atlan-analytics/scripts'
+SCRIPTS = PLUGIN / 'skills/analytics-build/scripts'
 sys.path.insert(0, str(PLUGIN))
 sys.path.insert(0, str(SCRIPTS))
 from modules.metrics import holds, driver
