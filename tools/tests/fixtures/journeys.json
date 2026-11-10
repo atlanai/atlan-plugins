@@ -1544,7 +1544,7 @@
    "plugin": "atlanai",
    "skill": "atlan-manage-artifacts",
    "title": "See what waits for review in the workspaces I administer",
-   "route": "Workspaces, counts by status per admin workspace, then the pending rows",
+   "route": "Workspaces, counts by status per admin workspace, then the pending and the blocked rows together",
    "calls": {
     "cold": [
      {
@@ -1567,8 +1567,20 @@
       "runner": "call_read_tool",
       "args": {
        "workspace_id": "<admin workspace>",
-       "full": true
-      }
+       "full": true,
+       "status": "pending_review"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<admin workspace>",
+       "full": true,
+       "status": "blocked"
+      },
+      "group": "g1"
      }
     ],
     "warm": [
@@ -1585,16 +1597,28 @@
       "runner": "call_read_tool",
       "args": {
        "workspace_id": "<admin workspace>",
-       "full": true
-      }
+       "full": true,
+       "status": "pending_review"
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<admin workspace>",
+       "full": true,
+       "status": "blocked"
+      },
+      "group": "g1"
      }
     ]
    },
    "budget": {
-    "cold": 3,
-    "warm": 2
+    "cold": 4,
+    "warm": 3
    },
-   "warm_note": "Warm: the admin workspaces are known from earlier in the conversation. A status filter on list_artifacts would drop the client-side paging.",
+   "warm_note": "Warm: the admin workspaces are known from earlier in the conversation.",
    "targets": null,
    "measured": null
   }

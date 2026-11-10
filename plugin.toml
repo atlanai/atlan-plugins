@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.51"
+version = "0.5.52"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -90,7 +90,7 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.7.1"
+version = "0.7.2"
 description = "Prepare a link, local folder or BI export for talk-to-data in Claude or Codex: survey dashboards and query history, select scope, preview metrics and SQL, publish to Atlan and ask questions from released context. Also supports warehouse analytics and explicit agent workflows."
 short_description = "Publish analytics context and ask your data with Atlan"
 long_description = "The analytics workload on the Atlan registry. Ask a data question and get an answer from your published metrics and saved queries, with the definition it used. Mine your warehouse's query history into managed metrics and saved queries, build a talk-to-data agent that reads them, measure it against a local eval set and improve it round by round, or propose a metric fix from a conversation. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and asks you to connect one when it is missing. It uses the Atlan plugin's connection. Turn a Power BI dashboard into SQL metrics, compare dashboard answers, evaluate a fresh Claude or Codex agent and ask questions from released definitions."
@@ -114,7 +114,7 @@ default_prompts = [
 [[mods]]
 name = "atlanai-mods"
 display_name = "Registry Mods"
-version = "0.4.7"
+version = "0.4.8"
 description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection."
 keywords = ["atlan", "registry", "mods", "permissions"]
 claude_category = "development"

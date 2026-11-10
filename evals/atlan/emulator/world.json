@@ -1568,6 +1568,844 @@
      "query"
     ]
    }
+  },
+  {
+   "name": "extension__skill__query_trace_stats",
+   "description": "Aggregate statistics over a skill's runs — counts, durations, error rates, cost — without reading the runs themselves.\n\nWorth reaching for **first** when the question is about the shape of the traffic rather than about one call, and worth reaching for **instead** when `list_traces` refuses: some callers may read statistics over a skill they may not read the individual runs of.",
+   "annotations": {
+    "openWorldHint": false,
+    "readOnlyHint": true
+   },
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "query": {
+      "description": "The statistics request. The skill scope is applied for you — do not set a skill or workspace dimension yourself.",
+      "properties": {
+       "bucket": {
+        "description": "Bucket width; **required** for `time_series`, ignored otherwise.",
+        "enum": [
+         "day",
+         "week",
+         null
+        ],
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "compare": {
+        "anyOf": [
+         {
+          "description": "Prior-period comparison mode.",
+          "oneOf": [
+           {
+            "enum": [
+             "none"
+            ],
+            "type": "string"
+           },
+           {
+            "const": "previous_period",
+            "description": "Re-run every query over the immediately preceding window and return it\nunder `comparison`.",
+            "type": "string"
+           }
+          ]
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "description": "Prior-period comparison. Defaults to `none`."
+       },
+       "end_time_unix_seconds": {
+        "description": "Window end, exclusive (unix epoch seconds, UTC).",
+        "format": "int64",
+        "type": "integer"
+       },
+       "queries": {
+        "description": "The panels to compute.",
+        "items": {
+         "description": "One panel of a statistics request: a named measure with its grouping, filters,\nand ordering.",
+         "properties": {
+          "filters": {
+           "items": {
+            "description": "One filter clause on a query's dimension.",
+            "properties": {
+             "key": {
+              "description": "A dimension a query can group or filter by.",
+              "oneOf": [
+               {
+                "enum": [
+                 "harness",
+                 "skill",
+                 "skill_version",
+                 "command",
+                 "mcp",
+                 "tool",
+                 "model"
+                ],
+                "type": "string"
+               },
+               {
+                "const": "repository",
+                "description": "Exact canonical Git remote.",
+                "type": "string"
+               },
+               {
+                "const": "branch",
+                "description": "Git branch, from the span attribute map with resource fallback.",
+                "type": "string"
+               },
+               {
+                "const": "revision",
+                "description": "Git commit revision, from the span attribute map with resource fallback.",
+                "type": "string"
+               },
+               {
+                "const": "user",
+                "description": "Keys on the stable creator id, not the JWT subject.",
+                "type": "string"
+               },
+               {
+                "const": "experiment",
+                "description": "The promoted `experiment_id` column (`atlan.eval.experiment_id`).",
+                "type": "string"
+               },
+               {
+                "const": "score_name",
+                "description": "The promoted `score_name` column on spans typed `score`.",
+                "type": "string"
+               },
+               {
+                "const": "scorer",
+                "description": "The promoted `scorer_id` column on spans typed `score`.",
+                "type": "string"
+               },
+               {
+                "const": "scorer_version",
+                "description": "The promoted `scorer_version` column on spans typed `score`.",
+                "type": "string"
+               },
+               {
+                "const": "artifact",
+                "description": "The governed artifact a use or serve names (`artifact_id`, spans typed `artifact_use`\nor `artifact_serve`).",
+                "type": "string"
+               },
+               {
+                "const": "artifact_version",
+                "description": "The artifact version the use saw; empty for a search summary.",
+                "type": "string"
+               },
+               {
+                "const": "artifact_release",
+                "description": "The release the use read; empty for a head read.",
+                "type": "string"
+               },
+               {
+                "const": "artifact_stage",
+                "description": "How far the use got: `returned`, `read` or `cited`.",
+                "type": "string"
+               }
+              ]
+             },
+             "op": {
+              "description": "Comparison operator for a query filter.",
+              "enum": [
+               "eq",
+               "neq",
+               "in",
+               "exists",
+               "not_exists"
+              ],
+              "type": "string"
+             },
+             "value": {
+              "description": "A scalar for `eq`/`neq`, an array for `in`, absent for the existence\noperators."
+             }
+            },
+            "required": [
+             "key",
+             "op"
+            ],
+            "type": "object"
+           },
+           "type": "array"
+          },
+          "group_by": {
+           "description": "Grouping dimensions. Valid for `table` requests only; a latency measure\nsupports none.",
+           "items": {
+            "description": "A dimension a query can group or filter by.",
+            "oneOf": [
+             {
+              "enum": [
+               "harness",
+               "skill",
+               "skill_version",
+               "command",
+               "mcp",
+               "tool",
+               "model"
+              ],
+              "type": "string"
+             },
+             {
+              "const": "repository",
+              "description": "Exact canonical Git remote.",
+              "type": "string"
+             },
+             {
+              "const": "branch",
+              "description": "Git branch, from the span attribute map with resource fallback.",
+              "type": "string"
+             },
+             {
+              "const": "revision",
+              "description": "Git commit revision, from the span attribute map with resource fallback.",
+              "type": "string"
+             },
+             {
+              "const": "user",
+              "description": "Keys on the stable creator id, not the JWT subject.",
+              "type": "string"
+             },
+             {
+              "const": "experiment",
+              "description": "The promoted `experiment_id` column (`atlan.eval.experiment_id`).",
+              "type": "string"
+             },
+             {
+              "const": "score_name",
+              "description": "The promoted `score_name` column on spans typed `score`.",
+              "type": "string"
+             },
+             {
+              "const": "scorer",
+              "description": "The promoted `scorer_id` column on spans typed `score`.",
+              "type": "string"
+             },
+             {
+              "const": "scorer_version",
+              "description": "The promoted `scorer_version` column on spans typed `score`.",
+              "type": "string"
+             },
+             {
+              "const": "artifact",
+              "description": "The governed artifact a use or serve names (`artifact_id`, spans typed `artifact_use`\nor `artifact_serve`).",
+              "type": "string"
+             },
+             {
+              "const": "artifact_version",
+              "description": "The artifact version the use saw; empty for a search summary.",
+              "type": "string"
+             },
+             {
+              "const": "artifact_release",
+              "description": "The release the use read; empty for a head read.",
+              "type": "string"
+             },
+             {
+              "const": "artifact_stage",
+              "description": "How far the use got: `returned`, `read` or `cited`.",
+              "type": "string"
+             }
+            ]
+           },
+           "type": "array"
+          },
+          "limit": {
+           "format": "uint32",
+           "minimum": 0,
+           "type": [
+            "integer",
+            "null"
+           ]
+          },
+          "measure": {
+           "description": "What a query measures.",
+           "oneOf": [
+            {
+             "enum": [
+              "sessions",
+              "spans",
+              "skill_invocations",
+              "tool_calls",
+              "tokens",
+              "active_users",
+              "latency_p90",
+              "latency_p99"
+             ],
+             "type": "string"
+            },
+            {
+             "const": "traces",
+             "description": "Distinct traces — the \"runs\" count. Prefer this over `sessions`, which is\nempty on backfilled traces.",
+             "type": "string"
+            },
+            {
+             "const": "uncached_input_tokens",
+             "description": "Input tokens not served from cache, normalised on read: OpenAI counts\ncached tokens inside `input_tokens`, Anthropic reports them alongside.",
+             "type": "string"
+            },
+            {
+             "const": "cached_input_tokens",
+             "description": "Input tokens served from cache.",
+             "type": "string"
+            },
+            {
+             "const": "cache_write_tokens",
+             "description": "Input tokens written to cache.",
+             "type": "string"
+            },
+            {
+             "const": "output_tokens",
+             "description": "Output tokens, reasoning included.",
+             "type": "string"
+            },
+            {
+             "const": "active_visitors",
+             "description": "Distinct visitors in scope — the adoption measure for a shared agent,\nwhere `active_users` is structurally 1 (the agent's own credential). A\nrun nobody claimed is absent rather than counted as an anonymous visitor.",
+             "type": "string"
+            },
+            {
+             "const": "error_rate",
+             "description": "Fraction of in-scope traces with at least one error span, in `[0,1]`.\nSpan-derived; an OTLP `unset` status counts as success.",
+             "type": "string"
+            },
+            {
+             "const": "success_rate",
+             "description": "`1 - error_rate` over the same denominator.",
+             "type": "string"
+            },
+            {
+             "const": "tokens_per_trace",
+             "description": "`tokens / traces`.",
+             "type": "string"
+            },
+            {
+             "const": "cost",
+             "description": "Summed stored cost (USD); `null` when no cost data is present.",
+             "type": "string"
+            },
+            {
+             "const": "latency_p50",
+             "description": "Trace-duration percentiles in milliseconds. Computed per trace, so these are\n**`scalar`/`time_series` only** with no `group_by`. Repository, branch,\nrevision, model, harness and user filters narrow the measured spans.",
+             "type": "string"
+            },
+            {
+             "const": "score_value",
+             "description": "Mean `score_value` over spans typed `score` — a verdict is a span, and\nthis is its aggregate (otel-2026-09-04-score-columns). `table` with\n`score_name`/`scorer`/`scorer_version`/`experiment` grouping is the\nper-run rollup the eval app writes to `experiment.summary`.",
+             "type": "string"
+            },
+            {
+             "const": "scores",
+             "description": "Count of spans typed `score` — the verdict count behind a mean.",
+             "type": "string"
+            },
+            {
+             "const": "artifact_uses",
+             "description": "Uses of governed artifacts: spans typed `artifact_use`, one per turn per\nartifact, so a count of uses rather than of tool calls.",
+             "type": "string"
+            },
+            {
+             "const": "artifact_serves",
+             "description": "Serves of governed artifacts: spans typed `artifact_serve`, one per call\nper artifact and stage, written by the gateway that handed the artifact\nto a model. Never added to `ArtifactUses`: a served artifact may\nalso be a use in the same client's run record.",
+             "type": "string"
+            }
+           ]
+          },
+          "name": {
+           "description": "Caller-chosen label echoed back as `query_name`, so results can be matched\nto the panel that asked for them.",
+           "type": "string"
+          },
+          "order": {
+           "description": "Result ordering for one query.",
+           "properties": {
+            "by": {
+             "description": "Which axis a query's results are ordered on.",
+             "enum": [
+              "value",
+              "name"
+             ],
+             "type": "string"
+            },
+            "direction": {
+             "description": "Order direction.",
+             "enum": [
+              "asc",
+              "desc"
+             ],
+             "type": "string"
+            }
+           },
+           "required": [
+            "by",
+            "direction"
+           ],
+           "type": [
+            "object",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "name",
+          "measure"
+         ],
+         "type": "object"
+        },
+        "type": "array"
+       },
+       "request_type": {
+        "description": "Which shape of statistics a query asks for.",
+        "oneOf": [
+         {
+          "const": "scalar",
+          "description": "One value per query.",
+          "type": "string"
+         },
+         {
+          "const": "table",
+          "description": "Rows of grouped values.",
+          "type": "string"
+         },
+         {
+          "const": "time_series",
+          "description": "Ordered buckets per query; requires `bucket`.",
+          "type": "string"
+         }
+        ]
+       },
+       "start_time_unix_seconds": {
+        "description": "Window start, inclusive (unix epoch seconds, UTC).",
+        "format": "int64",
+        "type": "integer"
+       },
+       "workspace_id": {
+        "description": "**Ignored on this surface.** Scope is the facade's, not the caller's: this field is\ncleared alongside every other scope dimension before the request is forwarded, because it\nis a scope the entity does not imply and nothing authorizes. It stays published only\nbecause removing a request field is a wire change; a client that sends it gets the same\nanswer as one that does not.",
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "start_time_unix_seconds",
+       "end_time_unix_seconds",
+       "request_type",
+       "queries"
+      ],
+      "title": "TraceStatsRequest",
+      "type": "object"
+     },
+     "skill_id": {
+      "description": "The `skill_…` handle.",
+      "type": "string"
+     },
+     "subject_id": {
+      "description": "The same `skill_…` handle under the name the agent trace tools use; give this or `skill_id`.",
+      "type": "string"
+     },
+     "version_ordinal": {
+      "type": "integer"
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "type": "object"
+   }
+  },
+  {
+   "name": "extension__agent__query_trace_stats",
+   "description": "Aggregate statistics over an agent's or harness's runs — counts, durations, error rates, cost — without reading the runs.\n\nReach for this **first** when the question is about the shape of the traffic rather than one call, and **instead** when `list_traces` refuses: some callers may read statistics over a subject whose individual runs they may not read.",
+   "annotations": {
+    "openWorldHint": false,
+    "readOnlyHint": true
+   },
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "query": {
+      "description": "The statistics request. The subject scope is applied for you — do not set an agent, harness or workspace dimension yourself.",
+      "properties": {
+       "bucket": {
+        "description": "Bucket width; **required** for `time_series`, ignored otherwise.",
+        "enum": [
+         "day",
+         "week",
+         null
+        ],
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "compare": {
+        "anyOf": [
+         {
+          "description": "Prior-period comparison mode.",
+          "oneOf": [
+           {
+            "enum": [
+             "none"
+            ],
+            "type": "string"
+           },
+           {
+            "const": "previous_period",
+            "description": "Re-run every query over the immediately preceding window and return it\nunder `comparison`.",
+            "type": "string"
+           }
+          ]
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "description": "Prior-period comparison. Defaults to `none`."
+       },
+       "end_time_unix_seconds": {
+        "description": "Window end, exclusive (unix epoch seconds, UTC).",
+        "format": "int64",
+        "type": "integer"
+       },
+       "queries": {
+        "description": "The panels to compute.",
+        "items": {
+         "description": "One panel of a statistics request: a named measure with its grouping, filters,\nand ordering.",
+         "properties": {
+          "filters": {
+           "items": {
+            "description": "One filter clause on a query's dimension.",
+            "properties": {
+             "key": {
+              "description": "A dimension a query can group or filter by.",
+              "oneOf": [
+               {
+                "enum": [
+                 "harness",
+                 "skill",
+                 "skill_version",
+                 "command",
+                 "mcp",
+                 "tool",
+                 "model"
+                ],
+                "type": "string"
+               },
+               {
+                "const": "repository",
+                "description": "Exact canonical Git remote.",
+                "type": "string"
+               },
+               {
+                "const": "branch",
+                "description": "Git branch, from the span attribute map with resource fallback.",
+                "type": "string"
+               },
+               {
+                "const": "revision",
+                "description": "Git commit revision, from the span attribute map with resource fallback.",
+                "type": "string"
+               },
+               {
+                "const": "user",
+                "description": "Keys on the stable creator id, not the JWT subject.",
+                "type": "string"
+               },
+               {
+                "const": "experiment",
+                "description": "The promoted `experiment_id` column (`atlan.eval.experiment_id`).",
+                "type": "string"
+               },
+               {
+                "const": "score_name",
+                "description": "The promoted `score_name` column on spans typed `score`.",
+                "type": "string"
+               },
+               {
+                "const": "scorer",
+                "description": "The promoted `scorer_id` column on spans typed `score`.",
+                "type": "string"
+               },
+               {
+                "const": "scorer_version",
+                "description": "The promoted `scorer_version` column on spans typed `score`.",
+                "type": "string"
+               }
+              ]
+             },
+             "op": {
+              "description": "Comparison operator for a query filter.",
+              "enum": [
+               "eq",
+               "neq",
+               "in",
+               "exists",
+               "not_exists"
+              ],
+              "type": "string"
+             },
+             "value": {
+              "description": "A scalar for `eq`/`neq`, an array for `in`, absent for the existence\noperators."
+             }
+            },
+            "required": [
+             "key",
+             "op"
+            ],
+            "type": "object"
+           },
+           "type": "array"
+          },
+          "group_by": {
+           "description": "Grouping dimensions. Valid for `table` requests only; a latency measure\nsupports none.",
+           "items": {
+            "description": "A dimension a query can group or filter by.",
+            "oneOf": [
+             {
+              "enum": [
+               "harness",
+               "skill",
+               "skill_version",
+               "command",
+               "mcp",
+               "tool",
+               "model"
+              ],
+              "type": "string"
+             },
+             {
+              "const": "repository",
+              "description": "Exact canonical Git remote.",
+              "type": "string"
+             },
+             {
+              "const": "branch",
+              "description": "Git branch, from the span attribute map with resource fallback.",
+              "type": "string"
+             },
+             {
+              "const": "revision",
+              "description": "Git commit revision, from the span attribute map with resource fallback.",
+              "type": "string"
+             },
+             {
+              "const": "user",
+              "description": "Keys on the stable creator id, not the JWT subject.",
+              "type": "string"
+             },
+             {
+              "const": "experiment",
+              "description": "The promoted `experiment_id` column (`atlan.eval.experiment_id`).",
+              "type": "string"
+             },
+             {
+              "const": "score_name",
+              "description": "The promoted `score_name` column on spans typed `score`.",
+              "type": "string"
+             },
+             {
+              "const": "scorer",
+              "description": "The promoted `scorer_id` column on spans typed `score`.",
+              "type": "string"
+             },
+             {
+              "const": "scorer_version",
+              "description": "The promoted `scorer_version` column on spans typed `score`.",
+              "type": "string"
+             }
+            ]
+           },
+           "type": "array"
+          },
+          "limit": {
+           "format": "uint32",
+           "minimum": 0,
+           "type": [
+            "integer",
+            "null"
+           ]
+          },
+          "measure": {
+           "description": "What a query measures.",
+           "oneOf": [
+            {
+             "enum": [
+              "sessions",
+              "spans",
+              "skill_invocations",
+              "tool_calls",
+              "tokens",
+              "active_users",
+              "latency_p90",
+              "latency_p99"
+             ],
+             "type": "string"
+            },
+            {
+             "const": "traces",
+             "description": "Distinct traces — the \"runs\" count. Prefer this over `sessions`, which is\nempty on backfilled traces.",
+             "type": "string"
+            },
+            {
+             "const": "uncached_input_tokens",
+             "description": "Input tokens not served from cache, normalised on read: OpenAI counts\ncached tokens inside `input_tokens`, Anthropic reports them alongside.",
+             "type": "string"
+            },
+            {
+             "const": "cached_input_tokens",
+             "description": "Input tokens served from cache.",
+             "type": "string"
+            },
+            {
+             "const": "cache_write_tokens",
+             "description": "Input tokens written to cache.",
+             "type": "string"
+            },
+            {
+             "const": "output_tokens",
+             "description": "Output tokens, reasoning included.",
+             "type": "string"
+            },
+            {
+             "const": "active_visitors",
+             "description": "Distinct visitors in scope — the adoption measure for a shared agent,\nwhere `active_users` is structurally 1 (the agent's own credential). A\nrun nobody claimed is absent rather than counted as an anonymous visitor.",
+             "type": "string"
+            },
+            {
+             "const": "error_rate",
+             "description": "Fraction of in-scope traces with at least one error span, in `[0,1]`.\nSpan-derived; an OTLP `unset` status counts as success.",
+             "type": "string"
+            },
+            {
+             "const": "success_rate",
+             "description": "`1 - error_rate` over the same denominator.",
+             "type": "string"
+            },
+            {
+             "const": "tokens_per_trace",
+             "description": "`tokens / traces`.",
+             "type": "string"
+            },
+            {
+             "const": "cost",
+             "description": "Summed stored cost (USD); `null` when no cost data is present.",
+             "type": "string"
+            },
+            {
+             "const": "latency_p50",
+             "description": "Trace-duration percentiles in milliseconds. Computed per trace, so these are\n**`scalar`/`time_series` only** with no `group_by`. Repository, branch,\nrevision, model, harness and user filters narrow the measured spans.",
+             "type": "string"
+            },
+            {
+             "const": "score_value",
+             "description": "Mean `score_value` over spans typed `score` — a verdict is a span, and\nthis is its aggregate (otel-2026-09-04-score-columns). `table` with\n`score_name`/`scorer`/`scorer_version`/`experiment` grouping is the\nper-run rollup the eval app writes to `experiment.summary`.",
+             "type": "string"
+            },
+            {
+             "const": "scores",
+             "description": "Count of spans typed `score` — the verdict count behind a mean.",
+             "type": "string"
+            }
+           ]
+          },
+          "name": {
+           "description": "Caller-chosen label echoed back as `query_name`, so results can be matched\nto the panel that asked for them.",
+           "type": "string"
+          },
+          "order": {
+           "description": "Result ordering for one query.",
+           "properties": {
+            "by": {
+             "description": "Which axis a query's results are ordered on.",
+             "enum": [
+              "value",
+              "name"
+             ],
+             "type": "string"
+            },
+            "direction": {
+             "description": "Order direction.",
+             "enum": [
+              "asc",
+              "desc"
+             ],
+             "type": "string"
+            }
+           },
+           "required": [
+            "by",
+            "direction"
+           ],
+           "type": [
+            "object",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "name",
+          "measure"
+         ],
+         "type": "object"
+        },
+        "type": "array"
+       },
+       "request_type": {
+        "description": "Which shape of statistics a query asks for.",
+        "oneOf": [
+         {
+          "const": "scalar",
+          "description": "One value per query.",
+          "type": "string"
+         },
+         {
+          "const": "table",
+          "description": "Rows of grouped values.",
+          "type": "string"
+         },
+         {
+          "const": "time_series",
+          "description": "Ordered buckets per query; requires `bucket`.",
+          "type": "string"
+         }
+        ]
+       },
+       "start_time_unix_seconds": {
+        "description": "Window start, inclusive (unix epoch seconds, UTC).",
+        "format": "int64",
+        "type": "integer"
+       },
+       "workspace_id": {
+        "description": "**Ignored on this surface.** Scope is the facade's, not the caller's: this field is\ncleared alongside every other scope dimension before the request is forwarded, because it\nis a scope the entity does not imply and nothing authorizes. It stays published only\nbecause removing a request field is a wire change; a client that sends it gets the same\nanswer as one that does not.",
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "start_time_unix_seconds",
+       "end_time_unix_seconds",
+       "request_type",
+       "queries"
+      ],
+      "title": "TraceStatsRequest",
+      "type": "object"
+     },
+     "subject_id": {
+      "description": "`agent_…` or `harness_…`.",
+      "type": "string"
+     }
+    },
+    "required": [
+     "subject_id",
+     "query"
+    ],
+    "type": "object"
+   }
   }
  ],
  "workspaces": [
@@ -1955,7 +2793,8 @@
       "version_ordinal": 1
      }
     ]
-   }
+   },
+   "updated_at": "2026-10-12T09:00:00Z"
   },
   "output_01evalchurn": {
    "id": "output_01evalchurn",
@@ -1975,7 +2814,8 @@
     "session_id": "session_01evalchurnsrc",
     "subject_id": "harness_01evalclaudecode",
     "subject_kind": "harness"
-   }
+   },
+   "updated_at": "2026-10-25T18:04:00Z"
   },
   "mcp_server_01evallinear": {
    "id": "mcp_server_01evallinear",
@@ -1989,7 +2829,8 @@
     "endpoint_url": "https://mcp.linear.app/mcp",
     "connection_state": "auth_required",
     "auth_oauth_provider": "linear"
-   }
+   },
+   "updated_at": "2026-09-15T09:00:00Z"
   },
   "mcp_server_01evalslack": {
    "id": "mcp_server_01evalslack",
@@ -2002,7 +2843,8 @@
    "metadata": {
     "endpoint_url": "https://mcp.slack.com/mcp",
     "connection_state": "connected"
-   }
+   },
+   "updated_at": "2026-09-10T09:00:00Z"
   },
   "knowledge_01evalpayments": {
    "id": "knowledge_01evalpayments",
@@ -2093,7 +2935,8 @@
     "file_artifact_id": "file_01evalincidentmd",
     "file_version_ordinal": 1,
     "mode": "upload"
-   }
+   },
+   "updated_at": "2026-10-28T16:30:00Z"
   },
   "file_01evalincidentmd": {
    "id": "file_01evalincidentmd",
@@ -2773,6 +3616,42 @@
     }
    ],
    "truncated": false
+  }
+ },
+ "usage": {
+  "skill_01evalsecrev01": {
+   "runs_per_day": 6,
+   "users": 9,
+   "error_every": 20,
+   "by": {
+    "skill_version": {
+     "2": 5,
+     "1": 1
+    },
+    "harness": {
+     "claude-code": 4,
+     "codex": 2
+    }
+   }
+  },
+  "skill_01evaldeploy": {
+   "runs_per_day": 2,
+   "users": 3,
+   "error_every": 0,
+   "by": {}
+  },
+  "skill_01evaloncall": {
+   "runs_per_day": 1,
+   "users": 2,
+   "error_every": 7,
+   "by": {}
+  },
+  "agent_01evalreviewbot": {
+   "runs_per_day": 12,
+   "users": 1,
+   "visitors": 5,
+   "error_every": 12,
+   "by": {}
   }
  }
 }

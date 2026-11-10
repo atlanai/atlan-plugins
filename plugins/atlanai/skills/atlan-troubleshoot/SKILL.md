@@ -8,8 +8,8 @@ license: Apache-2.0
 
 Read the error before acting, and key on its `code` (in the result's JSON, or in a JSON-RPC
 error's `data`) rather than its wording, which can change. Most refusals say exactly what to change, and repeating a
-write to test it is how duplicates get made. Reply with the one step that
-fixes it, without apology.
+write to test it is how duplicates get made. Reply with the cause in one sentence and the one
+step that fixes it, under 80 words, with no apology or tour of how the tools work.
 
 ## Connection and sign-in
 
@@ -33,7 +33,7 @@ fixes it, without apology.
 | A search with `kind` returns nothing at all | Older gateways answer an unknown kind with an empty page instead of `unknown_kind`. Before saying nothing exists, check the kind against `registry__get_artifact_counts` with `group_by: "kind"`, then search again without `kind`. |
 | `"code": "not_found"` | No artifact by that handle, or one the user cannot see; the two read alike on purpose. Do not retry with variants. Search by name (`registry__search_artifacts`), and if it is still missing, see "Artifacts the user expects are missing". |
 | `"code": "invalid_arguments"` | The arguments are malformed or contradict each other, and the message names which. Fix those and send once more. |
-| `tool is unavailable; refresh tools/list` | The name is wrong for this connection's mode. In search mode run a tool through a runner (`mcp__call_read_tool`, `mcp__call_write_tool`, `mcp__call_tool`, or `mcp__call_read_tools` for several reads) unless the host lists it by name; on a `?tools=full` URL the search-mode helpers do not exist. |
+| `tool is unavailable; refresh tools/list` | The name is wrong for this connection's mode. In search mode run it through the runner for its tier (`mcp__call_read_tool` for a read) unless the host lists it by name; on a `?tools=full` URL the search-mode helpers do not exist. |
 | "Not run: this tool is … Retry the same call … through `mcp__call_…`" (`reason: runner_below_tier`) | The runner is below the tool's tier: the read runner runs only reads, the write runner nothing destructive. A write goes through the runner `run_with` names, after the user's yes. A refused read named `get_`, `list_` or `search_` means the tier lookup failed: retry it once alone through `mcp__call_read_tool`; only if refused again, use the named runner and tell the user. |
 | A call is refused for a missing session | Send `objective` on the first search or runner call, then pass the returned `session_id` on every call. An id you did not receive in this conversation is refused. |
 | "session not found; call `mcp__search_tools` …" on a session that worked earlier | The session expired, or the conversation was compacted or resumed elsewhere. Open a new one once (`objective`, no `session_id`) and use its id from then on. If a write was in flight, read it back before doing it again. |
@@ -41,7 +41,7 @@ fixes it, without apology.
 | A search or describe result is marked `partial` | A server did not answer in time. Repeat once; if still partial, say the list may be incomplete. Do not conclude a tool is missing. |
 | A call is refused for a missing rationale | Add `rationale`, a first-person sentence on why you are making this call, beside `name`. |
 | A recipe names `request_upload` or `get_content`, bare or under the old `file` extension prefix | Older names. The registry's tools are `registry__request_file_upload` and `registry__get_file_content`. |
-| A recipe starts with `mcp__initialise` and search mode does not list it | Skip it: your first search already opened the session. |
+| A recipe starts with `mcp__initialise` and search mode does not list it | Skip it: the first search opened the session. |
 | `mcp__search_tools` finds nothing, or not the registry tool you expected | Search ranks every connected server. Call a tool you know by name (`registry__…`) directly, or pass `servers: ["registry"]`. An empty search does not mean the tool is missing. |
 | `mcp__connect_server` is not a tool | Older gateways do not list it. Run it through `mcp__call_write_tool` (or `mcp__call_tool`) with `name: "mcp__connect_server"` and `arguments: { "server": … }`. A connection opened read-only (`?access=read`) cannot run it at all. |
 | `403` "Only a project's Claw … can use the Claw session tools" | `extension__agent__session_read` and `session_list` serve a project's Claw, not a person's agent. Read a session through its traces instead (`atlan-continue`, step 2). |
