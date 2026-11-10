@@ -383,6 +383,69 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(result['supporting_pages'], ['tip', 'drill'])
 
 
+class SQLiteCheckProgress(unittest.TestCase):
+    setUp = fixtures.SQLiteFlow.setUp
+
+    def seed_checks(self, query_sql='SELECT SUM(cost) FROM site.work'):
+        card = metric()
+        card['definition'].update(spec_version=fixtures.mine.METRIC_SPEC, dialect='sqlite', formula='SUM(cost)', examples=[
+            {'source': 'declared:Cost', 'sql': 'SELECT SUM(cost) FROM site.work'}])
+        statement = query(query_sql)
+        statement['definition']['dialect'] = 'sqlite'
+        self.run.write(self.run.context / 'metrics.json', [card])
+        self.run.write(self.run.context / 'queries.json', [statement])
+        return card
+
+    def assert_progress(self, status, completed):
+        saved = self.run.read(self.run.root / 'progress.json')
+        self.assertEqual((saved['stage'], saved['status'], saved['completed_items'], saved['total_items']),
+                         ('check', status, completed, 2))
+
+    def test_execution_after_collection_check_keeps_demo_on_save_step(self):
+        import experience
+        self.seed_checks()
+        self.run.journey('demo')
+        self.run.check()
+        for check, name in ((self.run.check_metric, 'total-1'), (self.run.check_query, 'work-total')):
+            check({'name': name})
+            self.assert_progress('complete', 2)
+            rows = experience.snapshot(Project(self.run.root))['checklist']['steps']
+            self.assertEqual(rows[2]['status'], 'completed')
+            self.assertEqual((rows[3]['id'], rows[3]['status']), ('save', 'in_progress'))
+
+    def test_individual_checks_finish_only_after_every_current_candidate_is_checked(self):
+        self.seed_checks()
+        self.run.check_query({'name': 'work-total'})
+        self.assert_progress('running', 1)
+        self.run.check_metric({'name': 'total-1'})
+        self.assert_progress('complete', 2)
+
+    def test_failed_check_keeps_held_status_after_another_candidate_succeeds(self):
+        import local_data
+        self.seed_checks('SELECT SUM(missing_column) FROM site.work')
+        self.run.check()
+        with self.assertRaises(local_data.DataError):
+            self.run.check_query({'name': 'work-total'})
+        self.assert_progress('complete-with-held-items', 2)
+        self.run.check_metric({'name': 'total-1'})
+        self.assert_progress('complete-with-held-items', 2)
+
+    def test_failed_individual_check_does_not_complete_unchecked_candidates(self):
+        import local_data
+        self.seed_checks('SELECT SUM(missing_column) FROM site.work')
+        with self.assertRaises(local_data.DataError):
+            self.run.check_query({'name': 'work-total'})
+        self.assert_progress('running', 1)
+
+    def test_changed_definition_reopens_checks_even_after_collection_finished(self):
+        card = self.seed_checks()
+        self.run.check()
+        card['definition']['formula'] = 'SUM(cost) * 2'
+        self.run.write(self.run.context / 'metrics.json', [card])
+        self.run.check_query({'name': 'work-total'})
+        self.assert_progress('running', 1)
+
+
 @unittest.skipUnless(fixtures.HAS_DUCKDB, 'Use an existing approved DuckDB runtime.')
 class SQLRegression(unittest.TestCase):
     setUp = fixtures.DuckDBFlow.setUp

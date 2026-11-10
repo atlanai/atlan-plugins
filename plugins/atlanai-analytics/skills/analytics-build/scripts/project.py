@@ -330,7 +330,7 @@ class Project(ContextState):
                                    'samples': samples,
                                    'errors': ['SQL execution failed; review the selected parameters and source mapping.']}
             self.write(path, checks)
-            progress.update(self, 'check', 'complete-with-held-items')
+            progress.update_checks(self)
             raise
         samples[sample_id] = {'status': 'executed', 'query_id': result['query_id'], 'sql_hash': result['sql_hash']}
         failed = any(s['status'] == 'failed' for s in samples.values())
@@ -342,7 +342,7 @@ class Project(ContextState):
                                'coverage': 'authored_example_only' if kind == 'metric' else 'observed_parameter_samples',
                                'warnings': warnings}
         self.write(path, checks)
-        progress.update(self, 'check')
+        progress.update_checks(self)
         return result
 
     def history(self):

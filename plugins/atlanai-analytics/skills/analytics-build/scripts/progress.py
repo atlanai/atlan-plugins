@@ -6,6 +6,15 @@ STAGES = ('inspect', 'scope', 'build', 'check', 'preview', 'publish', 'ready')
 STATES = ('pending', 'running', 'waiting-for-user', 'complete', 'complete-with-held-items', 'failed', 'canceled')
 
 
+def update_checks(run):
+    """A sample check refreshes collection progress from current, revision-bound evidence."""
+    items = candidates(run)
+    completed = sum(item['status'] != 'draft' for item in items)
+    status = ('running' if completed < len(items) else
+              'complete-with-held-items' if any(item['status'] == 'held' for item in items) else 'complete')
+    return update(run, 'check', status, completed=completed, total=len(items))
+
+
 def update(run, stage, status='running', action=None, completed=None, total=None):
     if stage not in STAGES or status not in STATES:
         raise ValueError('Select a supported setup stage and status.')
