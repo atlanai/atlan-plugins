@@ -65,8 +65,8 @@ run whose candidates were never shown in chat starts at Preview.
 **Visible preview is a required conversation step.** Before a destination question or
 publication/reuse, show the completed-collection review through
 the [presentation flow](setup/presentation.md), including actual counts and one relevant
-metric's rule, source and check status. A demo also shows its
-[metrics found](../../analytics-demo/references/metrics-found.md) list before building. Tool output, counts and a
+metric's rule, source and check status. Demos build the selected collection directly,
+without a separate metric-list checkpoint. Tool output, counts and a
 file link alone do not satisfy this step. This applies on resume and reuse, and adds no
 approval prompt. A plan-only request needs no generated preview.
 

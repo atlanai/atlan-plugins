@@ -84,12 +84,12 @@ person name one; do not list them all.
 count as it goes: "Saving to your personal workspace: 12 of 19 saved." Finish with one
 line: what was saved, where, and that it is now the context the agent reads.
 
-**The address for proof links, without asking.** The person is signed in, so never stop
-to ask for a Trident address. In the same step as the workspace read, read the
-organization's root workspace once: `mcp__call_read_tool` with `registry__list_workspaces`
-and `{"kind": "org_default"}`. Keep the result. [Definition links](../../../analytics-ask/references/definition-links.md)
-takes the organization's address from it for every proof list, and says what the list
-shows when it gives none.
+**The address for proof links, without asking.** Resolve the active organization's slug
+from the authenticated `GET /registry/v1/users/me` response, matching `org_id` to an
+`orgs[].id`. [Definition links](../../../analytics-ask/references/definition-links.md)
+provides the helper, connection checks and exact metric/query routes. The person never
+supplies a slug or URL. Workspace reads supply workspace ids, not organization slugs;
+do not request a root workspace solely for links or read credentials.
 
 **Already there.** When some of the context already exists in that workspace, say how much,
 where, and why that is fine: "4 of the 7 metrics were already in your workspace from an

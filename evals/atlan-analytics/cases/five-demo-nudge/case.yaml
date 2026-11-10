@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: five-demo-nudge
-tags: [analytics, five, demo, nudge]
+tags: [demo-flow-fix, analytics, five, demo, nudge]
 execution:
   prompt: |
     Continue the Fixit & Co. demo of Atlan Analytics.

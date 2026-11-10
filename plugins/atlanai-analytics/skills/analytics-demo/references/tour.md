@@ -3,7 +3,7 @@
 **What the demo is for.** The person is here to understand what Atlan Analytics does by
 watching it happen on a small example. Success is not that setup finished. Success is
 that they can say what they built, why it matters, and that they felt it work. The blocks
-printed at each moment (the welcome, the metrics found, the collection review and
+printed at each moment (the welcome, the collection review and
 celebration, the ready screen, the next-action choice) are the product; the commands between
 them are plumbing. A run that builds everything but skips a block has failed, however clean
 the build. Read every later instruction with this
@@ -67,7 +67,7 @@ step goes under its tracker. Skip a moment that does not happen in this run.
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
-| Ready | Your `<agent>` is ready. Showing what you can do next. | You can ask AI, build a dashboard or continue building on your real data. |
+| Ready | Your `<agent>` is ready. Showing questions this context can answer. | Pick a question to see an answer and the rules behind it. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
 first tracker right after "Start building", before reading setup's references or cloning.
@@ -99,8 +99,8 @@ the demo's facts:
 
 "I read `<firm>`'s sources: `<dashboard>`, `<N>` past queries and `<N>` data tables. Next I
 turn them into metrics. A metric is `<what a metric is, by example>`. Metrics are how the
-context is stored, so the agent uses the same rule every time. I show you the list of
-metrics first, then build them. What should I build them from?"
+context is stored, so the agent uses the same rule every time. I build and check the
+context from your selected sources. What should I build it from?"
 
 This is the first time the person hears the word metric, so the prompt keeps all of it.
 
@@ -112,6 +112,6 @@ This is the first time the person hears the word metric, so the prompt keeps all
 Scope the run to the answer through [inspect and scope](../../analytics-survey/references/inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data
 tables are used either way, to check the context. Continue through the complete build and
-checks after this choice, with factual progress updates; the metrics found list is the only
-stop before the collection is checked. Ask during the build only for a genuine missing input
-or blocker.
+checks after this choice, with factual progress updates and no intermediate metric-list
+celebration or build confirmation. The next decision is where to keep the completed
+context. Ask during the build only for a genuine missing input or blocker.

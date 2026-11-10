@@ -7,7 +7,7 @@ adapt source-specific prose to the evidence, and omit unsupported tours or examp
 Never claim model/history agreement or disagreement without source evidence.
 
 **Why this moment matters.** It is where the person learns what they made and what it can
-do, and takes over. The ready block and next-action choice hand them the agent; answering
+do, and takes over. The ready block and supported questions hand them the agent; answering
 for them takes that away.
 
 **Two rules for this moment.** Your reasoning is never shown to the person: a note in
@@ -17,7 +17,7 @@ it is a failure: send the block first.
 
 The agent is this chat with the saved context; do not register, deploy or evaluate a
 separate agent, and say so only if asked. Do not answer any question the person has not
-chosen. When the question step starts, show what they made, then let them pick what to do next.
+chosen. When the question step starts, show what they made, then let them pick a supported question.
 
 Open the chosen demo's file again for its facts and its questions
 ([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)). First, print this block whole
@@ -32,24 +32,34 @@ and as written, with the values in `<angle brackets>` from the facts and this ru
 > | What it can answer | `<what the agent can answer>` |
 > | See the environment | `<tour>` |
 
-**After a demo**, ask one native question, "What would you like to do next?":
+**First show questions, for both demo and own-data setup.** Immediately after the ready
+block, ask "What would you like to ask?" with two or three questions supported by the
+checked context (fewer if needed) and the host's free-text entry. Use the demo's facts
+file only for a demo; own-data questions come from its saved context. Omit any question
+that depends on an unchecked or unavailable metric. Do not show an Ask AI menu, dashboard
+choice or real-data transition before this first question list.
+
+A question already supplied goes directly to the ask route. Answer only the question or
+questions the person selects or types; listing suggestions never authorizes answering
+all of them. If they selected several, finish those answers before offering next steps.
+An explicit dashboard or real-data request still takes precedence over this default flow.
+
+**After the selected questions are answered**, ask "What would you like to do next?":
+At this moment the question and its choices are the complete handoff. Address the person
+directly. Do not preface it with what they "would see" or append explanations of the flow,
+the option rules, sign-in requirements or which tool runs next. End at the choices and wait.
 
 | Option | Description |
 | --- | --- |
-| Ask AI | Choose a question the built context supports, or type your own. |
+| Ask more questions | Choose another supported question, or type your own. |
 | Design a dashboard | I propose a layout from your metrics, you adjust it, and I build it as a page you can open. |
 | Continue building on real data | Start with your own dashboard link, local folder or BI export, here in this chat. |
 | I'm done | Finish the demo here. |
 
-Show this choice after the ready block, after each demo answer and after a dashboard is
-built. A supplied question or explicit next action takes precedence over asking again.
-Do not build a dashboard, answer a suggested question or start real-data setup until chosen.
-
-**Ask AI**, or a completed **own-data setup**, asks "What do you want to ask your agent?"
-with two or three supported questions (fewer if needed) and the host's free-text entry.
-Use the demo's questions only for a demo; own-data questions come from its saved context.
-Offer only questions the built context supports. A question already supplied goes directly
-to the ask route. Own-data setup does not show the demo's real-data transition option.
+Show this choice after answering the person's request and after a dashboard is built.
+Ask more questions returns to the supported question list. Own-data setup omits the
+real-data transition option. A supplied question or explicit next action takes precedence
+over asking again. Never start a flow until chosen.
 
 Answer only the question the person picks or types, through the ask route, with real
 numbers. Every answer has three parts, in this order:
@@ -58,11 +68,12 @@ numbers. Every answer has three parts, in this order:
 2. **Proof in Atlan Trident**: one line per metric and query the answer used, each a link
    to its page, as [definition links](../../../analytics-ask/references/definition-links.md) says. Read that file before
    the first answer. Never print metric or release ids, and never ask for a Trident address
-   before answering: the link's address comes from the workspace read at the save step.
+   before answering: discover the active organization through the authenticated
+   self-profile endpoint, as the definition-links reference describes.
    With the context only on this machine, the list says there is nothing to open yet and
    that saving to Atlan Trident gives each answer its links.
-3. After the first answer, record `PROJECT journey asked`. Then, as a native question: after
-   a demo answer, show the next-action choice above. After an own-data answer, offer Design a
+3. After the first answer, record `PROJECT journey asked`. Finish all questions in the
+   selected request before showing the next-action choice above. After an own-data answer, offer Design a
    dashboard, Ask another question and I'm done. Design a dashboard follows
    [the dashboard](../../../analytics-ask/references/dashboard.md).
 

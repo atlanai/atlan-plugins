@@ -65,14 +65,13 @@ absolute path; that is the only change.
 >    load its tables into a small database on this machine.
 > 2. **Choose what to build from.** You choose: the dashboard alone, or the dashboard
 >    plus the past queries.
-> 3. **Build and check metrics.** I show you the metrics your sources hold, by name, then
->    write the rule for each one and run it on Fixit's data to check it gives sensible
+> 3. **Build and check metrics.** I write the rule for each metric and run it on Fixit's data to check it gives sensible
 >    numbers.
 > 4. **Keep local or save to Atlan Trident.** The context is built. You choose whether to
 >    save it to Atlan Trident, where your company keeps context for its AI agents, or keep
 >    it on this machine. Saving is when you sign in.
-> 5. **Ask a question.** Your job profit agent is ready. Ask AI, such as which job lost the most margin and why, or
->    continue building on your real data.
+> 5. **Ask a question.** Your job profit agent is ready. Choose a question, such as which job lost the most margin and why,
+>    and see its answer with the context behind it.
 > 6. **Build a dashboard.** If you want one, I propose a layout from your metrics and
 >    build it as a page you can open.
 >

@@ -120,7 +120,8 @@ Lead with the answer in one or two sentences: the number, its definition and win
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
 - **Proof**: always, each metric or query used, by name, as a link to its page in Atlan
   Trident ([definition links](references/definition-links.md)), never
-  a bare id; or **Not managed: no published metric covers this**, followed by the
+  a bare id anywhere in prose or caveats. Resolve the organization automatically through
+  the authenticated self-profile; never ask for its slug or URL. Or **Not managed: no published metric covers this**, followed by the
   formula and filters you assumed;
 - **Caveats**: an unreviewed query, a partial window, an assumption about the question;
 - the SQL, only when the person asks to see it.

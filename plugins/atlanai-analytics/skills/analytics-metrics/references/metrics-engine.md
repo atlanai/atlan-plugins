@@ -227,9 +227,8 @@ assistant's authored work. Keep eval answers and gold outside all metric-generat
 Answer each authored gate for the complete selected scope and keep advancing the same run.
 X3 authors and validates all scoped cards; later consistency and relationship gates still
 run before export. Do not add a customer decision between cards; own data committed its
-names before generation and a demo's source choice already selected what to build. A demo
-lists the merged metric names at X3 first
-([metrics found](../../analytics-demo/references/metrics-found.md)). Show factual progress,
+names before generation and a demo's source choice already selected what to build.
+Do not show a separate metric-list checkpoint at X3. Show factual progress,
 then review the completed collection and actual checks through
 [the presentation flow](../../analytics-build/references/setup/presentation.md).
 

@@ -1,8 +1,8 @@
 # Commit on names before building
 
 Read after [business focus and purpose](intent.md) on a fresh build of the person's own
-data, before runtime setup or generation. Demos skip this file: their source choice selects what to build, and they show the
-[metrics found](../../../analytics-demo/references/metrics-found.md) list instead.
+data, before runtime setup or generation. Demos skip this file: their source choice selects
+what to build, so they continue directly through generation and checks.
 A resume with a saved selection skips it too.
 
 The point is relevance before accuracy. The person commits to metric names, so a wrong

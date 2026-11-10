@@ -1,70 +1,92 @@
 # Name the definitions behind an answer, as links
 
-Read when an answer, a preview or a handoff cites a metric or saved query. People read
-names, not ids: `metric_01… · rel_01…` tells them nothing and opens nothing.
+Read when an answer, a preview or a handoff cites a metric or saved query. Render each
+name as a clickable Markdown link, not a bare artifact id or URL.
 
-## What to show
+Every saved-context answer ends with **Proof in Atlan Trident**, one line per metric and
+query used. Include the released version in plain words when the read returned one.
+Use the artifact's name as the link label, such as Gross margin or Margin by job.
+Keep artifact, workspace and release ids inside URLs only; do not repeat them in prose,
+code spans or caveats. A proof line needs only the linked name and released version.
+Show a workspace's display name only when it helps, never its handle. Do not append
+hypothetical warnings about valid, successfully resolved links.
 
-Every answer ends with its proof: a short list headed **Proof in Atlan Trident**, one line
-per metric and query the answer used. Each line is the name as a link to its page in Atlan
-Trident, then its released version in plain words when the read returned one. The person
-can open any line and see the rule the number came from. An answer without this list is
-not finished.
+## Discover the organization automatically
 
-**Proof in Atlan Trident**
-- [Gross margin](https://app.atlan.com/?open=…), version 2
-- [Rework cost](https://app.atlan.com/?open=…)
-- [Margin by job](https://app.atlan.com/?open=…), a query
-
-Never print a bare artifact id or release id in an answer. Give ids in code only when the
-person asks for them. The link's address carries the handle, so the definition is still
-identified.
-
-## How to build the link
-
-The page for an artifact is `/<org>/brain/<kind>/<handle>`: kind `metric` with a `metric_…`
-handle, or kind `sql_query` with a `sql_query_…` handle. It needs three things:
-
-- **The dashboard origin** of the environment this connection reaches: `https://app.atlan.com`
-  when the `atlan` server is `api.atlan.com`. Another environment has its own origin; never
-  assume production.
-- **The organization's slug**: the first segment of the person's Atlan Trident address
-  (`https://app.atlan.com/acme/…`). Take it from the request, an address the person pasted,
-  or `org` in `.atlan/share.json`. The registry does not return it and no workspace name is
-  it. Never guess one: a wrong slug opens the home page.
-- **The handle, workspace id and name** from the read that answered the question.
-
-Add `ws` (the workspace id) and `n` (the name) as a form-encoded query, then percent-encode
-the whole path once more after `<origin>/?open=`:
+Never ask the person for an organization slug or an Atlan URL, and never make either a
+prerequisite. The authenticated self-profile provides the slug:
 
 ```
-/acme/brain/metric/metric_01abc?ws=workspace_01xyz&n=Gross+margin
-https://app.atlan.com/?open=%2Facme%2Fbrain%2Fmetric%2Fmetric_01abc%3Fws%3Dworkspace_01xyz%26n%3DGross%2Bmargin
+GET /registry/v1/users/me
 ```
 
-With a shell, build it rather than encoding by hand:
+The gateway proxies this to the control plane's `/v1/users/me`. The response contains
+`org_id` for the active login and `orgs`, whose rows contain `id` and `slug`. Select exactly
+the row where `orgs[].id == org_id`, then use its `slug`. Never take the first membership:
+a person can belong to several organizations. Read only these fields; email, names,
+roles, permissions and credentials are unnecessary for composing a link.
+
+Use the host's existing authenticated API transport for this fixed GET when available.
+Do not invent an MCP tool name: the current Registry MCP catalog does not expose this
+self-profile read. In Codex and Claude Code with the Atlan CLI, the bundled helper uses:
 
 ```
-python3 -c 'import sys,urllib.parse as u;o,org,kind,h,ws,n=sys.argv[1:];print(o+"/?open="+u.quote("/%s/brain/%s/%s?%s"%(u.quote(org,safe=""),kind,u.quote(h,safe=""),u.urlencode({"ws":ws,"n":n})),safe=""))' https://app.atlan.com acme metric metric_01abc workspace_01xyz "Gross margin"
+atlanai api get registry:/users/me --jq '{org_id, orgs: [.orgs[] | {id, slug}]}'
 ```
 
-The link opens the page in the Atlan app, or in the browser for someone without it.
+The CLI handles authentication internally. The helper first checks its non-secret auth
+status against the current MCP gateway, resolves the active organization, and reads the
+exact artifact to verify its id and workspace against the MCP receipt. It checks auth
+status again before returning a link, so an account switch cannot mix organizations.
+A separate CLI login by itself is insufficient; the artifact/workspace check is required.
 
-## Without the slug
+For `https://api.atlan.com`, use dashboard origin `https://app.atlan.com`. Other environments
+must pass their configured gateway and dashboard origins to the helper. Resolve again
+after a connection or account switch; never reuse another organization's slug.
 
-A proof link cannot be built without the slug, so get it before the first answer rather
-than after. As soon as metrics are saved to Atlan Trident, or on the first question when
-they already are, ask once in plain words: "So every answer can link to its proof, paste
-any address from your Atlan Trident. It looks like https://app.atlan.com/your-company/…"
-Take the first path segment as the slug, save it as `org` in `.atlan/share.json` in the
-working folder, and reuse it from then on. Never guess a slug.
+Workspace names and `GET /registry/v1/organisations` do not provide this URL slug.
+In particular, `org_default.name` can be `org-workspace`; it is not an organization slug.
+Do not read credential files, call a token-printing command or decode tokens in the agent.
+Do not rely on a pasted address or a saved user-supplied slug.
 
-If the person declines, list the names under **Proof in Atlan Trident** with the workspace
-that holds them and how to find them ("search the name in your Atlan Trident"), and do not
-ask again in this conversation.
+If neither the host's authenticated HTTP transport nor a matching signed-in CLI is
+available, report that specific connection limitation and keep the answer with named
+proof. Do not substitute a URL/slug question or pretend the proof has a working link.
+Never offer Skip links or Paste later. A transport failure is a connection issue to fix,
+not a request for information from the person.
 
-## Not saved in Atlan Trident
+## Build the Metrics app link
 
-Metrics and queries that exist only on this machine have no page to open. Say so in the
-proof list, with the way to get one: "These are on this machine only, so there is nothing
-to open yet. Save them to Atlan Trident and each answer links to its proof."
+Use `/<org>/apps/metric` on the verified dashboard origin. The outer query holds `path`
+(the encoded inner route) and `ws` (the artifact's workspace id from its read receipt).
+
+- Metric inner route: `/m/<metric_id>?workspace=<workspace_id>`.
+- Saved query inner route: `/queries/<sql_query_id>?workspace=<workspace_id>`.
+
+Encode the inner query first, then encode the whole inner route as the outer `path`
+parameter. Catalog/filter state is optional navigation context and is not required to
+open a definition. Do not use the old `/brain/metric` or `/?open=` routes for these items.
+Use each artifact's own workspace when an answer combines definitions from several.
+
+Use the bundled standard-library helper to encode the route, passing non-secret values
+as separate arguments. The helper discovers the slug itself:
+
+```
+python3 <analytics-ask>/scripts/definition_link.py --origin https://app.atlan.com --kind metric --handle metric_example --workspace workspace_example
+```
+
+This returns a URL of the form:
+
+```
+https://app.atlan.com/example-org/apps/metric?path=%2Fm%2Fmetric_example%3Fworkspace%3Dworkspace_example&ws=workspace_example
+```
+
+Render it as `[Gross margin](<returned URL>)`. For a saved query, use `--kind sql_query`
+and the returned `sql_query_...` handle. The helper verifies the active organization and exact artifact workspace before composing
+the link. Use the workspace returned with that artifact, not a guessed default.
+
+## Context kept on this machine
+
+Local metrics and queries have no Atlan page. Cite their local definition by name and
+path, label them as local, and say that saving to Atlan makes direct proof links available.
+Never fabricate a saved link for an unpublished item or let a missing link block an answer.

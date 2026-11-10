@@ -1196,7 +1196,7 @@
    "plugin": "atlanai-analytics",
    "skill": "analytics-demo",
    "title": "Save a demo's checked context to the personal workspace",
-   "route": "Personal and root workspace reads, then batched creates",
+   "route": "Personal workspace read, then batched creates",
    "calls": {
     "cold": [
      {
@@ -1204,13 +1204,6 @@
       "runner": "call_read_tool",
       "args": {
        "kind": "user_default"
-      }
-     },
-     {
-      "tool": "registry__list_workspaces",
-      "runner": "call_read_tool",
-      "args": {
-       "kind": "org_default"
       }
      },
      {
@@ -1242,7 +1235,7 @@
     ]
    },
    "budget": {
-    "cold": 4,
+    "cold": 3,
     "warm": 1
    },
    "mode": "demo",

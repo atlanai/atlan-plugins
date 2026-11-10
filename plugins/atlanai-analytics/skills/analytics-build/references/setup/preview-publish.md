@@ -86,9 +86,8 @@ not a stale Build/Check stage. Never mark Ready without matching release receipt
 
 Keep one real sample in the final answer with its calculation, mandatory population/filter,
 source and check status, alongside actual released/local/held counts and verified links.
-For a demo, end with [the ready flow's next-action choice](ready.md): Ask AI,
-Design a dashboard, Continue building on real data or I'm done. For own-data setup or a
-demo's Ask AI selection, offer two or three supported questions (fewer if needed), including
+For both demo and own-data setup, follow [the ready flow](ready.md) with two or three
+supported questions immediately (fewer if needed), including
 history-derived ones where useful. For released answers, say once that definitions are retrieved before SQL runs.
 For Keep local, label the questions as local exploration and cite their local definition.
 Preserve data-connection and unmeasured-parity limitations. Do not invent a time basis or
@@ -97,6 +96,6 @@ grouping or comparison only when its date basis, dimension and join are evidence
 retrieved definition; do not suggest an unsupported question with a caveat. Two supported
 questions are better than filling the list with unverified ones.
 Continue to a question already supplied; otherwise wait for the user's selection.
-End with that next-action choice or supported questions and any material limitation; do not append a generic offer
+End with supported questions and any material limitation; do not append a generic offer
 or invite arbitrary questions whose coverage has not been checked.
 Use [retrieval](../../../analytics-ask/references/retrieval.md) for fresh Atlan context and fresh execution on every question.

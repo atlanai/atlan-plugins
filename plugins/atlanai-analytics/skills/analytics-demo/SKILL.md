@@ -6,7 +6,7 @@ description: Guided Atlan Analytics demo on made-up data: pick a demo, build its
 # Atlan Analytics demo: six guided steps
 
 A demo exists so the person understands Atlan Analytics by watching it work on a small,
-made-up firm. The blocks printed at each moment (the welcome, the metrics found, the
+made-up firm. The blocks printed at each moment (the welcome, the
 context built, the ready screen, the dashboard offer) are the product; the commands between
 them are plumbing. A run that builds everything but skips a block has failed.
 
@@ -84,16 +84,17 @@ tables are used either way, to check the context.
 The demo has no first-metric preview and asks no build-the-rest question. Run the metrics
 engine as
 [the metrics module](../analytics-metrics/references/metrics-engine.md) describes, up to its
-X3 card gate. Before writing any card, read [metrics found](references/metrics-found.md) and
-send its celebration with the metric names from the merged collection. Then author every
-card, advance the same run through all its gates, export and run every check on the loaded
+X3 card gate. The source choice authorizes the complete local build. Author every
+card without a metric-list checkpoint or another build confirmation. Keep proposal and
+deduplication details internal; show brief progress about building and checking context.
+Advance the same run through all its gates, export and run every check on the loaded
 data, through [build and check](../analytics-build/references/setup/build-check.md).
 
 ## 4. Keep local or save to Atlan Trident
 
 When every check has run, read [context built and where to keep it](../analytics-build/references/setup/save.md).
 The celebration is the save question's own text. Saving reads the person's workspaces with
-`registry__list_workspaces` (`user_default`, then `org_default` for proof links) and writes
+`registry__list_workspaces` (`user_default` for the personal destination) and writes
 in batches with `registry__create_artifacts`, as [publication](../analytics-metrics/references/metrics/publish.md)
 describes.
 
@@ -101,12 +102,13 @@ describes.
 
 When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): print the ready block, then
-ask the next-action choice, "What would you like to do next?", and ask it again after each
-flow ends:
+show two or three questions supported by the checked context immediately. Do not put an
+Ask AI menu before the question list. Answer the question or questions the person selects
+or supplies. After answering that request, offer "What would you like to do next?":
 
 | Option | Runs |
 | --- | --- |
-| Ask AI | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
+| Ask more questions | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
 | Design a dashboard, until one is built; then Change a rule and see what happens | Step 6: [the dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
 | Continue building on real data | Load `analytics-build` in this chat. A separate run; the demo's intent, sources and approvals do not carry over |
 | I'm done | Finish with where the context and any dashboard live |

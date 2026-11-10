@@ -31,7 +31,7 @@ in the same turn as every stage change, so the list on screen is never behind th
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
 step says `next`. In a demo, step 2 is `Choose what to build from`, because focus and purpose
-are already set, and step 3 shows the metric names before building. Own data's step 4 runs
+are already set, and step 3 builds and checks without an extra decision. Own data's step 4 runs
 through the selected collection without an extra build decision. Do not substitute a task
 update for the collection review or celebration.
 
