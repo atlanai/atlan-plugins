@@ -278,9 +278,9 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
 - **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
   tree, never through a link, never from a credential folder or key file, within 128 files and
   256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
-  their counterparts in `claude-hooks/register.ts`). It refuses a `registry__publish_output`
-  whose inline text matches a credential shape, and never repeats the value (`output_refusal`,
-  `outputRefusal`).
+  their counterparts in `claude-hooks/register.ts`). It refuses an `extension__agent__publish_output`
+  (or the registry's copy of that tool on a gateway that predates the move) whose inline text
+  matches a credential shape, and never repeats the value (`output_refusal`, `outputRefusal`).
 - **[MUST]** The hooks reach only the Atlan server and, for the update notice, the core's
   `plugin.json` on this repository's `main`. They send nothing about the user or the session to
   either, and no hook sends feedback.

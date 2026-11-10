@@ -78,8 +78,12 @@ function describeRaw(tool: string, input: unknown): string {
   return describeNamed(isText(call.name) ? call.name : '', argsOf(call.arguments))
 }
 
+/** The shared output's one-call tool: the agent app's, or the registry's on a gateway that predates the move. */
+const isShare = (name: string): boolean => name === 'extension__agent__publish_output' || name === 'registry__publish_output'
+
 /** What one named gateway tool does with these arguments. */
 function describeNamed(name: string, args: Record<string, unknown>): string {
+  if (isShare(name)) return `shared ${outputOf(args)}`
   if (name === 'extension__skill__create') {
     const names = publishNames(args)
     return names.length > 0 ? `published ${names.length === 1 ? 'skill' : 'skills'} ${names.join(', ')}` : 'published a skill'
@@ -96,7 +100,6 @@ function describeNamed(name: string, args: Record<string, unknown>): string {
     const [, verb = '', rest = ''] = registry
     const READ: Record<string, string> = { get: 'read', list: 'listed', query: 'queried', search: 'searched' }
     if (READ[verb]) return `${READ[verb]} ${rest.replace(/_/g, ' ')}`
-    if (name === 'registry__publish_output') return `shared ${outputOf(args)}`
     if (name === 'registry__withdraw_release') return `withdrew release${isText(args.release_id) ? ` ${clip(args.release_id, 60)}` : ''}`
     if (name === 'registry__retrigger_artifact_action')
       return `reran ${isText(args.action_name) ? clip(args.action_name, 30) : 'an action'} on ${artifactOf(args) ?? 'an artifact'}`
@@ -211,13 +214,13 @@ export type Touch = {
 
 /** The artifacts one call read or changed. Search hits are not touched: they were only listed. */
 export function touchesOf(name: string, args: unknown, text: string, isError: boolean): Touch[] {
-  if (isError || !name.startsWith('registry__') && name !== 'extension__skill__create') return []
+  if (isError || !name.startsWith('registry__') && name !== 'extension__skill__create' && !isShare(name)) return []
   const object = resultObject(text)
   if (!object || name === 'registry__search_artifacts' || /^registry__(list|query)_/.test(name) || name === 'registry__get_related_artifacts') return []
   const verb = /^registry__([a-z]+)_/.exec(name)?.[1] ?? ''
-  const action = name === 'extension__skill__create' ? 'published' : verb === 'get' ? 'read' : (PAST[verb] ?? verb)
+  const action = name === 'extension__skill__create' ? 'published' : isShare(name) ? 'shared' : verb === 'get' ? 'read' : (PAST[verb] ?? verb)
   // A share answers with the output it recorded beside the file it saved: the output is the touch.
-  const shared = name === 'registry__publish_output' && isRecord(object.output) ? object.output : undefined
+  const shared = isShare(name) && isRecord(object.output) ? object.output : undefined
   const rows = name === 'extension__skill__create' ? slotsOf(object) : [shared ?? object]
   const fallbackId = artifactOf(args) ?? ''
   return rows.flatMap(row => {

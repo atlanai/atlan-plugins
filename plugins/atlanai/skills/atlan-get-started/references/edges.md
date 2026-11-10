@@ -134,7 +134,7 @@ window where the new artifact exists unattached and no second call to forget. Th
 both in one transaction: a refused edge leaves no artifact behind, so fix what the refusal names
 and call again. An older gateway wrote them in two steps; there, a result that carries the new
 handle beside an edge error is fixed with `registry__relate_artifact` on that handle, never by
-calling again. An `output` is recorded with `registry__publish_output`, whose `edges` does the
+calling again. An `output` is recorded with `extension__agent__publish_output`, whose `edges` does the
 same for its file and output.
 
 ```
@@ -164,7 +164,7 @@ send that, and never both with different values.
 |---|---|---|
 | `registry__relate_artifact` | `artifact_id` | `subject_id` |
 | `registry__create_artifact_linked` | the artifact being created | `subject_id` |
-| `registry__publish_output` | the output being published | `to_id`, inside each `edges` entry |
+| `extension__agent__publish_output` | the output being published | `to_id`, inside each `edges` entry |
 
 `subject_id` inside an output's `metadata` is its producer, not an edge end.
 

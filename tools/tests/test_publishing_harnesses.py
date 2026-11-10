@@ -106,8 +106,8 @@ class PublishingHarnesses(unittest.TestCase):
             with self.subTest(url=url):
                 self.assertIsNone(hook.answer('pre', 'codex', {**event, 'mcp_server_url': url}))
 
-    def shared(self, host, content):
-        event = self.event(host, {'name': 'registry__publish_output', 'arguments': {
+    def shared(self, host, content, name='extension__agent__publish_output'):
+        event = self.event(host, {'name': name, 'arguments': {
             'metadata': {'name': 'notes', 'workspace_id': self.workspace}, 'source_type': 'local',
             'source_id': 'notes.md', 'file': {'path': 'notes.md', 'content': content}}}, 0, self.run / 'receipts')
         outer = event['toolArgs'] if host == 'copilot' else event['tool_input']
@@ -116,16 +116,18 @@ class PublishingHarnesses(unittest.TestCase):
 
     def test_a_shared_output_holding_a_credential_is_refused_on_every_adapter_without_repeating_it(self):
         key = 'AKIA' + 'ABCDEFGHIJKLMNOP'  # built here so no credential shape is committed
-        for host in ('codex', 'cursor', 'copilot'):
-            with self.subTest(host=host):
-                pre = hook.answer('pre', host, self.shared(host, f'# Notes\nkey: {key}\n'))
+        # The agent app's tool, and the registry's copy on a gateway that predates the move.
+        for host, name in [(host, name) for host in ('codex', 'cursor', 'copilot')
+                           for name in ('extension__agent__publish_output', 'registry__publish_output')]:
+            with self.subTest(host=host, name=name):
+                pre = hook.answer('pre', host, self.shared(host, f'# Notes\nkey: {key}\n', name))
                 reason = (pre['hookSpecificOutput']['permissionDecisionReason'] if host == 'codex'
                           else pre['permissionDecisionReason'] if host == 'copilot' else pre['agent_message'])
                 self.assertIn('notes.md:2:6: credential: matches the AWS access key pattern', reason)
                 self.assertIn('Nothing was sent.', reason)
                 self.assertNotIn(key, json.dumps(pre))
-                self.assertIsNone(hook.answer('pre', host, self.shared(host, '# Notes\nThe key lives in the vault.\n')))
-                self.assertIsNone(hook.answer('post', host, self.shared(host, f'key: {key}')))
+                self.assertIsNone(hook.answer('pre', host, self.shared(host, '# Notes\nThe key lives in the vault.\n', name)))
+                self.assertIsNone(hook.answer('post', host, self.shared(host, f'key: {key}', name)))
 
     def test_a_shared_output_refusal_lists_five_matches_and_leaves_other_servers_alone(self):
         key = 'AKIA' + 'ABCDEFGHIJKLMNOP'

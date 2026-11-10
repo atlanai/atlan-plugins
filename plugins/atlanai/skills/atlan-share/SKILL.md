@@ -37,7 +37,7 @@ Read the content before sharing it. Stop and show the user, with values masked, 
 looks like a credential (a private key block, a token such as `sk-…`, `ghp_…`, `xox…` or
 `AKIA…`, a `password=` or connection string) or a list of people's personal details. Share only
 after they say so, or after they remove it. Where the publish helper runs, it refuses a
-`registry__publish_output` whose text still matches a credential shape, naming the line: mask
+`extension__agent__publish_output` whose text still matches a credential shape, naming the line: mask
 the value or swap in a placeholder, then send again. Never route around the refusal.
 
 ## 2. Decide who it is for
@@ -63,7 +63,7 @@ this report with the Data team") is that yes: write, then say what was written. 
 anything is left to choose, when it would replace a different earlier share, or when step 1
 found something to mask. The write is:
 
-- **one call,** `registry__publish_output`, writes the bytes as a `file`, then the `output` that
+- **one call,** `extension__agent__publish_output`, writes the bytes as a `file`, then the `output` that
   pins it and its edges;
 - **a new version** is the same call with the same source key: it appends to the earlier share's
   file and makes the output's next version, and unchanged text writes no new file version.

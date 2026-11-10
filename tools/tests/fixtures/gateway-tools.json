@@ -44,7 +44,6 @@
     "registry__list_workspaces": "read",
     "registry__move_artifact": "write",
     "registry__patch_artifact": "write",
-    "registry__publish_output": "write",
     "registry__relate_artifact": "write",
     "registry__release_artifact": "destructive",
     "registry__request_file_upload": "write",

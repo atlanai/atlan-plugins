@@ -581,7 +581,7 @@
    "calls": {
     "cold": [
      {
-      "tool": "registry__publish_output",
+      "tool": "extension__agent__publish_output",
       "runner": "call_write_tool",
       "args": {
        "source_id": "<source_id>",
@@ -592,7 +592,7 @@
     ],
     "warm": [
      {
-      "tool": "registry__publish_output",
+      "tool": "extension__agent__publish_output",
       "runner": "call_write_tool",
       "args": {
        "source_id": "<source_id>",
@@ -626,7 +626,7 @@
       }
      },
      {
-      "tool": "registry__publish_output",
+      "tool": "extension__agent__publish_output",
       "runner": "call_write_tool",
       "args": {
        "source_id": "<source_id>",
@@ -650,7 +650,7 @@
     ],
     "warm": [
      {
-      "tool": "registry__publish_output",
+      "tool": "extension__agent__publish_output",
       "runner": "call_write_tool",
       "args": {
        "source_id": "<source_id>",
