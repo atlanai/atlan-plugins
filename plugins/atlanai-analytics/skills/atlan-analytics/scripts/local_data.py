@@ -41,8 +41,15 @@ SQLITE_FUNCTIONS = FUNCTIONS | {'like', 'date', 'datetime', 'julianday', 'iif', 
 
 def check_functions(sql, allowed=FUNCTIONS):
     from metrics_mine import scan
-    code = ''.join(text if kind == 'code' else text[1:-1] if kind == 'ident' else ' '
-                   for kind, text in scan(sql))
+    tokens = list(scan(sql))
+    # Keep offsets aligned so only unquoted subquery JOINs become the existing
+    # FROM syntax marker. Quoted identifiers remain subject to function checks.
+    code = ''.join(text if kind == 'code' else text[1:-1].ljust(len(text))
+                   if kind == 'ident' else ' ' * len(text) for kind, text in tokens)
+    syntax = ''.join(text if kind == 'code' else ' ' * len(text) for kind, text in tokens)
+    code = re.sub(r'\bjoin\b(?=\s*\(\s*(?:select|with)\b)',
+                  lambda m: 'from' if syntax[m.start():m.end()].lower() == 'join' else m[0],
+                  code, flags=re.I)
     # CTE column declarations are names, not calls. Mask only the declaration
     # occurrence, never every occurrence of its alias (which could hide a macro).
     code = re.sub(r'(\bwith\s+(?:recursive\s+)?|,)\s*([A-Za-z_][A-Za-z_0-9]*)\s*'

@@ -175,6 +175,23 @@ class LocalProject(unittest.TestCase):
             with self.assertRaises(local_data.DataError): local_data.check_functions(q)
         local_data.check_functions("SELECT SUM(cost), 'read_csv(' FROM site.work WHERE kind IN ('a')")
 
+    def test_function_guard_allows_subquery_joins_without_allowing_join_functions(self):
+        for query in (
+            'SELECT SUM(w.cost) FROM site.work w JOIN (SELECT kind FROM site.work) k ON k.kind=w.kind',
+            'SELECT SUM(w.cost) FROM site.work w LEFT JOIN /* note */ (SELECT kind FROM site.work) k ON k.kind=w.kind',
+            'SELECT COUNT(*) FROM site.work w CROSS JOIN (WITH n AS (SELECT kind FROM site.work) SELECT kind FROM n) k',
+        ):
+            with self.subTest(query=query):
+                self.assertNotIn('join', local_data.check_functions(query))
+        for query in (
+            'SELECT * FROM "join"(SELECT 1)',
+            'SELECT * FROM site.work w JOIN (SELECT custom_macro(cost) FROM site.work) k ON 1=1',
+            "SELECT * FROM site.work w JOIN (SELECT * FROM read_csv('file.csv')) k ON 1=1",
+            'SELECT * FROM site.work w JOIN (SELECT * FROM "query_table"($name)) k ON 1=1',
+        ):
+            with self.subTest(query=query), self.assertRaises(local_data.DataError):
+                local_data.check_functions(query)
+
 
 @unittest.skipUnless(HAS_DUCKDB, 'Use an existing approved DuckDB runtime for integration tests.')
 class DuckDBFlow(unittest.TestCase):
@@ -387,6 +404,24 @@ class SQLiteFlow(unittest.TestCase):
         execution = self.run.current()['execution']
         self.assertEqual((execution['kind'], execution['schema'], execution['tables']),
                          ('sqlite', 'site', ['site.work']))
+
+    def test_subquery_joins_execute_with_the_same_table_scope(self):
+        for join in ('JOIN', 'INNER JOIN', 'LEFT JOIN', 'CROSS JOIN', 'join /* note */'):
+            query = ('SELECT SUM(w.cost) FROM site.work w ' + join +
+                     ' (SELECT kind FROM site.work GROUP BY kind) k ON k.kind=w.kind')
+            with self.subTest(join=join):
+                self.assertEqual(self.run.execute({'sql': query})['rows'], [[34.75]])
+        query = ('SELECT SUM(w.cost) FROM site.work w JOIN '
+                 '(WITH kinds AS (SELECT kind FROM site.work GROUP BY kind) '
+                 'SELECT kind FROM kinds) k ON k.kind=w.kind')
+        self.assertEqual(self.run.execute({'sql': query})['rows'], [[34.75]])
+        for query in (
+            'SELECT COUNT(*) FROM site.work w JOIN (SELECT * FROM site.other) k ON 1=1',
+            'SELECT COUNT(*) FROM site.work w JOIN (SELECT * FROM site.hidden) k ON 1=1',
+            'SELECT COUNT(*) FROM site.work w JOIN (SELECT random() FROM site.work) k ON 1=1',
+        ):
+            with self.subTest(query=query), self.assertRaises(local_data.DataError):
+                self.run.execute({'sql': query})
 
     def test_cold_csv_preparation_then_read_only_binding(self):
         result = self.run.prepare(self.preparation())
