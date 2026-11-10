@@ -459,8 +459,14 @@ def _ingest(ctx: stage.Ctx) -> None:
     # THE IDENTITY IS SCOPED TO THE RUN. A measure_id is only (name, table), so two estates that
     # publish the same name over the same table would otherwise share one artifact, and a push
     # would append one estate's definition onto the other's.
-    scope = ctx.read("run_inputs.json", "run_inputs.schema.json")["scope"]
+    run_inputs = ctx.read("run_inputs.json", "run_inputs.schema.json")
+    scope = run_inputs["scope"]
     dialect, bi_rel = _dialect_and_relationships(merged, stmts)
+    # SQLite NAMES A TABLE IN TWO PARTS. `site.projects` is the attached file `site` and its
+    # table, a full name there, not an alias and its column: the run's bounded tables say which.
+    two_part = ({".".join(str(t).lower().split(".")[-2:])
+                 for t in (run_inputs.get("bounded_tables") or {}).get("tables") or []}
+                if str(dialect).lower() == "sqlite" else set())
     cands = _candidates_by_vq(ctx)
     columns = _catalogue(ctx, stmts)
     max_values = ctx.policy.get("metrics.dimensions.max_values_per_dimension")
@@ -585,10 +591,12 @@ def _ingest(ctx: stage.Ctx) -> None:
             # not borrowed from a query: a table that plays two roles is written that way, and
             # its role name is the only thing that tells the two apart.
             derived = _derived_aliases(str(_source_of(a).get("sql") or ""))
-            loose = [x for x in _unqualified(scan) if x.split(".", 1)[0].lower() not in derived]
+            loose = [x for x in _unqualified(scan) if x.split(".", 1)[0].lower() not in derived
+                     and x.lower() not in two_part]
             if loose:
+                full = "SCHEMA.TABLE.COLUMN" if two_part else "DB.SCHEMA.TABLE.COLUMN"
                 problems.append(f"{where}: {len(loose)} reference(s) still wear a query alias — "
-                                f"{', '.join(loose[:6])}. Qualify them: DB.SCHEMA.TABLE.COLUMN.")
+                                f"{', '.join(loose[:6])}. Qualify them: {full}.")
 
             agg = a.get("aggregation")
             atype = str((agg or {}).get("type") if isinstance(agg, dict) else agg or "").lower()

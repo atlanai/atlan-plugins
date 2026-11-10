@@ -138,3 +138,16 @@ class SQLiteEstateTest(unittest.TestCase):
         self.assertEqual(dict(rows), {'app': 1 / 6, 'web': 9 / 12})
         _, rows = self.compile('SUM([sold]) / 4', ['channel'])
         self.assertEqual(dict(rows), {'app': 0.25, 'web': 2.25})
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class SQLiteLineageTest(unittest.TestCase):
+    def test_a_two_part_sqlite_name_is_its_file_schema_and_table(self):
+        from metrics_agent.lib import bi_scope
+        facts = {'tables': [{'name': 'site.projects', 'source_lineage': {'schema': 'site', 'object': 'projects'}},
+                            {'name': 'Box Office', 'source_lineage': {'statement': 'SELECT 1',
+                                                                      'reads': ['tix.orders']}},
+                            {'name': 'tix.sqlite.tix.events', 'source_lineage': {'database': 'tix.sqlite'}}]}
+        self.assertEqual(bi_scope.warehouse_tables(facts, 'sqlite'),
+                         ['SITE.SITE.PROJECTS', 'TIX.TIX.EVENTS', 'TIX.TIX.ORDERS'])
+        self.assertEqual(bi_scope.warehouse_tables(facts, 'snowflake'), ['TIX.SQLITE.TIX.EVENTS'])

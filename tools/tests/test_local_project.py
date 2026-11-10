@@ -174,6 +174,8 @@ class LocalProject(unittest.TestCase):
                   'SELECT * FROM "query_table"($name)', 'SELECT custom_macro(cost) FROM site.work'):
             with self.assertRaises(local_data.DataError): local_data.check_functions(q)
         local_data.check_functions("SELECT SUM(cost), 'read_csv(' FROM site.work WHERE kind IN ('a')")
+        local_data.check_functions('SELECT n.c FROM site.work w JOIN (SELECT kind, COUNT(*) AS c '
+                                   'FROM site.work GROUP BY kind) n ON n.kind = w.kind UNION ALL (SELECT 1)')
 
 
 @unittest.skipUnless(HAS_DUCKDB, 'Use an existing approved DuckDB runtime for integration tests.')

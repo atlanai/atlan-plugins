@@ -42,9 +42,19 @@ def parse(path: pathlib.Path, vendor: str, model: str | None = None, *,
     return {"tables": [t for d in docs for t in d.get("tables") or []]}
 
 
-def warehouse_tables(facts: dict) -> list[str]:
+def warehouse_tables(facts: dict, dialect: str = "") -> list[str]:
     """Sorted, de-duplicated `DB.SCHEMA.TABLE` names the model's tables resolve to."""
     out = set()
+    # SQLite names a table in two parts, the attached file and the table (`site.projects`):
+    # the file is both its database and its schema (`SITE.SITE.PROJECTS`). A reader that also
+    # records the file's name (`tix.sqlite.tix.events`) adds nothing a statement can name.
+    sqlite = str(dialect).lower() == "sqlite"
+
+    def full(x: str) -> str:
+        parts = x.upper().split(".")
+        if sqlite and len(parts) >= 2:
+            return ".".join([parts[-2]] + parts[-2:])
+        return x.upper()
     for t in facts.get("tables") or []:
         # By the time a parser returns, a resolved partition has rewritten `name` to the
         # physical target; `source_lineage.object` may be that same name or only its leaf.
@@ -54,14 +64,14 @@ def warehouse_tables(facts: dict) -> list[str]:
         # table has: the tables it reads are in `reads`.
         name = "" if lin.get("statement") else (t.get("name") or "")
         for cand in (name, obj):
-            if cand.count(".") >= 2:
-                out.add(cand.upper())
+            if full(cand).count(".") >= 2:
+                out.add(full(cand))
                 break
         # Every object the source READS: a join's other tables, a statement's tables.
-        out.update(str(r).upper() for r in lin.get("reads") or [] if str(r).count(".") >= 2)
+        out.update(full(str(r)) for r in lin.get("reads") or [] if full(str(r)).count(".") >= 2)
     return sorted(out)
 
 
 def tables_of(path: pathlib.Path, vendor: str, model: str | None = None, *,
               dialect: str = "") -> list[str]:
-    return warehouse_tables(parse(path, vendor, model, dialect=dialect))
+    return warehouse_tables(parse(path, vendor, model, dialect=dialect), dialect)

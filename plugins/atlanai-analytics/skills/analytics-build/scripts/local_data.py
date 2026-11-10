@@ -31,6 +31,7 @@ FUNCTIONS = set(('sum avg count min max coalesce nullif abs round floor ceil cei
                  'sqrt power median quantile_cont quantile_disc stddev_pop stddev_samp '
                  'variance var_pop var_samp count_if bool_and bool_or instr position '
                  'as in over filter partition by from where and or not select with '
+                 'join union all intersect except using lateral '
                  'exists values grouping rollup cube on having qualify '
                  'decimal numeric varchar char bigint integer smallint').split())
 
