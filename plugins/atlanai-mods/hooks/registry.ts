@@ -1,23 +1,43 @@
 // Pure helpers for the Atlan gateway's search-mode tools. Nothing here calls `$`, so every rule
 // is tested without a session.
 
-/** The gateway's five search-mode tools as Claude Code names them, under whatever key the server
- * was added with: `mcp__plugin_atlanai_atlan__mcp__call_tool` for the plugin's server,
+/** The Atlan gateway's tools this mod handles, as Claude Code names them, under whatever key the
+ * server was added with: `mcp__plugin_atlanai_atlan__mcp__call_tool` for the plugin's server,
  * `mcp__atlan__mcp__call_tool` for one added by hand, and `mcp__atlan-prod__mcp__call_tool` for a
- * gateway someone registered under another name. The tool names are the gateway's own
- * (`mcp__call_tool` inside the server's namespace), so they identify it without the key. */
+ * gateway someone registered under another name. They are search mode's six helpers
+ * (`mcp__call_tool` inside the server's namespace) and the six registry reads search mode lists
+ * by name (`registry__get_artifact`). The tool names are the gateway's own, so they identify it
+ * without the key. */
 export const GATEWAY_TOOL =
-  /^mcp__[A-Za-z0-9_-]+?__mcp__(?:call_tool|call_read_tool|call_write_tool|search_tools|describe_tools)$/
+  /^mcp__[A-Za-z0-9_-]+?__(?:mcp__(?:call_tool|call_read_tool|call_write_tool|call_read_tools|search_tools|describe_tools)|registry__(?:search_artifacts|get_artifact|list_workspaces|get_artifact_counts|get_related_artifacts|get_file_content))$/
 /** The three runners: `mcp__call_tool` runs any tool, `mcp__call_read_tool` only a read-only one
  * and `mcp__call_write_tool` anything that is not destructive. The gateway refuses a tool above a
  * runner's tier, so the runner caps what a call through it can do. */
 export const CALL_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call(?:_read|_write)?_tool$/
+/** The batch runner: up to eight reads in one call, each run as `mcp__call_read_tool` runs it. */
+export const BATCH_TOOL = /^mcp__[A-Za-z0-9_-]+?__mcp__call_read_tools$/
+/** The registry reads search mode lists by name. Their input is the tool's own arguments, with
+ * `session_id` and `rationale` among them. The gateway lists a name here only while the registry
+ * declares it read-only; this mod still classifies each call by its annotations. */
+export const DIRECT_READ =
+  /^mcp__[A-Za-z0-9_-]+?__registry__(?:search_artifacts|get_artifact|list_workspaces|get_artifact_counts|get_related_artifacts|get_file_content)$/
+/** Every tool whose permission check this mod answers: the runners, the batch runner and the
+ * reads listed by name. */
+export const CHECKED_TOOL =
+  /^mcp__[A-Za-z0-9_-]+?__(?:mcp__call(?:_read|_write)?_tools?|registry__(?:search_artifacts|get_artifact|list_workspaces|get_artifact_counts|get_related_artifacts|get_file_content))$/
 const RUNNER = /^mcp__call(?:_read|_write)?_tool$/
+const TOOL_PARTS = /^mcp__([A-Za-z0-9_-]+?)__((?:mcp|registry)__\w+)$/
+
+/** The gateway's own name for a tool Claude Code names: `registry__get_artifact` in
+ * `mcp__atlan__registry__get_artifact`, `mcp__call_tool` in `mcp__atlan__mcp__call_tool`. */
+export function gatewayNameOf(tool: string): string | undefined {
+  return GATEWAY_TOOL.test(tool) ? TOOL_PARTS.exec(tool)?.[2] : undefined
+}
 
 /** The most a call through this runner can do, as the gateway enforces it; `undefined` for
  * `mcp__call_tool`, which runs any tier. */
 export function runnerCap(tool: string): Effect | undefined {
-  if (/__mcp__call_read_tool$/.test(tool)) return 'read'
+  if (/__mcp__call_read_tools?$/.test(tool)) return 'read'
   if (/__mcp__call_write_tool$/.test(tool)) return 'write'
   return undefined
 }
@@ -37,8 +57,7 @@ export const PROBE_SERVERS = ['plugin:atlanai:atlan', 'atlan'] as const
 
 /** The server key in a gateway tool's name: `atlan-prod` in `mcp__atlan-prod__mcp__call_tool`. */
 export function serverKeyOf(tool: string): string | undefined {
-  if (!GATEWAY_TOOL.test(tool)) return undefined
-  return tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
+  return GATEWAY_TOOL.test(tool) ? TOOL_PARTS.exec(tool)?.[1] : undefined
 }
 
 /** The servers the mod's own checks try: a gateway the model has called under a key of its own
@@ -106,6 +125,41 @@ export function unwrap(name: unknown, args: unknown): { name: string; args: unkn
   return current
 }
 
+/** The calls a batch names, each unwrapped as a runner's would be. `undefined` when `calls` is
+ * not a list of calls, which the gateway refuses before running anything. */
+export function batchCalls(input: unknown): { name: string; args: unknown }[] | undefined {
+  const calls = argsOf(input).calls
+  if (!Array.isArray(calls) || calls.length === 0 || !calls.every(isRecord)) return undefined
+  return calls.map(call => unwrap(call.name, call.arguments))
+}
+
+/** The most a batch can do: its worst call, each capped at a read as the gateway caps it. One
+ * call the mod cannot judge leaves the whole batch to the session's own rules. */
+export function batchEffect(calls: readonly { name: string }[], hints: HintTable): Effect {
+  const effects = calls.map(call => capped(classify(call.name, hints), 'read', call.name))
+  if (effects.includes('destructive')) return 'destructive'
+  if (effects.includes('unknown')) return 'unknown'
+  return effects.includes('write') ? 'write' : 'read'
+}
+
+/** One answer in a batch's result. */
+export type BatchEntry = { name: string; text: string; isError: boolean }
+
+/** A batch's answers, in the order of its calls: `{"results":[{name, isError, content}]}`. */
+export function batchEntries(text: string): BatchEntry[] | undefined {
+  for (const object of jsonObjects(text)) {
+    if (!isRecord(object) || !Array.isArray(object.results) || object.results.length === 0) continue
+    const entries = object.results.filter(isRecord)
+    if (entries.length !== object.results.length || !entries.every(entry => typeof entry.isError === 'boolean')) continue
+    return entries.map(entry => ({
+      name: typeof entry.name === 'string' ? entry.name : '',
+      text: isText(entry.error) ? entry.error : resultText({ result: entry }),
+      isError: entry.isError === true,
+    }))
+  }
+  return undefined
+}
+
 /** The fields the gateway reads beside `name` and `arguments`, never inside them. */
 const RAILS = ['session_id', 'rationale', 'objective'] as const
 type Rail = (typeof RAILS)[number]
@@ -163,7 +217,8 @@ export function repairRails(input: CallInput, known: string, isCallTool: boolean
 
 /** The gateway session a result names, from `mcp_session_id` or `session_id`. */
 export function findSessionId(text: string): string | undefined {
-  const match = /"(?:mcp_)?session_id"\s*:\s*"(mcp_session_[A-Za-z0-9]+)"/.exec(text)
+  // A batch carries each answer as JSON inside a JSON string, so its quotes arrive escaped.
+  const match = /\\?"(?:mcp_)?session_id\\?"\s*:\s*\\?"(mcp_session_[A-Za-z0-9]+)\\?"/.exec(text)
   return match?.[1]
 }
 
@@ -295,8 +350,11 @@ export function describeWrite(name: string, args: unknown): string {
   if (!GATEWAY_OWNED.test(canonical(name))) return `Atlan gateway call: ${name.slice(0, 80)}, which its server marks as changing something.`
   const record = argsOf(args)
   const verb = name.replace(/^registry__/, '').replace(/_/g, ' ')
-  const target = name.includes('create') ? creation(record) : (artifactOf(record) ?? '')
-  return `Atlan registry write: ${verb}${target ? ` ${target}` : ''}.`
+  // A withdrawal names a release (`rel_…`), not an artifact.
+  const release = isText(record.release_id) ? record.release_id : ''
+  const target = name.includes('create') ? creation(record) : (artifactOf(record) ?? release)
+  const consequence = CONSEQUENCE[canonical(name)]
+  return `Atlan registry write: ${verb}${target ? ` ${target}` : ''}.${consequence ? ` ${consequence}` : ''}`
 }
 
 export type Related = { count: number; dependents: { id: string; kind: string; rel: string }[] }
@@ -339,11 +397,14 @@ export function summaryOf(text: string): Summary | undefined {
   return undefined
 }
 
-/** What an archive, move or approve does to everyone else. */
+/** What an archive, move, approve, release or withdrawal does to everyone else. */
 export const CONSEQUENCE: Record<string, string> = {
   registry__archive_artifact: 'Archiving hides it from search, listings and installs for everyone.',
   registry__move_artifact: 'Moving takes it away from everyone in its current workspace.',
   registry__approve_artifact: 'Approving overrides the security scan for this version.',
+  registry__release_artifact: 'Releasing makes this version the one its channel serves to everyone who installs or loads it.',
+  registry__withdraw_release:
+    'Withdrawing moves everyone on its channel back to the previous release, or to none, and cannot be undone: only a new release replaces it.',
 }
 
 /** The permission prompt's text for an archive, move or approve. */
@@ -360,7 +421,7 @@ export function describeBlastRadius(name: string, id: string, summary?: Summary,
     const more = related.count > 3 ? ` and ${related.count - 3} more` : ''
     parts.push(`${related.count} ${related.count === 1 ? 'artifact depends' : 'artifacts depend'} on it: ${shown.join(', ')}${more}.`)
   }
-  const consequence = CONSEQUENCE[name]
+  const consequence = CONSEQUENCE[canonical(name)]
   if (consequence) parts.push(consequence)
   return parts.join(' ')
 }

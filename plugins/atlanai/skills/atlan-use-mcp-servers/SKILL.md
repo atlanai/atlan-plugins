@@ -62,6 +62,12 @@ to both.
    in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
    Atlan is not answering. Never repeat a write: read it back first.
 
+   Each hit says how well it fits under `match`: `quality` is `strong` or `weak`. A `weak` hit
+   shares few of the request's words and is often the wrong tool. Never run a weak hit that
+   writes until the user has confirmed the tool by name, and when every hit is weak, search
+   once more naming the product or with `servers` before saying no tool does this. A gateway
+   that sends no `match` predates it: judge each hit by its name and description.
+
    If the search lists the product the user named under `connect` instead of as tools, stop
    there and connect it (next section). Never run a lookalike from another server in its
    place: a search for "create a Linear issue" can rank an Atlan app's own `create_issue`

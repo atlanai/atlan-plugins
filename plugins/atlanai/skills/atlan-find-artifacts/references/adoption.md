@@ -3,10 +3,12 @@
 Open this for "what uses it, what does it use?", "who uses this skill?", "who is still on 1.0?",
 "is anyone using it?" or "which of our skills are used most?". Every call here is a read.
 
-Atlan records **who depends on** an artifact, as edges. It does not record how often a skill is
-loaded. Answer from the edges, and say once that load counts are not recorded yet when the user
-asked how much something is used. Never count usage by reading run traces: one run holds
-hundreds of steps, and runs you cannot see read as missing.
+Atlan records **who depends on** an artifact, as edges, and the tools here read those. Newer
+gateways also record each read of an artifact, and its usage view in the Atlan dashboard shows
+who read it, but no tool on this connection reads that record. Answer from the edges, and when
+the user asked how much something is used, say once that this connection cannot read usage and
+that read counts are on the artifact's usage view in the dashboard. Never count usage by reading
+run traces: one run holds hundreds of steps, and runs you cannot see read as missing.
 
 ## Reading the neighbourhood
 
@@ -39,7 +41,7 @@ agents that use a skill, read the skill's incoming edges rather than its outgoin
 Answer with one line per version, newest first, then the outputs:
 
 > oncall-handoff 1.1.0 (latest): pager-summary. 1.0.0: handoff-bot, one version behind.
-> 3 recorded outputs drew on it. Atlan does not record how often it is loaded.
+> 3 recorded outputs drew on it. How often it is read is on its usage view in the dashboard.
 
 When nothing depends on it, say that plainly: no agent loads it and no output cites it. That
 is the answer to "can I archive it?", which then goes to `atlan-manage-artifacts`.

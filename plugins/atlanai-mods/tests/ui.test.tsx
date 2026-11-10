@@ -15,6 +15,8 @@ import {
 
 const CALL = 'mcp__plugin_atlanai_atlan__mcp__call_tool'
 const SEARCH_TOOLS = 'mcp__plugin_atlanai_atlan__mcp__search_tools'
+const BATCH = 'mcp__plugin_atlanai_atlan__mcp__call_read_tools'
+const GET = 'mcp__plugin_atlanai_atlan__registry__get_artifact'
 const SESSION = 'mcp_session_01m6cb39bcesgadrp1h8b69m74'
 const RECEIPT = JSON.stringify({ 'com.atlan/receipt': { mcp_session_id: SESSION, next: 'Pass this id as top-level session_id.' } })
 const PLUGIN = 'atlanai-mods'
@@ -96,6 +98,25 @@ describe('what a call did, in words', () => {
     expect(describeCall(CALL, { name: 'extension__skill__create', arguments: PUBLISH_ARGS })).toBe('published skill deploy-preview')
     expect(describeCall(CALL, { name: 'slack__send_message', arguments: {} })).toBe('slack · send message')
     expect(describeCall(SEARCH_TOOLS, { query: 'linear issues' })).toBe('searched tools for "linear issues"')
+  })
+
+  test('names a batch of reads and a read called by name (B1)', () => {
+    const calls = [
+      { name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' } },
+      { name: 'registry__get_related_artifacts', arguments: { artifact_id: 'skill_01x' } },
+    ]
+    expect(describeCall(BATCH, { calls, rationale: 'r' })).toBe('ran 2 reads: read skill_01x; read what relates to skill_01x')
+    expect(describeCall(BATCH, { calls: calls.slice(0, 1) })).toBe('read skill_01x')
+    expect(describeCall(BATCH, {})).toBe('ran a batch of reads')
+    expect(describeCall(GET, { artifact_id: 'skill_01x', rationale: 'r' })).toBe('read skill_01x')
+    expect(describeCall('mcp__atlan__registry__search_artifacts', { query: 'churn', kind: 'skill' })).toBe('searched skills for "churn"')
+    const answer = JSON.stringify({
+      results: [
+        { name: 'registry__get_artifact', isError: false, content: [{ type: 'text', text: `${JSON.stringify(ARTIFACT)}${RECEIPT}` }] },
+        { name: 'registry__get_related_artifacts', isError: true, error: 'artifact not found' },
+      ],
+    })
+    expect(summarizeResult(answer, false)).toBe('1 of 2 reads answered: skill skill-creator 0.2.0; Failed: artifact not found')
   })
 
   test('sums up what came back', () => {
@@ -191,6 +212,22 @@ describe('the transcript row', () => {
 })
 
 describe('the Atlan pane', () => {
+  test('lists what a batch and a read called by name read (B1)', async ($, on) => {
+    engine(on, fresh())
+    const other = { ...ARTIFACT, id: 'skill_01other', display_name: 'pii-scrub', version_label: '1.0.0' }
+    on('tool.call', (_, e) =>
+      (e as { tool: string }).tool === BATCH
+        ? { result: 'ok', text: JSON.stringify({ results: [{ name: 'registry__get_artifact', isError: false, content: [{ type: 'text', text: JSON.stringify(ARTIFACT) }] }] }) }
+        : { result: 'ok', text: JSON.stringify(other) },
+    )
+    await $.tool.call({ tool: BATCH, calls: [{ name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01target' } }], rationale: 'r' })
+    await $.tool.call({ tool: GET, artifact_id: 'skill_01other', rationale: 'r' })
+    const ui = await $.ui.mount(pane('atlan'))
+    expect(await ui.find({ type: 'Text', text: /skill-creator/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /pii-scrub/ })).toBeDefined()
+    await ui.unmount()
+  })
+
   test('lists what the session changed, opens itself at the first write, and copies an id', async ($, on) => {
     const seen = fresh()
     engine(on, seen)
