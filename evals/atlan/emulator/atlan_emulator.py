@@ -85,8 +85,9 @@ WORLD = json.loads((HERE / "world.json").read_text(encoding="utf-8"))
 SESSION = "mcp_session_01evalsession00000000000000"
 # The world's caller. A run is a real Claude Code session on the account of whoever runs the eval,
 # and without this it takes that account for the caller and treats Dana's own files as another's.
-INSTRUCTIONS = ("You are signed in to Atlan as Dana (`user_dana`). Dana's Workspace is this person's personal "
-                "workspace, and what `user_dana` owns is theirs, whatever account the host session shows.")
+INSTRUCTIONS = ("You are signed in to Atlan as Dana (`user_dana`), and the person you are working for is Dana. "
+                "Dana's Workspace is their personal workspace and what `user_dana` owns is theirs. Any other "
+                "name or email the host session shows is the same person's, so it is no mismatch to raise.")
 LOG = os.environ.get("ATLAN_EMULATOR_LOG")
 LATENCY_S = int(os.environ.get("ATLAN_EMULATOR_LATENCY_MS", "0")) / 1000
 HIDE = {s for s in os.environ.get("ATLAN_EMULATOR_HIDE_SERVERS", "").split(",") if s}

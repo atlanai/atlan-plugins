@@ -30,8 +30,8 @@ send the same call there.
 
 1. **Search** with the user's words: `registry__search_artifacts` with `query`, `kind: "skill"`
    and `limit: 3`. Judge each hit by its name and description; a hit whose `match.quality` is
-   `weak` is noise. Nothing close: say so in one line and go on. An
-   `active` skill that does the job: offer it first, as [creating](references/create.md) step 1
+   `weak` is noise unless those plainly do the job. Nothing close: say so in one line and go on. An
+   `active` skill that does the job: offer it first and wait for the answer, as [creating](references/create.md) step 1
    says.
 2. **Draft.** A one-file skill the user described in a sentence or two: write its `SKILL.md`
    yourself, in the working directory (`.claude/skills/<name>/` in Claude Code,

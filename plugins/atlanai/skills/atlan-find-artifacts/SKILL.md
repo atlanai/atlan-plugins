@@ -73,8 +73,8 @@ mcp__call_read_tool {
 - **Same name, different skill.** Copies of one artifact across workspaces are one hit, the
   rest under `also_in`; two different artifacts can still share a `name`. Name each one's
   workspace (`workspace_display_name`) so the user can tell them apart.
-- **Weak hits are noise.** A hit whose `match.quality` is `weak` did not match; leave it out,
-  even when it ranks first. Only a `strong` hit is a finding.
+- **Weak hits are noise**, unless one's name and description plainly do the job: `weak` only
+  counts shared words. Report that one; leave the rest out.
 - **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
   `semantic: true`) before concluding nothing exists. An artifact the user cannot read looks
   the same as one that does not exist. When `page.has_more`, the next page is `offset:
