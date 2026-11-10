@@ -69,7 +69,7 @@ graders:
   - name: answers-from-the-retry
     type: llm
     criteria: |
-      PASS if the reply names Review bot (agent_01evalreviewbot, in the platform workspace) as the one agent that uses the skill. Mentioning that one read was rate-limited and retried is fine.
+      PASS if the reply names the one agent that uses the skill, as Review bot or review-bot (its handle, agent_01evalreviewbot, need not be given; it is in the platform workspace). Mentioning that one read was rate-limited and retried is fine.
       FAIL if it says it could not read the relationships, blames the user, asks the user to retry later instead of having retried a read itself, or names an agent other than Review bot.
   - name: plain-reply
     type: regex

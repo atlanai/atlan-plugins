@@ -31,6 +31,10 @@ A metric's definition of record is the `metric` and its saved SQL that the Analy
 `resource` pointing at the published metric, but never restates its calculation; when the user
 wants to define or change a metric, use `analytics-build`, or say the Analytics add-on does it.
 
+Asked how to make a bundle, answer with what the user supplies (one concept per Markdown file,
+each opening with frontmatter that has a `type`) and offer to check the files and create it: ask
+for the folder and the workspace. Limits, tool names and the update route wait until they matter.
+
 Follow [the knowledge workflow](references/author.md) for creation, reading and editing.
 Load only the references that procedure calls for.
 

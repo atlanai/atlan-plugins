@@ -33,10 +33,11 @@ the request could mean several files, ask which. Then route by what it is:
 | A glossary, runbook or reference notes meant for agents to read | Load `atlan-author-knowledge`; return at step 4 |
 | Anything else: a report, document, notebook, CSV, HTML page, deck, diagram | Share it as an `output`, steps 2 to 5 |
 
-Read the content before sharing it. Stop and show the user, with values masked, anything that
+Read the content before sharing it. Stop and show the user, with values masked (a value that looks like a placeholder too), anything that
 looks like a credential (a private key block, a token such as `sk-…`, `ghp_…`, `xox…` or
 `AKIA…`, a `password=` or connection string) or a list of people's personal details. Share only
-after they say so, or after they remove it. Where the publish helper runs, it refuses a
+after they say so, or after they remove it. That stop is the masked line and one question
+(replace it with a placeholder, or confirm it is not real): the workspace waits for the answer. Where the publish helper runs, it refuses a
 `registry__publish_output` whose text still matches a credential shape, naming the line: mask
 the value or swap in a placeholder, then send again. Never route around the refusal.
 

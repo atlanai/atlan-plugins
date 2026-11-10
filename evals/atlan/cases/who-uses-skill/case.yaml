@@ -69,7 +69,7 @@ graders:
   - name: names-agent
     type: llm
     criteria: |
-      PASS if the reply names the Review bot agent (agent_01evalreviewbot) as using the skill. FAIL otherwise.
+      PASS if the reply names the agent that uses the skill, as Review bot or review-bot. Its handle, agent_01evalreviewbot, need not be given. FAIL if it names another agent, no agent, or only the bare handle.
   - name: plain-reply
     type: regex
     target: last_message

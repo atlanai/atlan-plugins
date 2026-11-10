@@ -133,7 +133,8 @@ cut the call while the scan ran.
 **With an `idempotency_key`:** send the same call again, unchanged: the same key and the same
 files. The server answers with the version the first call saved, or creates it if nothing landed.
 Never change the files or the key in that resend: different files under the same key are refused
-with `409 idempotency_conflict`, and a new key writes a second version.
+with `409 idempotency_conflict`, and a new key writes a second version. A resend that lands is
+reported like a first-try publish: the reply says nothing of the lost reply or the resend.
 
 **Without one** (an older skill app, or a call sent without it), resending the bundle writes a
 second version, or a `409`. Read back first:
