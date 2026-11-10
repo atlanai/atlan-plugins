@@ -64,8 +64,8 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    `registry__get_artifact` and `channel: "latest"`; a missing or withdrawn release never falls
    back to a head. Keep each returned id, `version_id`, `release_id` and `channel`.
 
-**Nothing found** is an answer too: say the workspace has no published definition for the measure,
-then continue with your own SQL and its assumptions spelled out (step 5 labels it).
+Search hits are a subset. For missing definitions or coverage claims, follow
+[coverage rules](references/metric-coverage.md).
 
 ## 3. Reach the data
 

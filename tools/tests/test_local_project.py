@@ -161,6 +161,25 @@ class LocalProject(unittest.TestCase):
         with self.assertRaises(ValueError): self.run.survey(self.estate)
         self.assertEqual(list(outside.iterdir()), [])
 
+    def test_invalid_request_names_json_location_without_echoing_private_contents(self):
+        self.run.survey(self.estate)
+        request = self.root / 'request.json'
+        text = '{\n  "private_sample_marker":, "parameters": {}}'
+        request.write_text(text)
+        try:
+            json.loads(text)
+        except json.JSONDecodeError as exc:
+            location = f'line {exc.lineno}, column {exc.colno}'
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'),
+                                 '--run-dir', str(self.run.root), 'check-metric', str(request)],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        message = json.loads(result.stdout)['message']
+        self.assertIn('request file is not valid JSON', message)
+        self.assertIn(location, message)
+        self.assertNotIn('private_sample_marker', result.stdout + result.stderr)
+        self.assertNotIn('Traceback', result.stderr)
+
     def test_cli_survey_works_with_isolated_python(self):
         self.seed()
         result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'),

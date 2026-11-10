@@ -1,7 +1,7 @@
 # Who uses an artifact, at which version, and how often
 
 Open this for "what uses it, what does it use?", "who uses this skill?", "who is still on 1.0?",
-"is anyone using it?", "how often is it used?" or "which of our skills are used most?". Every call here is a read.
+"is anyone using it?", "how often is it used?", "how often is this metric read?" or "which of our skills are used most?". Every call here is a read.
 
 Atlan records **who depends on** an artifact, as edges, and **how often** a skill, agent or
 harness runs, as statistics. Edges answer "who uses it" and "at which version"; statistics
@@ -46,6 +46,15 @@ extension__skill__query_trace_stats {
   artifact's usage view in the Atlan dashboard.
 
 Answer in one line: "preview-deploy ran 18 times in the last 7 days, for 4 people."
+
+## Metrics and saved queries
+
+Atlan records reads of a metric or saved query, and use reported by uploaded runs; the
+artifact's Usage tab shows reads, users and runs. The run-count tools above take a skill, an
+agent or a harness, not a metric. Use a metric usage tool only if `mcp__search_tools` returns
+one. Otherwise point to the artifact's Usage tab and say the counts are not available through
+this connection. Never say Atlan does not record them, infer counts from dependency edges, or
+count trace spans as usage.
 
 ## Reading the neighbourhood
 
