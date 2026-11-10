@@ -54,6 +54,9 @@ directions: an agent's `uses_skill`, an output's `used_skill`, a skill's `source
 An end marked `is_readable: false` exists in a workspace the user cannot read; say that
 rather than guessing what it is. Edges are declared by their source kind, so to find the
 agents that use a skill, read the skill's incoming edges rather than its outgoing ones.
+An edge carries the other end's handle and kind, not its name. Read the ends you will name
+(`registry__get_artifact`, sent together) and answer with each one's name and workspace, never
+a bare handle.
 
 ## One artifact
 

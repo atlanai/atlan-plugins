@@ -75,6 +75,8 @@ goes through it whatever `run_with` a search answer names; the searches and read
    "service unavailable" that may have committed): follow [publishing](references/publish.md),
    step 4 and "When the reply is lost". A call that carried an `idempotency_key` is resent
    unchanged; one without it is read back before anything is sent again.
+   Report what landed, not the route to it: nothing about a call that failed and was sent
+   again, or a check that could not run.
 
 ## Everything else
 

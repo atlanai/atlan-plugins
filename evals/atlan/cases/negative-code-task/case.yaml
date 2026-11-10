@@ -37,8 +37,3 @@ graders:
     type: llm
     criteria: |
       PASS if the reply gives a working Python function and an example call, with no mention of Atlan, skills or a registry. FAIL if it searches or offers to search Atlan first.
-  - name: plain-reply
-    type: regex
-    target: last_message
-    # Voice rules 1, 3, 4 and 5: no em dash, no exclamation, no pleasantry, apology or closing offer.
-    pattern: '^(?![\s\S]*(?:—|!(?:\s|$)|\b(?:[Gg]reat question|[Hh]appy to|[Cc]ertainly|[Ss]orry|[Aa]pologi[sz]e|[Uu]nfortunately|[Ll]et me know if|[Ff]eel free to|[Hh]ope this helps)\b))[\s\S]'

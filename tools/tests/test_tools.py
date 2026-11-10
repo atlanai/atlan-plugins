@@ -1121,7 +1121,7 @@ class EvalCasesTest(unittest.TestCase):
                 "ATLAN_EMULATOR_HIDE_TOOLS", "ATLAN_EMULATOR_PLATFORM", "ATLAN_EMULATOR_UNRELEASED",
                 "ATLAN_EMULATOR_OPAQUE_PUBLISH", "ATLAN_EMULATOR_DISABLED_SERVERS",
                 "ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT", "ATLAN_EMULATOR_SERVE_WITHDRAW",
-                "ATLAN_EMULATOR_LIVE_SURFACE"}
+                "ATLAN_EMULATOR_LIVE_SURFACE", "ATLAN_EMULATOR_NOT_SCANNED"}
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -1140,7 +1140,9 @@ class EvalCasesTest(unittest.TestCase):
         for case in self.cases():
             text = (case / "case.yaml").read_text(encoding="utf-8")
             self.assertIn(f"name: {case.name}\n", text.splitlines(keepends=True), case.name)
-            self.assertIn("  - name: plain-reply\n", text.splitlines(keepends=True), case.name)
+            # A negative case is not the plugin's reply, so the Voice rules do not grade it.
+            carries = self.assertNotIn if re.search(r"^tags: \[[^\]]*\bnegative\b", text, re.MULTILINE) else self.assertIn
+            carries("  - name: plain-reply\n", text.splitlines(keepends=True), case.name)
 
     def test_every_sidecar_names_known_keys_and_switches_and_a_plugin_its_tools_pattern_matches(self) -> None:
         sidecars = [case / "emulator.json" for case in self.cases() if (case / "emulator.json").is_file()]
@@ -1193,7 +1195,7 @@ class EvalCasesTest(unittest.TestCase):
         self.assertTrue(passes(length, "one two three\nfour five\n"))
         self.assertFalse(passes(length, "one two three four five six"))
 
-    def test_a_case_sets_its_own_word_limit_and_a_negative_case_keeps_one_grader(self) -> None:
+    def test_a_case_sets_its_own_word_limit_and_a_negative_case_keeps_only_its_own_graders(self) -> None:
         import eval_graders
         own = "name: x\ntags: [share]\ngraders:\n  - name: mine\n    type: llm\n"
         self.assertIn("{1,100}", eval_graders.synced(own))
@@ -1206,7 +1208,7 @@ class EvalCasesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             eval_graders.synced("# reply-graders: plain-reply tidy, a grader that does not exist\n" + own)
         negative = eval_graders.synced(own.replace("[share]", "[negative,routing]"))
-        self.assertEqual(["mine", "plain-reply"], re.findall(r"- name: (\S+)", negative))
+        self.assertEqual(["mine"], re.findall(r"- name: (\S+)", negative))
         # Synced text is a fixed point, and a hand-edited copy of a shared grader is replaced.
         self.assertEqual(eval_graders.synced(table), table)
         edited = eval_graders.synced(own).replace("FAIL only if it ends", "FAIL if it ends")

@@ -55,7 +55,10 @@ another state through its environment (`emulator.json` beside the case, read by 
   older route (`registry__append_artifact_version` on the file, then `registry__create_artifact`
   with the same source key) still lands the next version;
 - `ATLAN_EMULATOR_SERVE_WITHDRAW=1`: `registry__withdraw_release` is served. Gateway 2.21.0 does
-  not serve it, so by default it is absent and `mcp__describe_tools` says so by name.
+  not serve it, so by default it is absent and `mcp__describe_tools` says so by name;
+- `ATLAN_EMULATOR_NOT_SCANNED=skill_01evalpending,…`: the scan of those artifacts never ran to
+  its end, so `registry__get_security_findings` answers `not_scanned` however often it is read,
+  until `registry__retrigger_artifact_action` starts a new run.
 
 The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
 `mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
@@ -102,6 +105,7 @@ OPAQUE_PUBLISH = os.environ.get("ATLAN_EMULATOR_OPAQUE_PUBLISH") == "1"
 DISABLED = {s for s in os.environ.get("ATLAN_EMULATOR_DISABLED_SERVERS", "").split(",") if s}
 PUBLISH_VERSION_CONFLICT = os.environ.get("ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT") == "1"
 SERVE_WITHDRAW = os.environ.get("ATLAN_EMULATOR_SERVE_WITHDRAW") == "1"
+NOT_SCANNED = {h for h in os.environ.get("ATLAN_EMULATOR_NOT_SCANNED", "").split(",") if h}
 # The live tool surface: `mcp__call_read_tools` and the `registry__` tools listed by name. Off by
 # default, because the suite's graders count reads on `mcp__call_read_tool`; a case that tests the
 # batch or direct path sets it in its emulator.json.
@@ -1182,9 +1186,10 @@ ANALYTICS_HANDLERS = {"extension__metric__search_metrics": search_metrics, "exte
 
 def security_findings(a: dict) -> dict:
     """`get_security_findings`, as the registry answers it: the fixture's findings for a scanned
-    artifact, and `not_scanned` with no findings for any other one the caller can see."""
+    artifact, and `not_scanned` with no findings for any other one the caller can see, or one
+    whose scan is stuck."""
     found = artifact(a["artifact_id"])
-    if found["id"] in WORLD["findings"]:
+    if found["id"] in WORLD["findings"] and found["id"] not in NOT_SCANNED:
         return WORLD["findings"][found["id"]]
     return {"artifact_id": found["id"], "artifact_status": found.get("artifact_status"), "scan_status": "not_scanned",
             "counts": {"gating": 0, "total": 0}, "findings": [], "truncated": False,

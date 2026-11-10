@@ -11,20 +11,22 @@ graders:
     type: tool_used
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
-  - name: retrieves
+  # Either read finds it: a retrieve, which leaves the unreleased bundle out until it is asked
+  # for, or a search, whose hit says `is_released: false`.
+  - name: looks-for-the-definition
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
-    input_match: '"name"\s*:\s*"mcp__retrieve_artifacts"'
+    input_match: '"name"\s*:\s*"(?:mcp__retrieve_artifacts|registry__search_artifacts)"'
     min: 1
-  - name: retries-with-unreleased
+  - name: reaches-the-unreleased-bundle
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
-    input_match: '"name"\s*:\s*"mcp__retrieve_artifacts"[\s\S]*"released_only"\s*:\s*false'
+    input_match: '"released_only"\s*:\s*false|knowledge_01evalchurn'
     min: 1
   - name: names-the-unreleased-definition
     type: llm
     criteria: |
-      The churn definition is the knowledge bundle "How Acme defines logo churn and revenue churn" (knowledge_01evalchurn), which is not released, so the first retrieve left it out and reported unreleased_omitted_count 1.
+      The churn definition is the knowledge bundle "How Acme defines logo churn and revenue churn" (knowledge_01evalchurn), which is not released: a retrieve leaves it out and reports unreleased_omitted_count 1, and a search returns it with is_released false.
       PASS if the final reply points the user to that churn definition AND says it is not released yet (a draft, unreleased, or not published).
       FAIL if it says Atlan has no churn definition, or presents the definition without saying it is unreleased.
   - name: rails-beside-arguments-on-read-runner
@@ -86,5 +88,5 @@ graders:
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed.
-      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "the write was denied, so I sent it inline").
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

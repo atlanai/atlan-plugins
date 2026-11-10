@@ -20,8 +20,9 @@ ones it names, with the reason:
 
     # reply-graders: plain-reply one-next-step, the reply is a feedback draft about a failed call
 
-A case tagged `negative` is a prompt the plugin must leave alone: it keeps `plain-reply` only,
-because the length and next step of a code answer are not the plugin's.
+A case tagged `negative` is a prompt the plugin must leave alone: it carries none of them,
+because the Voice rules are for the plugin's own replies. A warmer sentence the user asked for may
+end in an exclamation mark.
 """
 
 from __future__ import annotations
@@ -68,8 +69,8 @@ PROCESS = """\
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed.
-      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "the write was denied, so I sent it inline").
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").
 """
 
 SHARED = ("plain-reply", "reply-length", "one-next-step", "no-process-talk")
@@ -81,7 +82,7 @@ GRADER = re.compile(r"^  - name: (\S+)\n", re.MULTILINE)
 def reply_graders(text: str) -> str:
     """The shared graders a case with this text carries."""
     if re.search(r"^tags: \[[^\]]*\bnegative\b", text, re.MULTILINE):
-        return PLAIN
+        return ""
     limit = LIMIT.search(text)
     words = limit.group(1) if limit else str(WORDS)
     blocks = {"plain-reply": PLAIN, "reply-length": "" if words == "none" else LENGTH.format(words=words),

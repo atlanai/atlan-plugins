@@ -1,6 +1,9 @@
 schema_version: "1.1"
 name: routing-ci-publish
 tags: [routing,write]
+# reply-words: 150, the reply sets out the workflow and what it needs
+context:
+  scaffold_script: scaffold.sh
 execution:
   prompt: |
     Set up GitHub Actions so the skills in this repo publish to Atlan every time we merge to main.
@@ -83,9 +86,9 @@ graders:
   - name: reply-length
     type: regex
     target: last_message
-    # Voice rule 6, counted: at most 100 words. A table row or a fenced block counts as one,
+    # Voice rule 6, counted: at most 150 words. A table row or a fenced block counts as one,
     # and each word is matched whole, so a long reply fails at once instead of backtracking.
-    pattern: '^(?:\s*(?=(```[\s\S]*?```|\|[^\n]*|\S+))\1){1,100}\s*$'
+    pattern: '^(?:\s*(?=(```[\s\S]*?```|\|[^\n]*|\S+))\1){1,150}\s*$'
   - name: one-next-step
     type: llm
     focus: last_message
@@ -98,5 +101,5 @@ graders:
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed.
-      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "the write was denied, so I sent it inline").
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

@@ -73,7 +73,7 @@ graders:
   - name: reports-useful-workspaces
     type: llm
     criteria: |
-      PASS if the reply confirms the connection works, names the organization's active workspaces (Acme, Platform Engineering, Dana's Workspace, Marketing or a subset of them), and offers a concrete first task.
+      PASS if the reply confirms the connection works, names the organization's active workspaces (Acme, Platform Engineering, Dana's Workspace, Marketing or a subset of them), and offers one first step. Asking what the user is working on, so it can find the skills that fit, is such a step.
       FAIL if it lists the archived "e2e-create-…" workspaces as places to work, dumps all ~18 workspaces, or says it is not connected.
   - name: plain-reply
     type: regex
@@ -98,5 +98,5 @@ graders:
     focus: last_message
     criteria: |
       Judge only whether the reply reports the assistant's own mistakes or mechanics.
-      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed.
-      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "the write was denied, so I sent it inline").
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

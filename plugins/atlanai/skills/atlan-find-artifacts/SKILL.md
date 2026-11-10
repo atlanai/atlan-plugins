@@ -55,8 +55,8 @@ mcp__call_read_tool {
   files come from `registry__get_artifact`, not from a list.
 - **Make each call once.** Answer follow-ups from what a result told you (names, handles,
   workspaces, statuses, `page.total`); call again only for a different page, scope or query.
-- **Set `semantic: true`** when the user's wording may not match the artifact's (it fuses
-  meaning with keyword relevance). Leave it off for exact names.
+- **Set `semantic: true`** when the user's wording may not match the artifact's. Leave it
+  off for exact names.
 - **Narrow with `kind`** when you know the type. Omit it to search every discoverable kind.
   `workspace_id` narrows to one workspace; `project_id` to the artifacts homed in or linked
   into one project.
@@ -64,6 +64,7 @@ mcp__call_read_tool {
   `include_unreviewed: true`, which adds `pending_review` (held for its scan or a reviewer;
   its files cannot be read yet) and `blocked` (failed the security scan). Pass it only when
   the user looks for their own upload under review, and say each hit's `artifact_status`.
+  A hit with `is_released: false` is a draft: say it is not released.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
   and workspace, and let the user pick before anything loads, even when the request says "and
   use it". Never load a skill because it ranked first. The one exception is the user's own standing instruction to check Atlan before

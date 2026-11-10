@@ -381,6 +381,15 @@ class GatewayLabelsAndChecksTest(unittest.TestCase):
         self.assertEqual(one["workspace_display_name"], row["workspace_display_name"])
         self.assertEqual(one["workspace_kind"], row["workspace_kind"])
 
+    def test_a_stuck_scan_answers_not_scanned_however_often_it_is_read(self) -> None:
+        findings = ("registry__get_security_findings", {"artifact_id": "skill_01evalpending"})
+        self.assertEqual(self.read(*findings)["scan_status"], "scanned")
+        self.m = load(ATLAN_EMULATOR_NOT_SCANNED="skill_01evalpending")
+        for _ in range(2):
+            body = self.read(*findings)
+            body = body.get("result", body)
+            self.assertEqual((body["scan_status"], body["findings"], body["artifact_status"]), ("not_scanned", [], "pending_review"))
+
     def test_usage_statistics_count_runs_in_the_window_asked_for(self) -> None:
         now = int(self.m.time.time())
         week = {"start_time_unix_seconds": now - 7 * 86400, "end_time_unix_seconds": now}

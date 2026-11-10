@@ -37,8 +37,3 @@ graders:
     type: llm
     criteria: |
       PASS if the reply explains in about one sentence that SKILL.md is the instructions file of an Agent Skill, from general knowledge, without searching or reading Atlan. FAIL if it calls Atlan, lists registry skills, or asks the user to sign in.
-  - name: plain-reply
-    type: regex
-    target: last_message
-    # Voice rules 1, 3, 4 and 5: no em dash, no exclamation, no pleasantry, apology or closing offer.
-    pattern: '^(?![\s\S]*(?:—|!(?:\s|$)|\b(?:[Gg]reat question|[Hh]appy to|[Cc]ertainly|[Ss]orry|[Aa]pologi[sz]e|[Uu]nfortunately|[Ll]et me know if|[Ff]eel free to|[Hh]ope this helps)\b))[\s\S]'

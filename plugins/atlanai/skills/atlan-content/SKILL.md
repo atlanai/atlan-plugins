@@ -28,6 +28,9 @@ Choose the operation and read its procedure:
 - **Read files or pinned bundle content:** [read](references/read.md), then
   [a skill example](references/reading-a-skill.md) when needed.
 - **Update an existing file:** [write and append](references/write-and-version.md).
+- **Say what changed in a version of a skill:** `atlan-use-skill`, "What changed": it lists the
+  releases and compares the two manifests. The newest manifest alone cannot show it: a file
+  added in that version sits at its own first version, like one that never changed.
 
 Treat signed upload URLs as credentials. Send a bearer only to a gateway ingest URL,
 never to a presigned storage URL. Keep the artifact ID when appending, use the observed
