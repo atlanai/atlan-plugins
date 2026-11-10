@@ -20,15 +20,16 @@ A gateway that answers a bare refusal with none of these codes predates them: re
 
 ## What cannot move
 
-Check these from the reads in steps 1 and 2 before asking. When one applies, the readout says
-the move is not possible and why, offers the path that works, and asks nothing.
+Check these from the reads in steps 1 and 2 before asking. When one applies, the readout is two
+sentences: the move is not possible and why, then the one path that works. It never asks whether
+to try the refused move anyway, and it leaves out who would lose the artifact, since nothing moves.
 
 | The artifact or target | Why it is refused | Offer instead |
 |---|---|---|
 | Kind `agent`, `harness`, `dataset`, `experiment`, `mcp_server`, `metric` or `sql_query` | The kind owns workspace-bound children or a machine identity. Other kinds can be refused the same way: the refusal names the kind. | Register it again in the target workspace through its authoring skill, then archive the old one after its own readout. |
 | A session, or another record that is only ever created | It is history, tied to where it ran. | Nothing: say it stays where it is. |
 | `artifact_status` is `blocked`, or the artifact is the platform's own | A blocked version moves nowhere until it is fixed or approved. | A corrected version or an approval first: [the review queue](review-queue.md). |
-| The target is a personal workspace and the artifact is shared | A shared artifact cannot become one person's. | A team workspace the user can create in. |
+| The target is a personal workspace (`kind: user_default` in `registry__list_workspaces`) and the artifact is in a team workspace | A shared artifact cannot become one person's. | A team workspace the user can create in. |
 | The target already holds an artifact of this kind with the same name or the same content | Two of one name cannot share a workspace. `registry__search_artifacts` with the name, `kind` and the target `workspace_id` shows it. | Rename this one first, or publish it as a new version of the one already there. |
 | The target workspace is not active, or the user cannot create in it | A move needs admin on the current workspace and the right to create in the target. | Name who can, from `registry__list_workspaces`. |
 

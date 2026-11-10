@@ -648,7 +648,19 @@ def file_content(a: dict) -> dict:
         if content is None:
             raise Refusal(404, "not_found", "No such version of this file.")
     return {"file_id": a["file_id"], "path": found["path"], "media_type": found["media_type"],
-            "version_ordinal": a.get("version_ordinal", 1), "content": content}
+            "version_ordinal": a.get("version_ordinal") or head_ordinal(a["file_id"]), "content": content}
+
+
+def head_ordinal(file_id: str) -> int:
+    """The newest version of a file any artifact pins: what a read that names no version answers
+    with, so a current file never reads as three versions behind its bundle."""
+    pins = [1]
+    for item in artifacts().values():
+        meta = item.get("metadata") or {}
+        pins += [f.get("file_version_ordinal") or 1 for f in meta.get("files") or [] if f.get("file_id") == file_id]
+        if meta.get("file_artifact_id") == file_id:
+            pins.append(meta.get("file_version_ordinal") or 1)
+    return max(pins)
 
 
 def included_file(item: dict, path: str) -> dict:

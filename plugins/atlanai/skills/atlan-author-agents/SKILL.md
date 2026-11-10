@@ -31,6 +31,9 @@ A read that fails with 502, 503, 504 or `retryable: true` is sent again unchange
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
 
+When the checkout holds no agent (no declaration, agent folder or source), say so in one
+sentence and ask where the agent is defined, without listing the paths you searched.
+
 A coding harness is distinct from the autonomous agent the repository implements.
 Read back workspace, exact repository and declaration path before reusing an agent;
 a name match alone is not identity. Preserve verified local or Git-backed publication.

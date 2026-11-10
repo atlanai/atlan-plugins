@@ -8,12 +8,12 @@ license: Apache-2.0
 
 Everything in the registry is an **artifact**: a versioned item of one **kind**, homed in one
 **workspace** and optionally one **project**, with a handle shaped `<kind>_<id>`
-(`skill_01j…`, `agent_01k…`). Reads are safe: nothing here writes.
+(`skill_01j…`). Reads are safe: nothing here writes.
 
 Calls below are written in search mode, each through the runner its tool needs: reads use
-`mcp__call_read_tool`. The first call opens the session
-by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
-and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
+`mcp__call_read_tool`. Every call carries a `rationale`. The first also sends
+`objective` beside `name` and returns `mcp_session_id`: pass that as `session_id` on every
+later call. All three go beside `name` and `arguments`, never inside.
 Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
@@ -30,7 +30,7 @@ Atlan is not answering. Never repeat a write: read it back first.
 | "What do we have?" "Find me skills" "How many?", with no task named | [Overview](#overview) with `registry__get_artifact_counts`, then a search for the user's task |
 | "What changed recently?" "List all our MCP servers" | `registry__list_artifacts`: [Browse](#browse) |
 | "Tell me about this one" | `registry__get_artifact` |
-| "What uses it, what does it use?" "How often is it used?" | `registry__get_related_artifacts`, or run statistics, with `references/adoption.md` |
+| "What uses it, what does it use?" "How often is it used?" | Open `references/adoption.md` first: `registry__get_related_artifacts` (an edge carries a handle, so read each end for its name), or run statistics |
 | "What does this skill or file actually say?" | `atlan-content` |
 | "Gather what we know for this task" | `mcp__retrieve_artifacts` |
 | "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` (`references/kinds.md`) |
@@ -67,7 +67,7 @@ mcp__call_read_tool {
   A hit with `is_released: false` is a draft: say it is not released.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
   and workspace, and let the user pick before anything loads, even when the request says "and
-  use it". Never load a skill because it ranked first. The one exception is the user's own standing instruction to check Atlan before
+  use it". The one exception is the user's own standing instruction to check Atlan before
   each task (an **Atlan registry skills** section in `AGENTS.md`): then `atlan-use-skill` loads
   a single clear match and names it in one line, and still asks when more than one fits.
 - **Same name, different skill.** Copies of one artifact across workspaces are one hit, the

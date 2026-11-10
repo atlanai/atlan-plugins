@@ -458,6 +458,12 @@ class GatewayLabelsAndChecksTest(unittest.TestCase):
                                      {"artifact_id": "output_01evalchurn", "include_linked_file": True, "include_file": "SKILL.md"})
         self.assertEqual(body["code"], "invalid_arguments")
 
+    def test_a_file_read_that_names_no_version_answers_the_version_its_bundle_pins(self) -> None:
+        body = self.read("registry__get_file_content", {"file_id": "file_01evalchurndefs"})
+        self.assertEqual(body["version_ordinal"], 4)
+        body = self.read("registry__get_file_content", {"file_id": "file_01evalchurnmd"})
+        self.assertEqual(body["version_ordinal"], 1)
+
     def test_a_dry_run_says_what_a_create_would_do_and_writes_nothing(self) -> None:
         before = len(self.m.artifacts())
         publish = {"metadata": {"name": "october-incident-review", "workspace_id": "workspace_01evalplatform"},

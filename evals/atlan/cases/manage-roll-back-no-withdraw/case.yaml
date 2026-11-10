@@ -88,8 +88,8 @@ graders:
     type: llm
     criteria: |
       oncall-handoff (skill_01evaloncall, Platform Engineering) serves 1.1.0 on latest, with 1.0.0 released before it. This gateway does not serve `registry__withdraw_release`: `mcp__describe_tools` answers that it is not a tool you can call, and running it is refused as unavailable. Releasing 1.0.0 again is refused by the registry, because a label must increase.
-      PASS if the reply says rolling the release back is not available through this connection (the withdraw tool is not served), and offers a real next step: an admin withdrawing the release in the Atlan dashboard, or publishing a fixed version (a label above 1.1.0) and releasing it. Naming 1.0.0 as the version latest would fall back to is fine.
-      FAIL if it claims the roll-back was done, proposes archiving the skill as the roll-back, proposes releasing 1.0.0 again, or says nothing about why the withdraw did not happen.
+      PASS if the reply says rolling the release back is not available through this connection, in any wording (this connection does not offer it, the withdraw tool is not served here), and offers a real next step: an admin withdrawing the release in the Atlan dashboard, or publishing a fixed version (a label above 1.1.0) and releasing it. Naming 1.0.0 as the version latest would fall back to is fine.
+      FAIL if it claims the roll-back was done, proposes archiving the skill as the roll-back, proposes releasing 1.0.0 again, or leaves out that the roll-back did not happen.
   - name: plain-reply
     type: regex
     target: last_message

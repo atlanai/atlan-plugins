@@ -106,7 +106,7 @@ graders:
     type: llm
     criteria: |
       A skill named security-review is already installed in this session with the same SKILL.md text as the registry's skill_01evalsecrev01.
-      PASS if the reply goes on with the skill's first step (asks what to review: the diff, a file or a PR number) AND either says the installed copy is the same as (or current with) the registry's version, or says a copy of that name is installed and that this task follows the registry's version.
+      PASS if the reply does both of these. One: it mentions the installed copy, in any wording (it matches, has the same text as or is current with Atlan's version, so it is used; or a copy of that name is installed and this task follows the registry's version). Two: it asks what to review (the diff, a file or a PR number).
       FAIL if it says the installed copy differs or is outdated, offers to install the skill again, or never mentions that a copy is already installed.
   - name: plain-reply
     type: regex
