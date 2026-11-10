@@ -169,6 +169,18 @@ class LocalProject(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['status'], 'ok')
 
+    def test_cli_says_why_a_preparation_is_refused(self):
+        self.seed()
+        (self.estate / 'work.csv').write_text('kind,cost\nbuild,20.50\n')
+        source = next(s for s in self.run.survey(self.estate)['sources'] if s['path'] == 'work.csv')
+        request = self.estate.parent / 'request.json'
+        request.write_text(json.dumps({'database': str(self.estate.parent / 'site.sqlite'),
+                                       'tables': [{'source_id': source['source_id'], 'table': 'site.work'}]}))
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'),
+                                 '--run-dir', str(self.run.root), 'prepare', str(request)],
+                                capture_output=True, text=True)
+        self.assertEqual(json.loads(result.stdout)['message'], 'The selected file is outside this project.')
+
     def test_function_guard_blocks_dynamic_external_and_quoted_names(self):
         for q in ("SELECT * FROM query('select 1')", "SELECT * FROM read_csv('file.csv')",
                   'SELECT * FROM "query_table"($name)', 'SELECT custom_macro(cost) FROM site.work'):

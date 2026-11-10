@@ -16,6 +16,9 @@ import uuid
 from types import SimpleNamespace
 
 sys.dont_write_bytecode = True
+# Run as a script this module is `__main__`. A helper that imports `project` must get this
+# same module, or the ProjectError it raises is another class and the reply hides its message.
+sys.modules.setdefault('project', sys.modules[__name__])
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'dashboard_runtime'))
 from context_state import ContextState, resolve_run
