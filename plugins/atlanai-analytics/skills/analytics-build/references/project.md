@@ -6,7 +6,7 @@ Preview local candidates before asking for an unknown destination workspace.
 
 Use the existing Analytics plugin to survey a local project, publish reusable context in
 Atlan, and answer questions through retrieval. No new plugin, repository, agent, eval,
-experiment or chat UI. Keep the existing explicit dashboard and agent workflows available.
+experiment or chat UI. Keep the existing explicit dashboard workflow available.
 
 Starter: **Help me set up <repository URL> and use Atlan Analytics so I can ask questions
 about its data.** A local folder works too. "Build an analytics agent from this repo" has
@@ -15,7 +15,7 @@ When the working project is already clear, **Set up this project for analytics**
 Do not ask the person to repeat a supplied folder or business question.
 
 `PROJECT` below means `python3 "<skill-dir>/scripts/project.py" --run-dir
-"<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and DuckDB preparation. The helper
+"<project>/.atlan-metrics/<slug>"`. Use the metrics engine's pinned Python runtime for generation and CSV preparation. The helper
 records the interpreter for later queries. Prepare missing data as section 2 describes. Do not add dependencies or run
 unreviewed repository code simply because a README recommends it.
 The helper only writes local state; Registry operations use the existing Atlan MCP connection.
@@ -89,14 +89,14 @@ non-destructive local preparation using existing dependencies. The mapping selec
 survey source IDs, a new project-relative database path, and evidenced schema/table names:
 
 ```json
-{"database": "data/analytics.duckdb", "tables": [
+{"database": "data/site.sqlite", "tables": [
   {"source_id": "src_from_survey", "table": "site.work"}
 ]}
 ```
 
-For new CSV preparation use `.duckdb`, with the main engine runtime's Python, so the same
-read-only substrate supports engine checks and later questions. Existing SQLite bindings
-remain supported by the project helper; they do not select a different generator.
+For new CSV preparation use `.sqlite`, named after its one schema (`data/site.sqlite` holds
+`site.*`), with the main engine runtime's Python, so engine checks and later questions run on
+the same read-only SQLite file. Existing DuckDB files remain supported: bind them as they are.
 
 The destination's parent must exist. The helper accepts up to 32 CSVs (32 MiB each, 128 MiB
 total), checks survey hashes, restricts reads to those paths, and atomically creates a new
@@ -114,10 +114,10 @@ When one database clearly matches the selected estate, state the selection and r
 `PROJECT bind "<absolute database>"` (`.sqlite` or `.duckdb`). For SQLite add `--schema <name>`
 with the schema used at preparation. Add `--tables schema.table ...` for a narrower scope. With several plausible databases, ask for the pairing. The returned schema and
 `context/database-schema.json` establish the physical columns and types. An embedded
-Snowflake connector in a Power BI model does not override an explicitly selected DuckDB.
+warehouse connector in a Power BI model does not override an explicitly selected local database.
 
-For an existing warehouse, reuse [connect](connect.md) and its normal state. Do not require
-DuckDB or migrate data. Without execution access, continue authoring with checks marked
+For an existing warehouse, reuse [connect](../../source-survey/references/connect.md) and its normal state. Do not require
+a local database or migrate data. Without execution access, continue authoring with checks marked
 untested; explain that fresh numerical answers need a data connection.
 
 The local adapter uses a read-only database, native parameter binding, bounded rows, memory
@@ -130,9 +130,9 @@ require separately reviewed support. Host sandboxing is still required for hosti
 Run `PROJECT history` when selected history was found. It captures and privacy-filters
 history under `context/`; it does not mine shapes or author candidates. Pass the returned
 clean history path to the main engine's `local-files` history input. For live history, use
-[query history](warehouses/query-history.md) or the configured native plug.
+[query history](../../source-survey/references/warehouses/query-history.md) or the configured native plug.
 
-Follow [build and check](setup/build-check.md) and [the metrics engine](metrics-engine.md)
+Follow [build and check](setup/build-check.md) and [the metrics engine](../../metrics-generation/references/metrics-engine.md)
 for the full selected collection. Reuse the combined survey and
 interview; preserve this run's scope, workspace and state. Model compilation, proposal,
 merge, whole-card review and relationships have exactly one implementation in the engine.
@@ -156,7 +156,7 @@ not an agent eval set. Do not publish a query known to fail on an advertised par
 
 ## 4. Preview, publish and read back
 
-Use [existing publication](metrics/publish.md) for both `metric` and `sql_query` artifacts and
+Use [existing publication](../../metrics-generation/references/metrics/publish.md) for both `metric` and `sql_query` artifacts and
 their supported links. Show new/revised/reused/held counts, one actual metric, one history
 query, their SQL and checks, the full reviewable plan, and the destination. Reuse applicable
 authorization; obtain only missing authorization for the concrete scope. Keep existing
@@ -172,7 +172,7 @@ the receipt. Do not combine release IDs from search with local authoring bodies,
 their hashes appear to match. Preserve the complete `registry__get_artifact` response for
 each item without selecting or rewriting fields. Wrap those raw responses in this input:
 
-When the core receipt helper is active, use [deterministic receipt recording](metrics/publish.md#record-native-receipts-without-copying-them-through-the-model)
+When the core receipt helper is active, use [deterministic receipt recording](../../metrics-generation/references/metrics/publish.md#record-native-receipts-without-copying-them-through-the-model)
 instead of manually writing the wrapper below. It captures native responses, validates them
 and records the same durable publication state. It does not skip release or link readbacks.
 
@@ -186,7 +186,7 @@ and records the same durable publication state. It does not skip release or link
     "is_released": true,
     "release": {"release_id": "rel_example", "version_id": "ver_example",
       "channel": "latest", "release_status": "released", "is_current": true},
-    "metadata": {"definition": {"spec_version": "1.0-draft.1", "dialect": "duckdb",
+    "metadata": {"definition": {"spec_version": "1.0-draft.1", "dialect": "sqlite",
       "question": "What is the total?", "sql": "SELECT ..."}}
   }]
 }
@@ -224,8 +224,8 @@ or the user's own question. Do not choose and run a sample silently. Continue th
 
 ## 6. Retrieval contract for every question
 
-Follow [retrieval](retrieval.md). Saved queries use fresh complete MCP release readbacks and
-one checked `PROJECT answer` operation. DuckDB executes locally; a warehouse returns
+Follow [retrieval](../../analytics-ask/references/retrieval.md). Saved queries use fresh complete MCP release readbacks and
+one checked `PROJECT answer` operation. A local SQLite or DuckDB file executes locally; a warehouse returns
 `execute_in_host` with a validated query plan for the existing read-only tool. A plan is not
 an executed answer. Existing Atlan users can follow the same retrieval rules without a
 local run or publication receipt.

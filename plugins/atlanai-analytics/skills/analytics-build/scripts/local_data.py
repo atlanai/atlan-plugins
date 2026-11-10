@@ -21,6 +21,28 @@ class DataError(ValueError):
     pass
 
 
+class ParameterError(DataError):
+    """The request names other parameters than its SQL binds: nothing ran."""
+
+
+# Project paths, here so project and local_prepare share them without importing each other.
+def safe_path(path, root=None):
+    p = Path(path).expanduser().absolute()
+    if any(x.is_symlink() for x in (p, *p.parents)):
+        raise DataError('Use an ordinary local path without symlinks.')
+    if root and not p.resolve().is_relative_to(Path(root).resolve()):
+        raise DataError('The selected file is outside this project.')
+    return p.resolve()
+
+
+def file_hash(path):
+    h = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 # Bounded analytical SQL. Unknown functions require review rather than inheriting
 # the privileges of arbitrary table functions or database-defined macros.
 FUNCTIONS = set(('sum avg count min max coalesce nullif abs round floor ceil ceiling '
@@ -31,6 +53,7 @@ FUNCTIONS = set(('sum avg count min max coalesce nullif abs round floor ceil cei
                  'sqrt power median quantile_cont quantile_disc stddev_pop stddev_samp '
                  'variance var_pop var_samp count_if bool_and bool_or instr position '
                  'as in over filter partition by from where and or not select with '
+                 'join union all intersect except using lateral '
                  'exists values grouping rollup cube on having qualify '
                  'decimal numeric varchar char bigint integer smallint').split())
 
@@ -125,7 +148,8 @@ def _call_worker(binding, request, timeout):
     except ValueError:
         raise DataError('Local execution did not return a supported result.') from None
     if result.get('status') != 'ok':
-        raise DataError(result.get('message', 'Local execution failed.'))
+        error = ParameterError if result.get('error') == 'parameters' else DataError
+        raise error(result.get('message', 'Local execution failed.'))
     return result
 
 
@@ -177,8 +201,10 @@ def sqlite_worker(request):
         if not re.match(r'\s*(select|with)\b', code, re.I) or ';' in code.rstrip().rstrip(';'):
             raise DataError('Only one SELECT or WITH query is allowed.')
         parameters = request.get('parameters') or {}
-        if not isinstance(parameters, dict) or set(re.findall(r'(?<!:):([A-Za-z_][A-Za-z_0-9]*)\b', code)) != set(parameters):
-            raise DataError('Supply exactly the named SQL parameters using :name bindings.')
+        named = set(re.findall(r'(?<!:):([A-Za-z_][A-Za-z_0-9]*)\b', code))
+        if not isinstance(parameters, dict) or named != set(parameters):
+            raise ParameterError('Supply exactly the named SQL parameters using :name bindings: '
+                                 + (', '.join(sorted(named)) or 'none') + '.')
         check_functions(sql, SQLITE_FUNCTIONS)
         # The engine's authorizer is the scope check: it sees every table read and function
         # call after parsing, so a write, ATTACH, PRAGMA or out-of-scope table is refused.
@@ -267,8 +293,10 @@ def worker(request):
             if len(statements) != 1 or str(statements[0].type) != 'StatementType.SELECT':
                 raise DataError('Only one SELECT or WITH query is allowed.')
             parameters = request.get('parameters') or {}
-            if not isinstance(parameters, dict) or set(statements[0].named_parameters) != set(parameters):
-                raise DataError('Supply exactly the named SQL parameters using $name bindings.')
+            named = set(statements[0].named_parameters)
+            if not isinstance(parameters, dict) or named != set(parameters):
+                raise ParameterError('Supply exactly the named SQL parameters using $name bindings: '
+                                     + (', '.join(sorted(named)) or 'none') + '.')
             calls = check_functions(sql)
             custom = {r[0].lower() for r in con.execute(
                 'SELECT function_name FROM duckdb_functions() WHERE NOT internal').fetchall()}
@@ -322,5 +350,6 @@ if __name__ == '__main__':
         result = worker(json.loads(sys.stdin.read(1_000_000)))
     except (ValueError, KeyError, TypeError) as exc:
         result = {'status': 'blocked', 'message': str(exc) if isinstance(exc, DataError)
-                  else 'Invalid local execution request.'}
+                  else 'Invalid local execution request.',
+                  **({'error': 'parameters'} if isinstance(exc, ParameterError) else {})}
     print(json.dumps(result, allow_nan=False))

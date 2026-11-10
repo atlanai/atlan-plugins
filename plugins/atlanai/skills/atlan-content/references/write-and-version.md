@@ -11,7 +11,7 @@ mcp__call_write_tool {
     "kind": "file",
     "metadata": { "name": "notes", "workspace_id": "workspace_…", "path": "notes.md" },
     "content": "# Notes\n",
-    "idempotency_key": "notes-create-unique-operation"
+    "idempotency_key": "notes-create-<eight random letters or digits>"
   },
   "session_id": "mcp_session_…",
   "rationale": "Saving the user's notes as a new file in Atlan, as they asked."
@@ -43,7 +43,7 @@ Read back the file's ID, path, ordinal and ETag with `registry__get_artifact`.
        "if_match": "<the observed etag>",
        "metadata": { "path": "notes.md" },
        "content": "<the whole new file>",
-       "idempotency_key": "notes-append-unique-operation"
+       "idempotency_key": "notes-append-<eight random letters or digits>"
      },
      "session_id": "mcp_session_…",
      "rationale": "Appending the line the user asked for to their notes file."

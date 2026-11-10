@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: demo-ready-next-actions
-tags: [analytics, setup, demo, regression]
+tags: [demo-flow-fix, analytics, setup, demo, regression]
 execution:
   prompt: |
     Use Atlan Analytics to finish the Fixit demo from this saved checkpoint.
@@ -17,9 +17,10 @@ graders:
     focus: last_message
     criteria: |
       PASS if the visible ready handoff reports the existing local counts and offers
-      Ask AI, Design a dashboard, Continue building on real data and an exit choice.
-      The real-data option must be actionable in this chat, not only a command to restart.
-      FAIL if it answers a suggested question, claims a dashboard was built, treats
+      two or three concrete questions supported by the checked context immediately.
+      It must wait for a chosen question, without an Ask AI menu or dashboard/real-data menu.
+      FAIL if it inserts a next-action menu before the questions, answers a suggested
+      question, claims a dashboard was built, treats
       local context as published, or starts inspecting real data without a selection.
   - name: plain-reply
     type: llm

@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-ENGINE = ROOT / 'plugins/atlanai-analytics/modules/metrics/engine'
+ENGINE = ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine'
 DEPENDENCIES = all(importlib.util.find_spec(name) for name in ('sqlglot', 'yaml', 'jsonschema'))
 
 if DEPENDENCIES:
@@ -86,3 +86,92 @@ class ShapeIdentityTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class SQLiteEstateTest(unittest.TestCase):
+    """A SQLite estate is checked on SQLite: its runner, and the compiler's SQLite forms."""
+
+    @classmethod
+    def setUpClass(cls):
+        CompiledSizeTest.setUpClass()
+
+    def setUp(self):
+        import tempfile
+        self.dir = Path(tempfile.mkdtemp())
+        self.db = self.dir / 'shop.sqlite'
+        con = sqlite3.connect(self.db)
+        con.execute('CREATE TABLE orders (channel TEXT, order_date TEXT, sold INTEGER, seats INTEGER)')
+        con.executemany('INSERT INTO orders VALUES (?, ?, ?, ?)',
+                        [('web', '2025-06-06', 5, 6), ('web', '2025-06-20 09:00:00', 4, 6),
+                         ('app', '2025-07-02', 1, 6)])
+        con.commit(); con.close()
+
+    def test_the_runner_reads_the_file_under_its_stem_and_nothing_else(self):
+        from metrics_agent.plugs import local_files
+        with local_files.LocalFiles({'database': str(self.db)}, dialect='sqlite').sql_runner() as run:
+            self.assertEqual(run.kind, 'sqlite')
+            self.assertEqual(run.fetch('SELECT SUM(sold) FROM shop.orders', 10)[1], [(10,)])
+            self.assertEqual(run.columns_of('shop.orders'), ['channel', 'order_date', 'sold', 'seats'])
+            with self.assertRaises(sqlite3.DatabaseError):
+                run._engine._conn.execute(f"ATTACH '{self.dir / 'other.sqlite'}' AS other")
+
+    def compile(self, formula, group_by):
+        unit = {'unit_id': 'u', 'warehouse_tables': ['shop.orders'], 'group_by': group_by,
+                'measures': [{'name': 'm', 'aggregation': 'custom', 'formula_language': 'tableau-calc',
+                              'formula': formula}],
+                'filters': [], 'top_n': None, 'join_graph': []}
+        result = bicompile.compile_unit(unit, RULES, 'sqlite',
+                                        columns={'shop.orders': {'channel', 'order_date', 'sold', 'seats'}})
+        self.assertEqual(result.coverage, 'translated', result.reason)
+        con = sqlite3.connect(':memory:')
+        con.execute(f"ATTACH '{self.db}' AS shop")
+        return result, con.execute(result.sql).fetchall()
+
+    def test_a_month_is_cut_from_the_iso_text(self):
+        result, rows = self.compile("MIN(DATETRUNC('month', [order_date]))", ['channel'])
+        self.assertNotIn('CAST(', result.sql)
+        self.assertEqual(sorted(rows), [('app', '2025-07-01'), ('web', '2025-06-01')])
+
+    def test_a_ratio_of_whole_numbers_divides_as_decimals(self):
+        _, rows = self.compile('SUM([sold]) / SUM([seats])', ['channel'])
+        self.assertEqual(dict(rows), {'app': 1 / 6, 'web': 9 / 12})
+        _, rows = self.compile('SUM([sold]) / 4', ['channel'])
+        self.assertEqual(dict(rows), {'app': 0.25, 'web': 2.25})
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class SQLiteLineageTest(unittest.TestCase):
+    """The SQL-check plug says how its estate names a table in full; the core only applies it."""
+
+    facts = {'tables': [{'name': 'site.projects', 'source_lineage': {'schema': 'site', 'object': 'projects'}},
+                        {'name': 'Box Office', 'source_lineage': {'statement': 'SELECT 1', 'reads': ['tix.orders']}},
+                        {'name': 'tix.sqlite.tix.events', 'source_lineage': {'database': 'tix.sqlite'}}]}
+
+    def test_a_sqlite_file_names_its_tables_in_two_parts(self):
+        from metrics_agent.lib import bi_scope
+        from metrics_agent.plugs.local_files import LocalFiles
+        sqlite = lambda n: LocalFiles.qualify_table({'database': '/x/site.sqlite'}, n)
+        self.assertEqual(bi_scope.warehouse_tables(self.facts, sqlite),
+                         ['SITE.SITE.PROJECTS', 'TIX.TIX.EVENTS', 'TIX.TIX.ORDERS'])
+        duckdb = lambda n: LocalFiles.qualify_table({'database': '/x/estate.duckdb'}, n)
+        self.assertEqual(bi_scope.warehouse_tables(self.facts, duckdb), ['TIX.SQLITE.TIX.EVENTS'])
+        self.assertEqual(bi_scope.warehouse_tables(self.facts), ['TIX.SQLITE.TIX.EVENTS'])
+
+    def test_the_core_names_no_dialect(self):
+        src = ENGINE / 'src/metrics_agent'
+        named = [str(p.relative_to(src)) for d in ('lib', 'stages') for p in (src / d).glob('*.py')
+                 if 'sqlite' in p.read_text().lower()]
+        self.assertEqual(named, [])
+
+    def test_a_card_may_name_a_statement_table_by_schema_and_table(self):
+        from metrics_agent.stages import x3_emit
+        metric = {'sources': [{'vq_id': 'q1'}]}
+        stmts = {'q1': {'tables': ['SITE.SITE.PROJECTS', 'RAW.SALES.ORDERS']}}
+        known = x3_emit._statement_tables(metric, stmts)
+        self.assertTrue({'site.site.projects', 'site.projects', 'raw.sales.orders', 'sales.orders'} <= known)
+        self.assertNotIn('p.project_id', known)
+
+    def test_an_estate_table_is_a_table_by_schema_and_table(self):
+        from metrics_agent.stages import x3_emit
+        self.assertEqual(x3_emit._table_names(['SITE.SITE.PROJECTS']), {'site.site.projects', 'site.projects'})

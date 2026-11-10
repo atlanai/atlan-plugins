@@ -6,7 +6,7 @@ import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-ENGINE = ROOT / 'plugins/atlanai-analytics/modules/metrics/engine'
+ENGINE = ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine'
 RUNTIME = os.environ.get('ANALYTICS_METRICS_RUNTIME')
 
 PRELUDE = '''

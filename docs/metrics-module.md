@@ -1,9 +1,12 @@
 # Metrics module
 
-Analytics owns the metrics engine as readable source in this repository.
+Analytics owns the metrics engine as readable source in this repository, inside the
+`metrics-generation` skill so the skill carries its engine.
 
 ```text
-plugins/atlanai-analytics/
+plugins/atlanai-analytics/skills/metrics-generation/
+  SKILL.md
+  scripts/analytics_agent.py      the dispatcher (ENGINE)
   modules/
     workflow.py
     metrics/

@@ -12,7 +12,7 @@ import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULE = ROOT / 'plugins/atlanai-analytics/modules/metrics'
+MODULE = ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics'
 
 
 class TerminalTests(unittest.TestCase):

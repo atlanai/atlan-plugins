@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: demo-build-without-checkpoint
+tags: [demo-flow-fix, analytics, demo, regression]
+execution:
+  prompt: |
+    Continue the Atlan Analytics demo. The person already chose Start building and Dashboard
+    only. Data is loaded, proposals merged, and the same run is ready for card authoring.
+    We are testing presentation only: read plugin instructions, do not execute commands or
+    contact services, and do not pretend the remaining build/checks are done. Show the brief
+    progress message you would send before continuing the authorized build.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: no-extra-decision
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply describes continuing to build and check the selected context without
+      asking for confirmation. FAIL if it shows METRICS FOUND, a metric-list celebration,
+      proposal/deduplication counts, Build them now, a source-selection menu, or claims checks
+      are finished. It must not ask permission to author cards or build the rest.
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0

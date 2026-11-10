@@ -1,7 +1,8 @@
 # Prepare existing context for questions
 
 Use seven stages: **Inspect, Scope, Build, Check, Preview, Publish, Ready to ask**.
-The person sees them as six steps in [the setup checklist](setup/checklist.md).
+The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): seven
+for own data (`analytics-build`), six for a demo (`analytics-demo`).
 The result is released metrics and saved SQL in Atlan, used by this chat through MCP.
 An input folder is ordinary customer context. Never depend on a particular repository,
 sample schema or database name. Explicit agent and evaluation modes remain separate.
@@ -9,7 +10,7 @@ sample schema or database name. Explicit agent and evaluation modes remain separ
 `PROJECT` means `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>"`.
 It is command notation, not a shell string variable. Use separate argv entries or a shell
 function; zsh does not split a scalar containing an executable and its arguments.
-Use the metrics engine's pinned Python 3.11/3.12 runtime for generation and CSV-to-DuckDB
+Use the metrics engine's pinned Python 3.11/3.12 runtime for generation and CSV
 preparation. The project helper retains local checks and publication state.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.
 Missing Registry access follows [connection recovery](auth-recovery.md): inspect the current
@@ -19,13 +20,13 @@ for "continue".
 
 ## Orient before work
 
-A bare `start` with no source or saved run reads [the start choice](setup/demo.md) first.
-The demo explains its environment, then uses this file's technical stages on the demo repository.
+A demo follows [the demo skill](../../analytics-demo/SKILL.md), which uses this file's
+technical stages on the demo repository. A bare own-data request asks once for the source.
 All setup uses [one presentation flow](setup/presentation.md), with actual source facts.
 
 Explain the outcome, next action and controls. For example: "I'll turn
 these dashboards and query history into metrics you can question here. First I'll check the
-sources, ask what matters to you and what you want to accomplish, then build and check the selected collection before reviewing its results. I'll show the six steps and where your choices matter. You can narrow the scope, inspect details, keep
+sources, ask what matters to you and what you want to accomplish, then build and check the selected collection before reviewing its results. I'll show the seven steps and where your choices matter. You can narrow the scope, inspect details, keep
 drafts local or pause." Continue authorized work without another go-ahead. On resume, state the saved result
 and next action instead of repeating the introduction.
 
@@ -52,8 +53,8 @@ run whose candidates were never shown in chat starts at Preview.
 
 | Entering | Read |
 | --- | --- |
-| Inspect or Scope | [inspect and scope](setup/inspect-scope.md) |
-| Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](metrics-engine.md) for every source, including demos |
+| Inspect or Scope | [inspect and scope](../../source-survey/references/inspect-scope.md), the `source-survey` skill's procedure |
+| Build or Check | [build and check](setup/build-check.md); new metrics also follow [the metrics module](../../metrics-generation/references/metrics-engine.md) for every source, including demos |
 | Preview, Publish or Ready to ask | [preview and publish](setup/preview-publish.md) |
 | Starting, resuming or any stage change | [the setup checklist](setup/checklist.md) |
 | A long helper run or a heartbeat | [progress and presentation](setup/progress.md) |
@@ -64,7 +65,8 @@ run whose candidates were never shown in chat starts at Preview.
 **Visible preview is a required conversation step.** Before a destination question or
 publication/reuse, show the completed-collection review through
 the [presentation flow](setup/presentation.md), including actual counts and one relevant
-metric's rule, source and check status. Tool output, counts and a
+metric's rule, source and check status. Demos build the selected collection directly,
+without a separate metric-list checkpoint. Tool output, counts and a
 file link alone do not satisfy this step. This applies on resume and reuse, and adds no
 approval prompt. A plan-only request needs no generated preview.
 

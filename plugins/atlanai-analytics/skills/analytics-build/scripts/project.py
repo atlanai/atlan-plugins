@@ -29,12 +29,14 @@ from source_inventory import discover, source_kind, SENSITIVE
 from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
+from local_data import safe_path, file_hash
+import journey
 import local_prepare
 import context_contracts as mine
 from analytics_eval import filter_querylog
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
-_card_path = Path(__file__).resolve().parents[3] / 'modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
+_card_path = Path(__file__).resolve().parents[2] / 'metrics-generation/modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
 _card_spec = importlib.util.spec_from_file_location('analytics_card_sql', _card_path)
 _card_sql = importlib.util.module_from_spec(_card_spec)
 _card_spec.loader.exec_module(_card_sql)
@@ -44,22 +46,6 @@ LOCAL = ('duckdb', 'sqlite')
 class ProjectError(ValueError):
     pass
 
-
-def safe_path(path, root=None):
-    p = Path(path).expanduser().absolute()
-    if any(x.is_symlink() for x in (p, *p.parents)):
-        raise ProjectError('Use an ordinary local path without symlinks.')
-    if root and not p.resolve().is_relative_to(Path(root).resolve()):
-        raise ProjectError('The selected file is outside this project.')
-    return p.resolve()
-
-
-def file_hash(path):
-    h = hashlib.sha256()
-    with path.open('rb') as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-            h.update(chunk)
-    return h.hexdigest()
 
 class Project(ContextState):
     """Keeps compatible project run state without creating dashboard or agent jobs."""
@@ -281,9 +267,12 @@ class Project(ContextState):
 
     def check_execution(self, request, kind):
         items = metric_preview.candidates(self)
-        item = next((i for i in items if i['key'] == kind + ':' + request.get('name', '')), None)
+        keys = [i['key'] for i in items]
+        key = metric_preview.resolve_id(request.get('name', ''), keys, kind)
+        item = next((i for i in items if i['key'] == key), None)
         if not item:
-            raise ProjectError('Select an authored metric or saved query by name.')
+            raise ProjectError('Select an authored ' + ('metric' if kind == 'metric' else 'saved query')
+                               + ' by name. Saved: ' + metric_preview.id_hint(keys, kind) + '.')
         checker = mine.check_query if kind == 'sql_query' else mine.check_metric
         errors, warnings = checker(item['body'])
         if errors:
@@ -322,7 +311,8 @@ class Project(ContextState):
                 available = {p['name']: p['default'] for p in definition['source'].get('parameters', [])}
                 available.update(request.get('parameters', {}))
                 if not needed <= available.keys():
-                    raise local_data.DataError('Supply the named parameters required by the metric calculation.')
+                    raise local_data.ParameterError('Supply the named parameters required by the metric '
+                                                    'calculation: ' + ', '.join(sorted(needed)) + '.')
                 calculation_query = {'sql': card_sql, 'parameters': {k: available[k] for k in needed},
                                      'limit': request.get('limit', 100)}
                 empty_query = {'sql': card_sql + ('\nAND 1=0' if definition.get('mandatory_filters') else '\nWHERE 1=0'),
@@ -336,6 +326,8 @@ class Project(ContextState):
             else:
                 result = self.execute(example_query)
 
+        except local_data.ParameterError:
+            raise   # a request naming other parameters ran nothing, so it holds nothing
         except local_data.DataError:
             samples[sample_id] = {'status': 'failed'}
             checks[item['key']] = {'definition_hash': item['definition_hash'], 'status': 'held',
@@ -502,8 +494,9 @@ def main():
     conversation.add_argument('--answer', help='User-supplied business area or purpose; never an unsubmitted suggestion')
     conversation.add_argument('--host', choices=('claude_code', 'codex'))
     conversation.add_argument('--server', help='Observed Atlan server identifier in that host')
-    steps = sub.add_parser('checklist', help='The six setup steps with their saved state, for the host task list')
+    steps = sub.add_parser('checklist', help='The guided-flow steps (seven, or six for a demo) with their saved state, for the host task list')
     steps.add_argument('--engine-dir', type=Path)
+    steps.add_argument('--flow', choices=('build', 'demo'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
     step = sub.add_parser('progress')
@@ -527,7 +520,8 @@ def main():
         if args.command == 'checklist' and not (safe_path(args.run_dir) / 'run.json').is_file():
             import checklist
             # Nothing is saved yet: the list starts at its first step and claims no progress.
-            print(json.dumps({'steps': checklist.initial(), 'state': 'running', 'step': 1, 'of': 6, 'remote_writes': False}))
+            print(json.dumps({'flow': args.flow or 'build', 'steps': checklist.initial(args.flow or 'build'), 'state': 'running',
+                              'step': 1, 'of': len(checklist.initial(args.flow or 'build')), 'remote_writes': False}))
             return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
@@ -540,8 +534,9 @@ def main():
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
         elif args.command == 'checklist':
-            import experience
-            result = {**experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)['checklist'], 'remote_writes': False}
+            import checklist, experience
+            model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
+            result = {**checklist.build(model, args.flow), 'remote_writes': False}
         elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage
@@ -599,7 +594,8 @@ def main():
                     progress.update(project, project.read(path)['stage'], 'failed', 'review_held')
             except (ValueError, OSError, KeyError, TypeError):
                 pass  # A broken optional progress artifact cannot hide the original safe error.
-        print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked))
+        print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked,
+                                                                                journey.JourneyError))
                           else 'Project step could not complete. Check the selected files, source state and request fields.'}))
         return 2
 

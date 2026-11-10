@@ -7,10 +7,11 @@ the person sees and how it reaches the host's visible surface.
 
 | Moment | Presentation |
 | --- | --- |
-| Start | Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the start choice](demo.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
-| Each step starts | Show the full six-step tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
-| The selected collection has been checked | Review the completed collection with actual counts, check limitations and one representative definition from the accepted output. Read [context built and where to keep it](demo-save.md) for the celebration and local-versus-shared choice through its native question delivery. |
-| The context is saved or kept local | Read [ready for questions](demo-ready.md). Show the ready block and material limitations, then the demo's next-action choice or own-data setup's supported questions. Answer only a question the person has supplied or selected. |
+| Start | Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
+| Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
+| The selected collection has been checked | Review the completed collection with actual counts, check limitations and one representative definition from the accepted output. Read [context built and where to keep it](save.md) for the celebration and local-versus-shared choice through its native question delivery. |
+| The context is saved or kept local | Read [ready for questions](ready.md). Show the ready block and material limitations, then supported questions immediately for both demo and own-data setup. Answer only a question the person has supplied or selected. |
+| The selected questions are answered | Follow [ready for questions](ready.md) for Ask more questions, Design a dashboard and the demo's real-data continuation. |
 
 Read the moment's file when it is reached, including on resume. Fill its values from the
 selected definition, source evidence and current checks. For own data, derive the facts
