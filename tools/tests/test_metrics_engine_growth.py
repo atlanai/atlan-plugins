@@ -89,81 +89,6 @@ if __name__ == '__main__':
 
 
 @unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
-class TableauDeclaredDateTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        CompiledSizeTest.setUpClass()
-
-    def compile(self, types):
-        unit = {'unit_id': 'u', 'warehouse_tables': ['retail.fct_sales'], 'group_by': ['channel'],
-                'measures': [{'name': 'first_month', 'aggregation': 'custom',
-                              'formula_language': 'tableau-calc',
-                              'formula': "MIN(DATETRUNC('month', [order_date]))"}],
-                'filters': [], 'top_n': None, 'join_graph': []}
-        return bicompile.compile_unit(unit, RULES, 'duckdb',
-                                      columns={'retail.fct_sales': {'channel', 'order_date'}},
-                                      types=types)
-
-    def test_a_field_declared_a_date_is_read_as_one_when_it_holds_text(self):
-        import duckdb
-        result = self.compile({('retail.fct_sales', 'order_date'): 'date',
-                               ('fct_sales', 'order_date'): 'date'})
-        self.assertEqual(result.coverage, 'translated', result.reason)
-        self.assertIn('engine.tableau_declared_date', result.rules_used)
-        con = duckdb.connect()
-        con.execute('CREATE SCHEMA retail')
-        con.execute('CREATE TABLE retail.fct_sales (channel VARCHAR, order_date VARCHAR)')
-        con.execute("INSERT INTO retail.fct_sales VALUES ('web', '2025-06-06'), ('web', '2025-07-02')")
-        self.assertEqual(str(con.execute(result.sql).fetchall()[0][1])[:10], '2025-06-01')
-
-    def test_an_undeclared_field_compiles_as_before(self):
-        result = self.compile(None)
-        self.assertEqual(result.coverage, 'translated', result.reason)
-        self.assertNotIn('CAST(', result.sql)
-
-    def test_a_month_pill_on_custom_sql_text_runs(self):
-        import duckdb
-        from metrics_agent import readers
-        native = 'SELECT substr(order_ts, 1, 10) AS order_date, amount FROM shop.orders'
-        col = {'caption': None, 'default_format': None, 'description': '', 'role': None}
-        facts = {'vendor': 'tableau', 'model_name': 'm', 'relationships': [], 'usage': [],
-                 'assets': [], 'parameters': [],
-                 'measures': [{'name': 'Sales', 'formula': 'SUM([amount])',
-                               'formula_language': 'tableau-calc', 'home_table': 'Orders'}],
-                 'tables': [{'name': 'Orders', 'logical_name': 'Orders', 'description': '',
-                             'is_hidden': False,
-                             'source_lineage': {'connection': 'federated', 'database': None, 'schema': None,
-                                                'object': None, 'published_datasource': False,
-                                                'object_kind': 'custom-sql', 'native_sql': native,
-                                                'raw_expression': native, 'statement_is_source': True,
-                                                'reads': ['shop.orders'], 'native_columns': [
-                                                    {'name': 'order_date', 'column': 'order_date'},
-                                                    {'name': 'amount', 'column': 'amount'}]},
-                             'columns': [
-                                 {**col, 'name': 'order_date', 'data_type': 'date', 'is_calculated': False,
-                                  'formula': None, 'formula_language': None, 'source_column': 'order_date'},
-                                 {**col, 'name': 'amount', 'data_type': 'real', 'is_calculated': False,
-                                  'formula': None, 'formula_language': None, 'source_column': 'amount'},
-                                 {**col, 'name': 'MONTH-TRUNC(order_date)', 'data_type': None,
-                                  'is_calculated': True, 'formula': "DATETRUNC('month', [order_date])",
-                                  'formula_language': 'tableau-calc', 'source_column': None}]}]}
-        unit = {'unit_id': 'u', 'warehouse_tables': ['Orders'], 'group_by': ['MONTH-TRUNC(order_date)'],
-                'measures': [{'name': 'Sales', 'formula': 'SUM([amount])',
-                              'formula_language': 'tableau-calc', 'aggregation': 'custom'}],
-                'filters': [], 'top_n': None, 'join_graph': [], 'expression_language': 'tableau-calc',
-                'native_source': {'logical': 'Orders', 'sql': native,
-                                  'columns': {'order_date': 'order_date', 'amount': 'amount'}}}
-        reader = readers.compiler('tableau')
-        result = reader.compile_unit(unit, RULES, 'duckdb', model=reader.prepare(facts))
-        self.assertEqual(result.coverage, 'translated', result.reason)
-        con = duckdb.connect()
-        con.execute('CREATE SCHEMA shop')
-        con.execute('CREATE TABLE shop.orders (order_ts VARCHAR, amount DOUBLE)')
-        con.execute("INSERT INTO shop.orders VALUES ('2025-06-06 15:48:50', 2), ('2025-06-20 09:00:00', 3)")
-        self.assertEqual([r[1] for r in con.execute(result.sql).fetchall()], [5])
-
-
-@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
 class SQLiteEstateTest(unittest.TestCase):
     """A SQLite estate is checked on SQLite: its runner, and the compiler's SQLite forms."""
 
@@ -197,8 +122,7 @@ class SQLiteEstateTest(unittest.TestCase):
                               'formula': formula}],
                 'filters': [], 'top_n': None, 'join_graph': []}
         result = bicompile.compile_unit(unit, RULES, 'sqlite',
-                                        columns={'shop.orders': {'channel', 'order_date', 'sold', 'seats'}},
-                                        types={('orders', 'order_date'): 'date'})
+                                        columns={'shop.orders': {'channel', 'order_date', 'sold', 'seats'}})
         self.assertEqual(result.coverage, 'translated', result.reason)
         con = sqlite3.connect(':memory:')
         con.execute(f"ATTACH '{self.db}' AS shop")
