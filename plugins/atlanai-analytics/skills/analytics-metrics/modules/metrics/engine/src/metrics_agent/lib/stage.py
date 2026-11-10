@@ -232,6 +232,15 @@ def run_stage(stage_name: str, script: str, args: argparse.Namespace) -> Iterato
                     # the run span had already recorded `ok` for a stage that had just raised.
                     if entry.verdict == "ok":
                         entry.verdict = "blocked"
+                    # THE REASON TRAVELS WITH THE VERDICT. A stage that refuses by message
+                    # (`raise SystemExit("a1: no .tmdl under …")`) left only `blocked` on the
+                    # manifest, and the driver had nothing to say but "the engine refused".
+                    # Resume reads `notes` only for its own markers, which are never
+                    # overwritten here, and a blocked stage always runs again.
+                    exc = sys.exc_info()[1]
+                    if entry.notes is None and isinstance(exc, SystemExit) and \
+                            isinstance(exc.code, str) and exc.code.strip():
+                        entry.notes = _redact.text(exc.code)[:2000]
                     raise
                 finally:
                     # Every stage flushes its own spans: each is its own process, and a

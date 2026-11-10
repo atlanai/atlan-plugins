@@ -378,6 +378,12 @@ def _unqualified(text: str) -> list[str]:
     return sorted(set(out))
 
 
+def _statement_tables(metric: dict, stmts: dict) -> set[str]:
+    """The tables the metric's own statements read, lower-cased as they are written there."""
+    return {str(t).lower() for s in (metric.get("sources") or []) if isinstance(s, dict)
+            for t in ((stmts.get(s.get("vq_id")) or {}).get("tables") or [])}
+
+
 _MARKER = re.compile(r"\{\{\s*([A-Za-z_]\w*)\s*\}\}")
 _DATE_LITERAL = re.compile(r"(?i)(?:\bDATE\s*)?'\d{4}-\d{2}-\d{2}(?:[ T][0-9:.]+)?'")
 _IDENT_PART = r'(?:[A-Za-z_][\w$]*|"[^"]+"|`[^`]+`|\[[^\]]+\])'
@@ -591,8 +597,11 @@ def _ingest(ctx: stage.Ctx) -> None:
             # not borrowed from a query: a table that plays two roles is written that way, and
             # its role name is the only thing that tells the two apart.
             derived = _derived_aliases(str(_source_of(a).get("sql") or ""))
+            # A TABLE THE CARD'S OWN STATEMENTS READ IS NOT AN ALIAS either, in any dialect: a
+            # two-part name they read (`site.projects`) is a table, not an alias and its column.
+            known = _statement_tables(m, stmts)
             loose = [x for x in _unqualified(scan) if x.split(".", 1)[0].lower() not in derived
-                     and x.lower() not in two_part]
+                     and x.lower() not in two_part and x.lower() not in known]
             if loose:
                 full = "SCHEMA.TABLE.COLUMN" if two_part else "DB.SCHEMA.TABLE.COLUMN"
                 problems.append(f"{where}: {len(loose)} reference(s) still wear a query alias — "

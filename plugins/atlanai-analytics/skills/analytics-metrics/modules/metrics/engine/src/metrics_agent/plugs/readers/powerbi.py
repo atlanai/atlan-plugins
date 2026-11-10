@@ -134,10 +134,16 @@ def _unquote(*groups: str | None) -> str:
 def _find_model(root: pathlib.Path) -> list[pathlib.Path]:
     files = sorted(root.rglob("*.tmdl"))
     if not files:
+        # A FOLDER HOLDING A MODEL FILE IS NAMED, NOT GUESSED. A template or model export
+        # beside other files is read when `bi` names that file; say which one is here.
+        found = sorted(p.name for p in root.iterdir()
+                       if p.is_file() and p.suffix.lower() in (".pbit", ".bim")) if root.is_dir() else []
+        hint = (f" This folder holds {', '.join(found)}: set `bi` to that file."
+                if found else "")
         raise PowerBIError(
             f"no .tmdl under {root}. A Power BI extract must contain definition/model.tmdl "
             f"(or definition/tables/*.tmdl); a .pbix binary is not read here — acquisition "
-            f"is out of scope (A0).")
+            f"is out of scope (A0).{hint}")
     return files
 
 

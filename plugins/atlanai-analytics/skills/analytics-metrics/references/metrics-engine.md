@@ -137,6 +137,12 @@ the main engine applies this bound while grouping and admitting captured history
 }
 ```
 
+This example has no SQL check, so it sets `witness_mode: parse`. With a SQL check (for
+example `"sql_check": "local-files"` and the database in its settings), set `execute` to run
+each statement read-only, or omit the key for the default `explain`; `parse` checks nothing
+against the data. For BI definitions, `bi` is a file (`.pbit`, `.bim`) or a folder of `.tmdl`
+files, never a folder holding a `.pbit`.
+
 Run `ENGINE prepare --run <engine-dir> --config <private-config> --approval-mode auto`.
 It runs the maintained configuration and plug checks, without the terminal interview.
 Resolve only returned missing requirements. Save `module: metrics`, runtime path, run path

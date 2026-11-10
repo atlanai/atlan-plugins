@@ -167,6 +167,62 @@ def state(run, runtime):
     return run, receipt
 
 
+# What each gate's answer file holds at its top level, so the author does not have to read the
+# ingest to find out. The keys are the ones each ingest reads; the item fields are in the
+# prompt's own `fields`, and the gates whose ingest validates against a schema name it.
+ANSWER_SHAPES = {
+    'a3b': {'findings': [], 'rules': []},
+    'c3': {'items': []},
+    'm2': {'queries': []},
+    'x1': {'statements': []},
+    'x2': {'metrics': []},
+    'x3': {'metrics': []},
+    'x4': {'relationships': []},
+}
+ANSWER_SCHEMAS = {'x3': 'authored_metric_cards.schema.json', 'x4': 'metric_relationships.schema.json'}
+
+
+def answer_contract(run, gate):
+    """The answer's top-level shape, the prompt's field list and the validating schema, if any."""
+    contract = {}
+    if gate in ANSWER_SHAPES:
+        contract['answer_shape'] = ANSWER_SHAPES[gate]
+    try:
+        fields = load(run / f'{gate}_prompt.json').get('fields')
+    except (OSError, ValueError):
+        fields = None
+    if fields:
+        contract['answer_fields'] = fields
+    if gate in ANSWER_SCHEMAS:
+        try:
+            import metrics_agent
+        except ImportError:
+            return contract
+        schema = Path(metrics_agent.__file__).resolve().parent / 'data' / 'schemas' / ANSWER_SCHEMAS[gate]
+        if schema.is_file():
+            contract['answer_schema'] = str(schema)
+    return contract
+
+
+def last_stage_output(text):
+    """The engine's output from the last stage it ran: the one that paused or failed.
+    The whole run's output stays in engine.log."""
+    start = text.rfind('\n=== ')
+    return text[start + 1:] if start >= 0 else text
+
+
+def blocked_reason(run):
+    """The message the blocked stage recorded on the manifest, when it recorded one."""
+    try:
+        stages = load(run / 'manifest.json').get('stages') or []
+    except (OSError, ValueError):
+        return None
+    failed = next((s for s in reversed(stages) if s.get('verdict') == 'blocked'), None)
+    if failed and failed.get('notes'):
+        return f"{failed.get('stage')}: {failed['notes']}"
+    return None
+
+
 def advance(run, runtime, model):
     run, receipt = state(run, runtime)
     env = dict(os.environ, METRICS_AGENT_MODEL=model)
@@ -200,11 +256,14 @@ def advance(run, runtime, model):
             result['gate'] = {'id': gate, 'prompt': str(run / f'{gate}_prompt.json'),
                               'instructions': str(runtime / 'source/skills' / skill / 'SKILL.md'),
                               'answers': str(run / 'answers' / relative), 'requires_user_approval': False}
+            result['gate'].update(answer_contract(run, gate))
             if gate == 'x3' and (run / 'x3_repair.json').is_file():
                 result['gate']['repair'] = str(run / 'x3_repair.json')
-        result['feedback'] = proc.stderr
+        result['feedback'] = last_stage_output(proc.stderr)
     else:
-        result['reason'] = 'The engine refused or failed. Read the private log and repair the cause.'
+        result['reason'] = (blocked_reason(run)
+                            or 'The engine refused or failed. Read the private log and repair the cause.')
+        result['feedback'] = last_stage_output(proc.stderr)
     receipt['last_result'] = result
     write(run / 'module.json', receipt)
     return result, 3 if proc.returncode == 3 else 0 if proc.returncode == 0 else 2
