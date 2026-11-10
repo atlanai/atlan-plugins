@@ -186,7 +186,7 @@ class PublishVersionConflictTest(unittest.TestCase):
         return call(m, "mcp__call_write_tool", {"name": name, "arguments": arguments, "session_id": m.SESSION, "rationale": "r"})
 
     def publish(self, m, **extra) -> tuple[dict, dict]:
-        return self.write(m, "registry__publish_output", {
+        return self.write(m, "extension__agent__publish_output", {
             "metadata": {"name": "october-incident-review", "workspace_id": "workspace_01evalplatform"},
             "source_type": "local", "source_id": "claude/october-incident-review",
             "file": {"path": "october-incident-review.md", "content": self.REPORT}, **extra})
@@ -199,7 +199,7 @@ class PublishVersionConflictTest(unittest.TestCase):
             self.assertEqual(body, "The request conflicts with the current state of the resource.")
         self.assertEqual(m.state["versions"], {})
         self.assertEqual(m.state["heads"], {})
-        _, first = self.write(m, "registry__publish_output", {
+        _, first = self.write(m, "extension__agent__publish_output", {
             "metadata": {"name": "fresh", "workspace_id": "workspace_01evalplatform"}, "source_type": "local",
             "source_id": "claude/fresh", "file": {"path": "fresh.md", "content": "Fresh.\n"}})
         self.assertTrue(first["created"], "a first share under a new source key still succeeds")
@@ -463,7 +463,7 @@ class GatewayLabelsAndChecksTest(unittest.TestCase):
         publish = {"metadata": {"name": "october-incident-review", "workspace_id": "workspace_01evalplatform"},
                    "source_type": "local", "source_id": "claude/october-incident-review",
                    "file": {"path": "review.md", "content": "# Review"}, "dry_run": True}
-        result, body = self.run_tool("mcp__call_write_tool", "registry__publish_output", publish)
+        result, body = self.run_tool("mcp__call_write_tool", "extension__agent__publish_output", publish)
         self.assertFalse(result["isError"], body)
         self.assertEqual((body["dry_run"], body["committed"], body["would"], body["artifact_id"]),
                          (True, False, "append_version", "output_01evalincident"))

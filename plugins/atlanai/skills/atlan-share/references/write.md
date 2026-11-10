@@ -25,7 +25,7 @@ inline as `file`:
 
 ```
 mcp__call_write_tool {
-  "name": "registry__publish_output",
+  "name": "extension__agent__publish_output",
   "arguments": {
     "metadata": { "name": "churn-q3", "display_name": "Q3 churn report",
                   "description": "<the two-sentence summary>", "workspace_id": "workspace_…" },

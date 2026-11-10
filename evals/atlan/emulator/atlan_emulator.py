@@ -43,13 +43,13 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_UNRELEASED=knowledge_01evalchurn,…`: those artifacts are not released, and
   `mcp__retrieve_artifacts` leaves out unreleased items unless `retrieval.released_only` is false,
   reporting how many it left out in `diagnostics.unreleased_omitted_count`;
-- `ATLAN_EMULATOR_OPAQUE_PUBLISH=1`: `registry__publish_output` refuses a call that carries
+- `ATLAN_EMULATOR_OPAQUE_PUBLISH=1`: `extension__agent__publish_output` refuses a call that carries
   `idempotency_key` or `file.media_type` with a bare `400` "The request is not valid." that
   names no field and writes nothing, as the dev gateway did in the 8 November eval;
 - `ATLAN_EMULATOR_DISABLED_SERVERS=slack,…`: those servers are registered but disabled: their
   tools are not served, and every search lists them under `unavailable` with `reason`
   `disabled`, as gateway 2.21.0 does (`HIDE_SERVERS` stays silent about its servers);
-- `ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT=1`: `registry__publish_output` on a source key that
+- `ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT=1`: `extension__agent__publish_output` on a source key that
   already names an output is refused with the bare `409` text "The request conflicts with the
   current state of the resource." and writes nothing, as gateway 2.21.0 did on 9 November; the
   older route (`registry__append_artifact_version` on the file, then `registry__create_artifact`
@@ -95,7 +95,7 @@ SIGNED_OUT = os.environ.get("ATLAN_EMULATOR_SIGNED_OUT") == "1"
 # Pads the catalogue to this many skills, the most recently changed of them about UI motion, so a
 # browse of the newest rows is a misleading sample of the whole.
 SKILLS = int(os.environ.get("ATLAN_EMULATOR_SKILLS") or 0)
-# Tools this connection leaves out, as a gateway older than them would: `registry__publish_output`
+# Tools this connection leaves out, as a gateway older than them would: `extension__agent__publish_output`
 # for one that predates it.
 HIDE_TOOLS = {t for t in os.environ.get("ATLAN_EMULATOR_HIDE_TOOLS", "").split(",") if t}
 ANALYTICS = os.environ.get("ATLAN_EMULATOR_ANALYTICS") == "1"
@@ -980,7 +980,7 @@ def dispatch(name: str, a: dict) -> dict:
         return retrieve(a)
     if name == "registry__append_artifact_version":
         return append_version(a)
-    if name == "registry__publish_output":
+    if name == "extension__agent__publish_output":
         return publish_output(a)
     if name == "registry__approve_artifact":
         return approve(a)
@@ -1404,7 +1404,7 @@ PUBLISH_RESERVED = ("mode", "file_artifact_id", "file_version_ordinal", "externa
 
 
 def publish_output(a: dict) -> dict:
-    """`registry__publish_output` as the gateway answers it: the file by its source key
+    """`extension__agent__publish_output` as the gateway answers it: the file by its source key
     (appended, created, or unchanged when the text matches), then the output and its edges in one
     commit. An output refused after its file was written is a success naming the saved file."""
     if OPAQUE_PUBLISH and ("idempotency_key" in a or "media_type" in (a.get("file") or {})):
