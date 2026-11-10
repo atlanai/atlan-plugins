@@ -16,6 +16,8 @@ import {
   describeBlastRadius,
   describeWrite,
   diagnose,
+  fallbackOf,
+  releasesOf,
   findSessionId,
   gatewayNameOf,
   harvestHints,
@@ -742,6 +744,78 @@ describe('a release and its roll-back', () => {
     expect(verdict.decision).toBe('ask')
     expect(verdict.reason).toContain('rel_01shipped')
     expect(verdict.reason).toContain('cannot be undone')
+  })
+})
+
+describe('the roll-back card (C3)', () => {
+  const RELEASES = JSON.stringify({
+    items: [
+      { release_id: 'rel_01v110', artifact_id: 'skill_01target', channel: 'latest', version_label: '1.1.0', version_ordinal: 3, release_status: 'released', is_current: true },
+      { release_id: 'rel_01v105', artifact_id: 'skill_01target', channel: 'latest', version_label: '1.0.5', version_ordinal: 2, release_status: 'withdrawn', is_current: false, withdrawn_at: '2026-10-01T00:00:00Z' },
+      { release_id: 'rel_01v100', artifact_id: 'skill_01target', channel: 'latest', version_label: '1.0.0', version_ordinal: 1, release_status: 'released', is_current: false },
+      { release_id: 'rel_01beta', channel: 'beta', version_label: '1.1.0', version_ordinal: 3, is_current: true },
+    ],
+  })
+
+  test('reads the releases a listing names, and where a withdrawal sends the channel', () => {
+    const releases = releasesOf(RELEASES, 'skill_01target')
+    expect(releases.map(one => [one.id, one.artifact, one.isWithdrawn])).toEqual([
+      ['rel_01v110', 'skill_01target', false],
+      ['rel_01v105', 'skill_01target', true],
+      ['rel_01v100', 'skill_01target', false],
+      ['rel_01beta', 'skill_01target', false],
+    ])
+    // The withdrawn 1.0.5 is passed over.
+    expect(fallbackOf(releases[0]!, releases)).toBe('"latest" goes back to 1.0.0, if that version is still active.')
+    expect(fallbackOf(releases[2]!, releases)).toContain('not the current release')
+    expect(fallbackOf(releases[3]!, releases)).toContain('may be left serving nothing')
+    expect(releasesOf(ARTIFACT, 'skill_01target')).toEqual([])
+    expect(releasesOf(JSON.stringify({ items: [{ release_id: 'rel_01orphan' }] }), '')).toEqual([])
+  })
+
+  test('names the artifact, its dependents and the fallback for a release the session listed', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: RELEASES }))
+    on('mcp.call', (_, e) => {
+      const call = e.args as { name?: string; arguments?: { artifact_id?: string } }
+      expect(call.arguments?.artifact_id).toBe('skill_01target')
+      return { value: text(call.name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }
+    })
+    await $.tool.call({ tool: 'mcp__plugin_atlanai_atlan__mcp__call_read_tool', name: 'registry__list_releases', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' })
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01v110', reason: 'broken' }, rationale: 'r' }, approver: 'user' })
+    expect(verdict.decision).toBe('ask')
+    expect(verdict.reason).toContain('withdraw release 1.1.0 on "latest" of skill "skill-creator"')
+    expect(verdict.reason).toContain('goes back to 1.0.0')
+    expect(verdict.reason).toContain('2 artifacts depend on it')
+    expect(verdict.reason).toContain('cannot be undone')
+  })
+
+  test('learns releases from a batch too, and refuses a withdrawal nobody can confirm', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ results: [{ name: 'registry__list_releases', isError: false, content: [{ type: 'text', text: RELEASES }] }] }) }))
+    on('mcp.call', (_, e) => ({ value: text((e.args as { name?: string }).name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }))
+    await $.tool.call({ tool: BATCH, calls: [{ name: 'registry__list_releases', arguments: { artifact_id: 'skill_01target' } }], rationale: 'r' })
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01v110' }, rationale: 'r' } })
+    expect(verdict.decision).toBe('deny')
+    expect(verdict.reason).toContain('of skill "skill-creator"')
+  })
+
+  test('a release and a withdrawal ask before any annotation is known, and through any runner', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('mcp.call', (_, e) => ({ value: text((e.args as { name?: string }).name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }))
+    expect(classify('registry__release_artifact', {})).toBe('destructive')
+    expect(classify('registry__withdraw_release', { registry__withdraw_release: { destructive: false } })).toBe('destructive')
+    const release = await $.tool.check({
+      tool: 'mcp__plugin_atlanai_atlan__mcp__call_write_tool',
+      input: { name: 'registry__release_artifact', arguments: { artifact_id: 'skill_01target', channel: 'stable' }, rationale: 'r' },
+      approver: 'user',
+    })
+    expect(release.decision).toBe('ask')
+    expect(release.reason).toContain('release skill "skill-creator" 0.2.0')
+    expect(release.reason).toContain('Releasing makes this version')
   })
 })
 

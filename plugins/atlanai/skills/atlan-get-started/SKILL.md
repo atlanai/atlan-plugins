@@ -127,10 +127,11 @@ authoring recipes for the apps the organization installed; where the host shows 
 `registry__list_artifacts`. A skill named above that is missing means this one was installed on
 its own (`references/install-and-sign-in.md`).
 
-## 4. Offer automatic skill checks in Codex
+## 4. Offer automatic skill checks in Codex and Cursor
 
-In Codex only, end the connection reply with one offer to check Atlan for a fitting skill at
-the start of each task: `references/codex-skill-checks.md` has the offer and what to write.
+There only, end the connection reply with one offer to check Atlan for a fitting skill at the
+start of each task: `references/codex-skill-checks.md` or `references/cursor-skill-checks.md`
+has the offer and what to write.
 
 ## Rules that always hold
 

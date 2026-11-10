@@ -270,7 +270,9 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
 - **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
   tree, never through a link, never from a credential folder or key file, within 128 files and
   256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
-  their counterparts in `claude-hooks/register.ts`).
+  their counterparts in `claude-hooks/register.ts`). It refuses a `registry__publish_output`
+  whose inline text matches a credential shape, and never repeats the value (`output_refusal`,
+  `outputRefusal`).
 - **[MUST]** The hooks reach only the Atlan server and, for the update notice, the core's
   `plugin.json` on this repository's `main`. They send nothing about the user or the session to
   either, and no hook sends feedback.
@@ -278,7 +280,7 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   change all three together, with tests.
 - **[MUST]** A hook fails open to the call as sent, never to a wider one (`main` in
   `publish_hook.py`, each handler's `.catch` in `register.ts`).
-- **[MUST]** `atlanai-mods` keeps archive, approve and move confirming, and refuses them where
+- **[MUST]** `atlanai-mods` keeps archive, approve, move, release and roll-back confirming, and refuses them where
   nobody can answer (`ALWAYS_CONFIRM` in `plugins/atlanai-mods/hooks/registry.ts`).
 - **[MUST]** Add-ons and mods declare no MCP server and no `bin/`; hooks stay in the core's helper
   and the mod (`lint_addon` and `lint_mod` in `tools/lint.py`).

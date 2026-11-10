@@ -2,7 +2,7 @@
 // artifacts this session touched, the confirmation card, the publish band and the skill picker.
 // Nothing here calls `$`, so each rule is tested without a session.
 
-import { CONSEQUENCE, argsOf, artifactOf, batchCalls, batchEntries, gatewayNameOf, jsonObjects, type Related, type Summary } from './registry'
+import { CONSEQUENCE, argsOf, artifactOf, batchCalls, batchEntries, gatewayNameOf, jsonObjects, type Related, type Release, type Summary } from './registry'
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -347,18 +347,21 @@ export type Card = {
 }
 
 /** The card for an archive, approve or move, from what the registry said about the artifact. */
-export function cardOf(callId: string, name: string, artifactId: string, summary?: Summary, related?: Related): Card {
+export function cardOf(callId: string, name: string, artifactId: string, summary?: Summary, related?: Related, release?: Release, fallback?: string): Card {
   const verb = name.replace(/^registry__/, '').replace(/_artifact$/, '')
   const what = summary?.name ? `${summary.kind || 'artifact'} "${summary.name}"` : artifactId
+  const title = release
+    ? `Withdraw release ${release.label || release.id}${release.channel ? ` on "${release.channel}"` : ''} of ${what}`
+    : `${verb[0]?.toUpperCase() ?? ''}${verb.slice(1)} ${what}${summary?.version ? ` ${summary.version}` : ''}`
   return {
     id: callId,
-    title: clip(`${verb[0]?.toUpperCase() ?? ''}${verb.slice(1)} ${what}${summary?.version ? ` ${summary.version}` : ''}`, 160),
+    title: clip(title, 160),
     where: clip(
       [summary?.workspace ? `in ${summary.workspace}` : '', summary?.status ? summary.status.replace(/_/g, ' ') : '', artifactId].filter(Boolean).join(' · '),
       160,
     ),
     dependents: (related?.dependents ?? []).map(one => ({ id: clip(one.id, 80), kind: clip(one.kind, 40), rel: clip(one.rel, 40) })),
     count: related === undefined ? -1 : related.count,
-    consequence: CONSEQUENCE[name.trim().toLowerCase()] ?? '',
+    consequence: clip([fallback ?? '', CONSEQUENCE[name.trim().toLowerCase()] ?? ''].filter(Boolean).join(' '), 400),
   }
 }

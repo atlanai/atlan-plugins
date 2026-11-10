@@ -40,13 +40,17 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   inside a URL, with placeholders let through: `CREDENTIAL_DIRS` in `publish_hook.py` and `claude-hooks/bundle.ts`, and `KEY_FILES`
   and `SECRETS` in `plugins/atlanai/skills/atlan-author-skills/scripts/check_bundle.py` and
   `bundle.ts`.
+- **A shared output is scanned too.** `registry__publish_output` with inline `file.content` is
+  held to the same `SECRETS`: a match denies the call and names the kind, line and column, never
+  the value. The scan reads only the call's own text, and a fault sends the call as it was:
+  `outputRefusal` in `register.ts`, `output_refusal` in `publish_hook.py`.
 - **Bounded, no-follow reads.** 128 files, 256 KiB and depth 8 (`MAX_FILES`, `MAX_BYTES`,
   `MAX_DEPTH` in `check_bundle.py` and `bundle.ts`), checked before anything is read (`walk` in
   `publish_hook.py`); files open with `O_NOFOLLOW`, so a file swapped for a link fails.
 - **Hooks fail open to the unchanged call, never to a wider one.** On any fault the call passes
   through as sent, and the server refuses an unexpanded `files_from` by name: `main` in
   `publish_hook.py` exits 0 with no output, and each handler in `register.ts` ends in `.catch`.
-- **Destructive registry calls always ask.** Archive, approve and move confirm with the blast
+- **Destructive registry calls always ask.** Archive, approve, move, release and roll-back confirm with the blast
   radius, and are refused where nobody can answer: `ALWAYS_CONFIRM` in
   `plugins/atlanai-mods/hooks/registry.ts` and `NO_APPROVER` in `hooks/register.tsx`.
 - **Subprocesses by argv list, with a timeout.** No shell strings in bundled scripts; see `run`
@@ -101,7 +105,7 @@ planned edges before invoking the existing publication validator. Conflicts rema
 - [ ] Generated files come from `make build`; the MCP URL is still `https://api.atlan.com/mcp`.
 - [ ] Publish-helper changes keep the Atlan-only guard, tree containment, no-follow reads,
       credential skips and limits, in both `command-hooks/` and `claude-hooks/`, with tests.
-- [ ] Mod changes keep archive, approve and move confirming, and
+- [ ] Mod changes keep archive, approve, move, release and roll-back confirming, and
       `claude plugin test plugins/atlanai-mods` passes.
 - [ ] New skill text reads no files, env vars or credentials beyond its task and calls only the
       Atlan tools it names.

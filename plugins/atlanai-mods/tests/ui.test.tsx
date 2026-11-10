@@ -257,6 +257,14 @@ describe('the Atlan pane', () => {
     await ui.unmount()
   })
 
+  test('builds the card a roll-back shows, with where the channel goes (C3)', () => {
+    const release = { id: 'rel_01v110', artifact: 'skill_01target', channel: 'latest', label: '1.1.0', ordinal: 3, isCurrent: true, isWithdrawn: false }
+    const card = cardOf('toolu_01', 'registry__withdraw_release', 'skill_01target', { name: 'skill-creator', kind: 'skill', version: '1.1.0', workspace: 'workspace_01ws', status: 'active' }, { count: 0, dependents: [] }, release, '"latest" goes back to 1.0.0, if that version is still active.')
+    expect(card.title).toBe('Withdraw release 1.1.0 on "latest" of skill "skill-creator"')
+    expect(card.consequence).toContain('goes back to 1.0.0')
+    expect(card.consequence).toContain('cannot be undone')
+  })
+
   test('builds the card an archive shows while it waits for an answer', () => {
     const card = cardOf('toolu_09', 'registry__archive_artifact', 'skill_01target', { name: 'skill-creator', kind: 'skill', version: '0.2.0', workspace: 'workspace_01ws', status: 'active' }, {
       count: 1,
