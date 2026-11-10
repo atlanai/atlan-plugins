@@ -197,7 +197,11 @@ class LocalProject(unittest.TestCase):
         self.assertEqual(metric_preview.resolve_id('late-jobs', ids), 'metric:Late Jobs')
         self.assertEqual(metric_preview.resolve_id('metric:gross-margin', ids), 'metric:Gross Margin')
         self.assertEqual(metric_preview.resolve_id('gross-margin', ids, 'sql_query'), 'sql_query:Gross Margin')
-        self.assertIsNone(metric_preview.resolve_id('Gross Margin', ids))
+        self.assertIsNone(metric_preview.resolve_id('gross margin', ids))
+        named = ['metric:Gross Margin', 'sql_query:gross-margin']
+        self.assertEqual(metric_preview.resolve_id('Gross Margin', named), 'metric:Gross Margin')
+        self.assertEqual(metric_preview.resolve_id('gross-margin', named), 'sql_query:gross-margin')
+        self.assertIsNone(metric_preview.resolve_id('GROSS MARGIN', named))
         self.assertIsNone(metric_preview.resolve_id('Late', ids))
         self.assertIsNone(metric_preview.resolve_id('', ids))
         self.assertEqual(metric_preview.resolve_id('Margin: net', ['metric:Margin: Net']), 'metric:Margin: Net')

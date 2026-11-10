@@ -12,16 +12,19 @@ def _slug(text):
 def resolve_id(requested, ids, kind=None):
     """The saved id that `requested` names, or None. A definition may be named by its saved id, its
     display name or a slug, with or without its kind (`metric:Gross Margin`, `Gross Margin`,
-    `metric:gross-margin`). Only a unique match resolves."""
+    `metric:gross-margin`). An exact name outranks a slug; only a unique match resolves."""
     ids = [i for i in ids if kind is None or i.startswith(kind + ':')]
     if requested in ids:
         return requested
     prefix = re.match(r'(metric|sql_query):', str(requested))
     if prefix:
         ids = [i for i in ids if i.startswith(prefix.group(0))]
-    want = _slug(str(requested)[prefix.end() if prefix else 0:])
-    found = [i for i in ids if want and _slug(i.split(':', 1)[1]) == want]
-    return found[0] if len(found) == 1 else None
+    name = str(requested)[prefix.end() if prefix else 0:]
+    for same in (lambda saved: saved == name, lambda saved: _slug(saved) == _slug(name) != ''):
+        found = [i for i in ids if same(i.split(':', 1)[1])]
+        if found:
+            return found[0] if len(found) == 1 else None
+    return None
 
 
 def id_hint(ids, kind=None):
