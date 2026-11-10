@@ -28,11 +28,11 @@ graders:
     input_match: 'references/metrics\.md'
     min: 0
     max: 0
-  - name: offers-the-deployed-agent-once
+  - name: this-chat-is-the-agent
     type: llm
     criteria: |
-      PASS if the reply starts the setup route (asks for or surveys a source of revenue context, or explains that this chat answers from published metrics once they exist) and offers a separately deployed agent with an eval set in at most one or two sentences, switching only if the person asks.
-      FAIL if it starts the full-agent build preflight (purpose questions, eval set, registration) unasked, or gives no hint that a deployed agent is available.
+      PASS if the reply starts the setup route (asks for or surveys a source of revenue context, or explains that this chat answers from published metrics once they exist), treating this chat as the talk-to-data agent.
+      FAIL if it starts an eval set, agent registration or deployment, or promises a separately deployed agent.
   - name: plain-reply
     type: llm
     criteria: |
