@@ -19,16 +19,16 @@ a first-person `rationale` on every call, a `workspace_id` on every create, and
 | `upload` | `file_artifact_id` **and** `file_version_ordinal` | `external_url` |
 | `link` | `external_url` | both pin fields |
 
-`registry__publish_output` sets all of these itself from `file`, `file_pin` or
+`extension__agent__publish_output` sets all of these itself from `file`, `file_pin` or
 `external_url`, and refuses them in `metadata`. They matter when you read an output back, and on
 [the older route](#when-publish_output-is-not-served), where the create hook enforces the
 exclusivity: setting both halves is a hook refusal naming the conflict, not a schema error.
 
-## One call: `registry__publish_output`
+## One call: `extension__agent__publish_output`
 
 ```
 mcp__call_write_tool {
-  "name": "registry__publish_output",
+  "name": "extension__agent__publish_output",
   "arguments": {
     "metadata": {
       "name": "release-notes-2026-09",
@@ -79,7 +79,8 @@ wrote nothing.
 
 ### Refused with no field
 
-Some gateways refuse `publish_output` without naming what is wrong. Neither refusal writes anything.
+Some gateways' registry copy of `publish_output` refuses without naming what is wrong. Neither
+refusal writes anything.
 
 - "The request is not valid." on a call that carries `idempotency_key`: the gateway derives a key
   per step that its registry does not accept, so every keyed call is refused. Leave
@@ -155,7 +156,7 @@ refused before the output is written.
 ## Publishing a new version
 
 `output` is not create-only; iterating on a deliverable is the whole use case. Send
-`registry__publish_output` again with the same `workspace_id`, source key and the new content.
+`extension__agent__publish_output` again with the same `workspace_id`, source key and the new content.
 It appends to the file (or writes nothing when the text is unchanged) and makes the output's next
 version under the same handle. Every prior version stays resolvable at its own ordinal, pinned
 to the file version it was published with.
@@ -172,9 +173,12 @@ so there is no second copy to drift.
 
 ## When `publish_output` is not served
 
-A gateway older than the tool answers that no tool of that name exists, and a refusal with no
-field ([above](#refused-with-no-field)) can send you here too. Then record in separate
-calls, giving the `file` and the `output` the same source key flat in `metadata` beside `name`:
+The tool is the agent app's. A gateway that predates the move serves the same tool, with the
+same arguments, under the registry's prefix: when `mcp__search_tools` for `publish_output`
+returns that name and not the agent app's, call the one it returns. When neither is served (a
+gateway older than the tool, or an organization without the agent app), and when a refusal with
+no field ([above](#refused-with-no-field)) sends you here, record in separate calls, giving
+the `file` and the `output` the same source key flat in `metadata` beside `name`:
 
 1. **The file.** Text up to 64 KiB: `registry__create_artifact` with `kind` `file`, `content`, and
    `metadata` `{name, path, workspace_id, source_type, source_id}`. Larger or binary bytes: the

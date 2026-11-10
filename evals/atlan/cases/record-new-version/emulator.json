@@ -1,5 +1,5 @@
 {
   "env": {
-    "ATLAN_EMULATOR_HIDE_TOOLS": "registry__publish_output"
+    "ATLAN_EMULATOR_HIDE_TOOLS": "extension__agent__publish_output"
   }
 }

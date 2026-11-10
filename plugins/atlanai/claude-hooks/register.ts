@@ -62,8 +62,15 @@ export const PUBLISH = 'extension__skill__create'
 export const BULK_PUBLISH = 'registry__create_artifacts'
 export const BULK_CAPABILITY = 'Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].'
 export const RECEIPT_CAPABILITY = 'Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.'
-/** A shared output's one-call tool: its inline `file.content` is checked for credentials before it leaves. */
-export const OUTPUT = 'registry__publish_output'
+/**
+ * A shared output's one-call tool: its inline `file.content` is checked for credentials before it
+ * leaves. The agent app serves it; a gateway that predates the move serves the same tool, with the
+ * same arguments, under the registry's prefix, so the check holds the tool under either server.
+ */
+export const OUTPUT = 'extension__agent__publish_output'
+const OUTPUT_TOOL = /^(?:extension__agent|registry)__publish_output$/
+/** Whether `name` is the shared output's one-call tool, under either server that serves it. */
+export const isOutput = (name: unknown): boolean => typeof name === 'string' && OUTPUT_TOOL.test(name)
 /** How many credential matches a refusal lists. */
 const MAX_LISTED = 5
 const RECEIPT_OPERATIONS = new Set([BULK_PUBLISH, 'registry__get_artifact', 'registry__get_related_artifacts'])
@@ -524,10 +531,10 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
   on('tool.call', { tool: CALL_TOOL }, async ($, e, next) => {
     const call = e as unknown as { name?: unknown; arguments?: unknown }
-    if (call.name !== PUBLISH && call.name !== OUTPUT && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
+    if (call.name !== PUBLISH && !isOutput(call.name) && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
     const args = argsOf(call.arguments)
     if (!args) return next(e)
-    if (call.name === OUTPUT) {
+    if (isOutput(call.name)) {
       const refusal = outputRefusal(args)
       if (refusal === undefined || (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool))) return next(e)
       return { deny: refusal }

@@ -607,7 +607,7 @@
    }
   },
   {
-   "name": "registry__publish_output",
+   "name": "extension__agent__publish_output",
    "description": "Record what a run produced as an `output`, with its file and the skills it used, in one call. The source key (`source_type`, `source_id`) names the deliverable: the first call creates the output (and its file), and a later call with the same key adds a version to both. Give exactly one of `file` (text up to 64 KiB to store), `file_pin` (bytes already uploaded) or `external_url` (a link). \n\nText identical to the file's latest version writes no file version. The output and its `edges` commit together: if an edge is refused, no output version is written. The file is saved first; if the output then fails, the result says so with the file's handle, and calling again with the same key reuses that file. \n\n`metadata` is the output's envelope and properties as for create_artifact (`name` and `workspace_id` are required; producer fields such as `subject_kind` go here) without `mode`, the file pin, `external_url` or the source key, which this tool sets.",
    "annotations": {
     "destructiveHint": false,
