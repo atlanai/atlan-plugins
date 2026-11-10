@@ -29,6 +29,11 @@ run's `dialect` to the file's engine (`sqlite`, or `duckdb` for an existing Duck
 Dashboard only versus history scope. When the engine has no compatible SQL-check plug, retain
 parse-only evidence and run exact local checks separately.
 Do not create a second authoring path because an executor is unavailable.
+For a rerun into a destination that already holds relevant releases, read them fresh before
+choosing an engine, and follow [released execution](../project.md#reuse-a-released-local-executor):
+the released dialect and catalog decide the local binding, and released SQL stays unchanged. A
+missing runtime needs the user's authorization, not a choice between overwriting releases and
+changing engines.
 
 Reuse the existing survey, scope, business focus and interview answers. Prepare one engine
 run under this setup run. Advance through its maintained gates for the complete selected

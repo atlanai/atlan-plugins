@@ -47,6 +47,28 @@ class ProjectError(ValueError):
     pass
 
 
+# The tables a released statement reads, for choosing its local executor. A hint, not a parse:
+# comments and string contents are blanked first, and a CTE's own name is not a table.
+_FROM = re.compile(r"\b(?:from|join)\s+(?!\()(?:lateral\s+)?([\w$\"`]+(?:\s*\.\s*[\w$\"`]+){0,3})", re.I)
+_CTE = re.compile(r"(?:\bwith\s+(?:recursive\s+)?|,\s*)([\w$\"`]+)\s+as\s*\(", re.I)
+_NOT_TABLES = {"select", "lateral", "table", "unnest", "flatten", "values"}
+
+
+def _ident(name):
+    return re.sub(r"\s*\.\s*", ".", name).replace('"', "").replace("`", "").lower()
+
+
+def _relations(sql):
+    code = mine._code_only(sql)
+    ctes = {_ident(m.group(1)) for m in _CTE.finditer(code)}
+    found = []
+    for m in _FROM.finditer(code):
+        table = _ident(m.group(1))
+        if table and table not in ctes and table.split(".")[-1] not in _NOT_TABLES and table not in found:
+            found.append(table)
+    return found
+
+
 class Project(ContextState):
     """Keeps compatible project run state without creating dashboard or agent jobs."""
     def read_request(self, path):
@@ -190,6 +212,7 @@ class Project(ContextState):
             self.archive_candidates()
             state['context_changed'] = True
             state.pop('publication', None)
+            state.pop('released_execution', None)
             state.pop('scope', None)
             state.pop('scopes', None)
             self.store.write(self.context / 'candidate-checks.json', {})
@@ -221,6 +244,7 @@ class Project(ContextState):
         if scopes.get(source['source_id']) != scope:
             self.archive_candidates()
             state.pop('publication', None)
+            state.pop('released_execution', None)
             state['context_changed'] = True
             self.write(self.context / 'candidate-checks.json', {})
         state['scope'] = scope
@@ -386,10 +410,79 @@ class Project(ContextState):
                 'source_ids': [s['source_id'] for s in state['sources'] if s['kind'] == 'query_history'],
                 'next': 'Pass the captured history to the metrics engine local-files input. The engine owns shaping and authoring.'}
 
+    def released_execution(self, request):
+        """Select a local engine from fresh relevant releases without revising their SQL."""
+        state = self.current()
+        payload = request.get('readbacks')
+        if not isinstance(payload, dict) or not payload.get('workspace_id'):
+            raise ProjectError('Supply the selected workspace and fresh relevant released readbacks.')
+        if payload.get('artifacts') == []:
+            state.pop('released_execution', None)
+            self.write(self.path, state)
+            return {'status': 'default', 'kind': 'sqlite', 'database': 'analytics.sqlite',
+                    'remote_writes': False, 'reason': 'No existing relevant releases were selected.'}
+        artifacts = retrieval.releases(payload)
+        if any(not isinstance(a['definition'].get('dialect'), str) for a in artifacts):
+            raise ProjectError('Released definitions must declare their SQL dialect.')
+        dialects = {a['definition']['dialect'].lower() for a in artifacts}
+        if len(dialects) != 1 or not dialects <= set(LOCAL):
+            raise ProjectError('The selected releases need different or warehouse executors. Select a compatible group and its existing connection.')
+        kind = next(iter(dialects))
+        catalogs, schemas, tables = set(), set(), set()
+        for artifact in artifacts:
+            definition = artifact['definition']
+            statements = ([definition['sql']] if artifact['kind'] == 'sql_query'
+                          else [e['sql'] for e in definition.get('examples', [])])
+            relations = [t for sql in statements for t in _relations(sql)]
+            source = definition.get('source', {})
+            if source.get('table'):
+                relations.append(source['table'])
+            for relation in relations:
+                if not isinstance(relation, str):
+                    raise ProjectError('Released relations must be qualified table names.')
+                parts = relation.split('.')
+                if len(parts) == 3:
+                    if kind != 'duckdb' or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', parts[0]):
+                        raise ProjectError('The released catalog requires an existing matching connection.')
+                    catalogs.add(parts[0])
+                if len(parts) in (2, 3):
+                    schemas.add(parts[-2])
+                    tables.add('.'.join(parts[-2:]))
+        if len(catalogs) > 1 or kind == 'sqlite' and len(schemas) > 1:
+            raise ProjectError('The selected releases require multiple local bindings. Select their existing connections separately.')
+        catalog = next(iter(catalogs), None)
+        stem = catalog or (next(iter(schemas), 'analytics') if kind == 'sqlite' else 'analytics')
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', stem):
+            raise ProjectError('Use an existing matching local connection for the released schema.')
+        current = state.get('execution', {})
+        compatible = (current.get('kind') == kind and current.get('read_only') is True and (not catalog or Path(current.get('path', '')).stem == catalog)
+                      and {t.lower() for t in tables} <= {t.lower() for t in current.get('tables', [])})
+        plan = {'kind': kind, 'catalog': catalog, 'schemas': sorted(schemas), 'tables': sorted(tables),
+                'database': current['path'] if compatible else stem + '.' + kind,
+                'binding_reusable': compatible, 'workspace_id': payload['workspace_id'],
+                'source_hash': digest(state['sources']),
+                'artifacts': [{**{k: a[k] for k in ('id', 'release_id', 'version_id', 'channel')},
+                               'definition_hash': digest(a['definition'])} for a in artifacts]}
+        state['released_execution'] = plan
+        self.write(self.path, state)
+        return {'status': 'ready', **plan, 'remote_writes': False,
+                'next': 'Reuse the matching binding or prepare a new database in this released dialect. Keep released definitions unchanged; install nothing without authorization.'}
+
+    def check_released_execution(self, state, path):
+        plan = state.get('released_execution')
+        if not plan:
+            return
+        if plan['source_hash'] != digest(state['sources']):
+            raise ProjectError('Sources changed. Refresh relevant released readbacks before choosing the executor.')
+        if (local_data.KINDS.get(Path(path).suffix.lower()) != plan['kind']
+                or plan.get('catalog') and Path(path).stem != plan['catalog']):
+            raise ProjectError('Use the recorded released dialect and catalog for the local executor. Keep the published SQL unchanged.')
+
     def bind(self, database, tables=None, schema=None):
         state = self.current()
         # Binding is an explicit input independent of the report's filesystem location.
         path = safe_path(database)
+        self.check_released_execution(state, path)
         kind = local_data.KINDS.get(path.suffix.lower(), 'duckdb')
         binding = {'kind': kind, 'path': str(path), 'python': sys.executable, 'read_only': True}
         if kind == 'sqlite':
@@ -410,6 +503,7 @@ class Project(ContextState):
 
     def prepare(self, request):
         state = self.current()
+        self.check_released_execution(state, request['database'])
         result = local_prepare.prepare(state['source_root'], state['sources'], request)
         self.store.write(self.context / 'data-preparation.json', result)
         return result
@@ -514,7 +608,7 @@ def main():
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'released-execution', 'check-query', 'check-metric', 'acquisition', 'auth'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

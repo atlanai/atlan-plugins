@@ -232,3 +232,29 @@ local run or publication receipt.
 
 A malformed request reports its JSON line and column without echoing the file contents.
 Correct that file and retry the same step; keep the existing run and completed artifacts.
+
+## Reuse a released local executor
+
+When rerunning setup for an existing destination, reuse the saved binding if it still matches
+fresh relevant releases. Before preparing a different local engine, call:
+
+```sh
+python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" released-execution "<request.json>"
+```
+
+The request is `{"readbacks":{"workspace_id":"workspace_example","artifacts":["complete fresh released MCP objects"]}}`.
+Select releases relevant to this source and requested scope, never every unrelated workspace
+artifact. Use the same full readbacks as retrieval; heads and local drafts are not evidence.
+The helper records the released dialect, catalog, source fingerprint and revision hashes.
+It does not publish or rewrite definitions. An explicitly empty artifact list clears the
+selection and keeps the fresh-setup SQLite default.
+
+Reuse its existing compatible binding or prepare a new database with its suggested name and
+original schema/table mappings. For example, SQL using `archive_example.site.work` needs the
+DuckDB file `archive_example.duckdb`, not SQL rewritten for SQLite. Run PROJECT with an existing
+approved Python runtime that supports that engine. If unavailable, preserve the run and ask
+only for the required runtime installation authorization, without proposing a release overwrite.
+Never install automatically. Existing databases are never replaced. Then bind, author/reconcile
+using the released definitions, check exact SQL and retain the normal released readbacks.
+Mixed engines/catalogs require their actual separate connections. Source changes invalidate
+the selection. Fresh local setups and Keep local do not gain an extra sign-in requirement.
