@@ -38,6 +38,7 @@ import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from analytics_eval import PII as _SHARED_PII, full_name_hit  # noqa: E402
+import registry_contract  # noqa: E402
 
 VERSION = "0.1.0"
 METRIC_SPEC = "1.0-draft.4"
@@ -407,7 +408,7 @@ def cmd_shapes(a) -> dict:
         g["exec"] += execs
         g["users"] = max(g["users"], int(r.get("users") or 0))
         g["texts"] += 1
-        if execs > g["rep_exec"]:
+        if execs > g["rep_exec"] or (execs == g["rep_exec"] and sql < g["rep"]):
             g["rep"], g["rep_exec"] = sql, execs
     shapes, out_of_scope = [], 0
     for g in groups.values():
@@ -431,10 +432,240 @@ def cmd_shapes(a) -> dict:
             "with_aggregates": sum(1 for s in shapes if s["has_aggregate"]), "written": len(kept), "out": str(out)}
 
 
+# ====================================================================== authoring coverage
+
+def candidate_inventory(shapes, declarations=()):
+    """Complete source evidence, not a rule that every aggregate is a business metric."""
+    statements, candidates = [], []
+    for shape in sorted(shapes, key=lambda row: row['shape_id']):
+        sql = strip_comments(shape['sql'])
+        ref = 'shape:' + shape['shape_id']
+        found = []
+        code = _code_only(sql)
+        for match in AGG.finditer(code):
+            end = _balanced(code, match.end() - 1)
+            expression = sql[match.start():end]
+            key = ref + '\0' + sql + '\0' + str(match.start())
+            candidate = {'candidate_id': 'c-' + hashlib.sha256(key.encode()).hexdigest()[:16],
+                         'source_ref': ref, 'expression': expression, 'kind': 'aggregate'}
+            found.append(candidate['candidate_id'])
+            candidates.append(candidate)
+        statements.append({'source_ref': ref, 'sql': sql, 'candidates': found,
+                           'observations': {**features(sql),
+                                            'status': 'lexical_hints_read_the_full_sql'}})
+    for declaration in sorted(declarations, key=lambda row: row['source_ref']):
+        candidate = {**declaration, 'kind': 'declared'}
+        candidate['candidate_id'] = 'c-' + hashlib.sha256(json.dumps(
+            {k: declaration[k] for k in ('source_ref', 'name', 'expression') if k in declaration},
+            sort_keys=True).encode()).hexdigest()[:16]
+        candidates.append(candidate)
+    body = {'version': 1, 'statements': statements, 'candidates': candidates}
+    body['input_hash'] = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
+    return body
+
+
+def review_candidates(inventory, review, metric_names):
+    """Reconcile every source quantity and every card without deciding its business meaning."""
+    if review.get('input_hash') != inventory['input_hash']:
+        raise ValueError('Candidate evidence changed. Read the current inventory and review it again.')
+    expected = {c['candidate_id']: c for c in inventory['candidates']}
+    decisions, covered, seen = review.get('decisions', []), set(), set()
+    for decision in decisions:
+        key = decision.get('candidate_id')
+        if key not in expected or key in seen:
+            raise ValueError('Use each current candidate identifier exactly once.')
+        seen.add(key)
+        disposition = decision.get('disposition')
+        if disposition not in ('metric', 'component', 'non_metric', 'held') or not decision.get('reason'):
+            raise ValueError('Give each candidate its disposition and an evidence-based reason.')
+        targets = decision.get('metrics', [])
+        if not isinstance(targets, list) or not all(isinstance(t, str) for t in targets) or not set(targets) <= metric_names:
+            raise ValueError('Candidate decisions must refer to existing metric names.')
+        if disposition in ('metric', 'component') and not targets:
+            raise ValueError('A metric or component must name the metric cards it supports.')
+        if disposition in ('non_metric', 'held') and targets:
+            raise ValueError('Held and non-metric candidates must not claim usable metric cards.')
+        if expected[key]['kind'] == 'declared' and disposition not in ('metric', 'held'):
+            raise ValueError('A declared measure is a metric or an explicitly held declaration.')
+        if expected[key]['kind'] == 'declared' and disposition == 'metric' and len(targets) != 1:
+            raise ValueError('A declared measure supports exactly one metric card; do not turn its decomposition into new declarations.')
+        covered.update(targets)
+    if seen != set(expected):
+        raise ValueError('Review every candidate, including nested components and excluded aggregates.')
+    if covered != metric_names:
+        raise ValueError('Every authored metric needs a source candidate; reconcile unsupported cards.')
+    return {'status': 'complete', 'input_hash': inventory['input_hash'],
+            'candidates': len(expected), 'metrics': len(metric_names),
+            'held': sum(d['disposition'] == 'held' for d in decisions), 'decisions': decisions}
+
+
+def review_policy_hash():
+    """Changing maintained review instructions invalidates completed annotations."""
+    root = pathlib.Path(__file__).resolve().parents[3]
+    paths = ('modules/metrics/engine/skills/references/review-metric-card.md',
+             'modules/metrics/engine/skills/references/metric-consistency.md',
+             'skills/atlan-analytics/references/metrics/authoring.md')
+    return hashlib.sha256(json.dumps({p: hashlib.sha256((root / p).read_bytes()).hexdigest()
+                                     for p in paths}, sort_keys=True).encode()).hexdigest()
+
+
+def card_review_bundle(inventory, candidate_review, metrics, catalog=()):
+    """Give the author evidence and its draft together; never synthesize a card."""
+    if candidate_review.get('input_hash') != inventory['input_hash']:
+        raise ValueError('Reconcile the current source candidates before reviewing cards.')
+    review_candidates(inventory, candidate_review, {m['name'] for m in metrics})
+    candidates = {c['candidate_id']: c for c in inventory['candidates']}
+    cards, field_catalog = [], {}
+    policy_hash = review_policy_hash()
+    for metric in sorted(metrics, key=lambda row: row['name']):
+        refs = sorted({candidates[d['candidate_id']]['source_ref']
+                       for d in candidate_review['decisions'] if metric['name'] in d.get('metrics', [])})
+        fields = []
+        declarations = [c for c in candidates.values() if c['kind'] == 'declared' and c['source_ref'] in refs]
+        for declaration in declarations:
+            context = declaration.get('source_context', {})
+            table = context.get('table', {})
+            for column in table.get('columns', []):
+                fields.append({'source_ref': declaration['source_ref'], 'entity': context.get('entity'),
+                               'column': column['name'], 'metadata': column,
+                               'scope': 'captured_declared_role'})
+        source = metric['definition']['source']
+        frm = source.get('sql') or source.get('table') or source['entity']
+        if not declarations and not frm.lstrip().startswith('('):
+            tables = set(features('SELECT 1 FROM ' + frm)['tables'])
+            for relation in catalog:
+                if _ident(relation['table']) not in tables:
+                    continue
+                for column in relation['columns']:
+                    fields.append({'source_ref': relation['source_ref'], 'entity': relation['table'],
+                                   'column': column['column'], 'metadata': column,
+                                   'scope': 'catalog_field_resolve_actual_sql_role'})
+        for field in fields:
+            key = [field['source_ref'], field['entity'], field['column']]
+            field['field_id'] = 'field-' + hashlib.sha256(json.dumps(key).encode()).hexdigest()[:16]
+        for field in fields:
+            field_catalog[field['field_id']] = field
+        cards.append({'name': metric['name'], 'definition_hash': definition_hash(metric),
+                      'body': metric, 'supporting_source_refs': refs, 'source_fields': [f['field_id'] for f in fields],
+                      'field_inventory_limit': 'Resolve SQL roles before using catalog fields. An undeclared derived projection requires separate source inspection.',
+                      'prospective_identity': identity(metric)})
+    # Invalidate connected reviews when a component or its consumer changes. All source
+    # evidence is deliberately included, so uncertain source changes never reuse notes.
+    bodies = {m['name']: m for m in metrics}
+    neighbors = {name: set() for name in bodies}
+    for name, body in bodies.items():
+        definition = body['definition']
+        related = definition.get('depends_on', []) + [
+            r.get('metric') for r in definition.get('extensions', {}).get('related', [])
+            if isinstance(r, dict)]
+        for target in related:
+            if isinstance(target, str) and target in bodies:
+                neighbors[name].add(target)
+                neighbors[target].add(name)
+    for entry in cards:
+        connected, pending = set(), [entry['name']]
+        while pending:
+            name = pending.pop()
+            if name not in connected:
+                connected.add(name)
+                pending.extend(neighbors[name] - connected)
+        evidence = {'version': 4, 'review_policy_hash': policy_hash, 'inventory': inventory['input_hash'],
+                    'candidate_review': candidate_review, 'catalog': list(catalog),
+                    'cards': [bodies[n] for n in sorted(connected)]}
+        entry['review_hash'] = hashlib.sha256(json.dumps(
+            evidence, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    bundle = {'version': 4, 'review_policy_hash': policy_hash,
+              'inventory': inventory, 'catalog': list(catalog),
+              'field_catalog': field_catalog, 'cards': cards,
+              'evidence_limits': ['SQL observations are lexical hints, not complete parsed facts.',
+                                  'Column types alone do not establish keys, relationships or business meaning.',
+                                  'Review annotations never certify source parity or authorize publication.']}
+    bundle['input_hash'] = hashlib.sha256(json.dumps(bundle, sort_keys=True).encode()).hexdigest()
+    return bundle
+
+
+def review_fields(bundle, card):
+    """Resolve lossless shared field records; accept already captured version-two packets."""
+    if bundle.get('version', 2) < 3:
+        return card['source_fields']
+    return [bundle['field_catalog'][key] for key in card['source_fields']]
+
+
+def reusable_card_notes(bundle, previous):
+    """Reuse only source- and dependency-bound completed reviews, never SQL results."""
+    current = {c['name']: c for c in bundle['cards']}
+    return [note for note in previous.get('metrics', [])
+            if note.get('name') in current and note.get('review_hash')
+            and note['review_hash'] == current[note['name']].get('review_hash')]
+
+
+def review_card_notes(bundle, review):
+    """Validate current, source-traced review coverage without choosing the author's fields."""
+    if review.get('input_hash') != bundle['input_hash']:
+        raise ValueError('Cards or evidence changed. Read the current review bundle and review again.')
+    expected = {c['name']: c for c in bundle['cards']}
+    refs = {s['source_ref'] for s in bundle['inventory']['statements']}
+    refs.update(c['source_ref'] for c in bundle['inventory']['candidates'])
+    refs.update(c['source_ref'] for c in bundle['catalog'])
+    seen = set()
+    for note in review.get('metrics', []):
+        name = note.get('name')
+        if name not in expected or name in seen:
+            raise ValueError('Review each current metric exactly once.')
+        seen.add(name)
+        if note.get('review_hash') not in (None, expected[name].get('review_hash')):
+            raise ValueError('The card or its review dependencies changed. Review the current evidence.')
+        if note.get('definition_hash') != expected[name]['definition_hash']:
+            raise ValueError('Review must describe the current metric revision.')
+        if not note.get('binding_reason') or not note.get('description_reason') or not note.get('grain_reason'):
+            raise ValueError('Explain the source binding, description and grain from their evidence.')
+        if note.get('grain_basis') not in ('declared_key', 'source_structure', 'verified_snapshot', 'unknown'):
+            raise ValueError('Distinguish declared, structural, snapshot-verified and unknown grain.')
+        source_refs = note.get('source_refs', [])
+        if not source_refs or not all(isinstance(r, str) and r in refs for r in source_refs):
+            raise ValueError('Cite current source references for every card review.')
+        dimensions = expected[name]['body']['definition'].get('dimensions', [])
+        names = {d['name'] for d in dimensions}
+        included = set()
+        for dimension in note.get('dimensions', []):
+            key = dimension.get('name')
+            if key not in names or key in included or not dimension.get('reason'):
+                raise ValueError('Explain each actual dimension exactly once.')
+            included.add(key)
+        if included != names:
+            raise ValueError('Review every dimension, not only the displayed examples.')
+        expected_fields = {f['field_id'] for f in review_fields(bundle, expected[name])}
+        seen_fields = set()
+        for field in note.get('field_decisions', []):
+            field_id = field.get('field_id')
+            if field_id not in expected_fields or field_id in seen_fields or not field.get('reason'):
+                raise ValueError('Account for each current source field exactly once with a reason.')
+            seen_fields.add(field_id)
+            decision = field.get('decision')
+            targets = field.get('dimensions', [])
+            if decision not in ('included', 'equivalent', 'excluded', 'unresolved'):
+                raise ValueError('Classify source fields as included, equivalent, excluded or unresolved.')
+            if not isinstance(targets, list) or not all(isinstance(t, str) and t in names for t in targets):
+                raise ValueError('Source-field review must refer to actual dimension names.')
+            if (decision in ('included', 'equivalent')) != bool(targets):
+                raise ValueError('Included or equivalent fields need their dimensions; other fields need a reason without a dimension target.')
+        if seen_fields != expected_fields:
+            raise ValueError('Review all listed source fields, including fields on already joined relations.')
+        for exclusion in note.get('excluded_breakdowns', []):
+            if not exclusion.get('expression') or exclusion.get('source_ref') not in refs or not exclusion.get('reason'):
+                raise ValueError('Trace excluded or unresolved breakdowns to their source and reason.')
+        if not isinstance(note.get('limitations'), list):
+            raise ValueError('Record review limitations explicitly, including an empty list when none remain.')
+    if seen != set(expected):
+        raise ValueError('Finish the review of all cards before the final handoff.')
+    return {'status': 'reviewed', 'input_hash': bundle['input_hash'],
+            'metrics': [{**note, **({'review_hash': expected[note['name']]['review_hash']}
+                         if 'review_hash' in expected[note['name']] else {})} for note in review['metrics']],
+            'coverage': 'assistant_source_review_not_certification'}
+
+
 # ====================================================================== registry contracts
-METRIC_FIELDS = {"spec_version", "version", "dialect", "formula", "aggregation", "output", "source", "replaced_by",
-                 "population", "exclusions", "grain", "filters", "mandatory_filters", "depends_on", "joins",
-                 "dimensions", "examples", "provenance", "extensions"}
+METRIC_FIELDS = set(registry_contract.schema('metric')['properties'])
 RETIRED = {"status", "approved_by", "approved_at", "owner", "domain"}
 AGG_TYPES = {"sum", "count", "count_distinct", "min", "max", "ratio", "custom"}
 DATATYPES = {"integer", "decimal", "string", "boolean", "date", "timestamp"}
@@ -624,6 +855,14 @@ def _writes(sql: str):
 
 def check_metric(body: dict) -> tuple:
     errs, warns = [], []
+    if not isinstance(body, dict):
+        return ['artifact must be an object'], warns
+    for field in ('name', 'display_name', 'description'):
+        if field in body and body[field] is not None and not isinstance(body[field], str):
+            errs.append(field + ' must be a string')
+    errs.extend(registry_contract.definition_errors('metric', body.get('definition')))
+    if errs:
+        return errs, warns
     for k in body:
         if k not in BODY_FIELDS:
             errs.append(f"{k} is not an artifact field")
@@ -738,6 +977,14 @@ def check_metric(body: dict) -> tuple:
 
 def check_query(body: dict) -> tuple:
     errs, warns = [], []
+    if not isinstance(body, dict):
+        return ['artifact must be an object'], warns
+    for field in ('name', 'display_name', 'description'):
+        if field in body and body[field] is not None and not isinstance(body[field], str):
+            errs.append(field + ' must be a string')
+    errs.extend(registry_contract.definition_errors('sql_query', body.get('definition')))
+    if errs:
+        return errs, warns
     for k in ("name", "display_name", "definition"):
         if not body.get(k):
             errs.append(f"{k} is required")
@@ -1281,7 +1528,11 @@ def selftest() -> dict:
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
     bad["definition"]["extensions"] = {}
     e, _ = check_metric(bad)
-    for frag in ("retired", "disagrees", "its own cut", "fixed date", "no evidence"):
+    ok("a bad card is refused: retired", any("retired" in x for x in e))
+    # Typed admission precedes semantic inspection. Check semantics on a typed body.
+    bad["definition"].pop("owner")
+    e, _ = check_metric(bad)
+    for frag in ("disagrees", "its own cut", "fixed date", "no evidence"):
         ok(f"a bad card is refused: {frag}", any(frag in x for x in e))
     ok("identity ignores the name", identity(good) == identity({**good, "name": "other"}))
     def variant(**changes):
@@ -1326,7 +1577,7 @@ def selftest() -> dict:
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
     ok("a customer's name under a person column is refused",
        leaks(definition={"examples": [{"source": "shape:s-1", "sql": "select 1",
-                                       "result": {"columns": ["customer_name", "revenue"], "rows": [["Ann Lee", 3]],
+                                       "result": {"columns": ["customer_name", "revenue"], "rows": [["Ann Lee", "3"]],
                                                   "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
     ok("an id in a join, a dimension value, a default or the description is refused", all((
         leaks(definition={"joins": [{"name": "c", "to": "C", "cardinality": "many_to_one", "origin": "declared",
@@ -1340,7 +1591,7 @@ def selftest() -> dict:
        not leaks(definition={"dimensions": [{"name": "Region", "kind": "categorical", "sql": "DB.S.ORDERS.REGION",
                                              "datatype": "string", "values": ["North America", "United States"]}],
                              "examples": [{"source": "shape:s-1", "sql": "select 1", "group_by": ["Region"],
-                                           "result": {"columns": ["region_name", "rev"], "rows": [["North America", 3]],
+                                           "result": {"columns": ["region_name", "rev"], "rows": [["North America", "3"]],
                                                       "row_count": 1, "hash": "h", "executed_at": "t"}}]}))
     ok("an allowed value does not hide a name after it",
        _pii("where stage = 'Closed Won' and rep = 'Jane Smith'") is not None)

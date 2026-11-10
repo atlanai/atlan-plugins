@@ -5,6 +5,8 @@ description: "X2 : merge metric proposals into one metric per thing the business
 
 # Merge metrics (X2)
 
+Before this task, read and apply the shared [metric consistency guidance](../references/metric-consistency.md).
+
 Input: `$RUN/x2_prompt.json`. Output: JSON handed to `x2_merge.py --from <file>`.
 
 Every proposal is one statement's reading of one number. Several statements measure the same

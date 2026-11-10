@@ -24,10 +24,10 @@ import retrieval
 def metric(number=1, history=False):
     return {'name': 'total-' + str(number), 'display_name': 'Total ' + str(number),
             'description': 'Total cost of work.', 'definition': {
-                'spec_version': '2.0', 'version': 1, 'dialect': 'duckdb', 'formula': 'SUM(s.cost)',
+                'spec_version': '2.0', 'version': 1, 'dialect': 'duckdb', 'formula': 'SUM(site.work.cost)',
                 'aggregation': {'type': 'sum'}, 'output': {'alias': 'value', 'datatype': 'decimal'},
                 'source': {'entity': 'site.work', 'table': 'site.work', 'alias': 's'},
-                'grain': ['kind'], 'dimensions': [], 'mandatory_filters': [],
+                'grain': 'One row per source work entry; key uniqueness is not declared.', 'dimensions': [], 'mandatory_filters': [],
                 'extensions': {'atlan_analytics': {'shapes': ['shape-example']} if history else {
                     'declared': {'kind': 'powerbi', 'ref': 'model.bim', 'name': 'Cost'}}}}}
 
@@ -117,7 +117,7 @@ class GenericSetup(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Showing 5 of 6 metrics', result.stdout)
         self.assertEqual(result.stdout.count('\n### '), 5)
-        self.assertIn('SUM(s.cost)', result.stdout)
+        self.assertIn('SUM(site.work.cost)', result.stdout)
         self.assertIn('shape-example', result.stdout)
         self.assertIn('model.bim', result.stdout)
         self.assertNotIn('saved queries', result.stdout)
@@ -133,7 +133,7 @@ class GenericSetup(unittest.TestCase):
         with patch('metric_preview.html_snapshot', side_effect=RuntimeError('broken renderer')):
             result = self.run.preview(format='html')
         self.assertEqual(result['status'], 'text_fallback')
-        self.assertIn('SUM(s.cost)', result['markdown'])
+        self.assertIn('SUM(site.work.cost)', result['markdown'])
 
     def test_chat_preview_renders_both_sources_and_exact_history_sql_without_writes(self):
         cards = self.seed_candidates()
@@ -183,14 +183,14 @@ class GenericSetup(unittest.TestCase):
         self.assertTrue(Path(compact['snapshot']).is_file())
         full = json.loads(Path(compact['result_file']).read_text())
         self.assertEqual(full['snapshot'], compact['snapshot'])
-        self.assertIn('SUM(s.cost)', full['markdown'])
+        self.assertIn('SUM(site.work.cost)', full['markdown'])
         self.assertIn('preview --format chat', compact['next'])
 
     def test_changed_definition_resets_checked_preview_and_progress(self):
         cards = self.seed_candidates()
         result = self.run.check()
         self.assertEqual(result['counts']['checked'], 7)
-        cards[0]['definition']['formula'] = 'SUM(s.cost) * 2'
+        cards[0]['definition']['formula'] = 'SUM(site.work.cost) * 2'
         self.run.write(self.run.context / 'metrics.json', cards)
         current = progress.update(self.run, 'preview', 'waiting-for-user', 'select_workspace')
         self.assertEqual(current['counts']['draft'], 1)
@@ -403,7 +403,7 @@ class SQLRegression(unittest.TestCase):
         self.run.check()
         self.assertEqual(metric_preview.candidates(self.run)[0]['status'], 'example_executed')
         self.assertIn('formula equivalence not established', self.run.preview())
-        body['definition']['formula'] = 'SUM(s.cost) * 2'
+        body['definition']['formula'] = 'SUM(site.work.cost) * 2'
         self.run.write(self.run.context / 'metrics.json', [body])
         self.assertEqual(metric_preview.candidates(self.run)[0]['status'], 'draft')
     def test_case_insensitive_identifiers_and_cte_column_lists(self):

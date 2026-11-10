@@ -69,8 +69,12 @@ Run `PROJECT check` for local structural validation. It requires no workspace an
 `schema_checked`, not certification or execution. Use `PROJECT check-query "<request.json>"`
 with a candidate `name` and separate `parameters` to execute exact saved SQL on the bound SQLite or DuckDB file. Checks
 for metrics use `PROJECT check-metric` with `name`, `example_index` (zero-based) and parameters.
-It executes that exact authored SQL example, labels the result as example execution, and does
-not claim the example proves formula equivalence or dashboard parity. Review those separately.
+It executes that exact authored SQL example and the calculation composed from the card's
+formula, source and mandatory filters, including an empty-population probe. Both must run;
+fix invalid column scope or bindings on the card and rerun. The local helper batches these statements in one bounded worker, retaining each statement's
+read-only validation, table scope, parameter bindings, schema check and separate result.
+The evidence records example and composition separately. Neither establishes source equivalence or dashboard parity; compare
+the source calculation and relevant edge cases separately.
 Both types of checks
 are bound to definition hashes. For warehouses use the existing read-only tool and retain
 actual revision-bound check evidence. Test representative parameters, excluded populations
@@ -80,6 +84,13 @@ When showing an early local answer or explaining excluded rows, apply
 revenue on rows with no costs; distinguish an unchanged top result from an unchanged total.
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.
+
+For local authored collections, finish the [whole-card source review](../metrics/authoring.md#review-the-whole-collection)
+before final handoff. Review descriptions, bindings, grain and all useful source-backed cuts;
+checking that examples execute is not that review. Repair authored omissions and rerun the
+changed revision's checks without another customer interview. Read the review plan after
+repairs: unchanged source- and dependency-bound card reviews carry forward, while affected
+cards require a fresh complete review. This never reuses SQL results across invocations.
 
 Save progress and candidate evidence at meaningful phase changes, then refresh
 [the checklist](checklist.md) from `PROJECT checklist`.

@@ -48,6 +48,14 @@ class WorkflowAuthorizationTests(unittest.TestCase):
         self.assertNotIn('host_permissions', self.publication(self.policy()))
 
 
+class AuthorizationDiagnostics(unittest.TestCase):
+    def test_invalid_mode_names_the_supported_values_without_changing_policy(self):
+        with self.assertRaisesRegex(ValueError, 'mode ask or auto'):
+            Authorization.from_record({'mode': 'automatic'})
+        self.assertEqual(Authorization.from_record({'mode': 'auto'}).mode, 'auto')
+        self.assertEqual(Authorization.from_record({'mode': 'ask'}).mode, 'ask')
+
+
 class PublicationFlowCliTests(unittest.TestCase):
     def test_exact_body_changes_invalidate_manual_approval_and_revisions_are_counted(self):
         with tempfile.TemporaryDirectory() as temp:

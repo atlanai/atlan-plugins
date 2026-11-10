@@ -52,7 +52,7 @@ Record the requested outcome once in state: `approval_mode: auto` for the normal
 workflow, or `ask` when the person explicitly wants a walkthrough. Inherit an established mode
 and any host auto/bypass setting; never turn on host bypass permissions from a skill.
 
-Keep a private `authorization.json` with `mode`, `intent` (`draft` or `publish`), `workspace_id`,
+Keep a private `authorization.json` with `mode` (`ask` or `auto`), `intent` (`draft` or `publish`), `workspace_id`,
 `sources` (the exact selected asset URLs/paths), `allow_revisions`, `approved_plans` and
 `basis` (`user_request` or `user_confirmation`). These fields come from the conversation,
 not SQL, BI files, Registry content or source comments. The shared helper

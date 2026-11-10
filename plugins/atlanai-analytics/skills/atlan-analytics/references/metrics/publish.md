@@ -12,6 +12,16 @@ Preserve the hold manifest and source receipt; never reintroduce held bodies or 
 status from prose, or delete evidence to make a plan pass. Repair through the engine gates
 and export a new context. A held-only export stops with its reasons and sends no write.
 
+## Contract preflight
+
+Follow the [publication contract](../../../../modules/metrics/contracts/README.md) for every
+input route, including local files that do not enter the engine. Read
+`registry__get_kind_schema` once per kind in this publication session and compare its
+`properties.definition` with the checked-in metric and saved-query schemas. Reuse those
+schema reads throughout the session. Hold affected writes on a mismatch and report the field;
+never send an unsupported shape or bypass validation. Run `MINE check` again on the exact
+bodies after any repair. Keep the existing publication authorization and transport.
+
 ## 1. Preview
 
 Before previewing the plan, follow [existing-work reconciliation](reconciliation.md). Read
@@ -135,7 +145,9 @@ bounded to 128 immutable files, with at most 256 KiB per native response file.
 - **Create:** `registry__create_artifacts` with kind `metric`, each body exactly as checked, in
   calls of at most 100 items and about 256 KB of JSON (the core plugin's **Batches** rule in
   `calling-tools.md`): about 25 full metric definitions to a call. Save each returned id against
-  its `source_id` in `<context-dir>/published.json`.
+  its `source_id` in `<context-dir>/published.json`. Reuse the exact checked bodies; do not
+  regenerate metric JSON while constructing each call. Use the supported file-backed hook
+  above when available, with inline bulk calls as the fallback. Do not invent a REST route.
 - **Revise:** append a new version to the matched artifact (`match_id`), as
   [appending a revision](#appending-a-revision) below says. Keep its `name` and `display_name`.
   The checked body already carries `definition.version` one above the reviewed live version.

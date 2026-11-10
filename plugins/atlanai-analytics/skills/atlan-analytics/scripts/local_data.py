@@ -78,6 +78,38 @@ def call(binding, operation, sql=None, parameters=None, limit=100, timeout=20):
         raise DataError('Use a row limit from 1 to 1000 and a timeout at most 60 seconds.')
     request = {'binding': binding, 'operation': operation, 'sql': sql,
                'parameters': parameters or {}, 'limit': limit}
+    return _call_worker(binding, request, timeout)
+
+
+def call_batch(binding, queries, timeout=20):
+    """Run up to three independently checked statements within one total worker deadline.
+
+    Engine connections and safety checks remain per statement. Results are not cached:
+    an external process can change a local database between checks.
+    """
+    regular_file(binding['path'])
+    _batch_queries(queries)
+    if not 0 < timeout <= 60:
+        raise DataError('Use a total batch timeout at most 60 seconds.')
+    result = _call_worker(binding, {'binding': binding, 'operation': 'batch', 'queries': queries}, timeout)
+    return result['results']
+
+
+def _batch_queries(queries):
+    if not isinstance(queries, list) or not 1 <= len(queries) <= 3:
+        raise DataError('Supply between one and three bounded query checks.')
+    for query in queries:
+        if not isinstance(query, dict) or set(query) - {'sql', 'parameters', 'limit'}:
+            raise DataError('Each query check accepts only SQL, parameters and a row limit.')
+        if not isinstance(query.get('sql'), str) or len(query['sql']) > 200_000:
+            raise DataError('Supply one bounded SELECT statement per query check.')
+        if type(query.get('limit', 100)) is not int or not 1 <= query.get('limit', 100) <= 1000:
+            raise DataError('Use a row limit from 1 to 1000 for each query check.')
+        if not isinstance(query.get('parameters', {}), dict):
+            raise DataError('Use named parameter bindings for each query check.')
+
+
+def _call_worker(binding, request, timeout):
     try:
         proc = subprocess.run([binding.get('python') or sys.executable, '-B', __file__, '--worker'],
                               input=json.dumps(request), text=True, capture_output=True,
@@ -185,6 +217,14 @@ def sqlite_worker(request):
 
 
 def worker(request):
+    if request.get('operation') == 'batch':
+        _batch_queries(request.get('queries'))
+        # Re-enter the existing engine path for every statement. A later failure
+        # refuses the whole batch; earlier successes never mark a metric checked.
+        results = [worker({'binding': request['binding'], 'operation': 'execute',
+                           'sql': query['sql'], 'parameters': query.get('parameters', {}),
+                           'limit': query.get('limit', 100)}) for query in request['queries']]
+        return {'status': 'ok', 'results': results}
     if KINDS[regular_file(request['binding']['path']).suffix.lower()] == 'sqlite':
         return sqlite_worker(request)
     try:
