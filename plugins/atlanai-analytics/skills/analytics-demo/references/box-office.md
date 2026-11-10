@@ -92,6 +92,7 @@ absolute path; that is the only change.
 | Source folder | `box-office/` |
 | Dashboard | a Tableau workbook with 4 tiles and 3 charts |
 | Tiles | gross sales, fees as a share of what fans paid, net fee revenue, sell-through |
+| The trap to catch | The tile titled "Fees as % of what fans paid" divides fees by face value only: that is the take rate, 27.1%. Fees as a share of what fans paid divide by face value plus fees: 21.3%. The mismatch is deliberate. When the build flags it, present it as the catch it is, not as a fault in the demo data. |
 | Past queries | 68 distinct, over 756 runs |
 | Data tables | 10 |
 | Focus to record | Ticket fees |
