@@ -259,21 +259,15 @@
    "plugin": "atlanai",
    "skill": "atlan-continue",
    "title": "Continue an output handed over by its handle",
-   "route": "The artifact, then its primary file and its neighbours in parallel",
+   "route": "The output with its file in one read, beside its neighbours",
    "calls": {
     "cold": [
      {
       "tool": "registry__get_artifact",
       "runner": "call_read_tool",
       "args": {
-       "artifact_id": "<output_...>"
-      }
-     },
-     {
-      "tool": "registry__get_file_content",
-      "runner": "call_read_tool",
-      "args": {
-       "file_id": "<primary>"
+       "artifact_id": "<output_...>",
+       "include_linked_file": true
       },
       "group": "g1"
      },
@@ -289,7 +283,7 @@
     "warm": null
    },
    "budget": {
-    "cold": 3,
+    "cold": 2,
     "warm": null
    },
    "targets": null,

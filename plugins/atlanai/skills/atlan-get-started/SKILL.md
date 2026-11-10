@@ -65,7 +65,8 @@ name ends (`…mcp__call_tool`).
   ```
 
   They name the organization's workspace, count each kind (fold the `ontology_…` sub-kinds into
-  one ontology count) and name the busiest workspaces.
+  one ontology count) and name the busiest workspaces: each group of the last read carries
+  its `workspace_display_name`.
   Report what the user can use, not raw lists: their workspace and the organization's first,
   then the few busiest. Ask which workspace to use only when a write is coming.
 
