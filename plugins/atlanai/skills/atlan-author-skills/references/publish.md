@@ -94,10 +94,10 @@ leave it out for the rest of the session, and use the read-back below if the rep
 Leave `description` out: the frontmatter's is used. A `description` argument that differs is
 stored beside it, so the skill describes itself two ways (the slot warns when it does).
 
-In search mode this runs through `mcp__call_tool`, with `session_id` and a `rationale` beside
-`name` and `arguments`, never inside them. Call it by this name directly: it needs no
-`mcp__describe_tools` first, and `mcp__call_tool` runs it whatever `run_with` a search answer
-names. `files_from` is expanded on `mcp__call_write_tool` too, if that is the runner named.
+In search mode this runs through `mcp__call_write_tool`, with `session_id` and a `rationale`
+beside `name` and `arguments`, never inside them. Call it by this name directly: it needs no
+`mcp__describe_tools` first. A gateway that refuses it there names the runner that runs it:
+send the same call through that one. `files_from` is expanded on either runner.
 
 ## 4. Read the slot
 

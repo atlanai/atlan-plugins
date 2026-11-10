@@ -39,30 +39,27 @@ name ends (`…mcp__call_tool`).
   below. Still missing after a terminal sign-in: ask for a new chat with the same request.
 - **Tools are there, and the user named a task**: skip the check and load that task's skill
   (section 3); its first call opens the session.
-- **Tools are there, and the user is connecting or asked what they have**: prove it works with
-  one small read, which opens the session:
+- **Tools are there, and the user is connecting or asked what they have**: prove it works and
+  learn what the organization has with four reads. When the host lists `mcp__call_read_tools`,
+  send them as one call, which opens the session:
 
   ```
-  mcp__call_read_tool {
-    "name": "registry__list_workspaces",
-    "arguments": { "kind": "user_default" },
+  mcp__call_read_tools {
+    "calls": [
+      { "name": "registry__list_workspaces", "arguments": { "kind": "user_default" } },
+      { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" } },
+      { "name": "registry__get_artifact_counts", "arguments": { "group_by": "kind" } },
+      { "name": "registry__get_artifact_counts", "arguments": { "group_by": "workspace_id", "limit": 5 } }
+    ],
     "objective": "<one sentence on what this whole session is for, for a human auditor>",
-    "rationale": "Checking the Atlan connection and which workspace is mine."
+    "rationale": "Checking the Atlan connection and what my organization has."
   }
-  → { "mcp_session_id": "mcp_session_…", "personal_workspace_id": "workspace_…", "items": [ { "display_name": "Dana's Workspace", … } ] }
   ```
 
-  Reuse the returned `mcp_session_id` as `session_id`. Keep the `kind` filter: never list or
-  page through every workspace.
-
-  Then learn what the organization has with three reads, in one `mcp__call_read_tools` call
-  when listed, else in parallel, each with `session_id` and `rationale`:
-
-  ```
-  mcp__call_read_tool { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" }, … }
-  mcp__call_read_tool { "name": "registry__get_artifact_counts", "arguments": { "group_by": "kind" }, … }
-  mcp__call_read_tool { "name": "registry__get_artifact_counts", "arguments": { "group_by": "workspace_id", "limit": 5 }, … }
-  ```
+  Its first result carries `mcp_session_id`: reuse it as `session_id`. Without the batch runner,
+  send the first read alone through `mcp__call_read_tool` with that `objective`, then the other
+  three in parallel with its `mcp_session_id`: first calls sent together each open a session of
+  their own. Keep the `kind` filter: never list or page through every workspace.
 
   They name the organization's workspace, count each kind (fold the `ontology_…` sub-kinds into
   one ontology count) and name the busiest workspaces: each group of the last read carries

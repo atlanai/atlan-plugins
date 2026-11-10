@@ -1,6 +1,6 @@
 ---
 name: atlan-author-skills
-description: Publish a skill to Atlan or a new version of one, or write a team skill and publish it. Use when asked to publish, upload, push or release a skill to Atlan. Not for loading a registry skill (atlan-use-skill) or GitHub CI (atlan-connect-repo).
+description: Publish a skill to Atlan or a new version of one, or write a team skill and publish it. Use when asked to publish, upload or push a skill to Atlan. Not for loading one (atlan-use-skill), a release (atlan-manage-artifacts) or CI (atlan-connect-repo).
 license: Apache-2.0
 ---
 
@@ -23,10 +23,10 @@ Atlan is not answering. Never repeat a write: read it back first.
 ## Quick path: one new text skill
 
 Most requests are one new skill of a few text files. Run these steps without reading the
-references first. The tool names and arguments below are exact: run them through
-`mcp__call_tool` without `mcp__describe_tools` first. It runs any tool, so the skill create
-goes through it whatever `run_with` a search answer names; the searches and reads may use
-`mcp__call_read_tool`.
+references first. The tool names and arguments below are exact: run them without
+`mcp__describe_tools` first, the search and reads through `mcp__call_read_tool` and the skill
+create through `mcp__call_write_tool`. A runner that refuses a tool names the one that runs it:
+send the same call there.
 
 1. **Search** with the user's words: `registry__search_artifacts` with `query`, `kind: "skill"`
    and `limit: 3`. Judge each hit by its name and description; a hit whose `match.quality` is
@@ -47,7 +47,7 @@ goes through it whatever `run_with` a search answer names; the searches and read
 5. **Create**, after the yes:
 
    ```
-   mcp__call_tool {
+   mcp__call_write_tool {
      "name": "extension__skill__create",
      "arguments": {
        "skills": [{ "name": "startup-jokes", "workspace_id": "workspace_01J...", "idempotency_key": "startup-jokes-q8w2m4z1", "files": { "SKILL.md": "---\nname: startup-jokes\n..." } }],

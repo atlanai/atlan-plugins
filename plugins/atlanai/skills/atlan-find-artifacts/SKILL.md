@@ -1,6 +1,6 @@
 ---
 name: atlan-find-artifacts
-description: Search Atlan for skills, agents, knowledge, MCP servers, files, outputs and runs. Use when asked what Atlan has, what we know about a topic, to check Atlan for our definition of a term, who owns or uses an artifact, or what agents ran.
+description: Search Atlan for skills, agents, knowledge, MCP servers, files, outputs and runs. Use when asked what Atlan has or holds on a topic, for our definition of a term, who owns or uses an artifact, or what agents ran. Not for data questions.
 license: Apache-2.0
 ---
 

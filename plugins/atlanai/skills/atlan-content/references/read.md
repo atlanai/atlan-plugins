@@ -31,11 +31,13 @@ you the bytes.
 ```
 registry__get_artifact {
   "artifact_id": "skill_01m1pb66fxek99t3fxjv0mqeg2",
+  "include_file": "SKILL.md",
   "session_id": "mcp_session_01J...",
-  "rationale": "reading the slide-design skill before applying it"
+  "rationale": "reading the slide-design skill to show the user what it says"
 }
 ```
 
+`included_file.content` is the `SKILL.md` text: when that is all the user asked for, stop here.
 Its `metadata.files` is the pinned manifest - one entry per file in the bundle:
 
 ```json
@@ -46,16 +48,16 @@ Its `metadata.files` is the pinned manifest - one entry per file in the bundle:
 If you only have a name, `registry__search_artifacts { "query": "slide design",
 "kind": "skill" }` first, and read the artifact by the handle it returns.
 
-### 2. Read `SKILL.md`, then only what it cites
+### 2. Read another file, only when `SKILL.md` cites it
 
 ```
 registry__get_file_content {
   "file_id": "file_01K...",
   "version_ordinal": 3,
   "session_id": "mcp_session_01J...",
-  "rationale": "reading slide-design's SKILL.md to show the user what it says"
+  "rationale": "reading the reference slide-design's SKILL.md points at"
 }
-→ { "file_id": "...", "version_ordinal": 3, "path": "SKILL.md",
+→ { "file_id": "...", "version_ordinal": 3, "path": "references/frameworks.md",
     "media_type": "text/markdown", "size_bytes": 17966, "content": "---\nname: ..." }
 ```
 
