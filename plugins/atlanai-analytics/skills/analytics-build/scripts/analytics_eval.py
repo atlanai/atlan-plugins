@@ -78,7 +78,7 @@ def dump_json(path, obj) -> None:
 # Load the same standard-library policy used before engine history admission. The
 # path is packaged source, never a user-controlled module or an installed dependency.
 import importlib.util as _importlib_util
-_policy_path = pathlib.Path(__file__).resolve().parents[3] / 'modules/metrics/engine/src/metrics_agent/lib/literal_privacy.py'
+_policy_path = pathlib.Path(__file__).resolve().parents[2] / 'metrics-generation/modules/metrics/engine/src/metrics_agent/lib/literal_privacy.py'
 _policy_spec = _importlib_util.spec_from_file_location('atlan_literal_privacy', _policy_path)
 _policy = _importlib_util.module_from_spec(_policy_spec)
 _policy_spec.loader.exec_module(_policy)

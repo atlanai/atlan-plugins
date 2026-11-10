@@ -14,7 +14,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
-sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics'))
+sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation'))
 from modules.metrics import driver
 from modules.metrics.validation import assess
 
@@ -117,6 +117,49 @@ class InputStagingTests(unittest.TestCase):
             self.assertFalse((root / 'capture').exists())
 
 
+class AdvanceResultTests(unittest.TestCase):
+    """What `advance` hands the author: the answer's shape, the stage that stopped, and why."""
+
+    def worker(self):
+        return InputStagingTests.worker(self)
+
+    def test_gate_answer_contract_names_shape_and_prompt_fields(self):
+        worker = self.worker()
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp).resolve()
+            fields = {'required': ['vq_id', 'verdict'], 'per_metric_required': ['name']}
+            (run / 'x1_prompt.json').write_text(json.dumps({'fields': fields, 'tasks': []}))
+            contract = worker.answer_contract(run, 'x1')
+            self.assertEqual(contract['answer_shape'], {'statements': []})
+            self.assertEqual(contract['answer_fields'], fields)
+            self.assertNotIn('answer_schema', contract)
+            # A prompt without `fields` still gets its shape; no prompt is not an error.
+            self.assertEqual(worker.answer_contract(run, 'a3b'), {'answer_shape': {'findings': [], 'rules': []}})
+        self.assertEqual(set(worker.ANSWER_SHAPES), {'a3b', 'c3', 'm2', 'x1', 'x2', 'x3', 'x4'})
+
+    def test_feedback_is_the_last_stage_and_the_log_keeps_the_rest(self):
+        worker = self.worker()
+        stderr = ('run: publish to files\n\n=== a1_parse_bi ===\na1: 4 measures\n\n'
+                  '=== x3_ingest ===\nx3: refused: card 0\nrun: PAUSED at x3_ingest\n')
+        self.assertEqual(worker.last_stage_output(stderr),
+                         '=== x3_ingest ===\nx3: refused: card 0\nrun: PAUSED at x3_ingest\n')
+        self.assertEqual(worker.last_stage_output('no stage header'), 'no stage header')
+
+    def test_blocked_reason_comes_from_the_blocked_stage_notes(self):
+        worker = self.worker()
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp).resolve()
+            self.assertIsNone(worker.blocked_reason(run))
+            stages = [{'stage': 's0_inputs', 'verdict': 'ok', 'notes': None},
+                      {'stage': 'a1_parse_bi', 'verdict': 'blocked',
+                       'notes': 'a1: no .tmdl under /x. This folder holds report.pbit: set `bi` to that file.'}]
+            (run / 'manifest.json').write_text(json.dumps({'stages': stages}))
+            self.assertEqual(worker.blocked_reason(run), 'a1_parse_bi: ' + stages[1]['notes'])
+            stages[1]['notes'] = None
+            (run / 'manifest.json').write_text(json.dumps({'stages': stages}))
+            self.assertIsNone(worker.blocked_reason(run))
+
+
 class SnapshotTests(unittest.TestCase):
     def test_retired_generators_cannot_be_invoked(self):
         import context_contracts
@@ -144,9 +187,9 @@ class SnapshotTests(unittest.TestCase):
 
     def test_incomplete_skill_only_install_reports_missing_plugin_module(self):
         with tempfile.TemporaryDirectory() as temp:
-            script = Path(temp) / 'skills/analytics-build/scripts/analytics_agent.py'
+            script = Path(temp) / 'skills/metrics-generation/scripts/analytics_agent.py'
             script.parent.mkdir(parents=True)
-            script.write_text((SCRIPTS / 'analytics_agent.py').read_text())
+            script.write_text((ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/scripts/analytics_agent.py').read_text())
             process = subprocess.run([sys.executable, str(script), 'metrics', '--help'],
                                      text=True, capture_output=True)
             self.assertEqual(process.returncode, 2)
@@ -275,6 +318,59 @@ for sql in good:
         p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program], capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stderr)
 
+    def test_a_table_the_statements_read_is_not_a_query_alias(self):
+        # SQLite names a table schema.table; a four-letter schema (`site`) matched the alias
+        # pattern and every card over it was refused.
+        program = """
+from metrics_agent.stages import x3_emit as X
+metric = {'sources': [{'vq_id': 'vq-1'}]}
+stmts = {'vq-1': {'tables': ['site.projects', 'site.work_logs']}}
+known = X._statement_tables(metric, stmts)
+assert known == {'site.projects', 'site.work_logs'}, known
+card = '{"source": {"entity": "site.projects"}, "formula": "SUM(t.amount_gbp)"}'
+loose = [x for x in X._unqualified(card) if x.lower() not in known]
+assert loose == ['t.amount_gbp'], loose
+assert X._statement_tables({'sources': [{'vq_id': 'missing'}]}, stmts) == set()
+"""
+        p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+
+    def test_a_refusing_stage_keeps_its_reason_on_the_manifest(self):
+        program = """
+import argparse,json,tempfile
+from pathlib import Path
+from metrics_agent.lib import stage
+with tempfile.TemporaryDirectory() as tmp:
+    args = argparse.Namespace(run=tmp, policy=None)
+    try:
+        with stage.run_stage('a1_parse_bi', 'a1_parse_bi.py', args):
+            raise SystemExit('a1: no .tmdl under /x')
+    except SystemExit:
+        pass
+    entry = json.loads((Path(tmp) / 'manifest.json').read_text())['stages'][-1]
+    assert entry['verdict'] == 'blocked' and entry['notes'] == 'a1: no .tmdl under /x', entry
+"""
+        p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+
+    def test_a_folder_holding_a_template_names_the_file(self):
+        program = """
+import tempfile
+from pathlib import Path
+from metrics_agent.plugs.readers import powerbi
+with tempfile.TemporaryDirectory() as tmp:
+    (Path(tmp) / 'report.pbit').write_bytes(b'')
+    (Path(tmp) / 'rowsets.json').write_text('{}')
+    try:
+        powerbi._find_model(Path(tmp))
+    except powerbi.PowerBIError as exc:
+        assert 'This folder holds report.pbit: set `bi` to that file.' in str(exc), exc
+    else:
+        raise AssertionError('a folder without .tmdl must be refused')
+"""
+        p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+
     def test_staged_pbix_downloads_produce_identical_reader_unit_ids(self):
         program = """
 import json,sys,tempfile,zipfile
@@ -295,7 +391,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert results[0] and results[0]==results[1],results
 """
         p = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program,
-                            str(ROOT / 'plugins/atlanai-analytics')], capture_output=True, text=True)
+                            str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation')], capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stderr)
 
 
@@ -315,7 +411,7 @@ class RequiredFilterAcceptance(unittest.TestCase):
                    "from modules.metrics.required_filters import required_filter_holds; "
                    "q,u=json.load(sys.stdin); print(json.dumps(required_filter_holds(q,u)))")
         proc = subprocess.run([str(Path(RUNTIME).resolve() / 'venv/bin/python'), '-c', program,
-                               str(ROOT / 'plugins/atlanai-analytics')],
+                               str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation')],
                               input=json.dumps([evidence, {'units': [unit]}]), text=True, capture_output=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         return json.loads(proc.stdout)
@@ -396,7 +492,7 @@ class RuntimeAcceptance(unittest.TestCase):
         self.config.write_text(json.dumps(self.config_doc))
 
     def command(self, *args):
-        proc = subprocess.run([sys.executable, str(SCRIPTS / 'analytics_agent.py'), 'metrics',
+        proc = subprocess.run([sys.executable, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/scripts/analytics_agent.py'), 'metrics',
                                '--runtime', str(self.runtime), *map(str, args)], capture_output=True, text=True)
         try:
             data = json.loads(proc.stdout)

@@ -1,0 +1,24 @@
+schema_version: "1.1"
+name: proof-link-without-org
+tags: [demo-flow-fix, analytics, ask, links, regression]
+execution:
+  prompt: |
+    Use analytics-ask's proof-link instructions to format this already-computed answer.
+    This is a presentation test; read instructions only, no commands or service calls.
+    The observed result is gross margin of 24 percent from released metric Gross margin,
+    handle metric_example, version 2, workspace Example Workspace (workspace_example).
+    The authenticated GET /registry/v1/users/me failed because the identity service is
+    unavailable, and there is no working alternative authenticated HTTP transport.
+    No URL or slug has been supplied by the user and they will never provide one. The root workspace has name org-workspace and display
+    name Org Workspace. Render the answer with whatever proof is supported. Do not run a demo.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: no-link-interruption
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the answer states 24 percent and cites Gross margin version 2 in Example
+      Workspace, explaining briefly that the authenticated identity connection is unavailable. FAIL if it guesses
+      org-workspace as the organization slug, invents a link, asks for an address, offers
+      Skip links or Paste later, promises to ask later, or requests access to auth files.

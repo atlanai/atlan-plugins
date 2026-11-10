@@ -1,0 +1,2596 @@
+# The BI→SQL compiler's rule table.
+#
+# The built-in readers' table: the `tableau` and `powerbi` readers declare it as their
+# `compiler_rules` (sockets.BIReader). Another reader ships its own.
+#
+# THIS FILE IS DATA, NOT CODE, AND THAT IS THE WHOLE POINT. The engine
+# (`src/metrics_agent/plugs/readers/bicompile.py`) is human-owned Python; what it KNOWS lives here. A review pass
+# may propose rows and the run may promote them automatically, because a row is
+# schema-checkable, diffable and reversible in a way that an arbitrary code patch is not.
+#
+# A ROW NEVER SHIPS ALONE. Promotion requires (1) a regression case, (2) the whole accumulated
+# corpus still passing, and (3) the emitted SQL surviving the witness. The corpus is the
+# reviewer; there is no human in the loop.
+#
+# TIERS
+#   stable       seeded here by a person, or graduated after holding across
+#                `compiler.graduate_after_estates` distinct estates.
+#   provisional  learned by a run. USED, but every object it touched carries a gotcha saying
+#                so — the same honesty the layer applies to a provisional metric name.
+#
+# DIALECTS
+#   `dialects` lists the dialects a row has a form for; `dialect_templates` spells the row per
+#   dialect where the template is not that dialect's SQL; `part_templates` ({dialect: {part:
+#   template}}, the part being argument `part_arg`) spells it per date part where the dialect
+#   has no function taking the part; `{0!word}` places a date part literal as a keyword
+#   (`DATEPART(year, d)`). `no_form` ({dialect: reason}) names, for a dialect the row has no
+#   form for, what the dialect lacks; the refusal says it. tests/test_dialect_rows.py holds
+#   every row to a form or a reason for each warehouse dialect.
+#
+# `untranslatable` IS A REAL ANSWER. A table calculation runs after the query, on the result
+# set; a FIXED LOD computes at a grain the statement does not have. No row makes those SQL, and
+# a row that pretended to would be the worst kind of defect: one that runs.
+
+version: 1
+
+rules:
+  # ---------------------------------------------------------------- aggregations
+  - id: agg.sum
+    match: {aggregation: sum}
+    emit: {template: "SUM({0})"}
+    tier: stable
+    evidence: schema
+    note: the shelf's own aggregation
+
+  - id: agg.avg
+    match: {aggregation: avg}
+    emit: {template: "AVG({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.min
+    match: {aggregation: min}
+    emit: {template: "MIN({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.max
+    match: {aggregation: max}
+    emit: {template: "MAX({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.count
+    match: {aggregation: count}
+    emit: {template: "COUNT({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.count_distinct
+    match: {aggregation: count_distinct}
+    emit: {template: "COUNT(DISTINCT {0})"}
+    tier: stable
+    evidence: schema
+
+  # The middle value (interpolated between the two middle values of an even count) and the
+  # sample / population spread, where the dialect names them so.
+  # The one value a column holds over the rows, or '*' when it holds several (NULLs not
+  # counted; NULL when there is none): a blended secondary's dimension, which never splits
+  # the primary's rows (seen live).
+  - id: agg.single_value
+    match: {aggregation: single_value}
+    emit:
+      template: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS VARCHAR) ELSE '*' END"
+      dialect_templates:
+        databricks: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS STRING) ELSE '*' END"
+        bigquery: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS STRING) ELSE '*' END"
+        tsql: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS NVARCHAR(4000)) ELSE '*' END"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: visual-usage
+
+  - id: agg.median
+    match: {aggregation: median}
+    emit:
+      template: "MEDIAN({0})"
+      # BigQuery's PERCENTILE_CONT is a window only: over the group's values, gathered.
+      dialect_templates:
+        postgres: "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {0})"
+        bigquery: "(SELECT PERCENTILE_CONT(v, 0.5) OVER () FROM UNNEST(ARRAY_AGG({0} IGNORE NULLS)) AS v LIMIT 1)"
+    dialects: [snowflake, duckdb, databricks, redshift, postgres, bigquery]
+    no_form:
+      tsql: >-
+        PERCENTILE_CONT is a window function only, and T-SQL has no array to gather a group's values into
+    tier: stable
+    evidence: schema
+
+  - id: agg.stdev
+    match: {aggregation: stdev}
+    emit: {template: "STDDEV_SAMP({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.stdevp
+    match: {aggregation: stdevp}
+    emit: {template: "STDDEV_POP({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.var
+    match: {aggregation: var}
+    emit: {template: "VAR_SAMP({0})"}
+    tier: stable
+    evidence: schema
+
+  - id: agg.varp
+    match: {aggregation: varp}
+    emit: {template: "VAR_POP({0})"}
+    tier: stable
+    evidence: schema
+
+  # ---------------------------------------------------------------- DAX
+  # `window` says how an aggregate is summed across the visual's rows inside a CALCULATE
+  # that removes the visual's grouping (ALL / REMOVEFILTERS / ALLEXCEPT / ALLSELECTED):
+  # `combine` the outer aggregate of the per-row values, `ratio` a numerator and a
+  # denominator summed separately. A row without one is not additive and is refused there.
+  - id: dax.sum
+    match: {language: dax, function: SUM}
+    emit: {template: "SUM({0})", window: {combine: SUM}}
+    tier: stable
+    evidence: dax
+
+  - id: dax.round
+    match: {language: dax, function: ROUND}
+    emit: {template: "ROUND({0}, {1})"}
+    tier: stable
+    evidence: dax
+    note: DAX ROUND always takes the digit count; half away from zero in both DAX and Snowflake.
+
+  - id: dax.average
+    match: {language: dax, function: AVERAGE}
+    emit: {template: "AVG({0})", window: {ratio: ["SUM({0})", "COUNT({0})"]}}
+    tier: stable
+    evidence: dax
+
+  - id: dax.min
+    match: {language: dax, function: MIN}
+    emit: {template: "MIN({0})", window: {combine: MIN}}
+    tier: stable
+    evidence: dax
+
+  - id: dax.max
+    match: {language: dax, function: MAX}
+    emit: {template: "MAX({0})", window: {combine: MAX}}
+    tier: stable
+    evidence: dax
+
+  - id: dax.countrows
+    match: {language: dax, function: COUNTROWS}
+    emit: {template: "NULLIF(COUNT(*), 0)", arity: 1, ignore_args: true,
+           window: {combine: SUM}}
+    tier: stable
+    evidence: dax
+    note: >
+      COUNTROWS(t) counts the rows of the table the statement already reads (the engine
+      refuses another table by name); BLANK, not 0, when there are none (seen live)
+
+  # DISTINCTCOUNT counts BLANK as one value; DISTINCTCOUNTNOBLANK does not (seen live: 203
+  # and 202 customer keys beside a NULL one). `{g0}` is the argument where the CALCULATE
+  # filter admits the row, `{0}` the argument as is and `{gate}` the filter as a leading
+  # condition, so the blank is counted only on rows the filter admits. `text_key`: a text
+  # column is counted as the model holds it, case-insensitive and without trailing spaces
+  # (seen live: 'Retail', 'retail' and 'Retail ' are one value).
+  - id: dax.distinctcount
+    match: {language: dax, function: DISTINCTCOUNT}
+    emit:
+      template: "NULLIF(COUNT(DISTINCT {g0}) + MAX(CASE WHEN {gate}{0} IS NULL THEN 1 ELSE 0 END), 0)"
+      text_key: true
+    tier: stable
+    evidence: dax
+
+  - id: dax.divide
+    match: {language: dax, function: DIVIDE}
+    emit: {template: "{0} / NULLIF({1}, 0)"}
+    tier: stable
+    evidence: dax
+    note: >
+      DIVIDE is a GUARDED division — that is its entire reason to exist. Emitting a bare `/`
+      would turn a blank into a division-by-zero error, which is a different answer, not a
+      different spelling.
+
+  # IFERROR(value, alt) returns alt only where value RAISES AN ERROR (seen live): a
+  # division by zero or BLANK under a non-blank dividend is one (IFERROR(5 / 0, -1) is -1, as
+  # are SQRT(-1), LOG(-1), VALUE("x")); a BLANK is not (IFERROR(BLANK(), -1) is BLANK, and so
+  # is IFERROR(BLANK() / 0, -1)); DIVIDE raises none. COALESCE replaced every BLANK with the
+  # alternate. `{raised}` is the condition the engine collects while reading the first
+  # argument (`error_free`): each division's, and each function row's own `raises_when`. A
+  # function the row lists in `raises` is refused by name: VALUE, DATEVALUE, TIMEVALUE and
+  # CONVERT parse text by the model's culture (seen live: VALUE("1,234") is 1234 and
+  # VALUE("$5") is 5, but VALUE("5%") raises), which no warehouse cast reproduces.
+  - id: dax.iferror
+    match: {language: dax, function: IFERROR}
+    emit: {template: "CASE WHEN {raised} THEN {1} ELSE {0} END", error_free: 0,
+           raises: [VALUE, DATEVALUE, TIMEVALUE, CONVERT]}
+    tier: stable
+    evidence: dax
+
+  - id: dax.iserror
+    match: {language: dax, function: ISERROR}
+    emit: {template: "(CASE WHEN {raised} THEN TRUE ELSE FALSE END OR ({0}) IS NULL AND FALSE)",
+           error_free: 0, raises: [VALUE, DATEVALUE, TIMEVALUE, CONVERT]}
+    tier: stable
+    evidence: dax
+
+  # ERROR("text") raises an evaluation error wherever it is reached (seen live:
+  # IFERROR(IF(1 > 0, ERROR("e"), 5), -1) is -1, IFERROR(IF(1 < 0, ERROR("e"), 5), -1) is 5,
+  # ISERROR(ERROR("q")) is TRUE). Read inside IFERROR / ISERROR only (`only_caught`): outside
+  # them the visual shows the error.
+  - id: dax.error
+    match: {language: dax, function: ERROR}
+    emit: {template: "NULL", raises_when: "TRUE", only_caught: true, arity: 1,
+           ignore_args: true}
+    tier: stable
+    evidence: dax
+
+  - id: dax.abs
+    match: {language: dax, function: ABS}
+    emit: {template: "ABS({0})"}
+    tier: stable
+    evidence: dax
+
+  # Square root and logarithms. Each raises an EVALUATION ERROR where it has no real value
+  # (seen live, executeQueries): SQRT of a negative (SQRT(BLANK()) is BLANK); LN, LOG10 and
+  # LOG of zero, a negative or BLANK (a blank reads as 0); LOG with a base of zero, a negative,
+  # BLANK or 1. `raises_when` is that condition, which IFERROR / ISERROR read; outside them
+  # the visual itself shows the error. LOG's base is 10 when left out.
+  - id: dax.sqrt
+    match: {language: dax, function: SQRT}
+    emit: {template: "SQRT({0})", raises_when: "{0} < 0"}
+    tier: stable
+    evidence: dax
+  - id: dax.ln
+    match: {language: dax, function: LN}
+    emit: {template: "LN({0})", raises_when: "COALESCE({0}, 0) <= 0"}
+    tier: stable
+    evidence: dax
+  - id: dax.log10
+    match: {language: dax, function: LOG10}
+    emit: {template: "(LN({0}) / LN(10))", raises_when: "COALESCE({0}, 0) <= 0"}
+    tier: stable
+    evidence: dax
+  - id: dax.log
+    match: {language: dax, function: LOG}
+    emit: {template: "(LN({0}) / LN({1}))", defaults: {"1": "10"},
+           raises_when: "COALESCE({0}, 0) <= 0 OR COALESCE({1}, 0) <= 0 OR {1} = 1"}
+    tier: stable
+    evidence: dax
+    note: LOG(x[, base]), base 10 when left out.
+
+  # The COUNT family: DAX returns BLANK, not 0, where nothing is counted (a group whose
+  # values are all blank), so the SQL count is NULL there too.
+  - id: dax.count
+    match: {language: dax, function: COUNT}
+    emit: {template: "NULLIF(COUNT({0}), 0)", window: {combine: SUM}}
+    tier: stable
+    evidence: dax
+    note: the non-blank values of a column; BLANK when there are none
+
+  - id: dax.counta
+    match: {language: dax, function: COUNTA}
+    emit: {template: "NULLIF(COUNT({0}), 0)", window: {combine: SUM}}
+    tier: stable
+    evidence: dax
+    note: >
+      the non-blank values of a column of any type; what a visual's "Count (Not Blanks)" of a
+      column is
+
+  - id: dax.distinctcountnoblank
+    match: {language: dax, function: DISTINCTCOUNTNOBLANK}
+    emit: {template: "NULLIF(COUNT(DISTINCT {0}), 0)", text_key: true}
+    tier: stable
+    evidence: dax
+    note: >
+      the distinct values, blank not counted; what a visual's "Count (Distinct)" of a column is
+      (Microsoft's worked example counts 3 values beside a blank)
+
+  - id: dax.median
+    match: {language: dax, function: MEDIAN}
+    emit:
+      template: "MEDIAN({0})"
+      dialect_templates:
+        postgres: "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {0})"
+        bigquery: "(SELECT PERCENTILE_CONT(v, 0.5) OVER () FROM UNNEST(ARRAY_AGG({0} IGNORE NULLS)) AS v LIMIT 1)"
+    dialects: [snowflake, databricks, duckdb, redshift, postgres, bigquery]
+    no_form:
+      tsql: >-
+        PERCENTILE_CONT is a window function only, and T-SQL has no array to gather a group's values into
+    tier: stable
+    evidence: dax
+    note: blanks skipped; two middle values averaged, as SQL MEDIAN does
+
+  - id: dax.stdev_p
+    match: {language: dax, function: STDEV.P}
+    emit: {template: "STDDEV_POP({0})"}
+    tier: stable
+    evidence: dax
+    note: the population form, blanks skipped; a visual's "Standard deviation" of a column
+
+  - id: dax.var_p
+    match: {language: dax, function: VAR.P}
+    emit: {template: "VAR_POP({0})"}
+    tier: stable
+    evidence: dax
+    note: the population form, blanks skipped; a visual's "Variance" of a column
+
+  # The blanks of a column; BLANK, not 0, when there are none (seen live). An empty string is
+  # not a blank in DAX and is not counted.
+  - id: dax.countblank
+    match: {language: dax, function: COUNTBLANK}
+    emit:
+      template: "NULLIF(COUNT(CASE WHEN {gate}{0} IS NULL THEN 1 END), 0)"
+      window: {combine: SUM}
+    tier: stable
+    evidence: dax
+
+  # Row iterators over the measure's own table: the expression is evaluated per row (RELATED
+  # reads the row's many-to-one dimension) and the values aggregated by the row's template.
+  # Over the members of another table or of a column's VALUES, with a measure, an aggregate
+  # or RELATEDTABLE per member, the engine compiles the statement at the members' grain and
+  # aggregates it again by the same template (`_member_grain_statement`).
+  - id: dax.sumx
+    match: {language: dax, function: SUMX}
+    emit: {template: "SUM({0})", row_iterator: true, window: {combine: SUM}}
+    tier: stable
+    evidence: dax
+
+  - id: dax.averagex
+    match: {language: dax, function: AVERAGEX}
+    emit: {template: "AVG({0})", row_iterator: true,
+           window: {ratio: ["SUM({0})", "COUNT({0})"]}}
+    tier: stable
+    evidence: dax
+
+  - id: dax.countx
+    match: {language: dax, function: COUNTX}
+    emit: {template: "NULLIF(COUNT({0}), 0)", row_iterator: true, window: {combine: SUM}}
+    tier: stable
+    evidence: dax
+    note: the rows whose expression is not blank; BLANK when there are none (seen live)
+
+  - id: dax.related
+    match: {language: dax, function: RELATED}
+    emit: {template: "{0}", reads_related: true}
+    tier: stable
+    evidence: dax
+    note: >
+      the current row's value on the one end of a many-to-one relationship, inside a row
+      iterator; a fact row with no match reads BLANK (the LEFT JOIN's NULL)
+
+  - id: dax.if_eager
+    match: {language: dax, function: IF.EAGER}
+    emit:
+      template: "CASE WHEN {0} THEN {1} ELSE {2} END"
+      defaults: {"2": "NULL"}
+    tier: stable
+    evidence: dax
+    note: IF evaluated eagerly; the same value
+
+  - id: dax.coalesce
+    match: {language: dax, function: COALESCE}
+    emit: {template: "COALESCE({0})", variadic: true}
+    tier: stable
+    evidence: dax
+    note: the first argument that is not blank (seen live)
+
+  # DAX `/` is IEEE division (seen live): x / BLANK and x / 0 are Infinity or -Infinity,
+  # 0 / 0 and 0 / BLANK are NaN, BLANK / y is BLANK. SQL raises on a zero divisor, so a
+  # divisor that is not a non-zero literal is spelled out; a dialect without the row is
+  # refused by name.
+  - id: dax.divide_operator
+    match: {language: dax, function: "/"}
+    emit:
+      template: >-
+        (CASE WHEN {0} IS NULL THEN NULL WHEN COALESCE({1}, 0) = 0 THEN CAST(CASE WHEN {0} > 0
+        THEN 'Infinity' WHEN {0} < 0 THEN '-Infinity' ELSE 'NaN' END AS DOUBLE) ELSE {0} / {1} END)
+      dialect_templates:
+        postgres: >-
+          (CASE WHEN {0} IS NULL THEN NULL WHEN COALESCE({1}, 0) = 0 THEN CAST(CASE WHEN {0} > 0
+          THEN 'Infinity' WHEN {0} < 0 THEN '-Infinity' ELSE 'NaN' END AS DOUBLE PRECISION)
+          ELSE {0} / {1} END)
+        # IEEE_DIVIDE is the IEEE division itself (x / 0 is +/-inf, 0 / 0 NaN).
+        bigquery: "(CASE WHEN {0} IS NULL THEN NULL ELSE IEEE_DIVIDE({0}, COALESCE({1}, 0)) END)"
+    dialects: [snowflake, duckdb, databricks, postgres, bigquery]
+    no_form:
+      tsql: >-
+        FLOAT holds no infinity or NaN, which DAX's division by zero gives
+    tier: stable
+    evidence: dax
+
+  # Row-level DAX, as a calculated column or a date level is written.
+  - id: dax.if
+    match: {language: dax, function: IF}
+    emit:
+      template: "CASE WHEN {0} THEN {1} ELSE {2} END"
+      defaults: {"2": "NULL"}
+      # Inside IFERROR / ISERROR an error raised in a branch is one only where that branch
+      # is taken (seen live).
+      branch_guards: {"1": "COALESCE({0}, FALSE)", "2": "NOT COALESCE({0}, FALSE)"}
+    tier: stable
+    evidence: dax
+    note: a blank condition is FALSE; with no else the result is BLANK
+
+  - id: dax.isblank
+    match: {language: dax, function: ISBLANK}
+    emit: {template: "({0} IS NULL)"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.blank
+    match: {language: dax, function: BLANK}
+    emit: {template: "NULL", arity: 0, ignore_args: true}
+    tier: stable
+    evidence: dax
+
+  - id: dax.year
+    match: {language: dax, function: YEAR}
+    emit: {template: "YEAR({0})"}
+    tier: stable
+    evidence: dax
+
+  # DAX's DATE(year, month, day): a month or day outside its range rolls over (DATE(2024,
+  # 13, 1) is 1 January 2025; day 0 is the month's last day before), so it is written as the
+  # year's first day moved by the months and days, which rolls over the same way.
+  - id: dax.date
+    match: {language: dax, function: DATE}
+    emit:
+      template: "DATEADD(day, {2} - 1, DATEADD(month, {1} - 1, DATE_FROM_PARTS({0}, 1, 1)))"
+      dialect_templates:
+        duckdb: "CAST(make_date({0}, 1, 1) + to_months(CAST({1} - 1 AS INTEGER)) + to_days(CAST({2} - 1 AS INTEGER)) AS DATE)"
+        postgres: "CAST(make_date({0}, 1, 1) + ({1} - 1) * INTERVAL '1 month' + ({2} - 1) * INTERVAL '1 day' AS DATE)"
+        bigquery: "DATE_ADD(DATE_ADD(DATE({0}, 1, 1), INTERVAL {1} - 1 MONTH), INTERVAL {2} - 1 DAY)"
+        databricks: "DATE_ADD(ADD_MONTHS(make_date({0}, 1, 1), {1} - 1), {2} - 1)"
+        tsql: "DATEADD(day, {2} - 1, DATEADD(month, {1} - 1, DATEFROMPARTS({0}, 1, 1)))"
+        redshift: "CAST(DATEADD(day, {2} - 1, DATEADD(month, {1} - 1, TO_DATE(CAST({0} AS VARCHAR) || '-01-01', 'YYYY-MM-DD'))) AS DATE)"
+    dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
+    tier: stable
+    evidence: dax
+    note: a date from its parts, month and day rolling over as DAX's do (a year below 100 is not moved by 1900 here)
+
+  # EDATE(date, n): the date n months on, the day kept or cut to the month's last.
+  - id: dax.edate
+    match: {language: dax, function: EDATE}
+    emit:
+      template: "DATEADD(month, {1}, {0})"
+      dialect_templates:
+        duckdb: "CAST({0} + to_months(CAST({1} AS INTEGER)) AS DATE)"
+        postgres: "CAST({0} + ({1}) * INTERVAL '1 month' AS DATE)"
+        bigquery: "DATE_ADD({0}, INTERVAL {1} MONTH)"
+        databricks: "ADD_MONTHS({0}, {1})"
+        tsql: "CAST(DATEADD(month, {1}, {0}) AS DATE)"
+        redshift: "CAST(DATEADD(month, {1}, {0}) AS DATE)"
+    dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
+    tier: stable
+    evidence: dax
+
+  # EOMONTH(date, n): the last day of the month n months on.
+  - id: dax.eomonth
+    match: {language: dax, function: EOMONTH}
+    emit:
+      template: "LAST_DAY(DATEADD(month, {1}, {0}))"
+      dialect_templates:
+        duckdb: "last_day(CAST({0} + to_months(CAST({1} AS INTEGER)) AS DATE))"
+        postgres: "CAST(date_trunc('month', {0} + ({1} + 1) * INTERVAL '1 month') - INTERVAL '1 day' AS DATE)"
+        bigquery: "LAST_DAY(DATE_ADD({0}, INTERVAL {1} MONTH))"
+        databricks: "LAST_DAY(ADD_MONTHS({0}, {1}))"
+        tsql: "EOMONTH({0}, {1})"
+        redshift: "LAST_DAY(DATEADD(month, {1}, {0}))"
+      defaults: {"1": "0"}
+    dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
+    tier: stable
+    evidence: dax
+
+  - id: dax.quarter
+    match: {language: dax, function: QUARTER}
+    emit: {template: "QUARTER({0})"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.month
+    match: {language: dax, function: MONTH}
+    emit: {template: "MONTH({0})"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.day
+    match: {language: dax, function: DAY}
+    emit: {template: "DAY({0})"}
+    tier: stable
+    evidence: dax
+
+  # SELECTEDVALUE(c, alt) is IF(HASONEVALUE(c), VALUES(c), alt), and DAX's VALUES counts
+  # BLANK as a value of its own while SQL's COUNT(DISTINCT) skips NULL. So: exactly one
+  # non-null value and no NULL -> that value; only NULLs -> the one value is BLANK, so blank
+  # (NOT the alternate); several values, or a NULL beside a value, or no rows -> alt. The
+  # alternate is BLANK when omitted (`defaults`). Inside a CALCULATE the template's own
+  # aggregates cannot be gated by the filter, so the engine refuses it there.
+  - id: dax.selectedvalue
+    match: {language: dax, function: SELECTEDVALUE}
+    emit:
+      template: >-
+        CASE WHEN COUNT(DISTINCT {0}) = 1 AND COUNT({0}) = COUNT(*) THEN MIN({0})
+        WHEN COUNT(*) > 0 AND COUNT({0}) = 0 THEN NULL ELSE {1} END
+      defaults: {"1": "NULL"}
+    tier: stable
+    evidence: dax
+    note: one value incl. BLANK as a value; the alternate (BLANK by default) otherwise
+
+  # Tests of the visual's context, which a statement knows when it is compiled: ISINSCOPE is
+  # TRUE on the rows that group by the column (a subtotal or total over it is a statement of
+  # its own, which does not), ISFILTERED where the visual groups or filters by it, and
+  # HASONEVALUE where one value of it is in context (seen live on a matrix with subtotals).
+  # The engine reads each (`_context_test`); the template is the column it reads.
+  - id: dax.isinscope
+    match: {language: dax, function: ISINSCOPE}
+    emit: {template: "{0}", context_test: inscope}
+    tier: stable
+    evidence: dax
+
+  - id: dax.isfiltered
+    match: {language: dax, function: ISFILTERED}
+    emit: {template: "{0}", context_test: filtered}
+    tier: stable
+    evidence: dax
+
+  - id: dax.hasonevalue
+    match: {language: dax, function: HASONEVALUE}
+    emit: {template: "{0}", context_test: onevalue}
+    tier: stable
+    evidence: dax
+
+  # ISCROSSFILTERED: TRUE where the visual groups or filters by a column of the column's table
+  # or of a table whose filters reach it (seen live: a filter on the fact's channel does not
+  # cross-filter a customer column; one on the customer's region does cross-filter the fact).
+  - id: dax.iscrossfiltered
+    match: {language: dax, function: ISCROSSFILTERED}
+    emit: {template: "{0}", context_test: crossfiltered}
+    tier: stable
+    evidence: dax
+
+  # CONTAINSSTRING(text, find) is a case-insensitive substring test, FALSE (not blank) on a
+  # blank text. Its SQL differs by dialect, so the row names the dialects whose spelling this
+  # is; another dialect is refused by name until it has a row. `*`, `?` and `~` are wildcards
+  # and an escape in DAX's find text: `literal_args` refuses a find text holding one, or one
+  # that is not a string literal, rather than match it literally.
+  - id: dax.containsstring
+    match: {language: dax, function: CONTAINSSTRING}
+    emit:
+      template: "COALESCE(POSITION(LOWER({1}) IN LOWER({0})) > 0, FALSE)"
+      dialect_templates:
+        bigquery: "COALESCE(STRPOS(LOWER({0}), LOWER({1})) > 0, FALSE)"
+      literal_args: {"1": "*?~"}
+    dialects: [snowflake, postgres, redshift, databricks, duckdb, trino, bigquery]
+    no_form:
+      tsql: >-
+        the test is a value (FALSE on a blank text), and T-SQL has no boolean value
+    tier: stable
+    evidence: dax
+
+  # MINX / MAXX over a TABLE CONSTRUCTOR of scalars (`MINX({[A], [B]}, [Value])`, "the lowest
+  # of several averages"). `scalar_list` tells the engine the first argument must be a
+  # constructor and `{0}` receives its items, each coalesced with the others so a NULL is
+  # skipped as DAX skips a blank even where LEAST / GREATEST return NULL on any NULL. Over a
+  # model table the engine refuses by name. The dialects are those with LEAST / GREATEST.
+  - id: dax.minx
+    match: {language: dax, function: MINX}
+    emit: {template: "LEAST({0})", scalar_list: true, row_template: "MIN({0})",
+           window: {combine: MIN}}
+    dialects: [snowflake, postgres, redshift, databricks, duckdb, trino, bigquery, mysql, tsql]
+    tier: stable
+    evidence: dax
+
+  - id: dax.maxx
+    match: {language: dax, function: MAXX}
+    emit: {template: "GREATEST({0})", scalar_list: true, row_template: "MAX({0})",
+           window: {combine: MAX}}
+    dialects: [snowflake, postgres, redshift, databricks, duckdb, trino, bigquery, mysql, tsql]
+    tier: stable
+    evidence: dax
+
+  # Time intelligence and filter-context modifiers. The engine compiles each where its
+  # meaning is a statement (a CALCULATE filter argument, TOTALxTD): `bicompile._calculate`
+  # and `_compile_time_unit`. These rows name what remains, outside those places or in a
+  # form the engine does not read.
+  - id: dax.calculate
+    match: {language: dax, function: CALCULATE}
+    emit: {untranslatable: "CALCULATE modifies filter context; a single statement has none"}
+    tier: stable
+    evidence: dax
+
+  # DATESYTD also carries each dialect's DATE ARITHMETIC for every date set
+  # (`date_math`): add_months / add_days clamp to the month's last day (as the tool does),
+  # month_end is a month's last day, trunc the first day of a part, date a literal.
+  - id: dax.datesytd
+    match: {language: dax, function: DATESYTD}
+    emit:
+      untranslatable: "a table of dates; compiled only as a CALCULATE filter"
+      date_math:
+        snowflake:
+          add_months: "DATEADD(MONTH, {1}, {0})"
+          add_days: "DATEADD(DAY, {1}, {0})"
+          month_end: "LAST_DAY({0})"
+          trunc: "DATE_TRUNC('{1}', {0})"
+          date: "DATE '{0}'"
+        duckdb:
+          add_months: "CAST({0} + INTERVAL ({1}) MONTH AS DATE)"
+          add_days: "CAST({0} + INTERVAL ({1}) DAY AS DATE)"
+          month_end: "LAST_DAY({0})"
+          trunc: "CAST(DATE_TRUNC('{1}', {0}) AS DATE)"
+          date: "DATE '{0}'"
+        databricks:
+          add_months: "ADD_MONTHS({0}, {1})"
+          add_days: "DATE_ADD({0}, {1})"
+          month_end: "LAST_DAY({0})"
+          trunc: "CAST(DATE_TRUNC('{1}', {0}) AS DATE)"
+          date: "DATE '{0}'"
+        # A month added to the 31st is the month's last day (an interval of months clamps).
+        postgres:
+          add_months: "CAST({0} + ({1}) * INTERVAL '1 month' AS DATE)"
+          add_days: "CAST({0} + ({1}) * INTERVAL '1 day' AS DATE)"
+          month_end: "CAST(DATE_TRUNC('month', {0}) + INTERVAL '1 month' - INTERVAL '1 day' AS DATE)"
+          trunc: "CAST(DATE_TRUNC('{1}', {0}) AS DATE)"
+          date: "DATE '{0}'"
+        # DATEADD by months clamps; ADD_MONTHS keeps a month's last day as the next one's
+        # last day, which the formula language does not.
+        redshift:
+          add_months: "CAST(DATEADD(month, {1}, {0}) AS DATE)"
+          add_days: "CAST(DATEADD(day, {1}, {0}) AS DATE)"
+          month_end: "LAST_DAY({0})"
+          trunc: "CAST(DATE_TRUNC('{1}', {0}) AS DATE)"
+          date: "CAST('{0}' AS DATE)"
+        bigquery:
+          add_months: "DATE_ADD(DATE({0}), INTERVAL ({1}) MONTH)"
+          add_days: "DATE_ADD(DATE({0}), INTERVAL ({1}) DAY)"
+          month_end: "LAST_DAY(DATE({0}))"
+          trunc: "DATE_TRUNC(DATE({0}), {1})"
+          date: "DATE '{0}'"
+        tsql:
+          add_months: "CAST(DATEADD(month, {1}, {0}) AS DATE)"
+          add_days: "CAST(DATEADD(day, {1}, {0}) AS DATE)"
+          month_end: "EOMONTH({0})"
+          trunc: "CAST(DATETRUNC({1}, {0}) AS DATE)"
+          date: "CAST('{0}' AS DATE)"
+    tier: stable
+    evidence: dax
+
+  - id: dax.datesqtd
+    match: {language: dax, function: DATESQTD}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.datesmtd
+    match: {language: dax, function: DATESMTD}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.sameperiodlastyear
+    match: {language: dax, function: SAMEPERIODLASTYEAR}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.dateadd
+    match: {language: dax, function: DATEADD}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.parallelperiod
+    match: {language: dax, function: PARALLELPERIOD}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.datesinperiod
+    match: {language: dax, function: DATESINPERIOD}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.datesbetween
+    match: {language: dax, function: DATESBETWEEN}
+    emit: {untranslatable: "a table of dates; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.totalytd
+    match: {language: dax, function: TOTALYTD}
+    emit: {untranslatable: "time intelligence needs a date table and a second pass"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.userelationship
+    match: {language: dax, function: USERELATIONSHIP}
+    emit: {untranslatable: "swaps the active relationship; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.crossfilter
+    match: {language: dax, function: CROSSFILTER}
+    emit: {untranslatable: "changes a relationship's filter direction; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.allexcept
+    match: {language: dax, function: ALLEXCEPT}
+    emit: {untranslatable: "removes filter context; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.all
+    match: {language: dax, function: ALL}
+    emit: {untranslatable: "removes filter context; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.removefilters
+    match: {language: dax, function: REMOVEFILTERS}
+    emit: {untranslatable: "removes filter context; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.allselected
+    match: {language: dax, function: ALLSELECTED}
+    emit: {untranslatable: "restores the visual's outer filters; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.keepfilters
+    match: {language: dax, function: KEEPFILTERS}
+    emit: {untranslatable: "a filter modifier; compiled only as a CALCULATE filter"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.filter
+    match: {language: dax, function: FILTER}
+    emit:
+      untranslatable: >-
+        a table; compiled only as a CALCULATE filter or an iterator's table over the
+        measure's own table
+    tier: stable
+    evidence: dax
+
+  - id: dax.relatedtable
+    match: {language: dax, function: RELATEDTABLE}
+    emit:
+      untranslatable: >-
+        the many-side rows of the current row; compiled only inside an iterator over the
+        members of a table (the statement at the members' grain)
+    tier: stable
+    evidence: dax
+
+  - id: dax.rankx
+    match: {language: dax, function: RANKX}
+    emit:
+      untranslatable: >-
+        ranks every member of a table; compiled only as a measure that is RANKX over ALL /
+        ALLSELECTED of a column (`_rank_statement`), not inside another expression
+    tier: stable
+    evidence: dax
+
+  # TOPN as a CALCULATE's one filter over ALL / ALLSELECTED of columns
+  # (`_window_statement`): the members ranked by the expression (a blank as 0, ties kept,
+  # seen live), the first n, and the additive expression summed over them.
+  - id: dax.topn
+    match: {language: dax, function: TOPN}
+    emit:
+      untranslatable: >-
+        a table of the top rows by an expression; compiled only as the one filter of a
+        CALCULATE over ALL / ALLSELECTED of columns
+      window_template:
+        rank: "RANK() OVER ({over})"
+        value: "SUM(CASE WHEN {rank} <= {n} THEN {0} END) OVER ({over})"
+    tier: stable
+    evidence: dax
+
+  # A calculated table's ROW SERIES (readers/daxtables): CALENDAR's dates and
+  # GENERATESERIES' numbers as the statement returning them. `{0}` is the first value, `{n}`
+  # the number of rows, `{step}` the step, `{name}` the column. Only a dialect with a row here
+  # has a series, another is refused by name; inside a measure each is a table, named as one.
+  - id: dax.calendar
+    match: {language: dax, function: CALENDAR}
+    emit:
+      untranslatable: "a table of dates; compiled only as a calculated table's rows"
+      dialect_templates:
+        snowflake: |-
+          SELECT DATEADD(day, ROW_NUMBER() OVER (ORDER BY SEQ4()) - 1, {0}) AS {name}
+          FROM   TABLE(GENERATOR(ROWCOUNT => {n}))
+        duckdb: |-
+          SELECT CAST({0} + CAST(i AS INTEGER) AS DATE) AS {name}
+          FROM   range({n}) r(i)
+        postgres: |-
+          SELECT CAST({0} + i AS DATE) AS {name}
+          FROM   generate_series(0, {n} - 1) g(i)
+        databricks: |-
+          SELECT DATE_ADD({0}, CAST(i AS INT)) AS {name}
+          FROM   (SELECT EXPLODE(SEQUENCE(0, {n} - 1)) AS i)
+        bigquery: |-
+          SELECT DATE_ADD({0}, INTERVAL i DAY) AS {name}
+          FROM   UNNEST(GENERATE_ARRAY(0, {n} - 1)) AS i
+        tsql: |-
+          SELECT CAST(DATEADD(day, value, {0}) AS DATE) AS {name}
+          FROM   GENERATE_SERIES(0, {n} - 1)
+        # No set-returning series on the compute nodes: six sets of ten digits, cut to n.
+        redshift: |-
+          SELECT CAST(DATEADD(day, g.i, {0}) AS DATE) AS {name}
+          FROM   (
+              SELECT d0.d + 10 * d1.d + 100 * d2.d + 1000 * d3.d + 10000 * d4.d
+                     + 100000 * d5.d AS i
+              FROM   (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d0
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d1
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d2
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d3
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d4
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d5
+          ) g
+          WHERE  g.i < {n}
+      max_rows: {redshift: 1000000}
+      # Bounds read from the warehouse (CALENDAR(MIN(T[d]), MAX(T[d])), CALENDARAUTO): {bounds}
+      # is a one-row statement of `lo` and `hi`, and the series is every day between them. A
+      # series of a constant length (Snowflake's GENERATOR, Redshift's digits) is a million
+      # days (2,700 years) filtered to the bounds.
+      range_templates:
+        snowflake: |-
+          SELECT DATEADD(day, g.i, b.lo) AS {name}
+          FROM   (
+          {bounds}
+          ) b
+          JOIN   (
+              SELECT ROW_NUMBER() OVER (ORDER BY SEQ4()) - 1 AS i
+              FROM   TABLE(GENERATOR(ROWCOUNT => 1000000))
+          ) g ON g.i <= DATEDIFF(day, b.lo, b.hi)
+        duckdb: |-
+          SELECT CAST(g.d AS DATE) AS {name}
+          FROM   (
+              SELECT unnest(generate_series(CAST(b.lo AS TIMESTAMP), CAST(b.hi AS TIMESTAMP), INTERVAL 1 DAY)) AS d
+              FROM   (
+          {bounds}
+              ) b
+          ) g
+        postgres: |-
+          SELECT CAST(g.d AS DATE) AS {name}
+          FROM   (
+          {bounds}
+          ) b
+          CROSS JOIN LATERAL generate_series(CAST(b.lo AS TIMESTAMP), CAST(b.hi AS TIMESTAMP), INTERVAL '1 day') AS g(d)
+        databricks: |-
+          SELECT g.d AS {name}
+          FROM   (
+          {bounds}
+          ) b
+          LATERAL VIEW EXPLODE(SEQUENCE(b.lo, b.hi, INTERVAL 1 DAY)) g AS d
+        bigquery: |-
+          SELECT d AS {name}
+          FROM   (
+          {bounds}
+          ) b
+          CROSS JOIN UNNEST(GENERATE_DATE_ARRAY(b.lo, b.hi)) AS d
+        tsql: |-
+          SELECT CAST(DATEADD(day, g.value, b.lo) AS DATE) AS {name}
+          FROM   (
+          {bounds}
+          ) b
+          CROSS APPLY GENERATE_SERIES(0, DATEDIFF(day, b.lo, b.hi)) g
+        redshift: |-
+          SELECT CAST(DATEADD(day, g.i, b.lo) AS DATE) AS {name}
+          FROM   (
+          {bounds}
+          ) b
+          JOIN   (
+              SELECT d0.d + 10 * d1.d + 100 * d2.d + 1000 * d3.d + 10000 * d4.d
+                     + 100000 * d5.d AS i
+              FROM   (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d0
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d1
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d2
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d3
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d4
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d5
+          ) g ON g.i <= DATEDIFF(day, b.lo, b.hi)
+    tier: stable
+    evidence: dax
+    note: every date from the first to the last, one row each (a calculated date table)
+
+  - id: dax.generateseries
+    match: {language: dax, function: GENERATESERIES}
+    emit:
+      untranslatable: "a table of numbers; compiled only as a calculated table's rows"
+      dialect_templates:
+        snowflake: |-
+          SELECT {0} + (ROW_NUMBER() OVER (ORDER BY SEQ4()) - 1) * {step} AS {name}
+          FROM   TABLE(GENERATOR(ROWCOUNT => {n}))
+        duckdb: |-
+          SELECT {0} + i * {step} AS {name}
+          FROM   range({n}) r(i)
+        postgres: |-
+          SELECT {0} + i * {step} AS {name}
+          FROM   generate_series(0, {n} - 1) g(i)
+        databricks: |-
+          SELECT {0} + i * {step} AS {name}
+          FROM   (SELECT EXPLODE(SEQUENCE(0, {n} - 1)) AS i)
+        bigquery: |-
+          SELECT {0} + i * {step} AS {name}
+          FROM   UNNEST(GENERATE_ARRAY(0, {n} - 1)) AS i
+        tsql: |-
+          SELECT {0} + value * {step} AS {name}
+          FROM   GENERATE_SERIES(0, {n} - 1)
+        redshift: |-
+          SELECT {0} + g.i * {step} AS {name}
+          FROM   (
+              SELECT d0.d + 10 * d1.d + 100 * d2.d + 1000 * d3.d + 10000 * d4.d
+                     + 100000 * d5.d AS i
+              FROM   (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d0
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d1
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d2
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d3
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d4
+              CROSS JOIN (SELECT 0 AS d UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) d5
+          ) g
+          WHERE  g.i < {n}
+      max_rows: {redshift: 1000000}
+    tier: stable
+    evidence: dax
+    note: a what-if parameter's numbers, from the first to the last by the step
+
+  # VISUAL CALCULATIONS (a visual's own formulas over its matrix: readers/visualcalc.py).
+  # Each runs over the cells of the matrix along an axis; `{over}` is the window the engine
+  # writes (the cell's level, the other axes' columns and the reset as PARTITION BY; the
+  # axis' columns, or the ORDERBY, as ORDER BY), `{frame}` a moving average's or a range's
+  # rows, `{n}` PREVIOUS / NEXT's steps. The navigation functions read another cell (a join
+  # the engine writes): `{0}` is that cell's value. Each was checked live against
+  # executeQueries' own visual-calculation engine (WITH VISUAL SHAPE). Valid only in a
+  # visual calculation; a model measure naming one is refused by name.
+  - id: dax.vc_runningsum
+    match: {language: dax, function: RUNNINGSUM}
+    emit:
+      template: "SUM({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_movingaverage
+    match: {language: dax, function: MOVINGAVERAGE}
+    emit:
+      template: "AVG({0}) OVER ({over} {frame})"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_previous
+    match: {language: dax, function: PREVIOUS}
+    emit:
+      template: "LAG({0}, {n}) OVER ({over})"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_next
+    match: {language: dax, function: NEXT}
+    emit:
+      template: "LEAD({0}, {n}) OVER ({over})"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_first
+    match: {language: dax, function: FIRST}
+    emit:
+      template: "FIRST_VALUE({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_last
+    match: {language: dax, function: LAST}
+    emit:
+      template: "LAST_VALUE({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  # RANGE: `{0}` is the aggregate CALCULATE (or an X iterator) takes over the rows it names.
+  - id: dax.vc_range
+    match: {language: dax, function: RANGE}
+    emit:
+      template: "{0} OVER ({over} {frame})"
+      visual_calc: window
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_collapse
+    match: {language: dax, function: COLLAPSE}
+    emit:
+      template: "{0}"
+      visual_calc: navigate
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_collapseall
+    match: {language: dax, function: COLLAPSEALL}
+    emit:
+      template: "{0}"
+      visual_calc: navigate
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_expand
+    match: {language: dax, function: EXPAND}
+    emit:
+      template: "{0}"
+      visual_calc: navigate
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_expandall
+    match: {language: dax, function: EXPANDALL}
+    emit:
+      template: "{0}"
+      visual_calc: navigate
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_lookup
+    match: {language: dax, function: LOOKUP}
+    emit:
+      template: "{0}"
+      visual_calc: navigate
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  - id: dax.vc_lookupwithtotals
+    match: {language: dax, function: LOOKUPWITHTOTALS}
+    emit:
+      template: "{0}"
+      visual_calc: navigate
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+  # ISATLEVEL: `{0}` the cell's level on the column's axis, `{1}` the column's level.
+  - id: dax.vc_isatlevel
+    match: {language: dax, function: ISATLEVEL}
+    emit:
+      template: "({0} >= {1})"
+      visual_calc: level
+      dialect_templates:
+        tsql: "CASE WHEN {0} >= {1} THEN 1 ELSE 0 END"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: dax
+
+  # Window functions over the members of a relation (`_window_statement`): `{0}` the
+  # member's value, `{n}` the count, `{over}` the window (partition, order, frame). OFFSET
+  # reads the member n before (lag) or after (lead) the row's; INDEX the n-th member (the
+  # order is reversed for a negative n); WINDOW sums the members of its frame (only over an
+  # additive expression; another is not read as a window). Anywhere else each is a table, and
+  # named as one.
+  - id: dax.offset
+    match: {language: dax, function: OFFSET}
+    emit:
+      untranslatable: >-
+        a table of members; compiled only as the one filter of a CALCULATE over ALL /
+        ALLSELECTED of the columns the visual groups by
+      window_template: {lag: "LAG({0}, {n}) OVER ({over})", lead: "LEAD({0}, {n}) OVER ({over})"}
+    tier: stable
+    evidence: dax
+
+  - id: dax.index
+    match: {language: dax, function: INDEX}
+    emit:
+      untranslatable: >-
+        a table of members; compiled only as the one filter of a CALCULATE over ALL /
+        ALLSELECTED of the columns the visual groups by
+      window_template: "NTH_VALUE({0}, {n}) OVER ({over})"
+    tier: stable
+    evidence: dax
+
+  - id: dax.window
+    match: {language: dax, function: WINDOW}
+    emit:
+      untranslatable: >-
+        a table of members; compiled only as the one filter of a CALCULATE over ALL /
+        ALLSELECTED of the columns the visual groups by
+      window_template: "SUM({0}) OVER ({over})"
+    tier: stable
+    evidence: dax
+
+  # ---------------------------------------------------------------- Tableau calcs
+  - id: tableau.sum
+    match: {language: tableau-calc, function: SUM}
+    emit: {template: "SUM({0})"}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.avg
+    match: {language: tableau-calc, function: AVG}
+    emit: {template: "AVG({0})"}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.min
+    match: {language: tableau-calc, function: MIN}
+    emit: {template: "MIN({0})", by_arity: {"2": "(CASE WHEN {0} IS NULL OR {1} IS NULL THEN NULL WHEN {0} <= {1} THEN {0} ELSE {1} END)"}}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.max
+    match: {language: tableau-calc, function: MAX}
+    emit: {template: "MAX({0})", by_arity: {"2": "(CASE WHEN {0} IS NULL OR {1} IS NULL THEN NULL WHEN {0} >= {1} THEN {0} ELSE {1} END)"}}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.countd
+    match: {language: tableau-calc, function: COUNTD}
+    emit: {template: "COUNT(DISTINCT {0})"}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.zn
+    match: {language: tableau-calc, function: ZN}
+    emit: {template: "COALESCE({0}, 0)"}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.ifnull
+    match: {language: tableau-calc, function: IFNULL}
+    emit: {template: "COALESCE({0}, {1})"}
+    tier: stable
+    evidence: tableau-calc
+
+  - id: tableau.abs
+    match: {language: tableau-calc, function: ABS}
+    emit: {template: "ABS({0})"}
+    tier: stable
+    evidence: tableau-calc
+
+  # A week starts on the data source's day, not the warehouse's: the engine compiles
+  # `week` / `iso-week` (`engine.tableau_week_start`) as the day minus its distance from that
+  # day (`days_back`: {d} the date, {n} the days, per dialect); the other parts are SQL's.
+  - id: tableau.datetrunc
+    match: {language: tableau-calc, function: DATETRUNC}
+    emit:
+      template: "DATE_TRUNC({0}, {1})"
+      # `{0!word}` is the part as a keyword, where the dialect does not take it as text.
+      dialect_templates:
+        bigquery: "DATETIME_TRUNC(CAST({1} AS DATETIME), {0!word})"
+        tsql: "DATETRUNC({0!word}, {1})"
+      # SQLite has no DATE_TRUNC: a date is its ISO text, cut by its date functions.
+      part_arg: 0
+      part_templates:
+        sqlite:
+          year: "date({1}, 'start of year')"
+          quarter: "date({1}, 'start of month', '-' || ((CAST(strftime('%m', {1}) AS INTEGER) - 1) % 3) || ' months')"
+          month: "date({1}, 'start of month')"
+          day: "date({1})"
+          hour: "strftime('%Y-%m-%d %H:00:00', {1})"
+          minute: "strftime('%Y-%m-%d %H:%M:00', {1})"
+          second: "strftime('%Y-%m-%d %H:%M:%S', {1})"
+      literal_values: {"0": [year, quarter, month, day, hour, minute, second]}
+      days_back:
+        snowflake: "DATEADD(day, -({n}), DATE_TRUNC('day', {d}))"
+        duckdb: "(CAST(DATE_TRUNC('day', {d}) AS DATE) - CAST({n} AS INTEGER))"
+        postgres: "(DATE_TRUNC('day', {d}) - ({n}) * INTERVAL '1 day')"
+        redshift: "DATEADD(day, -({n}), DATE_TRUNC('day', {d}))"
+        databricks: "DATE_SUB(DATE_TRUNC('DAY', {d}), {n})"
+        bigquery: "DATE_SUB(DATE({d}), INTERVAL ({n}) DAY)"
+        tsql: "DATEADD(day, -({n}), CAST({d} AS DATE))"
+    tier: stable
+    evidence: tableau-calc
+
+  # ISO 8601 parts: weeks start on Monday and week 1 holds the year's first Thursday.
+  - id: tableau.isoweek
+    match: {language: tableau-calc, function: ISOWEEK}
+    emit:
+      template: "WEEKISO({0})"
+      dialect_templates:
+        duckdb: "WEEK({0})"
+        postgres: "CAST(EXTRACT(WEEK FROM {0}) AS INTEGER)"
+        redshift: "CAST(DATE_PART(week, {0}) AS INTEGER)"
+        databricks: "WEEKOFYEAR({0})"
+        bigquery: "EXTRACT(ISOWEEK FROM {0})"
+        tsql: "DATEPART(iso_week, {0})"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.isoyear
+    match: {language: tableau-calc, function: ISOYEAR}
+    emit:
+      template: "YEAROFWEEKISO({0})"
+      # The ISO year is the year of the week's Thursday.
+      dialect_templates:
+        duckdb: "ISOYEAR({0})"
+        postgres: "CAST(EXTRACT(ISOYEAR FROM {0}) AS INTEGER)"
+        redshift: "CAST(EXTRACT(YEAR FROM DATEADD(day, 4 - (MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1), {0})) AS INTEGER)"
+        databricks: "EXTRACT(YEAROFWEEK FROM {0})"
+        bigquery: "EXTRACT(ISOYEAR FROM {0})"
+        tsql: "YEAR(DATEADD(day, 26 - DATEPART(iso_week, {0}), {0}))"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.isoweekday
+    match: {language: tableau-calc, function: ISOWEEKDAY}
+    emit:
+      template: "DAYOFWEEKISO({0})"
+      dialect_templates:
+        duckdb: "ISODOW({0})"
+        postgres: "CAST(EXTRACT(ISODOW FROM {0}) AS INTEGER)"
+        redshift: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        databricks: "(MOD(DAYOFWEEK({0}) + 5, 7) + 1)"
+        bigquery: "(MOD(EXTRACT(DAYOFWEEK FROM {0}) + 5, 7) + 1)"
+        # 1 January 1900 was a Monday; the day count does not read the session's DATEFIRST.
+        tsql: "(((DATEDIFF(day, CAST('1900-01-01' AS DATE), {0}) % 7) + 7) % 7 + 1)"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+
+  # ISNULL: true when the value is NULL (a condition filter's `not ISNULL([x])` included).
+  - id: tableau.isnull
+    match: {language: tableau-calc, function: ISNULL}
+    emit: {template: "({0} IS NULL)"}
+    tier: stable
+    evidence: tableau-calc
+
+  # Text tests (a condition or wildcard filter's CONTAINS / STARTSWITH / ENDSWITH). Tableau
+  # sends them to the warehouse, so they compare as its collation does: case-sensitive on
+  # Snowflake (checked live: "COMPLETE" does not match 'Complete'). NULL text is no match.
+  - id: tableau.contains
+    match: {language: tableau-calc, function: CONTAINS}
+    emit:
+      template: "(POSITION({1} IN {0}) > 0)"
+      dialect_templates: {bigquery: "(STRPOS({0}, {1}) > 0)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.startswith
+    match: {language: tableau-calc, function: STARTSWITH}
+    emit:
+      template: "(POSITION({1} IN {0}) = 1)"
+      dialect_templates: {bigquery: "(STRPOS({0}, {1}) = 1)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.endswith
+    match: {language: tableau-calc, function: ENDSWITH}
+    emit: {template: "(RIGHT({0}, LENGTH({1})) = {1})"}
+    tier: stable
+    evidence: tableau-calc
+
+  # DATEADD by whole months: the shift a fiscal year's start makes (a fiscal year is read
+  # from the data source's Date Properties). Only the month part is listed; another part, or
+  # a dialect without a row here, is refused by name.
+  - id: tableau.dateadd
+    match: {language: tableau-calc, function: DATEADD}
+    emit:
+      template: "DATEADD(month, {1}, {2})"
+      literal_values: {"0": [month]}
+      # The part is fixed to month by literal_values, so the template does not place it.
+      extra_args_ok: true
+      dialect_templates:
+        duckdb: "({2} + CAST({1} AS INTEGER) * INTERVAL 1 MONTH)"
+        postgres: "({2} + CAST({1} AS INTEGER) * INTERVAL '1 month')"
+        redshift: "DATEADD(month, {1}, {2})"
+        databricks: "ADD_MONTHS({2}, {1})"
+        bigquery: "DATETIME_ADD(CAST({2} AS DATETIME), INTERVAL ({1}) MONTH)"
+        tsql: "DATEADD(month, {1}, {2})"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+
+  # A week of a FISCAL year: Tableau numbers it from the fiscal year's start, by a rule the
+  # compiler is not told. The reader names a week pill on a data source with a fiscal year
+  # start this way rather than compile the calendar week.
+  - id: tableau.fiscal_week
+    match: {language: tableau-calc, function: FISCAL_WEEK}
+    emit: {untranslatable: "a week of a fiscal year (the data source's Date Properties start the year in another month), which Tableau numbers by a rule this compiler is not told"}
+    tier: stable
+    evidence: tableau-calc
+
+  # DATEPART returns a number. Only the parts whose numbering SQL shares compile here. A
+  # `weekday` counts from the data source's start of week and is compiled by the engine
+  # (`engine.tableau_weekday`) when that start is stated; a `week` number also depends on how
+  # the first week of the year is counted and is refused by name. DATE_PART takes the part as
+  # a string in each listed dialect (checked live on Snowflake).
+  - id: tableau.datepart
+    match: {language: tableau-calc, function: DATEPART}
+    emit:
+      template: "DATE_PART({0}, {1})"
+      dialect_templates:
+        bigquery: "EXTRACT({0!word} FROM {1})"
+        tsql: "DATEPART({0!word}, {1})"
+      # Postgres and Databricks name the day of the year `doy`.
+      part_arg: 0
+      part_templates:
+        postgres: {dayofyear: "CAST(DATE_PART('doy', {1}) AS INTEGER)"}
+        databricks: {dayofyear: "DATE_PART('DOY', {1})"}
+      literal_values: {"0": [year, quarter, month, dayofyear, day, hour, minute, second]}
+      # The ISO day of week (Monday = 1 … Sunday = 7) in each dialect, for the engine's
+      # weekday: Tableau's number is that day counted from the data source's start of week.
+      weekday_iso:
+        snowflake: "DAYOFWEEKISO({0})"
+        duckdb: "ISODOW({0})"
+        postgres: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        redshift: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        databricks: "(MOD(DAYOFWEEK({0}) + 5, 7) + 1)"
+        bigquery: "(MOD(EXTRACT(DAYOFWEEK FROM {0}) + 5, 7) + 1)"
+        tsql: "(((DATEDIFF(day, CAST('1900-01-01' AS DATE), {0}) % 7) + 7) % 7 + 1)"
+    dialects: [snowflake, postgres, redshift, databricks, duckdb, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+
+  # A FIXED level of detail computes at a grain of its own; the engine compiles it as a
+  # statement at that grain joined back (`engine.tableau_lod`). This row names the construct
+  # where that engine pass does not apply.
+  - id: tableau.lod_fixed
+    match: {language: tableau-calc, function: FIXED}
+    emit: {untranslatable: "a FIXED LOD computes at a grain this statement does not have"}
+    tier: stable
+    evidence: tableau-calc
+
+  # TABLE CALCULATIONS run over the view's aggregated rows. Each row compiles to a window over
+  # the statement's grouped rows (`engine.table_calc`): `{over}` is the partition (the columns
+  # the measure's compute-using restarts on) and the order (the columns it runs along,
+  # ascending, an empty value first as the view lays them out: checked live); `{partition}`
+  # the partition alone; `{frame}` a WINDOW_ function's start and end. Without the
+  # compute-using (the reader states it per sheet) each refuses by name. Checked live against
+  # the view's own data: running sum and average, window sum and average, TOTAL of SUM and of
+  # AVG (the average of the underlying rows), INDEX, FIRST, LAST, SIZE, LOOKUP, RANK (largest
+  # first), RANK_DENSE, RANK_PERCENTILE (smallest first, from 0).
+  - id: tableau.running_sum
+    match: {language: tableau-calc, function: RUNNING_SUM}
+    emit: {template: "SUM({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", table_calc: running}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.running_avg
+    match: {language: tableau-calc, function: RUNNING_AVG}
+    emit: {template: "AVG({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", table_calc: running}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.running_min
+    match: {language: tableau-calc, function: RUNNING_MIN}
+    emit: {template: "MIN({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", table_calc: running}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.running_max
+    match: {language: tableau-calc, function: RUNNING_MAX}
+    emit: {template: "MAX({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", table_calc: running}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.running_count
+    match: {language: tableau-calc, function: RUNNING_COUNT}
+    emit: {template: "COUNT({0}) OVER ({over} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", table_calc: running}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.window_sum
+    match: {language: tableau-calc, function: WINDOW_SUM}
+    emit: {template: "SUM({0}) OVER ({over} {frame})", table_calc: window}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.window_avg
+    match: {language: tableau-calc, function: WINDOW_AVG}
+    emit: {template: "AVG({0}) OVER ({over} {frame})", table_calc: window}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.window_min
+    match: {language: tableau-calc, function: WINDOW_MIN}
+    emit: {template: "MIN({0}) OVER ({over} {frame})", table_calc: window}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.window_max
+    match: {language: tableau-calc, function: WINDOW_MAX}
+    emit: {template: "MAX({0}) OVER ({over} {frame})", table_calc: window}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.window_count
+    match: {language: tableau-calc, function: WINDOW_COUNT}
+    emit: {template: "COUNT({0}) OVER ({over} {frame})", table_calc: window}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  # TOTAL(agg(x)): the aggregate over the partition's underlying rows. A sum, count, minimum
+  # or maximum of them is that of the view's values; an average is their sum over their count.
+  - id: tableau.total
+    match: {language: tableau-calc, function: TOTAL}
+    emit:
+      template: "{0}"
+      table_calc: total
+      combine:
+        SUM: "SUM({agg}) OVER ({partition})"
+        COUNT: "SUM({agg}) OVER ({partition})"
+        MIN: "MIN({agg}) OVER ({partition})"
+        MAX: "MAX({agg}) OVER ({partition})"
+        AVG: "SUM(SUM({x})) OVER ({partition}) / NULLIF(SUM(COUNT({x})) OVER ({partition}), 0)"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.index
+    match: {language: tableau-calc, function: INDEX}
+    emit: {template: "ROW_NUMBER() OVER ({over})", ignore_args: true, table_calc: position}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.first
+    match: {language: tableau-calc, function: FIRST}
+    emit: {template: "(1 - ROW_NUMBER() OVER ({over}))", ignore_args: true, table_calc: position}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.last
+    match: {language: tableau-calc, function: LAST}
+    emit: {template: "(COUNT(*) OVER ({partition}) - ROW_NUMBER() OVER ({over}))", ignore_args: true, table_calc: position}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.size
+    match: {language: tableau-calc, function: SIZE}
+    emit: {template: "COUNT(*) OVER ({partition})", ignore_args: true, table_calc: position}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.lookup
+    match: {language: tableau-calc, function: LOOKUP}
+    emit: {template: "{0}", table_calc: lookup}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+    note: LOOKUP(x, -n) is the value n rows before along the compute-using (LAG), +n after (LEAD).
+  - id: tableau.rank
+    match: {language: tableau-calc, function: RANK}
+    emit: {template: "RANK() OVER ({ranked})", ignore_args: true, table_calc: rank, direction: desc}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+    note: A NULL value is left out of the ranking and has no rank.
+  - id: tableau.rank_dense
+    match: {language: tableau-calc, function: RANK_DENSE}
+    emit: {template: "DENSE_RANK() OVER ({ranked})", ignore_args: true, table_calc: rank, direction: desc}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rank_modified
+    match: {language: tableau-calc, function: RANK_MODIFIED}
+    emit: {template: "COUNT(*) OVER ({ranked} RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)", ignore_args: true, table_calc: rank, direction: desc}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rank_unique
+    match: {language: tableau-calc, function: RANK_UNIQUE}
+    emit: {template: "ROW_NUMBER() OVER ({ranked})", ignore_args: true, table_calc: rank, direction: desc, tie_break_by_view: true}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+    note: "Ties are numbered in the view's order along the compute-using (checked live: twelve tied rows, down two dimensions in either order)."
+  - id: tableau.rank_percentile
+    match: {language: tableau-calc, function: RANK_PERCENTILE}
+    emit: {template: "PERCENT_RANK() OVER ({ranked})", ignore_args: true, table_calc: rank, direction: asc}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  # The user functions: what they return depends on who views the workbook. With the run's
+  # viewer (`bi_facts.viewer`, the identity the input was fetched as) a domain or group test
+  # is replaced by its value before compiling. The viewer's user name and full name are NEVER
+  # written into a statement or an artifact (guardrail 8): the statement reads them as a bind
+  # placeholder (`viewer_bind`, spelled per dialect by the `op.viewer_bind` row), so it is the
+  # statement for whoever runs it, and only verification binds the fetching identity's name,
+  # in memory. Checked live (Tableau Cloud): USERNAME() is the user's site name, FULLNAME()
+  # its display name; ISUSERNAME and ISFULLNAME take a string literal only (Tableau refuses
+  # a column or an expression there), compare exactly (case and trailing spaces count) and
+  # are FALSE, never NULL, for a NULL argument.
+  - id: op.viewer_bind
+    match: {operator: viewer_bind}
+    emit:
+      template: ":viewer_{0}"
+      dialect_templates:
+        duckdb: "$viewer_{0}"
+        bigquery: "@viewer_{0}"
+        tsql: "@viewer_{0}"
+    dialects: [snowflake, databricks, postgres, redshift, duckdb, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  # A literal A1's scrub withheld (a person's address or name the BI file compares with,
+  # guardrail 8): the statement reads it as this placeholder, `{0}` its number, and only
+  # verification binds it, in memory, to the value the BI file holds (lib/withheld).
+  - id: op.withheld_bind
+    match: {operator: withheld_bind}
+    emit:
+      template: ":withheld_{0}"
+      dialect_templates:
+        duckdb: "$withheld_{0}"
+        bigquery: "@withheld_{0}"
+        tsql: "@withheld_{0}"
+    dialects: [snowflake, databricks, postgres, redshift, duckdb, bigquery, tsql]
+    tier: stable
+    evidence: schema
+  - id: tableau.username
+    match: {language: tableau-calc, function: USERNAME}
+    emit: {template: "{viewer}", ignore_args: true, viewer_bind: user_name}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.fullname
+    match: {language: tableau-calc, function: FULLNAME}
+    emit: {template: "{viewer}", ignore_args: true, viewer_bind: full_name}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.isusername
+    match: {language: tableau-calc, function: ISUSERNAME}
+    emit: {template: "COALESCE({viewer} = {0}, FALSE)", viewer_bind: user_name, literal_args: {"0": ""}}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.isfullname
+    match: {language: tableau-calc, function: ISFULLNAME}
+    emit: {template: "COALESCE({viewer} = {0}, FALSE)", viewer_bind: full_name, literal_args: {"0": ""}}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.userdomain
+    match: {language: tableau-calc, function: USERDOMAIN}
+    emit: {untranslatable: "USERDOMAIN() is the domain of whoever views the workbook, and the run names no viewer (a viewer.json beside the workbook: the fetch writes it with `viewer: true`)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.ismemberof
+    match: {language: tableau-calc, function: ISMEMBEROF}
+    emit: {untranslatable: "ISMEMBEROF() tests the groups of whoever views the workbook, and the run names no viewer or could not read its groups (a viewer.json beside the workbook: the fetch writes it with `viewer: true`)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.script_real
+    match: {language: tableau-calc, function: SCRIPT_REAL}
+    emit: {untranslatable: "an analytics extension (an external R or Python service) computes it outside the warehouse"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.script_str
+    match: {language: tableau-calc, function: SCRIPT_STR}
+    emit: {untranslatable: "an analytics extension (an external R or Python service) computes it outside the warehouse"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.script_int
+    match: {language: tableau-calc, function: SCRIPT_INT}
+    emit: {untranslatable: "an analytics extension (an external R or Python service) computes it outside the warehouse"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.script_bool
+    match: {language: tableau-calc, function: SCRIPT_BOOL}
+    emit: {untranslatable: "an analytics extension (an external R or Python service) computes it outside the warehouse"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsql_real
+    match: {language: tableau-calc, function: RAWSQL_REAL}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsql_str
+    match: {language: tableau-calc, function: RAWSQL_STR}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsql_int
+    match: {language: tableau-calc, function: RAWSQL_INT}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsql_bool
+    match: {language: tableau-calc, function: RAWSQL_BOOL}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsql_date
+    match: {language: tableau-calc, function: RAWSQL_DATE}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsql_datetime
+    match: {language: tableau-calc, function: RAWSQL_DATETIME}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsqlagg_real
+    match: {language: tableau-calc, function: RAWSQLAGG_REAL}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsqlagg_str
+    match: {language: tableau-calc, function: RAWSQLAGG_STR}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsqlagg_int
+    match: {language: tableau-calc, function: RAWSQLAGG_INT}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsqlagg_bool
+    match: {language: tableau-calc, function: RAWSQLAGG_BOOL}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsqlagg_date
+    match: {language: tableau-calc, function: RAWSQLAGG_DATE}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rawsqlagg_datetime
+    match: {language: tableau-calc, function: RAWSQLAGG_DATETIME}
+    emit: {untranslatable: "pass-through SQL the author wrote in the calc; it is never pasted into a statement"}
+    tier: stable
+    evidence: tableau-calc
+
+  # A zero divisor gives NULL in the calc language (checked live: SUM(x) / SUM(0) is empty),
+  # where SQL raises. Applied to `/` unless the divisor is a non-zero number literal.
+  - id: tableau.divide_operator
+    match: {language: tableau-calc, function: "/"}
+    emit:
+      template: "({0} / NULLIF({1}, 0))"
+      # SQLite divides two integers as integers (5 / 6 is 0); the calc divides as decimals.
+      dialect_templates: {sqlite: "(CAST({0} AS REAL) / NULLIF({1}, 0))"}
+    tier: stable
+    evidence: tableau-calc
+
+  # What the reader names when a field has no faithful formula: a bin whose size is neither a
+  # positive number nor a parameter (a size a parameter sets is compiled at its current
+  # value), and a set whose <groupfilter> holds a function the reader does not read (its
+  # words are the argument).
+  - id: tableau.bin_size_unread
+    match: {language: tableau-calc, function: BIN_SIZE_UNREAD}
+    emit: {untranslatable: "a bin whose size is neither a positive number nor a parameter"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.set_not_read
+    match: {language: tableau-calc, function: SET_NOT_READ}
+    emit: {untranslatable: "a set whose definition holds a part the reader does not read"}
+    tier: stable
+    evidence: tableau-calc
+  # A Top N set's membership: the member is among the `n` first by the expression, ranked
+  # over the rows the data source and context filters keep, before the dimension filters (as
+  # a set is computed, like a FIXED level of detail). The engine writes it as a membership in
+  # a ranked statement (`engine.tableau_top_set`).
+  - id: tableau.topn_set_member
+    match: {language: tableau-calc, function: TOPN_SET_MEMBER}
+    emit: {template: "{0}"}
+    tier: stable
+    evidence: tableau-calc
+
+  # Aggregations and scalar functions with the same meaning in SQL.
+  - id: tableau.count
+    match: {language: tableau-calc, function: COUNT}
+    emit: {template: "COUNT({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.median
+    match: {language: tableau-calc, function: MEDIAN}
+    emit:
+      template: "MEDIAN({0})"
+      # BigQuery's PERCENTILE_CONT is a window only: over the group's values, gathered.
+      dialect_templates:
+        postgres: "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {0})"
+        bigquery: "(SELECT PERCENTILE_CONT(v, 0.5) OVER () FROM UNNEST(ARRAY_AGG({0} IGNORE NULLS)) AS v LIMIT 1)"
+    dialects: [snowflake, duckdb, databricks, redshift, postgres, bigquery]
+    no_form:
+      tsql: >-
+        PERCENTILE_CONT is a window function only, and T-SQL has no array to gather a group's values into
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.percentile
+    match: {language: tableau-calc, function: PERCENTILE}
+    emit:
+      template: "PERCENTILE_CONT({1}) WITHIN GROUP (ORDER BY {0})"
+      dialect_templates:
+        bigquery: "(SELECT PERCENTILE_CONT(v, {1}) OVER () FROM UNNEST(ARRAY_AGG({0} IGNORE NULLS)) AS v LIMIT 1)"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery]
+    no_form:
+      tsql: >-
+        PERCENTILE_CONT is a window function only, and T-SQL has no array to gather a group's values into
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.stdev
+    match: {language: tableau-calc, function: STDEV}
+    emit: {template: "STDDEV_SAMP({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.stdevp
+    match: {language: tableau-calc, function: STDEVP}
+    emit: {template: "STDDEV_POP({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.var
+    match: {language: tableau-calc, function: VAR}
+    emit: {template: "VAR_SAMP({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.varp
+    match: {language: tableau-calc, function: VARP}
+    emit: {template: "VAR_POP({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.iif
+    match: {language: tableau-calc, function: IIF}
+    emit: {template: "CASE WHEN {0} THEN {1} WHEN NOT ({0}) THEN {2} ELSE {3} END", defaults: {"3": "NULL"}}
+    tier: stable
+    evidence: tableau-calc
+    note: An unknown (NULL) test gives the fourth argument, NULL when it is left out.
+  - id: tableau.round
+    match: {language: tableau-calc, function: ROUND}
+    emit: {template: "ROUND({0}, {1})", defaults: {"1": "0"}}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.ceiling
+    match: {language: tableau-calc, function: CEILING}
+    emit: {template: "CEIL({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.floor
+    match: {language: tableau-calc, function: FLOOR}
+    emit: {template: "FLOOR({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.power
+    match: {language: tableau-calc, function: POWER}
+    emit: {template: "POWER({0}, {1})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.sqrt
+    match: {language: tableau-calc, function: SQRT}
+    emit: {template: "SQRT({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.exp
+    match: {language: tableau-calc, function: EXP}
+    emit: {template: "EXP({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.ln
+    match: {language: tableau-calc, function: LN}
+    emit: {template: "LN({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.log
+    match: {language: tableau-calc, function: LOG}
+    emit: {template: "(LN({0}) / LN({1}))", defaults: {"1": "10"}}
+    tier: stable
+    evidence: tableau-calc
+    note: LOG(x[, base]), base 10 when left out; SQL puts the base first.
+  - id: tableau.sign
+    match: {language: tableau-calc, function: SIGN}
+    emit: {template: "SIGN({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.upper
+    match: {language: tableau-calc, function: UPPER}
+    emit: {template: "UPPER({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.lower
+    match: {language: tableau-calc, function: LOWER}
+    emit: {template: "LOWER({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.trim
+    match: {language: tableau-calc, function: TRIM}
+    emit: {template: "TRIM({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.ltrim
+    match: {language: tableau-calc, function: LTRIM}
+    emit: {template: "LTRIM({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.rtrim
+    match: {language: tableau-calc, function: RTRIM}
+    emit: {template: "RTRIM({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.len
+    match: {language: tableau-calc, function: LEN}
+    emit: {template: "LENGTH({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.left
+    match: {language: tableau-calc, function: LEFT}
+    emit: {template: "LEFT({0}, {1})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.right
+    match: {language: tableau-calc, function: RIGHT}
+    emit: {template: "RIGHT({0}, {1})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.replace
+    match: {language: tableau-calc, function: REPLACE}
+    emit: {template: "REPLACE({0}, {1}, {2})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.find
+    match: {language: tableau-calc, function: FIND}
+    emit: {template: "POSITION({1} IN {0})"}
+    tier: stable
+    evidence: tableau-calc
+    note: 0 when not found, as in the calc language; a start position is refused (the template places two arguments).
+  - id: tableau.int
+    match: {language: tableau-calc, function: INT}
+    emit: {template: "TRUNC({0})"}
+    tier: stable
+    evidence: tableau-calc
+    note: INT truncates toward zero.
+  - id: tableau.float
+    match: {language: tableau-calc, function: FLOAT}
+    emit: {template: "CAST({0} AS DOUBLE)"}
+    tier: stable
+    evidence: tableau-calc
+  # DAX's DATEDIFF(start, end, interval): the interval boundaries crossed from start to end, as
+  # the warehouse's DATEDIFF counts them (end before start is negative). Its interval is a bare
+  # keyword; WEEK counts from a start of week the model does not state, and is refused.
+  - id: dax.datediff
+    match: {language: dax, function: DATEDIFF}
+    emit:
+      template: "DATEDIFF({2}, {0}, {1})"
+      keyword_values: {"2": [year, quarter, month, day, hour, minute, second]}
+      dialect_templates:
+        bigquery: "DATETIME_DIFF(CAST({1} AS DATETIME), CAST({0} AS DATETIME), {2})"
+      # Postgres has no DATEDIFF: the boundaries crossed, written per part.
+      part_arg: 2
+      part_templates:
+        postgres:
+          year: "CAST((EXTRACT(YEAR FROM {1}) - EXTRACT(YEAR FROM {0})) AS INTEGER)"
+          quarter: "CAST((EXTRACT(YEAR FROM {1}) - EXTRACT(YEAR FROM {0})) * 4 + EXTRACT(QUARTER FROM {1}) - EXTRACT(QUARTER FROM {0}) AS INTEGER)"
+          month: "CAST((EXTRACT(YEAR FROM {1}) - EXTRACT(YEAR FROM {0})) * 12 + EXTRACT(MONTH FROM {1}) - EXTRACT(MONTH FROM {0}) AS INTEGER)"
+          day: "(CAST({1} AS DATE) - CAST({0} AS DATE))"
+          hour: "CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('hour', CAST({1} AS TIMESTAMP)) - DATE_TRUNC('hour', CAST({0} AS TIMESTAMP)))) / 3600 AS INTEGER)"
+          minute: "CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('minute', CAST({1} AS TIMESTAMP)) - DATE_TRUNC('minute', CAST({0} AS TIMESTAMP)))) / 60 AS INTEGER)"
+          second: "CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('second', CAST({1} AS TIMESTAMP)) - DATE_TRUNC('second', CAST({0} AS TIMESTAMP)))) / 1 AS INTEGER)"
+    dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
+    tier: stable
+    evidence: dax
+    note: A blank date argument is NULL here (DAX reads it as day zero); the pattern this was written for filters blanks out first.
+  - id: tableau.datediff
+    match: {language: tableau-calc, function: DATEDIFF}
+    emit:
+      template: "DATEDIFF({0}, {1}, {2})"
+      literal_values: {"0": [year, quarter, month, day, hour, minute, second]}
+      dialect_templates:
+        bigquery: "DATETIME_DIFF(CAST({2} AS DATETIME), CAST({1} AS DATETIME), {0!word})"
+        tsql: "DATEDIFF({0!word}, {1}, {2})"
+      part_arg: 0
+      part_templates:
+        postgres:
+          year: "CAST((EXTRACT(YEAR FROM {2}) - EXTRACT(YEAR FROM {1})) AS INTEGER)"
+          quarter: "CAST((EXTRACT(YEAR FROM {2}) - EXTRACT(YEAR FROM {1})) * 4 + EXTRACT(QUARTER FROM {2}) - EXTRACT(QUARTER FROM {1}) AS INTEGER)"
+          month: "CAST((EXTRACT(YEAR FROM {2}) - EXTRACT(YEAR FROM {1})) * 12 + EXTRACT(MONTH FROM {2}) - EXTRACT(MONTH FROM {1}) AS INTEGER)"
+          day: "(CAST({2} AS DATE) - CAST({1} AS DATE))"
+          hour: "CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('hour', CAST({2} AS TIMESTAMP)) - DATE_TRUNC('hour', CAST({1} AS TIMESTAMP)))) / 3600 AS INTEGER)"
+          minute: "CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('minute', CAST({2} AS TIMESTAMP)) - DATE_TRUNC('minute', CAST({1} AS TIMESTAMP)))) / 60 AS INTEGER)"
+          second: "CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('second', CAST({2} AS TIMESTAMP)) - DATE_TRUNC('second', CAST({1} AS TIMESTAMP)))) / 1 AS INTEGER)"
+    dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+    note: Counts the part boundaries crossed, as the calc language does; a week counts from the data source's start of week and is refused.
+  # TODAY() and NOW() are the WAREHOUSE's: Tableau sends them to the connection, so they are
+  # the session's date and local time (checked live: with the session's time zone set to
+  # another zone by Initial SQL, NOW() and TODAY() moved with it). A dialect whose
+  # CURRENT_TIMESTAMP carries a zone is read as the session's local time.
+  - id: tableau.today
+    match: {language: tableau-calc, function: TODAY}
+    emit:
+      template: "CURRENT_DATE"
+      ignore_args: true
+      dialect_templates:
+        tsql: "CAST(GETDATE() AS DATE)"
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.now
+    match: {language: tableau-calc, function: NOW}
+    emit:
+      template: "LOCALTIMESTAMP"
+      ignore_args: true
+      dialect_templates:
+        snowflake: "CAST(CURRENT_TIMESTAMP() AS TIMESTAMP_NTZ)"
+        duckdb: "CAST(CURRENT_TIMESTAMP AS TIMESTAMP)"
+        redshift: "GETDATE()"
+        databricks: "CAST(current_timestamp() AS TIMESTAMP)"
+        bigquery: "CURRENT_DATETIME()"
+        tsql: "CAST(SYSDATETIME() AS DATETIME2)"
+    tier: stable
+    evidence: tableau-calc
+
+  # STR: the warehouse's own text of the value (checked live: STR of a NUMBER(5,4) is
+  # '0.0500', as Snowflake writes it). A date is 'YYYY-MM-DD' and a date and time
+  # 'YYYY-MM-DD HH:MM:SS' (checked live: STR(DATETRUNC('year', d)) is '2023-01-01 00:00:00',
+  # DATETRUNC giving a date and time); the engine picks the form by the argument's type
+  # (`engine.tableau_str`).
+  - id: tableau.str
+    match: {language: tableau-calc, function: STR}
+    emit:
+      template: "CAST({0} AS VARCHAR)"
+      dialect_templates:
+        databricks: "CAST({0} AS STRING)"
+        bigquery: "CAST({0} AS STRING)"
+        tsql: "CAST({0} AS NVARCHAR(4000))"
+      date_template:
+        snowflake: "TO_VARCHAR({0}, 'YYYY-MM-DD')"
+        duckdb: "STRFTIME({0}, '%Y-%m-%d')"
+        postgres: "TO_CHAR({0}, 'YYYY-MM-DD')"
+        redshift: "TO_CHAR({0}, 'YYYY-MM-DD')"
+        databricks: "DATE_FORMAT({0}, 'yyyy-MM-dd')"
+        bigquery: "FORMAT_DATE('%Y-%m-%d', {0})"
+        tsql: "CONVERT(VARCHAR(10), {0}, 23)"
+      datetime_template:
+        snowflake: "TO_VARCHAR({0}, 'YYYY-MM-DD HH24:MI:SS')"
+        duckdb: "STRFTIME({0}, '%Y-%m-%d %H:%M:%S')"
+        postgres: "TO_CHAR({0}, 'YYYY-MM-DD HH24:MI:SS')"
+        redshift: "TO_CHAR({0}, 'YYYY-MM-DD HH24:MI:SS')"
+        databricks: "DATE_FORMAT({0}, 'yyyy-MM-dd HH:mm:ss')"
+        bigquery: "FORMAT_DATETIME('%Y-%m-%d %H:%M:%S', CAST({0} AS DATETIME))"
+        tsql: "CONVERT(VARCHAR(19), {0}, 120)"
+    tier: stable
+    evidence: tableau-calc
+
+  # DATENAME(part, d): the part as text, as Tableau shows it (checked live on Snowflake: the
+  # month in full, the weekday abbreviated, the day with two digits, the quarter and the year
+  # as their numbers). A week's name depends on the data source's start of week and is the
+  # engine's week number (`engine.tableau_week`).
+  - id: tableau.datename
+    match: {language: tableau-calc, function: DATENAME}
+    emit:
+      template: "{0}"
+      parts:
+        snowflake:
+          year: "TO_VARCHAR({d}, 'YYYY')"
+          quarter: "TO_VARCHAR(QUARTER({d}))"
+          month: "TO_VARCHAR({d}, 'MMMM')"
+          day: "TO_VARCHAR({d}, 'DD')"
+          weekday: "DAYNAME({d})"
+          dayofyear: "TO_VARCHAR(DAYOFYEAR({d}))"
+        duckdb:
+          year: "STRFTIME({d}, '%Y')"
+          quarter: "CAST(QUARTER({d}) AS VARCHAR)"
+          month: "STRFTIME({d}, '%B')"
+          day: "STRFTIME({d}, '%d')"
+          weekday: "STRFTIME({d}, '%a')"
+          dayofyear: "CAST(DAYOFYEAR({d}) AS VARCHAR)"
+        # FM drops the padding Postgres gives a month's name.
+        postgres:
+          year: "TO_CHAR({d}, 'YYYY')"
+          quarter: "TO_CHAR({d}, 'Q')"
+          month: "TO_CHAR({d}, 'FMMonth')"
+          day: "TO_CHAR({d}, 'DD')"
+          weekday: "TO_CHAR({d}, 'Dy')"
+          dayofyear: "TO_CHAR({d}, 'FMDDD')"
+        redshift:
+          year: "TO_CHAR({d}, 'YYYY')"
+          quarter: "TO_CHAR({d}, 'Q')"
+          month: "TRIM(TO_CHAR({d}, 'Month'))"
+          day: "TO_CHAR({d}, 'DD')"
+          weekday: "TO_CHAR({d}, 'Dy')"
+          dayofyear: "CAST(CAST(DATE_PART(doy, {d}) AS INTEGER) AS VARCHAR)"
+        databricks:
+          year: "DATE_FORMAT({d}, 'yyyy')"
+          quarter: "CAST(QUARTER({d}) AS STRING)"
+          month: "DATE_FORMAT({d}, 'MMMM')"
+          day: "DATE_FORMAT({d}, 'dd')"
+          weekday: "DATE_FORMAT({d}, 'E')"
+          dayofyear: "CAST(DAYOFYEAR({d}) AS STRING)"
+        bigquery:
+          year: "FORMAT_DATETIME('%Y', CAST({d} AS DATETIME))"
+          quarter: "CAST(EXTRACT(QUARTER FROM {d}) AS STRING)"
+          month: "FORMAT_DATETIME('%B', CAST({d} AS DATETIME))"
+          day: "FORMAT_DATETIME('%d', CAST({d} AS DATETIME))"
+          weekday: "FORMAT_DATETIME('%a', CAST({d} AS DATETIME))"
+          dayofyear: "CAST(EXTRACT(DAYOFYEAR FROM {d}) AS STRING)"
+        # The names in the session's language (us_english by default).
+        tsql:
+          year: "DATENAME(year, {d})"
+          quarter: "DATENAME(quarter, {d})"
+          month: "DATENAME(month, {d})"
+          day: "RIGHT('0' + DATENAME(day, {d}), 2)"
+          weekday: "LEFT(DATENAME(weekday, {d}), 3)"
+          dayofyear: "DATENAME(dayofyear, {d})"
+      # A week's name is its number as text.
+      as_text:
+        databricks: "CAST({0} AS STRING)"
+        bigquery: "CAST({0} AS STRING)"
+        tsql: "CAST({0} AS VARCHAR(12))"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+
+  # The date's parts as numbers. QUARTER, WEEK, MAKEDATE, MAKETIME and MAKEDATETIME are not
+  # functions of a live Snowflake connection in Tableau (its own answer: "Unknown function"),
+  # so they come from extracts and other sources; they compile from Tableau's documented
+  # meaning. WEEK counts from the data source's start of week (`engine.tableau_week`).
+  - id: tableau.year
+    match: {language: tableau-calc, function: YEAR}
+    emit: {template: "YEAR({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.quarter
+    match: {language: tableau-calc, function: QUARTER}
+    emit: {template: "QUARTER({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.month
+    match: {language: tableau-calc, function: MONTH}
+    emit: {template: "MONTH({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.day
+    match: {language: tableau-calc, function: DAY}
+    emit: {template: "DAY({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.week
+    match: {language: tableau-calc, function: WEEK}
+    emit:
+      template: "{0}"
+      day_of_year:
+        snowflake: "DAYOFYEAR({0})"
+        duckdb: "DAYOFYEAR({0})"
+        postgres: "CAST(EXTRACT(DOY FROM {0}) AS INTEGER)"
+        redshift: "CAST(DATE_PART(doy, {0}) AS INTEGER)"
+        databricks: "DAYOFYEAR({0})"
+        bigquery: "EXTRACT(DAYOFYEAR FROM {0})"
+        tsql: "DATEPART(dayofyear, {0})"
+      year_start:
+        snowflake: "DATE_TRUNC('year', {0})"
+        duckdb: "DATE_TRUNC('year', {0})"
+        postgres: "DATE_TRUNC('year', {0})"
+        redshift: "DATE_TRUNC('year', {0})"
+        databricks: "DATE_TRUNC('YEAR', {0})"
+        bigquery: "DATE_TRUNC(DATE({0}), YEAR)"
+        tsql: "DATEFROMPARTS(YEAR({0}), 1, 1)"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.makedate
+    match: {language: tableau-calc, function: MAKEDATE}
+    emit:
+      template: "DATE_FROM_PARTS({0}, {1}, {2})"
+      dialect_templates:
+        duckdb: "MAKE_DATE(CAST({0} AS BIGINT), CAST({1} AS BIGINT), CAST({2} AS BIGINT))"
+        postgres: "MAKE_DATE({0}, {1}, {2})"
+        redshift: "TO_DATE(LPAD(CAST({0} AS VARCHAR), 4, '0') || LPAD(CAST({1} AS VARCHAR), 2, '0') || LPAD(CAST({2} AS VARCHAR), 2, '0'), 'YYYYMMDD')"
+        databricks: "MAKE_DATE({0}, {1}, {2})"
+        bigquery: "DATE({0}, {1}, {2})"
+        tsql: "DATEFROMPARTS({0}, {1}, {2})"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.maketime
+    match: {language: tableau-calc, function: MAKETIME}
+    emit:
+      template: "TIME_FROM_PARTS({0}, {1}, {2})"
+      dialect_templates:
+        duckdb: "MAKE_TIME(CAST({0} AS BIGINT), CAST({1} AS BIGINT), CAST({2} AS DOUBLE))"
+        postgres: "MAKE_TIME({0}, {1}, {2})"
+        redshift: "CAST(LPAD(CAST({0} AS VARCHAR), 2, '0') || ':' || LPAD(CAST({1} AS VARCHAR), 2, '0') || ':' || CAST({2} AS VARCHAR) AS TIME)"
+        # No time type: the time on Tableau's own day zero, 30 December 1899.
+        databricks: "MAKE_TIMESTAMP(1899, 12, 30, {0}, {1}, {2})"
+        bigquery: "TIME({0}, {1}, {2})"
+        tsql: "TIMEFROMPARTS({0}, {1}, {2}, 0, 0)"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.makedatetime
+    match: {language: tableau-calc, function: MAKEDATETIME}
+    emit:
+      template: "TIMESTAMP_NTZ_FROM_PARTS(CAST({0} AS DATE), CAST({1} AS TIME))"
+      dialect_templates:
+        duckdb: "(CAST({0} AS DATE) + CAST({1} AS TIME))"
+        postgres: "(CAST({0} AS DATE) + CAST({1} AS TIME))"
+        redshift: "(CAST({0} AS DATE) + CAST({1} AS TIME))"
+        databricks: "MAKE_TIMESTAMP(YEAR({0}), MONTH({0}), DAY({0}), HOUR({1}), MINUTE({1}), SECOND({1}))"
+        bigquery: "DATETIME(CAST({0} AS DATE), CAST({1} AS TIME))"
+        tsql: "(CAST(CAST({0} AS DATE) AS DATETIME) + CAST(CAST({1} AS TIME) AS DATETIME))"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.date
+    match: {language: tableau-calc, function: DATE}
+    emit: {template: "CAST({0} AS DATE)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.datetime
+    match: {language: tableau-calc, function: DATETIME}
+    emit: {template: "CAST({0} AS TIMESTAMP)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.isdate
+    match: {language: tableau-calc, function: ISDATE}
+    emit:
+      template: "(CASE WHEN {0} IS NULL THEN NULL ELSE TRY_TO_DATE({0}) IS NOT NULL END)"
+      dialect_templates:
+        duckdb: "(CASE WHEN {0} IS NULL THEN NULL ELSE TRY_CAST({0} AS DATE) IS NOT NULL END)"
+        databricks: "(CASE WHEN {0} IS NULL THEN NULL ELSE TRY_CAST({0} AS DATE) IS NOT NULL END)"
+        bigquery: "(CASE WHEN {0} IS NULL THEN NULL ELSE SAFE_CAST({0} AS DATE) IS NOT NULL END)"
+        # pg_input_is_valid: PostgreSQL 16 and later.
+        postgres: "(CASE WHEN {0} IS NULL THEN NULL ELSE pg_input_is_valid({0}, 'date') END)"
+    dialects: [snowflake, duckdb, databricks, bigquery, postgres]
+    no_form:
+      redshift: no cast of text to a date that gives NULL rather than an error
+      tsql: >-
+        the test is a value that is TRUE, FALSE or NULL, and T-SQL has no boolean value
+        (ISDATE is a number, and a CASE cannot return a test)
+    tier: stable
+    evidence: tableau-calc
+  # DATEPARSE(format, text): the format is Tableau's (ICU) pattern, a literal; the engine
+  # rewrites it token by token into the dialect's (`formats`), and a token not listed is
+  # refused by name. Text that does not parse is NULL, as in Tableau.
+  - id: tableau.dateparse
+    match: {language: tableau-calc, function: DATEPARSE}
+    emit:
+      template: "TRY_TO_TIMESTAMP_NTZ({1}, {0})"
+      dialect_templates:
+        duckdb: "TRY_STRPTIME({1}, {0})"
+        databricks: "TRY_TO_TIMESTAMP({1}, {0})"
+        bigquery: "SAFE.PARSE_DATETIME({0}, {1})"
+        tsql: "TRY_CONVERT(DATETIME2, {1}, {0})"
+      # T-SQL parses by a fixed list of styles, not a pattern: the whole pattern -> its style.
+      whole_formats:
+        tsql: {"yyyy-MM-dd": 23, "yyyy-MM-dd HH:mm:ss": 120, "yyyy-MM-dd HH:mm:ss.SSS": 121,
+               "MM/dd/yyyy": 101, "dd/MM/yyyy": 103, "dd.MM.yyyy": 104, "dd-MM-yyyy": 105,
+               "MM-dd-yyyy": 110, "yyyy/MM/dd": 111, "yyyyMMdd": 112}
+      formats:
+        snowflake: {yyyy: YYYY, yy: YY, MMMM: MMMM, MMM: MON, MM: MM, dd: DD, HH: HH24, hh: HH12, mm: MI, ss: SS, a: AM, SSS: FF3}
+        duckdb: {yyyy: "%Y", yy: "%y", MMMM: "%B", MMM: "%b", MM: "%m", dd: "%d", HH: "%H", hh: "%I", mm: "%M", ss: "%S", a: "%p", SSS: "%g"}
+        # Databricks reads the same pattern letters as Tableau.
+        databricks: {yyyy: yyyy, yy: yy, MMMM: MMMM, MMM: MMM, MM: MM, dd: dd, HH: HH, hh: hh, mm: mm, ss: ss, a: a, SSS: SSS}
+        # Fractional seconds are part of the seconds' token (%E3S).
+        bigquery: {yyyy: "%Y", yy: "%y", MMMM: "%B", MMM: "%b", MM: "%m", dd: "%d", HH: "%H", hh: "%I", mm: "%M", "ss.SSS": "%E3S", ss: "%S", a: "%p"}
+    dialects: [snowflake, duckdb, databricks, bigquery, tsql]
+    no_form:
+      postgres: >-
+        no parse of text by a format that gives NULL where the text does not parse
+        (TO_TIMESTAMP raises an error there)
+      redshift: >-
+        no parse of text by a format that gives NULL where the text does not parse
+        (TO_TIMESTAMP raises an error there)
+    tier: stable
+    evidence: tableau-calc
+
+  # Text: SPLIT is the n-th part (from the end when negative; '' past the last part, checked
+  # live); a dialect that reads a backslash in a string literal as an escape gets a pattern's
+  # backslashes doubled (`literal_backslash_escapes`); MID is the text from a position, of a length or to its end; the REGEXP_ functions
+  # search anywhere in the text (checked live: REGEXP_MATCH is a partial match; REGEXP_EXTRACT
+  # the first group of the first match; REGEXP_REPLACE every match).
+  - id: tableau.split
+    match: {language: tableau-calc, function: SPLIT}
+    emit:
+      template: "SPLIT_PART({0}, {1}, {2})"
+      dialect_templates:
+        bigquery: >-
+          (CASE WHEN {0} IS NULL THEN NULL WHEN {2} < 0
+          THEN COALESCE(ARRAY_REVERSE(SPLIT({0}, {1}))[SAFE_OFFSET(-({2}) - 1)], '')
+          ELSE COALESCE(SPLIT({0}, {1})[SAFE_OFFSET({2} - 1)], '') END)
+        # STRING_SPLIT numbers its parts (SQL Server 2022); it takes a one-character
+        # delimiter and raises on a longer one.
+        tsql: >-
+          (CASE WHEN {0} IS NULL THEN NULL ELSE COALESCE((SELECT p.value FROM STRING_SPLIT({0}, {1}, 1) p
+          WHERE p.ordinal = CASE WHEN {2} < 0 THEN (SELECT COUNT(*) FROM STRING_SPLIT({0}, {1}, 1)) + {2} + 1
+          ELSE {2} END), '') END)
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.mid
+    match: {language: tableau-calc, function: MID}
+    emit: {template: "SUBSTR({0}, {1}, {2})", by_arity: {"2": "SUBSTR({0}, {1})"}}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.regexp_match
+    match: {language: tableau-calc, function: REGEXP_MATCH}
+    emit:
+      template: "(REGEXP_INSTR({0}, {1}) > 0)"
+      dialect_templates:
+        duckdb: "REGEXP_MATCHES({0}, {1})"
+        postgres: "({0} ~ {1})"
+        redshift: "({0} ~ {1})"
+        databricks: "({0} RLIKE {1})"
+        bigquery: "REGEXP_CONTAINS({0}, {1})"
+        # SQL Server 2025 and Azure SQL; an earlier SQL Server has no regular expressions.
+        tsql: "REGEXP_LIKE({0}, {1})"
+      literal_backslash_escapes: [snowflake, databricks, bigquery, redshift]
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.regexp_extract
+    match: {language: tableau-calc, function: REGEXP_EXTRACT}
+    emit:
+      template: "REGEXP_SUBSTR({0}, {1}, 1, 1, 'e', 1)"
+      dialect_templates:
+        duckdb: "(CASE WHEN REGEXP_MATCHES({0}, {1}) THEN REGEXP_EXTRACT({0}, {1}, 1) END)"
+        # With a group in the pattern, SUBSTRING ... FROM is the first group's text.
+        postgres: "SUBSTRING({0} FROM {1})"
+        # REGEXP_SUBSTR gives '' where nothing matches; the calc language gives NULL.
+        redshift: "(CASE WHEN REGEXP_INSTR({0}, {1}) > 0 THEN REGEXP_SUBSTR({0}, {1}, 1, 1, 'e') END)"
+        databricks: "(CASE WHEN {0} RLIKE {1} THEN REGEXP_EXTRACT({0}, {1}, 1) END)"
+        bigquery: "REGEXP_EXTRACT({0}, {1})"
+        tsql: "REGEXP_SUBSTR({0}, {1}, 1, 1, '', 1)"
+      literal_backslash_escapes: [snowflake, databricks, bigquery, redshift]
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.regexp_extract_nth
+    match: {language: tableau-calc, function: REGEXP_EXTRACT_NTH}
+    emit:
+      template: "REGEXP_SUBSTR({0}, {1}, 1, 1, 'e', {2})"
+      dialect_templates:
+        duckdb: "(CASE WHEN REGEXP_MATCHES({0}, {1}) THEN REGEXP_EXTRACT({0}, {1}, {2}) END)"
+        postgres: "((REGEXP_MATCH({0}, {1}))[{2}])"
+        databricks: "(CASE WHEN {0} RLIKE {1} THEN REGEXP_EXTRACT({0}, {1}, {2}) END)"
+        tsql: "REGEXP_SUBSTR({0}, {1}, 1, 1, '', {2})"
+      literal_backslash_escapes: [snowflake, databricks, bigquery, redshift]
+    dialects: [snowflake, duckdb, postgres, databricks, tsql]
+    no_form:
+      redshift: >-
+        REGEXP_SUBSTR gives the pattern's first group only, never the n-th
+      bigquery: >-
+        REGEXP_EXTRACT gives a pattern's one group only, never the n-th
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.regexp_replace
+    match: {language: tableau-calc, function: REGEXP_REPLACE}
+    emit:
+      template: "REGEXP_REPLACE({0}, {1}, {2})"
+      dialect_templates:
+        duckdb: "REGEXP_REPLACE({0}, {1}, {2}, 'g')"
+        postgres: "REGEXP_REPLACE({0}, {1}, {2}, 'g')"
+      literal_backslash_escapes: [snowflake, databricks, bigquery, redshift]
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.proper
+    match: {language: tableau-calc, function: PROPER}
+    emit: {template: "INITCAP({0})"}
+    dialects: [snowflake, postgres, redshift, databricks, bigquery]
+    no_form:
+      duckdb: >-
+        no function that capitalises each word
+      tsql: >-
+        no function that capitalises each word
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.char
+    match: {language: tableau-calc, function: CHAR}
+    emit: {template: "CHR({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.ascii
+    match: {language: tableau-calc, function: ASCII}
+    emit: {template: "ASCII({0})"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.space
+    match: {language: tableau-calc, function: SPACE}
+    emit: {template: "REPEAT(' ', {0})"}
+    tier: stable
+    evidence: tableau-calc
+
+  # Numbers: DIV truncates toward zero; SQUARE and `^` are powers; MIN / MAX of two values
+  # are NULL when either is (a single argument is the aggregate).
+  - id: tableau.div
+    match: {language: tableau-calc, function: DIV}
+    emit: {template: "CAST(TRUNC({0} / NULLIF({1}, 0)) AS BIGINT)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.square
+    match: {language: tableau-calc, function: SQUARE}
+    emit: {template: "POWER({0}, 2)"}
+    tier: stable
+    evidence: tableau-calc
+  - id: tableau.power_operator
+    match: {language: tableau-calc, function: "^"}
+    emit: {template: "POWER({0}, {1})"}
+    tier: stable
+    evidence: tableau-calc
+  # ATTR: the one value of the rows, or '*' when they hold several (checked live: '*' is what
+  # the view shows and VizQL Data Service answers SPECIAL_TYPE_MANY_VALUES).
+  - id: tableau.attr
+    match: {language: tableau-calc, function: ATTR}
+    emit:
+      template: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS VARCHAR) ELSE '*' END"
+      dialect_templates:
+        databricks: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS STRING) ELSE '*' END"
+        bigquery: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS STRING) ELSE '*' END"
+        tsql: "CASE WHEN MIN({0}) IS NULL THEN NULL WHEN MIN({0}) = MAX({0}) THEN CAST(MIN({0}) AS NVARCHAR(4000)) ELSE '*' END"
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: tableau-calc
+
+  # ---------------------------------------------------------------- filter operators
+  - id: op.eq
+    match: {operator: eq}
+    emit: {template: "{0} = {1}"}
+    tier: stable
+    evidence: schema
+  # `list_arg` says this operator can take a MULTI-VALUE filter. A Tableau filter on several
+  # members carries a list, and an operator without this flag refuses it rather than
+  # flattening it into a literal nobody wrote.
+  - id: op.in
+    match: {operator: in}
+    emit: {template: "{0} IN ({1})", list_arg: true}
+    tier: stable
+    evidence: schema
+  - id: op.neq
+    match: {operator: neq}
+    emit: {template: "{0} <> {1}"}
+    tier: stable
+    evidence: schema
+  - id: op.gte
+    match: {operator: range}
+    emit: {template: "{0} >= {1}"}
+    tier: stable
+    evidence: schema
+  # A range's upper bound. A range filter carries {min, max}; `range` places the lower bound
+  # and this row the upper one, so a bounded range is never read as open-ended.
+  - id: op.lte
+    match: {operator: lte}
+    emit: {template: "{0} <= {1}"}
+    tier: stable
+    evidence: schema
+
+  # Equal, with NULL equal to NULL: the join a level-of-detail expression makes on its
+  # dimensions (a NULL member is a member).
+  - id: op.null_safe_eq
+    match: {operator: null_safe_eq}
+    emit:
+      template: "{0} IS NOT DISTINCT FROM {1}"
+      # Where IS NOT DISTINCT FROM is not spelled, the test written out: equal, or both NULL.
+      # It is never negated by the engine, so its NULL (one side NULL) reads as no match.
+      dialect_templates:
+        databricks: "{0} <=> {1}"
+        redshift: "({0} = {1} OR ({0} IS NULL AND {1} IS NULL))"
+        tsql: "({0} = {1} OR ({0} IS NULL AND {1} IS NULL))"
+    dialects: [snowflake, duckdb, postgres, databricks, bigquery, redshift, tsql]
+    tier: stable
+    evidence: schema
+
+  # A recursive statement (a value computed row by row from the row before), opened by
+  # `template`; its value column takes `number_type` or `text_type` (a recursion's column
+  # type is its first row's, which may be narrower than a later one). Tableau's
+  # PREVIOUS_VALUE in a shape with no closed form is compiled as one.
+  - id: op.recursive_rows
+    match: {operator: recursive_rows}
+    emit:
+      template: "WITH RECURSIVE"
+      # T-SQL spells a recursive CTE as a plain WITH, allows a WITH only at the top of a
+      # statement (`hoist`: the engine moves it there) and stops a recursion at 100 levels
+      # unless the statement says otherwise (`statement_suffix`).
+      dialect_templates: {tsql: "WITH"}
+      hoist: [tsql]
+      statement_suffix: {tsql: "OPTION (MAXRECURSION 0)"}
+      ignore_args: true
+      number_type: {snowflake: DOUBLE, duckdb: DOUBLE, postgres: DOUBLE PRECISION,
+                    bigquery: FLOAT64, redshift: DOUBLE PRECISION, databricks: DOUBLE,
+                    tsql: FLOAT}
+      text_type: {snowflake: VARCHAR, duckdb: VARCHAR, postgres: TEXT, bigquery: STRING,
+                  redshift: VARCHAR(65535), databricks: STRING, tsql: NVARCHAR(4000)}
+      # Databricks stops a recursion at 100 levels unless the CTE states its own cap (Runtime
+      # 17.0+, `name MAX RECURSION LEVEL n AS (...)`); its result is capped at 1,000,000 rows,
+      # so that is the deepest a partition can go.
+      recursion_clause: {databricks: "MAX RECURSION LEVEL 1000000"}
+    dialects: [snowflake, duckdb, postgres, bigquery, redshift, databricks, tsql]
+    tier: stable
+    evidence: schema
+
+  # Power BI's parser reports a categorical restriction as `filter`. It is an equality on the
+  # named column; without this row the predicate has no rule, and the compiler REFUSES the
+  # unit rather than emitting a statement missing a filter the widget applies.
+  - id: op.filter
+    match: {operator: filter}
+    emit: {template: "{0} = {1}"}
+    tier: stable
+    evidence: visual-usage
+
+  - id: op.lt
+    match: {operator: lt}
+    emit: {template: "{0} < {1}"}
+    tier: stable
+    evidence: schema
+
+  - id: op.gt
+    match: {operator: gt}
+    emit: {template: "{0} > {1}"}
+    tier: stable
+    evidence: schema
+
+  # The current period so far ("month to date"): the window a Tableau Pulse metric shows by
+  # default (`RANGE_CURRENT_PARTIAL`). The value is the calendar part (day, month, quarter,
+  # year; a week's start differs by warehouse setting, so the reader never sends one). Only
+  # where DATE_TRUNC takes the part as a string first and CURRENT_DATE/CURRENT_TIMESTAMP exist.
+  # A RELATIVE DATE filter (Tableau "last 3 months", "this year", anchored or from today):
+  # `{0} >= {1} AND {0} < {2}`, the bounds the start of a period moved by whole periods.
+  # `shift` is moving a date by n periods in each dialect; a dialect without one is refused.
+  - id: op.relative_date
+    match: {operator: relative_date}
+    emit:
+      template: "({0} >= {1} AND {0} < {2})"
+      shift:
+        snowflake: "DATEADD({p}, {n}, {d})"
+        databricks: "DATEADD({p}, {n}, {d})"
+        redshift: "DATEADD({p}, {n}, {d})"
+        duckdb: "({d} + INTERVAL ({n}) {p})"
+        postgres: "({d} + ({n}) * INTERVAL '1 {p}')"
+        bigquery: "DATE_ADD({d}, INTERVAL ({n}) {p})"
+        tsql: "DATEADD({p}, {n}, {d})"
+      # The start of a period ({p} the period, {d} the date) where DATE_TRUNC('{p}', {d}) is
+      # not how the dialect writes it, and today where CURRENT_DATE is not.
+      trunc:
+        bigquery: "DATE_TRUNC({d}, {p})"
+        tsql: "DATETRUNC({p}, {d})"
+      today:
+        tsql: "CAST(GETDATE() AS DATE)"
+      # The current moment as the session's wall clock (a "to date" filter on a time column
+      # ends there; seen live: the site's local time, not UTC).
+      now:
+        snowflake: "CAST(CURRENT_TIMESTAMP() AS TIMESTAMP_NTZ)"
+        databricks: "CAST(current_timestamp() AS TIMESTAMP)"
+        redshift: "GETDATE()"
+        duckdb: "CAST(current_localtimestamp() AS TIMESTAMP)"
+        postgres: "LOCALTIMESTAMP"
+        bigquery: "CURRENT_DATETIME()"
+        tsql: "CAST(SYSDATETIME() AS DATETIME2)"
+      # The current moment as the wall clock of a named time zone (`{tz}`, an IANA name the
+      # viewer file states: the time zone the BI tool reads "now" in).
+      now_in_zone:
+        snowflake: "CONVERT_TIMEZONE('{tz}', CURRENT_TIMESTAMP())::TIMESTAMP_NTZ"
+        databricks: "from_utc_timestamp(current_timestamp(), '{tz}')"
+        redshift: "CONVERT_TIMEZONE('{tz}', GETDATE())"
+        duckdb: "CAST(timezone('{tz}', current_timestamp) AS TIMESTAMP)"
+        postgres: "(CURRENT_TIMESTAMP AT TIME ZONE '{tz}')"
+        bigquery: "CURRENT_DATETIME('{tz}')"
+        tsql: "CAST(SYSDATETIMEOFFSET() AT TIME ZONE '{tz}' AS DATETIME2)"
+      # A dialect that names a time zone by its own names, not IANA's: the IANA name -> the
+      # dialect's (T-SQL takes Windows names; the Unicode CLDR windowsZones mapping). A zone
+      # not listed is refused by name.
+      zone_names:
+        tsql:
+          "UTC": "UTC"
+          "Etc/UTC": "UTC"
+          "Europe/London": "GMT Standard Time"
+          "Europe/Dublin": "GMT Standard Time"
+          "Europe/Lisbon": "GMT Standard Time"
+          "Europe/Paris": "Romance Standard Time"
+          "Europe/Brussels": "Romance Standard Time"
+          "Europe/Madrid": "Romance Standard Time"
+          "Europe/Copenhagen": "Romance Standard Time"
+          "Europe/Berlin": "W. Europe Standard Time"
+          "Europe/Rome": "W. Europe Standard Time"
+          "Europe/Amsterdam": "W. Europe Standard Time"
+          "Europe/Vienna": "W. Europe Standard Time"
+          "Europe/Stockholm": "W. Europe Standard Time"
+          "Europe/Oslo": "W. Europe Standard Time"
+          "Europe/Zurich": "W. Europe Standard Time"
+          "Europe/Warsaw": "Central European Standard Time"
+          "Europe/Prague": "Central Europe Standard Time"
+          "Europe/Budapest": "Central Europe Standard Time"
+          "Europe/Athens": "GTB Standard Time"
+          "Europe/Bucharest": "GTB Standard Time"
+          "Europe/Helsinki": "FLE Standard Time"
+          "Europe/Kiev": "FLE Standard Time"
+          "Europe/Istanbul": "Turkey Standard Time"
+          "Europe/Moscow": "Russian Standard Time"
+          "America/New_York": "Eastern Standard Time"
+          "America/Toronto": "Eastern Standard Time"
+          "America/Chicago": "Central Standard Time"
+          "America/Denver": "Mountain Standard Time"
+          "America/Phoenix": "US Mountain Standard Time"
+          "America/Los_Angeles": "Pacific Standard Time"
+          "America/Vancouver": "Pacific Standard Time"
+          "America/Anchorage": "Alaskan Standard Time"
+          "Pacific/Honolulu": "Hawaiian Standard Time"
+          "America/Mexico_City": "Central Standard Time (Mexico)"
+          "America/Sao_Paulo": "E. South America Standard Time"
+          "America/Argentina/Buenos_Aires": "Argentina Standard Time"
+          "America/Bogota": "SA Pacific Standard Time"
+          "Asia/Tokyo": "Tokyo Standard Time"
+          "Asia/Seoul": "Korea Standard Time"
+          "Asia/Shanghai": "China Standard Time"
+          "Asia/Hong_Kong": "China Standard Time"
+          "Asia/Singapore": "Singapore Standard Time"
+          "Asia/Kolkata": "India Standard Time"
+          "Asia/Dubai": "Arabian Standard Time"
+          "Australia/Sydney": "AUS Eastern Standard Time"
+          "Australia/Melbourne": "AUS Eastern Standard Time"
+          "Australia/Perth": "W. Australia Standard Time"
+          "Pacific/Auckland": "New Zealand Standard Time"
+          "Africa/Johannesburg": "South Africa Standard Time"
+      # The ISO day of week (Monday = 1 ... Sunday = 7): a week starts on the day the data
+      # source states.
+      weekday_iso:
+        snowflake: "DAYOFWEEKISO({0})"
+        databricks: "(MOD(DAYOFWEEK({0}) + 5, 7) + 1)"
+        redshift: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        duckdb: "ISODOW({0})"
+        postgres: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        bigquery: "(MOD(EXTRACT(DAYOFWEEK FROM {0}) + 5, 7) + 1)"
+        tsql: "(((DATEDIFF(day, CAST('1900-01-01' AS DATE), {0}) % 7) + 7) % 7 + 1)"
+    dialects: [snowflake, databricks, redshift, duckdb, postgres, bigquery, tsql]
+    tier: stable
+    evidence: visual-usage
+
+  # A text test on a column (a filter pane's "contains" / "starts with"). The compiler folds
+  # case and the column's trailing spaces first where the model compares text that way.
+  - id: op.contains
+    match: {operator: contains}
+    emit:
+      template: "POSITION({1} IN {0}) > 0"
+      dialect_templates: {bigquery: "STRPOS({0}, {1}) > 0", tsql: "CHARINDEX({1}, {0}) > 0"}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: visual-usage
+  - id: op.starts_with
+    match: {operator: starts_with}
+    emit:
+      template: "POSITION({1} IN {0}) = 1"
+      dialect_templates: {bigquery: "STRPOS({0}, {1}) = 1", tsql: "CHARINDEX({1}, {0}) = 1"}
+    dialects: [snowflake, duckdb, postgres, redshift, databricks, bigquery, tsql]
+    tier: stable
+    evidence: visual-usage
+
+  # A range whose bounds are computed from the moment the query runs, in UTC (a relative date
+  # or time filter): `now` is that moment as a timestamp with no time zone, `shift` moves it
+  # by n units, `trunc` cuts it to the start of a unit. A week is not among the units: its
+  # first day is the model's culture's.
+  - id: op.relative_range
+    match: {operator: relative_range}
+    emit:
+      template: "{0}"
+      units: [day, month, year, hour, minute, second]
+      now:
+        snowflake: "SYSDATE()"
+        duckdb: "CAST(timezone('UTC', current_timestamp) AS TIMESTAMP)"
+        postgres: "(CURRENT_TIMESTAMP AT TIME ZONE 'UTC')"
+        databricks: "CAST(to_utc_timestamp(current_timestamp(), current_timezone()) AS TIMESTAMP)"
+        # GETDATE() is the session's local time; read as that zone's moment, then in UTC.
+        redshift: "CONVERT_TIMEZONE('UTC', CAST(GETDATE() AS TIMESTAMPTZ))"
+        bigquery: "CURRENT_DATETIME('UTC')"
+        tsql: "CAST(SYSUTCDATETIME() AS DATETIME2)"
+      shift:
+        snowflake: "DATEADD({p}, {n}, {d})"
+        databricks: "TIMESTAMPADD({p}, {n}, {d})"
+        duckdb: "({d} + INTERVAL ({n}) {p})"
+        postgres: "({d} + ({n}) * INTERVAL '1 {p}')"
+        redshift: "DATEADD({p}, {n}, {d})"
+        bigquery: "DATETIME_ADD(CAST({d} AS DATETIME), INTERVAL ({n}) {p})"
+        tsql: "DATEADD({p}, {n}, {d})"
+      trunc:
+        snowflake: "DATE_TRUNC('{p}', {d})"
+        databricks: "DATE_TRUNC('{p}', {d})"
+        duckdb: "DATE_TRUNC('{p}', {d})"
+        postgres: "DATE_TRUNC('{p}', {d})"
+        redshift: "DATE_TRUNC('{p}', {d})"
+        bigquery: "DATETIME_TRUNC(CAST({d} AS DATETIME), {p})"
+        tsql: "DATETRUNC({p}, {d})"
+      # The ISO day of week (Monday = 1 ... Sunday = 7): a week's start is the day moved back
+      # to the weekday the filter states.
+      weekday_iso:
+        snowflake: "DAYOFWEEKISO({0})"
+        duckdb: "ISODOW({0})"
+        postgres: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        databricks: "(MOD(DAYOFWEEK({0}) + 5, 7) + 1)"
+        redshift: "(MOD(CAST(EXTRACT(DOW FROM {0}) AS INTEGER) + 6, 7) + 1)"
+        bigquery: "(MOD(EXTRACT(DAYOFWEEK FROM {0}) + 5, 7) + 1)"
+        tsql: "(((DATEDIFF(day, CAST('1900-01-01' AS DATE), {0}) % 7) + 7) % 7 + 1)"
+    dialects: [snowflake, duckdb, postgres, databricks, redshift, bigquery, tsql]
+    tier: stable
+    evidence: visual-usage
+
+  - id: op.period_to_date
+    match: {operator: period_to_date}
+    emit:
+      template: "({0} >= DATE_TRUNC({1}, CURRENT_DATE) AND {0} <= CURRENT_TIMESTAMP)"
+      dialect_templates:
+        bigquery: "({0} >= DATE_TRUNC(CURRENT_DATE(), {1!word}) AND {0} <= CURRENT_DATETIME())"
+        tsql: "({0} >= DATETRUNC({1!word}, CAST(GETDATE() AS DATE)) AND {0} <= GETDATE())"
+    dialects: [snowflake, postgres, redshift, databricks, duckdb, bigquery, tsql]
+    tier: stable
+    evidence: visual-usage

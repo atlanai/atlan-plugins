@@ -10,7 +10,7 @@ graders:
   - name: fires-skill
     type: tool_used
     tool: Skill
-    input_match: 'analytics-(build|ask)'
+    input_match: '(?:analytics-(?:build|ask)|metrics-generation|source-survey)'
   - name: picks-the-skill
     type: tool_used
     tool: Skill

@@ -169,11 +169,34 @@ class LocalProject(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['status'], 'ok')
 
+    def test_cli_says_why_a_preparation_is_refused(self):
+        self.seed()
+        (self.estate / 'work.csv').write_text('kind,cost\nbuild,20.50\n')
+        source = next(s for s in self.run.survey(self.estate)['sources'] if s['path'] == 'work.csv')
+        request = self.estate.parent / 'request.json'
+        request.write_text(json.dumps({'database': str(self.estate.parent / 'site.sqlite'),
+                                       'tables': [{'source_id': source['source_id'], 'table': 'site.work'}]}))
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'),
+                                 '--run-dir', str(self.run.root), 'prepare', str(request)],
+                                capture_output=True, text=True)
+        self.assertEqual(json.loads(result.stdout)['message'], 'The selected file is outside this project.')
+
+    def test_cli_says_how_to_select_a_definition(self):
+        self.seed()
+        self.run.survey(self.estate)
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                 'journey', 'select', '--focus', 'Gross Sales'], capture_output=True, text=True)
+        message = json.loads(result.stdout)['message']
+        self.assertIn("No saved definition has the id 'Gross Sales'", message)
+        self.assertIn('metric:<name>', message)
+
     def test_function_guard_blocks_dynamic_external_and_quoted_names(self):
         for q in ("SELECT * FROM query('select 1')", "SELECT * FROM read_csv('file.csv')",
                   'SELECT * FROM "query_table"($name)', 'SELECT custom_macro(cost) FROM site.work'):
             with self.assertRaises(local_data.DataError): local_data.check_functions(q)
         local_data.check_functions("SELECT SUM(cost), 'read_csv(' FROM site.work WHERE kind IN ('a')")
+        local_data.check_functions('SELECT n.c FROM site.work w JOIN (SELECT kind, COUNT(*) AS c '
+                                   'FROM site.work GROUP BY kind) n ON n.kind = w.kind UNION ALL (SELECT 1)')
 
 
 @unittest.skipUnless(HAS_DUCKDB, 'Use an existing approved DuckDB runtime for integration tests.')
@@ -375,7 +398,8 @@ class SQLiteFlow(unittest.TestCase):
         (self.estate / 'work.csv').write_text('kind,cost,day\nbuild,20.50,2026-01-02\nrework,14.25,2026-01-03\n')
         result = self.run.survey(self.estate)
         source = next(s for s in result['sources'] if s['path'] == 'work.csv')
-        return {'database': 'prepared.sqlite', 'tables': [
+        (self.estate / 'prepared').mkdir(exist_ok=True)
+        return {'database': 'prepared/site.sqlite', 'tables': [
             {'source_id': source['source_id'], 'table': 'site.work'}]}
 
     def test_binding_attaches_the_file_under_its_schema(self):
@@ -391,7 +415,7 @@ class SQLiteFlow(unittest.TestCase):
         self.run.bind(result['database'], schema='site')
         answer = self.run.execute({'sql': 'SELECT SUM(cost) FROM site.work'})
         self.assertEqual(answer['rows'], [[34.75]])
-        self.assertEqual((self.estate / 'prepared.sqlite').stat().st_mode & 0o777, 0o600)
+        self.assertEqual((self.estate / 'prepared/site.sqlite').stat().st_mode & 0o777, 0o600)
 
     def test_preparation_never_replaces_existing_database_or_mixes_schemas(self):
         request = self.preparation()
@@ -404,7 +428,14 @@ class SQLiteFlow(unittest.TestCase):
         request['tables'].append({**request['tables'][0], 'table': 'other.work'})
         with self.assertRaisesRegex(ValueError, 'one schema'):
             self.run.prepare(request)
-        self.assertFalse((self.estate / 'prepared.sqlite').exists())
+        self.assertFalse((self.estate / 'prepared/site.sqlite').exists())
+
+    def test_a_sqlite_file_is_named_after_its_schema(self):
+        request = self.preparation()
+        request['database'] = 'prepared/analytics.sqlite'
+        with self.assertRaisesRegex(ValueError, 'site.sqlite holds site'):
+            self.run.prepare(request)
+        self.assertFalse((self.estate / 'prepared/analytics.sqlite').exists())
 
     def test_native_parameter_binding_executes_exact_value(self):
         query = {'sql': 'SELECT SUM(cost) AS value FROM site.work WHERE kind=:p0', 'parameters': {'p0': 'rework'}}

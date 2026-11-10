@@ -1,0 +1,28 @@
+schema_version: "1.1"
+name: five-ask-dashboard
+tags: [analytics, five, ask, dashboard]
+execution:
+  prompt: |
+    From our published metrics, what was the on-time departure rate last month?
+    Then propose a dashboard for it. Do not build the page yet.
+  max_turns: 24
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-ask
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-ask"'
+    min: 1
+  - name: reads-next-steps
+    type: tool_used
+    tool: Read
+    input_match: 'references/next-steps\.md'
+    min: 1
+  - name: layout-in-words
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply answers or attempts the on-time departure rate question from a published
+      metric (or says plainly what is missing), then proposes a dashboard layout in words (tiles, a
+      breakdown, a chart) in a short list, and asks the person to confirm or change it without
+      building a page. FAIL if it builds or writes a page, or proposes no layout.

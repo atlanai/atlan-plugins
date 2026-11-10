@@ -1,6 +1,6 @@
 ---
 name: analytics-ask
-description: "Atlan Analytics Ask: answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (analytics-build)."
+description: "Atlan Analytics Ask: answer data questions from published Atlan metrics and saved SQL, or explicitly explore a prepared local dataset. Use for totals, rates, trends, breakdowns and follow-ups. Not for setup or metric authoring (metrics-generation)."
 ---
 
 # Answer a data question from managed context
@@ -9,7 +9,7 @@ Read [shared conventions](../analytics-build/references/conventions.md) first; i
 truth**, read-only SQL and safety rules apply. Answer here without creating a project,
 eval, agent or registry write. No subagents are needed.
 
-If a setup run was selected, follow [setup retrieval](../analytics-build/references/retrieval.md)
+If a setup run was selected, follow [setup retrieval](references/retrieval.md)
 and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
 below using existing Atlan context. Ordinary questions require no local run, publication
 receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
@@ -75,7 +75,7 @@ This is an available data connection; do not ask for Snowflake or a new MCP serv
 the binding across turns and use fresh released definitions and fresh query results.
 
 Find the warehouse query tool with steps 0 to 2 of
-[warehouse discovery](../analytics-build/references/connect.md): a record this conversation
+[warehouse discovery](../source-survey/references/connect.md): a record this conversation
 or a project holds, then a SQL tool behind Atlan (`mcp__search_tools`), then the harness's own
 connectors. Hold what you find, or that there is none, for the rest of the conversation.
 
@@ -83,7 +83,7 @@ With no warehouse tool, do not stop and do not run the rest of discovery for a o
 question. Open the answer by saying no warehouse is reachable through Atlan, and that an Atlan
 admin can add it from the Store. Then offer the smallest thing that answers the question:
 - **Run the SQL yourself**: write the statement from the definition, in the dialect it names
-  (that dialect's section of [warehouses](../analytics-build/references/warehouses.md)), for the
+  (that dialect's section of [warehouses](../source-survey/references/warehouses.md)), for the
   person to run, and answer from what they paste back;
 - **Paste or attach the result** of a query, or a CSV export.
 
@@ -98,7 +98,7 @@ the report cutoff as the current warehouse cutoff. A recorded failed check needs
 
 ## 4. Query and check
 
-Apply [explanation checks](../analytics-build/references/answer-checks.md) to numerical claims.
+Apply [explanation checks](references/answer-checks.md) to numerical claims.
 
 1. Write one SELECT or WITH statement that keeps the definition's formula, population, mandatory
    filters and grain, adding only the filters the question needs. Check column names against
@@ -119,8 +119,9 @@ Apply [explanation checks](../analytics-build/references/answer-checks.md) to nu
 Lead with the answer in one or two sentences: the number, its definition and window ("CSAT,
 good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
 - **Proof**: always, each metric or query used, by name, as a link to its page in Atlan
-  Trident ([definition links](../analytics-build/references/definition-links.md)), never
-  a bare id; or **Not managed: no published metric covers this**, followed by the
+  Trident ([definition links](references/definition-links.md)), never
+  a bare id anywhere in prose or caveats. Resolve the organization automatically through
+  the authenticated self-profile; never ask for its slug or URL. Or **Not managed: no published metric covers this**, followed by the
   formula and filters you assumed;
 - **Caveats**: an unreviewed query, a partial window, an assumption about the question;
 - the SQL, only when the person asks to see it.
@@ -131,6 +132,7 @@ conventions' **Source of truth** says.
 ## 6. Close the gap
 
 For missing definitions, corrections or a request to save/share the answer, follow
-[answer follow-ups](../analytics-build/references/ask-followups.md).
+[answer follow-ups](references/ask-followups.md). For a dashboard from the answers, a
+question no published metric covers, or a wrong rule, follow [next steps](references/next-steps.md).
 
 End naturally with the result or next action, as the conventions describe.

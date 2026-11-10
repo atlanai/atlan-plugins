@@ -19,22 +19,25 @@ Local exploration and understanding-only requests do not need this sign-in step.
 
 Use [local source procedures](../project.md#2-bind-data-once) to select an executor independently
 of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
-through [connect](../connect.md). No data connection is needed to preview definitions. Without
+through [connect](../../../source-survey/references/connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
-All sources, including the demos and local-only files, use [the metrics engine](../metrics-engine.md).
+All sources, including the demos and local-only files, use [the metrics engine](../../../metrics-generation/references/metrics-engine.md).
 For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
-`PROJECT prepare` to create a new `.duckdb` database. Configure `local-files` with the selected
-BI definitions, cleaned history and this database. Respect Dashboard only versus history scope.
-Existing SQLite inputs remain supported by the local checking helper; when the engine has no
-compatible SQL-check plug, retain parse-only evidence and run exact local checks separately.
+`PROJECT prepare` to create a new `.sqlite` database named after its schema. Configure
+`local-files` with the selected BI definitions, cleaned history and this database, and set the
+run's `dialect` to the file's engine (`sqlite`, or `duckdb` for an existing DuckDB file). Respect
+Dashboard only versus history scope. When the engine has no compatible SQL-check plug, retain
+parse-only evidence and run exact local checks separately.
 Do not create a second authoring path because an executor is unavailable.
 
 Reuse the existing survey, scope, business focus and interview answers. Prepare one engine
 run under this setup run. Advance through its maintained gates for the complete selected
-collection. At X3, author all scoped cards using its returned instructions, then continue
-through the remaining gates. Gate answers are the assistant's work, not customer choices.
-Keep factual progress visible while generation and checks run. Do not stop for a single-card
-preview or request permission to generate the remaining already-selected context.
+collection. At X3, continue without an extra user decision: a demo selected its sources,
+and own data committed its names in step 2. Author all scoped
+cards using the returned instructions and continue through the remaining gates. Gate answers
+are the assistant's work, not customer choices. Keep factual progress visible while
+generation and checks run. Do not stop for a single-card preview or request permission to
+generate the remaining already-selected context.
 
 After completion, export into a fresh `engine-export/` and install the unchanged metric,
 query, link, source-receipt and publication-hold files into this run's context as the engine
@@ -64,7 +67,7 @@ are bound to definition hashes. For warehouses use the existing read-only tool a
 actual revision-bound check evidence. Test representative parameters, excluded populations
 and empty denominators. Never treat one parameter sample as exhaustive coverage.
 When showing an early local answer or explaining excluded rows, apply
-[explanation checks](../answer-checks.md). Account for every formula component, including
+[explanation checks](../../../analytics-ask/references/answer-checks.md). Account for every formula component, including
 revenue on rows with no costs; distinguish an unchanged top result from an unchanged total.
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.

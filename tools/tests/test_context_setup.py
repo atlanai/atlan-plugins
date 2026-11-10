@@ -418,6 +418,15 @@ class SQLRegression(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run.execute({'sql': 'WITH query(value) AS (SELECT 1) SELECT * FROM query(\'SELECT 1\')'})
 
+    def test_a_request_naming_other_parameters_holds_nothing(self):
+        import local_data
+        self.run.write(self.run.context / 'queries.json', [query(
+            'SELECT SUM(cost) FROM site.work WHERE kind={{kind}}')])
+        with self.assertRaisesRegex(local_data.ParameterError, 'bindings: kind'):
+            self.run.check_query({'name': 'work-total', 'parameters': {}})
+        self.run.check_query({'name': 'work-total', 'parameters': {'kind': 'build'}})
+        self.assertNotEqual(metric_preview.candidates(self.run)[0]['status'], 'held')
+
     def test_failed_parameter_sample_remains_held_after_successful_sample_and_schema_check(self):
         self.run.write(self.run.context / 'queries.json', [query(
             'SELECT SUM(cost) / COUNT(*) FROM site.work WHERE kind={{kind}}')])
