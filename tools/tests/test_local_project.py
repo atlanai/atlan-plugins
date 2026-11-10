@@ -181,6 +181,15 @@ class LocalProject(unittest.TestCase):
                                 capture_output=True, text=True)
         self.assertEqual(json.loads(result.stdout)['message'], 'The selected file is outside this project.')
 
+    def test_cli_says_how_to_select_a_definition(self):
+        self.seed()
+        self.run.survey(self.estate)
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                 'journey', 'select', '--focus', 'Gross Sales'], capture_output=True, text=True)
+        message = json.loads(result.stdout)['message']
+        self.assertIn("No saved definition has the id 'Gross Sales'", message)
+        self.assertIn('metric:<name>', message)
+
     def test_function_guard_blocks_dynamic_external_and_quoted_names(self):
         for q in ("SELECT * FROM query('select 1')", "SELECT * FROM read_csv('file.csv')",
                   'SELECT * FROM "query_table"($name)', 'SELECT custom_macro(cost) FROM site.work'):

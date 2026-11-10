@@ -30,6 +30,7 @@ from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
 from local_data import safe_path, file_hash
+import journey
 import local_prepare
 import context_contracts as mine
 from analytics_eval import filter_querylog
@@ -590,7 +591,8 @@ def main():
                     progress.update(project, project.read(path)['stage'], 'failed', 'review_held')
             except (ValueError, OSError, KeyError, TypeError):
                 pass  # A broken optional progress artifact cannot hide the original safe error.
-        print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked))
+        print(json.dumps({'status': 'blocked', 'message': str(exc) if isinstance(exc, (ProjectError, local_data.DataError, retrieval.RetrievalError, mine.Blocked,
+                                                                                journey.JourneyError))
                           else 'Project step could not complete. Check the selected files, source state and request fields.'}))
         return 2
 

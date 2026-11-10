@@ -171,3 +171,7 @@ class SQLiteLineageTest(unittest.TestCase):
         known = x3_emit._statement_tables(metric, stmts)
         self.assertTrue({'site.site.projects', 'site.projects', 'raw.sales.orders', 'sales.orders'} <= known)
         self.assertNotIn('p.project_id', known)
+
+    def test_an_estate_table_is_a_table_by_schema_and_table(self):
+        from metrics_agent.stages import x3_emit
+        self.assertEqual(x3_emit._table_names(['SITE.SITE.PROJECTS']), {'site.site.projects', 'site.projects'})

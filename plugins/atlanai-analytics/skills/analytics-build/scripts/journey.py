@@ -3,23 +3,27 @@ ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resu
 MODES = ('active', 'paused', 'local')
 
 
+class JourneyError(ValueError):
+    """A request the person or agent can correct: its message says how."""
+
+
 def validate(value):
     if not isinstance(value, dict) or value.get('version') != 1 or value.get('mode') not in MODES:
-        raise ValueError('The saved conversation choices need repair before continuing.')
+        raise JourneyError('The saved conversation choices need repair before continuing.')
     focus = value.get('focus')
     if focus is not None and (not isinstance(focus, str) or not 0 < len(focus) <= 512):
-        raise ValueError('The saved metric selection needs repair before continuing.')
+        raise JourneyError('The saved metric selection needs repair before continuing.')
     intent = value.get('intent', {})
     if (not isinstance(intent, dict) or any(k not in ('domain', 'purpose') for k in intent)
             or any(not isinstance(v, str) or not v.strip() or len(v) > 1000 for v in intent.values())
             or ('purpose' in intent and 'domain' not in intent)):
-        raise ValueError('The saved business focus and purpose need repair before continuing.')
+        raise JourneyError('The saved business focus and purpose need repair before continuing.')
     if 'intent_focus_required' in value and type(value['intent_focus_required']) is not bool:
-        raise ValueError('The saved intent selection needs repair before continuing.')
+        raise JourneyError('The saved intent selection needs repair before continuing.')
     if value.get('flow', 'build') not in ('build', 'demo'):
-        raise ValueError('The saved guided flow needs repair before continuing.')
+        raise JourneyError('The saved guided flow needs repair before continuing.')
     if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard')):
-        raise ValueError('The saved question and dashboard steps need repair before continuing.')
+        raise JourneyError('The saved question and dashboard steps need repair before continuing.')
     return value
 
 
@@ -116,29 +120,30 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
     import experience
     experience.host_scope(host, server)
     if action not in ACTIONS:
-        raise ValueError('Choose a supported conversation action.')
+        raise JourneyError('Choose a supported conversation action.')
     run.current()
     path = run.root / 'interaction.json'
     saved = validate(run.read(path)) if path.exists() else {'version': 1, 'mode': 'active', 'focus': None}
     if focus is not None and action != 'select':
-        raise ValueError('Use select to change the focused definition.')
+        raise JourneyError('Use select to change the focused definition.')
     if answer is not None and action not in ('domain', 'purpose'):
-        raise ValueError('Use domain or purpose to record an intent answer.')
+        raise JourneyError('Use domain or purpose to record an intent answer.')
     if action == 'select':
         if not isinstance(focus, str) or not 0 < len(focus) <= 512:
-            raise ValueError('Supply the exact saved definition identity.')
+            raise JourneyError('Select a definition by its saved id, such as metric:<name> or sql_query:<name>.')
         model = experience.snapshot(run, focus=focus, host=host, server=server)
         if not model['sample']:
-            raise ValueError('That definition is unavailable or ambiguous. Keep the existing selection.')
+            raise JourneyError('No saved definition has the id ' + repr(focus) + '. Select one by its saved id, '
+                              'such as metric:<name> or sql_query:<name>; the selection is unchanged.')
         saved['focus'] = model['sample']['id']
         saved['definition_hash'] = model['sample'].get('definition_hash')
         saved['intent_focus_required'] = False
     elif action in ('domain', 'purpose'):
         if not isinstance(answer, str) or not answer.strip() or len(answer) > 1000:
-            raise ValueError('Record the user\'s business focus or purpose in 1 to 1000 characters.')
+            raise JourneyError('Record the user\'s business focus or purpose in 1 to 1000 characters.')
         intent = dict(saved.get('intent', {}))
         if action == 'purpose' and not intent.get('domain'):
-            raise ValueError('Record the business area before its purpose.')
+            raise JourneyError('Record the business area before its purpose.')
         answer = answer.strip()
         if action == 'domain' and intent.get('domain') != answer:
             intent.pop('purpose', None)

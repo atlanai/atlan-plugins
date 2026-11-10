@@ -378,12 +378,17 @@ def _unqualified(text: str) -> list[str]:
     return sorted(set(out))
 
 
-def _statement_tables(metric: dict, stmts: dict) -> set[str]:
-    """The tables the metric's own statements read, lower-cased, by every name SQL resolves them
-    by: the full name and its trailing SCHEMA.TABLE (`site.projects` for SITE.SITE.PROJECTS)."""
-    full = {str(t).lower() for s in (metric.get("sources") or []) if isinstance(s, dict)
-            for t in ((stmts.get(s.get("vq_id")) or {}).get("tables") or [])}
+def _table_names(tables) -> set[str]:
+    """Tables lower-cased, by every name SQL resolves them by: the full name and its trailing
+    SCHEMA.TABLE (`site.projects` for SITE.SITE.PROJECTS)."""
+    full = {str(t).lower() for t in tables}
     return full | {".".join(t.split(".")[-2:]) for t in full if t.count(".") >= 2}
+
+
+def _statement_tables(metric: dict, stmts: dict) -> set[str]:
+    """The tables the metric's own statements read, by every name SQL resolves them by."""
+    return _table_names(t for s in (metric.get("sources") or []) if isinstance(s, dict)
+                        for t in ((stmts.get(s.get("vq_id")) or {}).get("tables") or []))
 
 
 _MARKER = re.compile(r"\{\{\s*([A-Za-z_]\w*)\s*\}\}")
@@ -467,8 +472,12 @@ def _ingest(ctx: stage.Ctx) -> None:
     # THE IDENTITY IS SCOPED TO THE RUN. A measure_id is only (name, table), so two estates that
     # publish the same name over the same table would otherwise share one artifact, and a push
     # would append one estate's definition onto the other's.
-    scope = ctx.read("run_inputs.json", "run_inputs.schema.json")["scope"]
+    run_inputs = ctx.read("run_inputs.json", "run_inputs.schema.json")
+    scope = run_inputs["scope"]
     dialect, bi_rel = _dialect_and_relationships(merged, stmts)
+    # Every table the run is bounded to is a table, not an alias, by any name SQL resolves it by:
+    # a card may join one its own statements did not read (a dimension's table).
+    estate_tables = _table_names((run_inputs.get("bounded_tables") or {}).get("tables") or [])
     cands = _candidates_by_vq(ctx)
     columns = _catalogue(ctx, stmts)
     max_values = ctx.policy.get("metrics.dimensions.max_values_per_dimension")
@@ -595,7 +604,7 @@ def _ingest(ctx: stage.Ctx) -> None:
             derived = _derived_aliases(str(_source_of(a).get("sql") or ""))
             # A TABLE THE CARD'S OWN STATEMENTS READ IS NOT AN ALIAS either, in any dialect: a
             # two-part name they read (`site.projects`) is a table, not an alias and its column.
-            known = _statement_tables(m, stmts)
+            known = _statement_tables(m, stmts) | estate_tables
             loose = [x for x in _unqualified(scan) if x.split(".", 1)[0].lower() not in derived
                      and x.lower() not in known]
             if loose:
