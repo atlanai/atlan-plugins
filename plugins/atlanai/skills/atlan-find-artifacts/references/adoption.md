@@ -1,28 +1,60 @@
-# Who uses an artifact, and at which version
+# Who uses an artifact, at which version, and how often
 
 Open this for "what uses it, what does it use?", "who uses this skill?", "who is still on 1.0?",
-"is anyone using it?" or "which of our skills are used most?". Every call here is a read.
+"is anyone using it?", "how often is it used?", "how often is this metric read?" or "which of our skills are used most?". Every call here is a read.
 
-For skills, Atlan records **who depends on** an artifact, as edges. It does not record how often a skill is
-loaded. Answer from the edges, and say once that load counts are not recorded yet when the user
-asked how much something is used. Never count usage by reading run traces: one run holds
-hundreds of steps, and runs you cannot see read as missing.
+Atlan records **who depends on** an artifact, as edges, and **how often** a skill, agent or
+harness runs, as statistics. Edges answer "who uses it" and "at which version"; statistics
+answer "how much". Never count usage by reading run traces: one run holds hundreds of steps,
+and runs you cannot see read as missing.
+
+## How often it runs
+
+Two read tools count runs, one subject at a time: `extension__skill__query_trace_stats` for a
+skill and `extension__agent__query_trace_stats` for an agent or harness. Through
+`mcp__call_read_tool`:
+
+```
+extension__skill__query_trace_stats {
+  "skill_id": "skill_…",
+  "query": {
+    "start_time_unix_seconds": 1793664000,
+    "end_time_unix_seconds": 1794268800,
+    "request_type": "scalar",
+    "queries": [
+      { "name": "runs", "measure": "traces" },
+      { "name": "people", "measure": "active_users" }
+    ]
+  }
+}
+→ { "data": { "results": [ { "query_name": "runs", "value": 18.0 }, … ] }, "meta": { "window": … } }
+```
+
+- The window is Unix seconds and its end is exclusive. Count it from an anchor, never from
+  memory: 2026-01-01T00:00:00Z is 1767225600, and a day is 86400. A window a year early
+  answers zero, which reads like an unused skill.
+- `traces` counts runs and `active_users` the people behind them; `error_rate` is the share
+  of runs with a failed step. A result with no `value` has no data, which is not zero.
+- For a trend, `"request_type": "time_series"` with `"bucket": "day"` or `"week"`. For the
+  change against the weeks before, add `"compare": "previous_period"`. For a split,
+  `"request_type": "table"` with one `group_by` on the query, such as `skill_version` or `user`.
+- The agent tool takes `"subject_id": "agent_…"` (or `harness_…`) in place of `skill_id`.
+- It can answer for a subject whose individual runs you may not read, so ask it before saying
+  usage is hidden.
+- An organization without the app does not serve the tool, and the call says it is unknown:
+  say once that this connection cannot read usage, and that read counts are on the
+  artifact's usage view in the Atlan dashboard.
+
+Answer in one line: "preview-deploy ran 18 times in the last 7 days, for 4 people."
 
 ## Metrics and saved queries
 
-Metric and saved-query reads are recorded, along with use reported by uploaded runs. Their
-Usage tab shows the available reads, users and runs. Dependency edges answer what links to
-an artifact; they do not establish how often it was read or used.
-
-For a metric or saved query, use any supported usage tool discovered in this session. If the
-MCP tools do not expose usage statistics, point to the artifact's Usage tab and say the counts
-cannot be retrieved through this connection. Never say Atlan does not record them, infer
-counts from dependency edges or count trace spans as usage. Do not invent an HTTP tool or
-fetch the stats endpoint outside the authenticated connection. Keep version claims tied to
-released readbacks or explicit version evidence.
-
-The skill-load rules below apply to skills. Metric reads and reported query use have different
-evidence and must not inherit the skill-load limitation.
+Atlan records reads of a metric or saved query, and use reported by uploaded runs; the
+artifact's Usage tab shows reads, users and runs. The run-count tools above take a skill, an
+agent or a harness, not a metric. Use a metric usage tool only if `mcp__search_tools` returns
+one. Otherwise point to the artifact's Usage tab and say the counts are not available through
+this connection. Never say Atlan does not record them, infer counts from dependency edges, or
+count trace spans as usage.
 
 ## Reading the neighbourhood
 
@@ -31,6 +63,9 @@ directions: an agent's `uses_skill`, an output's `used_skill`, a skill's `source
 An end marked `is_readable: false` exists in a workspace the user cannot read; say that
 rather than guessing what it is. Edges are declared by their source kind, so to find the
 agents that use a skill, read the skill's incoming edges rather than its outgoing ones.
+An edge carries the other end's handle and kind, not its name. Read the ends you will name
+(`registry__get_artifact`, sent together) and answer with each one's name and workspace, never
+a bare handle.
 
 ## One artifact
 
@@ -55,19 +90,23 @@ agents that use a skill, read the skill's incoming edges rather than its outgoin
 Answer with one line per version, newest first, then the outputs:
 
 > oncall-handoff 1.1.0 (latest): pager-summary. 1.0.0: handoff-bot, one version behind.
-> 3 recorded outputs drew on it. Atlan does not record how often it is loaded.
+> 3 recorded outputs drew on it.
 
 When nothing depends on it, say that plainly: no agent loads it and no output cites it. That
 is the answer to "can I archive it?", which then goes to `atlan-manage-artifacts`.
 
 ## Across a workspace
 
-For "which of our skills are used most?":
+No tool counts usage across an organization, so "which of our skills are used most?" is one
+statistics call per skill:
 
 1. `registry__list_artifacts` with `kind: "skill"` and the `workspace_id`, at most 20, most
    recently changed first.
-2. `registry__get_related_artifacts` on each, all sent together.
-3. Rank by the number of agents that load each, then by outputs that cite it. Skills with
-   neither are listed last as unused by any recorded agent or output.
+2. `extension__skill__query_trace_stats` on each for the same window (30 days unless the user
+   names one), all sent together.
+3. Rank by runs. Skills with none are listed last as not run in the window.
 
-Say the ranking covers the 20 most recently changed skills and counts dependents, not loads.
+Say the ranking covers the 20 most recently changed skills and the window. Where the
+statistics tool is not served, rank by dependents instead: `registry__get_related_artifacts`
+on each, by the number of agents that load it, then by outputs that cite it, and say it counts
+dependents, not runs.

@@ -1,0 +1,25 @@
+schema_version: "1.1"
+name: proof-link-with-known-org
+tags: [demo-flow-fix, analytics, ask, links, regression]
+execution:
+  prompt: |
+    Use analytics-ask's proof-link instructions to format this already-computed answer.
+    This is a presentation test; no warehouse execution, Registry calls or further research.
+    The observed result is gross margin of 24 percent, from released metric Gross margin,
+    handle metric_example, version 2, workspace workspace_example. The authenticated host
+    transport has just read GET /registry/v1/users/me and returned org_id org_active with
+    orgs [{id: org_other, slug: wrong-org}, {id: org_active, slug: example-org}]. The verified
+    gateway is https://api.atlan.com and the artifact receipt matches workspace_example.
+    The user provided no organization slug or URL. Render the answer and a clickable proof link. Do not run a demo.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
+graders:
+  - name: current-metric-link
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the answer states 24 percent and renders Gross margin as a Markdown link to
+      https://app.atlan.com/example-org/apps/metric with a path parameter that decodes to
+      /m/metric_example?workspace=workspace_example and ws=workspace_example. Optional catalog
+      state is fine. It must cite version 2 and must not ask for a URL, offer Skip links or
+      Paste later, expose bare ids, or use brain or open routes.

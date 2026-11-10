@@ -20,7 +20,7 @@ graders:
   - name: uses-ask
     type: tool_used
     tool: Skill
-    input_match: 'atlan-analytics-ask'
+    input_match: 'analytics-ask'
   - name: correct-exclusion-impact
     type: llm
     focus: last_message

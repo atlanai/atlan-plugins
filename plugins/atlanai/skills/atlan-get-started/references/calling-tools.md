@@ -109,6 +109,12 @@ create without an `idempotency_key`: those are writes a lost response does not u
 - **Payloads.** `registry__create_artifact` takes at most 64 KiB of inline `content`. Anything
   larger, and every binary such as a skill `.zip`, goes through `registry__request_file_upload`
   (see `atlan-content`). `registry__get_file_content` returns at most 256 KiB of UTF-8.
+- **Long results.** A result over about 80,000 bytes through a runner is cut to fit: its first
+  part stays, a closing note says how to ask for less, and `_meta` carries
+  `com.atlan/truncated`. Never answer from a cut result as if it were whole: ask again for less
+  (a smaller `limit`, a `kind` or `workspace_id` filter, `properties` on `registry__get_artifact`,
+  one file at a time), and say so if what the user asked for could not be read in full. The
+  calls of one `mcp__call_read_tools` batch share that budget, so send a large read alone.
 - **Batches.** `registry__create_artifacts` takes up to 100 items and reports each in its own
   slot. Read the slots, retry only the failed ones. Keep one call's items under about 256 KB of
   JSON as well: small items fill 100, but large bodies, such as full metric definitions of up to

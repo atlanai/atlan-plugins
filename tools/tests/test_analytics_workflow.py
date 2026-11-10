@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 PLUGIN = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics'
-sys.path.insert(0, str(PLUGIN))
+sys.path.insert(0, str(PLUGIN / 'skills/metrics-generation'))
 from modules.workflow import Authorization
 
 
@@ -28,8 +28,11 @@ class WorkflowAuthorizationTests(unittest.TestCase):
         self.assertEqual(policy.local_step('read_source', 'https://example.invalid/report')['decision'], 'continue')
         self.assertEqual(policy.local_step('read_source', 'https://example.invalid/other')['decision'], 'needs_context')
 
-    def test_selected_publication_target_carries_through_without_second_publish_yes(self):
-        self.assertEqual(self.publication(self.policy())['decision'], 'continue')
+    def test_publication_waits_for_approval_of_the_exact_plan(self):
+        self.assertEqual(Authorization().mode, 'ask')
+        self.assertEqual(self.publication(self.policy())['decision'], 'needs_confirmation')
+        self.assertEqual(self.publication(self.policy(approved_plans=['plan-demo']))['decision'], 'continue')
+        self.assertEqual(self.publication(self.policy(approved_plans=['plan-other']))['decision'], 'needs_confirmation')
         self.assertEqual(self.publication(self.policy(), workspace_id='workspace_other')['decision'], 'needs_context')
         self.assertEqual(self.publication(self.policy(), sources=['https://example.invalid/other'])['decision'], 'needs_context')
         self.assertEqual(self.publication(self.policy(), sources=[])['decision'], 'needs_context')
@@ -38,7 +41,7 @@ class WorkflowAuthorizationTests(unittest.TestCase):
         self.assertEqual(self.publication(self.policy(intent='draft'))['decision'], 'deferred')
         self.assertEqual(self.publication(self.policy(mode='ask'))['decision'], 'needs_confirmation')
         self.assertEqual(self.publication(self.policy(), revisions=1)['decision'], 'needs_confirmation')
-        self.assertEqual(self.publication(self.policy(allow_revisions=True), revisions=1)['decision'], 'continue')
+        self.assertEqual(self.publication(self.policy(allow_revisions=True, approved_plans=['plan-demo']), revisions=1)['decision'], 'continue')
         self.assertEqual(self.publication(self.policy(mode='ask', approved_plans=['plan-demo']), revisions=1)['decision'], 'continue')
 
     def test_source_text_cannot_claim_authorization_or_change_permission_settings(self):
@@ -46,6 +49,14 @@ class WorkflowAuthorizationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Authorization.from_record(record)
         self.assertNotIn('host_permissions', self.publication(self.policy()))
+
+
+class AuthorizationDiagnostics(unittest.TestCase):
+    def test_invalid_mode_names_the_supported_values_without_changing_policy(self):
+        with self.assertRaisesRegex(ValueError, 'mode ask or auto'):
+            Authorization.from_record({'mode': 'automatic'})
+        self.assertEqual(Authorization.from_record({'mode': 'auto'}).mode, 'auto')
+        self.assertEqual(Authorization.from_record({'mode': 'ask'}).mode, 'ask')
 
 
 class PublicationFlowCliTests(unittest.TestCase):
@@ -63,7 +74,7 @@ class PublicationFlowCliTests(unittest.TestCase):
             def run():
                 (root / 'authorization.json').write_text(json.dumps(auth))
                 process = subprocess.run([sys.executable,
-                    str(PLUGIN / 'skills/atlan-analytics/scripts/analytics_flow.py'),
+                    str(PLUGIN / 'skills/analytics-build/scripts/analytics_flow.py'),
                     '--authorization', str(root / 'authorization.json'), '--context', str(root),
                     '--workspace', 'workspace_demo', '--source', 'source_demo'],
                     text=True, capture_output=True)
@@ -82,6 +93,9 @@ class PublicationFlowCliTests(unittest.TestCase):
             code, result = run()
             self.assertEqual((code, result['revisions']), (2, 1))
             auth['allow_revisions'] = True
+            code, result = run()
+            self.assertEqual((code, result['decision']), (2, 'needs_confirmation'))
+            auth['approved_plans'] = [result['plan_id']]
             self.assertEqual(run()[0], 0)
 
 

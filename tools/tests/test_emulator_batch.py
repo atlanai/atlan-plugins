@@ -254,5 +254,240 @@ class WithdrawReleaseTest(unittest.TestCase):
         self.assertEqual(body["current_version_label"], "1.0.0")
 
 
+class RegistryToolCoverageTest(unittest.TestCase):
+    """The registry tools the skills name beyond the first set: several files in one read, a bulk
+    create, an edge, a create with its edge, and a scan run again."""
+
+    def setUp(self) -> None:
+        self.m = load()
+        self.rails = {"session_id": self.m.SESSION, "rationale": "Testing the emulator."}
+
+    def run_tool(self, runner: str, name: str, arguments: dict) -> tuple[dict, dict]:
+        return call(self.m, runner, self.rails | {"name": name, "arguments": arguments})
+
+    def test_every_tool_is_served_and_found_on_the_runner_its_tier_needs(self) -> None:
+        names = ["registry__get_file_contents", "registry__create_artifacts", "registry__relate_artifact",
+                 "registry__create_artifact_linked", "registry__retrigger_artifact_action"]
+        _, body = call(self.m, "mcp__describe_tools", {"names": names, "session_id": self.m.SESSION})
+        self.assertEqual(sorted(t["name"] for t in body["tools"]), sorted(names))
+        self.assertNotIn("unknown", body)
+        result, body = self.run_tool("mcp__call_read_tool", "registry__relate_artifact",
+                                     {"artifact_id": "skill_01evalsecrev01", "subject_id": "skill_01evalsecrev02", "rel_type": "replaced_by"})
+        self.assertTrue(result["isError"])
+        self.assertEqual(body["code"], "runner_tier")
+
+    def test_several_files_read_in_order_and_one_unreadable_entry_fails_alone(self) -> None:
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_file_contents", {"files": [
+            {"file_id": "file_01evalsecrevmd", "version_ordinal": 1}, {"file_id": "file_01evalmissing"},
+            {"file_id": "file_01evalsecrevref"}]})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual([f["file_id"] for f in body["files"]], ["file_01evalsecrevmd", "file_01evalmissing", "file_01evalsecrevref"])
+        self.assertIn("# Security review", body["files"][0]["content"])
+        self.assertEqual((body["files"][1]["code"], "content" in body["files"][1]), ("not_found", False))
+        self.assertEqual(body["files"][2]["path"], "reference.md")
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_file_contents", {"files": [{"file_id": "file_01evalmissing"}]})
+        self.assertTrue(result["isError"])
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_file_contents",
+                                     {"files": [{"file_id": "file_01evalsecrevmd"}] * 9})
+        self.assertEqual(body["code"], "invalid_arguments")
+
+    def test_an_edge_is_written_once_however_often_it_is_stated_and_reads_back(self) -> None:
+        edge = {"artifact_id": "skill_01evalsecrev01", "subject_id": "skill_01evalsecrev02", "rel_type": "replaced_by"}
+        for attributes in ({"note": "first"}, {"note": "second"}):
+            result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact", edge | {"attributes": attributes})
+            self.assertFalse(result["isError"], body)
+        self.assertEqual((body["from_id"], body["to_id"], body["attributes"]), ("skill_01evalsecrev01", "skill_01evalsecrev02", {"note": "second"}))
+        self.assertEqual(len(self.m.state["edges"]), 1)
+        _, related = self.run_tool("mcp__call_read_tool", "registry__get_related_artifacts", {"artifact_id": "skill_01evalsecrev02"})
+        self.assertIn({"declared": True, "rel_type": "replaced_by", "direction": "incoming", "artifact_id": "skill_01evalsecrev01",
+                       "kind": "skill", "is_readable": True}, related["items"])
+        _, undeclared = self.run_tool("mcp__call_read_tool", "registry__get_related_artifacts",
+                                      {"artifact_id": "skill_01evalsecrev02", "declared": False})
+        self.assertEqual(undeclared["items"], [])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact",
+                                     {"artifact_id": "skill_01evalsecrev01", "rel_type": "replaced_by"})
+        self.assertEqual(body["code"], "invalid_arguments")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact", edge | {"subject_id": "skill_01evalnone"})
+        self.assertEqual(body["code"], "not_found")
+
+    def test_a_bulk_create_answers_one_slot_per_item_and_refuses_kinds_that_need_their_own_call(self) -> None:
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifacts", {"kind": "knowledge", "items": [
+            {"name": "refund-policy", "workspace_id": "workspace_01evalplatform"}, {"name": "no-workspace"}]})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual([(s["index"], s["ok"]) for s in body["items"]], [(0, True), (1, False)])
+        self.assertEqual((body["created"], body["failed"]), (1, 1))
+        self.assertEqual(body["items"][0]["artifact"]["kind"], "knowledge")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifacts",
+                                     {"kind": "agent", "items": [{"name": "bot", "workspace_id": "workspace_01evalplatform"}]})
+        self.assertEqual(body["code"], "unsupported_kind")
+
+    def test_a_linked_create_writes_the_artifact_and_its_edge_or_neither(self) -> None:
+        linked = {"kind": "knowledge", "metadata": {"name": "refund-policy", "workspace_id": "workspace_01evalplatform"},
+                  "rel_type": "documents"}
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact_linked", linked | {"subject_id": "skill_01evalnone"})
+        self.assertTrue(result["isError"])
+        self.assertEqual(self.m.state["edges"], {}, "a refused edge creates nothing")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact_linked", linked | {"subject_id": "skill_01evalsecrev01"})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual((body["kind"], body["edges"][0]["to_id"], body["edges"][0]["rel_type"]), ("knowledge", "skill_01evalsecrev01", "documents"))
+
+    def test_a_scan_run_again_is_a_new_run_each_time_and_approves_nothing(self) -> None:
+        rerun = {"artifact_id": "skill_01evalpending", "action_name": "scan"}
+        _, first = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun)
+        _, second = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun)
+        self.assertEqual((first["attempt"], first["reopened"], second["attempt"]), (1, False, 2))
+        self.assertNotEqual(first["run_id"], second["run_id"])
+        _, head = self.run_tool("mcp__call_read_tool", "registry__get_artifact", {"artifact_id": "skill_01evalpending"})
+        self.assertEqual(head["artifact_status"], "pending_review")
+        _, blocked = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"artifact_id": "skill_01evalblocked"})
+        self.assertTrue(blocked["reopened"])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"artifact_id": "skill_01evalsecrev01"})
+        self.assertEqual(body["code"], "conflict")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"action_name": "publish"})
+        self.assertEqual(body["code"], "unknown_action")
+
+
+class GatewayLabelsAndChecksTest(unittest.TestCase):
+    """What the gateway's tool definitions promise beyond the first set, which the synced
+    `world.json` now advertises: workspace names on counts and browse rows, paging by offset, an
+    output's file in the same read, a create checked without writing, and an approval pinned to
+    the head that was read."""
+
+    def setUp(self) -> None:
+        self.m = load()
+        self.rails = {"session_id": self.m.SESSION, "rationale": "Testing the emulator."}
+
+    def run_tool(self, runner: str, name: str, arguments: dict) -> tuple[dict, dict]:
+        return call(self.m, runner, self.rails | {"name": name, "arguments": arguments})
+
+    def read(self, name: str, arguments: dict) -> dict:
+        result, body = self.run_tool("mcp__call_read_tool", name, arguments)
+        self.assertFalse(result["isError"], body)
+        return body
+
+    def test_a_workspace_count_group_and_a_browse_row_name_their_workspace(self) -> None:
+        counted = self.read("registry__get_artifact_counts", {"kind": "skill", "group_by": "workspace_id", "limit": 2})
+        self.assertEqual(len(counted["groups"]), 2)
+        for group in counted["groups"]:
+            self.assertTrue(group["workspace_display_name"], group)
+            self.assertIn(group["workspace_kind"], ("default", "org_default", "user_default"))
+        self.assertRegex(counted["note"], r"^showing the 2 largest of \d+ groups; raise `limit` to see more$")
+        by_kind = self.read("registry__get_artifact_counts", {"group_by": "kind"})
+        self.assertNotIn("workspace_display_name", by_kind["groups"][0])
+        row = self.read("registry__list_artifacts", {"kind": "output", "limit": 1})["items"][0]
+        self.assertTrue(row["workspace_display_name"])
+        # One artifact read names it too, so a reply says "Marketing", not `workspace_…`.
+        one = self.read("registry__get_artifact", {"artifact_id": row["id"]})
+        self.assertEqual(one["workspace_display_name"], row["workspace_display_name"])
+        self.assertEqual(one["workspace_kind"], row["workspace_kind"])
+
+    def test_a_stuck_scan_answers_not_scanned_however_often_it_is_read(self) -> None:
+        findings = ("registry__get_security_findings", {"artifact_id": "skill_01evalpending"})
+        self.assertEqual(self.read(*findings)["scan_status"], "scanned")
+        self.m = load(ATLAN_EMULATOR_NOT_SCANNED="skill_01evalpending")
+        for _ in range(2):
+            body = self.read(*findings)
+            body = body.get("result", body)
+            self.assertEqual((body["scan_status"], body["findings"], body["artifact_status"]), ("not_scanned", [], "pending_review"))
+
+    def test_usage_statistics_count_runs_in_the_window_asked_for(self) -> None:
+        now = int(self.m.time.time())
+        week = {"start_time_unix_seconds": now - 7 * 86400, "end_time_unix_seconds": now}
+        stats = "extension__skill__query_trace_stats"
+        asked = week | {"request_type": "scalar", "queries": [
+            {"name": "runs", "measure": "traces"}, {"name": "people", "measure": "active_users"},
+            {"name": "spend", "measure": "cost"}]}
+        body = self.read(stats, {"skill_id": "skill_01evalsecrev01", "query": asked})
+        results = {row["query_name"]: row for row in body["data"]["results"]}
+        self.assertEqual(results["runs"], {"query_name": "runs", "measure": "traces", "value": 42.0})
+        self.assertEqual(results["people"]["value"], 9.0)
+        self.assertNotIn("value", results["spend"], "a measure with no data has no value, which is not zero")
+        self.assertEqual(body["meta"]["window"], week)
+        # The same week a year early holds nothing: a window counted from memory finds no runs.
+        early = {k: v - 365 * 86400 for k, v in week.items()}
+        body = self.read(stats, {"subject_id": "skill_01evalsecrev01", "query": asked | early})
+        self.assertEqual(body["data"]["results"][0]["value"], 0.0)
+        days = self.read(stats, {"skill_id": "skill_01evalsecrev01", "query": week | {
+            "request_type": "time_series", "bucket": "day", "compare": "previous_period",
+            "queries": [{"name": "runs", "measure": "traces"}]}})
+        self.assertEqual([point["value"] for point in days["data"]["series"][0]["points"]], [6.0] * 7)
+        self.assertEqual(days["comparison"]["end_time_unix_seconds"], week["start_time_unix_seconds"])
+        table = self.read(stats, {"skill_id": "skill_01evalsecrev01", "query": week | {
+            "request_type": "table", "queries": [{"name": "runs", "measure": "traces", "group_by": ["skill_version"]}]}})
+        self.assertEqual([(row["groups"], row["values"]) for row in table["data"]["rows"]],
+                         [({"skill_version": "2"}, {"runs": 35.0}), ({"skill_version": "1"}, {"runs": 7.0})])
+        # A skill nobody ran answers zero; an agent is asked through its own tool, by `subject_id`.
+        unused = self.read(stats, {"skill_id": "skill_01evaltfplan01", "query": asked})
+        self.assertEqual(unused["data"]["results"][0]["value"], 0.0)
+        agent = self.read("extension__agent__query_trace_stats", {"subject_id": "agent_01evalreviewbot", "query": asked})
+        self.assertEqual(agent["data"]["results"][0]["value"], 84.0)
+        for arguments in ({"query": asked}, {"skill_id": "agent_01evalreviewbot", "query": asked},
+                          {"skill_id": "skill_01evalsecrev01", "query": week | {"request_type": "time_series", "queries": []}}):
+            result, refused = self.run_tool("mcp__call_read_tool", stats, arguments)
+            self.assertTrue(result["isError"], refused)
+
+    def test_offset_pages_a_browse_and_a_search_and_name_narrows_a_browse_to_one_line(self) -> None:
+        first = self.read("registry__list_artifacts", {"kind": "skill", "limit": 2})
+        second = self.read("registry__list_artifacts", {"kind": "skill", "limit": 2, "offset": 2})
+        self.assertEqual(second["page"]["offset"], 2)
+        self.assertFalse({i["id"] for i in first["items"]} & {i["id"] for i in second["items"]})
+        named = self.read("registry__list_artifacts", {"kind": "skill", "name": "security-review"})
+        self.assertEqual({i["name"] for i in named["items"]}, {"security-review"})
+        page = self.read("registry__search_artifacts", {"query": "security review", "kind": "skill", "limit": 1})["page"]
+        self.assertEqual(page["next_offset"], 1)
+        rest = self.read("registry__search_artifacts", {"query": "security review", "kind": "skill", "offset": page["next_offset"]})
+        self.assertNotIn("next_offset", rest["page"])
+        self.assertEqual(self.read("registry__list_workspaces", {"limit": 1, "offset": 1})["page"]["offset"], 1)
+
+    def test_a_project_reads_by_handle_or_by_exact_name_and_never_both(self) -> None:
+        by_name = self.read("registry__get_project", {"name": "payments"})
+        self.assertEqual(by_name, self.read("registry__get_project", {"project_id": "project_01evalpayments"}))
+        for arguments in ({}, {"name": "payments", "project_id": "project_01evalpayments"}):
+            result, body = self.run_tool("mcp__call_read_tool", "registry__get_project", arguments)
+            self.assertEqual(body["code"], "invalid_arguments")
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_project", {"name": "no-such"})
+        self.assertEqual(body["code"], "not_found")
+
+    def test_an_output_reads_with_its_file_in_one_call(self) -> None:
+        body = self.read("registry__get_artifact", {"artifact_id": "output_01evalchurn", "include_linked_file": True})
+        self.assertEqual(body["included_file"]["file_id"], "file_01evalchurnmd")
+        self.assertTrue(body["included_file"]["content"])
+        skill = self.read("registry__get_artifact", {"artifact_id": "skill_01evaloncall", "include_linked_file": True})
+        self.assertIn("points at no file", skill["included_file"]["error"])
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_artifact",
+                                     {"artifact_id": "output_01evalchurn", "include_linked_file": True, "include_file": "SKILL.md"})
+        self.assertEqual(body["code"], "invalid_arguments")
+
+    def test_a_dry_run_says_what_a_create_would_do_and_writes_nothing(self) -> None:
+        before = len(self.m.artifacts())
+        publish = {"metadata": {"name": "october-incident-review", "workspace_id": "workspace_01evalplatform"},
+                   "source_type": "local", "source_id": "claude/october-incident-review",
+                   "file": {"path": "review.md", "content": "# Review"}, "dry_run": True}
+        result, body = self.run_tool("mcp__call_write_tool", "registry__publish_output", publish)
+        self.assertFalse(result["isError"], body)
+        self.assertEqual((body["dry_run"], body["committed"], body["would"], body["artifact_id"]),
+                         (True, False, "append_version", "output_01evalincident"))
+        self.assertIn("the inline file's own create, which runs the file kind's hook", body["not_checked"])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact",
+                                     {"kind": "knowledge", "metadata": {"name": "runbooks", "workspace_id": "workspace_01evaldana"},
+                                      "dry_run": True})
+        self.assertEqual((body["would"], body["artifact_id"]), ("create", None))
+        self.assertEqual((len(self.m.artifacts()), self.m.state["versions"], self.m.state["created"]), (before, {}, {}))
+
+    def test_an_approval_holds_only_for_the_head_that_was_read(self) -> None:
+        head = self.read("registry__get_artifact", {"artifact_id": "skill_01evalpending"})
+        named = {"artifact_id": head["id"], "expected_version_id": head["version_id"], "if_match": head["etag"],
+                 "expected_status": head["artifact_status"]}
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", named | {"if_match": 'W/"v1"'})
+        self.assertEqual((result["isError"], body["code"]), (True, "precondition_failed"))
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", {"artifact_id": head["id"], "version_ordinal": 2})
+        self.assertEqual(body["code"], "invalid_arguments")
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", named)
+        self.assertFalse(result["isError"], body)
+        self.assertEqual(self.read("registry__get_artifact", {"artifact_id": head["id"]})["artifact_status"], "active")
+        result, body = self.run_tool("mcp__call_tool", "registry__approve_artifact", named | {"expected_status": "active"})
+        self.assertEqual(body["code"], "conflict")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,8 +10,8 @@ Every action here changes something other people use. Each one follows the same 
 resolve the exact version, read what depends on it, show one readout, and ask once.
 
 Calls below are written in search mode, each through the runner its tool needs: reads use
-`mcp__call_read_tool`, `registry__patch_artifact`, `registry__move_artifact` and
-`registry__relate_artifact` use `mcp__call_write_tool`, and `registry__archive_artifact`,
+`mcp__call_read_tool`, `registry__patch_artifact`, `registry__move_artifact`,
+`registry__relate_artifact` and `registry__retrigger_artifact_action` use `mcp__call_write_tool`, and `registry__archive_artifact`,
 `registry__approve_artifact`, `registry__release_artifact` and `registry__withdraw_release` use
 `mcp__call_tool`. The first call opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
@@ -21,7 +21,7 @@ and `rationale` as its own arguments and no runner. When the host lists `mcp__ca
 independent reads as one call, `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`;
 otherwise in parallel. Before the first move, approve, release or
 withdraw in a session, read its arguments with `mcp__describe_tools`: they differ between gateways.
-Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first, and never repeat an archive,
@@ -37,8 +37,9 @@ Use the handle the user gave. Given only a name, search with `registry__search_a
 than one fits. Then read the head with `registry__get_artifact` and no `channel`: its
 `version_ordinal`, `version_label`, `artifact_status`, `released_channels` and `workspace_id`
 are what the readout names. When that status rules the action out (a release of a
-`pending_review` or `blocked` version), say so now and offer the step that comes first; skip
-step 2.
+`pending_review` or `blocked` version), or the registry refuses to move that kind or status
+([what cannot move](references/refusals.md)), say so now and offer the step that comes first;
+skip step 2.
 
 ## 2. Read the blast radius
 
@@ -75,10 +76,11 @@ report the new state in one line.
 |---|---|---|
 | "Archive it", "delete it", "retire it" | `registry__archive_artifact` | Needs a workspace admin. When an agent depends on it, offer the safer path first: deprecate, or release a replacement and update those agents. There is no hard delete here: say archive is what this does. |
 | "Roll back", "latest is broken" | `registry__list_releases`, then `registry__withdraw_release` with the `release_id` of the channel's current release (`is_current: true`) and a `reason` | This is the safe undo for a bad release: offer it before archive. When `mcp__describe_tools` answers that `registry__withdraw_release` is not a tool you can call (older gateways do not serve it), say that roll-back is not available on this connection, offer to release a fixed version through `atlan-author-skills` instead, and never archive in its place. The readout names the version the channel falls back to, the newest earlier release on it whose version is still active, or says the channel will serve nothing. Never release the older version again: a label must increase, and it is refused. A withdrawal is final; the version stays in the registry and a new release undoes it. |
-| "Release 1.2 to stable", "ship it" | `registry__release_artifact` with `version_label` or `channel` | Only a version that is `active`. A `pending_review` one is approved first. |
-| "Move it to Platform" | `registry__move_artifact` | Readers of the old workspace may lose it, and an end that turns `is_readable: false` for the new readers is named. |
+| "Release 1.2 to stable", "ship it" | `registry__release_artifact` with `version_label` or `channel` | Only a version that is `active`. A `pending_review` one waits for its scan, or is approved first. A refusal carries a `code`: open [refusals](references/refusals.md) for its one step. |
+| "Move it to Platform" | `registry__move_artifact` | Open [refusals](references/refusals.md) before the readout: some kinds, statuses and targets cannot move, and the readout says so instead of asking. Readers of the old workspace may lose it, and an end that turns `is_readable: false` for the new readers is named. |
 | "Deprecate it, use X instead" | `registry__patch_artifact` with a `description` that starts `Deprecated: use <name> (<handle>) instead.` followed by the old description; then, when there is a replacement and `registry__get_kind_schema` lists a `replaced_by` relationship for the kind, `registry__relate_artifact` from the old artifact to it with `rel_type` `replaced_by` | Never set `artifact_status` to `deprecated`: the registry reads it as `active` and nothing changes. The description is what every search hit and `atlan-use-skill` read carries, so keep the rest of it. The `replaced_by` edge lets tools point at the successor. A skill's own `lifecycle: deprecated` comes from its bundle, so it changes only with a new version published through `atlan-author-skills`; offer that only when the owner wants it. |
 | "Approve it", "what's waiting for my review?" | [The review queue](references/review-queue.md) | Read it before any approval. |
+| "It has been pending for ages", "the scan is stuck" | [The review queue](references/review-queue.md), under a scan that does not settle | One rerun of the scan after a yes, never an approval in its place. |
 
 What any change does to an artifact's content is publishing, not this skill: a new version goes
 through `atlan-author-skills` (or the agent or knowledge authoring skill), and what changed

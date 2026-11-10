@@ -15,7 +15,7 @@ together in one turn, or as one `mcp__call_read_tools` call (up to 8) when the h
 `.atlan/share.json`'s at the project root, else theirs from `registry__list_workspaces` with
 `{"kind": "user_default"}`. Write first, and read `registry__get_kind_schema` only after a
 refusal that names no field. Open `skills/atlan-get-started/references/calling-tools.md` only for
-a failed call, a limit, a source key or full mode. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for. Ask before every write.
+a failed call, a limit, a source key or full mode. Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried. Ask before every write.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -41,7 +41,7 @@ goes through it whatever `run_with` a search answer names; the searches and read
    the user already has: skip to step 3.
 3. **Ask once.** Show the draft, the workspace and "publish?" in one question. The workspace is
    the one the user named, else `workspace_id` from `.atlan/share.json` at the project root, else
-   the user's own from `registry__list_workspaces` with `{"limit": 1}` (`personal_workspace_id`).
+   the user's own from `registry__list_workspaces` with `{"kind": "user_default"}`.
 4. **Check.** With a shell, run `python3 <this skill's folder>/scripts/check_bundle.py <folder>`
    and fix what it lists.
 5. **Create**, after the yes:
@@ -75,6 +75,8 @@ goes through it whatever `run_with` a search answer names; the searches and read
    "service unavailable" that may have committed): follow [publishing](references/publish.md),
    step 4 and "When the reply is lost". A call that carried an `idempotency_key` is resent
    unchanged; one without it is read back before anything is sent again.
+   Report what landed, not the route to it: nothing about a call that failed and was sent
+   again, or a check that could not run.
 
 ## Everything else
 

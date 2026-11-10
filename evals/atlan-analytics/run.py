@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""Run the `atlan-analytics` plugin's evals against the gateway emulator.
+"""Run the `atlanai-analytics` plugin's evals against the gateway emulator.
 
     python3 evals/atlan-analytics/run.py [--plugin plugins/atlanai-analytics] [-- <claude plugin eval options>]
 
-The same setup as evals/atlan/run.py, with two differences. The plugin's `atlan` dependency is
+The same setup as evals/atlan/run.py, with two differences. The plugin's `atlanai` dependency is
 removed from the copy, because `claude plugin eval` loads one plugin and silently skips one whose
 dependency it cannot resolve. In its place the copy gets an `atlan` server pointed at the core
 plugin's emulator, which is the connection the dependency would have supplied, with the Metrics
 and Ontology apps of the 5 November review's airline sandbox loaded (`ATLAN_EMULATOR_ANALYTICS`). Results land in
 evals/atlan-analytics/results/. Each case is a full Claude Code run on your own credential: it
-costs money and is not part of `make check`.
+costs money and is not part of `make check`. The LLM graders are judged as evals/atlan/run.py
+says.
 """
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import shutil
 import subprocess
@@ -31,7 +33,7 @@ SERVER = "atlan"
 TOOLS = f"mcp__plugin_{PLUGIN}_{SERVER}__*"
 
 sys.path.insert(0, str(ROOT / "evals" / "atlan"))
-from run import summarize  # noqa: E402
+from run import case_filters, judge, summarize, without_case_filters  # noqa: E402
 
 
 def main() -> int:
@@ -54,13 +56,21 @@ def main() -> int:
         server = {"type": "stdio", "command": sys.executable, "args": [str(EMULATOR)],
                   "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), "ATLAN_EMULATOR_ANALYTICS": "1"}}
         (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n", encoding="utf-8")
-        shutil.copytree(HERE / "cases", plugin / "evals")
+        # `--case <glob>`, repeated, picks the cases to run, as in evals/atlan/run.py.
+        wanted = case_filters(args.extra)
+        cases = [case for case in sorted((HERE / "cases").iterdir()) if case.is_dir()
+                 and (not wanted or any(fnmatch.fnmatchcase(case.name, pattern) for pattern in wanted))]
+        if not cases:
+            print("no case matches", file=sys.stderr)
+            return 2
+        for case in cases:
+            shutil.copytree(case, plugin / "evals" / case.name)
         command = [
             "claude", "plugin", "eval", str(plugin),
             "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write",
             "--ablation", "none", "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *args.extra,
+            "--output-dir", str(out), *judge(args.extra), *without_case_filters(args.extra),
         ]
         print("+", " ".join(command), flush=True)
         code = subprocess.run(command, check=False).returncode

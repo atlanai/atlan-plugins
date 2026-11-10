@@ -7,7 +7,7 @@ import sys
 import tempfile
 import unittest
 
-SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 from context_state import ContextState, digest
 import experience
@@ -195,7 +195,7 @@ class AnalyticsExperience(unittest.TestCase):
             model = experience.snapshot(self.run, **args)
             self.assertEqual(model['auth_status'], 'login_required')
             self.assertEqual(model['phase']['status'], 'access_needed')
-            self.assertEqual(model['phase']['label'], 'Your definitions are saved in Atlan')
+            self.assertEqual(model['phase']['label'], 'Your metrics and queries are saved in Atlan Trident')
         other_server = experience.snapshot(self.run, host='codex', server='other-atlan')
         self.assertEqual(other_server['auth_status'], 'unverified')
         self.assertEqual(self.files(), before)
@@ -276,7 +276,7 @@ class AnalyticsExperience(unittest.TestCase):
                 self.assertIsNone(model['engine'])
                 self.assertIn('engine directory is missing', model['warnings'][0])
                 self.assertIn('engine directory is missing', experience.render_chat(model))
-                self.assertNotEqual(model['phase']['label'], 'Your definitions are saved in Atlan')
+                self.assertNotEqual(model['phase']['label'], 'Your metrics and queries are saved in Atlan Trident')
                 self.assertEqual(model['counts']['released'], 1)
                 self.assertFalse((self.run.root / selected).exists())
                 self.assertEqual(self.files(), before)
@@ -330,7 +330,7 @@ class AnalyticsExperience(unittest.TestCase):
             'definition_hash': digest(body['definition']), 'status': 'schema_checked'}})
         model = experience.snapshot(self.run)
         compact = experience.render_chat(model)
-        self.assertIn('1 metric definition,', compact)
+        self.assertIn('1 metric,', compact)
         self.assertIn('1 source.', compact)
         self.assertIn('SUM(s.units)', compact)
         self.assertIn("s.status = 'shipped'", compact)

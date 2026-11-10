@@ -1,0 +1,30 @@
+schema_version: "1.1"
+name: demo-start-choice
+tags: [analytics, demo, ux, checklist]
+execution:
+  prompt: |
+    Show me an Atlan Analytics demo. This is the demo's first checkpoint: do what you would do
+    before anything is downloaded, then stop. Do not clone, run commands or make Registry calls
+    in this test.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill, TaskCreate, TaskUpdate]
+graders:
+  - name: fires-demo-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'analytics-demo'
+  - name: never-loads-build-for-a-demo
+    type: tool_used
+    tool: Skill
+    input_match: 'analytics-build'
+    min: 0
+    max: 0
+  - name: offers-the-demos
+    type: llm
+    focus: last_message
+    criteria: |
+      The user asked for an Atlan Analytics demo and nothing has been downloaded. PASS if the
+      reply, or the native question it asks, says what the person will end with and offers
+      the Fixit & Co. and Ticketfuddle demos, with own data as a third choice. FAIL if it
+      downloads, surveys or claims to have built anything, shows a first-metric preview,
+      lists seven steps instead of the demo's six, or uses an em dash or a closing offer.

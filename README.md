@@ -80,8 +80,8 @@ covers each agent in detail.
 | Plugin | What it adds |
 |---|---|
 | [**AI Registry**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in the registry. Every other plugin here builds on it. |
-| [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your governed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
-| [**Registry Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Registry reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, Shows each Atlan call as one readable line, lists what the session read and changed in a pane, follows a skill publish in a band above the prompt, and picks a skill to load with `/atlan skills`. Reports a broken connection on the status line. |
+| [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your managed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
+| [**Registry Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Registry reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, shows each Atlan call as one readable line, lists what the session read and changed in a pane, follows a skill publish in a band above the prompt, and picks a skill to load with `/atlan skills`. Reports a broken connection on the status line. |
 
 ### AI Registry
 
@@ -101,7 +101,6 @@ The core plugin connects one MCP server, `atlan`, and teaches your agent when to
 | `atlan-author-agents` | Register an agent or harness, link a repository's agent, or update one |
 | `atlan-author-knowledge` | Publish knowledge to Atlan, or update it |
 | `atlan-connect-repo` | Record where a skill came from, or sync a repository's skills from GitHub |
-| `atlan-record-outputs` | Record what a run produced as an Atlan output |
 | `atlan-share` | Share a result with your team through Atlan, and post the hand-off to Slack |
 
 In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-skill <skill_…>`,
@@ -147,7 +146,7 @@ These work in any host once you are signed in.
 | *"Publish the skill in this folder to Atlan."* | Bundles the folder, uploads it and creates a new version |
 | *"Sync this repository's skills to Atlan from GitHub."* | Sets up GitHub-to-Atlan sync for the repository |
 | *"Why did my last Atlan call fail?"* | Reads the error and the session record, and says what to fix |
-| *"What was revenue last quarter, by region, from our published metrics?"* | With Analytics: answers from a governed metric and names the definition it used |
+| *"What was revenue last quarter, by region, from our published metrics?"* | With Analytics: answers from a managed metric and names the definition it used |
 
 ## How it works
 
@@ -168,26 +167,30 @@ flowchart LR
   gateway --> servers
 ```
 
-The `atlan` server runs Atlan's MCP gateway in search mode. Three tools (`mcp__search_tools`,
-`mcp__describe_tools` and `mcp__call_tool`) reach the registry's own tools, every Atlan app's
-tools and every MCP server your organization registered; connecting your account for one of
-those servers runs through `mcp__call_tool` as `mcp__connect_server`. The agent
-searches for the tool it needs instead of loading hundreds of schemas up front. Atlan checks
-your permissions on each call and records it in a session you can review.
+The `atlan` server runs Atlan's MCP gateway in search mode. A few helpers reach the registry's
+own tools, every Atlan app's tools and every MCP server your organization registered:
+`mcp__search_tools` and `mcp__describe_tools` find a tool, and a runner for each level of risk
+calls it (`mcp__call_read_tool` and its batch form `mcp__call_read_tools` for reads,
+`mcp__call_write_tool` for writes, `mcp__call_tool` for anything destructive), so your tool can
+let reads run and ask before the rest. `mcp__connect_server` connects your account for one of
+those servers. The agent searches for the tool it needs instead of loading hundreds of schemas
+up front. Atlan checks your permissions on each call and records it in a session you can review.
 
 The skills are plain Markdown. They teach the agent which tools to call and in what order,
 and point at live tools instead of copying reference data that would go stale.
 
 ## Privacy and security
 
-- **Little runs on your machine.** The add-ons are Markdown files: no hooks, no binaries, no
-  local storage. `atlanai` adds one hook, the publish helper, in Claude Code, Codex and Cursor
+- **Little runs on your machine.** The add-ons have no hooks and no binaries. Analytics' skills
+  run the Python helpers bundled with them and keep their working files in your project.
+  `atlanai` adds one hook, the publish helper, in Claude Code, Codex and Cursor
   (in Codex and Cursor only once you trust its hooks, and only where `python3` is installed):
   when the agent publishes a skill with `files_from`, it reads that one folder in your working
   tree, refuses links, credential files and folders, and anything outside the tree, and sends
   the files only in that same call to Atlan. It can also load one digest-bound local JSON batch
   of metrics or saved queries into an Atlan bulk-create call, under the same path, credential
-  and size checks. When Analytics requests receipt recording, it saves native results as
+  and size checks. It holds back a shared output whose text matches a credential shape, naming
+  the line. When Analytics requests receipt recording, it saves native results as
   immutable private run files and small tool-id mappings in `.atlan-receipt-pending/`.
   The same hook reads
   `atlanai`'s public manifest on `main` at session start, so the agent can tell you once when an
@@ -241,7 +244,7 @@ own plugin, named `atlanai-<workload>`. A Claude Code mod ships the same way, as
 ## Contributing
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to set up and run
-the checks, and [AGENTS.md](AGENTS.md) for the layout rules, variants and releases. Everyone
+the checks, and [AGENTS.md](AGENTS.md) for the layout rules, environments and releases. Everyone
 taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## License

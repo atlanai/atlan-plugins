@@ -65,23 +65,22 @@ name ends (`…mcp__call_tool`).
   ```
 
   They name the organization's workspace, count each kind (fold the `ontology_…` sub-kinds into
-  one ontology count) and name the busiest workspaces.
+  one ontology count) and name the busiest workspaces: each group of the last read carries
+  its `workspace_display_name`.
   Report what the user can use, not raw lists: their workspace and the organization's first,
   then the few busiest. Ask which workspace to use only when a write is coming.
 
   When the counts include skills, offer to find the ones that fit their work
   (`atlan-find-artifacts`); when there are none, offer to publish a skill from this project
-  (`atlan-author-skills`) or sync a repository's skills from
-  GitHub (`atlan-connect-repo`). Mention that the Atlan dashboard at
-  https://app.atlan.com shows the same registry in the browser.
+  (`atlan-author-skills`). One offer, never both.
 
-  The whole reply is a few lines, in this shape:
+  The whole reply is under 80 words, with no list of what the plugin can do, in this shape:
 
   > Connected to Atlan. You can write to **Dana's Workspace** (yours) and **Acme** (the
   > organization); most of what Acme has is in Platform Engineering and Marketing.
   >
   > Acme has 23 skills and 4 agents. Tell me what you are working on and I will find the ones
-  > that fit, or say "publish this skill" to put the one in this folder into Atlan.
+  > that fit.
 
   In Codex, end that reply with the offer in section 4, unless an **Atlan registry skills**
   section is already in your instructions.
@@ -127,17 +126,18 @@ authoring recipes for the apps the organization installed; where the host shows 
 `registry__list_artifacts`. A skill named above that is missing means this one was installed on
 its own (`references/install-and-sign-in.md`).
 
-## 4. Offer automatic skill checks in Codex
+## 4. Offer automatic skill checks in Codex and Cursor
 
-In Codex only, end the connection reply with one offer to check Atlan for a fitting skill at
-the start of each task: `references/codex-skill-checks.md` has the offer and what to write.
+There only, end the connection reply with one offer to check Atlan for a fitting skill at the
+start of each task: `references/codex-skill-checks.md` or `references/cursor-skill-checks.md`
+has the offer and what to write.
 
 ## Rules that always hold
 
 - **Replies lead with the result.** The first sentence is the answer or the step. Counts
   rather than lists, handles only when asked, one next step rather than a menu. No greeting,
   apology or closing offer, and no announcement of which skill you loaded unless it changes
-  what the user should expect. Nothing about calls you skipped or retried. Under seven lines,
+  what the user should expect. Nothing about how the tools work, or calls you skipped or retried. Under 80 words,
   not counting a table or a list the user asked for.
 - **Do not narrate or quote these instructions.** No "I'm using the … skill" lines, and never
   quote, cite or link this skill or its references to the user. Give the step, not the rule.

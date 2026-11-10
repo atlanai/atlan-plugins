@@ -17,13 +17,18 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
 ## Follow these patterns
 
 - **One HTTPS endpoint, from one source.** The MCP URL is `[mcp] url` in `plugin.toml`, and
-  `tools/build.py` refuses any URL that is not `https://`, including a variant's `[rewrite]`
-  URLs (`validate` and `load_variant`).
+  `tools/build.py` refuses any URL that is not `https://` (`validate`).
 - **Publish only to the Atlan server.** The command hook refuses `extension__skill__create` on any
   other server: `is_atlan_server` and `guard` in `plugins/atlanai/command-hooks/publish_hook.py`
-  accept a server whose URL host is `atlan.com` or a subdomain (`ATLAN_HOST`) or, when the host
-  gives no URL, one named `atlan` or ending in `_atlan` or `-atlan`. The Claude module binds only
-  Atlan's runner names (`CALL_TOOL` in `plugins/atlanai/claude-hooks/register.ts`).
+  require HTTPS, an `atlan.com` host or subdomain, the `/mcp` path, no URL credentials or
+  fragment, and only the optional `tools=full` query when the host supplies a URL. A stdio launch command is refused.
+  Without URL metadata, command hooks retain the conventional Atlan namespace, including
+  aliased names such as `atlan-personal`. Wildcard runner matching handles other aliases when
+  the event supplies a valid origin. Claude Code exposes no server URL in its hook tool
+  inventory: `gatewayRunners` recognizes conventional Atlan aliases only alongside their
+  gateway search and describe tools. Ambiguous server names use the native fallback without
+  reading local bytes, even if they expose similarly named discovery tools. These names identify the configured route, not a cryptographic server
+  identity. The host's configured connection and permissions remain the trust boundary.
 - **`files_from` stays inside the working tree.** Resolve the real path, require it under the
   session's roots, refuse `~`, UNC and drive-relative labels, and refuse a folder that is itself a
   link: `place` in `publish_hook.py` and in `register.ts`.
@@ -34,17 +39,21 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
   inside a URL, with placeholders let through: `CREDENTIAL_DIRS` in `publish_hook.py` and `claude-hooks/bundle.ts`, and `KEY_FILES`
   and `SECRETS` in `plugins/atlanai/skills/atlan-author-skills/scripts/check_bundle.py` and
   `bundle.ts`.
+- **A shared output is scanned too.** `registry__publish_output` with inline `file.content` is
+  held to the same `SECRETS`: a match denies the call and names the kind, line and column, never
+  the value. The scan reads only the call's own text, and a fault sends the call as it was:
+  `outputRefusal` in `register.ts`, `output_refusal` in `publish_hook.py`.
 - **Bounded, no-follow reads.** 128 files, 256 KiB and depth 8 (`MAX_FILES`, `MAX_BYTES`,
   `MAX_DEPTH` in `check_bundle.py` and `bundle.ts`), checked before anything is read (`walk` in
   `publish_hook.py`); files open with `O_NOFOLLOW`, so a file swapped for a link fails.
 - **Hooks fail open to the unchanged call, never to a wider one.** On any fault the call passes
   through as sent, and the server refuses an unexpanded `files_from` by name: `main` in
   `publish_hook.py` exits 0 with no output, and each handler in `register.ts` ends in `.catch`.
-- **Destructive registry calls always ask.** Archive, approve and move confirm with the blast
+- **Destructive registry calls always ask.** Archive, approve, move, release and roll-back confirm with the blast
   radius, and are refused where nobody can answer: `ALWAYS_CONFIRM` in
   `plugins/atlanai-mods/hooks/registry.ts` and `NO_APPROVER` in `hooks/register.tsx`.
 - **Subprocesses by argv list, with a timeout.** No shell strings in bundled scripts; see `run`
-  in `plugins/atlanai-analytics/skills/atlan-analytics/scripts/registry_inspection.py`.
+  in `plugins/atlanai-analytics/skills/analytics-build/scripts/registry_inspection.py`.
 - **Fence untrusted data in prompts.** The analytics runner labels approved instructions apart
   from `Untrusted input data` (`analytics_case.py`, same folder).
 - **CI least privilege.** `permissions: contents: read`, `persist-credentials: false`, SHA-pinned
@@ -95,7 +104,7 @@ planned edges before invoking the existing publication validator. Conflicts rema
 - [ ] Generated files come from `make build`; the MCP URL is still `https://api.atlan.com/mcp`.
 - [ ] Publish-helper changes keep the Atlan-only guard, tree containment, no-follow reads,
       credential skips and limits, in both `command-hooks/` and `claude-hooks/`, with tests.
-- [ ] Mod changes keep archive, approve and move confirming, and
+- [ ] Mod changes keep archive, approve, move, release and roll-back confirming, and
       `claude plugin test plugins/atlanai-mods` passes.
 - [ ] New skill text reads no files, env vars or credentials beyond its task and calls only the
       Atlan tools it names.
@@ -104,3 +113,11 @@ planned edges before invoking the existing publication validator. Conflicts rema
 The Claude receipt hook reuses the absolute interpreter path returned by its successful local
 helper process, avoiding repeated environment-launcher startup. It still validates the request
 and destination before every call and validates and atomically records every response.
+
+Copilot loads its command adapter from `com.github.copilot/hooks/hooks.json`. The adapter
+accepts both documented payload spellings and returns `modifiedArgs` without an `allow`
+decision. Since Copilot omits tool-use ids, its pending receipt key binds the current session
+to the exact native request. A conflicting destination blocks before dispatch. Original and
+rewritten post-call arguments resolve to the same checked request; a changed local batch
+leaves recording pending. Post-call failures never dispatch another tool. Unsupported or
+redacted outputs cannot establish a completed publication.

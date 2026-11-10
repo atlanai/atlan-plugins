@@ -67,7 +67,7 @@ Use the atlanai-analytics dashboard skill and its run status. This is the existi
 acceptance environment with the dashboard_fixture tools; no live services are involved.
 Use the approved existing SQLite warehouse adapter for fresh SQL. Do not change the data,
 re-extract, replan evals, create or release artifacts, or repeat setup. Keep the final reply
-under 80 words using workflow.display_summary and the relevant snapshot caveat. Do not
+using the ready block, workflow.display_summary evidence and the relevant snapshot caveat. Do not
 request confirmation for already authorized read-only work.'''
     suffix = '-resume' if args.resume else ''
     (out / ('prompt'+suffix+'.txt')).write_text(prompt)

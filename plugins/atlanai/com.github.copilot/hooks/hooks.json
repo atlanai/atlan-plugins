@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"${COPILOT_PLUGIN_ROOT}/command-hooks/publish_hook.py\" pre --host copilot",
+        "powershell": "python3 \"$env:COPILOT_PLUGIN_ROOT/command-hooks/publish_hook.py\" pre --host copilot",
+        "timeoutSec": 30
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"${COPILOT_PLUGIN_ROOT}/command-hooks/publish_hook.py\" post --host copilot",
+        "powershell": "python3 \"$env:COPILOT_PLUGIN_ROOT/command-hooks/publish_hook.py\" post --host copilot",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

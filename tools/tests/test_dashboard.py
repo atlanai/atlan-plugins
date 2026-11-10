@@ -10,18 +10,17 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / "plugins/atlanai-analytics/skills/atlan-analytics/scripts"
+SCRIPTS = ROOT / "plugins/atlanai-analytics/skills/analytics-build/scripts"
 sys.path.insert(0, str(SCRIPTS))
-sys.path.insert(0, str(ROOT / "plugins/atlanai-analytics"))
+sys.path.insert(0, str(ROOT / "plugins/atlanai-analytics/skills/metrics-generation"))
 sys.path.insert(0, str(Path(__file__).parent / "dashboard_cases"))
 import dashboard
 from dashboard_publish import Publisher
-import metrics_mine
+import context_contracts
 from dashboard_fixture import URL, capture
-from test_dax_sql import mapping
+import legacy_snapshot
 from trident.core import Service
 from test_eval_flow import EvalFlow
-from test_dax_sql import *  # noqa: F403 - migrated compiler regression cases
 from test_file_inspector import FileInventory
 from test_snowflake_cli import *  # noqa: F403 - existing query binding regressions
 
@@ -35,9 +34,9 @@ class DashboardPublication(unittest.TestCase):
         self.view = self.service.dispatch("dashboard_begin", {"url": URL})
         self.job = self.view["job_id"]
         self.mutate("dashboard_capture", capture=capture())
-        self.mutate("dashboard_translate", dialect="sqlite", mappings=[mapping()])
+        self.view = legacy_snapshot.restore(self.service, self.job)
         self.context = self.root / "context"
-        dashboard.prepare_context(self.service, self.job, self.context)
+        legacy_snapshot.context(self.service, self.job, self.context)
         self.pub = Publisher(self.context)
         self.snapshot = {"workspace_id": "workspace_demo", "complete": True,
                          "metric_schema": {"kind": "metric", "definition": {"spec_version": "1.0-draft.4"}},
@@ -53,7 +52,7 @@ class DashboardPublication(unittest.TestCase):
                     **{k:task[k] for k in ('case_id','plan_generation','capture_hash','definition_hash')},
                     reference={'unavailable':'source_value_unavailable'},
                     actual={'unavailable':'snapshot_mismatch'})
-        dashboard.prepare_context(self.service,self.job,self.context)
+        legacy_snapshot.context(self.service,self.job,self.context)
         plan=self.pub.plan(self.snapshot)
         operation=self.pub.next(plan['plan_id'])
         self.assertEqual(operation['name'],'registry__create_artifact')
@@ -74,7 +73,7 @@ class DashboardPublication(unittest.TestCase):
         plan = self.pub.plan(self.snapshot)
         saved = json.loads((self.context / 'queries.json').read_text())
         (self.context / 'queries.json').write_text(json.dumps(saved + [{'source_id': 'query:held'}]))
-        with self.assertRaisesRegex(metrics_mine.Blocked, 'held artifact'):
+        with self.assertRaisesRegex(context_contracts.Blocked, 'held artifact'):
             self.pub.next(plan['plan_id'])
         self.assertIsNone(self.pub.read(self.pub.path)['inflight'])
         (self.context / 'queries.json').write_text(json.dumps(saved))
@@ -100,8 +99,8 @@ class DashboardPublication(unittest.TestCase):
         sql = re.sub(r"\{\{(\w+)\}\}", r":\1", sql)
         params = {p["name"]: p["default"] for p in body["source"]["parameters"]}
         self.assertEqual(db.execute(sql, params).fetchall(), [(1,)])
-        import metrics_mine
-        errors, _ = metrics_mine.check_metric({k: v for k, v in self.artifact().items() if k not in ('id','kind','workspace_id','etag')})
+        import context_contracts
+        errors, _ = context_contracts.check_metric({k: v for k, v in self.artifact().items() if k not in ('id','kind','workspace_id','etag')})
         self.assertEqual(errors, [])
 
     def test_create_readback_release_and_resume_never_replay_uncertain_write(self):

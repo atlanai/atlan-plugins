@@ -4,9 +4,8 @@ import subprocess
 import unittest
 from unittest.mock import patch
 from trident.snowflake_cli import bound_query, scripting, command, execute, CLIError, ConnectionPaused
-from trident.dax_sql import translate, TranslationGap
 import test_eval_flow as flow
-from test_dax_sql import mapping
+import legacy_snapshot
 
 CONFIG={'account':'example-account','user':'example_analyst','role':'ANALYST','warehouse':'EXAMPLE_WH'}
 
@@ -54,38 +53,6 @@ class SnowflakeCLI(unittest.TestCase):
         with self.assertRaises(CLIError) as exc:execute(CONFIG,'SELECT 1',{})
         self.assertNotIn('sensitive auth diagnostic',str(exc.exception))
 
-    def test_native_source_query_needs_no_created_view(self):
-        m=mapping();m['rowset_sql']='SELECT id, active, amount, tier, change, source FROM example_accounts'
-        query=translate("SUM('Accounts'[Amount])",m,{'filters':[]},'snowflake')
-        self.assertIn('FROM (SELECT id',query['sql'])
-        self.assertEqual(query['source_sql'],m['rowset_sql'])
-        m['rowset_sql']='SELECT 1; DELETE FROM example_accounts'
-        with self.assertRaises(TranslationGap):translate("COUNTROWS('Accounts')",m,{'filters':[]},'snowflake')
-
-class CLIWorkflow(unittest.TestCase):
-    setUp=flow.EvalFlow.setUp
-    call=flow.EvalFlow.call
-    mutate=flow.EvalFlow.mutate
-    task=flow.EvalFlow.task
-    @patch('trident.snowflake_cli.probe',return_value={'connected':True})
-    @patch('trident.snowflake_cli.execute',return_value=[{'value':17}])
-    def test_real_transport_handoff_and_source_sql_contract(self,run,probe):
-        p=self.mutate('dashboard_snowflake_connect',connection=CONFIG)
-        self.assertTrue(p['warehouse_connection']['connected'])
-        m=mapping();m['rowset_sql']='SELECT id, active, amount, source FROM example_accounts'
-        p=self.mutate('dashboard_translate',dialect='snowflake',mappings=[m])
-        self.assertEqual(p['summary']['sql_candidates'],2)
-        d=self.call('dashboard_read',{'job_id':self.job,'include_definitions':True})['definitions'][0]['definition']
-        self.assertIn('sql',d['source']);self.assertNotIn('table',d['source'])
-        self.mutate('dashboard_plan_evals')
-        task=self.task()
-        result=self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':p['metrics'][0]['id'],'context_hash':p['context_hash'],
-                         'purpose':'validation','case_id':task['case_id'],'plan_generation':task['plan_generation']})
-        self.assertEqual(result['observation']['value'],17)
-        self.assertEqual(result['observation']['query_hash'],p['metrics'][0]['translation']['query_hash'])
-        self.assertFalse(result['data_cutoff_verified'])
-        with self.assertRaises(ValueError):
-            self.call('dashboard_snowflake_execute',{'job_id':self.job,'metric_id':p['metrics'][0]['id'],'context_hash':'wrong'})
 
 class Regression051(unittest.TestCase):
     def test_generated_case_expressions_and_known_native_functions(self):
@@ -154,7 +121,7 @@ class Reconnect051(unittest.TestCase):
     @patch('trident.snowflake_cli.execute')
     def test_auth_failure_blocks_remaining_metrics_until_explicit_reconnect(self,execute,probe):
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
-        self.mutate('dashboard_translate',dialect='snowflake',mappings=[mapping()])
+        self.p = legacy_snapshot.restore(self.service, self.job, 'snowflake')
         execute.side_effect=ConnectionPaused('Authentication needs attention')
         self.mutate('dashboard_plan_evals')
         task=self.task()
@@ -179,7 +146,7 @@ class Reconnect051(unittest.TestCase):
     @patch('trident.snowflake_cli.execute',side_effect=CLIError('SQL rejected; do not reconnect'))
     def test_sql_error_does_not_invalidate_connection(self,execute,probe):
         self.mutate('dashboard_snowflake_connect',connection=CONFIG)
-        self.mutate('dashboard_translate',dialect='snowflake',mappings=[mapping()])
+        self.p = legacy_snapshot.restore(self.service, self.job, 'snowflake')
         self.mutate('dashboard_plan_evals')
         task=self.task()
         with self.assertRaises(CLIError):

@@ -2,14 +2,24 @@ import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 import {
+  BATCH_TOOL,
   CALL_TOOL,
+  CHECKED_TOOL,
+  DIRECT_READ,
   GATEWAY_TOOL,
+  batchCalls,
+  batchEffect,
+  batchEntries,
   capped,
   classify,
   dependentsOf,
   describeBlastRadius,
+  describeWrite,
   diagnose,
+  fallbackOf,
+  releasesOf,
   findSessionId,
+  gatewayNameOf,
   harvestHints,
   isStaleSession,
   jsonObjects,
@@ -25,6 +35,8 @@ import {
 
 const CALL = 'mcp__plugin_atlanai_atlan__mcp__call_tool'
 const DESCRIBE = 'mcp__plugin_atlanai_atlan__mcp__describe_tools'
+const BATCH = 'mcp__plugin_atlanai_atlan__mcp__call_read_tools'
+const GET = 'mcp__plugin_atlanai_atlan__registry__get_artifact'
 const SESSION = 'mcp_session_01m6cb39bcesgadrp1h8b69m74'
 
 // Shapes as the live gateway returns them (trimmed), the receipt appended as a second object.
@@ -118,7 +130,9 @@ describe('gateway tool names', () => {
       expect(CALL_TOOL.test(tool)).toBe(true)
     expect(GATEWAY_TOOL.test('mcp__atlan-prod__mcp__search_tools')).toBe(true)
     expect(GATEWAY_TOOL.test('mcp__slack__send_message')).toBe(false)
-    expect(GATEWAY_TOOL.test('mcp__atlan__registry__get_artifact')).toBe(false)
+    // Only the six reads search mode lists by name: a write called by name is not this mod's.
+    expect(GATEWAY_TOOL.test('mcp__atlan__registry__patch_artifact')).toBe(false)
+    expect(CHECKED_TOOL.test('mcp__atlan__registry__archive_artifact')).toBe(false)
     for (const tool of ['mcp__atlan__mcp__call_read_tool', 'mcp__plugin_atlanai_atlan__mcp__call_write_tool']) {
       expect(CALL_TOOL.test(tool)).toBe(true)
       expect(GATEWAY_TOOL.test(tool)).toBe(true)
@@ -126,6 +140,28 @@ describe('gateway tool names', () => {
     expect(CALL_TOOL.test('mcp__atlan__mcp__call_other_tool')).toBe(false)
     expect(serverKeyOf('mcp__atlan-prod__mcp__call_tool')).toBe('atlan-prod')
     expect(serverKeyOf('mcp__slack__send_message')).toBeUndefined()
+  })
+
+  test('cover the batch runner and the reads listed by name (B1)', () => {
+    for (const tool of [BATCH, 'mcp__atlan-prod__mcp__call_read_tools']) {
+      expect(BATCH_TOOL.test(tool)).toBe(true)
+      expect(GATEWAY_TOOL.test(tool)).toBe(true)
+      expect(CHECKED_TOOL.test(tool)).toBe(true)
+      expect(CALL_TOOL.test(tool)).toBe(false)
+      expect(runnerCap(tool)).toBe('read')
+    }
+    for (const read of ['search_artifacts', 'get_artifact', 'list_workspaces', 'get_artifact_counts', 'get_related_artifacts', 'get_file_content']) {
+      const tool = `mcp__atlan-prod__registry__${read}`
+      expect(DIRECT_READ.test(tool)).toBe(true)
+      expect(GATEWAY_TOOL.test(tool)).toBe(true)
+      expect(CHECKED_TOOL.test(tool)).toBe(true)
+      expect(gatewayNameOf(tool)).toBe(`registry__${read}`)
+      expect(serverKeyOf(tool)).toBe('atlan-prod')
+    }
+    expect(CHECKED_TOOL.test(CALL)).toBe(true)
+    expect(CHECKED_TOOL.test(DESCRIBE)).toBe(false)
+    expect(gatewayNameOf(CALL)).toBe('mcp__call_tool')
+    expect(gatewayNameOf('mcp__slack__registry__get_artifact_x')).toBeUndefined()
   })
 
   test("probe a gateway the model called under its own key first, never a plugin's twice", () => {
@@ -220,7 +256,105 @@ describe('parsing gateway results', () => {
   })
 })
 
+describe('a batch of reads', () => {
+  const calls = [
+    { name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01target' } },
+    { name: 'registry__get_related_artifacts', arguments: { artifact_id: 'skill_01target' } },
+  ]
+
+  test('names its calls and is judged by the worst of them', () => {
+    expect(batchCalls({ calls })).toEqual([
+      { name: 'registry__get_artifact', args: { artifact_id: 'skill_01target' } },
+      { name: 'registry__get_related_artifacts', args: { artifact_id: 'skill_01target' } },
+    ])
+    expect(batchCalls({ calls: [] })).toBeUndefined()
+    expect(batchCalls({ calls: 'registry__get_artifact' })).toBeUndefined()
+    expect(batchCalls({})).toBeUndefined()
+    expect(batchEffect(batchCalls({ calls }) ?? [], {})).toBe('read')
+    // The gateway refuses a write in a batch, so a gateway write there can only read.
+    expect(batchEffect([{ name: 'registry__patch_artifact' }], {})).toBe('read')
+    expect(batchEffect([{ name: 'registry__get_artifact' }, { name: 'slack__send_message' }], {})).toBe('unknown')
+    expect(batchEffect([{ name: 'slack__send_message' }, { name: 'registry__archive_artifact' }], {})).toBe('destructive')
+    // A runner nested in a batch is judged by the call it wraps.
+    const nested = batchCalls({ calls: [{ name: 'mcp__call_tool', arguments: { name: 'registry__move_artifact', arguments: {} } }] }) ?? []
+    expect(batchEffect(nested, {})).toBe('destructive')
+  })
+
+  test('reads its answers in order, and the session a first batch opened', () => {
+    const answer = JSON.stringify({
+      results: [
+        { name: 'registry__get_artifact', isError: false, content: [{ type: 'text', text: `${ARTIFACT}${RECEIPT}` }] },
+        { name: 'registry__get_related_artifacts', isError: true, error: 'artifact not found' },
+      ],
+    })
+    expect(batchEntries(answer)).toEqual([
+      { name: 'registry__get_artifact', text: `${ARTIFACT}${RECEIPT}`, isError: false },
+      { name: 'registry__get_related_artifacts', text: 'artifact not found', isError: true },
+    ])
+    expect(findSessionId(answer)).toBe(SESSION)
+    // A publish answers with `results` too, but its rows carry no `isError`.
+    expect(batchEntries(JSON.stringify({ results: [{ name: 'deploy-preview', status_code: 201 }] }))).toBeUndefined()
+    expect(batchEntries(ARTIFACT)).toBeUndefined()
+  })
+})
+
 describe('the guard', () => {
+  test('lets a batch of registry reads run without a prompt (B1)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'ask' }))
+    const calls = [
+      { name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01target' } },
+      { name: 'registry__get_related_artifacts', arguments: { artifact_id: 'skill_01target' } },
+    ]
+    const verdict = await $.tool.check({ tool: BATCH, input: { calls, rationale: 'r' } })
+    expect(verdict.decision).toBe('allow')
+    expect(verdict.reason).toContain('2 calls')
+    const ceiling = await $.tool.check({ tool: BATCH, input: { calls, rationale: 'r' }, ceiling: 'ask' })
+    expect(ceiling.decision).toBe('ask')
+  })
+
+  test("leaves a batch holding another server's tool, or no calls, to the session's rules (B1)", async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'ask', reason: 'engine' }))
+    const mixed = await $.tool.check({
+      tool: BATCH,
+      input: { calls: [{ name: 'registry__get_artifact', arguments: {} }, { name: 'slack__send_message', arguments: {} }], rationale: 'r' },
+    })
+    expect(mixed).toEqual({ decision: 'ask', reason: 'engine' })
+    const empty = await $.tool.check({ tool: BATCH, input: { rationale: 'r' } })
+    expect(empty).toEqual({ decision: 'ask', reason: 'engine' })
+  })
+
+  test('still asks for an archive named in a batch, and refuses it where nobody can answer (B1)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    const input = { calls: [{ name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' } }], rationale: 'r' }
+    const refused = await $.tool.check({ tool: BATCH, input })
+    expect(refused.decision).toBe('deny')
+    expect(refused.reason).toContain('archive artifact skill_01target')
+    const asked = await $.tool.check({ tool: BATCH, input, approver: 'user' })
+    expect(asked.decision).toBe('ask')
+  })
+
+  test('lets a registry read called by name run without a prompt (B1)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'ask' }))
+    const verdict = await $.tool.check({ tool: GET, input: { artifact_id: 'skill_01target', rationale: 'r' } })
+    expect(verdict.decision).toBe('allow')
+    expect(verdict.reason).toContain('registry__get_artifact')
+    const denied = await $.tool.check({ tool: GET, input: { artifact_id: 'skill_01target' }, ceiling: 'deny' })
+    expect(denied.decision).toBe('ask')
+  })
+
+  test('asks for a tool listed by name once the registry no longer marks it read-only (B1)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'registry__get_file_content', annotations: { readOnlyHint: false } }] }) }))
+    await $.tool.call({ tool: DESCRIBE, servers: ['registry'] })
+    const verdict = await $.tool.check({ tool: 'mcp__plugin_atlanai_atlan__registry__get_file_content', input: { artifact_id: 'skill_01x', path: 'SKILL.md' }, approver: 'user' })
+    expect(verdict.decision).toBe('ask')
+  })
+
   test('lets a registry read run without a prompt', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'ask' }))
@@ -255,6 +389,21 @@ describe('the guard', () => {
     expect(verdict.decision).toBe('deny')
     expect(verdict.reason).toContain('2 artifacts depend on it')
     expect(verdict.reason).toContain('Nobody can confirm it here')
+  })
+
+  test("makes its own lookups through the read runner, which the gateway lets only read (B8)", async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    const runners: unknown[] = []
+    on('mcp.call', (_, e) => {
+      runners.push(e.tool)
+      const name = (e.args as { name?: string }).name
+      return { value: text(name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }
+    })
+    await $.tool.check({ tool: CALL, input: { name: 'registry__archive_artifact', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' }, approver: 'user' })
+    await $.command.run(atlan('search pii'))
+    expect(runners.length).toBe(3)
+    expect(new Set(runners)).toEqual(new Set(['mcp__call_read_tool']))
   })
 
   test('reads what depends on an artifact again after a transient failure', async ($, on) => {
@@ -338,6 +487,42 @@ describe('the guard', () => {
 })
 
 describe('call repair', () => {
+  test('gives a batch and a read called by name the open session (B1)', async ($, on) => {
+    engine(on)
+    const seen: Record<string, unknown>[] = []
+    on('tool.call', (_, e) => {
+      seen.push({ ...e })
+      return { result: 'ok', text: `${ARTIFACT}${RECEIPT}` }
+    })
+    await $.tool.call({ tool: CALL, name: 'registry__search_artifacts', arguments: { query: 'x' }, rationale: 'r', objective: 'o' })
+    await $.tool.call({ tool: BATCH, calls: [{ name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' } }], rationale: 'r' })
+    await $.tool.call({ tool: GET, artifact_id: 'skill_01x', rationale: 'r' })
+    expect(seen.map(e => e.session_id)).toEqual([undefined, SESSION, SESSION])
+    expect(seen[2]?.artifact_id).toBe('skill_01x')
+  })
+
+  test('learns the session a first batch opened, from inside its answers (B1)', async ($, on) => {
+    engine(on)
+    const sessions: unknown[] = []
+    on('tool.call', (_, e) => {
+      sessions.push((e as { session_id?: unknown }).session_id)
+      return { result: 'ok', text: JSON.stringify({ results: [{ name: 'registry__get_artifact', isError: false, content: [{ type: 'text', text: `${ARTIFACT}${RECEIPT}` }] }] }) }
+    })
+    await $.tool.call({ tool: BATCH, calls: [{ name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' } }], rationale: 'r' })
+    await $.tool.call({ tool: GET, artifact_id: 'skill_01x', rationale: 'r' })
+    expect(sessions).toEqual([undefined, SESSION])
+  })
+
+  test('refuses a batch with no rationale, and leaves a read called by name to the gateway (B1)', async ($, on) => {
+    engine(on)
+    on('tool.call', () => ({ result: 'ran', text: ARTIFACT }))
+    const batch = await $.tool.call({ tool: BATCH, calls: [{ name: 'registry__get_artifact', arguments: { artifact_id: 'skill_01x' } }] })
+    expect(String(batch.deny)).toContain('beside `calls`')
+    const direct = await $.tool.call({ tool: GET, artifact_id: 'skill_01x' })
+    expect(direct.deny).toBeUndefined()
+    expect(direct.result).toBe('ran')
+  })
+
   test('moves rails out of arguments before the call runs', async ($, on) => {
     engine(on)
     let seen: Record<string, unknown> = {}
@@ -412,7 +597,7 @@ describe('call repair', () => {
     expect(write.context?.at(-1)).toContain('may already have run')
   })
 
-  test('leaves a lost skill publish to the publish helper: the create takes no idempotency_key', async ($, on) => {
+  test('leaves a lost skill publish to the publish helper, which knows when its idempotency_key applies', async ($, on) => {
     engine(on)
     on('tool.check', () => ({ decision: 'allow' }))
     on('tool.call', () => ({ result: '503 Service Unavailable', text: 'HTTP 503 Service Unavailable', isError: true }))
@@ -438,6 +623,15 @@ describe('/atlan', () => {
     on('mcp.call', () => ({ value: text(DESCRIBED) }))
     const ran = await $.command.run(atlan(''))
     expect(ran.text).toContain('Atlan: connected through plugin:atlanai:atlan')
+    expect(ran.text).toContain('Skill suggestions are on: the first 300 characters of each request')
+  })
+
+  test('says nothing of skill suggestions when they are off', { options: { suggest_skills: false } }, async ($, on) => {
+    engine(on)
+    on('mcp.call', () => ({ value: text(DESCRIBED) }))
+    const ran = await $.command.run(atlan(''))
+    expect(ran.text).toContain('Atlan: connected through plugin:atlanai:atlan')
+    expect(ran.text).not.toContain('Skill suggestions')
   })
 
   test('reports a call that failed as a failure, not as a server that did not answer (X5a)', async ($, on) => {
@@ -537,6 +731,100 @@ describe('writes and the status line', () => {
     await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
     await clock.settle()
     expect(lines).toEqual([undefined])
+  })
+})
+
+describe('a release and its roll-back', () => {
+  test('names the release a withdrawal takes down, and what it does to everyone (B2)', () => {
+    const asked = describeWrite('registry__withdraw_release', { release_id: 'rel_01shipped', reason: 'broken' })
+    expect(asked).toContain('withdraw release rel_01shipped.')
+    expect(asked).toContain('back to the previous release')
+    expect(describeBlastRadius('registry__release_artifact', 'skill_01target', summaryOf(ARTIFACT), { count: 0, dependents: [] })).toContain('Releasing makes this version')
+    // A plain write keeps its one sentence.
+    expect(describeWrite('registry__patch_artifact', { artifact_id: 'skill_01x' })).toBe('Atlan registry write: patch artifact skill_01x.')
+  })
+
+  test('asks before a withdrawal with the release in the question (B2)', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ tools: [{ name: 'registry__withdraw_release', annotations: { readOnlyHint: false, destructiveHint: true } }] }) }))
+    await $.tool.call({ tool: DESCRIBE, servers: ['registry'] })
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01shipped' }, rationale: 'r' }, approver: 'user' })
+    expect(verdict.decision).toBe('ask')
+    expect(verdict.reason).toContain('rel_01shipped')
+    expect(verdict.reason).toContain('cannot be undone')
+  })
+})
+
+describe('the roll-back card (C3)', () => {
+  const RELEASES = JSON.stringify({
+    items: [
+      { release_id: 'rel_01v110', artifact_id: 'skill_01target', channel: 'latest', version_label: '1.1.0', version_ordinal: 3, release_status: 'released', is_current: true },
+      { release_id: 'rel_01v105', artifact_id: 'skill_01target', channel: 'latest', version_label: '1.0.5', version_ordinal: 2, release_status: 'withdrawn', is_current: false, withdrawn_at: '2026-10-01T00:00:00Z' },
+      { release_id: 'rel_01v100', artifact_id: 'skill_01target', channel: 'latest', version_label: '1.0.0', version_ordinal: 1, release_status: 'released', is_current: false },
+      { release_id: 'rel_01beta', channel: 'beta', version_label: '1.1.0', version_ordinal: 3, is_current: true },
+    ],
+  })
+
+  test('reads the releases a listing names, and where a withdrawal sends the channel', () => {
+    const releases = releasesOf(RELEASES, 'skill_01target')
+    expect(releases.map(one => [one.id, one.artifact, one.isWithdrawn])).toEqual([
+      ['rel_01v110', 'skill_01target', false],
+      ['rel_01v105', 'skill_01target', true],
+      ['rel_01v100', 'skill_01target', false],
+      ['rel_01beta', 'skill_01target', false],
+    ])
+    // The withdrawn 1.0.5 is passed over.
+    expect(fallbackOf(releases[0]!, releases)).toBe('"latest" goes back to 1.0.0, if that version is still active.')
+    expect(fallbackOf(releases[2]!, releases)).toContain('not the current release')
+    expect(fallbackOf(releases[3]!, releases)).toContain('may be left serving nothing')
+    expect(releasesOf(ARTIFACT, 'skill_01target')).toEqual([])
+    expect(releasesOf(JSON.stringify({ items: [{ release_id: 'rel_01orphan' }] }), '')).toEqual([])
+  })
+
+  test('names the artifact, its dependents and the fallback for a release the session listed', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: RELEASES }))
+    on('mcp.call', (_, e) => {
+      const call = e.args as { name?: string; arguments?: { artifact_id?: string } }
+      expect(call.arguments?.artifact_id).toBe('skill_01target')
+      return { value: text(call.name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }
+    })
+    await $.tool.call({ tool: 'mcp__plugin_atlanai_atlan__mcp__call_read_tool', name: 'registry__list_releases', arguments: { artifact_id: 'skill_01target' }, rationale: 'r' })
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01v110', reason: 'broken' }, rationale: 'r' }, approver: 'user' })
+    expect(verdict.decision).toBe('ask')
+    expect(verdict.reason).toContain('withdraw release 1.1.0 on "latest" of skill "skill-creator"')
+    expect(verdict.reason).toContain('goes back to 1.0.0')
+    expect(verdict.reason).toContain('2 artifacts depend on it')
+    expect(verdict.reason).toContain('cannot be undone')
+  })
+
+  test('learns releases from a batch too, and refuses a withdrawal nobody can confirm', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('tool.call', () => ({ result: 'ok', text: JSON.stringify({ results: [{ name: 'registry__list_releases', isError: false, content: [{ type: 'text', text: RELEASES }] }] }) }))
+    on('mcp.call', (_, e) => ({ value: text((e.args as { name?: string }).name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }))
+    await $.tool.call({ tool: BATCH, calls: [{ name: 'registry__list_releases', arguments: { artifact_id: 'skill_01target' } }], rationale: 'r' })
+    const verdict = await $.tool.check({ tool: CALL, input: { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01v110' }, rationale: 'r' } })
+    expect(verdict.decision).toBe('deny')
+    expect(verdict.reason).toContain('of skill "skill-creator"')
+  })
+
+  test('a release and a withdrawal ask before any annotation is known, and through any runner', async ($, on) => {
+    engine(on)
+    on('tool.check', () => ({ decision: 'allow' }))
+    on('mcp.call', (_, e) => ({ value: text((e.args as { name?: string }).name === 'registry__get_related_artifacts' ? RELATED : ARTIFACT) }))
+    expect(classify('registry__release_artifact', {})).toBe('destructive')
+    expect(classify('registry__withdraw_release', { registry__withdraw_release: { destructive: false } })).toBe('destructive')
+    const release = await $.tool.check({
+      tool: 'mcp__plugin_atlanai_atlan__mcp__call_write_tool',
+      input: { name: 'registry__release_artifact', arguments: { artifact_id: 'skill_01target', channel: 'stable' }, rationale: 'r' },
+      approver: 'user',
+    })
+    expect(release.decision).toBe('ask')
+    expect(release.reason).toContain('release skill "skill-creator" 0.2.0')
+    expect(release.reason).toContain('Releasing makes this version')
   })
 })
 

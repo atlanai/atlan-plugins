@@ -1,12 +1,13 @@
 // Registry Mods: a Claude Code mod for the atlanai plugin's `atlan` server.
 //
-// tool.check (mcp__call_tool): registry reads run without a prompt; writes ask, naming the
-//   write; archive, approve and move always ask, naming what depends on the artifact, and the
+// tool.check (the runners, the batch runner and the registry reads listed by name): registry
+//   reads run without a prompt, alone, in a batch or called by name; writes ask, naming the
+//   write; archive, approve, move, release and roll-back always ask, naming what depends on the artifact, and the
 //   Atlan pane shows the same as a card while the question waits.
-// tool.call (the three gateway tools): moves session_id, rationale and objective out of
-//   `arguments`, reuses the session's open audit session, refuses a call with no rationale,
-//   learns tool annotations and the session id from results, and records what each call read,
-//   changed or published for the pane and the publish band.
+// tool.call (every gateway tool the mod handles): moves session_id, rationale and objective out
+//   of a runner's `arguments`, reuses the session's open audit session, refuses a runner or batch
+//   call with no rationale, learns tool annotations and the session id from results, and records
+//   what each call read, changed or published for the pane and the publish band.
 // ui.render: each gateway call's transcript row reads as one line of what it did and found; the
 //   `atlan` pane lists the artifacts this session touched; the band above the prompt follows a
 //   skill publish to its end; the `atlan-skills` pane picks a skill to load.
@@ -28,8 +29,15 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import {
+  BATCH_TOOL,
   CALL_TOOL,
+  CHECKED_TOOL,
+  DIRECT_READ,
+  batchCalls,
+  batchEffect,
+  batchEntries,
   capped,
+  gatewayNameOf,
   runnerCap,
   FIX,
   GATEWAY_TOOL,
@@ -38,6 +46,9 @@ import {
   classify,
   dependentsOf,
   describeBlastRadius,
+  fallbackOf,
+  releasesOf,
+  argsOf,
   describeWrite,
   diagnose,
   findSessionId,
@@ -54,6 +65,7 @@ import {
   type AtlanHealth,
   type CallInput,
   type HintTable,
+  type Release,
 } from './registry'
 import {
   SETTLED,
@@ -72,9 +84,11 @@ import {
   type SkillRow,
   type Touch,
 } from './view'
-import { HINT_MS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, type HintPrompt, type SkillMatch } from './hint'
+import { HINT_MS, HINT_NOTICE, HINT_STATUS, hintLine, hintQuery, isHintable, isInstalled, skillMatches, type HintPrompt, type SkillMatch } from './hint'
 
 const HINTS_KEY = 'hints'
+/** Set once this machine has been shown the skill hint's notice. */
+const NOTICE_KEY = 'hint-notice'
 const LOOKUP_MS = 6000
 /** The most a permission prompt waits on the blast-radius reads, a retry included, and the most
  * it sleeps before that retry whatever `retry_after_seconds` says. */
@@ -97,6 +111,8 @@ const HINT_PAUSE_MS = 5 * 60 * 1000
 
 const RATIONALE_HELP =
   'Atlan needs a one-sentence `rationale` for every mcp__call_tool call, beside `name` and `arguments` (not inside `arguments`). Add it and call again.'
+const BATCH_RATIONALE_HELP =
+  'Atlan needs a one-sentence `rationale` for every mcp__call_read_tools call, beside `calls` (not inside a call). Add it and call again.'
 const NO_APPROVER = 'Nobody can confirm it here (as under claude -p), so the Atlan mod refused it. Run it in a session where you can answer the prompt.'
 const GUARD_FAILED = 'The Atlan registry guard could not check this call, so it needs your confirmation.'
 const USAGE =
@@ -126,6 +142,9 @@ type Memory = {
   touches: Touch[]
   /** Confirmation cards for calls waiting on the person, by tool_use_id. */
   cards: Map<string, Card>
+  /** Releases this session has listed, by `rel_…` id: a withdrawal names only its release, so
+   * this is how its card finds the artifact and the channel. */
+  releases: Map<string, Release>
   /** Skill publishes this turn, for the band. */
   publishes: Publish[]
   /** The server key of the gateway the model last called, when it is not one the mod probes
@@ -140,6 +159,10 @@ type Memory = {
   /** The hint's circuit breaker, kept across conversations: it is about the gateway, not the
    * prompt. `timeouts` in a row, the time the pause ends, and whether a search is still out. */
   hintBreaker: { timeouts: number; pausedUntil: number; isSearching: boolean }
+  /** Whether the person has been told what the hint sends: read from the store once a session. */
+  isHintTold: boolean
+  /** False where nobody reads a toast (as under claude -p): the notice cannot be shown there. */
+  isInteractive: boolean
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -203,7 +226,9 @@ async function lookup($: Dollar, mem: Memory, server: string, name: string, args
   const rails = session
     ? { session_id: session }
     : { objective: 'Claude Code with the Atlan registry: the Registry Mods plugin checks registry changes and connection status for the user.' }
-  const result = await $.mcp.call(server, 'mcp__call_tool', { name, arguments: args, rationale, ...rails })
+  // Every lookup the mod makes is a read, so it goes through the read runner: the gateway then
+  // refuses anything else, whatever name reached here.
+  const result = await $.mcp.call(server, 'mcp__call_read_tool', { name, arguments: args, rationale, ...rails })
   const text = result.content.map(block => (isRecord(block) && typeof block.text === 'string' ? block.text : '')).join('\n')
   const opened = findSessionId(text)
   if (opened && opened !== session && !mem.session) mem.housekeeping = opened
@@ -260,11 +285,16 @@ async function lookupWithRetry($: Dollar, mem: Memory, server: string, name: str
 
 const BLAST: Budget = { totalMs: BLAST_BUDGET_MS, maxWaitSeconds: BLAST_RETRY_MAX_S }
 
-/** The permission prompt's text for an archive, move or approve, and the pane's card for it. */
+/** The permission prompt's text for an archive, move, approve, release or withdrawal, and the
+ * pane's card for it. A withdrawal names a release, so its artifact comes from the releases this
+ * session listed; one it never listed is asked about by its id alone. */
 async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string, name: string, input: Record<string, unknown>): Promise<{ reason: string; card?: Card }> {
-  const id = artifactOf(input.arguments)
+  const releaseId = argsOf(input.arguments).release_id
+  const release = typeof releaseId === 'string' ? mem.releases.get(releaseId) : undefined
+  const fallback = release ? fallbackOf(release, [...mem.releases.values()]) : undefined
+  const id = artifactOf(input.arguments) ?? release?.artifact
   if (!id) return { reason: describeWrite(name, input.arguments) }
-  const server = tool.slice('mcp__'.length, tool.lastIndexOf('__mcp__'))
+  const server = serverKeyOf(tool) ?? ''
   const why = 'Checking what depends on this artifact before the user confirms the change.'
   const [related, artifact] = await Promise.all([
     lookupWithRetry($, mem, server, 'registry__get_related_artifacts', { artifact_id: id }, why, LOOKUP_MS, BLAST).then(valueOf),
@@ -272,7 +302,10 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
   ])
   const summary = artifact && !artifact.isError ? summaryOf(artifact.text) : undefined
   const dependents = related && !related.isError ? dependentsOf(related.text) : undefined
-  return { reason: describeBlastRadius(name, id, summary, dependents), card: cardOf(callId, name, id, summary, dependents) }
+  return {
+    reason: describeBlastRadius(name, id, summary, dependents, release, fallback),
+    card: cardOf(callId, name, id, summary, dependents, release, fallback),
+  }
 }
 
 /** Checks the connection with `mcp__describe_tools`, which opens no audit session. */
@@ -313,7 +346,7 @@ async function probe($: Dollar, mem: Memory): Promise<AtlanHealth> {
   return { state, server: '', detail, checkedAt: await $.clock.now() }
 }
 
-function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): string {
+function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean, suggestSkills: boolean): string {
   const session = mem.session
   const lines = [
     health.state === 'ready' ? `Atlan: connected through ${health.server} (${health.detail}).` : `Atlan: ${health.state} (${health.detail}).`,
@@ -322,10 +355,11 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
   if (health.state === 'ready') {
     lines.push(
       confirmWrites
-        ? 'Writes ask first. Archive, approve and move always ask, with what depends on the artifact, and are refused where nobody can answer.'
-        : 'Writes follow your permission rules. Archive, approve and move always ask, and are refused where nobody can answer.',
+        ? 'Writes ask first. Archive, approve, move, release and roll-back always ask, with what depends on the artifact, and are refused where nobody can answer.'
+        : 'Writes follow your permission rules. Archive, approve, move, release and roll-back always ask, and are refused where nobody can answer.',
     )
     lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
+    if (suggestSkills) lines.push(HINT_STATUS)
   }
   if (mem.unguarded > 0) lines.push(`${UNGUARDED} Writes this session: ${mem.unguarded}. Check which plugins answer permission prompts with /plugin.`)
   if (mem.unguardedReads > 0)
@@ -391,11 +425,31 @@ async function firstAnswer($: Dollar, mem: Memory, servers: readonly string[], a
 }
 
 /**
+ * Whether the person has been told what the hint sends. The first prompt that would be searched
+ * on this machine shows the notice instead and is not searched, so nothing leaves unannounced;
+ * the store remembers it for every later session. Where nobody can read a toast, nothing is
+ * shown, remembered or searched.
+ */
+async function isHintAnnounced($: Dollar, mem: Memory): Promise<boolean> {
+  if (mem.isHintTold) return true
+  if ((await $.store.get(NOTICE_KEY)) === true) {
+    mem.isHintTold = true
+    return true
+  }
+  if (!mem.isInteractive) return false
+  $.ui.toast(HINT_NOTICE)
+  await $.store.set(NOTICE_KEY, true)
+  mem.isHintTold = true
+  return false
+}
+
+/**
  * The context lines that name registry skills which clearly fit the prompt, or none. Searched once
  * per prompt text a conversation, through the server the connection check found (or each one in
  * turn while the check has not settled, as on a session's first prompt); signed out, missing or
- * offline, nothing is searched. Each skill is named once a conversation, and never when a skill
- * of that name is installed here. Never throws.
+ * offline, nothing is searched, and nothing before the person has been told once what a search
+ * sends. Each skill is named once a conversation, and never when a skill of that name is
+ * installed here. Never throws.
  */
 async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<string[]> {
   if (!isHintable(prompt)) return []
@@ -407,6 +461,7 @@ async function skillHints($: Dollar, mem: Memory, prompt: HintPrompt): Promise<s
   // while: each search would only add its wait to the prompt and load a struggling gateway.
   if (health?.state === 'degraded' && now - health.checkedAt < HINT_PAUSE_MS) return []
   if (now < breaker.pausedUntil) return []
+  if (!(await isHintAnnounced($, mem))) return []
   const servers = health?.state === 'ready' && health.server ? [health.server] : probeServers(mem.seenServer)
   const session = await $.session.id()
   if (session !== mem.hint.session) mem.hint = { session, named: new Set(), searches: new Map() }
@@ -477,15 +532,19 @@ export const register: Register = (on, options) => {
     unguardedReads: 0,
     touches: [],
     cards: new Map(),
+    releases: new Map(),
     publishes: [],
     isBandHidden: false,
     hasOpenedPane: false,
     picker: { query: '', state: 'idle', rows: [], total: 0, note: '' },
     hint: { session: '', named: new Set(), searches: new Map() },
     hintBreaker: { timeouts: 0, pausedUntil: 0, isSearching: false },
+    isHintTold: false,
+    isInteractive: true,
   }
 
   on('session.start', async ($, e, next) => {
+    mem.isInteractive = e.isInteractive !== false
     await $.command.register({
       name: 'atlan',
       description: 'Atlan connection status; /atlan search <words>, /atlan skills to pick a skill, /atlan pane for what this session touched',
@@ -522,7 +581,7 @@ export const register: Register = (on, options) => {
     if (sub !== '' && sub !== 'status' && sub !== 'doctor') return { text: USAGE }
     const health = await probe($, mem)
     setHealth($, mem, health)
-    return { text: report(mem, health, confirmWrites) }
+    return { text: report(mem, health, confirmWrites, suggestSkills) }
   })
 
   on('prompt.submit', async ($, e, next) => {
@@ -539,13 +598,17 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: GATEWAY_TOOL }, async ($, e, next) => {
     const call = e as unknown as CallInput & { tool: string; tool_use_id?: string }
     const isCallTool = CALL_TOOL.test(call.tool)
+    const isBatch = BATCH_TOOL.test(call.tool)
+    // A read listed by name: its input is the tool's own arguments, `session_id` among them.
+    const direct = DIRECT_READ.test(call.tool) ? gatewayNameOf(call.tool) : undefined
     mem.seenServer = serverKeyOf(call.tool) ?? mem.seenServer
     const known = mem.session
     const { input } = repairRails(call, known, isCallTool)
-    if (isCallTool && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
-      return { deny: RATIONALE_HELP }
+    // A read called by name is left to the gateway: a deployment can serve it without the rail.
+    if ((isCallTool || isBatch) && (typeof input.rationale !== 'string' || input.rationale.trim() === '')) {
+      return { deny: isBatch ? BATCH_RATIONALE_HELP : RATIONALE_HELP }
     }
-    const name = typeof input.name === 'string' ? input.name : ''
+    const name = direct ?? (typeof input.name === 'string' ? input.name : '')
 
     let started: Publish[] = []
     if (isCallTool && name === PUBLISH) {
@@ -578,9 +641,11 @@ export const register: Register = (on, options) => {
     else if (isError && known && input.session_id === known && isStaleSession(text)) mem.session = ''
 
     // The call that really ran, and what it does: a nested call_tool is judged by what it wraps.
-    const inner = isCallTool ? unwrap(name, input.arguments) : { name: call.tool.slice(call.tool.lastIndexOf('__mcp__') + 2), args: undefined }
-    const effect = classify(inner.name, await loadHints($))
-    if (isCallTool && call.tool_use_id) {
+    const hints = await loadHints($)
+    const batch = isBatch ? (batchCalls(input) ?? []) : []
+    const inner = isCallTool ? unwrap(name, input.arguments) : { name: direct ?? gatewayNameOf(call.tool) ?? '', args: undefined }
+    const effect = isBatch ? batchEffect(batch, hints) : classify(inner.name, hints)
+    if (CHECKED_TOOL.test(call.tool) && call.tool_use_id) {
       const wasChecked = mem.checked.delete(call.tool_use_id)
       if (!wasChecked && (effect === 'write' || effect === 'destructive')) {
         mem.unguarded += 1
@@ -591,7 +656,31 @@ export const register: Register = (on, options) => {
       }
     }
 
-    if (!isCallTool) await saveHints($, harvestHints(text))
+    if (!isCallTool && !isBatch && !direct) await saveHints($, harvestHints(text))
+
+    // What each call read: a batch answers its calls in order, a read by name is one call.
+    const reads = isBatch
+      ? (batchEntries(text) ?? []).map((entry, i) => ({ name: batch[i]?.name || entry.name, args: batch[i]?.args, text: entry.text, isError: entry.isError }))
+      : direct
+        ? [{ name: direct, args: input as unknown, text, isError }]
+        : []
+    // The releases a listing names, kept for a later withdrawal's question.
+    const listings = isCallTool ? [{ name: inner.name, args: inner.args, text, isError }] : reads
+    for (const listing of listings) {
+      if (listing.isError || listing.name !== 'registry__list_releases') continue
+      for (const release of releasesOf(listing.text, artifactOf(listing.args) ?? '')) mem.releases.set(release.id, release)
+      // Bounded: a long session keeps the latest listings.
+      while (mem.releases.size > 500) mem.releases.delete(mem.releases.keys().next().value as string)
+    }
+    if (reads.length > 0) {
+      let touched: Touch[] = []
+      for (const read of reads) {
+        if (mem.publishes.length > 0) mem.publishes = followPublish(mem.publishes, read.name, read.text, read.isError)
+        touched = [...touched, ...touchesOf(read.name, read.args, read.text, read.isError)]
+      }
+      if (touched.length > 0) mem.touches = mergeTouches(mem.touches, touched)
+      redraw($)
+    }
 
     if (isCallTool) {
       if (started.length > 0) {
@@ -627,15 +716,15 @@ export const register: Register = (on, options) => {
     }
     // A transient failure tells the model how to recover: repeat a read after a wait, read back
     // before repeating a write. The engine never runs a call twice for a hook. A lost skill create
-    // is left to atlanai's publish helper and atlan-author-skills' read-back: it takes no
-    // idempotency_key, so this note's advice would be wrong for it, and two notes would disagree.
+    // is left to atlanai's publish helper and atlan-author-skills, which say when to resend it
+    // with its idempotency_key and when to read it back: a second note here would disagree.
     if (retry && ran.result !== undefined && !(isCallTool && inner.name === PUBLISH)) {
       return { ...ran, context: [...(ran.context ?? []), retryNote(effect === 'read' ? 'read' : 'write', retry)] }
     }
     return ran
   }).catch(($, e, next) => next(e))
 
-  on('tool.check', { tool: CALL_TOOL }, async ($, e, next) => {
+  on('tool.check', { tool: CHECKED_TOOL }, async ($, e, next) => {
     if (e.tool_use_id) {
       mem.checked.add(e.tool_use_id)
       // Bounded: a call whose run never reached tool.call leaves its id behind.
@@ -645,10 +734,29 @@ export const register: Register = (on, options) => {
     if (verdict.decision === 'deny') return verdict
 
     const outer = isRecord(e.input) ? e.input : {}
-    const inner = unwrap(outer.name, outer.arguments)
+    const hints = await loadHints($)
+    if (BATCH_TOOL.test(e.tool)) {
+      // Every call in a batch runs as the read runner runs it. A batch the gateway will refuse
+      // (no `calls`), or one holding a call the mod cannot judge, is left to the session's rules.
+      const calls = batchCalls(outer)
+      if (!calls) return verdict
+      const worst = batchEffect(calls, hints)
+      if (worst === 'read') {
+        if (e.ceiling === 'ask' || e.ceiling === 'deny') return verdict
+        return { decision: 'allow', reason: `Atlan: ${calls.length} ${calls.length === 1 ? 'call that only reads' : 'calls that only read'} the registry.` }
+      }
+      if (worst !== 'destructive') return verdict
+      // Archive, approve or move named in a batch: the gateway refuses it there, and it still asks.
+      const named = calls.find(call => capped(classify(call.name, hints), 'read', call.name) === 'destructive')
+      const reason = describeWrite(named?.name ?? '', named?.args)
+      return e.approver === undefined ? { decision: 'deny', reason: `${reason} ${NO_APPROVER}` } : { decision: 'ask', reason }
+    }
+    // A read listed by name carries its own arguments as the input; a runner names the call inside.
+    const direct = DIRECT_READ.test(e.tool) ? gatewayNameOf(e.tool) : undefined
+    const inner = direct ? { name: direct, args: outer as unknown } : unwrap(outer.name, outer.arguments)
     const name = inner.name
     const input: Record<string, unknown> = { ...outer, name, arguments: inner.args }
-    const effect = capped(classify(name, await loadHints($)), runnerCap(e.tool), name)
+    const effect = capped(classify(name, hints), runnerCap(e.tool), name)
 
     if (effect === 'unknown') return verdict
     if (effect === 'read') {
@@ -661,7 +769,8 @@ export const register: Register = (on, options) => {
       if (!confirmWrites || e.approver === undefined) return verdict
       return { decision: 'ask', reason: describeWrite(name, input.arguments) }
     }
-    // Archive, approve and move: asked wherever someone can answer, refused where nobody can.
+    // Archive, approve, move, release and withdraw, and anything else marked destructive: asked
+    // wherever someone can answer, refused where nobody can.
     const { reason, card } = await blastRadius($, mem, e.tool_use_id ?? '', e.tool, name, input)
     if (e.approver === undefined) return { decision: 'deny', reason: `${reason} ${NO_APPROVER}` }
     if (card && e.tool_use_id && e.approver !== undefined) {

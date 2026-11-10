@@ -3,7 +3,7 @@ name: native-snowflake-history
 tags: [analytics, metrics, snowflake]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     Generate local draft metrics from Snowflake query history for DEMO.MAIN.ORDERS.
     Use January 2026. The packaged runtime with its Snowflake feature is ready and the
     approved connection is configured in the environment. My role can read Account Usage.

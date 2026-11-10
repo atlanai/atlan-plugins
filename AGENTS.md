@@ -61,7 +61,8 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `plugin.toml`: a display name, a short description and a starter prompt that invokes it as
   `$<name>`. The build writes it, with a dependency on the `atlan` MCP server, to the skill's
   `agents/openai.yaml`, and fails on a skill without one.
-- **Skills this repository owns** are named `atlan-<task>`, one task each, with a description
+- **Skills this repository owns** are named `atlan-<task>` in the core and `<workload>-<task>` in an
+  add-on (`analytics-build`, `analytics-ask`), one task each, with a description
   that says when to use the skill rather than what it is: the action, then `Use when` (or
   `Use for`) with the words people say, then `Not for` naming the nearest sibling skill.
   `make check` fails on a description without `Use when` or `Use for`. The description is the
@@ -104,13 +105,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   the legacy Codex overlay, and `cursor.json` by `hooks` in `.cursor-plugin/plugin.json`
   (`codex_hooks`, `cursor_hooks`). Every hook fails open: the module's `.catch`, and the script
   exits 0 with no output on any fault, or when Python is missing. Both read only the folders the
-  call names, and variants leave both out. `make check` holds every manifest to its own file and
+  call names. `make check` holds every manifest to its own file and
   every command to the script. The other exception is a mod, below.
 - **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
   module ([Claude Code mods](https://code.claude.com/docs/en/plugins/mods/overview)) changes how
   Claude Code handles the core's tools: `atlanai-mods` guards registry writes and repairs gateway
   calls. The build lists it in the Claude marketplace alone and writes only its
-  `.claude-plugin/plugin.json`; variants do not carry it. It depends on `atlanai`, declares no MCP
+  `.claude-plugin/plugin.json`. It depends on `atlanai`, declares no MCP
   server and no settings hooks, and `hooks/hooks.json` names one hooks module (`make check`
   refuses anything else). A mod may remove friction but never carries a rule a skill relies on:
   Codex, Cursor and Claude chat run the skills without it. Keep rules that need no `$` in
@@ -128,9 +129,9 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
   is their source of truth. The app behind the workload should pin a commit of this repository
-  to serve the same files over MCP, so a change here reaches it at its next pin bump. metric service
-  does not yet: it serves its own copy of `atlan-analytics` from
-  `backend/defaults/skills/atlan-analytics/`, which has drifted from `plugins/atlanai-analytics`. An add-on depends on `atlanai` and declares no MCP server, hooks or
+  to serve the same files over MCP, so a change here reaches it at its next pin bump. The metric
+  service does: it copies `analytics-build` into `backend/defaults/skills/analytics-build/` at a
+  pinned commit, and its sync workflow opens the bump on each release. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
@@ -155,8 +156,13 @@ do next. Nothing else. The rules, which `make check` enforces where a check can:
 
 `tools/lint.py` fails on an em dash, a sentence-ending exclamation mark or a short list of filler
 words (`seamless`, `robust`, `comprehensive`, `streamline` and their kin) in any Markdown at the root or
-under `plugins/`, and in `plugin.toml`, outside code. Every eval case carries a `plain-reply`
-grader that reads the reply's shape against rules 1 and 3 to 8. The rules live in
+under `plugins/`, and in `plugin.toml`, outside code. Every core eval case carries the
+same reply graders, written from one definition by `tools/eval_graders.py` and held there by
+`make check`: `plain-reply` is a pattern for rules 1 and 3 to 5, `reply-length` counts rule 6's
+words (100, to leave room for names and code spans, with a table row or a fenced block counted
+as one; a case that needs more says so on a `# reply-words:` line with the reason, and a case
+whose reply is a draft names the graders that fit on a `# reply-graders:` line), and `one-next-step` and `no-process-talk` are one narrow
+question each to a judge for rules 7 and 8. A failure names the rule. The rules live in
 `atlan-get-started` too, under **Replies lead with the result**, and every skill carries them as
 one line of checks to tick before sending, because a task reaches its skill directly rather
 than through `atlan-get-started`. Drop that line from a skill and its
@@ -181,8 +187,12 @@ plugin loaded and graded on the tool calls it made and the answer it gave. The `
 replaced by `evals/atlan/emulator/`, a stdio stand-in for the gateway's search mode over one
 fixed organization, because `claude plugin eval` mocks cannot name a tool with `__` in it. It
 needs the claude CLI and costs money, so it is not in CI: run it before a release that changes
-an owned skill, and add a case for each failure you fix. When the live gateway changes a tool
-or a refusal the skills rely on, change the emulator to match. A case that needs the emulator
+an owned skill, and add a case for each failure you fix. The emulator advertises the gateway's
+own registry tool definitions: `tools/tests/fixtures/gateway-catalogue.json` holds them, and
+`python3 tools/sync_gateway_tools.py` writes them into the emulator's `world.json` and the tier
+fixture (`make check` fails when either has drifted). When the live gateway changes a tool,
+refresh the catalogue, run the sync, and teach the emulator's handler any new argument; when it
+changes a refusal the skills rely on, change the emulator to match. A case that needs the emulator
 in another state (an organization without the agent app, an empty registry, a rate limit, the
 data-catalog server in the plugin's place, or a skill already installed from
 `evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`
@@ -219,28 +229,26 @@ Change a description and the dashboard's prompt builders together.
 `make site` indexes the core's skills; its output is what atlan.com serves at `/.well-known/agent-skills/` for
 `npx skills add https://atlan.com --skill atlan-get-started`. Republish it with each release.
 
-## Variants
+## Environments
 
-A variant is this marketplace under another name and endpoint, published from its own repository:
-for example Atlan's internal plugins for an environment outside production. Its repository keeps a
-`variant.toml` and runs
+This repository is public and serves production only: every plugin names `https://api.atlan.com/mcp`,
+and the skills link to `https://app.atlan.com`. Nothing here is built per environment, and no
+tracked file names another environment's hosts or plugin names (`make check` refuses them; write
+`dev.example` in an example).
 
-```
-python3 <this repo>/tools/build.py --variant variant.toml --out .
-```
+Every other Atlan environment gets the core from its own gateway, which serves a copy of
+`plugins/atlanai/` from a pinned commit of this repository. Each deployment writes on top only
+what differs: its MCP server URL, production's full `https://api.atlan.com` and
+`https://app.atlan.com` URLs in the Markdown and Codex cards rewritten to its own hosts, and,
+where it sets a marketplace name suffix, the plugin name with that suffix (`atlanai-<suffix>`),
+so it installs beside production's. So:
 
-which writes the marketplace files and every plugin folder under `plugins/`, named after the
-variant (`atlanai-dev`, `atlanai-dev-analytics`), with the variant's URLs, plugin names and
-repository rewritten. It owns `plugins/` in that repository, and removes the files an older build
-wrote at its root. Add `--check` in its CI. The file
-can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketplace]` names and
-`[mcp] url` and `client` (the name its `X-Atlan-Client` header sends), plus `[rewrite]` pairs and a top-level `keep` list of strings never to rewrite. Keep
-the skills here free of any one environment's URLs beyond production's, so every variant reads
-correctly after the rewrite. Name a variant the way the gateway names its own marketplace for
-that environment, `atlanai-<suffix>` (its `the marketplace name suffix`, `dev` on
-the dev gateway), with the marketplace `atlan-<suffix>` and the environment's `/mcp`
-URL, so the two install side by side with production's the way the gateway's do. This
-repository holds no variant of its own.
+- Write production's hosts as full `https://` URLs when a step or link must follow the
+  environment; the gateway rewrites only full URLs. A bare host in prose stays as written.
+- Name the plugin's own components the way Claude Code addresses them (`atlanai:atlan-continue`,
+  `/atlanai:continue`, `mcp__plugin_atlanai_atlan__…`); the gateway rewrites those prefixes.
+- A change reaches each environment when the gateway's pin moves and that deployment ships (see
+  Releasing). The add-ons and mods install from this marketplace only and reach production.
 
 ## Releasing
 
@@ -265,12 +273,14 @@ and run the first prompt in the README.
 Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR checklist, is
 [docs/secure-coding.md](docs/secure-coding.md); reporting is in [SECURITY.md](SECURITY.md).
 
-- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`;
-  variant rewrites stay HTTPS (`tools/build.py`).
+- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`
+  (`tools/build.py`).
 - **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
   tree, never through a link, never from a credential folder or key file, within 128 files and
   256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and
-  their counterparts in `claude-hooks/register.ts`).
+  their counterparts in `claude-hooks/register.ts`). It refuses a `registry__publish_output`
+  whose inline text matches a credential shape, and never repeats the value (`output_refusal`,
+  `outputRefusal`).
 - **[MUST]** The hooks reach only the Atlan server and, for the update notice, the core's
   `plugin.json` on this repository's `main`. They send nothing about the user or the session to
   either, and no hook sends feedback.
@@ -278,7 +288,7 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   change all three together, with tests.
 - **[MUST]** A hook fails open to the call as sent, never to a wider one (`main` in
   `publish_hook.py`, each handler's `.catch` in `register.ts`).
-- **[MUST]** `atlanai-mods` keeps archive, approve and move confirming, and refuses them where
+- **[MUST]** `atlanai-mods` keeps archive, approve, move, release and roll-back confirming, and refuses them where
   nobody can answer (`ALWAYS_CONFIRM` in `plugins/atlanai-mods/hooks/registry.ts`).
 - **[MUST]** Add-ons and mods declare no MCP server and no `bin/`; hooks stay in the core's helper
   and the mod (`lint_addon` and `lint_mod` in `tools/lint.py`).
@@ -288,6 +298,6 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   `tools/lint.py` fails on credential shapes.
 
 Severity: CRITICAL and HIGH block merge; MEDIUM is flagged with a fix; LOW gets a brief note.
-Ask `#bu-security-and-it` before merging changes to `plugins/atlanai/command-hooks/`,
+Get a maintainer's security review before merging changes to `plugins/atlanai/command-hooks/`,
 `plugins/atlanai/claude-hooks/`, `check_bundle.py`, `plugins/atlanai-mods/hooks/`, the `[mcp]`
 table in `plugin.toml`, or `.github/workflows/`.
