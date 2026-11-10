@@ -227,12 +227,12 @@ and the skills link to `https://app.atlan.com`. Nothing here is built per enviro
 tracked file names another environment's hosts or plugin names (`make check` refuses them; write
 `dev.example` in an example).
 
-Every other environment, dev included, gets the core from its own gateway. atlanai/agent-gateway
-vendors `plugins/atlanai/` at a pinned commit (`pinned-files.toml`) and serves it at
-`<gateway>/public/marketplace.git`. Each deployment writes on top only what differs: its MCP
-server URL, production's full `https://api.atlan.com` and `https://app.atlan.com` URLs in the
-Markdown and Codex cards rewritten to its own hosts, and, where it sets a marketplace name suffix,
-the plugin name with that suffix (`atlanai-<suffix>`), so it installs beside production's. So:
+Every other Atlan environment gets the core from its own gateway, which serves a copy of
+`plugins/atlanai/` from a pinned commit of this repository. Each deployment writes on top only
+what differs: its MCP server URL, production's full `https://api.atlan.com` and
+`https://app.atlan.com` URLs in the Markdown and Codex cards rewritten to its own hosts, and,
+where it sets a marketplace name suffix, the plugin name with that suffix (`atlanai-<suffix>`),
+so it installs beside production's. So:
 
 - Write production's hosts as full `https://` URLs when a step or link must follow the
   environment; the gateway rewrites only full URLs. A bare host in prose stays as written.
@@ -289,6 +289,6 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   `tools/lint.py` fails on credential shapes.
 
 Severity: CRITICAL and HIGH block merge; MEDIUM is flagged with a fix; LOW gets a brief note.
-Ask `#bu-security-and-it` before merging changes to `plugins/atlanai/command-hooks/`,
+Get a maintainer's security review before merging changes to `plugins/atlanai/command-hooks/`,
 `plugins/atlanai/claude-hooks/`, `check_bundle.py`, `plugins/atlanai-mods/hooks/`, the `[mcp]`
 table in `plugin.toml`, or `.github/workflows/`.
