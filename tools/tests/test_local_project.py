@@ -189,6 +189,18 @@ class LocalProject(unittest.TestCase):
         message = json.loads(result.stdout)['message']
         self.assertIn("No saved definition has the id 'Gross Sales'", message)
         self.assertIn('metric:<name>', message)
+        self.assertIn('Saved: none yet', message)
+
+    def test_a_name_resolves_only_to_one_saved_id(self):
+        import metric_preview
+        ids = ['metric:Gross Margin', 'sql_query:Gross Margin', 'metric:Late Jobs']
+        self.assertEqual(metric_preview.resolve_id('late-jobs', ids), 'metric:Late Jobs')
+        self.assertEqual(metric_preview.resolve_id('metric:gross-margin', ids), 'metric:Gross Margin')
+        self.assertEqual(metric_preview.resolve_id('gross-margin', ids, 'sql_query'), 'sql_query:Gross Margin')
+        self.assertIsNone(metric_preview.resolve_id('Gross Margin', ids))
+        self.assertIsNone(metric_preview.resolve_id('Late', ids))
+        self.assertIsNone(metric_preview.resolve_id('', ids))
+        self.assertEqual(metric_preview.resolve_id('Margin: net', ['metric:Margin: Net']), 'metric:Margin: Net')
 
     def test_function_guard_blocks_dynamic_external_and_quoted_names(self):
         for q in ("SELECT * FROM query('select 1')", "SELECT * FROM read_csv('file.csv')",

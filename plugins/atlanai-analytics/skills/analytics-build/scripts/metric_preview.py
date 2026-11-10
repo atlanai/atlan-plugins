@@ -1,7 +1,34 @@
 """Deterministic previews from actual candidates; never requires a workspace."""
 import html
 import json
+import re
 from context_state import digest
+
+
+def _slug(text):
+    return re.sub(r'[^a-z0-9]+', '-', str(text).lower()).strip('-')
+
+
+def resolve_id(requested, ids, kind=None):
+    """The saved id that `requested` names, or None. A definition may be named by its saved id, its
+    display name or a slug, with or without its kind (`metric:Gross Margin`, `Gross Margin`,
+    `metric:gross-margin`). Only a unique match resolves."""
+    ids = [i for i in ids if kind is None or i.startswith(kind + ':')]
+    if requested in ids:
+        return requested
+    prefix = re.match(r'(metric|sql_query):', str(requested))
+    if prefix:
+        ids = [i for i in ids if i.startswith(prefix.group(0))]
+    want = _slug(str(requested)[prefix.end() if prefix else 0:])
+    found = [i for i in ids if want and _slug(i.split(':', 1)[1]) == want]
+    return found[0] if len(found) == 1 else None
+
+
+def id_hint(ids, kind=None):
+    """The saved ids to choose from, for a reply that could not resolve one."""
+    shown = sorted(i for i in ids if kind is None or i.startswith(kind + ':'))
+    return ', '.join(shown[:12]) + (f' and {len(shown) - 12} more' if len(shown) > 12 else '') or 'none yet'
+
 
 STATUS_LABELS = {'draft': 'Draft', 'schema_checked': 'Schema checked; execution untested',
                  'executed': 'SQL executed for observed parameter samples',

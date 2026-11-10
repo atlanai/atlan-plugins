@@ -1,4 +1,4 @@
-"""Read-only workbench layout and exact-identity focus. No runtime or network actions."""
+"""Read-only workbench layout and focus by saved id, source id or one unique name. No runtime or network actions."""
 import html
 
 
@@ -8,6 +8,10 @@ def focus_sample(model, focus=None):
         if model.get('sample') and model['sample'] not in candidates:
             candidates.append(model['sample'])
         matches = [i for i in candidates if focus in (i.get('id'), i.get('source_id'))]
+        if not matches:
+            from metric_preview import resolve_id
+            named = resolve_id(focus, [i.get('id') for i in candidates if i.get('id')])
+            matches = [i for i in candidates if named and i.get('id') == named]
         model['sample'] = matches[0] if len(matches) == 1 else None
         if model['sample'] is None:
             model['warnings'].append('The selected metric is unavailable or ambiguous in this snapshot. The focus was not changed.')

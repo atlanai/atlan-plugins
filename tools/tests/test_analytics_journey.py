@@ -54,6 +54,14 @@ class ConversationChoices(unittest.TestCase):
             self.run.journey('select', 'missing')
         self.assertEqual(before, self.fixture.files())
 
+    def test_select_accepts_the_name_an_agent_writes(self):
+        for focus in ('Shipped Units', 'shipped-units', 'metric:Shipped Units'):
+            self.run.journey('select', focus)
+            self.assertEqual(Project(self.run.root).experience(format='json')['focus'], 'metric:shipped-units')
+        with self.assertRaises(ValueError) as refused:
+            self.run.journey('select', 'units')
+        self.assertIn('Saved: metric:shipped-units', str(refused.exception))
+
     def test_focus_outside_first_page_is_recoverable(self):
         self.fixture.write('context/metrics.json', [
             {**self.body, 'name': 'metric-' + str(i), 'source_id': 'source-' + str(i)} for i in range(125)])
