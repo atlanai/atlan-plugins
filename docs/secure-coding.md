@@ -121,3 +121,14 @@ to the exact native request. A conflicting destination blocks before dispatch. O
 rewritten post-call arguments resolve to the same checked request; a changed local batch
 leaves recording pending. Post-call failures never dispatch another tool. Unsupported or
 redacted outputs cannot establish a completed publication.
+
+## Identifying literals in analytics history
+
+The engine and local history filter share `literal_privacy.py`, and saved-query/card checks
+use the same reason classifier. A two-word capitalised literal is not proof of a person's
+name. Simple comparisons and literal IN lists can establish a place column or a supplier
+with an organisation suffix. Comments, string contents and unsupported expressions cannot
+provide that evidence. Unknown names and explicitly identifying customer/person values remain
+held, and every candidate literal is checked. This is a privacy-control change requiring owner
+review before merge, not an instruction to disable a gate or broaden data access. Diagnostics
+report categories without echoing the identifying value.

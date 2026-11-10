@@ -35,10 +35,12 @@ from pathlib import Path
 import duckdb
 with tempfile.TemporaryDirectory() as tmp:
     root=Path(tmp); database=root/'demo.duckdb'; history=root/'history.jsonl'; run=root/'run'
-    db=duckdb.connect(str(database));db.execute('CREATE TABLE orders(amount INTEGER, owner VARCHAR)');db.execute("INSERT INTO orders VALUES (10, 'team')");db.close()
+    db=duckdb.connect(str(database));db.execute('CREATE TABLE orders(amount INTEGER, owner VARCHAR, supplier VARCHAR, town VARCHAR)');db.execute("INSERT INTO orders VALUES (10, 'team', 'Harbor Builders', 'Cedar Vale')");db.close()
     rows=[{'query_text':sql,'exec_count':30,'user_count':3} for sql in [
         'SELECT SUM(amount) FROM demo.main.orders',
-        "SELECT SUM(amount) FROM demo.main.orders WHERE owner = 'Synthetic Person'"]]
+        "SELECT SUM(amount) FROM demo.main.orders WHERE owner = 'Synthetic Person'",
+        "SELECT SUM(amount) FROM demo.main.orders WHERE supplier = 'Harbor Builders'",
+        "SELECT SUM(amount) FROM demo.main.orders WHERE town = 'Cedar Vale'"]]
     history.write_text(chr(10).join(json.dumps(row) for row in rows)+chr(10))
     config={'version':1,'scope':'synthetic-preflight','dialect':'duckdb','mode':'standalone',
       'inputs':{'history':['local-files'],'schema':['local-files'],'bi':[],'sql_check':['local-files']},
@@ -48,7 +50,8 @@ with tempfile.TemporaryDirectory() as tmp:
     result=subprocess.run([sys.executable,'-m','metrics_agent.cli','run','--run',str(run),'--config',str(path)],capture_output=True,text=True,timeout=40)
     assert result.returncode==3,(result.stdout,result.stderr)
     corpus=(run/'query_corpus.jsonl').read_text()
-    assert len(corpus.strip().splitlines())==1,corpus
+    assert len(corpus.strip().splitlines())==3,corpus
+    assert 'Harbor Builders' in corpus and 'Cedar Vale' in corpus,corpus
     assert 'Synthetic Person' not in corpus
     for prompt in run.glob('*_prompt.json'):
         assert 'Synthetic Person' not in prompt.read_text(),prompt.name

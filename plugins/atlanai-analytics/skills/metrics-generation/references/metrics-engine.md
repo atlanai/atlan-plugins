@@ -323,3 +323,10 @@ Refresh [the setup checklist](../../analytics-build/references/setup/checklist.m
 Runtime creation resolves the base Python executable before setting the virtual environment
 home. Launchers from approved environment managers keep the real installation and standard
 library linkage. Python 3.11 or 3.12 remains required; failed attempts stay available for diagnosis.
+
+The shared history/card privacy check uses the compared SQL column for unambiguous business
+literals, including places and organisation-marked suppliers. Personal-name fields, customer
+identities, email addresses, IDs and ambiguous names remain held. Unsupported expressions do
+not gain an exception. Review withheld counts and continue the retained corpus in the same
+run; do not restart the whole engine or retry the same refused export. Never echo withheld
+values. Any semantic parameterisation needs the ordinary checks and explicit value bindings.
