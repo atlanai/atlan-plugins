@@ -1,6 +1,6 @@
 ---
 name: atlan-use-mcp-servers
-description: Call the tools of MCP servers registered in Atlan (Slack, Linear, GitHub, Snowflake and others) through the `atlan` connection, connect an account, or register a server. Use when a task needs another product's tools and the user is on Atlan.
+description: Call tools of MCP servers registered in Atlan (Slack, Linear, GitHub, Snowflake) through the `atlan` connection, connect an account, or register a server. Use when asked to reach a product through Atlan, or when this host has no connector for it.
 license: Apache-2.0
 ---
 

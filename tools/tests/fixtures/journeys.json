@@ -28,7 +28,7 @@
    "plugin": "atlanai",
    "skill": "atlan-get-started",
    "title": "Connect and see what the organization has",
-   "route": "Own workspace (opens the session), then the org workspace and two counts in parallel",
+   "route": "Own workspace, the org workspace and two counts as one batch that opens the session; without the batch runner, own workspace first and the rest in parallel",
    "calls": {
     "cold": [
      {
@@ -371,7 +371,7 @@
      },
      {
       "tool": "extension__skill__create",
-      "runner": "call_tool",
+      "runner": "call_write_tool",
       "args": {
        "wait_for_release": true,
        "idempotency_key": "<name>-<8>"
@@ -390,7 +390,7 @@
      },
      {
       "tool": "extension__skill__create",
-      "runner": "call_tool",
+      "runner": "call_write_tool",
       "args": {
        "wait_for_release": true,
        "idempotency_key": "<name>-<8>"
