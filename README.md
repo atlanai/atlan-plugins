@@ -186,7 +186,8 @@ and point at live tools instead of copying reference data that would go stale.
   tree, refuses links, credential files and folders, and anything outside the tree, and sends
   the files only in that same call to Atlan. It can also load one digest-bound local JSON batch
   of metrics or saved queries into an Atlan bulk-create call, under the same path, credential
-  and size checks. When Analytics requests receipt recording, it saves native results as
+  and size checks. It holds back a shared output whose text matches a credential shape, naming
+  the line. When Analytics requests receipt recording, it saves native results as
   immutable private run files and small tool-id mappings in `.atlan-receipt-pending/`.
   The same hook reads
   `atlanai`'s public manifest on `main` at session start, so the agent can tell you once when an

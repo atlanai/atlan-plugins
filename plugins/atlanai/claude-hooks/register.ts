@@ -19,7 +19,7 @@
 
 import type { EngineInterface, Register } from 'claude-code'
 
-import { CREDENTIAL_DIRS, KEY_FILES, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
+import { CREDENTIAL_DIRS, KEY_FILES, MAX_DEPTH, MAX_FILES, MAX_BYTES, check, credentials, fromBase64, isSkipped, render, type Entry, type Problem } from './bundle'
 import {
   ATLAN_TOOL,
   FEEDBACK_ON_FAILURE,
@@ -62,6 +62,10 @@ export const PUBLISH = 'extension__skill__create'
 export const BULK_PUBLISH = 'registry__create_artifacts'
 export const BULK_CAPABILITY = 'Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: [].'
 export const RECEIPT_CAPABILITY = 'Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying.'
+/** A shared output's one-call tool: its inline `file.content` is checked for credentials before it leaves. */
+export const OUTPUT = 'registry__publish_output'
+/** How many credential matches a refusal lists. */
+const MAX_LISTED = 5
 const RECEIPT_OPERATIONS = new Set([BULK_PUBLISH, 'registry__get_artifact', 'registry__get_related_artifacts'])
 /** The line that tells the model the helper is on, once a conversation. publish.md sends `files_from` without waiting for it. */
 export const CAPABILITY = 'Atlan publish helper is on: extension__skill__create accepts files_from.'
@@ -291,6 +295,21 @@ export function overBudget(skills: readonly unknown[], slots: readonly number[],
  * The create's arguments with every `files_from` replaced by the folder's `files`, or the text that
  * refuses the call, or undefined when no skill names `files_from`.
  */
+/**
+ * Why a shared output is not sent: its inline text matches a credential shape, by the rules a
+ * skill bundle is held to. Names the kind and where, never the value. undefined sends the call.
+ */
+export function outputRefusal(args: Record<string, unknown>): string | undefined {
+  const file = args.file
+  if (!isRecord(file) || typeof file.content !== 'string') return undefined
+  const found = credentials(file.content)
+  if (found.length === 0) return undefined
+  const label = typeof file.path === 'string' && file.path ? file.path : 'file.content'
+  const lines = found.slice(0, MAX_LISTED).map(([line, column, kind]) => `${label}:${line}:${column}: credential: matches the ${kind} pattern`)
+  if (found.length > MAX_LISTED) lines.push(`and ${found.length - MAX_LISTED} more`)
+  return `${lines.join('\n')}\nNothing was sent. Show the user each match with its value masked, then share only after they remove it or replace it with a placeholder.`
+}
+
 export async function expand($: Dollar, args: Record<string, unknown>): Promise<{ args: Record<string, unknown> } | { deny: string } | undefined> {
   const skills = Array.isArray(args.skills) ? args.skills : undefined
   if (!skills || !skills.some(skill => isRecord(skill) && 'files_from' in skill)) return undefined
@@ -478,9 +497,14 @@ export const register: Register = on => {
   }).catch(($, e, next) => next(e))
   on('tool.call', { tool: CALL_TOOL }, async ($, e, next) => {
     const call = e as unknown as { name?: unknown; arguments?: unknown }
-    if (call.name !== PUBLISH && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
+    if (call.name !== PUBLISH && call.name !== OUTPUT && !RECEIPT_OPERATIONS.has(String(call.name))) return next(e)
     const args = argsOf(call.arguments)
     if (!args) return next(e)
+    if (call.name === OUTPUT) {
+      const refusal = outputRefusal(args)
+      if (refusal === undefined || (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool))) return next(e)
+      return { deny: refusal }
+    }
     const { receipt_dir: receiptDir, ...native } = args
     if (!PLUGIN_CALL_TOOL.test(e.tool) && !gatewayRunners(await $.tool.list()).includes(e.tool)) return next(e)
     if (receiptDir !== undefined && (call.name === PUBLISH || call.name === BULK_PUBLISH && !('items_from' in native))) return { deny: 'Receipt capture on creates requires a guarded local batch.' }

@@ -85,6 +85,18 @@ function emojiBase(cp: number): boolean {
   )
 }
 
+/** Every credential shape in `text`, as [line, column, kind], in the order check_bundle.py finds them. */
+export function credentials(text: string, cps: readonly number[] = Array.from(text, c => c.codePointAt(0) as number)): [number, number, string][] {
+  const found: [number, number, string][] = []
+  for (const [kind, pattern] of SECRETS) {
+    for (const match of text.matchAll(pattern)) {
+      const [line, column] = position(cps, codePointIndex(text, match.index ?? 0))
+      found.push([line, column, kind])
+    }
+  }
+  return found
+}
+
 /** Every character in `cps` a reader cannot see, as [index, rule, what to do]. */
 export function hidden(cps: readonly number[]): [number, string, string][] {
   const found: [number, string, string][] = []
@@ -403,12 +415,7 @@ export function check(folders: readonly { label: string; entries: readonly Entry
         const [line, column] = position(cps, index)
         problems.push(problem(where, rule, fix, line, column))
       }
-      for (const [kind, pattern] of SECRETS) {
-        for (const match of text.matchAll(pattern)) {
-          const [line, column] = position(cps, codePointIndex(text, match.index ?? 0))
-          problems.push(problem(where, 'credential', `matches the ${kind} pattern; remove it`, line, column))
-        }
-      }
+      for (const [line, column, kind] of credentials(text, cps)) problems.push(problem(where, 'credential', `matches the ${kind} pattern; remove it`, line, column))
       if (entry.path === 'SKILL.md') {
         const keys = frontmatter(text)
         if (keys === undefined) {

@@ -36,7 +36,9 @@ the request could mean several files, ask which. Then route by what it is:
 Read the content before sharing it. Stop and show the user, with values masked, anything that
 looks like a credential (a private key block, a token such as `sk-…`, `ghp_…`, `xox…` or
 `AKIA…`, a `password=` or connection string) or a list of people's personal details. Share only
-after they say so, or after they remove it.
+after they say so, or after they remove it. Where the publish helper runs, it refuses a
+`registry__publish_output` whose text still matches a credential shape, naming the line: mask
+the value or swap in a placeholder, then send again. Never route around the refusal.
 
 ## 2. Decide who it is for
 

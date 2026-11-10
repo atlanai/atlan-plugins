@@ -74,10 +74,11 @@ export type Effect = 'read' | 'write' | 'destructive' | 'unknown'
 export type Hints = { readOnly?: boolean; destructive?: boolean }
 export type HintTable = Record<string, Hints>
 
-/** The registry tools that take something away from other people, whatever their annotations
- * say: `move_artifact` is annotated non-destructive, but it removes the artifact from everyone in
- * its current workspace. */
-const ALWAYS_CONFIRM = /^registry__(?:archive_artifact|approve_artifact|move_artifact)$/
+/** The registry tools that change what other people get, whatever their annotations say and
+ * whether or not the mod has read them yet: `move_artifact` is annotated non-destructive, but it
+ * removes the artifact from everyone in its current workspace, and a release or its withdrawal
+ * moves everyone who follows the channel. */
+const ALWAYS_CONFIRM = /^registry__(?:archive_artifact|approve_artifact|move_artifact|release_artifact|withdraw_release)$/
 const REGISTRY_READ = /^registry__(?:get|list|search|query)_\w+$/
 /** The gateway's own discovery tools, which read the catalogue and change nothing. */
 const GATEWAY_READ = /^mcp__(?:search_tools|describe_tools)$/
@@ -397,6 +398,47 @@ export function summaryOf(text: string): Summary | undefined {
   return undefined
 }
 
+/** One release of an artifact, as `registry__list_releases` lists it. */
+export type Release = { id: string; artifact: string; channel: string; label: string; ordinal: number; isCurrent: boolean; isWithdrawn: boolean }
+
+/** The releases a `list_releases` result holds. `artifact` is the handle the call named, for a
+ * gateway whose rows do not carry it. */
+export function releasesOf(text: string, artifact: string): Release[] {
+  for (const object of jsonObjects(text)) {
+    if (!isRecord(object) || !Array.isArray(object.items)) continue
+    return object.items.flatMap(item => {
+      if (!isRecord(item) || !isText(item.release_id) || !item.release_id.startsWith('rel_')) return []
+      const owner = isText(item.artifact_id) ? item.artifact_id : artifact
+      if (!owner) return []
+      return [
+        {
+          id: item.release_id,
+          artifact: owner,
+          channel: isText(item.channel) ? item.channel : '',
+          label: isText(item.version_label) ? item.version_label : '',
+          ordinal: typeof item.version_ordinal === 'number' ? item.version_ordinal : 0,
+          isCurrent: item.is_current === true,
+          isWithdrawn: item.release_status === 'withdrawn' || isText(item.withdrawn_at),
+        },
+      ]
+    })
+  }
+  return []
+}
+
+/** What a withdrawal does to the release's channel, from the releases this session has listed:
+ * nothing when it is not current, else the newest earlier release that is not withdrawn. The
+ * registry also needs that version to be active still, which a release row does not say. */
+export function fallbackOf(release: Release, known: readonly Release[]): string {
+  const channel = release.channel ? `"${release.channel}"` : 'its channel'
+  if (!release.isCurrent) return `It is not the current release on ${channel}, so nobody moves.`
+  const earlier = known
+    .filter(one => one.artifact === release.artifact && one.channel === release.channel && !one.isWithdrawn && one.ordinal < release.ordinal)
+    .sort((a, b) => b.ordinal - a.ordinal)[0]
+  if (!earlier) return `No earlier release on ${channel} is known, so it may be left serving nothing.`
+  return `${channel[0]?.toUpperCase() ?? ''}${channel.slice(1)} goes back to ${earlier.label || `version ${earlier.ordinal}`}, if that version is still active.`
+}
+
 /** What an archive, move, approve, release or withdrawal does to everyone else. */
 export const CONSEQUENCE: Record<string, string> = {
   registry__archive_artifact: 'Archiving hides it from search, listings and installs for everyone.',
@@ -407,13 +449,17 @@ export const CONSEQUENCE: Record<string, string> = {
     'Withdrawing moves everyone on its channel back to the previous release, or to none, and cannot be undone: only a new release replaces it.',
 }
 
-/** The permission prompt's text for an archive, move or approve. */
-export function describeBlastRadius(name: string, id: string, summary?: Summary, related?: Related): string {
+/** The permission prompt's text for an archive, move, approve or release, and for the withdrawal
+ * of a `release` this session has listed (`fallback` then says where its channel goes). */
+export function describeBlastRadius(name: string, id: string, summary?: Summary, related?: Related, release?: Release, fallback?: string): string {
   const verb = name.replace(/^registry__/, '').replace(/_artifact$/, '')
   const label = summary?.name ? `${summary.kind || 'artifact'} "${summary.name}"` : id
   const version = summary?.version ? ` ${summary.version}` : ''
   const where = summary?.workspace ? ` in ${summary.workspace}` : ''
-  const parts = [`Atlan: ${verb} ${label}${version}${where}.`]
+  const parts = release
+    ? [`Atlan: withdraw release ${release.label || release.id}${release.channel ? ` on "${release.channel}"` : ''} of ${label}${where}.`]
+    : [`Atlan: ${verb} ${label}${version}${where}.`]
+  if (fallback) parts.push(fallback)
   if (related === undefined) parts.push('Could not read what depends on it.')
   else if (related.count === 0) parts.push('Nothing in the registry depends on it.')
   else {

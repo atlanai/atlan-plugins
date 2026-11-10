@@ -48,6 +48,9 @@ CAPABILITY = "Atlan publish helper is on: extension__skill__create accepts files
 BULK_CAPABILITY = "Atlan bulk publish helper is on: registry__create_artifacts accepts items_from with items: []."
 RECEIPT_CAPABILITY = "Atlan receipt helper is on: publication calls accept receipt_dir; released readbacks are saved without model copying."
 LOCAL_CAPABILITY = "Atlan local publish hooks are installed. Confirm support with one guarded empty-items batch; an explicit invalid_arguments refusal means use native arguments without local helper fields."
+# A shared output's one-call tool: its inline `file.content` is checked for credentials before it leaves.
+OUTPUT = "registry__publish_output"
+MAX_LISTED = 5
 RECEIPT_OPERATIONS = {BULK_PUBLISH, "registry__get_artifact", "registry__get_related_artifacts"}
 NOT_SENT = "Nothing was sent. Fix what is listed and call extension__skill__create again."
 CREDENTIAL_DIRS = {".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", "gcloud"}
@@ -155,8 +158,9 @@ def args_of(value):
     return None
 
 
-def publish_input(event: dict, host: str):
-    """Select Atlan's skill or bulk create; never read local files for another server."""
+def publish_input(event: dict, host: str, names=None):
+    """Select Atlan's skill or bulk create (or a call named in `names`); never read local files
+    for another server."""
     tool = event.get("tool_name")
     tool_input = event.get("tool_input")
     runner = RUNNERS.get(event.get('_host', host))
@@ -171,7 +175,25 @@ def publish_input(event: dict, host: str):
         copilot_named = event.get('_host') == 'copilot' and re.fullmatch(r'atlan(?:[-_][A-Za-z0-9_-]+)?[/\-]mcp__call(?:_(?:write|read))?_tool', tool)
         if not named and not copilot_named:
             return None
-    return tool_input if tool_input.get("name") in ({PUBLISH} | RECEIPT_OPERATIONS) else None
+    return tool_input if tool_input.get("name") in (names or {PUBLISH} | RECEIPT_OPERATIONS) else None
+
+
+def output_refusal(tool_input: dict):
+    """Why a shared output is not sent: its inline text matches a credential shape, by the rules a
+    skill bundle is held to. Names the kind and where, never the value. None sends the call."""
+    args = args_of(tool_input.get("arguments"))
+    file = args.get("file") if args else None
+    if not isinstance(file, dict) or not isinstance(file.get("content"), str):
+        return None
+    found = load_checker().credentials(file["content"])
+    if not found:
+        return None
+    label = file["path"] if isinstance(file.get("path"), str) and file["path"] else "file.content"
+    lines = [f"{label}:{line}:{column}: credential: matches the {kind} pattern" for line, column, kind in found[:MAX_LISTED]]
+    if len(found) > MAX_LISTED:
+        lines.append(f"and {len(found) - MAX_LISTED} more")
+    return "\n".join(lines) + ("\nNothing was sent. Show the user each match with its value masked, then share only "
+                              "after they remove it or replace it with a placeholder.")
 
 
 def is_atlan_server(event: dict) -> bool:
@@ -569,6 +591,15 @@ def answer(entry: str, host: str, event: dict):
         if refusal is None:
             return None
         return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper kept local publication files from a server that is not Atlan's."}
+    if entry == "pre":
+        shared = publish_input(event, host, {OUTPUT})
+        if shared is not None:
+            refusal = output_refusal(shared)
+            if refusal is None:
+                return None
+            if codex:
+                return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": refusal}}
+            return {"permission": "deny", "agent_message": refusal, "user_message": "The Atlan publish helper kept a shared output that holds a credential from being sent; the agent was told where."}
     tool_input = publish_input(event, host)
     if tool_input is None:
         return None

@@ -79,7 +79,8 @@ The plugin has no binaries. In Claude Code, Codex, Cursor and GitHub Copilot CLI
 it runs one hook, the publish helper (outside Claude Code, a Python script, once you trust the
 plugin's hooks): when the agent publishes a skill with `files_from`, it reads that one folder in
 your working tree (never a link, a credential file or folder, or anything outside the tree) and
-sends its files in that same call to the configured Atlan connection. Server aliases such as
+sends its files in that same call to the configured Atlan connection. It also holds back a
+shared output whose text matches a credential shape, naming the line and never the value. Server aliases such as
 `atlan-personal` need no plugin setting. In Claude Code, capability notes follow the available
 gateway tool inventory; command hosts report installation without promising input rewriting
 or complete result access. Copilot discovers its adapter in `com.github.copilot/hooks/`.

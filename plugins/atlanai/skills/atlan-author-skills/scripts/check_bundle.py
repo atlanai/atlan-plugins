@@ -135,6 +135,11 @@ def position(text: str, index: int) -> tuple[int, int]:
     return line, index - start + 1
 
 
+def credentials(text: str) -> list[tuple[int, int, str]]:
+    """Every credential shape in `text`, as (line, column, kind)."""
+    return [(*position(text, match.start()), kind) for kind, pattern in SECRETS for match in pattern.finditer(text)]
+
+
 def frontmatter(text: str) -> dict[str, str] | None:
     """The top-level scalar keys of a `---` block, enough to see `name` and `description`."""
     lines = text.splitlines()
@@ -371,10 +376,8 @@ def check_files(folders: list[tuple[str, list[tuple[str, bytes]], list[dict], bo
             for index, rule, fix in hidden(text):
                 line, column = position(text, index)
                 problems.append(problem(label, rule, fix, line, column))
-            for kind, pattern in SECRETS:
-                for match in pattern.finditer(text):
-                    line, column = position(text, match.start())
-                    problems.append(problem(label, "credential", f"matches the {kind} pattern; remove it", line, column))
+            for line, column, kind in credentials(text):
+                problems.append(problem(label, "credential", f"matches the {kind} pattern; remove it", line, column))
             if rel == "SKILL.md":
                 keys = frontmatter(text)
                 if keys is None:

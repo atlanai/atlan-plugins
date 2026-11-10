@@ -2,7 +2,7 @@
 //
 // tool.check (the runners, the batch runner and the registry reads listed by name): registry
 //   reads run without a prompt, alone, in a batch or called by name; writes ask, naming the
-//   write; archive, approve and move always ask, naming what depends on the artifact, and the
+//   write; archive, approve, move, release and roll-back always ask, naming what depends on the artifact, and the
 //   Atlan pane shows the same as a card while the question waits.
 // tool.call (every gateway tool the mod handles): moves session_id, rationale and objective out
 //   of a runner's `arguments`, reuses the session's open audit session, refuses a runner or batch
@@ -46,6 +46,9 @@ import {
   classify,
   dependentsOf,
   describeBlastRadius,
+  fallbackOf,
+  releasesOf,
+  argsOf,
   describeWrite,
   diagnose,
   findSessionId,
@@ -62,6 +65,7 @@ import {
   type AtlanHealth,
   type CallInput,
   type HintTable,
+  type Release,
 } from './registry'
 import {
   SETTLED,
@@ -136,6 +140,9 @@ type Memory = {
   touches: Touch[]
   /** Confirmation cards for calls waiting on the person, by tool_use_id. */
   cards: Map<string, Card>
+  /** Releases this session has listed, by `rel_…` id: a withdrawal names only its release, so
+   * this is how its card finds the artifact and the channel. */
+  releases: Map<string, Release>
   /** Skill publishes this turn, for the band. */
   publishes: Publish[]
   /** The server key of the gateway the model last called, when it is not one the mod probes
@@ -272,9 +279,14 @@ async function lookupWithRetry($: Dollar, mem: Memory, server: string, name: str
 
 const BLAST: Budget = { totalMs: BLAST_BUDGET_MS, maxWaitSeconds: BLAST_RETRY_MAX_S }
 
-/** The permission prompt's text for an archive, move or approve, and the pane's card for it. */
+/** The permission prompt's text for an archive, move, approve, release or withdrawal, and the
+ * pane's card for it. A withdrawal names a release, so its artifact comes from the releases this
+ * session listed; one it never listed is asked about by its id alone. */
 async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string, name: string, input: Record<string, unknown>): Promise<{ reason: string; card?: Card }> {
-  const id = artifactOf(input.arguments)
+  const releaseId = argsOf(input.arguments).release_id
+  const release = typeof releaseId === 'string' ? mem.releases.get(releaseId) : undefined
+  const fallback = release ? fallbackOf(release, [...mem.releases.values()]) : undefined
+  const id = artifactOf(input.arguments) ?? release?.artifact
   if (!id) return { reason: describeWrite(name, input.arguments) }
   const server = serverKeyOf(tool) ?? ''
   const why = 'Checking what depends on this artifact before the user confirms the change.'
@@ -284,7 +296,10 @@ async function blastRadius($: Dollar, mem: Memory, callId: string, tool: string,
   ])
   const summary = artifact && !artifact.isError ? summaryOf(artifact.text) : undefined
   const dependents = related && !related.isError ? dependentsOf(related.text) : undefined
-  return { reason: describeBlastRadius(name, id, summary, dependents), card: cardOf(callId, name, id, summary, dependents) }
+  return {
+    reason: describeBlastRadius(name, id, summary, dependents, release, fallback),
+    card: cardOf(callId, name, id, summary, dependents, release, fallback),
+  }
 }
 
 /** Checks the connection with `mcp__describe_tools`, which opens no audit session. */
@@ -334,8 +349,8 @@ function report(mem: Memory, health: AtlanHealth, confirmWrites: boolean): strin
   if (health.state === 'ready') {
     lines.push(
       confirmWrites
-        ? 'Writes ask first. Archive, approve and move always ask, with what depends on the artifact, and are refused where nobody can answer.'
-        : 'Writes follow your permission rules. Archive, approve and move always ask, and are refused where nobody can answer.',
+        ? 'Writes ask first. Archive, approve, move, release and roll-back always ask, with what depends on the artifact, and are refused where nobody can answer.'
+        : 'Writes follow your permission rules. Archive, approve, move, release and roll-back always ask, and are refused where nobody can answer.',
     )
     lines.push(session ? 'An audit session is open and is reused for every call.' : 'No audit session yet: the first registry call opens one.')
   }
@@ -489,6 +504,7 @@ export const register: Register = (on, options) => {
     unguardedReads: 0,
     touches: [],
     cards: new Map(),
+    releases: new Map(),
     publishes: [],
     isBandHidden: false,
     hasOpenedPane: false,
@@ -617,6 +633,14 @@ export const register: Register = (on, options) => {
       : direct
         ? [{ name: direct, args: input as unknown, text, isError }]
         : []
+    // The releases a listing names, kept for a later withdrawal's question.
+    const listings = isCallTool ? [{ name: inner.name, args: inner.args, text, isError }] : reads
+    for (const listing of listings) {
+      if (listing.isError || listing.name !== 'registry__list_releases') continue
+      for (const release of releasesOf(listing.text, artifactOf(listing.args) ?? '')) mem.releases.set(release.id, release)
+      // Bounded: a long session keeps the latest listings.
+      while (mem.releases.size > 500) mem.releases.delete(mem.releases.keys().next().value as string)
+    }
     if (reads.length > 0) {
       let touched: Touch[] = []
       for (const read of reads) {
@@ -714,7 +738,8 @@ export const register: Register = (on, options) => {
       if (!confirmWrites || e.approver === undefined) return verdict
       return { decision: 'ask', reason: describeWrite(name, input.arguments) }
     }
-    // Archive, approve and move: asked wherever someone can answer, refused where nobody can.
+    // Archive, approve, move, release and withdraw, and anything else marked destructive: asked
+    // wherever someone can answer, refused where nobody can.
     const { reason, card } = await blastRadius($, mem, e.tool_use_id ?? '', e.tool, name, input)
     if (e.approver === undefined) return { decision: 'deny', reason: `${reason} ${NO_APPROVER}` }
     if (card && e.tool_use_id && e.approver !== undefined) {
