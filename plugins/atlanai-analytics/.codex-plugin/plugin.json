@@ -1,6 +1,6 @@
 {
   "name": "atlanai-analytics",
-  "version": "0.8.5",
+  "version": "0.8.6",
   "description": "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard.",
   "author": {
     "name": "Atlan",
