@@ -842,6 +842,19 @@ def observed_literals(tree: exp.Expression) -> list[tuple[str, str]]:
     return out
 
 
+# Clauses whose literals do not change what a statement computes: filter values (the observed
+# values a shape collapses, rule 16), row limits, and positional GROUP BY / ORDER BY ordinals.
+_NON_DEFINING = (exp.Where, exp.Having, exp.Qualify, exp.Limit, exp.Offset, exp.Group, exp.Order)
+
+
+def defining_literals(tree: exp.Expression) -> list[str]:
+    """Every literal and unit that changes what the statement computes: a CASE label inside a
+    measure, a DATE_TRUNC grain, a constant factor, a join condition's value. Two statements
+    differing in one of these are two metrics, never one shape."""
+    return sorted({node.sql() for node in tree.find_all(exp.Literal, exp.Var)
+                   if node.find_ancestor(*_NON_DEFINING) is None})
+
+
 def compute_constructs(tree: exp.Expression, feat: dict[str, Any]) -> dict[str, bool]:
     """Boolean presence of each business-logic construct. B2 scores on these."""
     has_business_predicate = any(
