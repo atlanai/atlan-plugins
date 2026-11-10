@@ -133,8 +133,10 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             raise JourneyError('Select a definition by its saved id, such as metric:<name> or sql_query:<name>.')
         model = experience.snapshot(run, focus=focus, host=host, server=server)
         if not model['sample']:
-            raise JourneyError('No saved definition has the id ' + repr(focus) + '. Select one by its saved id, '
-                              'such as metric:<name> or sql_query:<name>; the selection is unchanged.')
+            import metric_preview
+            raise JourneyError('No saved definition has the id ' + repr(focus) + '. Select one by its saved id, such as '
+                              'metric:<name>. Saved: ' + metric_preview.id_hint(i['id'] for i in model['items'])
+                              + '. The selection is unchanged.')
         saved['focus'] = model['sample']['id']
         saved['definition_hash'] = model['sample'].get('definition_hash')
         saved['intent_focus_required'] = False
