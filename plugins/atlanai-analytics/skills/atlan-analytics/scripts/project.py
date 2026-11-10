@@ -6,6 +6,7 @@ This helper never publishes, executes repository scripts, installs software or r
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -33,6 +34,11 @@ import metrics_mine as mine
 from analytics_eval import filter_querylog
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
+_card_path = Path(__file__).resolve().parents[3] / 'modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
+_card_spec = importlib.util.spec_from_file_location('analytics_card_sql', _card_path)
+_card_sql = importlib.util.module_from_spec(_card_spec)
+_card_spec.loader.exec_module(_card_sql)
+
 LOCAL = ('duckdb', 'sqlite')
 
 class ProjectError(ValueError):
@@ -246,6 +252,85 @@ class Project(ContextState):
         except Exception:
             return {'status': 'text_fallback', 'markdown': text}
 
+    def candidates(self, review=None):
+        declarations = []
+        for source in self.current()['sources']:
+            path = self.context / (source['source_id'] + '.json')
+            if source.get('status') == 'model_sidecar' or not source.get('inventory_hash') or not path.is_file():
+                continue
+            inventory = self.read(path)
+            if digest(inventory) != source['inventory_hash']:
+                raise ProjectError('Source inventory changed. Survey the selected sources again.')
+            scope = self.current().get('scopes', {}).get(source['source_id'], {})
+            selected = scope.get('selection', {}).get('measure_refs', []) if scope.get('narrowed') else None
+            for measure in inventory.get('measures', []):
+                if selected is not None and measure['table'] + '.' + measure['name'] not in selected:
+                    continue
+                declarations.append({'source_ref': 'declared:' + source['source_id'] + ':' +
+                                     measure['table'] + '.' + measure['name'],
+                                     'name': measure['name'], 'expression': measure['expression'],
+                                     'source_context': {
+                                         'entity': measure['table'], 'declaration': measure,
+                                         'table': next((t for t in inventory.get('tables', [])
+                                                        if t['name'] == measure['table']), {}),
+                                         'relationships': inventory.get('relationships', []),
+                                         'security': inventory.get('security', []),
+                                         'source_hash': source['sha256']}})
+        inventory = mine.candidate_inventory(mine.read_jsonl(self.context / 'shapes.jsonl'), declarations)
+        self.write(self.context / 'candidate-inventory.json', inventory)
+        if review is None:
+            return inventory
+        names = {m['name'] for m in self.read(self.context / 'metrics.json')}
+        result = mine.review_candidates(inventory, review, names)
+        self.write(self.context / 'candidate-review.json', result)
+        return result
+
+    def review_cards(self, review=None):
+        inventory = self.candidates()
+        candidate_review = self.read(self.context / 'candidate-review.json')
+        catalog = []
+        binding = self.execution_binding()
+        if binding and binding['kind'] in LOCAL:
+            schema = local_data.call(binding, 'inspect')
+            tables = {t.lower() for t in binding['tables']}
+            for table in sorted(tables):
+                columns = [c for c in schema['columns']
+                           if table in {'.'.join(str(c[k]) for k in parts if c.get(k)).lower()
+                                        for parts in (('schema', 'table'), ('catalog', 'schema', 'table'))}]
+                catalog.append({'source_ref': 'catalog:' + table, 'table': table, 'columns': columns,
+                                'keys': 'not_collected', 'relationships': 'not_collected',
+                                'schema_hash': schema['schema_hash']})
+        bundle = mine.card_review_bundle(inventory, candidate_review,
+                                         self.read(self.context / 'metrics.json'), catalog)
+        self.write(self.context / 'card-review-bundle.json', bundle)
+        prior_path = self.context / 'card-review.json'
+        previous = self.read(prior_path) if prior_path.exists() else {}
+        reusable = mine.reusable_card_notes(bundle, previous)
+        reused_names = {note['name'] for note in reusable}
+        pending = [c['name'] for c in bundle['cards'] if c['name'] not in reused_names]
+        plan = {'input_hash': bundle['input_hash'], 'pending': pending,
+                'reusable': sorted(reused_names),
+                'cards': [{k: c[k] for k in ('name', 'definition_hash', 'review_hash')}
+                          for c in bundle['cards']]}
+        self.write(self.context / 'card-review-plan.json', plan)
+        if review is None:
+            return {'status': 'ready_for_assistant_review', 'input_hash': bundle['input_hash'],
+                    'bundle': str(self.context / 'card-review-bundle.json'), 'metrics': len(bundle['cards']),
+                    'plan': str(self.context / 'card-review-plan.json'),
+                    'pending': pending, 'reusable': len(reusable),
+                    'next': 'Read shared evidence once and fully review pending cards. Prior notes are reused only for unchanged cards and dependencies. Repair authored omissions before submitting review notes.'}
+        if review.get('input_hash') != bundle['input_hash']:
+            raise ProjectError('Cards or evidence changed. Read the current review bundle and review again.')
+        supplied = review.get('metrics', [])
+        if len({n.get('name') for n in supplied}) != len(supplied):
+            raise ProjectError('Review each metric at most once.')
+        supplied_names = {n.get('name') for n in supplied}
+        merged = [n for n in reusable if n['name'] not in supplied_names] + supplied
+        result = mine.review_card_notes(bundle, {**review, 'metrics': merged})
+        result['reused'] = len(reused_names - supplied_names)
+        self.write(self.context / 'card-review.json', result)
+        return result
+
     def check(self):
         items = metric_preview.candidates(self)
         # Preserve not-yet-visited execution evidence if this pass is canceled.
@@ -302,8 +387,33 @@ class Project(ContextState):
         samples = prior.get('samples', {}) if prior.get('definition_hash') == item['definition_hash'] else {}
         sample_id = digest({'example_index': index, 'parameters': request.get('parameters', {})}
                            if kind == 'metric' else request.get('parameters', {}))
+        composition = None
         try:
-            result = self.execute({'sql': sql, 'parameters': request.get('parameters', {}), 'limit': request.get('limit', 100)})
+            example_query = {'sql': sql, 'parameters': request.get('parameters', {}),
+                             'limit': request.get('limit', 100)}
+            if kind == 'metric':
+                card_sql = _card_sql.canonical_statement(definition)
+                card_sql = ''.join(re.sub(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', marker + r'\1', text)
+                                   if token_kind == 'code' else text for token_kind, text in mine.scan(card_sql))
+                code = ''.join(text for token_kind, text in mine.scan(card_sql) if token_kind == 'code')
+                needed = set(re.findall(r'(?<![:\w])[:$]([A-Za-z_][A-Za-z_0-9]*)\b', code))
+                available = {p['name']: p['default'] for p in definition['source'].get('parameters', [])}
+                available.update(request.get('parameters', {}))
+                if not needed <= available.keys():
+                    raise local_data.DataError('Supply the named parameters required by the metric calculation.')
+                calculation_query = {'sql': card_sql, 'parameters': {k: available[k] for k in needed},
+                                     'limit': request.get('limit', 100)}
+                empty_query = {'sql': card_sql + ('\nAND 1=0' if definition.get('mandatory_filters') else '\nWHERE 1=0'),
+                               'parameters': {k: available[k] for k in needed}, 'limit': 100}
+                result, calculated, empty = local_data.call_batch(
+                    binding, [example_query, calculation_query, empty_query])
+                composition = {'status': 'executed', 'query_id': calculated['query_id'],
+                               'sql_hash': calculated['sql_hash'], 'rows': calculated['rows'],
+                               'coverage': 'formula_source_mandatory_filters'}
+                composition['empty_population'] = {'query_id': empty['query_id'], 'rows': empty['rows']}
+            else:
+                result = self.execute(example_query)
+
         except local_data.DataError:
             samples[sample_id] = {'status': 'failed'}
             checks[item['key']] = {'definition_hash': item['definition_hash'], 'status': 'held',
@@ -317,6 +427,7 @@ class Project(ContextState):
         checks[item['key']] = {'definition_hash': item['definition_hash'],
                                'status': 'held' if failed else 'example_executed' if kind == 'metric' else 'executed',
                                'samples': samples, 'query_id': result['query_id'], 'sql_hash': result['sql_hash'],
+                               **({'composition': composition} if composition is not None else {}),
                                'errors': ['A parameter sample still fails SQL execution.'] if failed else [],
                                'coverage': 'authored_example_only' if kind == 'metric' else 'observed_parameter_samples',
                                'warnings': warnings}
@@ -485,8 +596,14 @@ def main():
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
+    card_review = sub.add_parser('review-cards')
+    card_review.add_argument('--review', type=Path)
+    inventory = sub.add_parser('candidates')
+    inventory.add_argument('--review', type=Path)
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
-    for name in ('prepare', 'execute', 'publication', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
+    publication = sub.add_parser('publication')
+    publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:
@@ -509,6 +626,8 @@ def main():
         elif args.command == 'status': result = project.current()
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
+        elif args.command == 'candidates': result = project.candidates(project.read(safe_path(args.review)) if args.review else None)
+        elif args.command == 'review-cards': result = project.review_cards(project.read(safe_path(args.review)) if args.review else None)
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
         elif args.command == 'checklist':
@@ -518,6 +637,14 @@ def main():
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage
                       else project.read(project.root / 'progress.json'))
+        elif args.command == 'publication':
+            if str(args.request) == '-':
+                raw = sys.stdin.read(4_000_001)
+                if len(raw.encode()) > 4_000_000:
+                    raise ProjectError('Readback input exceeds the local artifact limit.')
+                result = project.publication(json.loads(raw))
+            else:
+                result = project.publication(project.read(safe_path(args.request)))
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
         if isinstance(result, str):

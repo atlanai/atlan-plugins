@@ -5,6 +5,8 @@ description: "X1 : read each verified SQL and judge what, if anything, it measur
 
 # Propose metrics (X1)
 
+Before this task, read and apply the shared [metric consistency guidance](../references/metric-consistency.md).
+
 Input: `$RUN/x1_prompt.json`. Output: JSON handed to `x1_propose.py --from <file>`.
 
 You are deciding **what this estate actually measures**. Everything downstream : the merge,

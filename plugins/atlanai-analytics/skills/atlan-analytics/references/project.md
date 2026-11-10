@@ -217,7 +217,11 @@ and records the same durable publication state. It does not skip release or link
 The example illustrates the envelope, not a Registry write schema or a field allowlist.
 Keep every field of the actual artifact response, including the entire definition, dimensions,
 examples, extensions, parameters and usage notes. Use saved tool-result files when the host
-provides them. Do not reconstruct responses from search results or local drafts. Run
+provides them. Inline responses are equally usable: serialize the complete actual responses
+into your own private `readbacks.json`, or send that same JSON on stdin to
+`PROJECT publication -`. The host does not have to save a tool-result file. Do not recover
+responses from a session transcript or ask the customer to create a file. IDs alone cannot
+establish release state or a complete definition. Do not reconstruct responses from search results or local drafts. Run
 `PROJECT publication "<readbacks.json>"`; the helper normalizes the responses and validates
 their release state and definition schemas. Old hand-normalized receipts must be fetched again.
 It stores IDs, release/version and definition hashes in the run, not reusable local definitions.

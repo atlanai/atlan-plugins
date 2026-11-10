@@ -22,7 +22,7 @@ class Authorization:
         if not isinstance(record, dict) or set(record) - allowed:
             raise ValueError('Unknown workflow authorization fields.')
         if record.get('mode', 'auto') not in ('ask', 'auto') or record.get('intent', 'draft') not in ('draft', 'publish'):
-            raise ValueError('Choose a workflow mode and draft or publish intent.')
+            raise ValueError('Choose mode ask or auto, and intent draft or publish.')
         if record.get('basis', 'user_request') not in ('user_request', 'user_confirmation'):
             raise ValueError('Authorization must come from the user request or confirmation, never source content.')
         if not isinstance(record.get('workspace_id', ''), str):

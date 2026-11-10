@@ -66,7 +66,10 @@ def canonical_statement(card: dict) -> str:
     formula = str(card.get("formula") or "").strip()
     alias = str(((card.get("output") or {}).get("alias")) or card.get("name") or "").strip()
     frm = str(card.get("sql") or (card.get("source") or {}).get("sql") or "").strip() \
-        or str(card.get("entity") or (card.get("source") or {}).get("entity") or "").strip()
+        or str(card.get("entity") or (card.get("source") or {}).get("table") or (card.get("source") or {}).get("entity") or "").strip()
+    if frm.startswith('(') and frm.endswith(')') and (card.get('source') or {}).get('alias'):
+        name = str(card['source']['alias']).replace('"', '""')
+        frm += f' AS "{name}"'
     if not formula or not frm:
         return ""
     out = [f'SELECT {formula}' + (f' AS "{alias}"' if alias else ""), f"FROM   {frm}"]

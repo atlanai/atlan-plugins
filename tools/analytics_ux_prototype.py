@@ -143,7 +143,7 @@ def candidate_bodies():
             'source': {'entity': 'shipping.shipments', 'table': 'shipping.shipments', 'alias': 'shipments'},
             'output': {'alias': name.replace('-', '_'), 'datatype': datatype, 'unit': unit},
             'population': 'Shipments with shipped status.', 'exclusions': ['Pending and canceled shipments.'],
-            'mandatory_filters': [FILTER], 'filters': [], 'grain': [], 'joins': [],
+            'mandatory_filters': [FILTER], 'filters': [], 'grain': 'One row per shipment; key uniqueness is not declared.', 'joins': [],
             'dimensions': [{'name': 'Region', 'kind': 'categorical', 'sql': 'shipping.shipments.region', 'datatype': 'string'}],
             'examples': [{'sql': sql, 'source': f'shape:shape_{index + 1}'}],
             'extensions': {'atlan_analytics': evidence},
@@ -155,7 +155,9 @@ def candidate_bodies():
                         'source_id': 'synthetic/query/' + name, 'definition': {
                             'spec_version': '1.0-draft.1', 'sql': sql, 'question': question,
                             'dialect': 'duckdb', 'review_status': 'unreviewed',
-                            'population': 'Shipments with shipped status.', 'mandatory_filters': [FILTER],
+                            'usage_note': 'Shipments with shipped status.',
+                            'analysis': {'tables': ['shipping.shipments'], 'filters': [
+                                {'column': 'shipping.shipments.status', 'operator': '=', 'value': 'shipped'}]},
                             'extensions': {'atlan_analytics': {'shapes': [f'shape_{index + 1}']}}}})
     return metrics, queries
 

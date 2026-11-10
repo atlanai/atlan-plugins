@@ -5,6 +5,8 @@ description: Author a metric card from the statements a metric was merged from :
 
 # Author a metric card
 
+Before this task, read and apply the shared [metric consistency guidance](../references/metric-consistency.md).
+
 You are given a merged metric and, for every statement behind it, the full SQL together with
 the question and description somebody already wrote for that statement. You write one card.
 
@@ -17,6 +19,9 @@ deciding whether to use it to answer a question. Both need the same two things :
 means* and *how it is computed* : and neither can see the SQL you are reading.
 
 ## References
+
+Before handing in the finished cards, read [whole-card review](../references/review-metric-card.md)
+and review them against all supporting source evidence.
 
 - `references/reading-sql.md` : how to read a query for a metric: tracing through CTEs, which
   joins change the answer, finding the true population, the traps that make a card wrong.
