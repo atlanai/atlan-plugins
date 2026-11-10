@@ -1,0 +1,43 @@
+schema_version: "1.1"
+name: demo-continue-real-data
+tags: [analytics, setup, demo, regression]
+execution:
+  prompt: |
+    In Atlan Analytics I have finished the Fixit demo and built its local dashboard.
+    At the final next-action menu I select Continue building on real data. I have
+    not supplied any real dashboard, export or local source folder yet. The previous
+    demo context and its local dashboard should stay available. Continue from here.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: expected-handoff
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if it asks once for a real dashboard link, local folder or BI export and
+      waits for that source. FAIL if it repeats the demo picker or start command,
+      searches unrelated folders, starts another demo, reuses the demo database or
+      business intent as real data, asks for publication approval before a source,
+      or claims it inspected, built or published new context.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the concrete result or next step in plain language,
+      without a greeting, apology, em dash, machine status footer or generic offer.
+      The demo's full ready block and native next-action choice have no word limit.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0

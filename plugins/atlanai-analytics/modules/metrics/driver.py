@@ -225,13 +225,11 @@ def main(argv=None):
     prepare.add_argument('--run', required=True)
     prepare.add_argument('--config', required=True)
     prepare.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
-    for name in ('advance', 'first-metric', 'status', 'parity-plan', 'export'):
+    for name in ('advance', 'status', 'parity-plan', 'export'):
         sub = commands.add_parser(name)
         sub.add_argument('--run', required=True)
-        if name in ('advance', 'first-metric'):
+        if name == 'advance':
             sub.add_argument('--model', required=True)
-        if name == 'first-metric':
-            sub.add_argument('--metric-ref', required=True)
         if name == 'export':
             sub.add_argument('--context', required=True)
             sub.add_argument('--parity')
@@ -242,7 +240,7 @@ def main(argv=None):
             code = 2 if result['status'] == 'BLOCKED' else 0
         else:
             forwarded = []
-            for name in ('run', 'config', 'model', 'metric_ref', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id'):
+            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id'):
                 if hasattr(args, name) and getattr(args, name) is not None:
                     forwarded += ['--' + name.replace('_', '-'), str(getattr(args, name))]
             result, code = invoke(args.runtime, args.command, forwarded)

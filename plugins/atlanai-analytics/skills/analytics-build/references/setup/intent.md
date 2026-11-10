@@ -1,7 +1,7 @@
 # Business focus first, purpose second
 
 Read after the lightweight source inspection on fresh setup, before metric generation,
-runtime setup or the first selected-metric preview. The checkpoint always establishes two
+runtime setup or the completed-collection review. The checkpoint always establishes two
 different things: what part of the business matters, and what the person wants to do with it.
 Clear file/page scope does not answer either question. Do not replace this with a generic
 "What do you want to do?" menu or an installation questionnaire.
@@ -104,7 +104,7 @@ the two answers in conversation and persist them when the run becomes available.
 
 Reflect both in one sentence: "You want to understand where shipping delays happen. I'll
 start with delivery time and late shipments, using the evidenced timestamps and regions."
-Then continue. Choose the first useful metric, required supporting context and next actions
+Then continue. Choose the relevant metrics, required supporting context and next actions
 from this intent. Do not keep presenting the first alphabetic metric regardless of the goal.
 When candidates become available, `PROJECT journey status` returns `select-focus` until
 the host selects the relevant candidate with `PROJECT journey select --focus <exact-identity>`.

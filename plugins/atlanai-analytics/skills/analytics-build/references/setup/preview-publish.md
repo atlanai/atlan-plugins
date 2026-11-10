@@ -5,8 +5,8 @@
 ## 5. Show the metrics before asking where to publish
 
 Read `PROJECT experience --format json` and use [the presentation flow](presentation.md)
-for the full first-metric block before the next question. Show its business definition,
-population, source, check result and evidenced example; SQL and further checks remain
+for the completed-collection review before the next question. Show actual counts and a
+representative metric's business definition, population, source and check status. Examples, SQL and further checks remain
 available with `--detail`. With only queries, show a saved query as such. Never invent a
 metric or an executed result. Retain the rule and check status in the final handoff with
 factual published/local/held counts so it remains useful when progress collapses.
@@ -86,8 +86,10 @@ not a stale Build/Check stage. Never mark Ready without matching release receipt
 
 Keep one real sample in the final answer with its calculation, mandatory population/filter,
 source and check status, alongside actual released/local/held counts and verified links.
-End with two or three supported questions (fewer if needed), including history-derived ones
-where useful. For released answers, say once that definitions are retrieved before SQL runs.
+For a demo, end with [the ready flow's next-action choice](demo-ready.md): Ask AI,
+Design a dashboard, Continue building on real data or I'm done. For own-data setup or a
+demo's Ask AI selection, offer two or three supported questions (fewer if needed), including
+history-derived ones where useful. For released answers, say once that definitions are retrieved before SQL runs.
 For Keep local, label the questions as local exploration and cite their local definition.
 Preserve data-connection and unmeasured-parity limitations. Do not invent a time basis or
 dimension. Prefer the actual question stored on a released saved query. Add a period,
@@ -95,6 +97,6 @@ grouping or comparison only when its date basis, dimension and join are evidence
 retrieved definition; do not suggest an unsupported question with a caveat. Two supported
 questions are better than filling the list with unverified ones.
 Continue to a question already supplied; otherwise wait for the user's selection.
-End with the supported questions and any material limitation; do not append a generic offer
+End with that next-action choice or supported questions and any material limitation; do not append a generic offer
 or invite arbitrary questions whose coverage has not been checked.
 Use [retrieval](../retrieval.md) for fresh Atlan context and fresh execution on every question.

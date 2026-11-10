@@ -21,7 +21,7 @@ in the engine and export again; do not hand-edit output to bypass its checks.
   or dependency cycles; dependency links must agree with the metric definition.
 - `metrics-source.json` and `publication-holds.json` bind the exported bundle to accepted
   engine outputs and eligibility checks. Copy them unchanged with the three body files.
-  A partial first-card preview cannot produce this completed bundle.
+  Only completed, validated engine output can produce this bundle.
 
 Schema checks do not establish SQL execution, source equivalence, dashboard parity or
 certification. Keep those evidence levels separate. Preserve population/security constraints,

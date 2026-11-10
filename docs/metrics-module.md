@@ -10,7 +10,6 @@ plugins/atlanai-analytics/
       module.json
       driver.py
       worker.py
-      first_metric.py
       export.py
       validation.py
       engine/
@@ -63,10 +62,9 @@ an answer and resumes through the same validator. It never asks the customer to 
 No engine stage calls a model API or requests a model key.
 
 This is the only generation path for demos, local files, dashboards and complete builds.
-At X3, `first-metric` calls the same card validator in partial mode under `x3_preview`,
-checks the selected card through the run's read-only SQL socket and saves a private preview.
-The run remains paused and export refuses it. Completing the remaining answers resumes
-full X3 validation and all later gates in the same run, preserving the first card.
+The engine builds and validates the whole selected collection in one continuous run. X3
+and all later gates remain mandatory; customer choices do not interrupt generation between
+cards. Review the completed collection before destination and publication decisions.
 
 The retired shape miner, manual candidate/card-review pipeline and standalone dashboard
 SQL/card generator have been removed. `context_contracts.py` retains shared Registry
