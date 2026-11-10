@@ -60,8 +60,11 @@ MAX_SKILL_BYTES = 9 * 1024
 # Backticked `atlan-…` words that are not skills in this plugin.
 NOT_SKILLS = {
     "atlan-plugins",  # this repository's marketplace name
-    "atlan-dev",  # the suggested server name for the dev environment
 }
+# This repository is public and production's: another environment's hosts and plugin names are
+# written on top by that environment's gateway when it serves the pinned plugin (AGENTS.md,
+# Environments), so none of them appears in a tracked file. Examples use `dev.example`.
+NON_PRODUCTION = re.compile(r"\batlan\.(?:dev|engineering)\b|\batlanai?-dev\b")
 # A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
 # `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
 NOT_SECRET = r"[$<{*%]|(?:synthetic|example|dummy|fake|placeholder|changeme|redacted|your)"
@@ -418,6 +421,10 @@ def lint_repository(files: list[Path]) -> list[str]:
         for label, pattern in SECRETS:
             if pattern.search(text):
                 errors.append(f"{path.relative_to(ROOT)}: looks like it contains a {label}")
+        for number, line in enumerate(text.splitlines(), 1):
+            if match := NON_PRODUCTION.search(line):
+                errors.append(f"{path.relative_to(ROOT)}:{number}: {match.group(0)!r} names a non-production "
+                              "environment; this public repository names production only (AGENTS.md, Environments)")
         if voice_scope(path):
             errors += lint_voice(path, text)
         if path.suffix == ".md" and path.is_relative_to(PLUGINS):

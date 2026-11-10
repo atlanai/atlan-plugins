@@ -104,13 +104,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   the legacy Codex overlay, and `cursor.json` by `hooks` in `.cursor-plugin/plugin.json`
   (`codex_hooks`, `cursor_hooks`). Every hook fails open: the module's `.catch`, and the script
   exits 0 with no output on any fault, or when Python is missing. Both read only the folders the
-  call names, and variants leave both out. `make check` holds every manifest to its own file and
+  call names. `make check` holds every manifest to its own file and
   every command to the script. The other exception is a mod, below.
 - **A mod is Claude Code's alone.** A `[[mods]]` entry in `plugin.toml` is a plugin whose hooks
   module ([Claude Code mods](https://code.claude.com/docs/en/plugins/mods/overview)) changes how
   Claude Code handles the core's tools: `atlanai-mods` guards registry writes and repairs gateway
   calls. The build lists it in the Claude marketplace alone and writes only its
-  `.claude-plugin/plugin.json`; variants do not carry it. It depends on `atlanai`, declares no MCP
+  `.claude-plugin/plugin.json`. It depends on `atlanai`, declares no MCP
   server and no settings hooks, and `hooks/hooks.json` names one hooks module (`make check`
   refuses anything else). A mod may remove friction but never carries a rule a skill relies on:
   Codex, Cursor and Claude chat run the skills without it. Keep rules that need no `$` in
@@ -219,28 +219,26 @@ Change a description and the dashboard's prompt builders together.
 `make site` indexes the core's skills; its output is what atlan.com serves at `/.well-known/agent-skills/` for
 `npx skills add https://atlan.com --skill atlan-get-started`. Republish it with each release.
 
-## Variants
+## Environments
 
-A variant is this marketplace under another name and endpoint, published from its own repository:
-for example Atlan's internal plugins for an environment outside production. Its repository keeps a
-`variant.toml` and runs
+This repository is public and serves production only: every plugin names `https://api.atlan.com/mcp`,
+and the skills link to `https://app.atlan.com`. Nothing here is built per environment, and no
+tracked file names another environment's hosts or plugin names (`make check` refuses them; write
+`dev.example` in an example).
 
-```
-python3 <this repo>/tools/build.py --variant variant.toml --out .
-```
+Every other environment, dev included, gets the core from its own gateway. atlanai/agent-gateway
+vendors `plugins/atlanai/` at a pinned commit (`pinned-files.toml`) and serves it at
+`<gateway>/public/marketplace.git`. Each deployment writes on top only what differs: its MCP
+server URL, production's full `https://api.atlan.com` and `https://app.atlan.com` URLs in the
+Markdown and Codex cards rewritten to its own hosts, and, where it sets a marketplace name suffix,
+the plugin name with that suffix (`atlanai-<suffix>`), so it installs beside production's. So:
 
-which writes the marketplace files and every plugin folder under `plugins/`, named after the
-variant (`atlanai-dev`, `atlanai-dev-analytics`), with the variant's URLs, plugin names and
-repository rewritten. It owns `plugins/` in that repository, and removes the files an older build
-wrote at its root. Add `--check` in its CI. The file
-can set `[plugin]` names, descriptions, `homepage` and `repository`, `[marketplace]` names and
-`[mcp] url` and `client` (the name its `X-Atlan-Client` header sends), plus `[rewrite]` pairs and a top-level `keep` list of strings never to rewrite. Keep
-the skills here free of any one environment's URLs beyond production's, so every variant reads
-correctly after the rewrite. Name a variant the way the gateway names its own marketplace for
-that environment, `atlanai-<suffix>` (its `the marketplace name suffix`, `dev` on
-the dev gateway), with the marketplace `atlan-<suffix>` and the environment's `/mcp`
-URL, so the two install side by side with production's the way the gateway's do. This
-repository holds no variant of its own.
+- Write production's hosts as full `https://` URLs when a step or link must follow the
+  environment; the gateway rewrites only full URLs. A bare host in prose stays as written.
+- Name the plugin's own components the way Claude Code addresses them (`atlanai:atlan-continue`,
+  `/atlanai:continue`, `mcp__plugin_atlanai_atlan__…`); the gateway rewrites those prefixes.
+- A change reaches each environment when the gateway's pin moves and that deployment ships (see
+  Releasing). The add-ons and mods install from this marketplace only and reach production.
 
 ## Releasing
 
@@ -265,8 +263,8 @@ and run the first prompt in the README.
 Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR checklist, is
 [docs/secure-coding.md](docs/secure-coding.md); reporting is in [SECURITY.md](SECURITY.md).
 
-- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`;
-  variant rewrites stay HTTPS (`tools/build.py`).
+- **[MUST]** The only MCP endpoint is `[mcp] url` in `plugin.toml`, HTTPS, written by `make build`
+  (`tools/build.py`).
 - **[MUST]** The publish helper sends files only to the Atlan server, only from inside the working
   tree, never through a link, never from a credential folder or key file, within 128 files and
   256 KiB (`guard`, `place` and `walk` in `plugins/atlanai/command-hooks/publish_hook.py`, and

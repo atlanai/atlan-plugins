@@ -193,38 +193,6 @@ class SnapshotTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'source changed'):
                 driver.unpack(root)
 
-    def test_variant_excludes_generated_binary_test_estates(self):
-        spec = importlib.util.spec_from_file_location('metrics_plugin_build', ROOT / 'tools/build.py')
-        build = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(build)
-        with tempfile.TemporaryDirectory() as temp:
-            base = Path(temp)
-            source = base / 'modules/metrics/engine/src/metrics_agent/cli.py'
-            binary = base / 'modules/metrics/engine/tests/fixtures/generated/retail.duckdb'
-            source.parent.mkdir(parents=True)
-            binary.parent.mkdir(parents=True)
-            source.write_text('# source\n')
-            binary.write_bytes(b'\x94\x00')
-            environment = base / 'modules/metrics/engine/.venv/bin/python'
-            environment.parent.mkdir(parents=True)
-            environment.write_bytes(b'\x94\x00')
-            self.assertEqual(build.variant_sources(base), [source])
-
-    def test_variant_preserves_owned_module_source(self):
-        spec = importlib.util.spec_from_file_location('metrics_plugin_build', ROOT / 'tools/build.py')
-        build = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(build)
-        source = build.load()
-        variant = copy.deepcopy(source)
-        variant['rewrite'] = {}
-        variant['keep'] = []
-        variant['plugin']['name'] = 'atlanai-test'
-        variant['addons'][0]['name'] = 'atlanai-test-analytics'
-        copied = build.variant_files(source, variant, 'variant.toml')
-        target = 'plugins/atlanai-test-analytics/modules/metrics/engine/src/metrics_agent/cli.py'
-        self.assertEqual(copied[target], (driver.ENGINE / 'src/metrics_agent/cli.py').read_text())
-
-
 class ProjectionTests(unittest.TestCase):
     def test_parity_requires_same_scope_complete_results_and_matching_sql(self):
         plan = {'sql': 'SELECT 30 AS revenue', 'sql_sha256': 'query-digest', 'parameters': {}}
