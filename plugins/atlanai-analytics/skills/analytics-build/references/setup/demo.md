@@ -83,9 +83,10 @@ new run. Every stage, question, check and checklist rule applies. The repository
 both demos; survey and build from the chosen demo's source folder only.
 
 The checkout is `<folder>/analytics-agent-accelerator`, the path the welcome named. Reuse it
-when its origin is that repository; otherwise clone there with `git clone --depth 1`. Never
-search other folders or the home directory for a copy. Without git, ask the person to
-download the repository into that path.
+when its origin is that repository, after `git -C <checkout> pull --ff-only` so the demo is the
+published one; if it cannot fast-forward, say so and ask before using it. Otherwise clone there
+with `git clone --depth 1`. Never search other folders or the home directory for a copy.
+Without git, ask the person to download the repository into that path.
 
 ### 3. Show the steps every time one starts
 
