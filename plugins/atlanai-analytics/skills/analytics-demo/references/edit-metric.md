@@ -30,7 +30,9 @@ other change. Never show a failed check as a result.
 
 ## 3. Show the difference
 
-Print this block as reply text, with the values from the edit's result:
+Fill this block with the values from the edit's result. How it reaches the person depends
+on where the context lives (step 4): it is either the last reply text of the turn or the
+text of the save question, never reply text followed by a native question:
 
 > **`<metric name>`, changed**
 >
@@ -46,10 +48,12 @@ question, use the demo's first question.
 
 ## 4. Where the change lives
 
-- Context kept on this machine: the change is saved in the run. Say so in one line.
-- Context saved to Atlan Trident: ask one native question, "Save this change for everyone
-  who uses the metric?" On yes, call `metrics-generation` `save`, which publishes a revision
-  of the same metric after the person approves the plan. On no, the change stays on this
-  machine and the published metric is unchanged; say which one answers from now on.
-
-Then return to the demo's next-action choice.
+- Context kept on this machine: the change is saved in the run. Print the block as reply
+  text, say so in one line, close with the plain next-actions line from
+  [ready](../../analytics-build/references/setup/ready.md) and end the turn.
+- Context saved to Atlan Trident: ask one native question whose text is the block as plain
+  lines, then "Save this change for everyone who uses the metric?" On yes, call
+  `metrics-generation` `save`, which publishes a revision of the same metric after the
+  person approves the plan. On no, the change stays on this machine and the published
+  metric is unchanged. Then say in one line which rule answers from now on, close with the
+  plain next-actions line and end the turn.

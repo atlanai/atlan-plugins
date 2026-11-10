@@ -8,35 +8,37 @@ tables load into `data/site.sqlite` inside that folder (the prepare request's `d
 
 ## The welcome
 
-Print this block next, before any other tool call, file search or clone. Print it whole and
-as written, as an ordinary reply; it has nothing to fill in. Keep the step strip inside its
-code fence so its columns stay aligned.
+The welcome is the text of the "Ready to build?" question, as [the tour rules](tour.md)
+describe. Send these lines as the question, whole and as written, with their line breaks
+and leading spaces. The fence only marks the lines; it is not part of the question. Do not
+also print the welcome as a reply before the question.
 
-> **Build a job profit agent for Fixit & Co. that answers questions about its jobs in plain
-> English, and shows the rule behind every number.**
->
-> Some questions it will answer:
->
-> - Fixit lost £6,360 on its biggest job, a £150,000 wind turbine base. **Why?**
-> - Which jobs finished late, once the contract's week of grace is allowed for?
-> - Where did rework cost the most?
-> - How much material ended up in the skip, and on which jobs?
->
-> | What you're working with | |
-> | --- | --- |
-> | Dashboard | Power BI, 4 tiles: gross margin, rework cost, material waste, late jobs |
-> | Data | 10 jobs (July to October 2026), 8 crew and machines, 746 work logs, 51 material orders, 11 snags |
-> | Past queries | 110 questions Fixit's analysts already ran |
->
-> ```
-> ○─────────○─────────○─────────○─────────○
-> Pick      Build     Save to   Ask       Build a
-> sources   context   Atlan     questions report
->           ~5 min                        (optional)
-> ```
->
-> About 15 minutes. Made-up data; nothing of yours is touched. See the firm first:
-> https://atlanai.github.io/analytics-agent-accelerator/yard-tour/
+```
+Build a job profit agent for Fixit & Co. It answers questions about Fixit's jobs
+in plain English and shows the rule behind every number.
+
+Questions it will answer:
+  - Fixit lost £6,360 on its biggest job, a £150,000 wind turbine base. Why?
+  - Which jobs finished late, once the contract's week of grace is allowed for?
+  - Where did rework cost the most?
+  - How much material ended up in the skip, and on which jobs?
+
+What you're working with:
+  Dashboard      Power BI, 4 tiles: gross margin, rework cost, material waste, late jobs
+  Data           10 jobs (July to October 2026), 8 crew and machines, 746 work logs,
+                 51 material orders, 11 snags
+  Past queries   110 questions Fixit's analysts already ran
+
+  ○─────────○─────────○─────────○─────────○
+  Pick      Build     Save to   Ask       Build a
+  sources   context   Atlan     questions dashboard
+            ~5 min                        (optional)
+
+About 15 minutes. Made-up data; nothing of yours is touched.
+See the firm first: https://atlanai.github.io/analytics-agent-accelerator/yard-tour/
+
+Ready to build?
+```
 
 ## Facts for the later moments
 

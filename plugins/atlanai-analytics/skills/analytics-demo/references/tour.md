@@ -25,17 +25,24 @@ throughout setup.
 
 ## The welcome: right after the demo is chosen
 
-Read the chosen demo's file, then print its welcome block before any other tool call, file
-search or clone: whole and as written, with `<folder>` replaced by the current working
-folder's absolute path. The welcome names the demo's live tour page; keep that link exactly
-as written, on its own line, so it can be clicked.
+**The welcome is the question's own text.** Reply text written in the same turn as a native
+question often never reaches the person: it stays in reasoning, and the host shows at most
+a one-line summary. What the question tool is handed arrives word for word. So the welcome
+goes in the text of one native question, as the celebration does in
+[context built](../../analytics-build/references/setup/save.md).
 
-Then ask one native question, "Ready to build?":
+Read the chosen demo's file, then, before any other tool call, file search or clone, ask
+one native question whose text is that file's welcome lines, whole and as written (they end
+with "Ready to build?"). Keep the tour link exactly as written; it is the person's way to see
+the firm while the build runs.
 
 | Option | Description |
 | --- | --- |
 | Start building | Begin step 1: download the demo files into this folder and read them. |
 | Not now | Stop here; /atlanai-analytics:analytics-demo picks it up later. |
+
+Where there is no question tool at all, print the welcome lines as the last thing in the
+message, then the two choices in plain words, and call no tool after it.
 
 The person may open the tour while the build runs; do not wait for them to finish looking.
 On "Not now", stop and repeat the tour link in one line, so they can explore meanwhile.

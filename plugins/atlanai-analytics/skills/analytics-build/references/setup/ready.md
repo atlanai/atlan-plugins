@@ -11,29 +11,34 @@ do, and takes over. The ready block and supported questions hand them the agent;
 for them takes that away.
 
 **Two rules for this moment.** Your reasoning is never shown to the person: a note in
-your thinking is not a reply, however it is worded. So send the block below as reply text,
-in the same message as the question and before it. A question sent without the block above
-it is a failure: send the block first.
+your thinking is not a reply, however it is worded. And reply text written in the same turn
+as a native question often never reaches the person, so the ready block is the question's
+own text, as the celebration is in [context built](save.md).
 
 The agent is this chat with the saved context; do not register, deploy or evaluate a
 separate agent, and say so only if asked. Do not answer any question the person has not
 chosen. When the question step starts, show what they made, then let them pick a supported question.
 
 Open the chosen demo's file again for its facts and its questions
-([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)). First, print this block whole
-and as written, with the values in `<angle brackets>` from the facts and this run:
+([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
+Send these lines, filled from the facts and this run, as the text of the "What would you
+like to ask?" question, with their line breaks and leading spaces. The fence only marks the
+lines. Omit the last line when there is no tour.
 
-> **Your `<agent>` is ready**
->
-> | | |
-> | --- | --- |
-> | What you built | `<N>` metrics and `<N>` queries, from `<1 dashboard and N past queries>`, checked on `<firm>`'s data |
-> | Where it lives | `<workspace name>` in Atlan Trident, or: on this machine |
-> | What it can answer | `<what the agent can answer>` |
-> | See the environment | `<tour>` |
+```
+Your <agent> is ready.
 
-**First show questions, for both demo and own-data setup.** Immediately after the ready
-block, ask "What would you like to ask?" with two or three questions supported by the
+  What you built        <N> metrics and <N> queries, from <1 dashboard and N past queries>,
+                        checked on <firm>'s data
+  Where it lives        <workspace name> in Atlan Trident, or: on this machine
+  What it can answer    <what the agent can answer>
+  See the environment   <tour>
+
+What would you like to ask?
+```
+
+**First show questions, for both demo and own-data setup.** The question whose text is the
+ready block offers two or three questions supported by the
 checked context (fewer if needed) and the host's free-text entry. Use the demo's facts
 file only for a demo; own-data questions come from its saved context. Omit any question
 that depends on an unchecked or unavailable metric. Do not show an Ask AI menu, dashboard
@@ -44,10 +49,15 @@ questions the person selects or types; listing suggestions never authorizes answ
 all of them. If they selected several, finish those answers before offering next steps.
 An explicit dashboard or real-data request still takes precedence over this default flow.
 
-**After the selected questions are answered**, ask "What would you like to do next?":
-At this moment the question and its choices are the complete handoff. Address the person
-directly. Do not preface it with what they "would see" or append explanations of the flow,
-the option rules, sign-in requirements or which tool runs next. End at the choices and wait.
+**After the selected questions are answered**, end the turn on the answer. Never call a
+native question in a turn that answers: the answer is reply text, and reply text in the same
+turn as a native question often never reaches the person. Close the answer with one plain
+line naming the next actions below in the person's words, for example "Next: ask another
+question, design a dashboard, continue on real data, or say you're done.", then stop. Treat
+the person's reply as the matching option. Ask the native "What would you like to do next?"
+question only when the person replies without choosing, and then with no answer text in
+that turn. The same rule ends the turn after a built dashboard and after the edit-metric
+block.
 
 | Option | Description |
 | --- | --- |
