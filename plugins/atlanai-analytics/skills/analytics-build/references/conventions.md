@@ -29,7 +29,7 @@ is none). A later question reuses them and skips discovery; look
 again only after a call is refused.
 
 Warehouse calls go through the read-only query tool recorded in state or held in this
-conversation, in its dialect. [Warehouse discovery](connect.md) finds it.
+conversation, in its dialect. [Warehouse discovery](../../analytics-survey/references/connect.md) finds it.
 
 ## Source of truth
 

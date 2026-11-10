@@ -1,5 +1,5 @@
 """Durable conversation choices. Never performs engine, auth, publication or SQL work."""
-ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resume', 'details')
+ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resume', 'details', 'demo', 'asked', 'dashboard')
 MODES = ('active', 'paused', 'local')
 
 
@@ -16,6 +16,10 @@ def validate(value):
         raise ValueError('The saved business focus and purpose need repair before continuing.')
     if 'intent_focus_required' in value and type(value['intent_focus_required']) is not bool:
         raise ValueError('The saved intent selection needs repair before continuing.')
+    if value.get('flow', 'build') not in ('build', 'demo'):
+        raise ValueError('The saved guided flow needs repair before continuing.')
+    if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard')):
+        raise ValueError('The saved question and dashboard steps need repair before continuing.')
     return value
 
 
@@ -24,7 +28,9 @@ def apply(model, saved, explicit_focus=False):
     mode = validate(saved)['mode'] if saved else 'active'
     pending = saved.get('intent_focus_required', False) and not explicit_focus
     model['interaction'] = {'mode': mode, 'focus': model.get('focus'), 'intent': dict(saved.get('intent', {})),
-                            'selection_pending': pending}
+                            'selection_pending': pending, 'flow': (saved or {}).get('flow', 'build'),
+                            'asked': (saved or {}).get('asked', False),
+                            'dashboard': (saved or {}).get('dashboard', False)}
     if pending:
         # Intent is a selection checkpoint. Never silently show the first alphabetic
         # metric or carry an earlier domain's focus into a new business question.
@@ -140,6 +146,13 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             saved['intent_focus_required'] = True
         intent[action] = answer
         saved['intent'] = intent
+    elif action == 'demo':
+        # The person chose a demo: the run shows the demo's seven steps from now on.
+        saved['flow'] = 'demo'
+    elif action in ('asked', 'dashboard'):
+        # Step 6 ends when a chosen question was answered; step 7 when a dashboard was built
+        # or the person declined one. Both are recorded only after they happen.
+        saved[action] = True
     elif action in ('pause', 'keep-local', 'resume'):
         saved['mode'] = {'pause': 'paused', 'keep-local': 'local', 'resume': 'active'}[action]
         if action == 'resume':

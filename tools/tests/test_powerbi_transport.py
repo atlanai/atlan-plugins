@@ -8,7 +8,7 @@ from unittest import mock
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = (ROOT / 'plugins/atlanai-analytics/modules/metrics/engine/packages/metrics-agent-powerbi'
+SOURCE = (ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics/modules/metrics/engine/packages/metrics-agent-powerbi'
           / 'src/metrics_agent_powerbi/pbi_definition_extract.py')
 spec = importlib.util.spec_from_file_location('pbi_definition_extract_under_test', SOURCE)
 pbi = importlib.util.module_from_spec(spec)

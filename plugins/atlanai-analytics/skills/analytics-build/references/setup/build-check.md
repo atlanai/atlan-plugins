@@ -19,9 +19,9 @@ Local exploration and understanding-only requests do not need this sign-in step.
 
 Use [local source procedures](../project.md#2-bind-data-once) to select an executor independently
 of the input: an existing SQLite or DuckDB file, CSV preparation, or an existing read-only warehouse
-through [connect](../connect.md). No data connection is needed to preview definitions. Without
+through [connect](../../../analytics-survey/references/connect.md). No data connection is needed to preview definitions. Without
 execution access, mark SQL untested and preserve source work.
-All sources, including the demos and local-only files, use [the metrics engine](../metrics-engine.md).
+All sources, including the demos and local-only files, use [the metrics engine](../../../analytics-metrics/references/metrics-engine.md).
 For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
 `PROJECT prepare` to create a new `.duckdb` database. Configure `local-files` with the selected
 BI definitions, cleaned history and this database. Respect Dashboard only versus history scope.
@@ -33,9 +33,13 @@ Reuse the existing survey, scope, business focus and interview answers. Prepare 
 run under this setup run. Advance through its maintained gates. At X3, author the selected
 first metric using the returned card instructions, then run `ENGINE first-metric --run
 <engine-dir> --model <actual-model-id> --metric-ref <ref>`. Read the private preview and show
-[the full first-metric moment](demo-first-metric.md), including actual check limitations.
+[the full first-metric moment](../../../analytics-metrics/references/first-metric.md), including actual check limitations.
 Run an independent source-backed worked example before claiming its numbers. A preview is
 provisional and cannot be exported or published.
+
+A demo skips the first metric: at X3 it shows its
+[metrics found](../../../analytics-demo/references/metrics-found.md) list, then authors every
+card and advances the same run. It runs no `ENGINE first-metric`.
 
 When the person chooses Build the rest, preserve the accepted first-card answer, author the
 remaining X3 cards and advance the same run through all remaining gates. Do not restart or
@@ -45,7 +49,7 @@ After completion, export into a fresh `engine-export/` and install the unchanged
 query, link, source-receipt and publication-hold files into this run's context as the engine
 procedure describes. Source/scope changes require a new engine run. Unsupported items remain
 held. No by-hand, legacy-shape or demo-only fallback is available.
-After export, select the previewed metric's matching candidate with `PROJECT journey select
+After export, for own data, select the previewed metric's matching candidate with `PROJECT journey select
 --focus <exact-identity>` so later review and ready moments keep the same business focus.
 
 After a gate or phase transition, run `PROJECT experience --format chat --engine-dir
@@ -69,7 +73,7 @@ are bound to definition hashes. For warehouses use the existing read-only tool a
 actual revision-bound check evidence. Test representative parameters, excluded populations
 and empty denominators. Never treat one parameter sample as exhaustive coverage.
 When showing an early local answer or explaining excluded rows, apply
-[explanation checks](../answer-checks.md). Account for every formula component, including
+[explanation checks](../../../analytics-ask/references/answer-checks.md). Account for every formula component, including
 revenue on rows with no costs; distinguish an unchanged top result from an unchanged total.
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.

@@ -11,7 +11,7 @@ import sys
 from context_state import digest, ordinary
 from analytics_eval import pii_reason
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "analytics-metrics"))
 from modules.metrics.holds import validate as validate_holds
 
 MAX_BYTES = 4_000_000

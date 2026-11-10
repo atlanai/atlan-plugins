@@ -968,7 +968,7 @@
   {
    "id": "analytics-connect-warehouse",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-build",
+   "skill": "analytics-survey",
    "title": "Find and prove the warehouse query tool",
    "route": "Reuse the tool in state, else search Atlan for a SQL tool and run its check",
    "calls": {
@@ -1009,7 +1009,7 @@
   {
    "id": "analytics-bootstrap-metrics",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-build",
+   "skill": "analytics-metrics",
    "title": "Bootstrap metrics and saved queries from query history",
    "route": "Workspace, overlap check, batched creates, read back",
    "calls": {
@@ -1085,7 +1085,7 @@
   {
    "id": "analytics-hand-author",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-build",
+   "skill": "analytics-metrics",
    "title": "Hand-author a small metric set",
    "route": "Workspace, one batched create, read back",
    "calls": {
@@ -1144,7 +1144,7 @@
   {
    "id": "analytics-propose",
    "plugin": "atlanai-analytics",
-   "skill": "analytics-build",
+   "skill": "analytics-metrics",
    "title": "Propose a corrected metric to its owners",
    "route": "Find the definition, read it, save the proposal",
    "calls": {
@@ -1382,6 +1382,65 @@
     "message_steps": 5,
     "publish_steps_after_T10": 8
    },
+   "measured": null
+  },
+  {
+   "id": "analytics-demo-save",
+   "plugin": "atlanai-analytics",
+   "skill": "analytics-demo",
+   "title": "Save a demo's checked context to the personal workspace",
+   "route": "Personal and root workspace reads, then batched creates",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "user_default"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "org_default"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "metric",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "sql_query",
+       "items": "<= 100"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "metric",
+       "items": "<= 100"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 1
+   },
+   "mode": "demo",
+   "budget_note": "Download, data load, generation and checks run locally and are not counted.",
+   "targets": null,
    "measured": null
   },
   {

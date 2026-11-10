@@ -37,10 +37,10 @@ spend a round; go to `skills/analytics-build/references/improve/04-stall.md`.
      metric's owner (below) and leave the round pending until they apply and release it.
    - **New metric**: when train failures come from a concept no metric covers, first check
      that no proposal already covers it (below). Then generate its complete definition through
-     [the main metrics engine](../metrics-engine.md) using source evidence outside eval gold.
+     [the main metrics engine](../../../analytics-metrics/references/metrics-engine.md) using source evidence outside eval gold.
      Complete the same gates and retain actual SQL check limitations. When `metric_access.create` is true and the user approved this
      round, publish the accepted engine export as metrics mode does
-     ([publish](../metrics/publish.md)). Otherwise propose it for
+     ([publish](../../../analytics-metrics/references/metrics/publish.md)). Otherwise propose it for
      the workspace's metric owners (below) and leave the round pending until they create and
      release it.
    - **New saved query**: write the question, SQL and `usage_note`. Test the SQL with the
@@ -60,8 +60,8 @@ spend a round; go to `skills/analytics-build/references/improve/04-stall.md`.
 
 ### Saving and undoing a definition change
 
-Follow [appending a revision](../metrics/publish.md#appending-a-revision) with
-`auto_release: false`, so the round's change waits for a person's release. Record before and
+Follow [appending a revision](../../../analytics-metrics/references/metrics/publish.md#appending-a-revision) with
+`registry__append_artifact_version` and `auto_release: false`, so the round's change waits for a person's release. Record before and
 after version IDs and ordinals in the receipt.
 
 Undo follows the same procedure: restore the intended full definition into a new version,

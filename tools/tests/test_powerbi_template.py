@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not (root/'outside.json').exists()
 print('Template model, visual placement, encodings, curation and archive refusals passed')
 '''
-        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'plugins/atlanai-analytics/modules/metrics/engine/src')}
+        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'plugins/atlanai-analytics/skills/analytics-metrics/modules/metrics/engine/src')}
         result = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program],
                                 env=env, capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)

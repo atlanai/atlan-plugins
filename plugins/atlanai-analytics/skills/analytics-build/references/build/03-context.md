@@ -5,7 +5,7 @@ workspace:
 - `metric` artifacts: formula, population, filters, dimensions
 - `sql_query` artifacts: a question paired with trusted SQL
 
-Follow [the metrics workflow](../metrics.md) from section 1, with `<context-dir>` set to
+Follow [the metrics workflow](../../../analytics-metrics/references/metrics.md) from section 1, with `<context-dir>` set to
 `.atlan-analytics/<slug>/context`. The project's state, workspace and `tables.txt` from phases
 1 and 2 already apply. Its STOP gate sets `phase` to `eval_set`.
 

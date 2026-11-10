@@ -28,7 +28,7 @@ reruns extraction or restarts the workflow. Fewer/zero samples have explicit tex
 publication preference, not Pause. Continue requested local preparation and checks, then
 hand off with an unshared status. Do not call drafts Atlan-ready or withdraw earlier releases.
 With a local data binding, supported questions can be answered as explicitly labelled local
-exploration without publication. Use the local route in [retrieval](../retrieval.md).
+exploration without publication. Use the local route in [retrieval](../../../analytics-ask/references/retrieval.md).
 Only team answers from released Atlan definitions require publication first. Do not end
 Keep local with a publication-only next step or imply the prepared dataset cannot be queried.
 Do not claim that sign-in is needed unless this host actually returned an access failure.
@@ -48,7 +48,7 @@ the UI/admin action followed by refreshing accessible workspaces. Do not narrate
 publication workflow, speculate about CLI endpoints, or add an alternative destination menu.
 Fetch live kind schemas and existing definitions, then
 run `CONTEXT check` with that destination. Only now show actual create/revise/reuse/held counts.
-If reconciliation changes a candidate, show the changed preview. Follow [publication](../metrics/publish.md)
+If reconciliation changes a candidate, show the changed preview. Follow [publication](../../../analytics-metrics/references/metrics/publish.md)
 for the concrete plan, missing authorization, idempotency, release policy and uncertain-write
 recovery. Never retry an uncertain remote mutation blindly. Carry approved writes through
 release and full MCP readback. Record receipts with `PROJECT publication` as the local
@@ -62,11 +62,11 @@ released definition, with its reason. Preserve those local candidates and covera
 do not silently drop SQL merely to avoid a publication decision. Full coverage requires equivalent
 meaning, population, dimensions and parameters, not just a similar metric name. For a narrower
 existing definition, explicitly record and show the uncovered capabilities using
-[reconciliation](../metrics/reconciliation.md); keep their original candidates local.
+[reconciliation](../../../analytics-metrics/references/metrics/reconciliation.md); keep their original candidates local.
 
 ## 7. Ready to ask here
 
-Use [the ready block](demo-ready.md), filled through [the presentation flow](presentation.md),
+Use [the ready block](ready.md), filled through [the presentation flow](presentation.md),
 for what the person can do now, what still needs attention and the next supported action.
 Use `PROJECT experience --format json`'s `handoff` as evidence when available.
 Local definitions are unshared; executed examples are saved checks; a published subset is
@@ -97,4 +97,4 @@ questions are better than filling the list with unverified ones.
 Continue to a question already supplied; otherwise wait for the user's selection.
 End with the supported questions and any material limitation; do not append a generic offer
 or invite arbitrary questions whose coverage has not been checked.
-Use [retrieval](../retrieval.md) for fresh Atlan context and fresh execution on every question.
+Use [retrieval](../../../analytics-ask/references/retrieval.md) for fresh Atlan context and fresh execution on every question.

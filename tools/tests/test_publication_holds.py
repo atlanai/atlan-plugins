@@ -14,12 +14,12 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = ROOT / 'plugins/atlanai-analytics'
 SCRIPTS = PLUGIN / 'skills/analytics-build/scripts'
-sys.path.insert(0, str(PLUGIN))
+sys.path.insert(0, str(PLUGIN / 'skills/analytics-metrics'))
 sys.path.insert(0, str(SCRIPTS))
 from modules.metrics import holds, driver
 import context_contracts
 
-spec = importlib.util.spec_from_file_location('hold_export', PLUGIN / 'modules/metrics/export.py')
+spec = importlib.util.spec_from_file_location('hold_export', PLUGIN / 'skills/analytics-metrics/modules/metrics/export.py')
 exporter = importlib.util.module_from_spec(spec)
 with mock.patch.dict(sys.modules, {'driver': driver}):
     spec.loader.exec_module(exporter)

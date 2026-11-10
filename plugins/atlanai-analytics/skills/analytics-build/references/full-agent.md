@@ -19,7 +19,7 @@
 3. Call `registry__get_kind_schema` for `metric`. An unknown kind means Metric Studio is not
    installed for this account: stop and ask an Atlan admin to install Metric
    Studio from the Store.
-4. Find the **warehouse query tool** with the [warehouse discovery procedure](connect.md). It looks
+4. Find the **warehouse query tool** with the [warehouse discovery procedure](../../analytics-survey/references/connect.md). It looks
    through Atlan first, then this harness's own connectors, asks the user to connect or add
    one when none works, and records `warehouse` in state. From then on every skill calls it
    "the warehouse query tool recorded in state".

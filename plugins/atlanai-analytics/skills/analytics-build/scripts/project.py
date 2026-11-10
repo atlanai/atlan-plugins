@@ -34,7 +34,7 @@ import context_contracts as mine
 from analytics_eval import filter_querylog
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
-_card_path = Path(__file__).resolve().parents[3] / 'modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
+_card_path = Path(__file__).resolve().parents[2] / 'analytics-metrics/modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
 _card_spec = importlib.util.spec_from_file_location('analytics_card_sql', _card_path)
 _card_sql = importlib.util.module_from_spec(_card_spec)
 _card_spec.loader.exec_module(_card_sql)
@@ -502,8 +502,9 @@ def main():
     conversation.add_argument('--answer', help='User-supplied business area or purpose; never an unsubmitted suggestion')
     conversation.add_argument('--host', choices=('claude_code', 'codex'))
     conversation.add_argument('--server', help='Observed Atlan server identifier in that host')
-    steps = sub.add_parser('checklist', help='The six setup steps with their saved state, for the host task list')
+    steps = sub.add_parser('checklist', help='The guided-flow steps (seven, or six for a demo) with their saved state, for the host task list')
     steps.add_argument('--engine-dir', type=Path)
+    steps.add_argument('--flow', choices=('build', 'demo'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
     step = sub.add_parser('progress')
@@ -527,7 +528,8 @@ def main():
         if args.command == 'checklist' and not (safe_path(args.run_dir) / 'run.json').is_file():
             import checklist
             # Nothing is saved yet: the list starts at its first step and claims no progress.
-            print(json.dumps({'steps': checklist.initial(), 'state': 'running', 'step': 1, 'of': 6, 'remote_writes': False}))
+            print(json.dumps({'flow': args.flow or 'build', 'steps': checklist.initial(args.flow or 'build'), 'state': 'running',
+                              'step': 1, 'of': len(checklist.initial(args.flow or 'build')), 'remote_writes': False}))
             return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
@@ -540,8 +542,9 @@ def main():
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
         elif args.command == 'checklist':
-            import experience
-            result = {**experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)['checklist'], 'remote_writes': False}
+            import checklist, experience
+            model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
+            result = {**checklist.build(model, args.flow), 'remote_writes': False}
         elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage

@@ -7,11 +7,12 @@ the person sees and how it reaches the host's visible surface.
 
 | Moment | Presentation |
 | --- | --- |
-| Start | Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the start choice](demo.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
-| Each step starts | Show the full six-step tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
-| The first relevant metric is checked | Read [the first metric](demo-first-metric.md) at this moment. Show its full business definition, population, source, check result and worked example before the next choice. |
-| The selected collection has been checked | Read [context built and where to keep it](demo-save.md). Show the celebration, actual counts and local-versus-shared meaning through that file's native question delivery. |
-| The context is saved or kept local | Read [ready for questions](demo-ready.md). Show the ready block, supported questions and any material limitations. Answer only a question the person has supplied or selected. |
+| Start | Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
+| Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
+| The first relevant metric is checked (own data only) | Read [the first metric](../../../analytics-metrics/references/first-metric.md) at this moment. Show its full business definition, population, source, check result and worked example before the next choice. |
+| The selected collection has been checked | Read [context built and where to keep it](save.md). Show the celebration, actual counts and local-versus-shared meaning through that file's native question delivery. |
+| The context is saved or kept local | Read [ready for questions](ready.md). Show the ready block, supported questions and any material limitations. Answer only a question the person has supplied or selected. |
+| The first chosen question is answered | Read [the dashboard](dashboard.md) and offer it as the last step. |
 
 Read the moment's file when it is reached, including on resume. Fill its values from the
 selected definition, source evidence and current checks. For own data, derive the facts

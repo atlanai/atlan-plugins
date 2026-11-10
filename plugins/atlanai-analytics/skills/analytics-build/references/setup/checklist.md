@@ -1,20 +1,28 @@
-# The setup checklist
+# The guided-flow checklist
 
-Read on starting or resuming setup. Show the six steps in chat and in the host's task list
+Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
 when available, kept true to the saved run. Open no side panel, browser view or preview page
 unless the person asks for a visual view.
 
 ## Start with the list
 
-Right after the opening message and before the first helper call, put these six steps in the
-host's task list when available and show them in chat, the first one in progress:
+Right after the opening message and before the first helper call, put the flow's steps in the
+host's task list when available and show them in chat, the first one in progress.
 
-1. Read your sources
-2. Choose focus and goal
-3. Turn sources into context
-4. Check the context on the data
-5. Review and choose where to save
-6. Ready for questions
+| Step | Own data (`analytics-build`) | Demo (`analytics-demo`) |
+| --- | --- | --- |
+| 1 | Survey your sources | Choose and load demo data |
+| 2 | Clarify your use case | Choose what to build from |
+| 3 | Select tables and dashboards | Build and check metrics |
+| 4 | Generate and check metrics | Keep local or save to Atlan Trident |
+| 5 | Keep local or save to Atlan Trident | Ask a question |
+| 6 | Ask a question | Build a dashboard |
+| 7 | Build a dashboard | |
+
+Before a run exists, `PROJECT checklist --flow demo` returns the demo's list. A demo records
+its flow with `PROJECT journey demo` once the run exists. Record `PROJECT journey asked` after
+the first chosen question is answered, and `PROJECT journey dashboard` once a dashboard is
+built or declined; nothing else ticks those two steps.
 
 Use the host's task tool, loading it first when it is listed but not loaded: `TaskCreate`
 and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's plan tool
@@ -22,13 +30,13 @@ and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's 
 in the same turn as every stage change, so the list on screen is never behind the run.
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
-step says `next`. In a demo, step 2 is `Choose what to build from`, because focus and purpose
-are already set. Step 3 includes the first-metric choice. Do not substitute a task update
-for the full metric block or celebration.
+step says `next`. Own data's step 4 includes the first-metric choice; the demo shows its
+metric names before building instead. Do not substitute a task update for the full metric
+block or celebration.
 
 ## Keep it true to the saved run
 
-`PROJECT checklist` returns the six steps from saved progress. Each step has `content` (its
+`PROJECT checklist` returns the flow's steps from saved progress. Each step has `content` (its
 name, sharpened with real counts once they exist, such as `Read 4 sources` or `Check 15
 metrics and queries`), `active` (what to show while it runs, such as `Checking 5 of 9`),
 `status` (`pending`, `in_progress` or `completed`) and `needs_you`. Add `--engine-dir` during

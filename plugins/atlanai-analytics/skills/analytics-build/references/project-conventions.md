@@ -20,7 +20,7 @@ standard library only, and its JSON output and exit codes follow the same rules 
 with one more status: `check` prints `REFUSED`, exit 1, when some items failed. They are listed
 in `plan.json`; fix them as the metrics workflow says.
 
-The explicit `metrics` mode uses only the metrics workflow (`references/metrics.md`) and
+The explicit `metrics` mode uses only the metrics workflow ([metrics](../../analytics-metrics/references/metrics.md)) and
 `.atlan-metrics/<slug>/`.
 It does not run the full agent preflight, initialize an eval project, or resume a full agent
 build. Its final gate sets `phase` to `complete`; no later agent or eval phase follows.
@@ -92,7 +92,7 @@ Independent paid evals require their own explicit budget when not already author
 A failure pauses its affected step only. Missing parity or publication access does not stop
 questions on usable local metrics. A known wrong result or incomplete security scope holds
 that metric for correction. Never certify it, widen scope or invent a successful receipt.
-Use the single run index and recovery commands in [dashboard](dashboard.md).
+Use the single run index and recovery commands in [dashboard](../../analytics-metrics/references/dashboard.md).
 
 ## Phases and gates
 

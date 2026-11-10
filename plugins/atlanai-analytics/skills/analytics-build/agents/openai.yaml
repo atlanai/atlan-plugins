@@ -1,6 +1,6 @@
 interface:
   display_name: "Atlan Analytics"
-  short_description: "Set up analytics, publish context and ask your data"
+  short_description: "Set up analytics on your own data, step by step"
   default_prompt: "Use $analytics-build to set up this project so I can ask questions about its data."
 dependencies:
   tools:
