@@ -1,6 +1,6 @@
 ---
 name: metrics-generation
-description: Generate, check, edit or save metrics and saved SQL from dashboards, BI exports, models or query history. Use when asked to build, mine, refresh, fix, propose or publish a metric. Not for answering a data question (analytics-ask).
+description: "Atlan Analytics: generate, check, edit or save metrics and saved SQL from dashboards, BI exports, models or query history. Use when asked to build, mine, refresh, fix, propose or publish a metric. Not for answering a data question (analytics-ask)."
 ---
 
 # Generate, check, edit and save metrics

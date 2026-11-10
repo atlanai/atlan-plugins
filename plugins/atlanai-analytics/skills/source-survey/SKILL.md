@@ -1,6 +1,6 @@
 ---
 name: source-survey
-description: Survey a folder, dashboard link, BI export or warehouse: what it covers, candidate metric names, readiness. Use when asked what sources hold, which tables or pages to use, or if a source is usable. Not for building metrics (metrics-generation).
+description: "Atlan Analytics: survey a folder, dashboard link, BI export or warehouse: what it covers, metric names, readiness. Use when asked what a source holds, which tables or pages to use, or if it is usable. Not for building metrics (metrics-generation)."
 ---
 
 # Survey a source and check it is ready
