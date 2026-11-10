@@ -19,7 +19,7 @@ graders:
   - name: reads-file
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
-    input_match: '"registry__get_file_content"[\s\S]*file_01evalchurnmd'
+    input_match: '"registry__get_file_content"[\s\S]*file_01evalchurnmd|"registry__get_artifact"[\s\S]*"include_linked_file"\s*:\s*true'
     min: 1
   - name: no-agent-app-readers-on-read-runner
     type: tool_used

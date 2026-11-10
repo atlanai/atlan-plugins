@@ -270,7 +270,7 @@ class Refusal(Exception):
         self.body = detail if bare else {"status": status, "code": code, "detail": detail}
 
 
-state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {},
+state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}, "approved": {},
          "edges": {}, "reruns": {}}
 
 
@@ -450,11 +450,15 @@ def head(item: dict) -> dict:
     any other line its newest reconciled version, so a read-back after a write sees it."""
     if item["kind"] != "file":
         newer = state["versions"].get(item["id"])
-        if not newer:
-            return item
-        line = ("name", "workspace_id", "source_type", "source_id")
-        return item | {"version_ordinal": newer["version_ordinal"],
-                       "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
+        if newer:
+            line = ("name", "workspace_id", "source_type", "source_id")
+            item = item | {"version_ordinal": newer["version_ordinal"],
+                           "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
+        # The head's version handle and etag, which `approve_artifact` takes back as preconditions.
+        ordinal = item.get("version_ordinal", 1)
+        status = state["approved"].get(item["id"], item.get("artifact_status"))
+        return {"version_id": f"ver_01eval{item['id'].split('_', 1)[1][-12:]}v{ordinal}", "etag": f'W/"v{ordinal}"'} | item | (
+            {"artifact_status": status} if status else {})
     state["heads"].setdefault(item["id"], {"etag": item["etag"], "version_ordinal": item["version_ordinal"],
                                            "content": WORLD["files"][item["id"]]["content"]})
     current = state["heads"][item["id"]]
@@ -492,6 +496,16 @@ def in_project(item: dict, project_id: str | None) -> bool:
     return project_id in item.get("project_ids", [])
 
 
+def labelled(row: dict) -> dict:
+    """A row with its workspace's display name and kind beside `workspace_id`, as the gateway labels
+    search hits, browse rows and workspace count groups, so no reader needs `list_workspaces` to
+    name one."""
+    space = next((w for w in WORLD["workspaces"] if w["id"] == row.get("workspace_id")), None)
+    if space is None:
+        return row
+    return row | {"workspace_display_name": space.get("display_name"), "workspace_kind": space.get("kind")}
+
+
 def search_artifacts(a: dict) -> dict:
     query = words(a.get("query", ""))
     hits = []
@@ -518,14 +532,16 @@ def search_artifacts(a: dict) -> dict:
     # gateway's `registry_mcp::match_quality` draws (search-2026-11-09-a-partial-keyword-hit-
     # is-not-strong). It used to say `keyword: true` for every hit and carry no `quality`, so a
     # skill's "trust a strong hit" step could not be measured here.
-    spaces = {w["id"]: w for w in WORLD["workspaces"]}
-    return {"items": [(bare(h) if a.get("full") else summary(h))
-                      | {"score": s / 100, "match": match_of(s, len(query)),
-                         "is_released": bool(h.get("is_released")),
-                         "workspace_display_name": spaces.get(h["workspace_id"], {}).get("display_name"),
-                         "workspace_kind": spaces.get(h["workspace_id"], {}).get("kind")}
-                      for s, h in hits[:limit]],
-            "page": {"limit": limit, "offset": 0, "has_more": len(hits) > limit}}
+    offset = a.get("offset", 0)
+    shown = hits[offset:offset + limit]
+    has_more = len(hits) > offset + limit
+    return {"items": [labelled((bare(h) if a.get("full") else summary(h))
+                               | {"score": s / 100, "match": match_of(s, len(query)),
+                                  "is_released": bool(h.get("is_released"))})
+                      for s, h in shown],
+            # `next_offset` is there only when more matched, as the gateway's `collapsed` writes it.
+            "page": {"limit": limit, "offset": offset, "has_more": has_more}
+            | ({"next_offset": offset + len(shown)} if has_more else {})}
 
 
 STRONG_SIMILARITY = 0.45
@@ -560,6 +576,7 @@ def browsed(a: dict) -> list[dict]:
             if (not a.get("kind") or i["kind"] == a["kind"]) and i["kind"] != "session"
             and (a.get("kind") or i["kind"] != "file")
             and (not a.get("workspace_id") or i["workspace_id"] == a["workspace_id"])
+            and (not a.get("name") or i.get("name") == a["name"])
             and (not a.get("status") or i.get("artifact_status") == a["status"])
             and ("is_released" not in a or bool(i.get("is_released")) == a["is_released"])
             and related(i, a.get("related_to"))
@@ -604,9 +621,10 @@ def counts(a: dict) -> dict:
             tally[i.get(field)] = tally.get(i.get(field), 0) + 1
         groups = sorted(tally.items(), key=lambda g: -g[1])
         limit = a.get("limit", 20)
-        out |= {"group_by": field, "groups": [{field: k, "count": n} for k, n in groups[:limit]]}
+        # A workspace group carries its display name and kind; a project or repo group is a handle.
+        out |= {"group_by": field, "groups": [labelled({field: k, "count": n}) for k, n in groups[:limit]]}
         if len(groups) > limit:
-            out["note"] = f"{len(groups) - limit} smaller groups are not shown; raise limit to see them."
+            out["note"] = f"showing the {limit} largest of {len(groups)} groups; raise `limit` to see more"
     return out
 
 
@@ -642,6 +660,20 @@ def included_file(item: dict, path: str) -> dict:
         return file_content({"file_id": pin["file_id"], "version_ordinal": pin["file_version_ordinal"]})
     except Refusal as refused:
         return {"path": path, "file_id": pin["file_id"], "error": refused.body["detail"]}
+
+
+def linked_file(item: dict) -> dict:
+    """`get_artifact`'s `include_linked_file`: the one file the artifact points at, as an `output`
+    does, at its recorded version."""
+    meta = item.get("metadata") or {}
+    if not meta.get("file_artifact_id"):
+        return {"error": "this artifact points at no file: it has no `metadata.file_artifact_id`"}
+    pin = {"file_id": meta["file_artifact_id"]} | (
+        {"version_ordinal": meta["file_version_ordinal"]} if meta.get("file_version_ordinal") is not None else {})
+    try:
+        return file_content(pin)
+    except Refusal as refused:
+        return {"file_id": pin["file_id"], "error": refused.body["detail"]}
 
 
 MAX_FILES = 8
@@ -769,6 +801,42 @@ def write(kind: str, a: dict) -> dict:
             "note": "eval write recorded"}
 
 
+NOT_CHECKED = ["the app's create hook, where the kind has one, and the checks it runs", "content scans, which run after the write"]
+
+
+def dry_run(kind: str, meta: dict, *, inline_file: bool = False) -> dict:
+    """A create's `dry_run` answer, as the gateway's `check_create` gives it: what the write would
+    do and what the check did not cover. Nothing is recorded."""
+    workspace = meta.get("workspace_id")
+    if not meta.get("name") or not workspace:
+        raise Refusal(400, "invalid_arguments", "`metadata.name` and `metadata.workspace_id` are required")
+    if workspace not in {w["id"] for w in WORLD["workspaces"]}:
+        raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
+    key = (workspace, meta.get("source_type"), meta.get("source_id"))
+    live = next((i for i in artifacts().values() if i["kind"] == kind and key[2]
+                 and (i["workspace_id"], i.get("source_type"), i.get("source_id")) == key), None)
+    return {"dry_run": True, "committed": False, "would": "append_version" if live else "create", "kind": kind,
+            "workspace_id": workspace, "name": meta["name"], "artifact_id": live["id"] if live else None,
+            "properties_checked": True,
+            "not_checked": NOT_CHECKED + (["the inline file's own create, which runs the file kind's hook"] if inline_file else [])}
+
+
+def approve(a: dict) -> dict:
+    """`approve_artifact`: an admin's exception for exactly the head that was read. A head that is
+    not the one named, or one no gate holds, is refused and nothing changes."""
+    found = artifact(a["artifact_id"])
+    named = {"expected_version_id": found["version_id"], "if_match": found["etag"], "expected_status": found.get("artifact_status")}
+    stale = [k for k, v in named.items() if a[k] != v]
+    if stale:
+        raise Refusal(412, "precondition_failed", f"The head is not the one this approval names ({', '.join(stale)} "
+                      "differ). Read the artifact again, review that version, and approve with its values.")
+    if found.get("artifact_status") not in ("pending_review", "blocked"):
+        raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
+    state["approved"][found["id"]] = "active"
+    return {"id": found["id"], "kind": found["kind"], "version_id": found["version_id"], "artifact_status": "active",
+            "note": "eval write recorded"}
+
+
 FILES_FROM_REFUSAL = ("`files_from` is expanded by the atlanai publish helper, which is not running here. Send the "
                       "folder's contents as `files` (relative paths to UTF-8 text, root `SKILL.md` required), or upload "
                       "a ZIP and send its `bundle_file_id`.")
@@ -869,19 +937,24 @@ def dispatch(name: str, a: dict) -> dict:
         if a.get("query"):
             needle = words(a["query"])
             rows = [w for w in rows if needle & words(f"{w.get('name', '')} {w.get('display_name', '')} {w.get('description', '')}")]
-        limit = a.get("limit", 50)
-        return {"items": rows[:limit], "page": {"limit": limit, "offset": 0, "total": len(rows)},
+        limit, offset = a.get("limit", 50), a.get("offset", 0)
+        return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(rows)},
                 "personal_workspace_id": personal}
     if name == "registry__search_artifacts":
         return search_artifacts(a)
     if name == "registry__list_artifacts":
         items = [head(i) for i in browsed(a)]
-        rows = [bare(i) for i in items] if a.get("full") else [summary(i) for i in items]
-        return {"items": rows[: a.get("limit", 50)], "page": {"limit": a.get("limit", 50), "offset": 0, "total": len(items)}}
+        rows = [labelled(bare(i) if a.get("full") else summary(i)) for i in items]
+        limit, offset = a.get("limit", 50), a.get("offset", 0)
+        return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(items)}}
     if name == "registry__get_artifact_counts":
         return counts(a)
     if name == "registry__get_artifact":
         found = released(artifact(a["artifact_id"]), a)
+        if a.get("include_linked_file"):
+            if "include_file" in a or "include_files" in a:
+                raise Refusal(400, "invalid_arguments", "give include_linked_file without include_file or include_files")
+            found = found | {"included_file": linked_file(found)}
         if "include_file" in a:
             found = found | {"included_file": included_file(found, a["include_file"])}
         if "include_files" in a:
@@ -890,7 +963,10 @@ def dispatch(name: str, a: dict) -> dict:
             found = with_properties(found, a["properties"])
         return found
     if name == "registry__get_project":
-        project = WORLD["projects"].get(a["project_id"])
+        if ("project_id" in a) == ("name" in a):
+            raise Refusal(400, "invalid_arguments", "give project_id or name, not both")
+        named = [p for p in WORLD["projects"].values() if p.get("name") == a.get("name")]
+        project = WORLD["projects"].get(a["project_id"]) if "project_id" in a else (named[0] if len(named) == 1 else None)
         if not project:
             raise Refusal(404, "not_found", "No such resource, or it is not visible to you.")
         return project
@@ -900,6 +976,10 @@ def dispatch(name: str, a: dict) -> dict:
         return append_version(a)
     if name == "registry__publish_output":
         return publish_output(a)
+    if name == "registry__approve_artifact":
+        return approve(a)
+    if name == "registry__create_artifact" and a.get("dry_run"):
+        return dry_run(a["kind"], a.get("metadata") or {})
     if name == "registry__list_traces":
         return list_traces(a)
     if name == "registry__get_related_artifacts":
@@ -909,7 +989,9 @@ def dispatch(name: str, a: dict) -> dict:
                     "artifact_id": e["to_id"] if e["from_id"] == found["id"] else e["from_id"],
                     "kind": (e["to_id"] if e["from_id"] == found["id"] else e["from_id"]).split("_")[0], "is_readable": True}
                    for e in state["edges"].values() if found["id"] in (e["from_id"], e["to_id"])]
-        return {"items": WORLD["edges"].get(a["artifact_id"], []) + written}
+        # Every fixture edge is one its source kind declares, and says so as the gateway's do.
+        edges = [{"declared": True} | e for e in WORLD["edges"].get(a["artifact_id"], []) + written]
+        return {"items": [e for e in edges if "declared" not in a or e["declared"] == a["declared"]]}
     if name == "registry__get_kind_schema":
         if a["kind"] not in WORLD["kinds"]:
             raise Refusal(404, "not_found", f"No registered kind {a['kind']!r}.")
@@ -1247,6 +1329,8 @@ def publish_output(a: dict) -> dict:
         raise Refusal(400, "invalid_arguments", "give exactly one of `file` (text to store), `file_pin` (bytes already "
                       "uploaded) or `external_url` (a link)")
     key = (workspace, a["source_type"], a["source_id"])
+    if a.get("dry_run"):
+        return dry_run("output", meta | {"source_type": key[1], "source_id": key[2]}, inline_file="file" in a)
 
     def holder(kind: str) -> dict | None:
         return next((i for i in artifacts().values() if i["kind"] == kind
