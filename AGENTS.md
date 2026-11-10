@@ -182,8 +182,12 @@ plugin loaded and graded on the tool calls it made and the answer it gave. The `
 replaced by `evals/atlan/emulator/`, a stdio stand-in for the gateway's search mode over one
 fixed organization, because `claude plugin eval` mocks cannot name a tool with `__` in it. It
 needs the claude CLI and costs money, so it is not in CI: run it before a release that changes
-an owned skill, and add a case for each failure you fix. When the live gateway changes a tool
-or a refusal the skills rely on, change the emulator to match. A case that needs the emulator
+an owned skill, and add a case for each failure you fix. The emulator advertises the gateway's
+own registry tool definitions: `tools/tests/fixtures/gateway-catalogue.json` holds them, and
+`python3 tools/sync_gateway_tools.py` writes them into the emulator's `world.json` and the tier
+fixture (`make check` fails when either has drifted). When the live gateway changes a tool,
+refresh the catalogue, run the sync, and teach the emulator's handler any new argument; when it
+changes a refusal the skills rely on, change the emulator to match. A case that needs the emulator
 in another state (an organization without the agent app, an empty registry, a rate limit, the
 data-catalog server in the plugin's place, or a skill already installed from
 `evals/atlan/fixtures/installed-skills/`) carries an `emulator.json` beside its `case.yaml`

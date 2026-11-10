@@ -200,15 +200,15 @@ Run `ENGINE advance --run <engine-dir> --model <actual-model-id>`.
 
 `ENGINE status --run <engine-dir>` reports the saved result without re-running anything.
 After an engine gate or phase transition, use the setup helper's `PROJECT experience --format
-chat --engine-dir <within-run-engine>` to surface factual progress and the first provisional
-sample. It reads the engine manifest and available evidence without exporting or publishing.
+chat --engine-dir <within-run-engine>` to surface factual progress. It reads the engine
+manifest and available evidence without exporting or publishing.
 For `PROJECT`, use the absolute selected-run engine directory or the literal `engine`;
 relative paths resolve from the selected run, unlike `ENGINE --run` paths. A legacy engine
 outside that run is not readable by this view; use its engine status and retain chat output.
-Use `--detail` to inspect the selected sample's SQL, source and checks. The required first-metric
-presentation remains full in chat. Never claim
-provisional evidence is checked/released, invent progress percentages, or wait until export
-to show useful work. Keep authored gate instructions and raw logs out of the user narrative.
+Use `--detail` to inspect the selected sample's SQL, source and checks. Review the full
+collection after its checks. Never claim provisional evidence is checked/released, invent
+progress percentages, or suppress progress while the collection is building. Keep authored
+gate instructions and raw logs out of the user narrative.
 Re-running advance resumes the engine; changing the configuration requires a reviewed new run.
 An existing runtime/project stays pinned, rather than silently adopting a newer engine.
 
@@ -216,20 +216,13 @@ The assistant may investigate evidence and call authorized read tools between ga
 calls a model API, and no model key is requested. Customer decisions are distinct from the
 assistant's authored work. Keep eval answers and gold outside all metric-generation context.
 
-### First metric, then the rest of the same run
+### Complete the selected collection
 
-At the X3 gate, use its `author-metric-card` instructions to answer the selected first metric.
-Keep the complete merged collection; do not narrow source scope to make a first-card run.
-Run `ENGINE first-metric --run <engine-dir> --model <actual-model-id> --metric-ref <ref>`.
-This invokes the core X3 validator with `--partial` under a separate preview stage label.
-It uses the same read-only SQL plug and witness mode as the run. Read `first-metric-preview.json`
-for the full accepted card and actual SQL check; a missing binding or substrate stays untested.
-Execution is not parity or final eligibility. Show [the full first metric](setup/demo-first-metric.md)
-before asking to build the rest, with independently checked worked-example values.
-
-The run remains paused at X3 and cannot export. Preserve that first answer, complete the other
-X3 answers, then `ENGINE advance` the same run. Full X3 validation, consistency and relationship
-gates still run. Even a single-metric request must finish those gates before export.
+Answer each authored gate for the complete selected scope and keep advancing the same run.
+X3 authors and validates all scoped cards; later consistency and relationship gates still
+run before export. Do not add a customer decision between cards. The demo's source choice
+already selected what to build. Show factual progress, then review the completed collection
+and actual checks through [the presentation flow](setup/presentation.md).
 
 ## 4. Export, then use the unchanged publisher
 

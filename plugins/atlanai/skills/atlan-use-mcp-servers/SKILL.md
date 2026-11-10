@@ -83,6 +83,13 @@ Approving a runner once in the host does not approve every tool it can run. The 
 refuses anything that is not a read and the write runner anything destructive, so a refusal
 names the runner to send the same call to; `mcp__call_tool` runs any tool.
 
+## Which servers are registered
+
+One read lists them: `registry__list_artifacts { "kind": "mcp_server", "limit": 50 }` through
+`mcp__call_read_tool`. `page.total` is the count and each row names its workspace
+(`workspace_display_name`); page with `offset` when the total is larger. Never enumerate
+servers with repeated searches: search ranks, it does not list.
+
 ## When a server needs the user's account
 
 A server the user has not connected comes back from a search under `connect`, not as tools.

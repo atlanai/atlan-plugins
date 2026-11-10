@@ -5,7 +5,7 @@
 ## 3. Build candidates
 
 On fresh setup, complete [business focus and purpose](intent.md) before authoring. Reuse saved
-answers on resume. Select the first metric and the smallest useful source scope from those
+answers on resume. Select the smallest useful source scope from those
 answers. A specific business question prioritizes its required metric/query and first supported
 answer; broader team preparation follows only within the requested scope. Existing publication,
 retrieval and execution requirements still apply.
@@ -31,27 +31,22 @@ parse-only evidence and run exact local checks separately.
 Do not create a second authoring path because an executor is unavailable.
 
 Reuse the existing survey, scope, business focus and interview answers. Prepare one engine
-run under this setup run. Advance through its maintained gates. At X3, author the selected
-first metric using the returned card instructions, then run `ENGINE first-metric --run
-<engine-dir> --model <actual-model-id> --metric-ref <ref>`. Read the private preview and show
-[the full first-metric moment](demo-first-metric.md), including actual check limitations.
-Run an independent source-backed worked example before claiming its numbers. A preview is
-provisional and cannot be exported or published.
-
-When the person chooses Build the rest, preserve the accepted first-card answer, author the
-remaining X3 cards and advance the same run through all remaining gates. Do not restart or
-hand-write `metrics.json`. The core card gate and whole-card review apply to every card.
+run under this setup run. Advance through its maintained gates for the complete selected
+collection. At X3, author all scoped cards using its returned instructions, then continue
+through the remaining gates. Gate answers are the assistant's work, not customer choices.
+Keep factual progress visible while generation and checks run. Do not stop for a single-card
+preview or request permission to generate the remaining already-selected context.
 
 After completion, export into a fresh `engine-export/` and install the unchanged metric,
 query, link, source-receipt and publication-hold files into this run's context as the engine
 procedure describes. Source/scope changes require a new engine run. Unsupported items remain
 held. No by-hand, legacy-shape or demo-only fallback is available.
-After export, select the previewed metric's matching candidate with `PROJECT journey select
---focus <exact-identity>` so later review and ready moments keep the same business focus.
+After export, select a relevant completed candidate with `PROJECT journey select
+--focus <exact-identity>` so review and ready moments reflect the business focus.
 
 After a gate or phase transition, run `PROJECT experience --format chat --engine-dir
-<within-run-engine>` and show factual progress. The first metric uses the full presentation
-block; a compact progress sample does not replace it. Keep Build as the stage while work remains.
+<within-run-engine>` and show factual progress. Review the collection after its checks, using
+[the presentation flow](presentation.md). Keep Build as the stage while work remains.
 
 ## 4. Check the actual revisions
 

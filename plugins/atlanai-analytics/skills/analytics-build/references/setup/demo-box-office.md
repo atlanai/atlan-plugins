@@ -64,16 +64,15 @@ absolute path; that is the only change.
 >    read the dashboard and the past queries to learn how Ticketfuddle measures its sales.
 > 2. **Choose what to build from.** You choose: the dashboard alone, or the dashboard
 >    plus the past queries.
-> 3. **Turn sources into context.** I build one metric first, fees as a share of what fans
->    paid, and show it to you: what it means, how it is worked out and which orders count.
->    You say whether to build the rest.
+> 3. **Turn sources into context.** I build the full collection of metrics and queries
+>    from the sources you chose.
 > 4. **Check the context on the data.** I run it on Ticketfuddle's data to check it gives
 >    sensible numbers.
 > 5. **Review and choose where to save.** The context is built. You choose whether to save
 >    it to Atlan Trident, where your company keeps context for its AI agents, or keep it
 >    on this machine. Saving is when you sign in.
-> 6. **Ready for questions.** Your ticket fees agent is ready. You pick what to ask it,
->    such as how much of what fans paid went on fees.
+> 6. **Ready for questions.** Your ticket fees agent is ready. Ask AI, design a dashboard
+>    or continue building on your real data.
 >
 > Nothing of yours is read or changed. The only thing saved outside this folder is the
 > context, in the Atlan Trident workspace you pick in step 5.
@@ -94,13 +93,6 @@ absolute path; that is the only change.
 | Purpose to record | Build a ticket fees agent that answers how much of what fans paid went on fees and why |
 | The question | How much of what fans paid last quarter went on fees, and why did it go up? |
 | What a metric is, by example | a number Ticketfuddle cares about, such as fees as a share of what fans paid, with the rule for working it out |
-| First metric | fees as a share of what fans paid |
-| First metric, in plain words | Out of everything fans paid for their tickets, this is the part that was fees and not the ticket's face value. |
-| What it measures | The share of fan spending that is fees |
-| How it is worked out | Every fee on primary tickets, divided by everything fans paid: face value plus every fee |
-| One example to break down | the show where fees took the largest share, with rows: Fans paid; Ticket face value; Fees; Fees as a share of what fans paid |
-| After the example | The firm-wide figure is this same sum over every order, and comparing quarters shows where it went up. |
-| Why build the rest | The fee share says how much went on fees. Gross sales, net fee revenue and sell-through say what moved it. |
 | What the agent can answer | Questions about gross sales, fees, net fee revenue and sell-through |
 
 Amounts are in US dollars. Customer records hold names, email addresses, phone numbers,

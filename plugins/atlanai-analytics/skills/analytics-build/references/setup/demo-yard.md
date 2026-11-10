@@ -62,16 +62,15 @@ absolute path; that is the only change.
 >    read the dashboard and the past queries to learn how Fixit measures a job.
 > 2. **Choose what to build from.** You choose: the dashboard alone, or the dashboard
 >    plus the past queries.
-> 3. **Turn sources into context.** I build one metric first, gross margin, and show it to
->    you: what it means, how it is worked out and which jobs count. You say whether to
->    build the rest.
+> 3. **Turn sources into context.** I build the full collection of metrics and queries
+>    from the sources you chose.
 > 4. **Check the context on the data.** I run it on Fixit's data to check it gives sensible
 >    numbers.
 > 5. **Review and choose where to save.** The context is built. You choose whether to save
 >    it to Atlan Trident, where your company keeps context for its AI agents, or keep it
 >    on this machine. Saving is when you sign in.
-> 6. **Ready for questions.** Your job profit agent is ready. You pick what to ask it,
->    such as which job lost the most margin and why.
+> 6. **Ready for questions.** Your job profit agent is ready. Ask AI, design a dashboard
+>    or continue building on your real data.
 >
 > Nothing of yours is read or changed. The only thing saved outside this folder is the
 > context, in the Atlan Trident workspace you pick in step 5.
@@ -92,13 +91,6 @@ absolute path; that is the only change.
 | Purpose to record | Build a job profit agent that answers which jobs lost margin and why |
 | The question | Which job lost the most margin last quarter, and why? |
 | What a metric is, by example | a number Fixit cares about, such as gross margin, with the rule for working it out |
-| First metric | gross margin |
-| First metric, in plain words | Gross margin is the profit on a job: what the client paid, minus what the job cost Fixit in crew, machines and materials. |
-| What it measures | Profit on each job |
-| How it is worked out | Client paid, minus crew and machine hours at their hourly rate, minus materials |
-| One example to break down | the job with the lowest margin, with rows: Client paid; Crew and machines; Materials; Gross margin |
-| After the example | Finding the job that lost the most is this same sum for every job, plus what drove the cost. |
-| Why build the rest | Margin says which job lost money. Labour, materials, rework and late jobs say why. |
 | What the agent can answer | Questions about job margin, rework, material waste and late jobs |
 
 Questions to offer when the agent is ready, when this run's context supports them:

@@ -27,7 +27,7 @@ demo has its own file, with its welcome and its facts:
 | Fixit & Co. | [the builder's yard](demo-yard.md) |
 | Ticketfuddle | [the box office](demo-box-office.md) |
 
-Everything below is shared by both. Where it says `<firm>`, `<agent>`, `<first metric>` or
+Everything below is shared by both. Where it says `<firm>`, `<agent>` or
 another value in angle brackets, take it from the chosen demo's facts table or from the
 run; the examples below use Fixit's.
 
@@ -36,7 +36,7 @@ run; the examples below use Fixit's.
 **What the demo is for.** The person is here to understand what Atlan Analytics does by
 watching it happen on a small example. Success is not that setup finished. Success is
 that they can say what they built, why it matters, and that they felt it work. The blocks
-printed at each moment (the welcome, the first metric, the celebration, the ready screen)
+printed at each moment (the welcome, the collection review and celebration, the ready screen)
 are the product; the commands between them are plumbing. A run that builds everything but
 skips a block has failed, however clean the build. Read every later instruction with this
 in mind: when a step could be done faster by saying less, say what the person needs.
@@ -113,13 +113,12 @@ step goes under its tracker. Skip a moment that does not happen in this run.
 | Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures itself, so the context matches the firm instead of my guess. |
 | Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
-| First metric | Building one metric first: `<first metric>`. | You see what the context looks like, and can judge it, before I build the rest. |
-| Build the rest | Building the other metrics and queries from the sources you chose. | `<why build the rest>` |
+| Build | Building the metrics and queries from all the sources you chose. | They capture the rules behind the questions you want to ask. |
 | Check | Running every metric and query on `<firm>`'s data. | One that returns nothing or nonsense would give wrong answers later; this catches it now. |
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
-| Ready | Your `<agent>` is ready. Showing the questions it can answer. | You choose what to ask; each answer comes from what you built, not a guess at the tables. |
+| Ready | Your `<agent>` is ready. Showing what you can do next. | You can ask AI, build a dashboard or continue building on your real data. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
 first tracker right after "Start building", before reading setup's references or cloning.
@@ -155,8 +154,8 @@ the demo's facts:
 
 "I read `<firm>`'s sources: `<dashboard>`, `<N>` past queries and `<N>` data tables. Next I
 turn them into metrics. A metric is `<what a metric is, by example>`. Metrics are how the
-context is stored, so the agent uses the same rule every time. I build one first and show
-you, then the rest. What should I build them from?"
+context is stored, so the agent uses the same rule every time. I will build and check the
+full collection from your chosen sources, then show you the results. What should I build them from?"
 
 This is the first time the person hears the word metric, so the prompt keeps all of it.
 
@@ -167,9 +166,11 @@ This is the first time the person hears the word metric, so the prompt keeps all
 
 Scope the run to the answer through [inspect and scope](inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data
-tables are used either way, to check the context.
+tables are used either way, to check the context. Continue through the complete build and
+checks after this choice, with factual progress updates. The next demo decision is where
+to keep the completed context. Ask during the build only for a genuine missing input or blocker.
 
-### 5 to 7. Read each moment's file when it arrives, not before
+### 5 and 6. Read each moment's file when it arrives, not before
 
 The welcome prints in full because this file is read right before it. The later blocks sit
 too far back by the time they are needed, and a run that relies on memory skips them. So
@@ -177,7 +178,6 @@ each has its own short file, read at the moment it is used:
 
 | When | Read, then do what it says before anything else |
 | --- | --- |
-| The first metric's check finishes | [the first metric](demo-first-metric.md) |
 | Step 4 ends, every check has run | [context built and where to keep it](demo-save.md) |
 | The context is saved, or kept on this machine | [ready for questions](demo-ready.md) |
 

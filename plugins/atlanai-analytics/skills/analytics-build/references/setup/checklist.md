@@ -23,8 +23,8 @@ in the same turn as every stage change, so the list on screen is never behind th
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
 step says `next`. In a demo, step 2 is `Choose what to build from`, because focus and purpose
-are already set. Step 3 includes the first-metric choice. Do not substitute a task update
-for the full metric block or celebration.
+are already set. Steps 3 and 4 run through the selected collection without an extra build decision.
+Do not substitute a task update for the collection review or celebration.
 
 ## Keep it true to the saved run
 
@@ -47,7 +47,7 @@ engine work. `PROJECT journey` results carry the same `checklist`.
 
 When a step completes, say its result in one line of chat, in the past tense, with its
 counts: "Read 4 sources: 23 measures and 412 query records." Skip the line when nothing new
-is known. Follow [the presentation flow](presentation.md) for the first metric, context-built
+is known. Follow [the presentation flow](presentation.md) for the collection review, context-built
 celebration and ready block. A step-complete line never replaces those moments.
 
 ## Without a task tool

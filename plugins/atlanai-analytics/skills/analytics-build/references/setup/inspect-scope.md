@@ -47,7 +47,7 @@ workspace context early when the destination is known.
 Refresh [the checklist](checklist.md) so step 1 shows its source count before asking the first question.
 After the source summary, follow [the intent checkpoint](intent.md), even when file/page
 scope is unambiguous. Establish the business focus first and the purpose second before
-authoring or choosing the first metric. Use the answers to select relevant source coverage.
+authoring the selected collection. Use the answers to select relevant source coverage.
 
 When the survey exposes a declared measure relevant to that focus, show it after the intent
 checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it a discovered

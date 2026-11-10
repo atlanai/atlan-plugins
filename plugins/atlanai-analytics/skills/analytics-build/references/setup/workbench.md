@@ -15,15 +15,15 @@ missing answer; use ordinary chat if the host exposes no question control. Adapt
 question to the first answer. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
-Use [the presentation flow](presentation.md) for the full first-metric block as soon as
-the run supplies its evidence. A provisional definition has no measured value. Keep SQL
+Use [the presentation flow](presentation.md) for the completed-collection review after the run's
+checks. A provisional definition has no measured value. Keep SQL
 and additional candidates available on request. Read the appropriate stage
 procedure for the real engine action; the presentation helper never executes it.
 
 | Saved stage | Host behavior |
 | --- | --- |
 | Inspect and Scope | Show what was found, establish business focus then purpose, and resolve remaining source scope. |
-| Build | Resume the existing engine checkpoint. Show an available provisional metric. |
+| Build | Resume the existing engine checkpoint for the whole selected collection; show factual progress. |
 | Check | Check the exact definition and parameters. Preserve failed and untested status. |
 | Preview | Show the sample before an existing destination or Keep local choice. |
 | Publish | Carry the authorized plan through reconciliation, release and full readback. |
@@ -87,7 +87,6 @@ Use the existing host surface at each meaningful moment. Do not create a new app
 | Inspection finishes | Step 1 ticked with its source count, then the business summary and focus choices in the native question. |
 | Business focus is answered | A separate purpose question tailored to that focus. Wait for its answer. |
 | Both answers are known | One sentence reflecting the goal and immediate action. No extra confirmation. |
-| First relevant metric is available | The full first-metric block, including the rule and worked example. |
 | Meaningful work progresses | The full tracker in chat at each step change, with the task list updated from `PROJECT checklist`. |
 | Details are requested | SQL and evidence in chat. |
 | Input or access is missing | One contextual question or the host's existing sign-in interface. |
