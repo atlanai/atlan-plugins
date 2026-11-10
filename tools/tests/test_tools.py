@@ -821,7 +821,7 @@ class PublishHookTest(unittest.TestCase):
                         (cwd / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
                         (cwd / ".ssh").mkdir()
                         (cwd / ".ssh" / "SKILL.md").write_text(self.SKILL, encoding="utf-8")
-                        skill = dict(case["call"])
+                        skill = json.loads(json.dumps(case["call"]).replace("{{fake_aws_key}}", FAKE_AWS_KEY))
                     else:
                         (cwd / "demo").mkdir()
                         CheckBundleTest.build(case, cwd / "demo")

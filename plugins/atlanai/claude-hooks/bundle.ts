@@ -17,7 +17,7 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 // Files that hold credentials by design: keys, dotenv, package-registry and machine logins, and
 // Terraform variables and state.
 export const KEY_FILES =
-  /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)/
+  /(?:^\.env(?:\..+)?$|\.(?:pem|key|p12|pfx|tfvars|tfstate)$|\.tfvars\.json$|\.tfstate\.backup$|^id_(?:rsa|dsa|ecdsa|ed25519)$|^(?:\.npmrc|\.netrc|_netrc|\.pgpass|\.pypirc|\.git-credentials)$)/i
 // A value that opens like a placeholder, a lookup or a stand-in is not a secret: `<…>`, `${…}`,
 // `{{…}}`, `$VAR`, `***`, `%s`, or a word such as `example` or `changeme`.
 const NOT_SECRET = '[$<{*%]|(?:synthetic|example|dummy|fake|placeholder|changeme|redacted|your)'
