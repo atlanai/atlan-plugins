@@ -28,6 +28,39 @@ and review them against all supporting source evidence.
 - `references/registry-contract.md` : the exact machine contract: what is required, what is
   refused, the two closed vocabularies.
 
+## A complete card that passes the gate
+
+The answer file is `{"metrics": [card, …]}`, one card per task, with only the fields below.
+This card uses invented tables; it shows the shape, not the words for your estate. The gate
+also hands you `answer_schema`, the full schema this card validates against.
+
+```json
+{"metrics": [{
+  "name": "Delivered Order Value",
+  "description": "Pounds invoiced on orders the customer received. Cancelled orders never shipped, so they carry no value.",
+  "domain": "Sales",
+  "formula": "SUM(SALES.MARTS.ORDERS.ORDER_VALUE)",
+  "population": "Orders, one row per order, restricted to delivered orders.",
+  "exclusions": ["Cancelled and undelivered orders are excluded"],
+  "grain": "SALES.MARTS.ORDERS.ORDER_ID",
+  "aggregation": {"type": "sum", "null_handling": "ignore"},
+  "output": {"alias": "delivered_order_value", "datatype": "decimal", "unit": "GBP"},
+  "source": {"entity": "SALES.MARTS.ORDERS", "alias": "Delivered Orders"},
+  "mandatory_filters": ["SALES.MARTS.ORDERS.ORDER_STATUS = 'delivered'"],
+  "filters": [],
+  "joins": [],
+  "dimensions": [
+    {"name": "Customer", "kind": "categorical", "sql": "SALES.MARTS.ORDERS.CUSTOMER_ID", "datatype": "string"},
+    {"name": "Order Date", "kind": "time", "sql": "SALES.MARTS.ORDERS.ORDER_DATE", "datatype": "date"}],
+  "examples": [{"source": "verified_query:<a vq_id from this task's sources>", "group_by": []}],
+  "notes": ["One point per string."]
+}]}
+```
+
+Two things are refused most often: a key the schema does not list (the task's `metric_id`,
+for one), and a `grain` written as a sentence. `grain` is columns and nothing else, with no
+words in brackets after them.
+
 ---
 
 ## Method
@@ -149,8 +182,8 @@ SELECT COUNT(*) AS "Open Opportunities"
 FROM ... WHERE IS_CLOSED = FALSE
 ```
 
-`grain` follows the same line: it says what ONE ROW of the measure is, not what it was grouped
-by. "one value for the whole population", not "one value per CSM".
+`grain` is not about the result at all: it is the key of the base table, as columns (see
+**`grain`** below). "One value for the whole population" belongs in `population`.
 
 ---
 
