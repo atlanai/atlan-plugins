@@ -10,7 +10,7 @@ import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
-import metrics_mine as mine
+import context_contracts as mine
 import registry_contract as contract
 import test_local_project as fixtures
 import test_metric_authoring as cards

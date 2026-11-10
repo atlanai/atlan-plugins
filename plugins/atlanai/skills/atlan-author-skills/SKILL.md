@@ -41,7 +41,7 @@ goes through it whatever `run_with` a search answer names; the searches and read
    the user already has: skip to step 3.
 3. **Ask once.** Show the draft, the workspace and "publish?" in one question. The workspace is
    the one the user named, else `workspace_id` from `.atlan/share.json` at the project root, else
-   the user's own from `registry__list_workspaces` with `{"limit": 1}` (`personal_workspace_id`).
+   the user's own from `registry__list_workspaces` with `{"kind": "user_default"}`.
 4. **Check.** With a shell, run `python3 <this skill's folder>/scripts/check_bundle.py <folder>`
    and fix what it lists.
 5. **Create**, after the yes:

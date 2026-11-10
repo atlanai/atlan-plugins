@@ -1216,7 +1216,10 @@ def session_messages(row: dict, turns: list) -> list:
             if cid not in calls:  # a trace without ids: the most recent call is the best guess
                 prev = next((m["tool_calls"] for m in reversed(msgs) if m.get("tool_calls")), None)
                 cid = prev[-1]["id"] if prev else f"call_{len(msgs)}"
-            msgs.append({"message_role": "tool", "tool_call_id": cid, "content": (t.get("content") or "")[:20000]})
+            # Results hold warehouse rows; they stay in the local trace.
+            size = len(t.get("content") or "")
+            msgs.append({"message_role": "tool", "tool_call_id": cid,
+                         "content": f"[tool result withheld: {size} characters]"})
             last_message = object()
     u = row.get("usage") or {}
     msgs.append({"message_role": "assistant", "model_id": row.get("model"), "content": row.get("answer") or "(no answer)",
@@ -1846,6 +1849,8 @@ def _selftest_integrity(ok) -> None:
     msgs = session_messages({"prompt": "q", "model": "m"}, turns)
     ok("parallel calls share one message and keep their ids", [c["id"] for c in msgs[1]["tool_calls"]] == ["A", "B"])
     ok("each result names its own call", [m["tool_call_id"] for m in msgs if m["message_role"] == "tool"] == ["A", "B"])
+    ok("a published result carries its size, never its rows",
+       [m["content"] for m in msgs if m["message_role"] == "tool"] == ["[tool result withheld: 2 characters]"] * 2)
     with tempfile.TemporaryDirectory() as d:
         pr = pathlib.Path(d)
         writer = pr / "write_runner.jsonl"

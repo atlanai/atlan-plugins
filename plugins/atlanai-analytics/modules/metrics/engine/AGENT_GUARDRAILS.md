@@ -165,8 +165,9 @@ destination or a field.
     that cries wolf is a rule nobody reads. The one thing that blocks is the **band**: below `faithfulness.min_pass_rate` the
     run halts, because a mass-flagging event is a pipeline defect, not a shippable low score.
 
-16. **Observed values survive the collapse.** Two queries differing only in a literal share
-    one shape, and only the representative's value stays in the SQL. The others are captured
+16. **Observed values survive the collapse.** Two queries differing only in a filter literal
+    share one shape, and only the representative's value stays in the SQL. A literal that
+    defines the metric (a CASE label in a measure, a DATE_TRUNC grain) is part of the shape. The others are captured
     where the collapsed group exists (lane H), shaped by policy (`observed_values.*`), unioned
     at C2, and land at R1 in the `sql_query` artifact's `analysis.filters[].value`, beside the
     representative's literal. That is the only field the kind has for them, and the Registry

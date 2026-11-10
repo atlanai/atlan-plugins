@@ -103,7 +103,8 @@ no MCP write, so the runs show in the agent's Sessions tab and the experiment's 
 their span views stay empty.
 
 1. **Preview, then ask once.** Show the counts (records, sessions, results), the target
-   workspace and agent, and one sample session's first two messages. Ask:
+   workspace and agent, and one sample session's first two messages. Tool results publish as
+   their size only; their rows stay in the local trace. Ask:
    - `<slug> · <variant> · publish to <workspace>`
    - **Publish N results and N sessions (Recommended)**
    - **Not yet**

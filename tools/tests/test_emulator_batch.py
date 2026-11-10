@@ -254,5 +254,95 @@ class WithdrawReleaseTest(unittest.TestCase):
         self.assertEqual(body["current_version_label"], "1.0.0")
 
 
+class RegistryToolCoverageTest(unittest.TestCase):
+    """The registry tools the skills name beyond the first set: several files in one read, a bulk
+    create, an edge, a create with its edge, and a scan run again."""
+
+    def setUp(self) -> None:
+        self.m = load()
+        self.rails = {"session_id": self.m.SESSION, "rationale": "Testing the emulator."}
+
+    def run_tool(self, runner: str, name: str, arguments: dict) -> tuple[dict, dict]:
+        return call(self.m, runner, self.rails | {"name": name, "arguments": arguments})
+
+    def test_every_tool_is_served_and_found_on_the_runner_its_tier_needs(self) -> None:
+        names = ["registry__get_file_contents", "registry__create_artifacts", "registry__relate_artifact",
+                 "registry__create_artifact_linked", "registry__retrigger_artifact_action"]
+        _, body = call(self.m, "mcp__describe_tools", {"names": names, "session_id": self.m.SESSION})
+        self.assertEqual(sorted(t["name"] for t in body["tools"]), sorted(names))
+        self.assertNotIn("unknown", body)
+        result, body = self.run_tool("mcp__call_read_tool", "registry__relate_artifact",
+                                     {"artifact_id": "skill_01evalsecrev01", "subject_id": "skill_01evalsecrev02", "rel_type": "replaced_by"})
+        self.assertTrue(result["isError"])
+        self.assertEqual(body["code"], "runner_tier")
+
+    def test_several_files_read_in_order_and_one_unreadable_entry_fails_alone(self) -> None:
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_file_contents", {"files": [
+            {"file_id": "file_01evalsecrevmd", "version_ordinal": 1}, {"file_id": "file_01evalmissing"},
+            {"file_id": "file_01evalsecrevref"}]})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual([f["file_id"] for f in body["files"]], ["file_01evalsecrevmd", "file_01evalmissing", "file_01evalsecrevref"])
+        self.assertIn("# Security review", body["files"][0]["content"])
+        self.assertEqual((body["files"][1]["code"], "content" in body["files"][1]), ("not_found", False))
+        self.assertEqual(body["files"][2]["path"], "reference.md")
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_file_contents", {"files": [{"file_id": "file_01evalmissing"}]})
+        self.assertTrue(result["isError"])
+        result, body = self.run_tool("mcp__call_read_tool", "registry__get_file_contents",
+                                     {"files": [{"file_id": "file_01evalsecrevmd"}] * 9})
+        self.assertEqual(body["code"], "invalid_arguments")
+
+    def test_an_edge_is_written_once_however_often_it_is_stated_and_reads_back(self) -> None:
+        edge = {"artifact_id": "skill_01evalsecrev01", "subject_id": "skill_01evalsecrev02", "rel_type": "replaced_by"}
+        for attributes in ({"note": "first"}, {"note": "second"}):
+            result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact", edge | {"attributes": attributes})
+            self.assertFalse(result["isError"], body)
+        self.assertEqual((body["from_id"], body["to_id"], body["attributes"]), ("skill_01evalsecrev01", "skill_01evalsecrev02", {"note": "second"}))
+        self.assertEqual(len(self.m.state["edges"]), 1)
+        _, related = self.run_tool("mcp__call_read_tool", "registry__get_related_artifacts", {"artifact_id": "skill_01evalsecrev02"})
+        self.assertIn({"rel_type": "replaced_by", "direction": "incoming", "artifact_id": "skill_01evalsecrev01", "kind": "skill",
+                       "is_readable": True}, related["items"])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact",
+                                     {"artifact_id": "skill_01evalsecrev01", "rel_type": "replaced_by"})
+        self.assertEqual(body["code"], "invalid_arguments")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifact", edge | {"subject_id": "skill_01evalnone"})
+        self.assertEqual(body["code"], "not_found")
+
+    def test_a_bulk_create_answers_one_slot_per_item_and_refuses_kinds_that_need_their_own_call(self) -> None:
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifacts", {"kind": "knowledge", "items": [
+            {"name": "refund-policy", "workspace_id": "workspace_01evalplatform"}, {"name": "no-workspace"}]})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual([(s["index"], s["ok"]) for s in body["items"]], [(0, True), (1, False)])
+        self.assertEqual((body["created"], body["failed"]), (1, 1))
+        self.assertEqual(body["items"][0]["artifact"]["kind"], "knowledge")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifacts",
+                                     {"kind": "agent", "items": [{"name": "bot", "workspace_id": "workspace_01evalplatform"}]})
+        self.assertEqual(body["code"], "unsupported_kind")
+
+    def test_a_linked_create_writes_the_artifact_and_its_edge_or_neither(self) -> None:
+        linked = {"kind": "knowledge", "metadata": {"name": "refund-policy", "workspace_id": "workspace_01evalplatform"},
+                  "rel_type": "documents"}
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact_linked", linked | {"subject_id": "skill_01evalnone"})
+        self.assertTrue(result["isError"])
+        self.assertEqual(self.m.state["edges"], {}, "a refused edge creates nothing")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact_linked", linked | {"subject_id": "skill_01evalsecrev01"})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual((body["kind"], body["edges"][0]["to_id"], body["edges"][0]["rel_type"]), ("knowledge", "skill_01evalsecrev01", "documents"))
+
+    def test_a_scan_run_again_is_a_new_run_each_time_and_approves_nothing(self) -> None:
+        rerun = {"artifact_id": "skill_01evalpending", "action_name": "scan"}
+        _, first = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun)
+        _, second = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun)
+        self.assertEqual((first["attempt"], first["reopened"], second["attempt"]), (1, False, 2))
+        self.assertNotEqual(first["run_id"], second["run_id"])
+        _, head = self.run_tool("mcp__call_read_tool", "registry__get_artifact", {"artifact_id": "skill_01evalpending"})
+        self.assertEqual(head["artifact_status"], "pending_review")
+        _, blocked = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"artifact_id": "skill_01evalblocked"})
+        self.assertTrue(blocked["reopened"])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"artifact_id": "skill_01evalsecrev01"})
+        self.assertEqual(body["code"], "conflict")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", rerun | {"action_name": "publish"})
+        self.assertEqual(body["code"], "unknown_action")
+
+
 if __name__ == "__main__":
     unittest.main()

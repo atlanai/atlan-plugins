@@ -372,7 +372,7 @@
       "tool": "registry__list_workspaces",
       "runner": "call_read_tool",
       "args": {
-       "limit": 1
+       "kind": "user_default"
       }
      },
      {
@@ -1018,7 +1018,7 @@
       "tool": "registry__list_workspaces",
       "runner": "call_read_tool",
       "args": {
-       "limit": 1
+       "kind": "user_default"
       }
      },
      {
@@ -1094,7 +1094,7 @@
       "tool": "registry__list_workspaces",
       "runner": "call_read_tool",
       "args": {
-       "limit": 1
+       "kind": "user_default"
       }
      },
      {
@@ -1209,7 +1209,7 @@
       "tool": "registry__list_workspaces",
       "runner": "call_read_tool",
       "args": {
-       "limit": 1
+       "kind": "user_default"
       }
      },
      {

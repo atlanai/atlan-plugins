@@ -607,6 +607,47 @@ class GatewayToolNamesTest(unittest.TestCase):
         }
         self.assertEqual(set(), unknown)
 
+    # A registry tool's name: `registry__` and its words. A placeholder (`registry__…`) and a
+    # family (`registry__get_`) are not names.
+    REGISTRY = re.compile(r"(?<![A-Za-z0-9_])registry__[a-z]+(?:_[a-z]+)+(?![A-Za-z0-9_])")
+    TIERS = {0: "read", 1: "write", 2: "destructive"}
+
+    def test_every_quoted_registry_tool_is_one_the_gateway_serves(self):
+        # The gateway holds the same check on its vendored copy, but only after its pin moves:
+        # a renamed or invented tool is caught here, in the pull request that writes it.
+        known = set(self.TOOLS["registry_tools"])
+        self.assertLessEqual(set(self.TOOLS["core_registry_reads"]), known)
+        unknown = {
+            f"{path.relative_to(ROOT)}: {name}"
+            for path, text in self.texts()
+            for name in self.REGISTRY.findall(text)
+            if name not in known
+        }
+        self.assertEqual(set(), unknown)
+
+    def test_the_emulator_serves_gateway_tools_at_the_gateway_tiers(self):
+        world = json.loads((ROOT / "evals/atlan/emulator/world.json").read_text(encoding="utf-8"))
+        known = self.TOOLS["registry_tools"]
+        served = {}
+        for tool in world["tools"]:
+            if not tool["name"].startswith("registry__"):
+                continue
+            notes = tool.get("annotations", {})
+            served[tool["name"]] = self.TIERS[0 if notes.get("readOnlyHint") else (2 if notes.get("destructiveHint") else 1)]
+        self.assertEqual({}, {name: tier for name, tier in served.items() if known.get(name) != tier})
+
+    def test_the_emulator_serves_every_registry_tool_a_core_skill_names(self):
+        # An eval cannot pass through a tool the emulator lacks: the run stops at `tool_unavailable`.
+        world = json.loads((ROOT / "evals/atlan/emulator/world.json").read_text(encoding="utf-8"))
+        served = {tool["name"] for tool in world["tools"]}
+        named = {
+            name
+            for path, text in self.texts()
+            if path.is_relative_to(CORE)
+            for name in self.REGISTRY.findall(text)
+        }
+        self.assertEqual(set(), named - served)
+
     def test_get_started_names_every_helper_and_no_count(self):
         text = (ROOT / "plugins/atlanai/skills/atlan-get-started/SKILL.md").read_text()
         for name in self.TOOLS["search_mode_helpers"]:
@@ -1163,10 +1204,15 @@ class SkillChecksTest(unittest.TestCase):
 
     def test_the_opt_in_block_and_the_rules_name_the_same_section(self) -> None:
         skills = CORE / "skills"
-        started = (skills / "atlan-get-started" / "references" / "codex-skill-checks.md").read_text(encoding="utf-8")
-        block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
-        self.assertIn("## Atlan registry skills", block)
-        self.assertIn("atlan-use-skill", block)
+        blocks = []
+        for host in ("codex", "cursor"):
+            started = (skills / "atlan-get-started" / "references" / f"{host}-skill-checks.md").read_text(encoding="utf-8")
+            block = started.split("<!-- atlanai:skill-checks:start -->", 1)[1].split("<!-- atlanai:skill-checks:end -->", 1)[0]
+            self.assertIn("## Atlan registry skills", block, host)
+            self.assertIn("atlan-use-skill", block, host)
+            self.assertIn(f"references/{host}-skill-checks.md", (skills / "atlan-get-started" / "SKILL.md").read_text(encoding="utf-8"))
+            blocks.append(block)
+        self.assertEqual(blocks[0], blocks[1], "Codex and Cursor opt in with the same words")
         for name in ("atlan-use-skill", "atlan-find-artifacts", "atlan-get-started"):
             self.assertIn("**Atlan registry skills**", (skills / name / "SKILL.md").read_text(encoding="utf-8"), name)
 

@@ -15,10 +15,10 @@ graders:
   - name: task-scope-flow
     type: llm
     criteria: |
-      PASS if it carries the selected source and workspace forward, announces the checked
-      creates/links and continues to the existing publisher without another read or publish
-      permission question. It must preserve quality gates, readbacks and release policy.
-      FAIL if it repeats the interview, requires a second yes just to publish, asks permission
+      PASS if it carries the selected source and workspace forward, shows the checked plan's
+      creates/links and target, and asks once for approval of that concrete plan before the
+      publisher writes. It must preserve quality gates, readbacks and release policy.
+      FAIL if it publishes without approval of the plan, repeats the interview, asks permission
       to read generated artifacts, bypasses host permissions, or claims writes already happened.
   - name: plain-reply
     type: llm

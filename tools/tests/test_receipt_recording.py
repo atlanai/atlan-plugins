@@ -13,7 +13,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
-import metrics_mine
+import context_contracts
 import publication_receipts
 from project import Project
 from test_analytics_reconciliation import metric, query, link
@@ -46,7 +46,7 @@ class ReceiptRecording(unittest.TestCase):
         for name, value in (('metrics', self.metrics), ('queries', self.queries), ('links', self.links), ('existing', [])):
             (self.ctx / (name + '.json')).write_text(json.dumps(value))
         (self.run / 'run.json').write_text(json.dumps({'version': 2, 'entrypoint': 'project', 'sources': [], 'source_root': str(self.root)}))
-        metrics_mine.cmd_check(SimpleNamespace(dir=str(self.ctx)))
+        context_contracts.cmd_check(SimpleNamespace(dir=str(self.ctx)))
         self.metrics = json.loads((self.ctx / 'metrics.json').read_text())
         self.artifacts = []
         for kind, bodies in (('metric', self.metrics), ('sql_query', self.queries)):
@@ -105,7 +105,7 @@ class ReceiptRecording(unittest.TestCase):
         self.release(self.artifacts[0]); self.release(self.artifacts[1]); self.edges(); self.assemble(True)
         live = [{**a, 'definition': a['metadata']['definition']} for a in self.artifacts]
         (self.ctx / 'existing.json').write_text(json.dumps(live))
-        result = metrics_mine.cmd_check(SimpleNamespace(dir=str(self.ctx)))
+        result = context_contracts.cmd_check(SimpleNamespace(dir=str(self.ctx)))
         self.assertEqual(result['counts']['metrics'], {'create': 0, 'revise': 0, 'reuse': 1})
         self.assertEqual(result['counts']['queries'], {'create': 0, 'revise': 0, 'reuse': 1})
         self.assertTrue(self.assemble(True)['recorded'])

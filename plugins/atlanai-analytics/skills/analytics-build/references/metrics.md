@@ -10,20 +10,20 @@ Three entries use this file:
 - **project setup** arrives after its combined repo survey. Preserve that route's state,
   use both model and history evidence, and return to its publication receipts and questions.
 
-The plugin owns the interview and publication. New supported runs use the isolated metrics
-module; legacy authored runs use the standard-library helpers. Below:
-- `MINE` means `python3 "<skill-dir>/scripts/metrics_mine.py"`. `<skill-dir>` is this skill's
+The plugin owns the interview and publication. Every generation run uses the isolated metrics
+module; the standard-library helpers retain validation and publication only. Below:
+- `CONTEXT` means `python3 "<skill-dir>/scripts/context_contracts.py"`. `<skill-dir>` is this skill's
   directory: `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build` in Claude Code, and otherwise the
   directory that holds this file's `references/`.
 - `<context-dir>` is `.atlan-metrics/<slug>/context` in metrics mode, and
   `.atlan-analytics/<slug>/context` in a build.
 
-`MINE` prints one JSON object. It exits 2 when BLOCKED, and 1 with `"status": "REFUSED"` when
+`CONTEXT` prints one JSON object. It exits 2 when BLOCKED, and 1 with `"status": "REFUSED"` when
 a check refuses an item.
 
 Setup callers follow [shared setup](setup.md) for ordering. They skip section 0's destination
 question when the workspace is unknown. Use provisional `PROJECT check` and `PROJECT preview`
-locally, then fetch the live schema and existing definitions and run `MINE check` after choosing
+locally, then fetch the live schema and existing definitions and run `CONTEXT check` after choosing
 the destination. Do not report create/revise/reuse counts before that reconciliation.
 Explicit metrics mode and full builds retain their entry contracts below.
 
@@ -65,9 +65,8 @@ as declared, and query history adds what the models miss.
 |---|---|---|
 | A declared semantic model: dbt, LookML or Cube in this repository; Snowflake semantic views; Databricks metric views | its files are here, or the warehouse lists one over the scoped tables | one metric per declared measure, as declared |
 | A Power BI or Tableau model | the person has the file or extract | declared measures, translated to SQL and tested |
-| A finished metrics-agent run | the person has its run directory | `MINE import-run`, then section 4 |
+| A completed current engine run | its pinned runtime and run directory are available | `ENGINE export`, then section 4 |
 | Query history | a warehouse query tool, a vendor CLI, or an export file | mined metrics and saved queries |
-| Definitions written together | always | five to ten hand-drafted metrics |
 
 Ask only if the source choice is unresolved, with the options actually in reach. A supplied
 BI file, asset URL or query-history export already settles this decision:
@@ -77,8 +76,7 @@ BI file, asset URL or query-history export already settles this decision:
 - **Query history (Recommended when no model is in reach)**: what analysts actually ran against
   the scoped tables.
 - **Only the declared model**: no warehouse history needed.
-- **Import a finished metrics-agent run**: the run directory's `registry_payloads/`.
-- **We write a few definitions together**: section 3, by hand.
+- **Resume a current engine run**: its pinned runtime and source configuration.
 
 Skip this choice when the request already selected a source, including `query-history`, or
 project setup has surveyed the repository. That survey selects both model and history when usable.
@@ -88,72 +86,31 @@ connection only when needed for checks or fresh answers, and explain that purpos
 If the person offers a benchmark or eval file here, keep it out of this workflow. In a full
 build it is used in phase 4. Eval answers never become context.
 
-## Use the metrics-agent module for new supported runs
+## 2. Generate through the main metrics engine
 
-For new query-history, Power BI, Tableau and supported semantic-model sources, follow
-[the metrics module](metrics-engine.md) instead of sections 2 and 3 below. It runs the maintained
-metrics implementation and returns the same context files. Continue at section 4
-for the existing Registry check and publication flow. The module owns generation only.
+Every generation route follows [the metrics module](metrics-engine.md): local files, demos,
+BI models, query history and full builds. There is no separate shape miner or by-hand card
+pipeline. `PROJECT history` only captures and filters history for the engine's common input.
 
-A finished metrics-agent run can still use `MINE import-run` when it already has Registry
-payloads; a completed embedded core run uses `ENGINE export` without a Registry package.
-For an unsupported declared model or an explicitly chosen by-hand draft, use sections 2 and 3
-as a named legacy authoring path and disclose its evidence level. Never switch to that path to
-hide a compiler refusal. Existing in-flight legacy projects resume their original procedure.
+For the first-metric moment, answer one X3 card using its maintained gate instructions and
+run `ENGINE first-metric`. Show the full rule and worked example with actual check results.
+To build the rest, keep that answer, finish the remaining X3 answers and `ENGINE advance`
+the same run. Partial previews are not publication bundles.
 
-## 2. Query history into shapes
+## 3. Export accepted context
 
-Skip this section when no history source was chosen.
-
-1. Pull 90 days of successful SELECTs that touch the scoped tables, grouped per distinct text
-   with run and user counts, at most 5,000 rows, by the bulk path `warehouse.bulk` names.
-   [Query history](warehouses/query-history.md) holds the statement for each warehouse and the
-   fallbacks when access is denied.
-2. Turn the pull into `<context-dir>/querylog.jsonl` without the rows passing back through this
-   conversation: `MINE querylog <saved pull> <context-dir>/querylog.jsonl`, adding `--append`
-   for each later page. The saved pull is the CLI's output file, the export, or the file the host
-   saved a large tool result to. It reads all of these, keeps `{sql, exec, users}`, counts users
-   without writing their names, and prints only counts. Never retype rows into a file yourself:
-   when a page came back inline and the host saved no file, pull smaller pages rather than
-   copying it out. Record the window's absolute start and end dates in state.
-3. Drop identifying literals:
-   `EVAL filter-querylog <context-dir>/querylog.jsonl <context-dir>/querylog.clean.jsonl`.
-   Report the counts by reason in one line.
-4. Group and rank:
-   `MINE shapes <context-dir>/querylog.clean.jsonl <context-dir>/shapes.jsonl --tables tables.txt`.
-   Each shape is one statement with its dates and numbers folded away. Quoted values that pick a
-   population stay: `status = 'paid'` and `status = 'refunded'` are two shapes. Shapes that differ
-   only in those values share a `family`, and each lists its values under `predicates`. A shape
-   carries the most-run text, its run and user counts, and hints: tables, aggregates, group-bys,
-   filters. Report the shape and family counts in one line.
-5. If a database name in the SQL is a mirror of the real one (a copy or a benchmark prefix),
-   normalise it to the real name and say so.
-
-## 3. Author
-
-Read [authoring](metrics/authoring.md) and follow its four passes:
-1. describe and propose, per shape;
-2. merge the proposals into metrics;
-3. write the metric and saved-query bodies;
-4. relate them.
-
-Declared metrics skip the first pass. By-hand metrics start at the third pass.
-
-Split big passes into chunks. Where this harness has subagents (Claude Code), give each chunk
-to a worker, a fresh subagent from the Agent tool, with the authoring rules. Elsewhere, work through the chunks in turn. Workers
-write their answer files only. You run every `MINE` command and every registry call. Workers
-never read eval files.
-
-The passes leave three files in `<context-dir>`: `metrics.json`, `queries.json` and
-`links.json`. For a by-hand definition, test its SQL with a `LIMIT 50` when a warehouse is
-connected, and otherwise mark it untested.
+Complete every engine gate, then `ENGINE export` into a fresh context destination. Preserve
+all five exported files and their source/eligibility receipts. See [contracts](metrics/contracts.md)
+for the Registry wire format; it is not a separate generation procedure. Unsupported sources
+remain held until a faithful input reader is available. Existing legacy drafts can be read
+and reconciled, but generation or changes require a new engine run from their source evidence.
 
 ## 4. Check
 
 1. Write the workspace's live artifacts to `<context-dir>/existing.json`, one
    `{id, kind, name, display_name, source_id, definition}` per artifact. Read definitions with
    `registry__get_artifact` for the metrics whose tables overlap this run's.
-2. Run `MINE check --dir <context-dir>`. It checks every body against the registry's contract
+2. Run `CONTEXT check --dir <context-dir>`. It checks every body against the registry's contract
    and the card rules. It refuses duplicates, and matches each metric to a live one that
    measures the same thing: the same source, formula and mandatory filters, literals included,
    so `STATUS = 'paid'` never matches `STATUS = 'refunded'`. It then writes `plan.json`, which

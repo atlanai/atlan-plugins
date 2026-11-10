@@ -132,7 +132,7 @@ def answer_plan(state, metric_id, context_hash, purpose='answer', case_id=None, 
     if metric is None:
         raise ValueError('Unknown metric. Resolve the question against the captured inventory first.')
     if context_hash != state.get('context_hash'):
-        return {'state': 'needs_new_scope', 'instruction': 'The requested scope differs from this SQL. Capture the new scope and translate/check it before reusing validation.'}
+        return {'state': 'needs_new_scope', 'instruction': 'The requested scope differs from this SQL. Capture the new scope and use the main metrics engine before checking a new revision.'}
     if metric['runtime'] != 'warehouse':
         return {'state': 'needs_sql', 'metric_id': metric_id, 'reason': metric.get('translation', {}).get('gap', 'Physical mapping and SQL conversion are required.')}
     if purpose == 'validation':

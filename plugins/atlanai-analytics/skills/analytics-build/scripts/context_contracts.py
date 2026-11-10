@@ -1,26 +1,9 @@
 #!/usr/bin/env python3
-"""metrics_mine: the deterministic half of building a metric layer.
+"""Registry context contracts, reconciliation and privacy-preserving history intake.
 
-The skill's judgement (what a statement measures, which proposals are one metric, how a card
-reads) is the assistant's. Everything that must come out the same every time lives here:
-grouping a cleaned query log into ranked query shapes, checking authored metric and saved-query
-bodies against the registry's contracts before anything is previewed, matching them against
-what the workspace already holds, and reading a finished metrics-agent run so its output is
-published the same way. Standard library only, Python 3.10+.
-
-    python3 metrics_mine.py <command> [options]        # every command prints one JSON object
-
-Exit 0 ok, 1 error, 2 BLOCKED ({"status":"BLOCKED","reason","fix"}: something the user must fix).
-
-Run directory (<context-dir>), written by the skill:
-  querylog.jsonl         {sql, exec, users}               <- `querylog`, from the saved history pull
-  querylog.clean.jsonl   {sql, exec, users}               <- after `analytics_eval.py filter-querylog`
-  shapes.jsonl           one ranked shape per line        <- `shapes`
-  metrics.json           [metric body]                    <- authored, or `import-run`
-  queries.json           [sql_query body]                 <- authored, or `import-run`
-  links.json             [{from, to, rel_type, attributes}]
-  existing.json          [{id, kind, name, source_id, definition}]  <- the workspace, read before checking
-  plan.json              what `check` decided: create, revise or reuse, per item, and every refusal
+This module does not generate metrics or query shapes. The maintained metrics engine is
+the sole authoring pipeline. These shared checks validate its exported definitions,
+reconcile existing workspace contracts and retain publication safety checks.
 """
 from __future__ import annotations
 
@@ -245,46 +228,6 @@ def strip_comments(sql: str) -> str:
     return "".join(out).strip().rstrip(";").strip()
 
 
-_NUM = re.compile(r"(?<![\w.$])[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?(?![\w$])", re.I)
-_INLIST = re.compile(r"\bin\s*\(\s*\?(?:\s*,\s*\?)*\s*\)", re.I)
-_WS = re.compile(r"\s+")
-
-
-def normalize(sql: str) -> str:
-    """The text a shape is keyed on: no comments, literals as ?, one space, lower case."""
-    parts = []
-    for kind, text in scan(sql or ""):
-        if kind == "comment":
-            parts.append(" ")
-        elif kind in ("str", "dollar"):
-            parts.append("?")
-        elif kind == "ident":
-            parts.append(text.lower())
-        else:
-            parts.append(_NUM.sub("?", text).lower())
-    out = _WS.sub(" ", "".join(parts)).strip().rstrip(";").strip()
-    return _INLIST.sub("in (?)", out)
-
-
-_DATELIKE = re.compile(r"^\d{4}-\d{2}(?:-\d{2})?(?:[ T][\d:.]+)?(?:Z|[+-]\d{2}:?\d{2})?$")
-
-
-def predicate_literals(sql: str) -> list:
-    """The quoted values that pick a population, in order: `status = 'paid'` keeps 'paid'. Dates
-    and bare numbers are left out, since a window or a limit changes when a query ran, not what it
-    measures. Shapes key on these as well as on normalize(), so paid and refunded revenue stay two
-    shapes of one family."""
-    out = []
-    for kind, text in scan(sql or ""):
-        if kind != "str":
-            continue
-        value = text[1:-1].replace("''", "'") if len(text) > 1 else ""
-        if not value.strip() or _DATELIKE.match(value.strip()) or _NUM.fullmatch(value.strip()):
-            continue
-        out.append(value)
-    return out
-
-
 def _blank(kind: str, text: str) -> str:
     if kind == "comment":
         return re.sub(r"[^\n]", " ", text)
@@ -310,358 +253,6 @@ def _balanced(text: str, open_at: int) -> int:
             if depth == 0:
                 return k + 1
     return len(text)
-
-
-def _split_top(text: str, sep: re.Pattern) -> list:
-    """Split on `sep` only where no parenthesis is open."""
-    out, last, depth_at, d = [], 0, [], 0
-    for ch in text:
-        depth_at.append(d)
-        d += 1 if ch == "(" else -1 if ch == ")" else 0
-    for m in sep.finditer(text):
-        if depth_at[m.start()] == 0:
-            out.append(text[last:m.start()])
-            last = m.end()
-    out.append(text[last:])
-    return [p.strip() for p in out if p.strip()]
-
-
-AGG = re.compile(r"\b(sum|count|count_if|avg|min|max|median|mode|stddev|stddev_samp|stddev_pop|variance|var_samp"
-                 r"|approx_count_distinct|percentile_cont|percentile_disc|approx_percentile|listagg|array_agg"
-                 r"|string_agg|any_value|bool_or|bool_and|sumif|countif|avgif)\s*\(", re.I)
-_FROM = re.compile(r"\b(?:from|join)\s+(?!\()(?:lateral\s+)?([\w$\"`]+(?:\s*\.\s*[\w$\"`]+){0,3})", re.I)
-_CTE = re.compile(r"(?:\bwith\s+(?:recursive\s+)?|,\s*)([\w$\"`]+)\s+as\s*\(", re.I)
-_CLAUSE_END = r"(?=\bhaving\b|\border\s+by\b|\blimit\b|\bqualify\b|\bunion\b|\bwindow\b|\)|$)"
-_GROUP = re.compile(r"\bgroup\s+by\s+(.+?)" + _CLAUSE_END, re.I | re.S)
-_WHERE = re.compile(r"\bwhere\s+(.+?)(?=\bgroup\s+by\b|\bhaving\b|\border\s+by\b|\blimit\b|\bqualify\b|\bunion\b|\)\s*(?:select|$)|$)",
-                    re.I | re.S)
-_AND = re.compile(r"\band\b", re.I)
-_COMMA = re.compile(r",")
-_KEYWORDS = {"select", "lateral", "table", "unnest", "flatten", "values"}
-
-
-def _ident(name: str) -> str:
-    return re.sub(r"\s*\.\s*", ".", name).replace('"', "").replace("`", "").lower()
-
-
-def features(sql: str) -> dict:
-    """What a statement reads, computes, cuts by and restricts on. Hints for the author, not a parse."""
-    code = _code_only(sql)
-    ctes = {_ident(m.group(1)) for m in _CTE.finditer(code)}
-    tables = []
-    for m in _FROM.finditer(code):
-        t = _ident(m.group(1))
-        if t and t not in ctes and t.split(".")[-1] not in _KEYWORDS and t not in tables:
-            tables.append(t)
-    aggs = []
-    for m in AGG.finditer(code):
-        end = _balanced(code, m.end() - 1)
-        expr = _WS.sub(" ", strip_comments(sql[m.start():end]))
-        if expr not in aggs:
-            aggs.append(expr)
-    norm = normalize(sql)
-    group_by, filters = [], []
-    for m in _GROUP.finditer(norm):
-        for g in _split_top(m.group(1), _COMMA):
-            if g not in group_by:
-                group_by.append(g)
-    for m in _WHERE.finditer(norm):
-        for f in _split_top(m.group(1), _AND):
-            if f not in filters:
-                filters.append(f)
-    return {"tables": tables, "aggregates": aggs[:12], "group_by": group_by[:10], "filters": filters[:12],
-            "window": bool(re.search(r"\bover\s*\(", code, re.I))}
-
-
-def _in_scope(tables: list, scope: list) -> bool:
-    if not scope:
-        return True
-    for t in tables:
-        for s in scope:
-            if t == s or t.endswith("." + s) or s.endswith("." + t):
-                return True
-    return False
-
-
-def cmd_shapes(a) -> dict:
-    """Group a cleaned query log by normalized text and rank the shapes worth authoring from."""
-    rows = read_jsonl(a.src)
-    if not rows:
-        raise Blocked(f"{a.src} is empty or missing.", "Pull the query history first, then run filter-querylog on it.")
-    scope = []
-    if a.tables:
-        scope = [_ident(ln.split("#")[0]) for ln in pathlib.Path(a.tables).read_text().splitlines() if ln.split("#")[0].strip()]
-    groups: dict = {}
-    unreadable = 0
-    for r in rows:
-        sql = r.get("sql") or r.get("query_text") or r.get("statement_text") or ""
-        if not sql.strip():
-            unreadable += 1
-            continue
-        family = normalize(sql)
-        key = family + "\x00" + json.dumps(predicate_literals(sql))
-        execs = int(r.get("exec") or r.get("count") or 1)
-        g = groups.get(key)
-        if g is None:
-            g = groups[key] = {"key": key, "family": family, "rep": sql, "rep_exec": -1, "exec": 0, "users": 0,
-                               "texts": 0}
-        g["exec"] += execs
-        g["users"] = max(g["users"], int(r.get("users") or 0))
-        g["texts"] += 1
-        if execs > g["rep_exec"] or (execs == g["rep_exec"] and sql < g["rep"]):
-            g["rep"], g["rep_exec"] = sql, execs
-    shapes, out_of_scope = [], 0
-    for g in groups.values():
-        sql = strip_comments(g["rep"])
-        f = features(sql)
-        if not _in_scope(f["tables"], scope):
-            out_of_scope += 1
-            continue
-        shapes.append({"shape_id": "s-" + hashlib.sha1(g["key"].encode()).hexdigest()[:12],
-                       "family": "f-" + hashlib.sha1(g["family"].encode()).hexdigest()[:12],
-                       "predicates": predicate_literals(g["rep"]), "sql": sql, "exec": g["exec"], "users": g["users"], "texts": g["texts"],
-                       "has_aggregate": bool(f["aggregates"]), **f})
-    shapes.sort(key=lambda s: (not s["has_aggregate"], -s["users"], -s["exec"], s["shape_id"]))
-    kept = shapes[: a.top]
-    out = pathlib.Path(a.dst)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("".join(json.dumps(s) + "\n" for s in kept))
-    return {"status": "ok", "rows": len(rows), "unreadable": unreadable, "distinct_shapes": len(groups),
-            "families": len({g["family"] for g in groups.values()}),
-            "out_of_scope": out_of_scope, "in_scope": len(shapes),
-            "with_aggregates": sum(1 for s in shapes if s["has_aggregate"]), "written": len(kept), "out": str(out)}
-
-
-# ====================================================================== authoring coverage
-
-def candidate_inventory(shapes, declarations=()):
-    """Complete source evidence, not a rule that every aggregate is a business metric."""
-    statements, candidates = [], []
-    for shape in sorted(shapes, key=lambda row: row['shape_id']):
-        sql = strip_comments(shape['sql'])
-        ref = 'shape:' + shape['shape_id']
-        found = []
-        code = _code_only(sql)
-        for match in AGG.finditer(code):
-            end = _balanced(code, match.end() - 1)
-            expression = sql[match.start():end]
-            key = ref + '\0' + sql + '\0' + str(match.start())
-            candidate = {'candidate_id': 'c-' + hashlib.sha256(key.encode()).hexdigest()[:16],
-                         'source_ref': ref, 'expression': expression, 'kind': 'aggregate'}
-            found.append(candidate['candidate_id'])
-            candidates.append(candidate)
-        statements.append({'source_ref': ref, 'sql': sql, 'candidates': found,
-                           'observations': {**features(sql),
-                                            'status': 'lexical_hints_read_the_full_sql'}})
-    for declaration in sorted(declarations, key=lambda row: row['source_ref']):
-        candidate = {**declaration, 'kind': 'declared'}
-        candidate['candidate_id'] = 'c-' + hashlib.sha256(json.dumps(
-            {k: declaration[k] for k in ('source_ref', 'name', 'expression') if k in declaration},
-            sort_keys=True).encode()).hexdigest()[:16]
-        candidates.append(candidate)
-    body = {'version': 1, 'statements': statements, 'candidates': candidates}
-    body['input_hash'] = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
-    return body
-
-
-def review_candidates(inventory, review, metric_names):
-    """Reconcile every source quantity and every card without deciding its business meaning."""
-    if review.get('input_hash') != inventory['input_hash']:
-        raise ValueError('Candidate evidence changed. Read the current inventory and review it again.')
-    expected = {c['candidate_id']: c for c in inventory['candidates']}
-    decisions, covered, seen = review.get('decisions', []), set(), set()
-    for decision in decisions:
-        key = decision.get('candidate_id')
-        if key not in expected or key in seen:
-            raise ValueError('Use each current candidate identifier exactly once.')
-        seen.add(key)
-        disposition = decision.get('disposition')
-        if disposition not in ('metric', 'component', 'non_metric', 'held') or not decision.get('reason'):
-            raise ValueError('Give each candidate its disposition and an evidence-based reason.')
-        targets = decision.get('metrics', [])
-        if not isinstance(targets, list) or not all(isinstance(t, str) for t in targets) or not set(targets) <= metric_names:
-            raise ValueError('Candidate decisions must refer to existing metric names.')
-        if disposition in ('metric', 'component') and not targets:
-            raise ValueError('A metric or component must name the metric cards it supports.')
-        if disposition in ('non_metric', 'held') and targets:
-            raise ValueError('Held and non-metric candidates must not claim usable metric cards.')
-        if expected[key]['kind'] == 'declared' and disposition not in ('metric', 'held'):
-            raise ValueError('A declared measure is a metric or an explicitly held declaration.')
-        if expected[key]['kind'] == 'declared' and disposition == 'metric' and len(targets) != 1:
-            raise ValueError('A declared measure supports exactly one metric card; do not turn its decomposition into new declarations.')
-        covered.update(targets)
-    if seen != set(expected):
-        raise ValueError('Review every candidate, including nested components and excluded aggregates.')
-    if covered != metric_names:
-        raise ValueError('Every authored metric needs a source candidate; reconcile unsupported cards.')
-    return {'status': 'complete', 'input_hash': inventory['input_hash'],
-            'candidates': len(expected), 'metrics': len(metric_names),
-            'held': sum(d['disposition'] == 'held' for d in decisions), 'decisions': decisions}
-
-
-def review_policy_hash():
-    """Changing maintained review instructions invalidates completed annotations."""
-    root = pathlib.Path(__file__).resolve().parents[3]
-    paths = ('modules/metrics/engine/skills/references/review-metric-card.md',
-             'modules/metrics/engine/skills/references/metric-consistency.md',
-             'skills/analytics-build/references/metrics/authoring.md')
-    return hashlib.sha256(json.dumps({p: hashlib.sha256((root / p).read_bytes()).hexdigest()
-                                     for p in paths}, sort_keys=True).encode()).hexdigest()
-
-
-def card_review_bundle(inventory, candidate_review, metrics, catalog=()):
-    """Give the author evidence and its draft together; never synthesize a card."""
-    if candidate_review.get('input_hash') != inventory['input_hash']:
-        raise ValueError('Reconcile the current source candidates before reviewing cards.')
-    review_candidates(inventory, candidate_review, {m['name'] for m in metrics})
-    candidates = {c['candidate_id']: c for c in inventory['candidates']}
-    cards, field_catalog = [], {}
-    policy_hash = review_policy_hash()
-    for metric in sorted(metrics, key=lambda row: row['name']):
-        refs = sorted({candidates[d['candidate_id']]['source_ref']
-                       for d in candidate_review['decisions'] if metric['name'] in d.get('metrics', [])})
-        fields = []
-        declarations = [c for c in candidates.values() if c['kind'] == 'declared' and c['source_ref'] in refs]
-        for declaration in declarations:
-            context = declaration.get('source_context', {})
-            table = context.get('table', {})
-            for column in table.get('columns', []):
-                fields.append({'source_ref': declaration['source_ref'], 'entity': context.get('entity'),
-                               'column': column['name'], 'metadata': column,
-                               'scope': 'captured_declared_role'})
-        source = metric['definition']['source']
-        frm = source.get('sql') or source.get('table') or source['entity']
-        if not declarations and not frm.lstrip().startswith('('):
-            tables = set(features('SELECT 1 FROM ' + frm)['tables'])
-            for relation in catalog:
-                if _ident(relation['table']) not in tables:
-                    continue
-                for column in relation['columns']:
-                    fields.append({'source_ref': relation['source_ref'], 'entity': relation['table'],
-                                   'column': column['column'], 'metadata': column,
-                                   'scope': 'catalog_field_resolve_actual_sql_role'})
-        for field in fields:
-            key = [field['source_ref'], field['entity'], field['column']]
-            field['field_id'] = 'field-' + hashlib.sha256(json.dumps(key).encode()).hexdigest()[:16]
-        for field in fields:
-            field_catalog[field['field_id']] = field
-        cards.append({'name': metric['name'], 'definition_hash': definition_hash(metric),
-                      'body': metric, 'supporting_source_refs': refs, 'source_fields': [f['field_id'] for f in fields],
-                      'field_inventory_limit': 'Resolve SQL roles before using catalog fields. An undeclared derived projection requires separate source inspection.',
-                      'prospective_identity': identity(metric)})
-    # Invalidate connected reviews when a component or its consumer changes. All source
-    # evidence is deliberately included, so uncertain source changes never reuse notes.
-    bodies = {m['name']: m for m in metrics}
-    neighbors = {name: set() for name in bodies}
-    for name, body in bodies.items():
-        definition = body['definition']
-        related = definition.get('depends_on', []) + [
-            r.get('metric') for r in definition.get('extensions', {}).get('related', [])
-            if isinstance(r, dict)]
-        for target in related:
-            if isinstance(target, str) and target in bodies:
-                neighbors[name].add(target)
-                neighbors[target].add(name)
-    for entry in cards:
-        connected, pending = set(), [entry['name']]
-        while pending:
-            name = pending.pop()
-            if name not in connected:
-                connected.add(name)
-                pending.extend(neighbors[name] - connected)
-        evidence = {'version': 4, 'review_policy_hash': policy_hash, 'inventory': inventory['input_hash'],
-                    'candidate_review': candidate_review, 'catalog': list(catalog),
-                    'cards': [bodies[n] for n in sorted(connected)]}
-        entry['review_hash'] = hashlib.sha256(json.dumps(
-            evidence, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-    bundle = {'version': 4, 'review_policy_hash': policy_hash,
-              'inventory': inventory, 'catalog': list(catalog),
-              'field_catalog': field_catalog, 'cards': cards,
-              'evidence_limits': ['SQL observations are lexical hints, not complete parsed facts.',
-                                  'Column types alone do not establish keys, relationships or business meaning.',
-                                  'Review annotations never certify source parity or authorize publication.']}
-    bundle['input_hash'] = hashlib.sha256(json.dumps(bundle, sort_keys=True).encode()).hexdigest()
-    return bundle
-
-
-def review_fields(bundle, card):
-    """Resolve lossless shared field records; accept already captured version-two packets."""
-    if bundle.get('version', 2) < 3:
-        return card['source_fields']
-    return [bundle['field_catalog'][key] for key in card['source_fields']]
-
-
-def reusable_card_notes(bundle, previous):
-    """Reuse only source- and dependency-bound completed reviews, never SQL results."""
-    current = {c['name']: c for c in bundle['cards']}
-    return [note for note in previous.get('metrics', [])
-            if note.get('name') in current and note.get('review_hash')
-            and note['review_hash'] == current[note['name']].get('review_hash')]
-
-
-def review_card_notes(bundle, review):
-    """Validate current, source-traced review coverage without choosing the author's fields."""
-    if review.get('input_hash') != bundle['input_hash']:
-        raise ValueError('Cards or evidence changed. Read the current review bundle and review again.')
-    expected = {c['name']: c for c in bundle['cards']}
-    refs = {s['source_ref'] for s in bundle['inventory']['statements']}
-    refs.update(c['source_ref'] for c in bundle['inventory']['candidates'])
-    refs.update(c['source_ref'] for c in bundle['catalog'])
-    seen = set()
-    for note in review.get('metrics', []):
-        name = note.get('name')
-        if name not in expected or name in seen:
-            raise ValueError('Review each current metric exactly once.')
-        seen.add(name)
-        if note.get('review_hash') not in (None, expected[name].get('review_hash')):
-            raise ValueError('The card or its review dependencies changed. Review the current evidence.')
-        if note.get('definition_hash') != expected[name]['definition_hash']:
-            raise ValueError('Review must describe the current metric revision.')
-        if not note.get('binding_reason') or not note.get('description_reason') or not note.get('grain_reason'):
-            raise ValueError('Explain the source binding, description and grain from their evidence.')
-        if note.get('grain_basis') not in ('declared_key', 'source_structure', 'verified_snapshot', 'unknown'):
-            raise ValueError('Distinguish declared, structural, snapshot-verified and unknown grain.')
-        source_refs = note.get('source_refs', [])
-        if not source_refs or not all(isinstance(r, str) and r in refs for r in source_refs):
-            raise ValueError('Cite current source references for every card review.')
-        dimensions = expected[name]['body']['definition'].get('dimensions', [])
-        names = {d['name'] for d in dimensions}
-        included = set()
-        for dimension in note.get('dimensions', []):
-            key = dimension.get('name')
-            if key not in names or key in included or not dimension.get('reason'):
-                raise ValueError('Explain each actual dimension exactly once.')
-            included.add(key)
-        if included != names:
-            raise ValueError('Review every dimension, not only the displayed examples.')
-        expected_fields = {f['field_id'] for f in review_fields(bundle, expected[name])}
-        seen_fields = set()
-        for field in note.get('field_decisions', []):
-            field_id = field.get('field_id')
-            if field_id not in expected_fields or field_id in seen_fields or not field.get('reason'):
-                raise ValueError('Account for each current source field exactly once with a reason.')
-            seen_fields.add(field_id)
-            decision = field.get('decision')
-            targets = field.get('dimensions', [])
-            if decision not in ('included', 'equivalent', 'excluded', 'unresolved'):
-                raise ValueError('Classify source fields as included, equivalent, excluded or unresolved.')
-            if not isinstance(targets, list) or not all(isinstance(t, str) and t in names for t in targets):
-                raise ValueError('Source-field review must refer to actual dimension names.')
-            if (decision in ('included', 'equivalent')) != bool(targets):
-                raise ValueError('Included or equivalent fields need their dimensions; other fields need a reason without a dimension target.')
-        if seen_fields != expected_fields:
-            raise ValueError('Review all listed source fields, including fields on already joined relations.')
-        for exclusion in note.get('excluded_breakdowns', []):
-            if not exclusion.get('expression') or exclusion.get('source_ref') not in refs or not exclusion.get('reason'):
-                raise ValueError('Trace excluded or unresolved breakdowns to their source and reason.')
-        if not isinstance(note.get('limitations'), list):
-            raise ValueError('Record review limitations explicitly, including an empty list when none remain.')
-    if seen != set(expected):
-        raise ValueError('Finish the review of all cards before the final handoff.')
-    return {'status': 'reviewed', 'input_hash': bundle['input_hash'],
-            'metrics': [{**note, **({'review_hash': expected[note['name']]['review_hash']}
-                         if 'review_hash' in expected[note['name']] else {})} for note in review['metrics']],
-            'coverage': 'assistant_source_review_not_certification'}
 
 
 # ====================================================================== registry contracts
@@ -1174,7 +765,7 @@ def cmd_check(a) -> dict:
     shapes = {s["shape_id"] for s in read_jsonl(d / "shapes.jsonl")}
     if not metrics and not queries:
         raise Blocked("Nothing to check: metrics.json and queries.json are both empty or missing.",
-                      "Author the metrics and saved queries first, or import a finished run.")
+                      "Generate metrics with the metrics engine and export the completed run first.")
     live_m = [e for e in existing if e.get("kind", "metric") == "metric"]
     live_q = [e for e in existing if e.get("kind") == "sql_query"]
     by_sid = {}
@@ -1431,52 +1022,6 @@ def cmd_check(a) -> dict:
 
 
 # ====================================================================== a finished metrics-agent run
-def _chunks(doc) -> list:
-    if isinstance(doc, list):
-        return doc
-    out = []
-    for c in (doc or {}).get("chunks") or []:
-        out += c
-    return out
-
-
-def cmd_import_run(a) -> dict:
-    """Read a finished metrics-agent run's registry payloads into metrics.json, queries.json and links.json."""
-    run, d = pathlib.Path(a.run), pathlib.Path(a.dir)
-    pay = run / "registry_payloads"
-    mp, qp = pay / "registry_metrics_v2.json", pay / "registry_sql_queries.json"
-    if not mp.exists() and not qp.exists():
-        raise Blocked(f"{run} has no registry_payloads/: the run did not reach its publish dry run.",
-                      "Finish the run with metrics-agent (or start from query history here instead).")
-    metrics = []
-    for b in _chunks(load_json(mp, {})):
-        b = {k: v for k, v in b.items() if k in BODY_FIELDS}
-        metrics.append(b)
-    queries = [{k: v for k, v in b.items() if k in BODY_FIELDS} for b in _chunks(load_json(qp, {}))]
-    cards = load_json(run / "metric_cards.json", {}) or {}
-    ref_to_name = {c.get("metric_ref"): c.get("name") for c in cards.get("metrics") or []}
-    vq_to_query = {((b.get("definition") or {}).get("extensions") or {}).get("metrics_agent", {}).get("vq_id"): b.get("name")
-                   for b in queries}
-    links = []
-    for vq, refs in (cards.get("metric_refs_by_vq") or {}).items():
-        for ref in refs:
-            if vq_to_query.get(vq) and ref_to_name.get(ref):
-                links.append({"from": {"kind": "sql_query", "name": vq_to_query[vq]},
-                              "to": {"kind": "metric", "name": ref_to_name[ref]}, "rel_type": "source_of",
-                              "attributes": {"origin": "metrics-agent"}})
-    for e in (load_json(run / "metric_relationships.json", {}) or {}).get("edges") or []:
-        # Grain variants and alternatives are no edge: x4 writes them to definition.extensions.related.
-        if (e.get("rel_type") or "depends_on") != "depends_on" or e.get("relation") in ("grain_variant", "alternative"):
-            continue
-        links.append({"from": {"kind": "metric", "name": e.get("from")}, "to": {"kind": "metric", "name": e.get("to")},
-                      "rel_type": "depends_on",
-                      "attributes": {k: v for k, v in {**(e.get("attributes") or {}), "relation": e.get("relation"),
-                                                       "confidence": e.get("confidence")}.items() if v is not None}})
-    dump_json(d / "metrics.json", metrics)
-    dump_json(d / "queries.json", queries)
-    dump_json(d / "links.json", links)
-    return {"status": "ok", "metrics": len(metrics), "queries": len(queries), "links": len(links),
-            "dialect": (load_json(mp, {}) or {}).get("dialect"), "dir": str(d)}
 
 
 # ====================================================================== selftest
@@ -1493,19 +1038,6 @@ def selftest() -> dict:
     ok("comments go, strings stay", strip_comments(sql).count("'paid'") == 1 and "gross" not in strip_comments(sql)
        and "note" not in strip_comments(sql))
     ok("a -- inside a string is text", "--" in strip_comments("select '--x' as a from t"))
-    ok("literals normalize away", normalize(sql) == normalize(sql.replace("'paid'", "'open'").replace("2026", "2025")))
-    ok("population values are kept apart from windows",
-       predicate_literals(sql) == ["paid"] and predicate_literals("select 1 from t where s in ('a', 'b') and n = '42'")
-       == ["a", "b"])
-    ok("in-lists collapse", normalize("select 1 from t where a in (1,2,3)") == normalize("select 1 from t where a in (4)"))
-    f = features(strip_comments(sql))
-    ok("features: table", f["tables"] == ["db.s.orders"])
-    ok("features: aggregate", f["aggregates"] == ["SUM(o.amount)"])
-    ok("aggregates keep their place after a literal", features(
-        "select sum(a) from t where b = 'long literal text' having sum(c) > 1")["aggregates"] == ["sum(a)", "sum(c)"])
-    ok("features: group by", f["group_by"] == ["region"])
-    ok("features: filters", len(f["filters"]) == 2)
-    ok("ctes are not tables", features("with x as (select count(*) c from a.b) select c from x")["tables"] == ["a.b"])
     ok("outer function", outer_function("COUNT(DISTINCT t.id)") == "count_distinct" and outer_function("SUM(a)/SUM(b)") is None)
     ok("top-level divide", _top_level_divide("SUM(a) / NULLIF(SUM(b), 0)") and not _top_level_divide("SUM(a/b)"))
 
@@ -1600,21 +1132,8 @@ def selftest() -> dict:
 
     with tempfile.TemporaryDirectory() as td:
         t = pathlib.Path(td)
-        (t / "log.jsonl").write_text("".join(json.dumps(r) + "\n" for r in [
-            {"sql": sql, "exec": 5, "users": 2},
-            {"sql": sql.replace("2026", "2025"), "exec": 3, "users": 3},
-            {"sql": sql.replace("'paid'", "'refunded'"), "exec": 4, "users": 1},
-            {"sql": "select * from other.t", "exec": 9, "users": 1}]))
-        (t / "tables.txt").write_text("DB.S.ORDERS\n")
-        r = cmd_shapes(argparse.Namespace(src=str(t / "log.jsonl"), dst=str(t / "run" / "shapes.jsonl"),
-                                          tables=str(t / "tables.txt"), top=50))
-        rows = read_jsonl(t / "run" / "shapes.jsonl")
-        ok("shapes: two windows, one shape, scope applied", r["distinct_shapes"] == 3 and r["written"] == 2
-           and rows[0]["exec"] == 8 and rows[0]["users"] == 3 and rows[0]["texts"] == 2)
-        ok("shapes: paid and refunded stay two shapes of one family", r["families"] == 2
-           and rows[1]["predicates"] == ["refunded"] and rows[1]["exec"] == 4
-           and rows[0]["family"] == rows[1]["family"] and rows[0]["shape_id"] != rows[1]["shape_id"])
-        good["definition"]["extensions"]["atlan_analytics"]["shapes"] = [rows[0]["shape_id"]]
+        # Historical shape evidence can be validated without retaining its retired generator.
+        good["definition"]["extensions"]["atlan_analytics"]["shapes"] = ["shape-example"]
         dump_json(t / "run" / "metrics.json", [good])
         dump_json(t / "run" / "existing.json", [{"id": "metric_1", "kind": "metric", "name": "paid_rev",
                                                   "display_name": good['display_name'], "description": good['description'],
@@ -1698,15 +1217,8 @@ def selftest() -> dict:
 
 # ====================================================================== CLI
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="metrics_mine.py", description=__doc__.split("\n\n")[0])
+    p = argparse.ArgumentParser(prog="context_contracts.py", description=__doc__.split("\n\n")[0])
     s = p.add_subparsers(dest="cmd", required=True)
-
-    c = s.add_parser("shapes", help="group a cleaned query log into ranked query shapes")
-    c.add_argument("src", help="querylog.clean.jsonl: {sql, exec, users} per line")
-    c.add_argument("dst", help="shapes.jsonl")
-    c.add_argument("--tables", help="tables.txt: keep shapes that read one of these tables")
-    c.add_argument("--top", type=int, default=400)
-    c.set_defaults(func=cmd_shapes)
 
     c = s.add_parser("querylog", help="turn a saved history pull into querylog.jsonl without printing it")
     c.add_argument("src", nargs="+", help="a tool result saved to a file, CLI JSON output, or a JSONL or CSV export")
@@ -1719,12 +1231,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.set_defaults(func=cmd_check)
 
-    c = s.add_parser("import-run", help="read a finished metrics-agent run's registry payloads")
-    c.add_argument("--run", required=True, help="the metrics-agent run directory")
-    c.add_argument("--dir", required=True, help="this skill's run directory")
-    c.set_defaults(func=cmd_import_run)
-
-    c = s.add_parser("selftest", help="offline checks of scanning, shapes and the contracts")
+    c = s.add_parser("selftest", help="offline checks of SQL privacy and the contracts")
     c.set_defaults(func=lambda a: selftest())
     return p
 

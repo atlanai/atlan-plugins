@@ -426,13 +426,21 @@ class _Parser:
             return self._dax_unary()
         ops = self._DAX_LEVELS[level]
         left = self._dax_binary(level + 1)
+        terms = [("+", left)]
         while True:
             kind, value = self.peek()
             if kind != "op" or value not in ops:
                 return left
             self.take()
             right = self._dax_binary(level + 1)
-            left = self._dax_op(value, left, right)
+            if value in ("+", "-"):
+                terms.append((value, right))
+                left = self._dax_sum(terms)
+            else:
+                left = self._dax_op(value, left, right)
+            if len(left) > self._MAX_EXPRESSION_CHARS:
+                raise CompileError(f"the compiled expression is too large to run ({len(left)} "
+                                   f"characters); split the formula into smaller measures")
 
     def _dax_unary(self) -> str:
         kind, value = self.peek()
@@ -446,6 +454,22 @@ class _Parser:
     _STR = re.compile(r"^'(?:[^']|'')*'$")
     # Arithmetic over number literals only: never blank.
     _CONST_ARITH = re.compile(r"^[\d\s.+\-*/()]+$")
+    # Past this, a statement is refused rather than built: an operand repeated by each
+    # operator's template doubles or quadruples the text at every level of nesting.
+    _MAX_EXPRESSION_CHARS = 100_000
+
+    def _dax_sum(self, terms: list[tuple[str, str]]) -> str:
+        """`a + b - c` as one expression. A blank is 0 and the result is blank only when every
+        operand is, as DAX applies pairwise. Written once per chain, so the statement grows
+        with the number of operands rather than doubling with each one."""
+        self.used.append("engine.dax_blank_arithmetic")
+        kinds = [self._literal_kind(sql) for _, sql in terms]
+        parts = [sql if kind else f"COALESCE({sql}, 0)" for (_, sql), kind in zip(terms, kinds)]
+        body = parts[0] + "".join(f" {op} {part}" for (op, _), part in zip(terms[1:], parts[1:]))
+        if any(kinds):
+            return body
+        blank = " AND ".join(f"{sql} IS NULL" for _, sql in terms)
+        return f"(CASE WHEN {blank} THEN NULL ELSE {body} END)"
 
     def _dax_op(self, op: str, a: str, b: str) -> str:
         if op in ("&&", "||"):
@@ -465,14 +489,6 @@ class _Parser:
             return _apply(_emit_for(rule, self.dialect), [a, b], "/")
         if op in ("*", "/"):
             return f"{a} {op} {b}"
-        if op in ("+", "-"):
-            self.used.append("engine.dax_blank_arithmetic")
-            if lit_a or lit_b:
-                ca = a if lit_a else f"COALESCE({a}, 0)"
-                cb = b if lit_b else f"COALESCE({b}, 0)"
-                return f"{ca} {op} {cb}"
-            return (f"(CASE WHEN {a} IS NULL AND {b} IS NULL THEN NULL "
-                    f"ELSE COALESCE({a}, 0) {op} COALESCE({b}, 0) END)")
         if op == "&":
             self.used.append("engine.dax_concatenate")
             ca = a if lit_a == "str" else f"COALESCE(CAST({a} AS VARCHAR), '')"

@@ -46,7 +46,14 @@ class PublicationBatches(unittest.TestCase):
                          {'source_id': query(i)['source_id'], 'action': 'create', 'ok': True, 'match_id': None}
                          for i in range(count)]}}
         self.write(documents)
+        self.approve(documents)
         return documents
+
+    def approve(self, documents):
+        """The user's yes to this exact plan, as the skill records it."""
+        identity, _ = batches.publication_identity(workspace_id='workspace_example',
+            sources=['example-source'], documents=documents)
+        self.auth['approved_plans'] = [identity]
 
     def write(self, documents):
         for name, value in documents.items():
@@ -105,8 +112,8 @@ class PublicationBatches(unittest.TestCase):
             row['action'] = action
         self.write(docs)
         with self.assertRaises(ValueError):
-            self.prepare()  # Revising is outside this authorization.
-        self.auth['allow_revisions'] = True
+            self.prepare()  # The changed plan, with its revision, is not yet approved.
+        self.approve(docs)
         result = self.prepare()
         self.assertEqual(result['deferred']['revise'], 1)
         self.assertEqual(result['deferred']['reuse'], 1)

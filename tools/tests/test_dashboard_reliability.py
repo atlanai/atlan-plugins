@@ -22,7 +22,7 @@ from trident.evaluation import answer_plan
 from trident.snowflake_cli import CLIError
 import test_eval_flow as fixture_flow
 from dashboard_fixture import URL, capture
-from test_dax_sql import mapping
+import legacy_snapshot
 
 
 class AnswerEligibility(unittest.TestCase):
@@ -81,13 +81,13 @@ class DurableRun(unittest.TestCase):
         self.service = Service(self.run.jobs)
         self.view = self.first['dashboard']
         self.change('dashboard_capture', capture=capture())
-        self.change('dashboard_translate', dialect='sqlite', mappings=[mapping()])
+        self.view = legacy_snapshot.restore(self.service, self.job)
         self.change('dashboard_plan_evals')
         task = self.service.dispatch('dashboard_next_check',{'job_id':self.job})['task']
         self.change('dashboard_record_check', **{k:task[k] for k in
                     ('case_id','plan_generation','capture_hash','definition_hash')},
                     reference={'unavailable':'source_value_unavailable'}, actual={'unavailable':'snapshot_mismatch'})
-        dashboard.prepare_context(self.service,self.job,self.run.context)
+        legacy_snapshot.context(self.service,self.job,self.run.context)
 
     def change(self, name, **args):
         self.view = self.service.dispatch(name, {'job_id':self.job,'expected_revision':self.view['revision'],**args})
@@ -173,20 +173,6 @@ class DurableRun(unittest.TestCase):
         self.assertEqual(self.run.status()['workflow']['last_issue']['code'],'revision_conflict')
         self.assertTrue(self.run.status()['workflow']['questions_available'])
 
-    def test_translation_change_invalidates_evaluation_before_another_export(self):
-        request = {'agent_id': 'agent_demo', 'runner': 'claude-question-only',
-                   'dataset_hash': 'example-dataset', 'context_snapshot_hash': 'example-context'}
-        op = self.run.begin_stage('heldout_eval', request)
-        self.run.acknowledge('heldout_eval', {'operation_id': op['operation_id'], 'read_succeeded': True,
-                            **request, 'passed': 1, 'scored': 1, 'unmeasured': 0, 'evidence_ref': 'private:example'})
-        original = self.run.fingerprint()
-        changed = mapping()
-        changed['relation'] = ['another_table']
-        self.change('dashboard_translate', dialect='sqlite', mappings=[changed])
-        self.assertNotEqual(self.run.fingerprint(), original)
-        status = self.run.status()
-        self.assertEqual(status['workflow']['stages']['heldout_eval']['state'], 'stale')
-        self.assertIsNone(status['dashboard']['summary']['heldout_accuracy_percent'])
 
     def test_resolved_error_is_archived_only_after_the_same_operation_succeeds(self):
         issue={**public_error(ValueError('Record the release selector returned by the latest read.')),

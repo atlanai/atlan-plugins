@@ -121,7 +121,7 @@ conversation when it can be avoided. Record `warehouse.bulk`, in this order:
    read-only role), even if small reads go through MCP: the CLI writes the rows straight to a
    file ([through a CLI](warehouses/cli.md)).
 2. **`tool`**: the query tool above, paged 5,000 rows at a time. Where the host saves a large
-   tool result to a file and names its path, `MINE querylog` reads that file, so the rows are
+   tool result to a file and names its path, `CONTEXT querylog` reads that file, so the rows are
    never copied out by hand.
 3. **`file`**: an export someone with access makes.
 

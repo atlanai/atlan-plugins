@@ -55,8 +55,8 @@ than choosing silently.
 - Read the user-selected source and generated project files as part of the task, without
   asking conversational permission to open each file. Keep host filesystem permissions intact.
 - Resolve publication intent and target once. A request to create/save metrics in the selected
-  workspace authorizes in-scope creates and source links. Show the checked plan as a concise
-  progress update and continue. Do not require another "publish please" after that decision.
+  workspace sets the target; it does not approve a plan. Show the checked plan's counts, target
+  and revisions, and write only after the user approves that concrete plan.
 - A draft-only or preview-only request never authorizes publication. Ask when the destination
   is unknown, an existing definition would change without authorization, or source/target scope
   changes. Manual review remains available when requested. Never archive or rename an artifact.
@@ -100,29 +100,13 @@ managed**. The place they are saved is **Atlan Trident**: write "saved in Atlan 
 
 ## Orientation, progress and endings
 
-Before setup or metric-generation tools run, use at most 60 words to explain the outcome, immediate next action
-and the user's controls. Aim below the limit rather than filling it. For example:
-"I'll prepare these sources so you can ask data questions here. First I'll survey the dashboards
-and query history, then show one metric as it takes shape. You can narrow the scope, inspect
-details, keep drafts local or pause."
-Do not append a second pipeline summary or source path. Source discovery gets a compact
-inventory and a reason for combining model and history evidence, not a file dump.
-
-Use one useful metric as the default preview, with its meaning and check status. Keep its
-SQL, source and detailed checks available on request. Show five/all only when asked. In the
-final answer retain one actual sample with its calculation, mandatory population/filter,
-source and check status, plus factual published/local counts and two or three supported
-questions, fewer when coverage is smaller. Full SQL remains available in details. Local draft question
-ideas must say that publication is needed before Registry-backed answers. A file link is
-supplementary. Keep normal updates under 80 words; expand only the detail the user requested.
-A completed setup handoff needs three parts: factual counts, one short sample, two or three
-supported questions. Do not append other metric names, repeated caveats or a second next-step
-paragraph. For example:
-"7 metrics and 4 queries are published; 1 metric remains held locally. Shipped units totals
-units using `SUM(s.units)` for `s.status = 'shipped'`, from the shipments model and query
-history. Its example SQL passed earlier; dashboard parity is unmeasured.
-Ask: How many units shipped by region? What was shipping cost by region? Answers retrieve
-the released definition before running SQL."
+Before setup or metric-generation tools run, explain the outcome, immediate next action
+and the user's controls. Source discovery explains the sources and what they can answer.
+All setup follows [one presentation flow](setup/presentation.md): visible steps, the full
+first-metric definition and example, the context-built celebration and the ready block.
+Read each moment's file when reached and use its visible delivery method. These files are
+the presentation contract. Local draft question ideas must say that publication is needed
+before Registry-backed answers. A file link or helper output does not replace the explanation.
 
 A details-only answer ends after the requested SQL, source and checks. Do not turn it into a
 setup handoff, invent follow-up questions, or offer publication unless asked. SQL formatting
@@ -142,6 +126,7 @@ step, preserve the run and explain the problem and recovery without printing a s
 A plan-only or explanation-only request is complete once answered; it needs neither a metric
 preview nor permission to execute. During sign-in keep the task active until recovery ends.
 
-Show setup progress as the checklist in the host's task list, read from the saved run.
+Show setup progress as [the checklist](setup/checklist.md) in chat and the host's task list
+when available, read from the saved run.
 Open no panel, browser view or snapshot unless the person asks for one. Never imply a
 snapshot is live or show controls that cannot act. Publish decisions stay in chat.

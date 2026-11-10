@@ -6,7 +6,7 @@ different things: what part of the business matters, and what the person wants t
 Clear file/page scope does not answer either question. Do not replace this with a generic
 "What do you want to do?" menu or an installation questionnaire.
 
-Render the user-facing step itself, in at most 80 words. For the first question, include the
+Render the user-facing step itself. For the first question, include the
 business summary below, then two or three short choices and free text. For the second,
 use a short domain-specific question without repeating the full summary. Stop there.
 Do not explain that this is question one/two, narrate the interview plan, discuss unavailable
@@ -33,13 +33,13 @@ Never invent available tables, dimensions, measures, user behavior or numerical 
 Retain material limitations such as sample data, missing joins or incomplete inspection.
 Distinguish history entries from distinct query shapes. Use the inspector's actual count
 and noun; do not relabel 110 history records as 110 distinct analyses or metrics.
-Aim for 40 to 50 words of explanation before the question and short option labels. Summarize
+Explain the sources before the question and use short option labels. Summarize
 supporting tables by business subject; do not enumerate every file, field or table. Do not
 repeat a full explanation of each analysis both in the paragraph and in the choices. State
 limits briefly, such as "sample data", rather than adding a generic checking disclaimer.
 Keep option labels to two to five words. For example, "sample job and cost data" is enough
 in the overview; a list of projects, crews, logs, orders and issues belongs in details. This
-question is not the completed setup handoff and does not use its longer word allowance.
+question establishes intent; the full metric explanation follows when its evidence is ready.
 
 Example only when supported by the inspected sources:
 
@@ -85,7 +85,7 @@ dashboard" alone is not a selected business focus. A selected page alone is tech
 
 When both answers are known and the source already supplies the requested explanation, use
 one intent sentence, then the relevant metric's meaning, calculation, population, source and
-honest check status. Keep the whole reply under 80 words and end there. Do not replace the
+honest check status, then end at the requested explanation. Do not replace the
 skipped interview with "Shall I check that?", "Would you like more?" or a new suggested task.
 Do not explain why an unrelated first-listed metric was skipped. If required evidence is
 missing, state that limit directly; ask only when its answer is necessary for the actual task.

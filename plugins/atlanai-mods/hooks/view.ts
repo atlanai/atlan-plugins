@@ -2,7 +2,7 @@
 // artifacts this session touched, the confirmation card, the publish band and the skill picker.
 // Nothing here calls `$`, so each rule is tested without a session.
 
-import { CONSEQUENCE, argsOf, artifactOf, jsonObjects, type Related, type Summary } from './registry'
+import { CONSEQUENCE, argsOf, artifactOf, batchCalls, batchEntries, gatewayNameOf, jsonObjects, type Related, type Release, type Summary } from './registry'
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -39,6 +39,9 @@ const PAST: Record<string, string> = {
   approve: 'approved',
   move: 'moved',
   release: 'released',
+  publish: 'shared',
+  withdraw: 'withdrew',
+  retrigger: 'reran',
   delete: 'deleted',
   request: 'requested',
 }
@@ -62,8 +65,21 @@ function describeRaw(tool: string, input: unknown): string {
     const servers = Array.isArray(call.servers) ? call.servers.filter(isText) : []
     return servers.length > 0 ? `read the tools of ${servers.join(', ')}` : 'read tool definitions'
   }
-  const name = isText(call.name) ? call.name : ''
-  const args = argsOf(call.arguments)
+  if (tool.endsWith('__mcp__call_read_tools')) {
+    const calls = batchCalls(call) ?? []
+    if (calls.length === 0) return 'ran a batch of reads'
+    if (calls.length === 1) return describeNamed(calls[0]?.name ?? '', argsOf(calls[0]?.args))
+    const shown = calls.slice(0, 3).map(one => describeNamed(one.name, argsOf(one.args)))
+    return `ran ${calls.length} reads: ${shown.join('; ')}${calls.length > 3 ? `; and ${calls.length - 3} more` : ''}`
+  }
+  // A read listed by name carries the tool's own arguments as its input.
+  const direct = gatewayNameOf(tool)
+  if (direct?.startsWith('registry__')) return describeNamed(direct, call)
+  return describeNamed(isText(call.name) ? call.name : '', argsOf(call.arguments))
+}
+
+/** What one named gateway tool does with these arguments. */
+function describeNamed(name: string, args: Record<string, unknown>): string {
   if (name === 'extension__skill__create') {
     const names = publishNames(args)
     return names.length > 0 ? `published ${names.length === 1 ? 'skill' : 'skills'} ${names.join(', ')}` : 'published a skill'
@@ -80,12 +96,24 @@ function describeRaw(tool: string, input: unknown): string {
     const [, verb = '', rest = ''] = registry
     const READ: Record<string, string> = { get: 'read', list: 'listed', query: 'queried', search: 'searched' }
     if (READ[verb]) return `${READ[verb]} ${rest.replace(/_/g, ' ')}`
+    if (name === 'registry__publish_output') return `shared ${outputOf(args)}`
+    if (name === 'registry__withdraw_release') return `withdrew release${isText(args.release_id) ? ` ${clip(args.release_id, 60)}` : ''}`
+    if (name === 'registry__retrigger_artifact_action')
+      return `reran ${isText(args.action_name) ? clip(args.action_name, 30) : 'an action'} on ${artifactOf(args) ?? 'an artifact'}`
     const target = verb === 'create' ? creationOf(args) : (artifactOf(args) ?? rest.replace(/_/g, ' '))
     return `${PAST[verb] ?? verb} ${target}`
   }
   const server = /^([a-z0-9-]+)__(.+)$/i.exec(name)
   if (server) return `${server[1]} · ${server[2]?.replace(/_/g, ' ')}`
   return name ? name.replace(/_/g, ' ') : 'called a tool'
+}
+
+/** The output a share records, by the name its arguments give it. */
+function outputOf(args: Record<string, unknown>): string {
+  const output = isRecord(args.output) ? args.output : args
+  const meta = isRecord(output.metadata) ? output.metadata : output
+  const name = field(meta, 'display_name') || field(meta, 'name') || field(args, 'name')
+  return name ? `output "${name}"` : 'an output'
 }
 
 /** The kind and name a create carries. */
@@ -135,6 +163,14 @@ function flatten(slot: Record<string, unknown>): Record<string, unknown> {
 
 /** What a gateway call came back with, in a few words, for the line under its row. */
 export function summarizeResult(text: string, isError: boolean): string {
+  const batch = batchEntries(text)
+  if (batch) {
+    const failed = batch.filter(entry => entry.isError).length
+    if (batch.length === 1 && batch[0]) return summarizeResult(batch[0].text, batch[0].isError)
+    const parts = batch.slice(0, 3).map(entry => clip(summarizeResult(entry.text, entry.isError), 60))
+    const head = failed === 0 ? `${batch.length} reads answered` : `${batch.length - failed} of ${batch.length} reads answered`
+    return clip(`${head}: ${parts.join('; ')}${batch.length > 3 ? `; and ${batch.length - 3} more` : ''}`, 220)
+  }
   if (isError) {
     const object = resultObject(text)
     const message = object ? field(object, 'message') || field(object, 'error') || field(object, 'detail') : ''
@@ -180,7 +216,9 @@ export function touchesOf(name: string, args: unknown, text: string, isError: bo
   if (!object || name === 'registry__search_artifacts' || /^registry__(list|query)_/.test(name) || name === 'registry__get_related_artifacts') return []
   const verb = /^registry__([a-z]+)_/.exec(name)?.[1] ?? ''
   const action = name === 'extension__skill__create' ? 'published' : verb === 'get' ? 'read' : (PAST[verb] ?? verb)
-  const rows = name === 'extension__skill__create' ? slotsOf(object) : [object]
+  // A share answers with the output it recorded beside the file it saved: the output is the touch.
+  const shared = name === 'registry__publish_output' && isRecord(object.output) ? object.output : undefined
+  const rows = name === 'extension__skill__create' ? slotsOf(object) : [shared ?? object]
   const fallbackId = artifactOf(args) ?? ''
   return rows.flatMap(row => {
     const id = field(row, 'id') || field(row, 'artifact_id') || (rows.length === 1 ? fallbackId : '')
@@ -309,18 +347,21 @@ export type Card = {
 }
 
 /** The card for an archive, approve or move, from what the registry said about the artifact. */
-export function cardOf(callId: string, name: string, artifactId: string, summary?: Summary, related?: Related): Card {
+export function cardOf(callId: string, name: string, artifactId: string, summary?: Summary, related?: Related, release?: Release, fallback?: string): Card {
   const verb = name.replace(/^registry__/, '').replace(/_artifact$/, '')
   const what = summary?.name ? `${summary.kind || 'artifact'} "${summary.name}"` : artifactId
+  const title = release
+    ? `Withdraw release ${release.label || release.id}${release.channel ? ` on "${release.channel}"` : ''} of ${what}`
+    : `${verb[0]?.toUpperCase() ?? ''}${verb.slice(1)} ${what}${summary?.version ? ` ${summary.version}` : ''}`
   return {
     id: callId,
-    title: clip(`${verb[0]?.toUpperCase() ?? ''}${verb.slice(1)} ${what}${summary?.version ? ` ${summary.version}` : ''}`, 160),
+    title: clip(title, 160),
     where: clip(
       [summary?.workspace ? `in ${summary.workspace}` : '', summary?.status ? summary.status.replace(/_/g, ' ') : '', artifactId].filter(Boolean).join(' · '),
       160,
     ),
     dependents: (related?.dependents ?? []).map(one => ({ id: clip(one.id, 80), kind: clip(one.kind, 40), rel: clip(one.rel, 40) })),
     count: related === undefined ? -1 : related.count,
-    consequence: CONSEQUENCE[name] ?? '',
+    consequence: clip([fallback ?? '', CONSEQUENCE[name.trim().toLowerCase()] ?? ''].filter(Boolean).join(' '), 400),
   }
 }

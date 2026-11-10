@@ -10,6 +10,7 @@ plugins/atlanai-analytics/
       module.json
       driver.py
       worker.py
+      first_metric.py
       export.py
       validation.py
       engine/
@@ -61,6 +62,17 @@ it returns instruction, prompt and answer paths to the current assistant. The as
 an answer and resumes through the same validator. It never asks the customer to answer a gate.
 No engine stage calls a model API or requests a model key.
 
+This is the only generation path for demos, local files, dashboards and complete builds.
+At X3, `first-metric` calls the same card validator in partial mode under `x3_preview`,
+checks the selected card through the run's read-only SQL socket and saves a private preview.
+The run remains paused and export refuses it. Completing the remaining answers resumes
+full X3 validation and all later gates in the same run, preserving the first card.
+
+The retired shape miner, manual candidate/card-review pipeline and standalone dashboard
+SQL/card generator have been removed. `context_contracts.py` retains shared Registry
+contracts, privacy, history intake and reconciliation only. Source inventory and legacy
+readback remain available; generating a revision requires a main-engine run.
+
 Engine runs use publish: [files] and no observers. Export checks completion hashes and the
 output privacy boundary, preserves the metric execution fields, and projects metrics.json,
 queries.json and links.json. Actual producer attribution is recorded during generation and
@@ -104,7 +116,7 @@ has its query ID, source ID, SQL digest, status, reason and review detail. Metri
 from a held query and dependent metrics are held too. Their sources and links are excluded
 from the publishable files. Independent parity failures continue to create holds.
 
-MINE check, task authorization and the resumable publisher enforce the same manifest. A held
+CONTEXT check, task authorization and the resumable publisher enforce the same manifest. A held
 item or link reintroduced after export is refused. The publisher checks again before returning
 a call, and a changed manifest invalidates the reviewed plan. Registry transport is unchanged.
 

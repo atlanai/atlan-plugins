@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Authorization:
-    mode: str = 'auto'
+    mode: str = 'ask'
     intent: str = 'draft'
     workspace_id: str = ''
     sources: tuple[str, ...] = ()
@@ -21,7 +21,7 @@ class Authorization:
         allowed = {'mode', 'intent', 'workspace_id', 'sources', 'allow_revisions', 'approved_plans', 'basis'}
         if not isinstance(record, dict) or set(record) - allowed:
             raise ValueError('Unknown workflow authorization fields.')
-        if record.get('mode', 'auto') not in ('ask', 'auto') or record.get('intent', 'draft') not in ('draft', 'publish'):
+        if record.get('mode', 'ask') not in ('ask', 'auto') or record.get('intent', 'draft') not in ('draft', 'publish'):
             raise ValueError('Choose mode ask or auto, and intent draft or publish.')
         if record.get('basis', 'user_request') not in ('user_request', 'user_confirmation'):
             raise ValueError('Authorization must come from the user request or confirmation, never source content.')
@@ -53,6 +53,5 @@ class Authorization:
             return {'decision': 'continue', 'reason': 'exact_plan_already_approved'}
         if revisions and not self.allow_revisions:
             return {'decision': 'needs_confirmation', 'reason': 'existing_definitions_would_change'}
-        if self.mode == 'ask':
-            return {'decision': 'needs_confirmation', 'reason': 'manual_review_requested'}
-        return {'decision': 'continue', 'reason': 'requested_publication_in_selected_workspace'}
+        # Every Registry write needs the user's yes to this exact plan, in either mode.
+        return {'decision': 'needs_confirmation', 'reason': 'plan_not_yet_approved'}

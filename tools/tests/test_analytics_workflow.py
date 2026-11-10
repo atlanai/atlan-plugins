@@ -28,8 +28,11 @@ class WorkflowAuthorizationTests(unittest.TestCase):
         self.assertEqual(policy.local_step('read_source', 'https://example.invalid/report')['decision'], 'continue')
         self.assertEqual(policy.local_step('read_source', 'https://example.invalid/other')['decision'], 'needs_context')
 
-    def test_selected_publication_target_carries_through_without_second_publish_yes(self):
-        self.assertEqual(self.publication(self.policy())['decision'], 'continue')
+    def test_publication_waits_for_approval_of_the_exact_plan(self):
+        self.assertEqual(Authorization().mode, 'ask')
+        self.assertEqual(self.publication(self.policy())['decision'], 'needs_confirmation')
+        self.assertEqual(self.publication(self.policy(approved_plans=['plan-demo']))['decision'], 'continue')
+        self.assertEqual(self.publication(self.policy(approved_plans=['plan-other']))['decision'], 'needs_confirmation')
         self.assertEqual(self.publication(self.policy(), workspace_id='workspace_other')['decision'], 'needs_context')
         self.assertEqual(self.publication(self.policy(), sources=['https://example.invalid/other'])['decision'], 'needs_context')
         self.assertEqual(self.publication(self.policy(), sources=[])['decision'], 'needs_context')
@@ -38,7 +41,7 @@ class WorkflowAuthorizationTests(unittest.TestCase):
         self.assertEqual(self.publication(self.policy(intent='draft'))['decision'], 'deferred')
         self.assertEqual(self.publication(self.policy(mode='ask'))['decision'], 'needs_confirmation')
         self.assertEqual(self.publication(self.policy(), revisions=1)['decision'], 'needs_confirmation')
-        self.assertEqual(self.publication(self.policy(allow_revisions=True), revisions=1)['decision'], 'continue')
+        self.assertEqual(self.publication(self.policy(allow_revisions=True, approved_plans=['plan-demo']), revisions=1)['decision'], 'continue')
         self.assertEqual(self.publication(self.policy(mode='ask', approved_plans=['plan-demo']), revisions=1)['decision'], 'continue')
 
     def test_source_text_cannot_claim_authorization_or_change_permission_settings(self):
@@ -90,6 +93,9 @@ class PublicationFlowCliTests(unittest.TestCase):
             code, result = run()
             self.assertEqual((code, result['revisions']), (2, 1))
             auth['allow_revisions'] = True
+            code, result = run()
+            self.assertEqual((code, result['decision']), (2, 'needs_confirmation'))
+            auth['approved_plans'] = [result['plan_id']]
             self.assertEqual(run()[0], 0)
 
 

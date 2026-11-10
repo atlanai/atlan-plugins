@@ -50,9 +50,10 @@ those. When in doubt, say what just happened, what it means, and what comes next
 Assume the person knows nothing: not the firm, the data, what Atlan does, or why they will
 sign in. The demo is about one experience: watching existing sources become context. The
 context is made of metrics, each explained in plain words when it first appears. Before anything runs, they know what will happen, why,
-and what they will do. The fixed texts below are printed as written, in full, as ordinary
-replies. Do not shorten, summarize, merge or paraphrase them, and do not move them into a
-tool description or status line. Setup's word limits do not apply to them.
+and what they will do. The moment files supply the full visible content and its delivery method. Use their
+reply text or native question payload exactly as directed; never replace a moment with
+a tool description or status line. This is the [presentation flow](presentation.md) used
+throughout setup.
 
 ### 1. The welcome: right after the demo is chosen
 
@@ -88,34 +89,10 @@ download the repository into that path.
 
 ### 3. Show the steps every time one starts
 
-The six steps in the welcome are the checklist's six. In the demo, steps 2, 3 and 4 are
-shown as "Choose what to build from", "Turn sources into context" and "Check the context on
-the data" everywhere, the task list included; take status and counts from the helper, not
-those three names. The person must
-see the steps twice over, because a task list is easy to miss in a terminal:
-
-- **In the task list.** Use the host's task tool as [the setup checklist](checklist.md)
-  says. A task tool that is listed but not loaded is loaded first.
-- **In chat, always.** When a step starts, print the tracker below as an ordinary reply,
-  whether or not a task list exists. This replaces the checklist's rule against reprinting
-  the list, for the demo only. Finished steps carry their one-line result with actual
-  counts; the current step says `now`, with `your choice` on steps 2, 3 and 5.
-
-```
-**Step 3 of 6: Turn sources into context**
-
-1. Read your sources: done, 1 dashboard, 110 past queries, 5 tables
-2. Choose what to build from: done, dashboard and past queries
-3. Turn sources into context: now
-4. Check the context on the data: next
-5. Review and choose where to save
-6. Ready for questions
-```
-
-Mark the step after the current one `next`, so the person always sees what is coming. When
-a step ends, close it in one line before the next tracker: "Step 3 done: 7 metrics and 12
-queries built. Next, step 4: I check each one on `<firm>`'s data." A step that waits on the
-person says so: "Step 2 needs you: one choice."
+Follow [the setup checklist](checklist.md) in chat and the host's task list when
+available. It defines the full tracker, step labels, actual counts and next-step marker.
+The demo's second step is "Choose what to build from" because its business intent is preset.
+Show the tracker's full list at every step change, including on resume.
 
 ### 3a. Say what and why at every moment
 

@@ -10,7 +10,7 @@ check:
 	$(PYTHON) tools/lint.py
 	$(PYTHON) -m unittest discover -s tools/tests -q
 	$(PYTHON) $(ANALYTICS_SCRIPTS)/analytics_eval.py selftest
-	$(PYTHON) $(ANALYTICS_SCRIPTS)/metrics_mine.py selftest
+	$(PYTHON) $(ANALYTICS_SCRIPTS)/context_contracts.py selftest
 
 build:
 	$(PYTHON) tools/build.py

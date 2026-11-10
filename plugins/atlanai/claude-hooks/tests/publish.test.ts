@@ -547,6 +547,50 @@ describe('files_from', () => {
   })
 })
 
+describe('a shared output', () => {
+  const share = (content: unknown, tool = CALL, asText = false) => {
+    const args = { metadata: { name: 'notes', workspace_id: 'workspace_01ws' }, source_type: 'local', source_id: 'notes.md', file: { path: 'notes.md', content } }
+    return { tool, name: 'registry__publish_output', rationale: 'Sharing the notes.', arguments: asText ? JSON.stringify(args) : args }
+  }
+
+  test('is not sent when its text holds a credential, and the refusal never repeats the value', async ($, on) => {
+    const sent = engine(on, new Disk())
+    for (const asText of [false, true]) {
+      const ran = await $.tool.call(share(`# Notes\nkey: ${FAKE_AWS_KEY}\n`, CALL, asText) as never)
+      const deny = String((ran as { deny?: string }).deny)
+      expect(deny).toContain('notes.md:2:6: credential: matches the AWS access key pattern')
+      expect(deny).toContain('Nothing was sent.')
+      expect(deny).not.toContain(FAKE_AWS_KEY)
+    }
+    expect(sent.length).toBe(0)
+  })
+
+  test('lists five matches and counts the rest', async ($, on) => {
+    engine(on, new Disk())
+    const ran = await $.tool.call(share(Array.from({ length: 7 }, () => FAKE_AWS_KEY).join('\n')) as never)
+    const deny = String((ran as { deny?: string }).deny)
+    expect(deny.split('\n').filter(line => line.includes('credential:')).length).toBe(5)
+    expect(deny).toContain('and 2 more')
+  })
+
+  test('goes as sent when the text is clean, pinned, or linked', async ($, on) => {
+    const sent = engine(on, new Disk())
+    const clean = share('# Notes\nThe key lives in the vault.\n')
+    await $.tool.call(clean as never)
+    await $.tool.call({ ...clean, arguments: { ...(clean.arguments as object), file: undefined, external_url: 'https://example.com/notes' } } as never)
+    await $.tool.call(share(undefined) as never)
+    expect(sent.length).toBe(3)
+    expect(sent[0]?.arguments).toEqual(clean.arguments)
+  })
+
+  test('is left alone on a server that is not Atlan\'s', async ($, on) => {
+    const sent = engine(on, new Disk())
+    on('tool.list', () => ({ value: [{ name: 'mcp__other__mcp__call_tool', description: 'Another runner', mcp: true }] }))
+    await $.tool.call(share(`key: ${FAKE_AWS_KEY}`, 'mcp__other__mcp__call_tool') as never)
+    expect(sent.length).toBe(1)
+  })
+})
+
 describe('a lost reply', () => {
   test('tells the model to read back before sending the create again', async ($, on) => {
     const disk = new Disk()

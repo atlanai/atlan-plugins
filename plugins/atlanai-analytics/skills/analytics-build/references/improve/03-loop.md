@@ -36,10 +36,10 @@ spend a round; go to `skills/analytics-build/references/improve/04-stall.md`.
      corrected full definition using the revision procedure below. Otherwise propose it for the
      metric's owner (below) and leave the round pending until they apply and release it.
    - **New metric**: when train failures come from a concept no metric covers, first check
-     that no proposal already covers it (below). Then draft its complete definition
-     (the metric body in `metrics/authoring.md`) and test its SQL with the warehouse query
-     tool. When `metric_access.create` is true and the user approved this
-     round, create it as metrics mode does by hand
+     that no proposal already covers it (below). Then generate its complete definition through
+     [the main metrics engine](../metrics-engine.md) using source evidence outside eval gold.
+     Complete the same gates and retain actual SQL check limitations. When `metric_access.create` is true and the user approved this
+     round, publish the accepted engine export as metrics mode does
      ([publish](../metrics/publish.md)). Otherwise propose it for
      the workspace's metric owners (below) and leave the round pending until they create and
      release it.

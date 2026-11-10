@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Survey a local analytics project and retain its data binding and Atlan receipts.
 
-Authoring and all Registry calls remain in the existing skills and authenticated MCP.
+The metrics engine owns authoring; Registry calls use authenticated MCP.
 This helper never publishes, executes repository scripts, installs software or runs evals.
 """
 import argparse
@@ -30,7 +30,7 @@ from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
 import local_prepare
-import metrics_mine as mine
+import context_contracts as mine
 from analytics_eval import filter_querylog
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
@@ -252,84 +252,6 @@ class Project(ContextState):
         except Exception:
             return {'status': 'text_fallback', 'markdown': text}
 
-    def candidates(self, review=None):
-        declarations = []
-        for source in self.current()['sources']:
-            path = self.context / (source['source_id'] + '.json')
-            if source.get('status') == 'model_sidecar' or not source.get('inventory_hash') or not path.is_file():
-                continue
-            inventory = self.read(path)
-            if digest(inventory) != source['inventory_hash']:
-                raise ProjectError('Source inventory changed. Survey the selected sources again.')
-            scope = self.current().get('scopes', {}).get(source['source_id'], {})
-            selected = scope.get('selection', {}).get('measure_refs', []) if scope.get('narrowed') else None
-            for measure in inventory.get('measures', []):
-                if selected is not None and measure['table'] + '.' + measure['name'] not in selected:
-                    continue
-                declarations.append({'source_ref': 'declared:' + source['source_id'] + ':' +
-                                     measure['table'] + '.' + measure['name'],
-                                     'name': measure['name'], 'expression': measure['expression'],
-                                     'source_context': {
-                                         'entity': measure['table'], 'declaration': measure,
-                                         'table': next((t for t in inventory.get('tables', [])
-                                                        if t['name'] == measure['table']), {}),
-                                         'relationships': inventory.get('relationships', []),
-                                         'security': inventory.get('security', []),
-                                         'source_hash': source['sha256']}})
-        inventory = mine.candidate_inventory(mine.read_jsonl(self.context / 'shapes.jsonl'), declarations)
-        self.write(self.context / 'candidate-inventory.json', inventory)
-        if review is None:
-            return inventory
-        names = {m['name'] for m in self.read(self.context / 'metrics.json')}
-        result = mine.review_candidates(inventory, review, names)
-        self.write(self.context / 'candidate-review.json', result)
-        return result
-
-    def review_cards(self, review=None):
-        inventory = self.candidates()
-        candidate_review = self.read(self.context / 'candidate-review.json')
-        catalog = []
-        binding = self.execution_binding()
-        if binding and binding['kind'] in LOCAL:
-            schema = local_data.call(binding, 'inspect')
-            tables = {t.lower() for t in binding['tables']}
-            for table in sorted(tables):
-                columns = [c for c in schema['columns']
-                           if table in {'.'.join(str(c[k]) for k in parts if c.get(k)).lower()
-                                        for parts in (('schema', 'table'), ('catalog', 'schema', 'table'))}]
-                catalog.append({'source_ref': 'catalog:' + table, 'table': table, 'columns': columns,
-                                'keys': 'not_collected', 'relationships': 'not_collected',
-                                'schema_hash': schema['schema_hash']})
-        bundle = mine.card_review_bundle(inventory, candidate_review,
-                                         self.read(self.context / 'metrics.json'), catalog)
-        self.write(self.context / 'card-review-bundle.json', bundle)
-        prior_path = self.context / 'card-review.json'
-        previous = self.read(prior_path) if prior_path.exists() else {}
-        reusable = mine.reusable_card_notes(bundle, previous)
-        reused_names = {note['name'] for note in reusable}
-        pending = [c['name'] for c in bundle['cards'] if c['name'] not in reused_names]
-        plan = {'input_hash': bundle['input_hash'], 'pending': pending,
-                'reusable': sorted(reused_names),
-                'cards': [{k: c[k] for k in ('name', 'definition_hash', 'review_hash')}
-                          for c in bundle['cards']]}
-        self.write(self.context / 'card-review-plan.json', plan)
-        if review is None:
-            return {'status': 'ready_for_assistant_review', 'input_hash': bundle['input_hash'],
-                    'bundle': str(self.context / 'card-review-bundle.json'), 'metrics': len(bundle['cards']),
-                    'plan': str(self.context / 'card-review-plan.json'),
-                    'pending': pending, 'reusable': len(reusable),
-                    'next': 'Read shared evidence once and fully review pending cards. Prior notes are reused only for unchanged cards and dependencies. Repair authored omissions before submitting review notes.'}
-        if review.get('input_hash') != bundle['input_hash']:
-            raise ProjectError('Cards or evidence changed. Read the current review bundle and review again.')
-        supplied = review.get('metrics', [])
-        if len({n.get('name') for n in supplied}) != len(supplied):
-            raise ProjectError('Review each metric at most once.')
-        supplied_names = {n.get('name') for n in supplied}
-        merged = [n for n in reusable if n['name'] not in supplied_names] + supplied
-        result = mine.review_card_notes(bundle, {**review, 'metrics': merged})
-        result['reused'] = len(reused_names - supplied_names)
-        self.write(self.context / 'card-review.json', result)
-        return result
 
     def check(self):
         items = metric_preview.candidates(self)
@@ -442,35 +364,28 @@ class Project(ContextState):
             if item['kind'] == 'query_history' and item['status'] == 'available':
                 p = safe_path(Path(state['source_root']) / item['path'], state['source_root'])
                 if file_hash(p) != item['sha256']:
-                    raise ProjectError('A source changed. Survey the project again before mining.')
+                    raise ProjectError('A source changed. Survey the project again before capturing history.')
                 inputs.append(str(p))
         scopes = list(state.get('scopes', {}).values()) or [state.get('scope', {})]
         tables = sorted({t for scope in scopes for t in scope.get('history_tables', [])})
         if any(scope.get('narrowed') and not scope.get('history_tables') for scope in scopes):
-            return {'status': 'needs_table_mapping', 'next': 'Map the selected pages to physical tables before mining history.'}
+            return {'status': 'needs_table_mapping', 'next': 'Map the selected pages to physical tables before capturing history.'}
         if tables:
             self.write_text(self.context / 'history-tables.txt', '\n'.join(tables))
         if not inputs:
             return {'status': 'not_available', 'next': 'Continue with models or saved SQL.'}
         raw = self.context / 'querylog.jsonl'
         cleaned = self.context / 'querylog.clean.jsonl'
-        shapes = self.context / 'shapes.jsonl'
-        for p in (raw, cleaned, shapes):
+        for p in (raw, cleaned):
             safe_path(p)
-        # Imported records stay local; use the existing identifying-literal filter.
         result = mine.cmd_querylog(SimpleNamespace(src=inputs, dst=raw, append=False, limit=5000))
         privacy = filter_querylog(str(raw), str(cleaned))
-        if mine.read_jsonl(cleaned):
-            counts = mine.cmd_shapes(SimpleNamespace(src=cleaned, dst=shapes, tables=self.context / 'history-tables.txt' if tables else None, top=5000))
-        else:
-            shapes.write_text('')
-            counts = {'written': 0}
-        for p in (raw, cleaned, shapes):
+        for p in (raw, cleaned):
             if p.exists():
                 p.chmod(0o600)
-        return {'status': 'ok', 'intake': result, 'privacy': privacy, 'shapes': counts,
+        return {'status': 'ok', 'intake': result, 'privacy': privacy, 'history': str(cleaned), 'tables': tables,
                 'source_ids': [s['source_id'] for s in state['sources'] if s['kind'] == 'query_history'],
-                'next': 'Author and reconcile metrics and saved queries using the existing metrics workflow.'}
+                'next': 'Pass the captured history to the metrics engine local-files input. The engine owns shaping and authoring.'}
 
     def bind(self, database, tables=None, schema=None):
         state = self.current()
@@ -555,7 +470,6 @@ class Project(ContextState):
                 'next': 'Use these retrieved definitions to execute fresh SQL.'}
 
 
-
 def main():
     p = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     p.add_argument('--run-dir')
@@ -596,10 +510,7 @@ def main():
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
-    card_review = sub.add_parser('review-cards')
-    card_review.add_argument('--review', type=Path)
-    inventory = sub.add_parser('candidates')
-    inventory.add_argument('--review', type=Path)
+
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
@@ -626,8 +537,6 @@ def main():
         elif args.command == 'status': result = project.current()
         elif args.command == 'bind': result = project.bind(args.database, args.tables, args.schema)
         elif args.command == 'check': result = project.check()
-        elif args.command == 'candidates': result = project.candidates(project.read(safe_path(args.review)) if args.review else None)
-        elif args.command == 'review-cards': result = project.review_cards(project.read(safe_path(args.review)) if args.review else None)
         elif args.command == 'preview': result = project.preview(None if args.all else args.limit, args.format, args.kind)
         elif args.command == 'experience': result = project.experience(args.engine_dir, args.format, args.detail, args.focus, args.host, args.server)
         elif args.command == 'checklist':

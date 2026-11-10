@@ -3,7 +3,7 @@
 Try each source in order and use the first one that answers. Every statement keeps 90 days (or
 less, where the source holds less) of successful SELECTs that touch the scoped tables, grouped
 per distinct text, at most 5,000 rows, in pages. Never print the rows into the conversation or
-copy them out by hand: turn each saved page into `querylog.jsonl` with `MINE querylog`, as
+copy them out by hand: turn each saved page into `querylog.jsonl` with `CONTEXT querylog`, as
 section 2 of the metrics workflow (`metrics.md`) says. It keeps `{sql, exec, users}` and never
 writes a user name.
 

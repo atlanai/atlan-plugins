@@ -17,7 +17,7 @@ SCRIPTS = PLUGIN / 'skills/analytics-build/scripts'
 sys.path.insert(0, str(PLUGIN))
 sys.path.insert(0, str(SCRIPTS))
 from modules.metrics import holds, driver
-import metrics_mine
+import context_contracts
 
 spec = importlib.util.spec_from_file_location('hold_export', PLUGIN / 'modules/metrics/export.py')
 exporter = importlib.util.module_from_spec(spec)
@@ -95,8 +95,8 @@ class StructuredHoldTests(unittest.TestCase):
             root = Path(temp).resolve()
             self.context(root)
             (root / 'queries.json').write_text(json.dumps([{'source_id': 'query:held'}]))
-            with self.assertRaises(metrics_mine.Blocked):
-                metrics_mine.cmd_check(types.SimpleNamespace(dir=str(root)))
+            with self.assertRaises(context_contracts.Blocked):
+                context_contracts.cmd_check(types.SimpleNamespace(dir=str(root)))
             (root / 'authorization.json').write_text(json.dumps({'intent': 'publish', 'mode': 'auto',
                                     'workspace_id': 'workspace_demo', 'sources': ['source_demo']}))
             (root / 'plan.json').write_text(json.dumps({'metrics': [], 'queries': [], 'links': []}))
@@ -171,8 +171,8 @@ class ExportHoldTests(unittest.TestCase):
         checked = types.SimpleNamespace(validation=lambda *args: {})
         with mock.patch.dict(sys.modules, {'metrics_agent': agent, 'metrics_agent.lib': lib, 'validation': checked}), \
              mock.patch.object(exporter, 'project', return_value=(metrics, saved, links)), \
-             mock.patch.object(metrics_mine, 'check_metric', return_value=([], [])), \
-             mock.patch.object(metrics_mine, 'check_query', return_value=([], [])):
+             mock.patch.object(context_contracts, 'check_metric', return_value=([], [])), \
+             mock.patch.object(context_contracts, 'check_query', return_value=([], [])):
             result = exporter.export_context(run, context, receipt)
         return result, context
 

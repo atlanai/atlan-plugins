@@ -1,8 +1,7 @@
 # Run the metrics module
 
 Use this procedure for metrics-only work, the context phase of a full build, and new Power BI
-or Tableau dashboard projects. A repository or folder setup whose inputs are all local files,
-with no warehouse selected, does not use it: see [shared setup](setup.md) section 3. The plugin drives the conversation and Registry publication.
+or Tableau dashboard projects, including demos and local-only repository/folder setup. The plugin drives the conversation and Registry publication.
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<skill-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.
@@ -121,6 +120,8 @@ Write the agreed configuration to a private file, with absolute staged input pat
 metrics-agent `run.yml` contract, with `publish: [files]` and `observers: []`. This destination
 means local handoff to the plugin, not authorization to publish to Registry. All input plug
 settings and entry-point discovery remain unchanged.
+When `PROJECT history` returns scoped `tables`, preserve them in the run configuration;
+the main engine applies this bound while grouping and admitting captured history.
 
 ```json
 {
@@ -204,7 +205,8 @@ sample. It reads the engine manifest and available evidence without exporting or
 For `PROJECT`, use the absolute selected-run engine directory or the literal `engine`;
 relative paths resolve from the selected run, unlike `ENGINE --run` paths. A legacy engine
 outside that run is not readable by this view; use its engine status and retain chat output.
-Show one sample by default; `--detail` adds that sample's SQL, source and checks. Never claim
+Use `--detail` to inspect the selected sample's SQL, source and checks. The required first-metric
+presentation remains full in chat. Never claim
 provisional evidence is checked/released, invent progress percentages, or wait until export
 to show useful work. Keep authored gate instructions and raw logs out of the user narrative.
 Re-running advance resumes the engine; changing the configuration requires a reviewed new run.
@@ -213,6 +215,21 @@ An existing runtime/project stays pinned, rather than silently adopting a newer 
 The assistant may investigate evidence and call authorized read tools between gates. No stage
 calls a model API, and no model key is requested. Customer decisions are distinct from the
 assistant's authored work. Keep eval answers and gold outside all metric-generation context.
+
+### First metric, then the rest of the same run
+
+At the X3 gate, use its `author-metric-card` instructions to answer the selected first metric.
+Keep the complete merged collection; do not narrow source scope to make a first-card run.
+Run `ENGINE first-metric --run <engine-dir> --model <actual-model-id> --metric-ref <ref>`.
+This invokes the core X3 validator with `--partial` under a separate preview stage label.
+It uses the same read-only SQL plug and witness mode as the run. Read `first-metric-preview.json`
+for the full accepted card and actual SQL check; a missing binding or substrate stays untested.
+Execution is not parity or final eligibility. Show [the full first metric](setup/demo-first-metric.md)
+before asking to build the rest, with independently checked worked-example values.
+
+The run remains paused at X3 and cannot export. Preserve that first answer, complete the other
+X3 answers, then `ENGINE advance` the same run. Full X3 validation, consistency and relationship
+gates still run. Even a single-metric request must finish those gates before export.
 
 ## 4. Export, then use the unchanged publisher
 
@@ -244,21 +261,18 @@ has unbound C4 evidence, advance it before re-exporting. If no usable items rema
 the structured hold reasons instead of asking to bypass them.
 
 
-Continue at metrics workflow section 4: read live scoped inventory, run `MINE check`, preview,
-and use the existing publication procedure. An old importer taking `registry_payloads/`
-remains available for already-finished legacy runs; a new core run needs no Registry package.
+Continue at metrics workflow section 4: read live scoped inventory, run `CONTEXT check`, preview,
+and use the existing publication procedure. Generation never uses a legacy Registry-payload importer.
 
 When asked only for the next step, answer in one short paragraph. Name the action, what
 blocks it and the existing authorization; expand the full procedure only when requested.
 
 ## 5. Compatibility and limits
 
-Resume existing dashboard jobs with their original helper/version; never reinterpret their
-state as a metrics-agent run. New jobs use this engine. For declared semantic models, use a
-reader the pinned runtime actually supports; a file suffix or old skill promise is not support.
-The existing declared-model/by-hand authoring procedure remains an explicit alternative when
-no faithful reader exists. Name that choice and its evidence level, rather than silently
-falling back from a failed compiler. A finished imported run never gets re-derived.
+Existing legacy jobs remain readable as evidence. To generate or revise metrics, prepare a
+new main-engine run from their original sources, reusing the user's scope and decisions.
+Never reinterpret old state as a completed current run. Unsupported readers remain held;
+there is no alternative by-hand or legacy compiler route.
 
 For dashboard sources, preserve refresh time, filters and security scope. Warehouse execution
 does not prove dashboard parity. Compare independent BI reference results only for the same

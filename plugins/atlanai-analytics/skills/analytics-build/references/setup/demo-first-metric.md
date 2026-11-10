@@ -1,5 +1,11 @@
 # Demo: the first metric
 
+This moment is shared by all setup through [the presentation flow](presentation.md).
+For a demo, use its facts file. For own data, use the actual source, selected business
+focus, metric definition and checks in the saved run. Preserve the block's structure;
+adapt source-specific prose to the evidence, and omit unsupported tours or example rows.
+Never claim model/history agreement or disagreement without source evidence.
+
 **Why this moment matters.** It is the first time the person sees value: their sources
 became something real, with numbers. Without the block they are asked to build more of
 something they have never seen. The block is the point of this step; the build was only
@@ -16,7 +22,9 @@ its own block, in the same form as the welcome, before anything is asked.
 
 Open the chosen demo's file again for its facts ([Fixit](demo-yard.md),
 [Ticketfuddle](demo-box-office.md)). Follow [build and check](build-check.md)'s
-first-candidate rule with that demo's first metric: build it, run its check, and stop.
+first-metric checkpoint with that demo's first metric: use the main engine's X3 gate
+and `ENGINE first-metric`, then stop for the visible preview. Build the rest by resuming
+that same engine run; do not create a separate demo definition.
 Then print the block below before the question, whole and as written, as an ordinary
 reply, exactly as the welcome is printed. It is a fixed text: do not shorten it, summarize
 it, or replace it with a line about the result or about what you will do next. The only

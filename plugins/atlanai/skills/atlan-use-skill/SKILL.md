@@ -84,9 +84,9 @@ section 4 says, and leave `include_file` out of every later read in this session
 
 - Check `artifact_status` before anything else:
   - `active`: go on.
-  - `pending_review`: this version is waiting for a reviewer, and its files cannot be read
-    until it is approved (a read answers `not found`). Tell the user it is under review and who
-    owns it, and stop. Do not use another skill of a similar name in its place.
+  - `pending_review`: its checks have not settled, and its files cannot be read until the
+    scan passes or an admin approves it (a read answers `not found`). Tell the user it is
+    being checked and who owns it, and stop. Never use a similarly named skill in its place.
   - `blocked`: the bundle failed Atlan's security scan and its files are withheld. Stop and
     tell the user; do not look for the content elsewhere.
 - **A skill of this name is installed here?** Compare the two `SKILL.md` texts now, as the table
