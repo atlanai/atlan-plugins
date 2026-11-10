@@ -5,6 +5,8 @@ tags: [use-skill,skill-checks]
 # tf-plan-checklist): a clear match needs exactly one, so atlan-use-skill shows both and asks, and
 # reads neither's SKILL.md first. Not security review: Claude Code ships its own security-review
 # skill, which the rule rightly prefers.
+context:
+  scaffold_script: scaffold.sh
 execution:
   prompt: |
     My global Codex instructions (~/.codex/AGENTS.md) contain:

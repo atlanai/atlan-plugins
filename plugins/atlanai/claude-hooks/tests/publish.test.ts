@@ -376,7 +376,7 @@ describe('the shared bundle fixtures', () => {
       } else {
         build(disk, `${CWD}/demo`, one)
       }
-      const ran = await $.tool.call(publish(isHookCase ? { ...one.call } : { files_from: 'demo' }) as never)
+      const ran = await $.tool.call(publish(isHookCase ? JSON.parse(JSON.stringify(one.call).replaceAll('{{fake_aws_key}}', FAKE_AWS_KEY)) : { files_from: 'demo' }) as never)
       const text = String((ran as { deny?: string }).deny ?? (ran as { text?: string }).text)
       expect(text.includes(FAKE_AWS_KEY)).toBe(false)
       if (one.expect === 'refuse') {

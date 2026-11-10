@@ -398,6 +398,25 @@ def expand_bulk(tool_input: dict, event: dict):
         return None, "The local publication batch was refused. Check its path, digest, workspace, size and content locally. Nothing was sent."
 
 
+def inline_problems(checker, skills: list) -> tuple[list, list]:
+    """The credential problems in the `files` a create carries inline, by a folder's rules, and
+    each inline file's size in bytes."""
+    carrying = [(index, skill["files"]) for index, skill in enumerate(skills)
+                if isinstance(skill, dict) and "files_from" not in skill and isinstance(skill.get("files"), dict)]
+    problems, sizes = [], []
+    for index, files in carrying:
+        for rel, text in files.items():
+            label = rel if len(carrying) == 1 else f"skills[{index}]/{rel}"
+            if checker.KEY_FILES.search(rel.rsplit("/", 1)[-1]):
+                problems.append(checker.problem(label, "credential-file", "looks like a credential file; leave it out"))
+            if not isinstance(text, str):
+                continue
+            sizes.append(len(text.encode("utf-8")))
+            problems += [checker.problem(label, "credential", f"matches the {kind} pattern; remove it", line, column)
+                         for line, column, kind in checker.credentials(text)]
+    return problems, sizes
+
+
 def expand(tool_input: dict, event: dict):
     """(new input, None), (None, refusal text), or (None, None) when no skill names files_from."""
     args = args_of(tool_input.get("arguments"))
@@ -406,9 +425,15 @@ def expand(tool_input: dict, event: dict):
     if tool_input.get('name') != PUBLISH:
         return None, None
     skills = args.get("skills") if args else None
-    if not isinstance(skills, list) or not any(isinstance(s, dict) and "files_from" in s for s in skills):
+    if not isinstance(skills, list):
         return None, None
     checker = load_checker()
+    inline, sizes = inline_problems(checker, skills)
+    if not any(isinstance(s, dict) and "files_from" in s for s in skills):
+        if not inline:
+            return None, None
+        text = checker.render({"ok": False, "problems": inline, "files": len(sizes), "bytes": sum(sizes)})
+        return None, f"{text}\n{NOT_SENT}"
     cwd = event.get("cwd") if isinstance(event.get("cwd"), str) else os.getcwd()
     roots = trees(event)
     budget = {"files": 0, "bytes": 0}
@@ -437,7 +462,7 @@ def expand(tool_input: dict, event: dict):
         names = {rel for rel, _ in files}
         folders.append((label, files, [], "SKILL.md" in names) if not refused_inside else None)
     checked = checker.check_files([f for f in folders if f is not None])
-    problems = walked + checked["problems"] + over_budget(checker, skills, folders, slots)
+    problems = walked + inline + checked["problems"] + over_budget(checker, skills, folders, slots)
     if problems:
         text = checker.render({**checked, "ok": False, "problems": problems})
         return None, f"{text}\n{NOT_SENT}"

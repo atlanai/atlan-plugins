@@ -267,9 +267,12 @@ class Project(ContextState):
 
     def check_execution(self, request, kind):
         items = metric_preview.candidates(self)
-        item = next((i for i in items if i['key'] == kind + ':' + request.get('name', '')), None)
+        keys = [i['key'] for i in items]
+        key = metric_preview.resolve_id(request.get('name', ''), keys, kind)
+        item = next((i for i in items if i['key'] == key), None)
         if not item:
-            raise ProjectError('Select an authored metric or saved query by name.')
+            raise ProjectError('Select an authored ' + ('metric' if kind == 'metric' else 'saved query')
+                               + ' by name. Saved: ' + metric_preview.id_hint(keys, kind) + '.')
         checker = mine.check_query if kind == 'sql_query' else mine.check_metric
         errors, warnings = checker(item['body'])
         if errors:

@@ -493,6 +493,79 @@
     "files_from": ".ssh"
    },
    "expect": "refuse"
+  },
+  {
+   "name": "credential-beside-non-ascii-letters",
+   "about": "A credential that follows letters outside ASCII with no space between is still one",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+    "config.md": "密钥{{fake_aws_key}}\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential"
+   ],
+   "at": [
+    [
+     "config.md",
+     1,
+     3
+    ]
+   ]
+  },
+  {
+   "name": "credential-file-upper-case",
+   "about": "A credential file's name is one in any letter case",
+   "files": {
+    "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+    ".ENV": "TOKEN=placeholder\n",
+    "certs/server.PEM": "placeholder\n"
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential-file"
+   ]
+  },
+  {
+   "name": "inline-files-credential",
+   "applies_to": [
+    "hook"
+   ],
+   "about": "Inline files are held to the credential rules a folder is, with no files_from in the call",
+   "call": {
+    "files": {
+     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+     "config.md": "key: {{fake_aws_key}}\n"
+    }
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential"
+   ],
+   "at": [
+    [
+     "config.md",
+     1,
+     6
+    ]
+   ]
+  },
+  {
+   "name": "inline-files-credential-file",
+   "applies_to": [
+    "hook"
+   ],
+   "about": "An inline file named as a credential file is refused",
+   "call": {
+    "files": {
+     "SKILL.md": "---\nname: demo\ndescription: Do a thing. Use when asked to do it.\n---\nFollow the steps.\n",
+     ".env": "TOKEN=placeholder\n"
+    }
+   },
+   "expect": "refuse",
+   "rules": [
+    "credential-file"
+   ]
   }
  ]
 }
