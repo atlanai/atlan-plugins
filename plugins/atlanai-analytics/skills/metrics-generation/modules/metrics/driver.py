@@ -119,6 +119,16 @@ def setup(root, features):
         return _setup(root, features)
 
 
+class ResolvedEnvBuilder(venv.EnvBuilder):
+    """Keep venv home and binary linkage on the real base installation, not a launcher."""
+    def ensure_directories(self, env_dir):
+        context = super().ensure_directories(env_dir)
+        executable = Path(context.executable).resolve(strict=True)
+        context.executable = str(executable)
+        context.python_dir = str(executable.parent)
+        return context
+
+
 SUPPORTED_PYTHON = ((3, 12), (3, 11))
 DISPATCHER = Path(__file__).resolve().parents[2] / 'scripts' / 'analytics_agent.py'
 
@@ -157,7 +167,7 @@ def _setup(root, features):
     # Standalone Python builds can resolve libpython relative to their executable.
     # Keep that linkage, as the macOS/Linux venv CLI does, instead of copying the binary.
     try:
-        venv.EnvBuilder(with_pip=True, symlinks=True).create(root / 'venv')
+        ResolvedEnvBuilder(with_pip=True, symlinks=True).create(root / 'venv')
     except subprocess.CalledProcessError as exc:
         # Child diagnostics can contain private environment or package-registry data.
         # Preserve the failed directory, but expose neither the command nor its output.
