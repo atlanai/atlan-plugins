@@ -131,6 +131,10 @@ def assemble(run_dir, receipt_dir, workspace, finalize=False):
     result = {'status': 'ready' if not missing and not missing_links and artifacts else 'pending',
               'captured_creates': len(creates), 'released_readbacks': len(artifacts),
               'missing_readbacks': missing, 'missing_links': missing_links,
+              'runner': 'mcp__call_read_tool',
+              'runner_note': ('Send each call alone through mcp__call_read_tool. The receipt hook '
+                              'does not rewrite mcp__call_read_tools batches, so a batched call '
+                              'is refused for its receipt_dir and records nothing.'),
               'readback_calls': [{'name': 'registry__get_artifact', 'arguments': {
                   'artifact_id': ident, 'channel': 'latest', 'receipt_dir': receipt_label}}
                   for key, (_, match) in expected.items() if key not in artifacts

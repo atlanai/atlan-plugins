@@ -138,7 +138,11 @@ After the creates, inspect the captured state using counts and call descriptors 
 python3 "<build-dir>/scripts/publication_receipts.py" --run-dir "<run-dir>" --receipts "<receipt-dir>" --workspace "<workspace-id>"
 ```
 
-Send the returned `readback_calls` through the read runner. Continue the normal approved link
+Send each returned `readback_calls` entry alone through `mcp__call_read_tool`, the
+runner the result names. Never batch them in `mcp__call_read_tools`: the receipt hook does
+not rewrite batches, so the gateway refuses `receipt_dir` and nothing is recorded. Pass
+`receipt_dir` only on these returned calls; a reuse comparison or any other read takes
+native arguments. Continue the normal approved link
 procedure, then send `link_readback_calls` to capture its proofs. Do not copy raw tool
 responses into Write calls or Python literals. Do not read the full receipt files into the
 conversation merely to assemble them. The helper compares complete released definitions,
