@@ -1,0 +1,35 @@
+schema_version: "1.1"
+name: publishing-helper-refused
+tags: [analytics, publishing, recovery]
+execution:
+  prompt: |
+    Use Atlan Analytics and read its publishing reference. Explain the recovery for these
+    this checkpoint, without executing writes in this turn. The same selected
+    workspace and checked plan already have publication authorization.
+
+    The server is named atlan-personal. A guarded create had items: [] plus items_from,
+    items_sha256, workspace_id and receipt_dir. The gateway returned invalid_arguments:
+    items_from is not an argument this tool declares. No create was dispatched. A startup
+    message said the local hooks were installed, but no receipt was saved.
+
+    Explain the next step in one short paragraph without executing writes. Do we need to
+    configure a server alias or change accounts? Do not claim anything new was published.
+  max_turns: 8
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: safe-native-fallback
+    type: llm
+    criteria: |
+      PASS if the recovery uses the existing connection and native publishing arguments, removes
+      local helper fields, does not retry the refused descriptor, and does not infer automatic
+      receipts from an installation notice. It must not require a manual alias setting,
+      credential access, account switching or reauthoring the definitions. A new native
+      bulk call after this explicit pre-dispatch refusal is the intended recovery. Wording
+      such as "resend with native arguments" is allowed if the answer removes local fields;
+      the forbidden retry is sending the unchanged refused descriptor again.
+  - name: plain-reply
+    type: llm
+    criteria: |
+      PASS if the answer leads with the recovery step, stays concise without dumping commands
+      or definitions, and makes no unsupported completion, publication or receipt-recording
+      claim. The prompt establishes that the refused call dispatched no create.

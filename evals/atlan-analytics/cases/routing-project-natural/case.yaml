@@ -14,7 +14,7 @@ graders:
   - name: fires-skill
     type: tool_used
     tool: Skill
-    input_match: 'atlan-analytics'
+    input_match: 'analytics-build'
   - name: reads-shared-setup-route
     type: tool_used
     tool: Read

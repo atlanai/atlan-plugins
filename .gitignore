@@ -11,3 +11,7 @@ __pycache__/
 venv/
 .mypy_cache/
 .ruff_cache/
+
+# Private Analytics runs, source captures and isolated runtimes.
+.atlan-metrics/
+.atlan-analytics/

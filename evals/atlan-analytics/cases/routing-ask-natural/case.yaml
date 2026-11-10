@@ -10,11 +10,11 @@ graders:
   - name: fires-skill
     type: tool_used
     tool: Skill
-    input_match: 'atlan-(analytics|ontology)'
+    input_match: '(?:analytics-(?:build|ask)|metrics-generation|source-survey)'
   - name: picks-the-skill
     type: tool_used
     tool: Skill
-    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-analytics-ask"'
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-ask"'
     min: 1
   - name: avoids-wrong-branch
     type: tool_used

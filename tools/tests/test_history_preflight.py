@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import analytics_eval
 
@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert 'dropped_privacy_person_name' in manifest,manifest
 print('History privacy refusal precedes the first authoring gate')
 '''
-        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'plugins/atlanai-analytics/modules/metrics/engine/src')}
+        env = {**os.environ, 'PYTHONPATH': str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/src')}
         result = subprocess.run([str(Path(RUNTIME) / 'venv/bin/python'), '-c', program],
                                 env=env, capture_output=True, text=True, timeout=50)
         self.assertEqual(result.returncode, 0, result.stderr)

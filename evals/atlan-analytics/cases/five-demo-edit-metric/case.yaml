@@ -1,0 +1,36 @@
+schema_version: "1.1"
+name: five-demo-edit-metric
+tags: [analytics, five, demo, edit]
+execution:
+  prompt: |
+    Continue the Fixit & Co. demo of Atlan Analytics.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    State of the demo run: the context is built and kept on this machine, and the person asked one
+    question. At the nudge the person picked "Change a rule and see what happens".
+    Show the next user-facing step.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-demo
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-demo"'
+    min: 1
+  - name: reads-edit-flow
+    type: tool_used
+    tool: Read
+    input_match: 'references/edit-metric\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: offers-one-change
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply states the current rule of one of the demo's metrics in plain words, proposes
+      one specific change to that rule, and lets the person take it, give their own change or leave
+      the rule as it is, then stops to wait. FAIL if it claims the change was already made, shows new
+      numbers, or proposes several different changes as a menu.

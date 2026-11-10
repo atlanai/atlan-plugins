@@ -34,7 +34,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           for manifest in plugins/*/.claude-plugin/plugin.json; do
-            tag="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(f"{m[\"name\"]}--v{m[\"version\"]}")' "$manifest")"
+            tag="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print("{}--v{}".format(m["name"], m["version"]))' "$manifest")"
             if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
               echo "$tag exists"
             else

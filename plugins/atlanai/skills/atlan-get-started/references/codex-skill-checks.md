@@ -7,8 +7,9 @@ line of the connection reply:
 > Want me to check Atlan for a fitting skill at the start of each task? Say yes and I will add
 > a short note to your Codex instructions in `~/.codex/AGENTS.md`.
 
-Do not offer it in other tools. In Claude Code the Registry Mods plugin (`atlanai-mods`) does
-this on its own; mention it only if the user asks for automatic checks there.
+Do not offer it in other tools. Cursor has its own rule (`cursor-skill-checks.md`). In Claude
+Code the Registry Mods plugin (`atlanai-mods`) does this on its own; mention it only if the
+user asks for automatic checks there.
 
 **On a yes**, with a shell on the user's computer:
 

@@ -3,7 +3,7 @@ name: metrics-explicit-drafts
 tags: [analytics, metrics, approval]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     Generate local drafts only from /project/source/report.pbix. Do not publish. I normally
     use auto mode and workspace_example. The checked plan is ready. Explain the next step
     without running the asset or calling Registry.

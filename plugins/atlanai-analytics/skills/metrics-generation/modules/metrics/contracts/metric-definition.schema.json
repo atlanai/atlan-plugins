@@ -1,0 +1,514 @@
+{
+  "description": "Typed pilot definition stored as one JSON object. SQL/evidence are not searchable.",
+  "properties": {
+    "aggregation": {
+      "description": "Declared aggregation behavior.",
+      "properties": {
+        "null_handling": {
+          "default": "",
+          "description": "Declared null handling policy.",
+          "type": "string"
+        },
+        "reaggregation": {
+          "default": "",
+          "description": "Declared reaggregation policy.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Declared aggregation type; draft vocabulary is advisory.",
+          "type": "string"
+        },
+        "zero_denominator": {
+          "default": null,
+          "description": "Experimental ratio policy; absence or null produces a warning for ratios."
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    },
+    "depends_on": {
+      "default": [],
+      "description": "Metric references declared by the producer.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "dialect": {
+      "description": "Producer-declared database dialect; no allowlist or compatibility claim.",
+      "type": "string"
+    },
+    "dimensions": {
+      "default": [],
+      "description": "Declared dimensions.",
+      "items": {
+        "description": "A producer-declared dimension.",
+        "properties": {
+          "datatype": {
+            "description": "Producer-declared datatype.",
+            "type": "string"
+          },
+          "description": {
+            "default": null,
+            "description": "Optional business description.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filter_form": {
+            "default": null,
+            "description": "Optional filter form.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "Producer-declared dimension kind.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name unique within its containing declaration collection.",
+            "type": "string"
+          },
+          "required_join": {
+            "default": null,
+            "description": "Optional reference to a join declared in this definition.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sql": {
+            "description": "Opaque SQL text; never parsed or executed.",
+            "type": "string"
+          },
+          "value_map": {
+            "default": null,
+            "description": "Producer mapping preserved as JSON."
+          },
+          "values": {
+            "default": [],
+            "description": "Observed values, preserved in supplied order.",
+            "items": true,
+            "type": "array"
+          },
+          "values_truncated": {
+            "default": null,
+            "description": "Producer claim that observed values were truncated."
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "sql",
+          "datatype"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "type": "array"
+    },
+    "examples": {
+      "default": [],
+      "description": "Producer-supplied usage examples and optional evidence.",
+      "items": {
+        "description": "A usage example with optional producer evidence.",
+        "properties": {
+          "filters": {
+            "default": {},
+            "description": "Declared filters; SQL strings remain opaque.",
+            "type": "object"
+          },
+          "group_by": {
+            "default": [],
+            "description": "References to dimensions declared in this definition.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "parameters": {
+            "default": {},
+            "description": "Producer-declared parameters or example bindings.",
+            "type": "object"
+          },
+          "question": {
+            "default": null,
+            "description": "Optional natural-language example question.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "default": null,
+            "description": "Optional producer-supplied execution evidence; never attested by the gateway.",
+            "properties": {
+              "columns": {
+                "description": "Declared result columns, in row order.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "executed_at": {
+                "description": "Producer-reported execution timestamp.",
+                "type": "string"
+              },
+              "hash": {
+                "description": "Opaque producer-supplied result fingerprint.",
+                "type": "string"
+              },
+              "row_count": {
+                "description": "Producer-reported total row count; sample rows may be fewer.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer",
+                "maximum": 18446744073709551615
+              },
+              "rows": {
+                "description": "Sample cells represented as strings or null; row width must match columns.",
+                "items": {
+                  "items": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "columns",
+              "row_count",
+              "hash",
+              "executed_at",
+              "rows"
+            ],
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false
+          },
+          "source": {
+            "description": "Producer-declared source.",
+            "type": "string"
+          },
+          "sql": {
+            "description": "Opaque SQL text; never parsed or executed.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "sql"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "type": "array"
+    },
+    "exclusions": {
+      "default": [],
+      "description": "Population exclusions described by the producer.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "extensions": {
+      "default": {},
+      "description": "Experimental data preserved without assigning execution semantics.",
+      "type": "object"
+    },
+    "filters": {
+      "default": [],
+      "description": "Declared filters; SQL strings remain opaque.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "formula": {
+      "description": "Opaque formula text; never parsed or executed.",
+      "type": "string"
+    },
+    "grain": {
+      "default": "",
+      "description": "Optional row-grain description.",
+      "type": "string"
+    },
+    "joins": {
+      "default": [],
+      "description": "Declared joins; no SQL relationship inference.",
+      "items": {
+        "description": "A producer-declared join.",
+        "properties": {
+          "cardinality": {
+            "description": "Producer-declared relationship cardinality.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name unique within its containing declaration collection.",
+            "type": "string"
+          },
+          "origin": {
+            "description": "Producer-declared origin of this join.",
+            "type": "string"
+          },
+          "sql": {
+            "description": "Opaque SQL text; never parsed or executed.",
+            "type": "string"
+          },
+          "to": {
+            "description": "Producer-declared target entity reference.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "to",
+          "sql",
+          "cardinality",
+          "origin"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "type": "array"
+    },
+    "mandatory_filters": {
+      "default": [],
+      "description": "Producer-declared mandatory filters.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "output": {
+      "description": "Declared output shape.",
+      "properties": {
+        "alias": {
+          "description": "Producer-declared alias.",
+          "type": "string"
+        },
+        "datatype": {
+          "description": "Producer-declared datatype.",
+          "type": "string"
+        },
+        "unit": {
+          "default": null,
+          "description": "Optional output unit.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "alias",
+        "datatype"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    },
+    "population": {
+      "default": null,
+      "description": "Optional population description.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "provenance": {
+      "default": null,
+      "description": "Observation provenance; repository location/revision belongs in standard artifact source fields.",
+      "properties": {
+        "derived_from": {
+          "default": [],
+          "description": "Producer-reported derivation references; never fetched.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "distinct_analysts": {
+          "default": null,
+          "description": "Producer-reported distinct analyst count.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "maximum": 18446744073709551615
+        },
+        "execution_count": {
+          "default": null,
+          "description": "Producer-reported execution count.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ],
+          "maximum": 18446744073709551615
+        },
+        "observed_in": {
+          "default": [],
+          "description": "Observation references; never fetched.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "observed_sql": {
+          "default": null,
+          "description": "Optional observed SQL; never parsed or executed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "proposed_by": {
+          "description": "Producer-reported proposer.",
+          "type": "string"
+        },
+        "source": {
+          "description": "Producer-declared source.",
+          "type": "string"
+        },
+        "trust_score": {
+          "default": null,
+          "description": "Producer-reported trust score; no access-control meaning.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "proposed_by"
+      ],
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false
+    },
+    "replaced_by": {
+      "default": null,
+      "description": "Optional replacement metric reference.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "description": "Producer-declared source.",
+      "properties": {
+        "alias": {
+          "description": "Producer-declared alias.",
+          "type": "string"
+        },
+        "entity": {
+          "description": "Producer-declared source entity reference.",
+          "type": "string"
+        },
+        "parameters": {
+          "default": [],
+          "description": "Producer-declared parameters or example bindings.",
+          "items": {
+            "description": "A declared source parameter.",
+            "properties": {
+              "datatype": {
+                "description": "Producer-declared datatype.",
+                "type": "string"
+              },
+              "default": {
+                "description": "Producer-declared default value, preserved as JSON."
+              },
+              "name": {
+                "description": "Name unique within its containing declaration collection.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "datatype",
+              "default"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "type": "array"
+        },
+        "sql": {
+          "default": null,
+          "description": "Opaque SQL text; never parsed or executed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "table": {
+          "default": null,
+          "description": "Table source; supply exactly one of table and sql.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeframe_column": {
+          "default": null,
+          "description": "Optional producer-declared timeframe column.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "entity",
+        "alias"
+      ],
+      "type": "object",
+      "additionalProperties": false
+    },
+    "spec_version": {
+      "description": "Contract version; this pilot accepts only 1.0-draft.4.",
+      "type": "string",
+      "const": "1.0-draft.4"
+    },
+    "version": {
+      "description": "Positive semantic metric version, separate from registry revision and source version.",
+      "format": "int64",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    }
+  },
+  "required": [
+    "spec_version",
+    "version",
+    "dialect",
+    "formula",
+    "aggregation",
+    "output",
+    "source"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Metric definition, 1.0-draft.4"
+}

@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics'))
+sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation'))
 from modules.metrics import driver
 
 
@@ -91,3 +91,33 @@ class RuntimeBootstrap(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SetupPythonTest(unittest.TestCase):
+    """The runtime is pinned to Python 3.11 or 3.12; a newer default python3 finds one itself."""
+
+    def test_setup_under_an_unsupported_python_reruns_with_a_supported_one(self):
+        with mock.patch.object(driver, 'SUPPORTED_PYTHON', ((3, 0),)), \
+                mock.patch.object(driver, 'supported_python', return_value='/opt/py/python3.12'), \
+                mock.patch.object(driver.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+            code = driver.main(['--runtime', '/tmp/rt', 'setup', '--feature', 'tableau'])
+        self.assertEqual(code, 0)
+        self.assertEqual(run.call_args.args[0], ['/opt/py/python3.12', '-I', str(driver.DISPATCHER), 'metrics',
+                                                 '--runtime', '/tmp/rt', 'setup', '--feature', 'tableau'])
+        self.assertTrue(driver.DISPATCHER.is_file())
+
+    def test_without_a_supported_python_setup_says_what_to_install(self):
+        with mock.patch.object(driver, 'SUPPORTED_PYTHON', ((3, 0),)), \
+                mock.patch.object(driver, 'supported_python', return_value=None), \
+                tempfile.TemporaryDirectory() as tmp, redirect_stdout(io.StringIO()) as out:
+            runtime = str(Path(tmp).resolve() / 'runtime')
+            self.assertEqual(driver.main(['--runtime', runtime, 'setup']), 2)
+        self.assertIn('python3.12 or python3.11 on PATH', json.loads(out.getvalue())['reason'])
+
+    def test_one_folder_has_one_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            (root / 'project/.atlan-metrics/run_1/engine').mkdir(parents=True)
+            plain = driver.ordinary(root / 'project/.atlan-metrics/runtime')
+            spelled = driver.ordinary(root / 'project/.atlan-metrics/run_1/../../.atlan-metrics/runtime')
+            self.assertEqual(str(plain), str(spelled))

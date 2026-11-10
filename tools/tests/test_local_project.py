@@ -11,13 +11,12 @@ from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 from project import Project
 import local_data
-import metrics_mine as mine
+import context_contracts as mine
 from trident.powerbi_file import inspect_file, measure_type
-from trident.dax_sql import translate
 
 HAS_DUCKDB = importlib.util.find_spec('duckdb') is not None
 
@@ -81,11 +80,12 @@ class LocalProject(unittest.TestCase):
         self.assertEqual([m['resolved_datatype'] for m in inv['measures']],
                          ['decimal', 'integer', 'decimal', None])
 
-    def test_jsonl_intake_and_mining_do_not_lose_rows(self):
+    def test_jsonl_intake_preserves_rows_for_the_engine(self):
         self.seed(); self.run.survey(self.estate)
         result = self.run.history()
         self.assertEqual(result['intake']['rows_read'], 2)
-        self.assertEqual(result['shapes']['written'], 2)
+        self.assertEqual(len(mine.read_jsonl(result['history'])), 2)
+        self.assertFalse((self.run.context / 'shapes.jsonl').exists())
         self.assertEqual(mine._records({'SQL': 'SELECT 1', 'EXEC': 2})[0]['EXEC'], 2)
         self.assertEqual(mine._records({'content': [{'type': 'text', 'text': '{"sql":"SELECT 2"}'}]})[0]['sql'], 'SELECT 2')
 
@@ -188,11 +188,50 @@ class LocalProject(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['status'], 'ok')
 
+    def test_cli_says_why_a_preparation_is_refused(self):
+        self.seed()
+        (self.estate / 'work.csv').write_text('kind,cost\nbuild,20.50\n')
+        source = next(s for s in self.run.survey(self.estate)['sources'] if s['path'] == 'work.csv')
+        request = self.estate.parent / 'request.json'
+        request.write_text(json.dumps({'database': str(self.estate.parent / 'site.sqlite'),
+                                       'tables': [{'source_id': source['source_id'], 'table': 'site.work'}]}))
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'),
+                                 '--run-dir', str(self.run.root), 'prepare', str(request)],
+                                capture_output=True, text=True)
+        self.assertEqual(json.loads(result.stdout)['message'], 'The selected file is outside this project.')
+
+    def test_cli_says_how_to_select_a_definition(self):
+        self.seed()
+        self.run.survey(self.estate)
+        result = subprocess.run([sys.executable, '-I', str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                 'journey', 'select', '--focus', 'Gross Sales'], capture_output=True, text=True)
+        message = json.loads(result.stdout)['message']
+        self.assertIn("No saved definition has the id 'Gross Sales'", message)
+        self.assertIn('metric:<name>', message)
+        self.assertIn('Saved: none yet', message)
+
+    def test_a_name_resolves_only_to_one_saved_id(self):
+        import metric_preview
+        ids = ['metric:Gross Margin', 'sql_query:Gross Margin', 'metric:Late Jobs']
+        self.assertEqual(metric_preview.resolve_id('late-jobs', ids), 'metric:Late Jobs')
+        self.assertEqual(metric_preview.resolve_id('metric:gross-margin', ids), 'metric:Gross Margin')
+        self.assertEqual(metric_preview.resolve_id('gross-margin', ids, 'sql_query'), 'sql_query:Gross Margin')
+        self.assertIsNone(metric_preview.resolve_id('gross margin', ids))
+        named = ['metric:Gross Margin', 'sql_query:gross-margin']
+        self.assertEqual(metric_preview.resolve_id('Gross Margin', named), 'metric:Gross Margin')
+        self.assertEqual(metric_preview.resolve_id('gross-margin', named), 'sql_query:gross-margin')
+        self.assertIsNone(metric_preview.resolve_id('GROSS MARGIN', named))
+        self.assertIsNone(metric_preview.resolve_id('Late', ids))
+        self.assertIsNone(metric_preview.resolve_id('', ids))
+        self.assertEqual(metric_preview.resolve_id('Margin: net', ['metric:Margin: Net']), 'metric:Margin: Net')
+
     def test_function_guard_blocks_dynamic_external_and_quoted_names(self):
         for q in ("SELECT * FROM query('select 1')", "SELECT * FROM read_csv('file.csv')",
                   'SELECT * FROM "query_table"($name)', 'SELECT custom_macro(cost) FROM site.work'):
             with self.assertRaises(local_data.DataError): local_data.check_functions(q)
         local_data.check_functions("SELECT SUM(cost), 'read_csv(' FROM site.work WHERE kind IN ('a')")
+        local_data.check_functions('SELECT n.c FROM site.work w JOIN (SELECT kind, COUNT(*) AS c '
+                                   'FROM site.work GROUP BY kind) n ON n.kind = w.kind UNION ALL (SELECT 1)')
 
 
 @unittest.skipUnless(HAS_DUCKDB, 'Use an existing approved DuckDB runtime for integration tests.')
@@ -264,13 +303,8 @@ class DuckDBFlow(unittest.TestCase):
         self.assertFalse((self.estate / 'prepared.duckdb').exists())
         self.assertFalse(list(self.estate.glob('.atlan-prepare-*')))
 
-    def test_native_dax_binding_executes_exact_value(self):
-        mapping = {'semantic_table': 'WORK', 'relation': ['site', 'work'],
-                   'rowset_equivalent': True, 'security_preserved': True,
-                   'columns': [{'semantic': 'cost', 'physical': 'cost', 'datatype': 'decimal'},
-                               {'semantic': 'kind', 'physical': 'kind', 'datatype': 'string'}]}
-        query = translate('CALCULATE(SUM(WORK[cost]), WORK[kind] = "rework")', mapping, {}, 'duckdb')
-        self.assertEqual(query['binding_style'], 'named_dollar')
+    def test_native_parameter_binding_executes_exact_value(self):
+        query = {'sql': 'SELECT SUM(cost) AS value FROM site.work WHERE kind=$p0', 'parameters': {'p0': 'rework'}}
         self.assertEqual(query['parameters'], {'p0': 'rework'})
         answer = self.run.execute(query)
         self.assertEqual(answer['rows'], [['14.75']])
@@ -399,7 +433,8 @@ class SQLiteFlow(unittest.TestCase):
         (self.estate / 'work.csv').write_text('kind,cost,day\nbuild,20.50,2026-01-02\nrework,14.25,2026-01-03\n')
         result = self.run.survey(self.estate)
         source = next(s for s in result['sources'] if s['path'] == 'work.csv')
-        return {'database': 'prepared.sqlite', 'tables': [
+        (self.estate / 'prepared').mkdir(exist_ok=True)
+        return {'database': 'prepared/site.sqlite', 'tables': [
             {'source_id': source['source_id'], 'table': 'site.work'}]}
 
     def test_binding_attaches_the_file_under_its_schema(self):
@@ -415,7 +450,7 @@ class SQLiteFlow(unittest.TestCase):
         self.run.bind(result['database'], schema='site')
         answer = self.run.execute({'sql': 'SELECT SUM(cost) FROM site.work'})
         self.assertEqual(answer['rows'], [[34.75]])
-        self.assertEqual((self.estate / 'prepared.sqlite').stat().st_mode & 0o777, 0o600)
+        self.assertEqual((self.estate / 'prepared/site.sqlite').stat().st_mode & 0o777, 0o600)
 
     def test_preparation_never_replaces_existing_database_or_mixes_schemas(self):
         request = self.preparation()
@@ -428,14 +463,17 @@ class SQLiteFlow(unittest.TestCase):
         request['tables'].append({**request['tables'][0], 'table': 'other.work'})
         with self.assertRaisesRegex(ValueError, 'one schema'):
             self.run.prepare(request)
-        self.assertFalse((self.estate / 'prepared.sqlite').exists())
+        self.assertFalse((self.estate / 'prepared/site.sqlite').exists())
 
-    def test_native_dax_binding_executes_exact_value(self):
-        mapping = {'semantic_table': 'WORK', 'relation': ['site', 'work'],
-                   'rowset_equivalent': True, 'security_preserved': True,
-                   'columns': [{'semantic': 'cost', 'physical': 'cost', 'datatype': 'decimal'},
-                               {'semantic': 'kind', 'physical': 'kind', 'datatype': 'string'}]}
-        query = translate('CALCULATE(SUM(WORK[cost]), WORK[kind] = "rework")', mapping, {}, 'sqlite')
+    def test_a_sqlite_file_is_named_after_its_schema(self):
+        request = self.preparation()
+        request['database'] = 'prepared/analytics.sqlite'
+        with self.assertRaisesRegex(ValueError, 'site.sqlite holds site'):
+            self.run.prepare(request)
+        self.assertFalse((self.estate / 'prepared/analytics.sqlite').exists())
+
+    def test_native_parameter_binding_executes_exact_value(self):
+        query = {'sql': 'SELECT SUM(cost) AS value FROM site.work WHERE kind=:p0', 'parameters': {'p0': 'rework'}}
         self.assertEqual(query['parameters'], {'p0': 'rework'})
         self.assertEqual(self.run.execute(query)['rows'], [[14.75]])
 

@@ -7,12 +7,12 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/atlan-analytics/scripts'
+SCRIPTS = ROOT / 'plugins/atlanai-analytics/skills/analytics-build/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import analytics_eval as ev
-import metrics_mine as mine
+import context_contracts as mine
 
-path = ROOT / 'plugins/atlanai-analytics/modules/metrics/engine/src/metrics_agent/lib/literal_privacy.py'
+path = ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/src/metrics_agent/lib/literal_privacy.py'
 spec = importlib.util.spec_from_file_location('engine_privacy_contract', path)
 engine = importlib.util.module_from_spec(spec);spec.loader.exec_module(engine)
 

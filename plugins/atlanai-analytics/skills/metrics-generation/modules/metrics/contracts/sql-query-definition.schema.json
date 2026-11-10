@@ -1,0 +1,242 @@
+{
+  "description": "Typed pilot definition stored as one JSON object.",
+  "properties": {
+    "analysis": {
+      "default": null,
+      "description": "Producer-extracted structure (for example from sqlglot). Not checked against `sql`.",
+      "properties": {
+        "columns": {
+          "default": [],
+          "description": "Columns referenced anywhere in the query.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dimensions": {
+          "default": [],
+          "description": "Grouping or slicing columns.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "extractor": {
+          "default": null,
+          "description": "The tool that produced this analysis, for example `sqlglot 26.1`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "filters": {
+          "default": [],
+          "description": "Predicates from WHERE, HAVING and QUALIFY.",
+          "items": {
+            "properties": {
+              "column": {
+                "description": "The filtered column. Indexed for retrieval when it is a bare identifier.",
+                "type": "string"
+              },
+              "operator": {
+                "description": "The comparison, for example `=`, `>=` or `IN`.",
+                "type": "string"
+              },
+              "value": {
+                "default": null,
+                "description": "A scalar, or a list of scalars for set operators."
+              }
+            },
+            "required": [
+              "column",
+              "operator"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "type": "array"
+        },
+        "measures": {
+          "default": [],
+          "description": "Aggregated expressions or measure names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tables": {
+          "default": [],
+          "description": "Tables read, as written (for example `DB.SCHEMA.TABLE`).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false
+    },
+    "dialect": {
+      "default": null,
+      "description": "Producer-declared database dialect; no allowlist or compatibility claim.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "extensions": {
+      "default": {},
+      "description": "Experimental data preserved without assigning semantics.",
+      "type": "object"
+    },
+    "output_columns": {
+      "default": [],
+      "description": "Declared result columns.",
+      "items": {
+        "properties": {
+          "data_type": {
+            "default": null,
+            "description": "Producer-declared type, for example `integer`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Result column name; unique case-insensitively.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "type": "array"
+    },
+    "parameters": {
+      "default": [],
+      "description": "Named parameters the SQL expects, if it is a template.",
+      "items": {
+        "properties": {
+          "data_type": {
+            "default": null,
+            "description": "Producer-declared type, for example `date`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "default": null,
+            "description": "What the parameter means and how to choose a value.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "Parameter name as it appears in the SQL; unique case-insensitively.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "type": "array"
+    },
+    "paraphrases": {
+      "default": [],
+      "description": "Other phrasings of the same question. Indexed for retrieval beside `question`.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "question": {
+      "default": null,
+      "description": "The natural-language question this SQL answers. The primary retrieval text; optional so query history can be stored before questions are written for it.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "review_status": {
+      "default": "unreviewed",
+      "description": "Producer-reported review state; not gateway certification.",
+      "enum": [
+        "unreviewed",
+        "verified",
+        "rejected"
+      ],
+      "type": "string"
+    },
+    "spec_version": {
+      "description": "Contract version; this pilot accepts only 1.0-draft.1.",
+      "type": "string",
+      "const": "1.0-draft.1"
+    },
+    "sql": {
+      "description": "Opaque SQL text; never parsed or executed.",
+      "type": "string"
+    },
+    "usage": {
+      "default": null,
+      "description": "Producer-reported usage counts.",
+      "properties": {
+        "execution_count": {
+          "default": 0,
+          "description": "Observed executions of this SQL.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer",
+          "maximum": 18446744073709551615
+        },
+        "last_executed_at": {
+          "default": null,
+          "description": "RFC 3339 timestamp of the most recent observed execution.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "user_count": {
+          "default": 0,
+          "description": "Distinct users observed running it. A count, never identities.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer",
+          "maximum": 18446744073709551615
+        }
+      },
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false
+    },
+    "usage_note": {
+      "default": null,
+      "description": "Guidance for an agent reusing this query (caveats, when not to use it).",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "spec_version",
+    "sql"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Saved SQL definition, 1.0-draft.1"
+}

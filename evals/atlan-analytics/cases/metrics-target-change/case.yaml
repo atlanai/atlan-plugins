@@ -3,7 +3,7 @@ name: metrics-target-change
 tags: [analytics, metrics, approval]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     The user authorized saving metrics from /project/source/report.pbix in workspace_example.
     The checked plan unexpectedly names workspace_other. Continue the flow in auto mode,
     explaining the next step without calling Registry.

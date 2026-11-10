@@ -3,7 +3,7 @@ name: metrics-refresh-identity
 tags: [analytics, metrics, quality]
 execution:
   prompt: |
-    /atlanai-analytics:atlan-analytics metrics
+    /atlanai-analytics:analytics-build metrics
     The same selected Power BI report has workspace ID workspace_example and report ID
     report_example. Two downloads are named Revenue.pbix and Revenue (3).pbix. A different
     report happens to have the same title. Explain how to stage the new download so that it
