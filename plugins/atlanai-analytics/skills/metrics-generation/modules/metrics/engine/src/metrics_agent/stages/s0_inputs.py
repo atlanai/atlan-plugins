@@ -346,7 +346,7 @@ def _bounded_tables(ctx, doc, entries, bi_sources, profile, dialect) -> tuple[li
                          for t in _bi_scope.tables_of(
                              pathlib.Path(s["path"]), s["vendor"],
                              **({"model": s["model"]} if s.get("model") else {}),
-                             dialect=dialect)})
+                             dialect=dialect, qualify=_run_config.table_qualifier(doc))})
         if not tables:
             _refuse("this BI + history run names no bounded tables, and the lineage of its BI "
                     "models resolves to none either.\n  The history lane would admit nothing "

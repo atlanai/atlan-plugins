@@ -394,6 +394,24 @@ def validate(doc: dict, *, settings: bool = True) -> None:
         _check_kind(plug, "observer", "observers")
 
 
+def table_qualifier(doc: dict):
+    """How the run's SQL-check plug names a table in full (`qualify_table(settings, name)`), or
+    None when no plug says. The plug knows its estate's naming; the core only applies it."""
+    found = []
+    for name in inputs_of(doc, "sql_check"):
+        fn = getattr(_class(name), "qualify_table", None)
+        if callable(fn):
+            found.append((fn, plug_settings(doc, name)))
+    if not found:
+        return None
+
+    def qualify(table: str) -> str:
+        for fn, settings in found:
+            table = fn(settings, table)
+        return table
+    return qualify
+
+
 def table_bound_problem(doc: dict) -> str | None:
     """Why S0 would refuse `doc` for want of a bounded table set, or None. The same rule S0
     applies: a run that reads query history admits a statement only when it reads a bounded
@@ -424,7 +442,8 @@ def table_bound_problem(doc: dict) -> str | None:
                 model = _setting(doc, bi, "bi_model", required=False)
                 if bi_scope.tables_of(where, vendor,
                                       **({"model": str(model)} if model else {}),
-                                      dialect=str(doc.get("dialect") or "")):
+                                      dialect=str(doc.get("dialect") or ""),
+                                      qualify=table_qualifier(doc)):
                     return None
             except (Exception, SystemExit) as exc:  # noqa: BLE001 - say why, never raise here
                 if isinstance(exc, (ConfigError, S.NotSupported)):

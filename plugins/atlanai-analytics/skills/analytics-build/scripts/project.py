@@ -16,9 +16,6 @@ import uuid
 from types import SimpleNamespace
 
 sys.dont_write_bytecode = True
-# Run as a script this module is `__main__`. A helper that imports `project` must get this
-# same module, or the ProjectError it raises is another class and the reply hides its message.
-sys.modules.setdefault('project', sys.modules[__name__])
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'dashboard_runtime'))
 from context_state import ContextState, resolve_run
@@ -32,6 +29,7 @@ from source_inventory import discover, source_kind, SENSITIVE
 from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
+from local_data import safe_path, file_hash
 import local_prepare
 import context_contracts as mine
 from analytics_eval import filter_querylog
@@ -47,22 +45,6 @@ LOCAL = ('duckdb', 'sqlite')
 class ProjectError(ValueError):
     pass
 
-
-def safe_path(path, root=None):
-    p = Path(path).expanduser().absolute()
-    if any(x.is_symlink() for x in (p, *p.parents)):
-        raise ProjectError('Use an ordinary local path without symlinks.')
-    if root and not p.resolve().is_relative_to(Path(root).resolve()):
-        raise ProjectError('The selected file is outside this project.')
-    return p.resolve()
-
-
-def file_hash(path):
-    h = hashlib.sha256()
-    with path.open('rb') as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
-            h.update(chunk)
-    return h.hexdigest()
 
 class Project(ContextState):
     """Keeps compatible project run state without creating dashboard or agent jobs."""
@@ -325,7 +307,8 @@ class Project(ContextState):
                 available = {p['name']: p['default'] for p in definition['source'].get('parameters', [])}
                 available.update(request.get('parameters', {}))
                 if not needed <= available.keys():
-                    raise local_data.DataError('Supply the named parameters required by the metric calculation.')
+                    raise local_data.ParameterError('Supply the named parameters required by the metric '
+                                                    'calculation: ' + ', '.join(sorted(needed)) + '.')
                 calculation_query = {'sql': card_sql, 'parameters': {k: available[k] for k in needed},
                                      'limit': request.get('limit', 100)}
                 empty_query = {'sql': card_sql + ('\nAND 1=0' if definition.get('mandatory_filters') else '\nWHERE 1=0'),
@@ -339,6 +322,8 @@ class Project(ContextState):
             else:
                 result = self.execute(example_query)
 
+        except local_data.ParameterError:
+            raise   # a request naming other parameters ran nothing, so it holds nothing
         except local_data.DataError:
             samples[sample_id] = {'status': 'failed'}
             checks[item['key']] = {'definition_hash': item['definition_hash'], 'status': 'held',

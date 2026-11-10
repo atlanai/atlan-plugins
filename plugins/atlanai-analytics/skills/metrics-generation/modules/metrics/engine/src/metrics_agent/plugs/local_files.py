@@ -229,6 +229,18 @@ class LocalFiles:
     requires_env: tuple[str, ...] = ()       # METRICS_AGENT_WAREHOUSE_DSN is read only as a fallback
 
     @classmethod
+    def qualify_table(cls, settings: dict[str, Any], name: str) -> str:
+        """`name` as DB.SCHEMA.TABLE in this plug's database. A SQLite file is attached under
+        its name, so a table is named in two parts (`site.projects`) and the file is both its
+        database and its schema (`site.site.projects`); a reader that also records the file
+        (`tix.sqlite.tix.events`) adds nothing a statement can name."""
+        database = settings.get("database") or os.environ.get("METRICS_AGENT_WAREHOUSE_DSN") or ""
+        parts = str(name).split(".")
+        if pathlib.Path(str(database)).suffix.lower() in SQLITE_SUFFIXES and len(parts) >= 2:
+            return ".".join([parts[-2]] + parts[-2:])
+        return name
+
+    @classmethod
     def validate_settings(cls, role: str, settings: dict[str, Any]) -> str | None:
         """History is a log file OR a shape table (with its database); the rest as asked."""
         def need(key: str) -> str:

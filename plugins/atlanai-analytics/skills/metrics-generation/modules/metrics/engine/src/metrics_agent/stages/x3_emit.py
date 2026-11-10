@@ -465,14 +465,8 @@ def _ingest(ctx: stage.Ctx) -> None:
     # THE IDENTITY IS SCOPED TO THE RUN. A measure_id is only (name, table), so two estates that
     # publish the same name over the same table would otherwise share one artifact, and a push
     # would append one estate's definition onto the other's.
-    run_inputs = ctx.read("run_inputs.json", "run_inputs.schema.json")
-    scope = run_inputs["scope"]
+    scope = ctx.read("run_inputs.json", "run_inputs.schema.json")["scope"]
     dialect, bi_rel = _dialect_and_relationships(merged, stmts)
-    # SQLite NAMES A TABLE IN TWO PARTS. `site.projects` is the attached file `site` and its
-    # table, a full name there, not an alias and its column: the run's bounded tables say which.
-    two_part = ({".".join(str(t).lower().split(".")[-2:])
-                 for t in (run_inputs.get("bounded_tables") or {}).get("tables") or []}
-                if str(dialect).lower() == "sqlite" else set())
     cands = _candidates_by_vq(ctx)
     columns = _catalogue(ctx, stmts)
     max_values = ctx.policy.get("metrics.dimensions.max_values_per_dimension")
@@ -601,11 +595,10 @@ def _ingest(ctx: stage.Ctx) -> None:
             # two-part name they read (`site.projects`) is a table, not an alias and its column.
             known = _statement_tables(m, stmts)
             loose = [x for x in _unqualified(scan) if x.split(".", 1)[0].lower() not in derived
-                     and x.lower() not in two_part and x.lower() not in known]
+                     and x.lower() not in known]
             if loose:
-                full = "SCHEMA.TABLE.COLUMN" if two_part else "DB.SCHEMA.TABLE.COLUMN"
                 problems.append(f"{where}: {len(loose)} reference(s) still wear a query alias — "
-                                f"{', '.join(loose[:6])}. Qualify them: {full}.")
+                                f"{', '.join(loose[:6])}. Qualify them: DB.SCHEMA.TABLE.COLUMN.")
 
             agg = a.get("aggregation")
             atype = str((agg or {}).get("type") if isinstance(agg, dict) else agg or "").lower()

@@ -142,12 +142,24 @@ class SQLiteEstateTest(unittest.TestCase):
 
 @unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
 class SQLiteLineageTest(unittest.TestCase):
-    def test_a_two_part_sqlite_name_is_its_file_schema_and_table(self):
+    """The SQL-check plug says how its estate names a table in full; the core only applies it."""
+
+    facts = {'tables': [{'name': 'site.projects', 'source_lineage': {'schema': 'site', 'object': 'projects'}},
+                        {'name': 'Box Office', 'source_lineage': {'statement': 'SELECT 1', 'reads': ['tix.orders']}},
+                        {'name': 'tix.sqlite.tix.events', 'source_lineage': {'database': 'tix.sqlite'}}]}
+
+    def test_a_sqlite_file_names_its_tables_in_two_parts(self):
         from metrics_agent.lib import bi_scope
-        facts = {'tables': [{'name': 'site.projects', 'source_lineage': {'schema': 'site', 'object': 'projects'}},
-                            {'name': 'Box Office', 'source_lineage': {'statement': 'SELECT 1',
-                                                                      'reads': ['tix.orders']}},
-                            {'name': 'tix.sqlite.tix.events', 'source_lineage': {'database': 'tix.sqlite'}}]}
-        self.assertEqual(bi_scope.warehouse_tables(facts, 'sqlite'),
+        from metrics_agent.plugs.local_files import LocalFiles
+        sqlite = lambda n: LocalFiles.qualify_table({'database': '/x/site.sqlite'}, n)
+        self.assertEqual(bi_scope.warehouse_tables(self.facts, sqlite),
                          ['SITE.SITE.PROJECTS', 'TIX.TIX.EVENTS', 'TIX.TIX.ORDERS'])
-        self.assertEqual(bi_scope.warehouse_tables(facts, 'snowflake'), ['TIX.SQLITE.TIX.EVENTS'])
+        duckdb = lambda n: LocalFiles.qualify_table({'database': '/x/estate.duckdb'}, n)
+        self.assertEqual(bi_scope.warehouse_tables(self.facts, duckdb), ['TIX.SQLITE.TIX.EVENTS'])
+        self.assertEqual(bi_scope.warehouse_tables(self.facts), ['TIX.SQLITE.TIX.EVENTS'])
+
+    def test_the_core_names_no_dialect(self):
+        src = ENGINE / 'src/metrics_agent'
+        named = [str(p.relative_to(src)) for d in ('lib', 'stages') for p in (src / d).glob('*.py')
+                 if 'sqlite' in p.read_text().lower()]
+        self.assertEqual(named, [])

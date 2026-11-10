@@ -42,19 +42,14 @@ def parse(path: pathlib.Path, vendor: str, model: str | None = None, *,
     return {"tables": [t for d in docs for t in d.get("tables") or []]}
 
 
-def warehouse_tables(facts: dict, dialect: str = "") -> list[str]:
-    """Sorted, de-duplicated `DB.SCHEMA.TABLE` names the model's tables resolve to."""
+def warehouse_tables(facts: dict, qualify=None) -> list[str]:
+    """Sorted, de-duplicated `DB.SCHEMA.TABLE` names the model's tables resolve to. `qualify`
+    is the run's SQL-check plug saying how its estate names a table in full (a name the plug
+    leaves short is not a table it can check)."""
     out = set()
-    # SQLite names a table in two parts, the attached file and the table (`site.projects`):
-    # the file is both its database and its schema (`SITE.SITE.PROJECTS`). A reader that also
-    # records the file's name (`tix.sqlite.tix.events`) adds nothing a statement can name.
-    sqlite = str(dialect).lower() == "sqlite"
 
     def full(x: str) -> str:
-        parts = x.upper().split(".")
-        if sqlite and len(parts) >= 2:
-            return ".".join([parts[-2]] + parts[-2:])
-        return x.upper()
+        return str(qualify(x) if qualify else x).upper()
     for t in facts.get("tables") or []:
         # By the time a parser returns, a resolved partition has rewritten `name` to the
         # physical target; `source_lineage.object` may be that same name or only its leaf.
@@ -73,5 +68,5 @@ def warehouse_tables(facts: dict, dialect: str = "") -> list[str]:
 
 
 def tables_of(path: pathlib.Path, vendor: str, model: str | None = None, *,
-              dialect: str = "") -> list[str]:
-    return warehouse_tables(parse(path, vendor, model, dialect=dialect), dialect)
+              dialect: str = "", qualify=None) -> list[str]:
+    return warehouse_tables(parse(path, vendor, model, dialect=dialect), qualify)
