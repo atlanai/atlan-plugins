@@ -10,6 +10,9 @@ made-up firm. The blocks printed at each moment (the welcome, the
 context built, the ready screen, the dashboard offer) are the product; the commands between
 them are plumbing. A run that builds everything but skips a block has failed.
 
+Read plugin files with the Read tool, one file per call. In a shell, never print a separator such as
+`echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
+
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
 step below. The technical stages are the shared setup procedure in

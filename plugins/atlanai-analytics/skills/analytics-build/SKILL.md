@@ -11,6 +11,8 @@ question here. It calls the capability skills without letting them ask the perso
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
+Read plugin files with the Read tool, one file per call. In a shell, never print a separator such as
+`echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
 and return. This includes explanation-only requests; do not start source inspection or publication.
