@@ -213,7 +213,9 @@ async function lookup($: Dollar, mem: Memory, server: string, name: string, args
   const rails = session
     ? { session_id: session }
     : { objective: 'Claude Code with the Atlan registry: the Registry Mods plugin checks registry changes and connection status for the user.' }
-  const result = await $.mcp.call(server, 'mcp__call_tool', { name, arguments: args, rationale, ...rails })
+  // Every lookup the mod makes is a read, so it goes through the read runner: the gateway then
+  // refuses anything else, whatever name reached here.
+  const result = await $.mcp.call(server, 'mcp__call_read_tool', { name, arguments: args, rationale, ...rails })
   const text = result.content.map(block => (isRecord(block) && typeof block.text === 'string' ? block.text : '')).join('\n')
   const opened = findSessionId(text)
   if (opened && opened !== session && !mem.session) mem.housekeeping = opened
@@ -659,8 +661,8 @@ export const register: Register = (on, options) => {
     }
     // A transient failure tells the model how to recover: repeat a read after a wait, read back
     // before repeating a write. The engine never runs a call twice for a hook. A lost skill create
-    // is left to atlanai's publish helper and atlan-author-skills' read-back: it takes no
-    // idempotency_key, so this note's advice would be wrong for it, and two notes would disagree.
+    // is left to atlanai's publish helper and atlan-author-skills, which say when to resend it
+    // with its idempotency_key and when to read it back: a second note here would disagree.
     if (retry && ran.result !== undefined && !(isCallTool && inner.name === PUBLISH)) {
       return { ...ran, context: [...(ran.context ?? []), retryNote(effect === 'read' ? 'read' : 'write', retry)] }
     }

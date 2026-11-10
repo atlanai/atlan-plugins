@@ -86,7 +86,35 @@ describe('which prompts are searched', () => {
   })
 })
 
+describe('credential shapes the publish helper also refuses (B7)', () => {
+  test('keep a prompt out of the search', () => {
+    // Built from parts so no tracked file holds a credential shape.
+    const shapes = [
+      'github' + '_pat_' + 'A1b2C3d4E5'.repeat(4),
+      'ASIA' + 'ABCDEFGHIJKLMNOP',
+      'AIza' + 'Sy' + 'A1b2C3d4E5f'.repeat(3),
+      'GOCSPX' + '-' + 'A1b2C3d4E5f6G7'.repeat(2),
+      'sk' + '_live_' + 'A1b2C3d4E5f6'.repeat(2),
+      'postgres://deploy:' + 'hunter2hunter2' + '@db.internal/app',
+    ]
+    for (const shape of shapes) expect(isHintable(prompt(`deploy the preview using ${shape} right now`))).toBe(false)
+    // A URL with no password, and one whose password is a placeholder, are ordinary text.
+    expect(isHintable(prompt('read the docs at https://example.com/guide and summarise them'))).toBe(true)
+    expect(isHintable(prompt('connect to postgres://deploy:$PASSWORD@db.internal/app for me'))).toBe(true)
+  })
+})
+
 describe('which hits are named', () => {
+  test('leaves out a hit the gateway labels a weak match, whatever it scores (B7)', () => {
+    const items = [
+      { ...JOKES, id: 'skill_01aaaaaaaaaa', match: { similarity: 0.9, quality: 'weak' } },
+      { ...JOKES, id: 'skill_01bbbbbbbbbb', match: { similarity: 0.6, quality: 'strong' } },
+      { ...JOKES, id: 'skill_01cccccccccc', match: { similarity: 0.5 } },
+      { ...JOKES, id: 'skill_01dddddddddd', match: { similarity: HINT_SIMILARITY - 0.01, quality: 'strong' } },
+    ]
+    expect(skillMatches(JSON.stringify({ items })).map(match => match.id)).toEqual(['skill_01bbbbbbbbbb', 'skill_01cccccccccc'])
+  })
+
   test('keeps active, released skills at or above the threshold, best first, at most two', () => {
     const items = [
       { ...JOKES, id: 'skill_01aaaaaaaaaa', match: { similarity: 0.5 } },

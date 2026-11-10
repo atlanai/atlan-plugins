@@ -119,6 +119,15 @@ describe('what a call did, in words', () => {
     expect(summarizeResult(answer, false)).toBe('1 of 2 reads answered: skill skill-creator 0.2.0; Failed: artifact not found')
   })
 
+  test('reads a share, a roll-back and a scan rerun in the past tense (B9)', () => {
+    expect(describeCall(CALL, { name: 'registry__publish_output', arguments: { output: { name: 'Q3 churn report' }, file: { content: 'x' } } })).toBe('shared output "Q3 churn report"')
+    expect(describeCall(CALL, { name: 'registry__publish_output', arguments: {} })).toBe('shared an output')
+    expect(describeCall(CALL, { name: 'registry__withdraw_release', arguments: { release_id: 'rel_01shipped' } })).toBe('withdrew release rel_01shipped')
+    expect(describeCall(CALL, { name: 'registry__retrigger_artifact_action', arguments: { artifact_id: 'skill_01x', action_name: 'scan' } })).toBe('reran scan on skill_01x')
+    const shared = touchesOf('registry__publish_output', {}, JSON.stringify({ output: { id: 'output_01q3', kind: 'output', name: 'Q3 churn report', version_ordinal: 1 }, file: { id: 'file_01q3' }, created: true }), false)
+    expect(shared.map(one => [one.id, one.kind, one.name, one.action])).toEqual([['output_01q3', 'output', 'Q3 churn report', 'shared']])
+  })
+
   test('sums up what came back', () => {
     expect(summarizeResult(`${JSON.stringify(SEARCH)}${RECEIPT}`, false)).toBe('7 found: pii-scrub 1.0.0, pii-audit 0.3.0 (pending review), and 5 more')
     expect(summarizeResult(`${JSON.stringify(ARTIFACT)}${RECEIPT}`, false)).toBe('skill skill-creator 0.2.0')
