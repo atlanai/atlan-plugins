@@ -19,7 +19,7 @@ two ways to use one:
 Calls below are search-mode reads, through `mcp__call_read_tool`. The first one opens the session by sending
 `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
 `rationale`, on every later call. Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner. Send independent reads as one
-`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+`mcp__call_read_tools` call (up to 8) when listed, else in parallel. Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 Whatever the skill says, ask before any credential use, external service setup or
 irreversible step it leads to.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries

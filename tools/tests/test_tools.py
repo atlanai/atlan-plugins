@@ -1167,6 +1167,56 @@ class EvalCasesTest(unittest.TestCase):
         self.assertEqual(self.runner.without_case_filters(["--runs", "1", "--case", "a", "--case", "b*", "-j", "4"]),
                          ["--runs", "1", "-j", "4"])
 
+    def test_every_case_carries_the_shared_reply_graders(self) -> None:
+        # One definition, written into every case: a copy edited by hand drifts, and a rule
+        # judged in one case and not the next makes two runs incomparable.
+        import eval_graders
+        stale = [str(path.relative_to(ROOT)) for path in eval_graders.drift()]
+        self.assertEqual([], stale, "run python3 tools/eval_graders.py")
+
+    def test_the_reply_patterns_pass_a_plain_reply_and_name_the_rule_a_reply_breaks(self) -> None:
+        import eval_graders
+
+        def passes(block: str, reply: str) -> bool:
+            # A regex grader passes when its pattern is found in the reply.
+            return re.search(re.search(r"pattern: '(.*)'", block).group(1), reply) is not None
+
+        plain = "Connected to Atlan. You can write to **Dana's Workspace** (yours).\n\nAcme has 23 skills. Which one?"
+        self.assertTrue(passes(eval_graders.PLAIN, plain))
+        for broken in ("Done \u2014 the file is saved.", "Saved!", "Saved! Next: review it.", "Sorry, that failed.",
+                       "Saved as v2. Let me know if you need anything else.", "Happy to help. Saved as v2.",
+                       "Saved as v2. Feel free to ask for more."):
+            self.assertFalse(passes(eval_graders.PLAIN, broken), broken)
+        # `!=` in code and a word that only starts like a filler are not the rule.
+        self.assertTrue(passes(eval_graders.PLAIN, "The filter is `status != archived`. Certainty is low."))
+        length = eval_graders.LENGTH.format(words=5)
+        self.assertTrue(passes(length, "one two three\nfour five\n"))
+        self.assertFalse(passes(length, "one two three four five six"))
+
+    def test_a_case_sets_its_own_word_limit_and_a_negative_case_keeps_one_grader(self) -> None:
+        import eval_graders
+        own = "name: x\ntags: [share]\ngraders:\n  - name: mine\n    type: llm\n"
+        self.assertIn("{1,100}", eval_graders.synced(own))
+        self.assertIn("{1,220}", eval_graders.synced("# reply-words: 220, the user asked for the changelog\n" + own))
+        table = eval_graders.synced("# reply-words: none, the reply is a table\n" + own)
+        self.assertNotIn("reply-length", table)
+        self.assertIn("one-next-step", table)
+        draft = eval_graders.synced("# reply-graders: plain-reply one-next-step, the reply is a draft\n" + own)
+        self.assertEqual(["mine", "plain-reply", "one-next-step"], re.findall(r"- name: (\S+)", draft))
+        with self.assertRaises(ValueError):
+            eval_graders.synced("# reply-graders: plain-reply tidy, a grader that does not exist\n" + own)
+        negative = eval_graders.synced(own.replace("[share]", "[negative,routing]"))
+        self.assertEqual(["mine", "plain-reply"], re.findall(r"- name: (\S+)", negative))
+        # Synced text is a fixed point, and a hand-edited copy of a shared grader is replaced.
+        self.assertEqual(eval_graders.synced(table), table)
+        edited = eval_graders.synced(own).replace("FAIL only if it ends", "FAIL if it ends")
+        self.assertEqual(eval_graders.synced(edited), eval_graders.synced(own))
+
+    def test_the_runner_names_a_judge_unless_the_caller_does(self) -> None:
+        self.assertEqual(self.runner.judge(["--runs", "1"]), ["--judge-model", "sonnet"])
+        self.assertEqual(self.runner.judge(["--judge-model", "opus"]), [])
+        self.assertEqual(self.runner.judge(["--judge-model=opus"]), [])
+
     def test_negative_cases_forbid_every_atlan_skill_and_runner(self) -> None:
         negative = [case for case in self.cases() if "tags: [negative," in (case / "case.yaml").read_text(encoding="utf-8")]
         self.assertGreaterEqual(len(negative), 4)

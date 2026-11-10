@@ -128,7 +128,7 @@ recorded without content or that its runs are not yours to read; say which you k
 
 In a few lines: what the artifact is, who owns it and in which workspace, its version, and
 from the session, the original request, the decisions made and the work that remains. State
-any gaps in what you could read, in one line. Keep the whole catch-up under seven lines of
+any gaps in what you could read, in one line. Keep the whole catch-up under 80 words of
 plain sentences, with no headings or bullets: the user can ask for more. Name people and
 workspaces by display name; leave out handles the user did not give. For example:
 

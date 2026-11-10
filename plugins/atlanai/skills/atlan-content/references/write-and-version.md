@@ -24,8 +24,9 @@ Read back the file's ID, path, ordinal and ETag with `registry__get_artifact`.
 
 ## Append to the existing file
 
-1. Read the head with `registry__get_artifact` and review its current bytes. Keep its
-   `etag`, ID and ordinal. Resolve concurrent work before writing.
+1. Read the head with `registry__get_artifact` and its current bytes with
+   `registry__get_file_content { "file_id": "file_…" }`. Keep the `etag`, ID and ordinal.
+   Resolve concurrent work before writing.
 2. Call `registry__append_artifact_version` with `artifact_id` set to that ID,
    `if_match` set to the exact observed `etag`, and the complete new per-version
    `metadata`, including the same `path`. Omit line fields such as `name`,
@@ -49,10 +50,13 @@ Read back the file's ID, path, ordinal and ETag with `registry__get_artifact`.
    }
    ```
 4. Read back that same artifact ID, verify the ordinal advanced and read the new bytes
-   using `registry__get_file_content` with the returned ordinal.
+   with `registry__get_file_content`, passing the ID as `file_id` and the returned ordinal as
+   `version_ordinal`.
 
 A stale `if_match` refuses the write. Re-read and reconcile; never blindly replay with a
-fresh token. An identical retry with the same `idempotency_key` recovers the committed
+fresh token. The reply then says what landed and what the
+other change was ("appended as version 3; the 31 October line someone added since is kept"),
+not that a write was refused and sent again. An identical retry with the same `idempotency_key` recovers the committed
 version after a lost response. Changed arguments require a new operation key, after review.
 Keep prior pins resolvable; repeating create at an existing path is not versioning.
 

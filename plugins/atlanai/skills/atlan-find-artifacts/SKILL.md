@@ -17,7 +17,7 @@ and a `rationale`, on every later call. Both go beside `name` and `arguments`, n
 Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
-Replies lead with the result. Check each before sending: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about calls skipped or retried; under seven lines, not counting a table or a list the user asked for.
+Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
 in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
 Atlan is not answering. Never repeat a write: read it back first.
@@ -30,9 +30,9 @@ Atlan is not answering. Never repeat a write: read it back first.
 | "What do we have?" "Find me skills" "How many?", with no task named | [Overview](#overview) with `registry__get_artifact_counts`, then a search for the user's task |
 | "What changed recently?" "List all our MCP servers" | `registry__list_artifacts`: [Browse](#browse) |
 | "Tell me about this one" | `registry__get_artifact` |
-| "What uses it, what does it use?" | `registry__get_related_artifacts`, read with `references/adoption.md` |
+| "What uses it, what does it use?" "How often is it used?" | `registry__get_related_artifacts`, or run statistics, with `references/adoption.md` |
 | "What does this skill or file actually say?" | `atlan-content` |
-| "Gather what we know for this task": skills, metrics, ontology and knowledge together | `mcp__retrieve_artifacts` |
+| "Gather what we know for this task" | `mcp__retrieve_artifacts` |
 | "What is in this project?" | `registry__get_project`, then `registry__list_artifacts` with `project_id` (`references/kinds.md`) |
 | "What can a kind hold?" | `references/kinds.md`, then `registry__get_kind_schema` for a kind it does not list |
 | "Which workspaces can I see?" | `registry__list_workspaces` |
@@ -114,7 +114,7 @@ most recently changed rows.
 ## Gather context for a task
 
 When the user wants what the organization knows about a task rather than one artifact ("what
-do we have on churn?"), read `references/gather-context.md`: one bounded
+do we have on churn?"), read `references/gather-context.md`: one
 `mcp__retrieve_artifacts` call through `mcp__call_read_tool` searches skills, metrics, ontology
 and knowledge together.
 
@@ -128,7 +128,7 @@ a published release rather than the newest version.
 
 ## Present results
 
-Lead with the answer. Show a short table of name, kind, workspace and a one-line description,
+Show a short table of name, kind, workspace and a one-line description,
 with each handle, so the user can ask about one by name. Mark a skill whose `name` matches one
 already installed here (your tool lists its skills in this conversation) as installed, so the
 user does not install it twice; whether that copy is current is `atlan-use-skill`'s check.
