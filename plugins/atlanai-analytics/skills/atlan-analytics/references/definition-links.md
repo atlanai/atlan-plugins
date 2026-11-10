@@ -5,11 +5,16 @@ names, not ids: `metric_01… · rel_01…` tells them nothing and opens nothing
 
 ## What to show
 
-One line per metric or saved query the answer used: its name as a link to its page in
-Atlan Trident, then its released version in plain words when the read returned one.
+Every answer ends with its proof: a short list headed **Proof in Atlan Trident**, one line
+per metric and query the answer used. Each line is the name as a link to its page in Atlan
+Trident, then its released version in plain words when the read returned one. The person
+can open any line and see the rule the number came from. An answer without this list is
+not finished.
 
-"This answer used [Gross margin](https://app.atlan.com/?open=…) (version 2),
-[Rework cost](https://app.atlan.com/?open=…) and [Material waste](https://app.atlan.com/?open=…)."
+**Proof in Atlan Trident**
+- [Gross margin](https://app.atlan.com/?open=…), version 2
+- [Rework cost](https://app.atlan.com/?open=…)
+- [Margin by job](https://app.atlan.com/?open=…), a query
 
 Never print a bare artifact id or release id in an answer. Give ids in code only when the
 person asks for them. The link's address carries the handle, so the definition is still
@@ -47,9 +52,19 @@ The link opens the page in the Atlan app, or in the browser for someone without 
 
 ## Without the slug
 
-Show the names alone, with the workspace that holds them: "This answer used Gross margin,
-Rework cost and Material waste, saved in Analytics Demo." Then ask once per conversation, in
-one line: "Paste any Atlan Trident address from your browser and I will link each one."
-Keep the slug for the rest of the conversation. Do not ask again after a refusal.
+A proof link cannot be built without the slug, so get it before the first answer rather
+than after. As soon as metrics are saved to Atlan Trident, or on the first question when
+they already are, ask once in plain words: "So every answer can link to its proof, paste
+any address from your Atlan Trident. It looks like https://app.atlan.com/your-company/…"
+Take the first path segment as the slug, save it as `org` in `.atlan/share.json` in the
+working folder, and reuse it from then on. Never guess a slug.
 
-Definitions that exist only on this machine have no page: name them and say they are local.
+If the person declines, list the names under **Proof in Atlan Trident** with the workspace
+that holds them and how to find them ("search the name in your Atlan Trident"), and do not
+ask again in this conversation.
+
+## Not saved in Atlan Trident
+
+Metrics and queries that exist only on this machine have no page to open. Say so in the
+proof list, with the way to get one: "These are on this machine only, so there is nothing
+to open yet. Save them to Atlan Trident and each answer links to its proof."
