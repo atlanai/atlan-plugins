@@ -129,9 +129,9 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   later sandbox templates) is an `[[addons]]` entry in `plugin.toml` named `atlanai-<workload>`.
   Its skills, commands and agents are authored here, under `plugins/<name>`, and this repository
   is their source of truth. The app behind the workload should pin a commit of this repository
-  to serve the same files over MCP, so a change here reaches it at its next pin bump. app-metric
-  does: its `pinned-files.toml` copies `analytics-build` into `backend/defaults/skills/analytics-build/`,
-  and its `atlan-plugins-sync` workflow opens the bump on each release. An add-on depends on `atlanai` and declares no MCP server, hooks or
+  to serve the same files over MCP, so a change here reaches it at its next pin bump. The metric
+  service does: it copies `analytics-build` into `backend/defaults/skills/analytics-build/` at a
+  pinned commit, and its sync workflow opens the bump on each release. An add-on depends on `atlanai` and declares no MCP server, hooks or
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
