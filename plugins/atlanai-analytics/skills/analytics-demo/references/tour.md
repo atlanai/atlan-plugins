@@ -76,7 +76,7 @@ sources, add one sentence on what they revealed, such as which questions the ana
 asked most. Never leave a minute without a line; follow [progress](../../analytics-build/references/setup/progress.md).
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
-the steps, a question or an example. Use the firm's name and the demo's question. A name
+the steps, a question or an example. Use the firm's name. A name
 from the data may appear in an answer only when the person's question asks who, and never
 a customer's personal details.
 
