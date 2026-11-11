@@ -304,6 +304,7 @@ class Project(ContextState):
             for key in keys[:-1]:
                 node = node.setdefault(key, {})
             node[keys[-1]] = change.get('value')
+        self._apply_card(((new.get('extensions') or {}).get('metrics_agent') or {}).get('card'), changes)
         version = int(old.get('version') or 1)
         new['version'] = version + 1
         kept = self.context / 'metric-versions' / f"{re.sub(r'[^a-z0-9]+', '-', body['name'].lower()).strip('-')}-v{version}.json"
@@ -317,8 +318,52 @@ class Project(ContextState):
             body.update(old_text)
             self.write(path, bodies)
             raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
+        self._mirror_metric_edit(body['name'], changes, kept)
         return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),
                 'changed': [c['path'] for c in changes]}
+
+    # Where the engine keeps its own copy of a definition field (its card names a few differently).
+    _CARD_FIELD = {'source.sql': 'sql', 'source.entity': 'entity', 'source.alias': 'alias'}
+
+    def _apply_card(self, card, changes):
+        """Carry definition-field changes onto an engine card, which names a few fields differently."""
+        if not isinstance(card, dict):
+            return
+        for change in changes:
+            field = self._CARD_FIELD.get(change['path'], change['path'])
+            if '.' not in field and field in card:
+                card[field] = change['value']
+
+    def _mirror_metric_edit(self, name, changes, kept):
+        """The engine keeps two more copies of each metric beside the context: its export and its
+        card. An agent that searches the run can read either, so an edit reaches them too, with
+        their old text kept beside the old definition."""
+        root = self.context.parent
+        export, cards = root / 'engine-export' / 'metrics.json', root / 'engine' / 'metric_cards.json'
+        before = {}
+        if export.is_file():
+            bodies = self.read(export)
+            for b in bodies:
+                if b.get('name') == name:
+                    before['export'] = json.loads(json.dumps(b))
+                    for change in changes:
+                        keys = change['path'].split('.')
+                        node = b if keys[0] in ('description', 'display_name') and len(keys) == 1 else b.setdefault('definition', {})
+                        for key in keys[:-1]:
+                            node = node.setdefault(key, {})
+                        node[keys[-1]] = change['value']
+                    self._apply_card((((b.get('definition') or {}).get('extensions') or {}).get('metrics_agent') or {}).get('card'), changes)
+            self.write(export, bodies)
+        if cards.is_file():
+            doc = self.read(cards)
+            for card in doc.get('metrics') or []:
+                if name in (card.get('name'), card.get('display_name')):
+                    before['card'] = json.loads(json.dumps(card))
+                    self._apply_card(card, changes)
+            self.write(cards, doc)
+        if before:
+            self.write(kept.with_name(kept.stem + '-engine.json'), before)
+
 
     def check_execution(self, request, kind):
         items = metric_preview.candidates(self)

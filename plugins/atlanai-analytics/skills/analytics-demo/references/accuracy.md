@@ -92,8 +92,9 @@ Studio. Keeping the score goes to step 5.
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to a
   file in the run and run `PROJECT edit-metric <file>`. It keeps the old version, raises the
-  version and re-checks the metric; a failing check keeps the old rule, so say so and name the
-  next fix in a `Next:` line. Change only that metric.
+  version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
+  keeps the old rule, so say so and name the next fix in a `Next:` line. Change only that metric,
+  never a file by hand, and do not raise saved queries with the person.
 - **Context in Atlan Trident:** read the metric's head with `registry__get_artifact` and write one
   proposal with `registry__create_artifact` as
   [the proposal record](../../metrics-generation/references/propose-record.md) describes: the
