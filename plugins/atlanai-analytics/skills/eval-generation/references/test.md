@@ -69,7 +69,7 @@ the count; name how many. The caller decides what comes next.
 ## Improve loop
 
 Where the fix lands follows `context_saved_to`. With `null` (the context is on this machine),
-the fix is a new version of the metric in this run, through `metrics-generation` `edit`, and
+the fix is a new version of the metric in this run, through the `PROJECT edit-metric` tool, and
 nothing touches Atlan Trident. Saved to Trident, it goes to the metric's owner as a proposal in
 Metric Studio, never as a direct write; the owner applies it, which makes the new version.
 
@@ -92,11 +92,16 @@ Metric Studio, never as a direct write; the owner applies it, which makes the ne
      the old answer. A miss on wording is fixed by adding that question to `examples`. In
      Trident, name the saved queries linked to the metric that hold the old rule in the
      proposal's `summary`; never offer to change them as a separate step.
-   - **On this machine:** `metrics-generation` `edit` with those changes, then step 4 with no
+   - **On this machine:** write `{"name": "<metric>", "changes": [{"path", "value"}]}` to a file
+     and run `PROJECT edit-metric <file>`. It keeps the old definition under
+     `context/metric-versions/`, raises the version and re-checks the metric, keeping the old
+     rule when the new one fails. Then step 4 with no
      version pin: the answering agents read the run, which now holds the new version. Change
      only the metric: never a saved query, and do not raise saved queries with the person.
-   - **In Trident: propose it** through `metrics-generation` `propose`, as a fix to that metric, without
-     asking again. Its `evidence.runs` are the missed questions, one entry each, with the test
+   - **In Trident: propose it**, as a fix to that metric, without asking again: read the head
+     with `registry__get_artifact`, then write one record as
+     [the proposal record](../../metrics-generation/references/propose-record.md) describes,
+     with `registry__create_artifact`. Its `evidence.runs` are the missed questions, one entry each, with the test
      agent as `agent` and this session's `EVAL session-run` trace. Say the score in the
      `summary`: the count, then what the miss shows ("`<k>` of `<N>`; `<metric>` counts `<its
      rule>` where the trusted query counts `<the other rule>`").

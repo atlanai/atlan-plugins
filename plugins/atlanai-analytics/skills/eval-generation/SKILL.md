@@ -21,7 +21,7 @@ file, never chained in a shell with `echo` separators: zsh reads a word like `==
 | --- | --- |
 | Use case, question pool, picking 5, drafting, trusted answers, scoring, the check's moments | this skill |
 | Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Changing a metric | `metrics-generation`: `edit` in this run when the context is on this machine; `propose` when it is in Atlan Trident, approved by the owner in Metric Studio |
+| Changing a metric | One tool call, never another skill: `PROJECT edit-metric` in the run when the context is on this machine; a proposal record through `registry__create_artifact` when it is in Atlan Trident, approved by the owner in Metric Studio |
 | Saving the set, scorer and runs to Atlan Trident | this skill, through `EVAL publish` |
 | Anything a calling flow adds before or after the check | the caller |
 
