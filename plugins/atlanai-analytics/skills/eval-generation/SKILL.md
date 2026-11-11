@@ -81,15 +81,13 @@ approval: `EVALGEN review --approve all` only after it, never on your own.
 `SCOPE sets --project <project>` lists the sets in `<project>/.atlan-evals/sets/`, each a JSONL
 of `{"id", "question", "sql"}` plus optional `"tests"` (the metric) and `"note"` (the rule the SQL
 encodes). `SCOPE load --project <project> --file <set>` puts one where `generate` would, approved
-because the person brought it, and runs its trusted SQL (`gold_failed` names any that did not run).
-It is then ready to test.
+because the person brought it, runs its trusted SQL (`gold_failed` names any that did not run)
+and sets it up for scoring. It is then ready to `test`. A set already lives in the project:
+there is nothing to save on this machine.
 
-## `save`: local or Trident
+## `save`: to Atlan Trident
 
-`EVAL init --slug <slug>`, then `EVAL import-spec --spec "<evals-run>/work/spec.json"`.
-
-- **Keep on this machine:** nothing more.
-- **Save to Atlan Trident:** in the workspace the context was saved to. Loop
+Only when the person chooses it, in the workspace the context was saved to. Loop
   `EVAL publish --variant baseline --dataset-only --workspace <that workspace id>` and
   `EVAL publish-ack`, as [Publish](references/test.md#publish) describes: the `result-match`
   scorer and the dataset with `registry__create_artifact`, one record per question in one

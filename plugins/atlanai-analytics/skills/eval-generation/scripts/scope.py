@@ -265,8 +265,27 @@ def cmd_load(a) -> dict:
     dump(ev / "scope.json", {"use_case": interaction.get("intent") or {}, "set": str(src), "pool": {}})
     # A set the person brought is already approved, so its trusted answers run now and it is ready to test.
     gold = cmd_gold(argparse.Namespace(run=str(run), evals=str(ev), runner=getattr(a, "runner", None)))
+    if gold["ran"]:
+        stage(ev)
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run),
             "set": src.stem, "questions": len(records), "gold_ran": gold["ran"], "gold_failed": gold["failed"]}
+
+
+def stage(ev: pathlib.Path) -> dict:
+    """Set the approved questions up for scoring (EVAL init and import-spec). Nothing is stored
+    anywhere new: the eval folder is where the test reads its cases."""
+    harness = RUNNER.with_name("analytics_eval.py")
+    slug = re.sub(r"[^a-z0-9]+", "-", str((load(ev / "work" / "spec.json") or {}).get("name") or ev.name).lower()).strip("-")
+    for step in (["init", "--slug", slug], ["import-spec", "--spec", str(ev / "work" / "spec.json")]):
+        proc = subprocess.run([sys.executable, str(harness), step[0], "--dir", str(ev), *step[1:]],
+                              capture_output=True, text=True, timeout=120)
+        if proc.returncode:
+            raise Blocked(f"Setting the questions up for scoring failed at {step[0]}: {(proc.stdout or proc.stderr)[-300:]}")
+    return {"staged": True}
+
+
+def cmd_stage(a) -> dict:
+    return {"status": "ok", **stage(pathlib.Path(a.evals))}
 
 
 def cmd_gold(a) -> dict:
@@ -328,6 +347,9 @@ def main(argv=None) -> int:
     c.add_argument("--run")
     c.add_argument("--evals")
     c.set_defaults(func=cmd_load)
+    c = s.add_parser("stage", help="set approved questions up for scoring (after EVALGEN review --approve)")
+    c.add_argument("--evals", required=True)
+    c.set_defaults(func=cmd_stage)
     c = s.add_parser("gold", help="run each reviewed record's trusted SQL on the run's data")
     c.add_argument("--run", required=True)
     c.add_argument("--evals", required=True)

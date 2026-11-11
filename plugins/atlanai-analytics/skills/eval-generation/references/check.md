@@ -21,8 +21,7 @@ a set, ask once, "Which questions should I test with?":
 | Generate 5 new questions | From your dashboard and the queries your analysts run most. |
 
 A named set skips the question. Picking a set is the approval to run it: `SCOPE load --project
-<project> --file <set>`, then `save` on this machine and `test` straight away, with no list to
-confirm; go on to step 3. To generate, run `SCOPE inputs --project <project> --generate`, then
+<project> --file <set>`, then `test` straight away, with no list to confirm; go on to step 3. To generate, run `SCOPE inputs --project <project> --generate`, then
 step 2.
 
 ## 2. Generated questions: show them, then ask to run them
@@ -48,8 +47,8 @@ questions?":
 | Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
 | Not now | Keep the questions on this machine and stop here. |
 
-Run them is the approval: run `EVALGEN review --approve all`, `save` on this machine, then
-`test`. There is no edit option.
+Run them is the approval: run `EVALGEN review --approve all`, `SCOPE stage --evals <evals-run>`,
+then `test`. There is no edit option.
 
 ## 3. The score, and whether to improve it
 
@@ -78,7 +77,7 @@ Ask "Where should the questions and the score live?":
 With `context_saved_to` `null`, skip the question: keep the set here and say it can go to Trident
 once the context is saved there.
 
-Save as `save` describes. Then end with one line whose tone follows the score, and the source
+On Save to Atlan Trident, run `save`. Then end with one line whose tone follows the score, and the source
 caveat beside it:
 - every question right: "Your `<agent>` answers all `<N>` questions `<firm>`'s analysts ask most."
 - some missed: "`<k>` of `<N>` right, and `<what the misses share>`."

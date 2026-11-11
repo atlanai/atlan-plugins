@@ -1,7 +1,8 @@
 # Test accuracy
 
 Read when running `test`, and for **Publish** when saving a set to Atlan Trident. The set must
-be imported first (`save`), and every case needs its gold result in `<evals-run>/eval/gold/`.
+be set up for scoring first (`SCOPE load` does it; after generating, `SCOPE stage`), and every case
+needs its gold result in `<evals-run>/eval/gold/`.
 
 ## Why the score can be trusted
 
