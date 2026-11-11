@@ -164,6 +164,11 @@ display_name = "Share or Record an Output"
 short_description = "Save or share a deliverable in Atlan and post it to Slack"
 prompt = "Use $atlan-share to share this with my team in Atlan and post it to our Slack channel."
 
+[skills.atlan-memory]
+display_name = "Your Memory"
+short_description = "Remember and recall across every AI tool you use"
+prompt = "Use $atlan-memory to remember that I prefer short answers with the result first."
+
 [skills.atlan-continue]
 display_name = "Continue from Atlan"
 short_description = "Pick up an artifact handed over from the dashboard"
