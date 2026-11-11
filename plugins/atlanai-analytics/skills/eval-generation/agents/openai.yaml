@@ -1,7 +1,7 @@
 interface:
   display_name: "Eval Generation"
   short_description: "Build an eval set from past queries and test accuracy"
-  default_prompt: "Use $eval-generation to test how accurate our analytics context is on the questions our analysts ask."
+  default_prompt: "Use $eval-generation to build an eval set from the questions our analysts ask."
 dependencies:
   tools:
     - type: "mcp"

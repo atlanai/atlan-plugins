@@ -1,8 +1,12 @@
-# Test accuracy
+# Run the accuracy check
 
-Read when running `test`, and for **Publish** when saving a set to Atlan Trident. The set must
-be set up for scoring first (`SCOPE load` does it; after generating, `SCOPE stage`), and every case
-needs its gold result in `<evals-run>/eval/gold/`.
+Read for the check's [run](accuracy.md): answering, scoring, diagnosing and testing again. `ACC`
+is `python3 "<demo-dir>/scripts/accuracy.py"`, with `<demo-dir>` this skill's directory. `EVAL` is
+`python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<evals-run>"` and `PROJECT` is
+`python3 "<build-dir>/scripts/project.py" --run-dir "<run>"` (without `--run-dir` it refuses every
+query), with `<build-dir>` the `analytics-build` skill directory and `<run>`, `<evals-run>` as
+`ACC load` returns them. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
+`ACC load` writes.
 
 ## Why the score can be trusted
 
@@ -65,12 +69,12 @@ These are plain lines, no table: they become a question's text.
 | Question asks the opposite | The answer is the trusted result's complement (the share rejected where the SQL counts the share approved), and both rank the same. The question's wording, not the context, is wrong |
 
 Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
-the count; name how many. The caller decides what comes next.
+the count; name how many.
 
 ## Diagnose the misses
 
-This skill finds why each miss failed and what would fix it. It never applies a fix: a metric,
-a saved query and the set stay as they are, whoever called it.
+Find why each miss failed and what would fix it. Diagnosing changes nothing: a metric, a saved
+query and the set stay as they are until a fix is chosen.
 
 1. **Each miss.** Read the agent's answer and SQL against the trusted SQL and the set's `note`,
    and name the fix: the metric and the definition fields to change, a question to redraft
@@ -83,7 +87,7 @@ a saved query and the set stay as they are, whoever called it.
    its `description` when that states the old rule. An agent that reads the old rule anywhere in
    the metric still answers with it. A miss on wording is fixed by adding that
    question to `examples`, with the SQL that answers it.
-3. **Write the fixes** with `SCOPE fixes --evals <evals-run> --file <a JSON list>`, which checks
+3. **Write the fixes** with `ACC fixes --evals <evals-run> --file <a JSON list>`, which checks
    them and writes `<evals-run>/fixes.json`, the recommended one first (the one that turns the
    most misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now":
    "<plain words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>",
@@ -95,28 +99,7 @@ a saved query and the set stay as they are, whoever called it.
 
 ## Test again
 
-Called again on an eval folder that already has a score, after the context changed: run `test`
-as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
-question first. When the caller names a metric version to read, tell each answering agent to
+After a fix is applied: run the test on the same eval folder as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
+question first. In Trident, tell each answering agent to
 read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line
-per question that changed, then the check's [result](check.md#4-the-result).
-
-## Publish
-
-Each `EVAL publish` prints the next `step` and its `calls`, each a `{tool, arguments}` pair.
-Send every call in order with that exact name and arguments (in search mode, through
-`mcp__call_write_tool` with the session id beside them). Save the tool results, in call
-order, as one JSON list in `<evals-run>/hillclimb/baseline/publish-<step>.json` with the Write
-tool (never under a temporary folder outside the project), and run
-`EVAL publish-ack --variant baseline --step <step> --responses <that file>`.
-Repeat until `publish` prints `"step": "done"`.
-
-- A failed item comes back under `failed` with the registry's message; the next `publish`
-  resends only those. Fix a named field first; after three failures of one item, stop and report it.
-- A `conflict` on the scorer or dataset means one by that name already lives in the workspace:
-  list that kind with `registry__list_artifacts`, save the listing, and run
-  `publish-ack --reconcile`, so the set reuses it rather than making a second one.
-- A lost result blocks `publish`. For `scorer` and `dataset`, run `publish --resend` and send the
-  same calls: their idempotency keys return what already landed. For `records`, list
-  `dataset_record` in the workspace with `registry__list_artifacts`, save the listing and run
-  `publish-ack --reconcile`. Never resend a batch blindly.
+per question that changed, then the check's [result](accuracy.md#4-the-result).

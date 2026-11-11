@@ -126,7 +126,7 @@ questions the person selects or supplies. End that turn on the answer, closing w
 | Option | Runs |
 | --- | --- |
 | Ask more questions | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
-| Check how accurate it is | Test the context on questions the firm's analysts already asked, through `eval-generation`, as [accuracy](references/accuracy.md) describes |
+| Check how accurate it is | Test the context on questions the firm's analysts already ask, and fix the rule behind a miss, as [accuracy](references/accuracy.md) describes |
 | Design a dashboard, until one is built; then Change a rule and see what happens | Step 6: [the dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
 | Continue building on real data | Load `analytics-build` in this chat. A separate run; the demo's intent, sources and approvals do not carry over |
 | I'm done | Finish with where the context and any dashboard live |

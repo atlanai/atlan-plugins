@@ -3,8 +3,8 @@ name: eval-route-natural
 tags: [analytics, evals, routing]
 execution:
   prompt: |
-    We set up Atlan Analytics in this project last week. How accurate is it? Build a set of test
-    questions from the queries our analysts already run, and tell me how many it gets right.
+    We set up Atlan Analytics in this project last week. Build a set of test questions from the
+    queries our analysts already run, so we can check the agent with them later.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
     Since nothing can run here, say in one short reply what you will do and what I will get back.
   max_turns: 14
@@ -31,10 +31,11 @@ graders:
     focus: last_message
     criteria: |
       PASS if the reply says it will pick questions from the past queries, pair each with the SQL
-      whose result is the right answer, show them and ask once whether to run them, and then test them and
-      report how many were answered correctly.
+      whose result is the right answer, write them as a set in this project, and ask whether to keep
+      it on this machine or save it to Atlan Trident.
       FAIL if it asks the person to write the questions or the SQL by hand, promises to build or
-      change metrics, proposes a train, validation and holdout split, or registers a new agent.
+      change metrics, runs or scores the questions itself, proposes a train, validation and holdout
+      split, or registers a new agent.
   - name: plain-reply
     type: llm
     criteria: |

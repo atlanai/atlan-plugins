@@ -5,19 +5,15 @@ The analytics run already holds what an eval set needs to be about something: it
 (`interaction.json`), the metrics built for it (`context/metrics.json`), and every dashboard
 tile and history shape the engine verified, each linked to the metrics it computes
 (`context/queries.json`, `engine/metric_cards.json`). This script turns that into eval-builder
-input, then picks the set: the focus metric first, then breadth. Standard library only.
+input, picks the set (the focus metric first, then breadth) and writes it. Standard library only.
 
-    python3 scope.py inputs --project <project> [--run <run-dir>] [--evals <evals-run>]
-    python3 scope.py pick --evals <evals-run> [--limit 5] [--focus-count 2]
-    python3 scope.py gold --run <run-dir> --evals <evals-run> --project <project.py>
-    python3 scope.py sets --project <project>
-    python3 scope.py load --project <project> --file <set.jsonl>
+    python3 scope.py inputs --project <project> [--run <run-dir>]
+    python3 scope.py pick --gen <gen-dir> [--limit 5] [--focus-count 2]
+    python3 scope.py emit --gen <gen-dir> --name <set name>
 
-An existing eval set is a JSONL file, one question per line: {"id", "question", "sql"}, plus
-optional "tests" (the metric it checks) and "note" (the rule the SQL encodes). Sets live in
-<project>/.atlan-evals/sets/, where an answering agent that reads one is caught as contaminated.
-
-Every command prints one JSON object. Exit 2 means something the person must supply.
+`emit` writes <project>/.atlan-evals/sets/<name>.jsonl, one question per line: {"id", "question",
+"sql", "tests", "from"}, the same shape as a set a person brings, so whatever runs a set runs
+this one. Every command prints one JSON object. Exit 2 means something the person must supply.
 """
 from __future__ import annotations
 
@@ -26,7 +22,6 @@ import json
 import pathlib
 import re
 import shutil
-import subprocess
 import sys
 
 # Words that say nothing about which metric a use case needs.
@@ -62,34 +57,17 @@ def find_run(project: pathlib.Path) -> pathlib.Path:
     return ready[0]
 
 
-RUNNER = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts" / "project.py"
-
-
-def saved_to(run: pathlib.Path):
-    """The Atlan Trident workspace the run's context was saved to, or None for this machine only."""
-    return ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
-
-
-def evals_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
-    """A fresh eval folder for this run: a scored set never changes, so a repeat check gets -2, -3."""
-    base = project / ".atlan-evals" / run.name
-    n, ev = 1, base
-    while (ev / "hillclimb").exists():
-        n += 1
-        ev = base.with_name(f"{run.name}-{n}")
-    return ev
+def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
+    """Where a set is drafted, beside the run and never inside it: answering agents read the run."""
+    return project / ".atlan-evals" / "gen" / run.name
 
 
 def cmd_inputs(a) -> dict:
     project = pathlib.Path(a.project)
-    existing = cmd_sets(a)["sets"]
-    if existing and not a.generate:
-        # The person may already hold the questions they trust: offer those before generating.
-        return {"status": "choose", "sets": existing,
-                "next": "Ask once which questions to test with: each set, or Generate 5 new questions. "
-                        "Then `load --file <set>`, or `inputs --generate`."}
     run = pathlib.Path(a.run) if a.run else find_run(project)
-    ev = pathlib.Path(a.evals) if a.evals else evals_dir(project, run)
+    ev = gen_dir(project, run)
+    if ev.exists():
+        shutil.rmtree(ev)
     interaction = load(run / "interaction.json", {}) or {}
     intent = interaction.get("intent") or {}
     if not (intent.get("domain") or intent.get("purpose")):
@@ -121,8 +99,6 @@ def cmd_inputs(a) -> dict:
                      "exec": hist.get("n_exec") or (1 if lane == "history" else None),
                      "users": hist.get("n_distinct_users")})
     src = ev / "src"
-    if src.exists():
-        shutil.rmtree(src)
     src.mkdir(parents=True)
     (src / "pool.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     schema = run / "context" / "database-schema.json"
@@ -138,7 +114,7 @@ def cmd_inputs(a) -> dict:
              "related": _related(run, focus_ref), "pool": pool}
     dump(ev / "scope.json", scope)
     dialect = next((r["dialect"] for r in rows if r.get("dialect")), None)
-    return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "use_case": intent, "focus": names.get(focus_ref) or None,
+    return {"status": "ok", "run": str(run), "gen": str(ev), "use_case": intent, "focus": names.get(focus_ref) or None,
             "pool": len(rows), "tiles": sum(1 for p in pool.values() if p["source"] == "tile"),
             "dialect": dialect, "tables": tables, "src": str(src)}
 
@@ -164,7 +140,7 @@ def _related(run: pathlib.Path, focus_ref) -> list:
 
 
 def cmd_pick(a) -> dict:
-    ev = pathlib.Path(a.evals)
+    ev = pathlib.Path(a.gen)
     work = ev / "work"
     scope = load(ev / "scope.json")
     cands = load(work / "candidates.json")
@@ -226,136 +202,26 @@ def cmd_pick(a) -> dict:
             "metrics_covered": len({s["metric"] for s in selection}), "selection": selection}
 
 
-def cmd_sets(a) -> dict:
-    """The eval sets this project already holds, so the person can pick one instead of generating."""
-    found = []
-    for f in sorted((pathlib.Path(a.project) / ".atlan-evals" / "sets").glob("*.jsonl")):
-        rows = [l for l in f.read_text().splitlines() if l.strip()]
-        found.append({"file": str(f), "name": f.stem, "questions": len(rows)})
-    return {"status": "ok", "sets": found}
-
-
-def cmd_load(a) -> dict:
-    """An existing eval set in place of generation: the same files generate leaves, ready to run."""
-    project = pathlib.Path(a.project)
-    run = pathlib.Path(a.run) if a.run else find_run(project)
-    ev = pathlib.Path(a.evals) if a.evals else evals_dir(project, run)
-    src = pathlib.Path(a.file)
-    rows = []
-    for n, line in enumerate(src.read_text().splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            r = json.loads(line)
-        except json.JSONDecodeError:
-            raise Blocked(f"{src.name} line {n} is not JSON.")
-        if not (r.get("question") and r.get("sql")):
-            raise Blocked(f"{src.name} line {n} needs a question and its sql.")
-        rows.append(r)
-    if not rows:
-        raise Blocked(f"{src.name} holds no questions.")
-    records = [{"id": str(r.get("id") or f"q{i}"), "question": r["question"], "question_spec": r.get("note") or "",
-                "golden_sql": r["sql"], "review_status": "approved", "provenance": {"source": f"eval set {src.stem}"},
-                "modes": []} for i, r in enumerate(rows, 1)]
-    work = ev / "work"
-    dump(work / "spec.json", {"name": src.stem, "source_description": f"eval set {src.name}", "records": records})
-    dump(work / "selection.json", [{"id": rec["id"], "metric": r.get("tests") or "", "focus": False,
-                                    "from": f"eval set {src.stem}"} for rec, r in zip(records, rows)])
-    interaction = load(run / "interaction.json", {}) or {}
-    dump(ev / "scope.json", {"use_case": interaction.get("intent") or {}, "set": str(src), "pool": {}})
-    # A set the person brought is already approved, so its trusted answers run now and it is ready to test.
-    gold = cmd_gold(argparse.Namespace(run=str(run), evals=str(ev), runner=getattr(a, "runner", None)))
-    if gold["ran"]:
-        stage(ev)
-    return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run),
-            "set": src.stem, "questions": len(records), "gold_ran": gold["ran"], "gold_failed": gold["failed"]}
-
-
-def stage(ev: pathlib.Path) -> dict:
-    """Set the approved questions up for scoring (EVAL init and import-spec). Nothing is stored
-    anywhere new: the eval folder is where the test reads its cases."""
-    harness = RUNNER.with_name("analytics_eval.py")
-    slug = re.sub(r"[^a-z0-9]+", "-", str((load(ev / "work" / "spec.json") or {}).get("name") or ev.name).lower()).strip("-")
-    for step in (["init", "--slug", slug], ["import-spec", "--spec", str(ev / "work" / "spec.json")]):
-        proc = subprocess.run([sys.executable, str(harness), step[0], "--dir", str(ev), *step[1:]],
-                              capture_output=True, text=True, timeout=120)
-        if proc.returncode:
-            raise Blocked(f"Setting the questions up for scoring failed at {step[0]}: {(proc.stdout or proc.stderr)[-300:]}")
-    return {"staged": True}
-
-
-def cmd_stage(a) -> dict:
-    return {"status": "ok", **stage(pathlib.Path(a.evals))}
-
-
-FIX_KINDS = ("metric", "redraft", "new_metric")
-
-
-def cmd_fixes(a) -> dict:
-    """Check the diagnosed fixes and write them to <evals-run>/fixes.json, recommended first. A
-    caller applies one from there, so its shape is checked here rather than trusted."""
-    ev = pathlib.Path(a.evals)
-    fixes = load(pathlib.Path(a.file))
-    if not isinstance(fixes, list) or not fixes:
-        raise Blocked("Give the fixes as a JSON list, the recommended one first.")
-    cases = {json.loads(l)["case_id"] for l in (ev / "eval" / "cases.jsonl").read_text().splitlines() if l.strip()} \
-        if (ev / "eval" / "cases.jsonl").exists() else set()
-    for n, f in enumerate(fixes, 1):
-        kind = f.setdefault("kind", "metric")
-        if kind not in FIX_KINDS:
-            raise Blocked(f"Fix {n}: kind is one of {', '.join(FIX_KINDS)}.")
-        missing = [m for m in f.get("misses") or [] if cases and m not in cases]
-        if not f.get("misses") or missing:
-            raise Blocked(f"Fix {n} names no miss of this set" + (f": {', '.join(missing)}" if missing else "") + ".")
-        if not f.get("why"):
-            raise Blocked(f"Fix {n} needs why the miss failed.")
-        if kind == "metric":
-            changes = f.get("changes") or []
-            if not (f.get("metric") and f.get("rule_now") and f.get("rule_proposed") and changes):
-                raise Blocked(f"Fix {n} needs metric, rule_now, rule_proposed and changes.")
-            for c in changes:
-                head = str(c.get("path") or "").split(".")[0]
-                if not head or head in ("version", "spec_version") or "value" not in c:
-                    raise Blocked(f"Fix {n}: each change is a definition field, description or display_name, with a value.")
-    dump(ev / "fixes.json", fixes)
-    return {"status": "ok", "fixes": len(fixes), "recommended": fixes[0].get("metric") or fixes[0]["kind"],
-            "file": str(ev / "fixes.json")}
-
-
-def cmd_gold(a) -> dict:
-    """Run each reviewed record's trusted SQL on the run's bound data, through PROJECT execute."""
-    ev = pathlib.Path(a.evals)
-    spec = load(ev / "work" / "spec.json")
+def cmd_emit(a) -> dict:
+    """The picked, drafted questions as a set file beside the project's other sets."""
+    gen = pathlib.Path(a.gen)
+    spec = load(gen / "work" / "spec.json")
+    selection = {s["id"]: s for s in load(gen / "work" / "selection.json", []) or []}
     if not spec:
-        raise Blocked("No reviewed set: run eval-builder `review` first.")
-    gold, req = ev / "eval" / "gold", ev / "eval" / "requests"
-    gold.mkdir(parents=True, exist_ok=True)
-    req.mkdir(parents=True, exist_ok=True)
-    out, failed = [], []
-    for r in spec.get("records") or []:
-        rq = req / f"{r['id']}.json"
-        rq.write_text(json.dumps({"sql": r["golden_sql"], "limit": 1000}))
-        proc = subprocess.run([sys.executable, str(a.runner or RUNNER), "--run-dir", a.run, "execute", str(rq)],
-                              capture_output=True, text=True, timeout=120)
-        try:
-            res = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            res = {"status": "error", "message": (proc.stderr or proc.stdout)[:300]}
-        if res.get("status") != "ok" or not res.get("rows") or res.get("truncated"):
-            why = "no rows" if res.get("status") == "ok" and not res.get("rows") else \
-                "truncated" if res.get("truncated") else res.get("message") or "did not run"
-            failed.append({"id": r["id"], "why": why})
-            continue
-        res["ran_at"] = res.get("ran_at") or _now()
-        dump(gold / f"{r['id']}.json", res)
-        cols = [c.get("name") if isinstance(c, dict) else c for c in res.get("columns") or []]
-        out.append({"id": r["id"], "rows": len(res["rows"]), "columns": cols, "first": res["rows"][0][:4]})
-    return {"status": "ok", "ran": len(out), "failed": failed, "preview": out}
-
-
-def _now() -> str:
-    import datetime
-    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        raise Blocked("No drafted set: run eval-builder `review` first.")
+    rows = [{"id": r["id"], "question": r.get("question"), "sql": r.get("golden_sql"),
+             "tests": (selection.get(r["id"]) or {}).get("metric") or "",
+             "from": (selection.get(r["id"]) or {}).get("from") or ""}
+            for r in spec.get("records") or []
+            if r.get("review_status") != "rejected" and r.get("question") and r.get("golden_sql")]
+    if not rows:
+        raise Blocked("The draft kept no question with its SQL.")
+    name = re.sub(r"[^a-z0-9]+", "-", a.name.lower()).strip("-") or "eval-set"
+    out = gen.parents[1] / "sets" / f"{name}.jsonl"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return {"status": "ok", "set": str(out), "questions": len(rows),
+            "metrics": sorted({r["tests"] for r in rows if r["tests"]})}
 
 
 def main(argv=None) -> int:
@@ -364,35 +230,16 @@ def main(argv=None) -> int:
     c = s.add_parser("inputs", help="eval-builder input and scope.json from the analytics run")
     c.add_argument("--project", required=True, help="the folder holding .atlan-metrics/")
     c.add_argument("--run", help="a run to use instead of the project's one built run")
-    c.add_argument("--evals", help="an eval folder to use instead of a fresh one")
-    c.add_argument("--generate", action="store_true", help="generate even though eval sets exist")
     c.set_defaults(func=cmd_inputs)
     c = s.add_parser("pick", help="the set: the focus metric first, then breadth")
-    c.add_argument("--evals", required=True)
+    c.add_argument("--gen", required=True)
     c.add_argument("--limit", type=int, default=5)
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
-    c = s.add_parser("sets", help="the eval sets this project already holds")
-    c.add_argument("--project", required=True)
-    c.set_defaults(func=cmd_sets)
-    c = s.add_parser("load", help="use an existing eval set instead of generating one")
-    c.add_argument("--project", required=True)
-    c.add_argument("--file", required=True)
-    c.add_argument("--run")
-    c.add_argument("--evals")
-    c.set_defaults(func=cmd_load)
-    c = s.add_parser("fixes", help="check the diagnosed fixes and write fixes.json, recommended first")
-    c.add_argument("--evals", required=True)
-    c.add_argument("--file", required=True, help="a JSON list of fixes")
-    c.set_defaults(func=cmd_fixes)
-    c = s.add_parser("stage", help="set approved questions up for scoring (after EVALGEN review --approve)")
-    c.add_argument("--evals", required=True)
-    c.set_defaults(func=cmd_stage)
-    c = s.add_parser("gold", help="run each reviewed record's trusted SQL on the run's data")
-    c.add_argument("--run", required=True)
-    c.add_argument("--evals", required=True)
-    c.add_argument("--runner", help="another analytics-build scripts/project.py (tests only)")
-    c.set_defaults(func=cmd_gold)
+    c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")
+    c.add_argument("--gen", required=True)
+    c.add_argument("--name", required=True)
+    c.set_defaults(func=cmd_emit)
     a = p.parse_args(argv)
     try:
         print(json.dumps(a.func(a), indent=1))

@@ -1,4 +1,4 @@
-"""eval-generation's scope.py: the use case and metric links decide the set, not run counts alone."""
+"""eval-generation's scope.py decides and writes the set; analytics-demo's accuracy.py runs any set the same way."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCOPE = ROOT / "plugins/atlanai-analytics/skills/eval-generation/scripts/scope.py"
+ACC = ROOT / "plugins/atlanai-analytics/skills/analytics-demo/scripts/accuracy.py"
+sys.path.insert(0, str(ACC.parent))
+import accuracy  # noqa: E402
 
 
 def query(vq: str, lane: str, runs: int | None = None) -> dict:
@@ -48,6 +51,10 @@ class ScopeTest(unittest.TestCase):
         out = subprocess.run([sys.executable, str(SCOPE), *args], capture_output=True, text=True)
         return json.loads(out.stdout)
 
+    def acc(self, *args) -> dict:
+        out = subprocess.run([sys.executable, str(ACC), *args], capture_output=True, text=True)
+        return json.loads(out.stdout)
+
     def test_fixes_are_checked_before_they_are_written(self):
         ev = self.tmp / "ev"
         (ev / "eval").mkdir(parents=True)
@@ -56,22 +63,23 @@ class ScopeTest(unittest.TestCase):
                  "rule_proposed": "closed rows", "changes": [{"path": "source.sql", "value": "x"}]},
                 {"misses": ["q1"], "why": "Question asks the opposite", "kind": "redraft"}]
         (self.tmp / "f.json").write_text(json.dumps(good))
-        out = self.scope("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))
+        out = self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))
         self.assertEqual((out["fixes"], out["recommended"]), (2, "M"))
         for bad in ([{**good[0], "misses": ["q9"]}], [{**good[0], "changes": [{"path": "version", "value": 2}]}],
                     [{**good[0], "rule_now": ""}]):
             (self.tmp / "f.json").write_text(json.dumps(bad))
-            self.assertEqual(self.scope("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "BLOCKED")
+            self.assertEqual(self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "BLOCKED")
 
     def test_inputs_reads_the_use_case_and_links_every_query_to_its_metrics(self) -> None:
-        res = self.scope("inputs", "--project", str(self.tmp), "--evals", str(self.ev))
+        res = self.scope("inputs", "--project", str(self.tmp))
+        self.ev = Path(res["gen"])
         self.assertEqual((res["focus"], res["pool"], res["tiles"]), ("Net Revenue", 6, 1))
         self.assertEqual(res["run"], str(self.run))
         rows = [json.loads(l) for l in (self.ev / "src" / "pool.jsonl").read_text().splitlines()]
         self.assertEqual({r["id"]: r["exec"] for r in rows}["h-head"], 90)
 
     def test_pick_takes_the_focus_metric_first_then_the_metrics_nearest_the_use_case(self) -> None:
-        self.scope("inputs", "--project", str(self.tmp), "--evals", str(self.ev))
+        self.ev = Path(self.scope("inputs", "--project", str(self.tmp))["gen"])
         work = self.ev / "work"
         (work / "prompts").mkdir(parents=True)
         cands = [{"id": f"m{i}", "query_id": vq, "scores": {"x": 0.5}} for i, vq in
@@ -80,7 +88,7 @@ class ScopeTest(unittest.TestCase):
         (work / "answers.json").write_text(json.dumps({c["id"]: {} for c in cands}))
         for c in cands:
             (work / "prompts" / f"{c['id']}.txt").write_text("p")
-        res = self.scope("pick", "--evals", str(self.ev), "--limit", "4")
+        res = self.scope("pick", "--gen", str(self.ev), "--limit", "4")
         picked = [(s["metric"], s["from"]) for s in res["selection"]]
         # Two on the focus metric (its tile, then the most-run query), then breadth by relevance:
         # the refund and region metrics speak to "why revenue fell by region"; headcount, run most, does not.
@@ -91,40 +99,60 @@ class ScopeTest(unittest.TestCase):
 
     def test_a_run_without_a_use_case_is_refused(self) -> None:
         (self.run / "interaction.json").write_text("{}")
-        res = self.scope("inputs", "--project", str(self.tmp), "--evals", str(self.ev))
+        res = self.scope("inputs", "--project", str(self.tmp))
         self.assertEqual(res["status"], "BLOCKED")
 
-    def test_the_project_run_is_found_and_a_scored_set_gets_a_fresh_folder(self) -> None:
-        (self.tmp / ".atlan-metrics" / "run_unbuilt").mkdir()  # location's fresh, empty run
-        first = self.scope("inputs", "--project", str(self.tmp))
-        self.assertEqual(first["evals"], str(self.tmp / ".atlan-evals" / self.run.name))
-        (Path(first["evals"]) / "hillclimb").mkdir()
-        self.assertTrue(self.scope("inputs", "--project", str(self.tmp))["evals"].endswith(self.run.name + "-2"))
+    def test_emit_writes_the_set_in_the_shape_a_brought_set_has(self) -> None:
+        gen = Path(self.scope("inputs", "--project", str(self.tmp))["gen"])
+        (gen / "work").mkdir(parents=True, exist_ok=True)
+        (gen / "work" / "spec.json").write_text(json.dumps({"records": [
+            {"id": "m1", "question": "Total net revenue?", "golden_sql": "SELECT 1", "review_status": "pending"},
+            {"id": "m2", "question": "Refund rate?", "golden_sql": "SELECT 2", "review_status": "rejected"}]}))
+        (gen / "work" / "selection.json").write_text(json.dumps([{"id": "m1", "metric": "Net Revenue", "from": "dashboard tile"}]))
+        res = self.scope("emit", "--gen", str(gen), "--name", "Revenue check")
+        rows = [json.loads(l) for l in Path(res["set"]).read_text().splitlines()]
+        self.assertEqual(Path(res["set"]), self.tmp / ".atlan-evals" / "sets" / "revenue-check.jsonl")
+        self.assertEqual(rows, [{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1",
+                                 "tests": "Net Revenue", "from": "dashboard tile"}])
 
-    def test_an_existing_eval_set_is_listed_and_loaded_as_an_approved_set(self) -> None:
+    def test_start_finds_the_run_and_the_sets_and_a_scored_set_gets_a_fresh_folder(self) -> None:
+        (self.tmp / ".atlan-metrics" / "run_unbuilt").mkdir()  # location's fresh, empty run
+        sets = self.tmp / ".atlan-evals" / "sets"
+        sets.mkdir(parents=True)
+        (sets / "finance.jsonl").write_text('{"question": "Q?", "sql": "SELECT 1"}\n')
+        res = self.acc("start", "--project", str(self.tmp))
+        self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
+                         (str(self.run), None, [("finance", 1)]))
+        first = accuracy.evals_dir(self.tmp, self.run)
+        (first / "hillclimb").mkdir(parents=True)
+        self.assertTrue(str(accuracy.evals_dir(self.tmp, self.run)).endswith(self.run.name + "-2"))
+
+    def test_a_set_loads_as_approved_and_drops_a_question_whose_sql_does_not_run(self) -> None:
         sets = self.tmp / ".atlan-evals" / "sets"
         sets.mkdir(parents=True)
         (sets / "finance.jsonl").write_text(
             '{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1", "tests": "Net Revenue", "note": "booked orders only"}\n'
-            '{"question": "Refund rate?", "sql": "SELECT 2"}\n')
-        chosen = self.scope("inputs", "--project", str(self.tmp))
-        self.assertEqual((chosen["status"], len(chosen["sets"])), ("choose", 1))
-        generated = self.scope("inputs", "--project", str(self.tmp), "--generate")
-        self.assertEqual((generated["status"], generated["context_saved_to"]), ("ok", None))
-        listed = self.scope("sets", "--project", str(self.tmp))
-        self.assertEqual([(s["name"], s["questions"]) for s in listed["sets"]], [("finance", 2)])
-        res = self.scope("load", "--project", str(self.tmp), "--file", str(sets / "finance.jsonl"))
-        self.assertEqual((res["status"], res["questions"]), ("ok", 2))
+            '{"question": "Refund rate?", "sql": "SELECT nope"}\n')
+        staged = []
+        real_gold, real_stage = accuracy.gold, accuracy.stage
+        accuracy.gold = lambda run, ev, recs: {"ran": [{"id": "m1", "rows": 1, "first": [9]}],
+                                               "failed": [{"id": "q2", "why": "did not run"}]}
+        accuracy.stage = lambda ev, slug: staged.append(slug)
+        try:
+            import argparse
+            res = accuracy.cmd_load(argparse.Namespace(project=str(self.tmp), file=str(sets / "finance.jsonl")))
+        finally:
+            accuracy.gold, accuracy.stage = real_gold, real_stage
         ev = Path(res["evals"])
         spec = json.loads((ev / "work" / "spec.json").read_text())
-        self.assertEqual([(r["id"], r["review_status"], r["golden_sql"]) for r in spec["records"]],
-                         [("m1", "approved", "SELECT 1"), ("q2", "approved", "SELECT 2")])
+        self.assertEqual([(r["id"], r["review_status"]) for r in spec["records"]], [("m1", "approved")])
+        self.assertEqual((res["questions"], res["dropped"][0]["id"], staged), (1, "q2", ["finance"]))
         self.assertEqual(json.loads((ev / "work" / "selection.json").read_text())[0]["metric"], "Net Revenue")
 
     def test_a_set_line_without_sql_is_refused(self) -> None:
         bad = self.tmp / "bad.jsonl"
         bad.write_text('{"question": "Total net revenue?"}\n')
-        self.assertEqual(self.scope("load", "--project", str(self.tmp), "--file", str(bad))["status"], "BLOCKED")
+        self.assertEqual(self.acc("load", "--project", str(self.tmp), "--file", str(bad))["status"], "BLOCKED")
 
 
 if __name__ == "__main__":

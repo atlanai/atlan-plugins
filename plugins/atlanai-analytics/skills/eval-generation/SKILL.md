@@ -1,104 +1,83 @@
 ---
 name: eval-generation
-description: "Atlan Analytics: test how accurately a use case's context answers, from 5 questions its dashboard and analysts already ask, diagnosing each miss. Use when asked to check accuracy, build evals or golden questions. Not for metrics (metrics-generation)."
+description: "Atlan Analytics: generate an eval set for a use case, 5 questions its dashboard and analysts already ask with trusted SQL, kept locally or saved to Atlan Trident. Use when asked to build evals or golden questions. Not for metrics."
 ---
 
-# Check accuracy for a use case
+# Generate an eval set for a use case
 
 A capability. An eval set is built for one use case: the agent the context was built for,
-answering what its dashboard and analysts already ask. It picks questions that test the
-metrics that use case needs, runs them against the context, scores each answer, and turns a
-miss into a recommended fix. A person can call it directly, and another skill can call it as a step;
-it behaves the same either way.
+answering what its dashboard and analysts already ask. This skill picks the questions that test
+the metrics that use case needs, drafts each in a person's words beside its trusted SQL, and
+writes the set. It runs no test: answering, scoring and acting on a score belong to whatever
+runs the set. A person can call it directly, and another skill can call it as a step; it behaves
+the same either way.
 
 Read [shared conventions](../analytics-build/references/conventions.md) first: privacy,
-read-only SQL and status reporting apply. Open this skill's files with the Read tool, one call per
-file, never chained in a shell with `echo` separators: zsh reads a word like `=====` as a command.
+read-only SQL and status reporting apply. Open this skill's files with the Read tool, one call
+per file, never chained in a shell with `echo` separators: zsh reads a word like `=====` as a
+command.
 
 ## What this skill owns, and what it hands off
 
 | Step | Owner |
 | --- | --- |
-| Use case, question pool, picking 5, drafting, trusted answers, scoring, the check's moments | this skill |
-| Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Changing a metric, applying a fix | Never this skill: it writes each miss's fix to `fixes.json` and stops. Whoever called it applies one, then calls it again to test |
-| Saving the set, scorer and runs to Atlan Trident | this skill, through `EVAL publish` |
-| Anything a calling flow adds before or after the check | the caller |
+| Use case, question pool, picking 5, drafting, the set file, saving the set | this skill |
+| Running the set, scoring it, acting on a miss | whatever runs the set, never this skill |
 
 Never edit a metric, a saved query or the run's files from here.
 
 Paths. Pass each command as separate argv entries; zsh does not split a string holding one.
 - `<evals-dir>` is this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/eval-generation` in
   Claude Code). `<build-dir>` is `analytics-build` beside it.
-- `<run>` is the analytics run and `<evals-run>` its eval folder, both as `SCOPE inputs` returns
-  them. The eval folder sits beside the run, never inside it: the answering agents read the run
-  and must never see an answer. Never use `PROJECT location` here: it names a new run.
+- `<run>` is the analytics run and `<gen>` the drafting folder, both as `SCOPE inputs` returns
+  them. The drafting folder sits beside the run, never inside it: agents that answer from the
+  run must never see an answer. Never use `PROJECT location` here: it names a new run.
 - `SCOPE` is `python3 "<evals-dir>/scripts/scope.py"`. `EVAL` is
-  `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<evals-run>"`. `PROJECT` is
-  `python3 "<build-dir>/scripts/project.py" --run-dir "<run>"`: without `--run-dir` it refuses
-  every query.
+  `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<gen>"`.
 - `EVALGEN` is `uv run --no-project --with "sqlglot>=30.20,<30.21" env
   PYTHONPATH="<evals-dir>/modules/evals/engine" python -m eval_builder.cli --work
-  "<evals-run>/work"`. Without `uv`, name that one prerequisite and stop.
-
-## Who is calling
-
-- **A person called it** ("how accurate is my agent"): run the
-  [check](references/check.md) on the current folder. Its use case is the one the run recorded;
-  when `SCOPE inputs` is blocked, ask its question once and stop until told.
-- **A flow called it** (it named the run): follow the same check; the caller adds its lines.
-
-Budget: the check, from "Check how accurate it is" to the score, takes 3 to 5 minutes. Keep
-every model step in a subagent and every count in a script.
+  "<gen>/work"`. Without `uv`, name that one prerequisite and stop.
 
 ## `generate`: use case first, metric aware
 
-1. **Scope.** `SCOPE inputs --project <project>` (a `choose` reply means eval sets exist: see
-   the [check](references/check.md); add `--generate` once generating is chosen). It finds the built run, opens a fresh eval
+1. **Scope.** `SCOPE inputs --project <project>`. It finds the built run, opens the drafting
    folder, reads the use case and focus metric, and writes the pool: every dashboard tile and
-   analyst query the metrics engine verified, each linked to the metrics it computes. Use the
-   `run` and `evals` it returns. A blocked reply names what to ask.
+   analyst query the metrics engine verified, each linked to the metrics it computes. A blocked
+   reply names what to ask: ask it once and stop until told.
 2. **Gate and score.** `EVALGEN init --local`, then
-   `EVALGEN build --from-files "<evals-run>/src" --dialect <its dialect> --limit 100`. It drops
-   a query pinned to one record and withholds personal data. Do not reopen its JSON.
-3. **Pick 5.** `SCOPE pick --evals <evals-run>`: two questions on the focus metric, then one
-   each on the metrics nearest the use case. It keeps only those prompts.
+   `EVALGEN build --from-files "<gen>/src" --dialect <its dialect> --limit 100`. It drops a query
+   pinned to one record and withholds personal data. Do not reopen its JSON.
+3. **Pick 5.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
+   the metrics nearest the use case. It keeps only those prompts.
 4. **Draft, in a subagent.** Give one subagent the paths of `work/prompts/` and
    `work/answers.json` and this instruction: follow each prompt and fill its key in
    `answers.json` with the JSON it asks for, and ask for what the SQL measures, in its direction:
    SQL that returns a share approved gets a question about the share approved, never one about
-   the share rejected. Then reply
-   `done`. It never sees the run.
-5. **Check and run.** `EVALGEN review --name <slug>`, then
-   `SCOPE gold --run <run> --evals <evals-run>`. A question whose trusted
-   SQL fails or returns nothing leaves the set; say how many.
+   the share rejected. Then reply `done`. It never sees the run.
+5. **Write the set.** `EVALGEN review --name <slug>`, then `SCOPE emit --gen <gen> --name <slug>`.
+   It writes `<project>/.atlan-evals/sets/<slug>.jsonl`, one question per line: `{"id",
+   "question", "sql", "tests", "from"}`, the same shape as a set a person brings.
 
-Show the set with `work/selection.json`: the question, **the metric it tests**, where it came
-from, and the expected answer in one short value. The person's decision to run it is the
-approval: `EVALGEN review --approve all` only after it, never on your own.
+Budget: about 2 minutes. Keep every model step in a subagent and every count in a script.
 
-## `load`: an eval set the person already has
+## `save`: on this machine, or to Atlan Trident
 
-`SCOPE sets --project <project>` lists the sets in `<project>/.atlan-evals/sets/`, each a JSONL
-of `{"id", "question", "sql"}` plus optional `"tests"` (the metric) and `"note"` (the rule the SQL
-encodes). `SCOPE load --project <project> --file <set>` puts one where `generate` would, approved
-because the person brought it, runs its trusted SQL (`gold_failed` names any that did not run)
-and sets it up for scoring. It is then ready to `test`. A set already lives in the project:
-there is nothing to save on this machine.
+The set is already on this machine once written. Ask one question, "Where should the set
+live?":
 
-## `save`: to Atlan Trident
+| Option | Description |
+| --- | --- |
+| Keep on this machine (Recommended) | It stays in this folder, ready to run. |
+| Save to Atlan Trident | Your team can find and rerun it. Questions and a digest of each SQL, never the SQL. |
 
-Only when the person chooses it, in the workspace the context was saved to. Loop
-  `EVAL publish --variant baseline --dataset-only --workspace <that workspace id>` and
-  `EVAL publish-ack`, as [Publish](references/test.md#publish) describes: the `result-match`
-  scorer and the dataset with `registry__create_artifact`, one record per question in one
-  `registry__create_artifacts` call, read back with `registry__list_artifacts`. Trident holds
-  each question and a digest of its SQL, never the SQL.
+On Save to Atlan Trident: `EVALGEN review --approve all`, `EVAL init --slug <slug>`,
+`EVAL import-spec --spec "<gen>/work/spec.json"`, then loop
+`EVAL publish --variant baseline --dataset-only --workspace <id>` and `EVAL publish-ack` as
+[publish](references/publish.md) describes, in the workspace the context was saved to, else the
+person's personal workspace (`registry__list_workspaces`, `personal_workspace_id`).
 
 ## What comes back
 
-Counts first: questions kept and dropped, the metrics covered, where the set lives. For `test`,
-the score with its range and each miss with the metric involved and why it failed. Never call a
-question checked when its SQL did not run.
-
-Reply as [conventions](../analytics-build/references/conventions.md) describes.
+A result, as [conventions](../analytics-build/references/conventions.md) describes: how many
+questions the set holds, the metrics it covers, where each came from, and where the set lives.
+Each question in a plain line with the metric it tests.
