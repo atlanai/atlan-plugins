@@ -46,9 +46,8 @@ Inspect the selected Git checkout, or the current one if none was named:
 - the Git root, the `origin` remote, and the default branch;
 - `.registry/manifest.yml`, if any: its `registries`, `exports`, `publish.to`,
   and every other key, which you must preserve;
-- the older setup, if any: `.atlan/package.json`, and workflows that use
-  `atlanai/agent-registry-action`, often `atlan-preflight.yml` on
-  `pull_request_target` and `atlan-publish.yml`;
+- the older setup, if any: `.atlan/package.json`, and the earlier Atlan
+  registry workflows, `atlan-preflight.yml` and `atlan-publish.yml`;
 - workflows that already use `atlanai/ai-registry-action`;
 - **skills:** directories with a case-sensitive `SKILL.md` at their root, in
   `skills/`, `.claude/skills/`, `.agents/skills/`, `.codex/skills/`, and

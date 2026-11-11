@@ -12,6 +12,10 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
+# Local credentials, such as the Power BI extractor's .env (env.template is the tracked example).
+.env
+.env.*
+
 # Private Analytics runs, source captures and isolated runtimes.
 .atlan-metrics/
 .atlan-analytics/

@@ -49,6 +49,9 @@ unconfirmed. There is no service code and no stored credential here; sign-in is 
 - **Hooks fail open to the unchanged call, never to a wider one.** On any fault the call passes
   through as sent, and the server refuses an unexpanded `files_from` by name: `main` in
   `publish_hook.py` exits 0 with no output, and each handler in `register.ts` ends in `.catch`.
+- **Hook commands never fall back to the current folder.** They run the script from their
+  plugin root and nothing when it is unset; never `${ROOT:-.}`, and never `${ROOT:?}`, whose exit 2
+  makes Cursor block every call (`CURSOR_ENTRIES` in `tools/lint.py`).
 - **Destructive registry calls always ask.** Archive, approve, move, release and roll-back confirm with the blast
   radius, and are refused where nobody can answer: `ALWAYS_CONFIRM` in
   `plugins/atlanai-mods/hooks/registry.ts` and `NO_APPROVER` in `hooks/register.tsx`.

@@ -1016,6 +1016,19 @@ class PublishHookTest(unittest.TestCase):
                     self.assertIsNone(answer)
         self.assertIsNone(self.run_hook("mcp-guard", "codex", create))
 
+    def test_cursor_hooks_run_no_project_script_without_their_plugin_root(self) -> None:
+        hooks = json.loads((CORE / "command-hooks" / "cursor.json").read_text(encoding="utf-8"))["hooks"]
+        commands = [handler["command"] for groups in hooks.values() for handler in groups]
+        env = {k: v for k, v in os.environ.items() if k != "CURSOR_PLUGIN_ROOT"}
+        with tempfile.TemporaryDirectory() as tmp:
+            project_copy = Path(tmp) / "command-hooks" / "publish_hook.py"
+            project_copy.parent.mkdir()
+            project_copy.write_text("open('ran', 'w').close()\n", encoding="utf-8")
+            for command in commands:
+                done = subprocess.run(["/bin/sh", "-c", command], cwd=tmp, env=env, capture_output=True)
+                self.assertFalse((Path(tmp) / "ran").exists(), command)
+                self.assertNotEqual(done.returncode, 2, "exit 2 would make Cursor block the call")
+
     def test_inline_files_and_folders_share_one_budget(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
@@ -1064,7 +1077,7 @@ class CodexDirectoryTest(unittest.TestCase):
         self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
         self.assertEqual(json.loads(files["mcp.json"]), build.outputs(source)["plugins/atlanai/mcp.json"])
         tops = {path.split("/")[0] for path in files}
-        self.assertEqual(tops, {"plugin.json", "mcp.json", "skills", "assets", "LICENSE"})
+        self.assertEqual(tops, {"plugin.json", "mcp.json", "skills", "assets", "LICENSE", "NOTICE"})
         self.assertFalse([path for path in files if "hooks" in path.split("/")[0] or path.endswith(".pyc")])
 
     def test_the_zip_is_the_same_for_the_same_source_and_has_the_manifest_at_its_root(self) -> None:

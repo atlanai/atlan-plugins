@@ -162,9 +162,8 @@ What each part does, so you can keep it when adapting an existing workflow:
 
 ## Migrate from the older setup
 
-A repository on the older setup has `.atlan/package.json`, an
-`atlan-preflight.yml` workflow on `pull_request_target`, and an
-`atlan-publish.yml` workflow, both using `atlanai/agent-registry-action`.
+A repository on the older setup has `.atlan/package.json` and the earlier
+Atlan registry workflows, `atlan-preflight.yml` and `atlan-publish.yml`.
 
 | Older setup | New setup |
 | --- | --- |
