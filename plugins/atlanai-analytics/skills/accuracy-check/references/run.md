@@ -52,10 +52,11 @@ query), with `<build-dir>` the `analytics-build` skill directory and `<run>`, `<
 ## Show the score
 
 Lead with the summary's `score_line`, word for word ("2 of 3 answered correctly (likely between
-21% and 94%; a small sample)"). Never count the passes yourself. Only when the set was generated
-(its questions came from the past queries and tiles the context was built from), say so in one
-line: the score shows the context reproduces what the analysts asked, not how it handles a new
-question. A set the person brought gets no such line.
+21% and 94%; a small sample)"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
+line: the questions came from the past queries and tiles the context was built from, so the score
+shows the context reproduces what the analysts asked, not how it handles a new question. With
+`generated: false` (a set the person brought) there is no such line, and never say where its
+questions came from.
 
 Then one line per miss: the question, the metric it tests, the expected value, the agent's
 value, and **why it failed**, read from the agent's answer and SQL against the trusted SQL.

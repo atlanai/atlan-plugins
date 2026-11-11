@@ -153,7 +153,10 @@ def cmd_load(a) -> dict:
                                            "expected": next(g["first"] for g in ran["ran"] if g["id"] == rec["id"])}
                                           for rec in records])
     stage(ev, re.sub(r"[^a-z0-9]+", "-", src.stem.lower()).strip("-") or "eval-set")
+    # eval-generation writes where each question came from; a set the person brought does not say.
+    generated = all(r.get("from") for r in rows)
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "set": src.stem,
+            "generated": generated,
             "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json")}
 
 

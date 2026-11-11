@@ -159,7 +159,7 @@ class ScopeTest(unittest.TestCase):
         ev = Path(res["evals"])
         spec = json.loads((ev / "work" / "spec.json").read_text())
         self.assertEqual([(r["id"], r["review_status"]) for r in spec["records"]], [("m1", "approved")])
-        self.assertEqual((res["questions"], res["dropped"][0]["id"], staged), (1, "q2", ["finance"]))
+        self.assertEqual((res["questions"], res["dropped"][0]["id"], staged, res["generated"]), (1, "q2", ["finance"], False))
         self.assertEqual(json.loads((ev / "work" / "selection.json").read_text())[0]["metric"], "Net Revenue")
 
     def test_a_set_line_without_sql_is_refused(self) -> None:

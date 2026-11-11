@@ -148,7 +148,7 @@ which asks where it should live. With the context on this machine, ask nothing: 
 the project.
 
 End with the closing line, a result: reply text with the score's range as its only caveat (plus
-the source caveat for a generated set; no significance test, no open questions), then the
+the source line only when `CHECK load` returned `generated: true`; no significance test, no open questions), then the
 demo's own `Next:` line from [ready](../../analytics-build/references/setup/ready.md). Nothing
 else comes after it: no offer to change a saved query, another metric or the set, and no note
 about saved queries or past queries that still follow the old rule.
