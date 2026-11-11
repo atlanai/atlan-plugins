@@ -1,6 +1,6 @@
 interface:
   display_name: "Eval Generation"
-  short_description: "Build an eval set from past queries and test accuracy"
+  short_description: "Build an eval set from the questions analysts already ask"
   default_prompt: "Use $eval-generation to build an eval set from the questions our analysts ask."
 dependencies:
   tools:

@@ -1259,6 +1259,23 @@
    "measured": null
   },
   {
+   "id": "analytics-accuracy-run",
+   "plugin": "atlanai-analytics",
+   "skill": "accuracy-check",
+   "title": "Run an eval set against the context and score it",
+   "route": "Find the run, load the set and its trusted answers, a fresh agent per question, score by script",
+   "calls": null,
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null,
+   "includes": [
+    "analytics-ask-governed"
+   ]
+  },
+  {
    "id": "analytics-demo-save",
    "plugin": "atlanai-analytics",
    "skill": "analytics-demo",

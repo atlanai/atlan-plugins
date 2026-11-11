@@ -1,12 +1,12 @@
-# Run the accuracy check
+# Run and score a set
 
-Read for the check's [run](accuracy.md): answering, scoring, diagnosing and testing again. `ACC`
-is `python3 "<demo-dir>/scripts/accuracy.py"`, with `<demo-dir>` this skill's directory. `EVAL` is
+Read when running a set, showing its score and testing again. `CHECK` is
+`python3 "<check-dir>/scripts/check.py"`, with `<check-dir>` this skill's directory. `EVAL` is
 `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<evals-run>"` and `PROJECT` is
 `python3 "<build-dir>/scripts/project.py" --run-dir "<run>"` (without `--run-dir` it refuses every
 query), with `<build-dir>` the `analytics-build` skill directory and `<run>`, `<evals-run>` as
-`ACC load` returns them. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
-`ACC load` writes.
+`CHECK load` returns them. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
+`CHECK load` writes.
 
 ## Why the score can be trusted
 
@@ -72,39 +72,10 @@ These are plain lines, no table: they become a question's text.
 Report the miss as the set states it, without doubting the set. Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
 the count; name how many.
 
-## Diagnose the misses
-
-Find why each miss failed and what would fix it. Diagnosing changes nothing: a metric, a saved
-query and the set stay as they are until a fix is chosen.
-
-1. **Each miss.** The set is the source of truth for the rule: a miss is fixed in the context,
-   even when the dashboard or other queries follow the old rule. Never weigh the set against the
-   context's sources, question who wrote it, offer changing the test, or say that it cannot be
-   changed; the one exception is *question asks the opposite*, where the wording, not the rule,
-   is wrong. Read the agent's answer and SQL against the trusted SQL and the set's `note`,
-   and name the fix: the metric and the definition fields to change, a question to redraft
-   (*question asks the opposite*: the set is wrong, not the context), or a metric to add (*no
-   definition*).
-2. **A complete change.** Each change names a definition field (`source.sql`,
-   `mandatory_filters`, `population`, `exclusions`, `examples` and so on) or the metric's own
-   `description`. A rule change covers every place the metric states the rule: its source SQL
-   and filters, its population and exclusions, each example whose SQL holds the old rule, **and**
-   its `description` when that states the old rule. An agent that reads the old rule anywhere in
-   the metric still answers with it. A miss on wording is fixed by adding that
-   question to `examples`, with the SQL that answers it.
-3. **Write the fixes** with `ACC fixes --evals <evals-run> --file <a JSON list>`, which checks
-   them and writes `<evals-run>/fixes.json`, the recommended one first (the one that turns the
-   most misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now":
-   "<plain words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>",
-   "value": <new value>}]}]`. A question redraft (`"kind": "redraft"`) or a new metric
-   (`"kind": "new_metric"`) has no `changes`.
-4. **Show the fixes as a result**: reply text that ends the turn. One line per miss: the
-   question, why it failed, and the fix (rule now, rule proposed), the recommended one first.
-   Close with a plain `Next:` line naming the recommended fix and keeping the score, then stop.
-
 ## Test again
 
-After a fix is applied: run the test on the same eval folder as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
-question first. In Trident, tell each answering agent to
-read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line
-per question that changed, then the check's [result](accuracy.md#5-the-result).
+Called again on an eval folder that already has a score, after the context changed: run the test
+on the same eval folder as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
+question first. When the caller names a metric version, tell each
+answering agent to read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line
+per question that changed, with the new score line.

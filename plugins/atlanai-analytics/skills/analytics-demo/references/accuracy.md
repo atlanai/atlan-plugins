@@ -2,11 +2,13 @@
 
 Read when the person picks **Check how accurate it is**, or asks how accurate the agent built in
 this folder is. The demo has built the context; this shows how often it gets an answer right, on
-questions the firm's analysts already ask, and fixes the rule behind a miss. The demo runs the
-whole check; [eval-generation](../../eval-generation/SKILL.md) is called only to generate or save a set.
-How a run, a score and a diagnosis work is in [run the accuracy check](accuracy-run.md).
-`<agent>` and `<firm>` come from the demo's facts file; `ACC`, `EVAL` and `PROJECT` are as that
-file names them.
+questions the firm's analysts already ask, and fixes the rule behind a miss. The demo orchestrates
+the check and owns acting on its result. It calls [eval-generation](../../eval-generation/SKILL.md)
+to generate or save a set and [accuracy-check](../../accuracy-check/SKILL.md) to find the run, load
+a set, run it, score it and test again. `<agent>` and `<firm>` come from the demo's facts file;
+`CHECK`, `EVAL` and `PROJECT` are as accuracy-check's [run and score a set](../../accuracy-check/references/run.md)
+names them, and `ACC` is `python3 "<demo-dir>/scripts/accuracy.py"`, with `<demo-dir>` this skill's
+directory.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
 are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**.
@@ -26,12 +28,12 @@ Doing and Why lines first; a result is reply text that ends the turn with a plai
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only the
 save in step 5 reads a workspace.
-`context_saved_to` (from `ACC start` and `ACC load`) says where the context lives; `null` means
+`context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
 this machine only.
 
 ## 1. Choose the questions
 
-`ACC start --project <project>` returns the built run, `context_saved_to` and the project's
+`CHECK start --project <project>` returns the built run, `context_saved_to` and the project's
 `sets`. With no sets, or the person asking for new questions, generate. Otherwise, unless the
 request named a set, ask one native question, "Which questions should I test with?":
 
@@ -40,18 +42,18 @@ request named a set, ask one native question, "Which questions should I test wit
 | `<set name>` (`<N>` questions) | The eval set you already have, one option per set. |
 | Generate 5 new questions | From your dashboard and the queries your analysts run most. |
 
-- **A set:** picking it is the approval to run it. `ACC load --project <project> --file <set>`,
+- **A set:** picking it is the approval to run it. `CHECK load --project <project> --file <set>`,
   then step 3, with no list to confirm.
-- **Generate:** run `eval-generation` `generate` (not its `save`), then `ACC load` on the set it
+- **Generate:** run `eval-generation` `generate` (not its `save`), then `CHECK load` on the set it
   wrote, then step 2.
 
-`ACC load` drops a question whose trusted SQL fails or returns nothing; name how many.
+`CHECK load` drops a question whose trusted SQL fails or returns nothing; name how many.
 
 ## 2. Generated questions: show them, then ask to run them
 
 The person has not seen these, so show them before running. Ask one native question whose text
 is this block, as plain lines: each question from `<evals-run>/work/spec.json`, its metric, source
-and expected answer from `<evals-run>/work/selection.json`, and the use case from `ACC start`:
+and expected answer from `<evals-run>/work/selection.json`, and the use case from `CHECK start`:
 
 ```
 <N> questions to test your <agent>. They test the metrics it needs to answer
@@ -75,9 +77,9 @@ There is no edit option.
 
 ## 3. Run and score
 
-Run the set as [run it](accuracy-run.md#run-it) describes. With every question right, go to
+Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes. With every question right, go to
 step 5. With misses, ask one native question, "Does the score look good?", whose text is the
-score and the misses as [show the score](accuracy-run.md#show-the-score) describes, as plain lines:
+score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
 
 | Option | Description |
 | --- | --- |
@@ -88,10 +90,32 @@ Name no fix in the question's text: the fixes come from the diagnosis.
 
 ## 4. Improve it: find the fix, apply it, test again
 
-[Diagnose the misses](accuracy-run.md#diagnose-the-misses). The fixes are a result whose `Next:`
-line names the recommended fix. The person's reply is the choice: applying it (or naming another
-fix) is the yes through the next score, so ask nothing more until the person must act in Metric
-Studio. Keeping the score goes to step 5.
+**Find what to fix.** The set is the source of truth for the rule: a miss is fixed in the context,
+even when the dashboard or other queries follow the old rule. Never weigh the set against the
+context's sources, question who wrote it, offer changing the test, or say that it cannot be
+changed; the one exception is *question asks the opposite*, where the wording, not the rule, is
+wrong. For each miss, from accuracy-check's why it failed and the set's `note`, name the fix:
+
+- **The change.** Each change names a definition field (`source.sql`, `mandatory_filters`,
+  `population`, `exclusions`, `examples` and so on) or the metric's own `description`. A rule
+  change covers every place the metric states the rule: its source SQL and filters, its
+  population and exclusions, each example whose SQL holds the old rule, **and** its
+  `description` when that states the old rule. A miss on wording is fixed by adding that
+  question to `examples`, with the SQL that answers it. A question that asks the opposite is a
+  redraft; a miss with no definition is a new metric.
+- **Write the fixes** with `ACC fixes --evals <evals-run> --file <a JSON list>`, which checks them
+  and writes `<evals-run>/fixes.json`, the recommended one first (the one that turns the most
+  misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now": "<plain
+  words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>", "value":
+  <new value>}]}]`. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has
+  no `changes`.
+- **Show the fixes as a result**: reply text that ends the turn. One line per miss: the question,
+  why it failed, and the fix (rule now, rule proposed), the recommended one first. Close with a
+  plain `Next:` line naming the recommended fix and keeping the score, then stop.
+
+**Apply it.** The person's reply is the choice: applying it (or naming another fix) is the yes
+through the next score, so ask nothing more until the person must act in Metric Studio. Keeping
+the score goes to step 5.
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to a
   file in the run and run `PROJECT edit-metric <file>`. It keeps the old version beside the run (never where answering agents read), raises the
@@ -111,7 +135,8 @@ Studio. Keeping the score goes to step 5.
   | Approved, test again | I test the approved version on the same questions before anyone reads it. |
   | Not now | The proposal waits in Metric Studio; the context stays as it is. |
 
-Then [test again](accuracy-run.md#test-again), naming the approved `version_ordinal` in Trident.
+Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the same eval folder, naming the
+approved `version_ordinal` in Trident.
 In Trident, release that version to `latest` with `registry__release_artifact` only when
 `EVAL compare` shows the missed question fixed and `flipped_down` empty, and say so; otherwise
 leave it unreleased and say which question changed. Then step 5.

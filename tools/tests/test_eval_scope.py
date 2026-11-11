@@ -1,4 +1,4 @@
-"""eval-generation's scope.py decides and writes the set; analytics-demo's accuracy.py runs any set the same way."""
+"""eval-generation's scope.py decides and writes the set; accuracy-check's check.py runs any set the same way."""
 
 from __future__ import annotations
 
@@ -11,9 +11,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCOPE = ROOT / "plugins/atlanai-analytics/skills/eval-generation/scripts/scope.py"
+CHECK = ROOT / "plugins/atlanai-analytics/skills/accuracy-check/scripts/check.py"
 ACC = ROOT / "plugins/atlanai-analytics/skills/analytics-demo/scripts/accuracy.py"
-sys.path.insert(0, str(ACC.parent))
-import accuracy  # noqa: E402
+sys.path.insert(0, str(CHECK.parent))
+import check  # noqa: E402
 
 
 def query(vq: str, lane: str, runs: int | None = None) -> dict:
@@ -53,6 +54,10 @@ class ScopeTest(unittest.TestCase):
 
     def acc(self, *args) -> dict:
         out = subprocess.run([sys.executable, str(ACC), *args], capture_output=True, text=True)
+        return json.loads(out.stdout)
+
+    def check(self, *args) -> dict:
+        out = subprocess.run([sys.executable, str(CHECK), *args], capture_output=True, text=True)
         return json.loads(out.stdout)
 
     def test_fixes_are_checked_before_they_are_written(self):
@@ -128,12 +133,12 @@ class ScopeTest(unittest.TestCase):
         sets = self.tmp / ".atlan-evals" / "sets"
         sets.mkdir(parents=True)
         (sets / "finance.jsonl").write_text('{"question": "Q?", "sql": "SELECT 1"}\n')
-        res = self.acc("start", "--project", str(self.tmp))
+        res = self.check("start", "--project", str(self.tmp))
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
-        first = accuracy.evals_dir(self.tmp, self.run)
+        first = check.evals_dir(self.tmp, self.run)
         (first / "hillclimb").mkdir(parents=True)
-        self.assertTrue(str(accuracy.evals_dir(self.tmp, self.run)).endswith(self.run.name + "-2"))
+        self.assertTrue(str(check.evals_dir(self.tmp, self.run)).endswith(self.run.name + "-2"))
 
     def test_a_set_loads_as_approved_and_drops_a_question_whose_sql_does_not_run(self) -> None:
         sets = self.tmp / ".atlan-evals" / "sets"
@@ -142,15 +147,15 @@ class ScopeTest(unittest.TestCase):
             '{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1", "tests": "Net Revenue", "note": "booked orders only"}\n'
             '{"question": "Refund rate?", "sql": "SELECT nope"}\n')
         staged = []
-        real_gold, real_stage = accuracy.gold, accuracy.stage
-        accuracy.gold = lambda run, ev, recs: {"ran": [{"id": "m1", "rows": 1, "first": [9]}],
+        real_gold, real_stage = check.gold, check.stage
+        check.gold = lambda run, ev, recs: {"ran": [{"id": "m1", "rows": 1, "first": [9]}],
                                                "failed": [{"id": "q2", "why": "did not run"}]}
-        accuracy.stage = lambda ev, slug: staged.append(slug)
+        check.stage = lambda ev, slug: staged.append(slug)
         try:
             import argparse
-            res = accuracy.cmd_load(argparse.Namespace(project=str(self.tmp), file=str(sets / "finance.jsonl")))
+            res = check.cmd_load(argparse.Namespace(project=str(self.tmp), file=str(sets / "finance.jsonl")))
         finally:
-            accuracy.gold, accuracy.stage = real_gold, real_stage
+            check.gold, check.stage = real_gold, real_stage
         ev = Path(res["evals"])
         spec = json.loads((ev / "work" / "spec.json").read_text())
         self.assertEqual([(r["id"], r["review_status"]) for r in spec["records"]], [("m1", "approved")])
@@ -160,7 +165,7 @@ class ScopeTest(unittest.TestCase):
     def test_a_set_line_without_sql_is_refused(self) -> None:
         bad = self.tmp / "bad.jsonl"
         bad.write_text('{"question": "Total net revenue?"}\n')
-        self.assertEqual(self.acc("load", "--project", str(self.tmp), "--file", str(bad))["status"], "BLOCKED")
+        self.assertEqual(self.check("load", "--project", str(self.tmp), "--file", str(bad))["status"], "BLOCKED")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+interface:
+  display_name: "Accuracy Check"
+  short_description: "Run an eval set against the context and score it"
+  default_prompt: "Use $accuracy-check to score our analytics context on the eval set in this project."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "atlan"
+      description: "Atlan's MCP server, signed in with OAuth"
+      transport: "streamable_http"
+      url: "https://api.atlan.com/mcp"
