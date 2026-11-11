@@ -56,6 +56,20 @@ def engine_table(binding, name):
         return '.'.join([parts[-2]] + parts[-2:])
     return name if len(parts) == 3 else '.'.join([Path(binding['path']).stem] + parts[-2:])
 
+# Sources the survey recognises as a model or report it does not parse into pages itself.
+MODEL_KINDS = ('powerbi_project', 'model_candidate', 'tableau', 'dashboard_html')
+
+
+def model_scope(measures):
+    """The measure selection of a model-only source: `['all']`, or the exact measure names."""
+    if measures in (None, [], ['all']):
+        return {'kind': 'model', 'measures': ['all'], 'selected': [], 'held': []}
+    if not isinstance(measures, list) or any(not isinstance(m, str) or not m.strip() for m in measures):
+        raise ProjectError('List the measures to scope by name, or pass ["all"].')
+    return {'kind': 'model', 'measures': sorted(set(m.strip() for m in measures)),
+            'selected': sorted(set(m.strip() for m in measures)), 'held': []}
+
+
 class ProjectError(ValueError):
     pass
 
@@ -207,20 +221,31 @@ class Project(ContextState):
                 'context_changed': changed, 'run_dir': str(self.root), 'remote_writes': False}
 
     def scope(self, request):
+        """Record a page scope (parsed Power BI report) or a measure scope (any other model)."""
         state = self.current()
         source = next((s for s in state['sources'] if s['source_id'] == request.get('source_id')), None)
-        if not source or source['kind'] != 'powerbi':
-            raise ProjectError('Select a parsed Power BI source from the inventory; other readers retain explicit scope in authoring evidence.')
+        if not source:
+            raise ProjectError('Select a source from the survey inventory by its source_id.')
         if file_hash(safe_path(Path(state['source_root']) / source['path'], state['source_root'])) != source.get('sha256'):
             raise ProjectError('A source changed. Survey it again before selecting pages.')
-        inventory = self.read(self.context / (source['source_id'] + '.json'))
-        result = page_scope.select(inventory, request.get('pages'))
+        if source['kind'] == 'powerbi':
+            inventory = self.read(self.context / (source['source_id'] + '.json'))
+            result = page_scope.select(inventory, request.get('pages'))
+        elif source['kind'] in MODEL_KINDS:
+            # A MODEL WITHOUT A PARSED PAGE INVENTORY (TMDL, BIM, PBIP, a semantic model, a
+            # Tableau file) has no pages to pick here; its scope is the measures the person
+            # chose, read later by the engine's own reader. Record them so history mining and
+            # resume both see the same bound.
+            result = model_scope(request.get('measures'))
+        else:
+            raise ProjectError('This source holds no model or report to scope. Scope a model, report or BI export from the inventory.')
         tables = request.get('history_tables', [])
         if not isinstance(tables, list) or any(not isinstance(t, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*){1,2}', t) for t in tables):
             raise ProjectError('Supply evidenced, qualified physical table names for history scope.')
         scope = {'source_id': source['source_id'], 'source_hash': source['sha256'],
                  'selection': result, 'history_tables': tables,
-                 'narrowed': request.get('pages') not in (None, [], ['all'])}
+                 'narrowed': (request.get('pages') if source['kind'] == 'powerbi'
+                              else request.get('measures')) not in (None, [], ['all'])}
         scopes = state.get('scopes', {})
         if not scopes and state.get('scope'):
             scopes[state['scope']['source_id']] = state['scope']

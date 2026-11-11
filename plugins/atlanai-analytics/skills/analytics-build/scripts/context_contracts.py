@@ -133,6 +133,15 @@ def cmd_querylog(a) -> dict:
         for r in read_jsonl(dst):
             groups[r["sql"]] = {"exec": int(r.get("exec") or 0), "users": int(r.get("users") or 0), "seen": set()}
     read = skipped = 0
+    # STATEMENTS LEFT OUT FOR SIZE ARE COUNTED, NEVER SILENTLY DROPPED. Generated SQL (a BI
+    # tool's compiled query, a dbt model) can run to megabytes; a size bound keeps the pull
+    # readable, and the coverage file says how much of the history it left out.
+    limit_chars = int(getattr(a, "max_statement_chars", 0) or 0)
+    cov_path = dst.with_name(dst.name + ".coverage.json")
+    coverage = (json.loads(cov_path.read_text()) if a.append and cov_path.exists() else
+                {"max_statement_chars": limit_chars, "over_size_statements": 0,
+                 "over_size_runs": 0})
+    over_size: set = set()
     for src in a.src:
         rows = read_querylog_source(pathlib.Path(src))
         if not rows:
@@ -145,6 +154,12 @@ def cmd_querylog(a) -> dict:
             kind = str(_pick(row, _TYPE_COLS) or "select").lower()
             if not isinstance(sql, str) or status not in _OK_STATUS or kind != "select":
                 skipped += 1
+                continue
+            if limit_chars and len(sql) > limit_chars:
+                if sql not in over_size:
+                    over_size.add(sql)
+                    coverage["over_size_statements"] += 1
+                coverage["over_size_runs"] += int(_pick(row, _EXEC_COLS) or 1)
                 continue
             g = groups.setdefault(sql, {"exec": 0, "users": 0, "seen": set()})
             g["exec"] += int(_pick(row, _EXEC_COLS) or 1)
@@ -160,8 +175,18 @@ def cmd_querylog(a) -> dict:
     with dst.open("w") as f:
         for sql, g in ranked:
             f.write(json.dumps({"sql": sql, "exec": g["exec"], "users": g["users"]}) + "\n")
+    left_out = getattr(a, "left_out_at_source", None)
+    if left_out:
+        # Statements a bounded pull never fetched (a `length()` bound in its WHERE) are
+        # coverage too: record them once, beside those this intake left out itself.
+        coverage["over_size_statements"] += int(left_out[0])
+        coverage["over_size_runs"] += int(left_out[1])
+    coverage["max_statement_chars"] = limit_chars or coverage.get("max_statement_chars")
+    cov_path.write_text(json.dumps(coverage, indent=1))
     return {"status": "ok", "rows_read": read, "skipped": skipped, "statements": len(ranked),
-            "dropped_over_limit": max(0, len(groups) - len(ranked)), "out": str(dst)}
+            "dropped_over_limit": max(0, len(groups) - len(ranked)),
+            "over_size": {k: coverage[k] for k in ("over_size_statements", "over_size_runs")},
+            "coverage": str(cov_path), "out": str(dst)}
 
 
 # ====================================================================== SQL scanning
@@ -1261,6 +1286,12 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("dst", help="querylog.jsonl: {sql, exec, users} per line")
     c.add_argument("--append", action="store_true", help="merge into dst's existing lines, for the next page")
     c.add_argument("--limit", type=int, default=5000)
+    c.add_argument("--max-statement-chars", type=int, default=0,
+                   help="leave out statements longer than this and count them in <dst>.coverage.json "
+                        "(0 keeps every statement)")
+    c.add_argument("--left-out-at-source", nargs=2, type=int, metavar=("STATEMENTS", "RUNS"),
+                   help="statements and runs the pull itself left out (a length bound in its SQL), "
+                        "recorded in the same coverage file")
     c.set_defaults(func=cmd_querylog)
 
     c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")

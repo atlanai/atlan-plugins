@@ -282,7 +282,12 @@ def _emit(ctx: stage.Ctx) -> None:
 
 # A query alias is a letter or two and a dot: `m.amount`, `pb.CONTACT_ID`, `f.value`.
 # A qualified reference has at least db.schema.table before the column.
-_ALIASED = re.compile(r"(?<![\w.])([A-Za-z_]\w{0,3})\.([A-Za-z_]\w*)")
+# Not after a hyphen, `@` or `/`: `atlan-hq.co`, `ops@acme.io` and `/docs.v2` are domains,
+# addresses and paths, never an alias and a column.
+_ALIASED = re.compile(r"(?<![\w.\-@/])([A-Za-z_]\w{0,3})\.([A-Za-z_]\w*)")
+# A quoted string is a value. `'atlan.co'` inside a filter is a literal domain, not `atlan.co`
+# the column; a double-quoted or backticked identifier stays, since it IS a reference.
+_STRING_LITERAL = re.compile(r"'(?:[^']|'')*'")
 # SQL IS SYNTAX, NOT VOCABULARY. `where`, `from`, `having` and `join` are ordinary English —
 # "Accounts where somebody wrote back" is a description, not a query. Matching the bare words
 # rejects the sentences this field exists to hold. What is actually SQL: a function call, a
@@ -362,7 +367,9 @@ def _without_subqueries(sql: str) -> str:
 def _unqualified(text: str) -> list[str]:
     """Column references still wearing a query alias instead of their table."""
     out = []
-    for m in _ALIASED.finditer(str(text or "")):
+    # Blank every single-quoted literal to the same length, so offsets still line up.
+    text = _STRING_LITERAL.sub(lambda m: "'" + " " * (len(m.group(0)) - 2) + "'", str(text or ""))
+    for m in _ALIASED.finditer(text):
         head, col = m.group(1), m.group(2)
         # A fully-qualified reference has dots before it; an alias does not.
         start = m.start(1)
@@ -579,7 +586,10 @@ def _ingest(ctx: stage.Ctx) -> None:
 
             # A BUSINESS DOMAIN IS NOT A WAREHOUSE SCHEMA.
             dom = str(a.get("domain") or "")
-            if "." in dom or "_" in dom or dom.isupper():
+            # An all-caps word is a schema name (`MARTS`, `GTM_OPS`) unless it is a short
+            # acronym the business says as letters (`GTM`, `HR`, `IT`, `CS`, `R&D`).
+            acronym = dom.isupper() and " " not in dom and len(dom.replace("&", "")) <= 4
+            if "." in dom or "_" in dom or (dom.isupper() and not acronym):
                 problems.append(f"{where}: domain {dom!r} is a technical path. Name the part of "
                                 f"the business this metric belongs to.")
 

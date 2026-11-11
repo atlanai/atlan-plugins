@@ -7,13 +7,31 @@ copy them out by hand: turn each saved page into `querylog.jsonl` with `CONTEXT 
 section 2 of the metrics workflow (`metrics.md`) says. It keeps `{sql, exec, users}` and never
 writes a user name.
 
+## Size the pull before fetching it
+
+Generated SQL (a BI tool's compiled query, a dbt model, an export job) can run to tens of
+kilobytes a statement, and a chat SQL tool fails or drops the connection on a result of tens of
+megabytes. Before the pull, run one counting statement over the same filter: distinct texts,
+runs and total characters, grouped by statement length (under 2,000, 2,000 to 10,000, 10,000 to
+50,000, over 50,000 characters).
+
+- When the total is a few megabytes or less, pull it in pages as below.
+- Otherwise page by length band, each band its own statement with a `length(<text>)` bound, so
+  no page exceeds a few megabytes. Leave out the longest band when it holds few runs, and pass
+  the same bound to `CONTEXT querylog --max-statement-chars <n>`, with the counting statement's
+  totals for the band you never fetched as `--left-out-at-source <texts> <runs>`. Both land in
+  `querylog.jsonl.coverage.json`.
+- Say what was left out with its counts ("300 of 2,000 texts, 900 runs, over 10,000
+  characters"), and keep that line in the survey and the collection review.
+
 ## Through a chat SQL tool
 
 When the query tool is an MCP connector in this chat, pull history with one bounded statement
 per page and let the host save the result:
 
-- Send no sizing or counting statement first. `ACCOUNT_USAGE` scans are slow, and each one
-  costs minutes. The statement's own `limit` is the bound.
+- Size it once, with the one counting statement above, and no more: `ACCOUNT_USAGE` scans
+  are slow, and each costs minutes. Never count per table, and never count again after
+  narrowing. The pull's own `limit` and length bound do the rest.
 - Scope it to the tables the report's measures are computed on, not every table it joins.
   Shared tables such as accounts or opportunities match tens of thousands of statements.
 - Group by the warehouse's parameterised hash where it has one, so one pattern is one row:
