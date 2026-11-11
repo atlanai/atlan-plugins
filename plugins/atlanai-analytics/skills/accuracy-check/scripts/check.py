@@ -55,8 +55,15 @@ def find_run(project: pathlib.Path) -> pathlib.Path:
 
 
 def saved_to(run: pathlib.Path):
-    """The Atlan Trident workspace the run's context was saved to, or None for this machine only."""
-    return ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
+    """The Atlan Trident workspace the run's context was saved to, or None for this machine only:
+    the run's publication receipt, else what a save recorded beside the context."""
+    ws = ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
+    for f in [] if ws else sorted((run / "context").glob("published*.json")):
+        rec = load(f)
+        for r in rec if isinstance(rec, list) else [rec]:
+            if isinstance(r, dict) and str(r.get("workspace_id") or "").startswith("workspace_"):
+                return r["workspace_id"]
+    return ws
 
 
 def evals_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:

@@ -100,7 +100,9 @@ wrong. For each miss, from accuracy-check's why it failed and the set's `note`, 
   `population`, `exclusions`, `examples` and so on) or the metric's own `description`. A rule
   change covers every place the metric states the rule: its source SQL and filters, its
   population and exclusions, each example whose SQL holds the old rule, **and** its
-  `description` when that states the old rule. A miss on wording is fixed by adding that
+  `description` when that states the old rule. Another metric whose description or card states
+  the old rule (the cost of rework saying rework is never billed, say) gets its own fix entry: an
+  agent that reads the old rule in any metric still answers with it. A miss on wording is fixed by adding that
   question to `examples`, with the SQL that answers it. A question that asks the opposite is a
   redraft; a miss with no definition is a new metric.
 - **Write the fixes** with `ACC fixes --evals <evals-run> --file <a JSON list>`, which checks them
@@ -126,7 +128,8 @@ the score goes to step 5.
   proposal with `registry__create_artifact` as
   [the proposal record](../../metrics-generation/references/propose-record.md) describes: the
   fix's definition changes and the missed questions as `evidence.runs`. Metric Studio refuses a
-  change to `description`, so a fix that also rewrites it lands only partly: say so in one line.
+  proposed change to a metric's top-level `description`; when the fix rewrites one, the owner
+  edits it in Studio while approving, so the question's text gives the new description to paste.
   Ask one native question whose text is the Metric Studio link that opens the proposal
   (`suggestion=<file id>`), then "Approved it in Metric Studio?":
 
@@ -139,7 +142,9 @@ Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#t
 approved `version_ordinal` in Trident.
 In Trident, release that version to `latest` with `registry__release_artifact` only when
 `EVAL compare` shows the missed question fixed and `flipped_down` empty, and say so; otherwise
-leave it unreleased and say which question changed. Then step 5.
+leave it unreleased and say which question changed. A workspace that releases new versions on
+its own has already put the approved version on `latest`: when the test then loses a question,
+withdraw that release with `registry__withdraw_release` and say so. Then step 5.
 
 ## 5. The result
 
