@@ -14,19 +14,22 @@ and leading spaces. The fence only marks the lines; it is not part of the questi
 also print the welcome as a reply before the question.
 
 ```
-Build a job profit agent for Fixit & Co. It answers questions about Fixit's jobs
-in plain English and shows the rule behind every number.
+Build a job profit agent for Fixit & Co. It answers questions about
+Fixit's jobs in plain English and shows the rule behind every number.
 
 Questions it will answer:
-  - Fixit lost £6,360 on its biggest job, a £150,000 wind turbine base. Why?
-  - Which jobs finished late, once the contract's week of grace is allowed for?
+  - Fixit lost £6,360 on its biggest job, a £150,000 wind turbine base.
+    Why?
+  - Which jobs finished late, once the contract's week of grace is
+    allowed for?
   - Where did rework cost the most?
   - How much material ended up in the skip, and on which jobs?
 
 What you're working with:
-  Dashboard      Power BI, 4 tiles: gross margin, rework cost, material waste, late jobs
-  Data           10 jobs (July to October 2026), 8 crew and machines, 746 work logs,
-                 51 material orders, 11 snags
+  Dashboard      Power BI, 4 tiles: gross margin, rework cost,
+                 material waste, late jobs
+  Data           10 jobs (July to October 2026), 8 crew and machines,
+                 746 work logs, 51 material orders, 11 snags
   Past queries   110 questions Fixit's analysts already ran
 
   ○─────────○─────────○─────────○─────────○
@@ -35,7 +38,8 @@ What you're working with:
             ~5 min                        (optional)
 
 About 15 minutes. Made-up data; nothing of yours is touched.
-See the firm first: https://atlanai.github.io/analytics-agent-accelerator/yard-tour/
+See the firm first:
+https://atlanai.github.io/analytics-agent-accelerator/yard-tour/
 
 Ready to build?
 ```

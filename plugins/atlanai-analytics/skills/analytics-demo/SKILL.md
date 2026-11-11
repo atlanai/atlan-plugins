@@ -106,11 +106,11 @@ describes.
 ## 5 and 6. Ask a question, build a dashboard
 
 When the context is saved, or kept on this machine, read
-[ready for questions](../analytics-build/references/setup/ready.md): print the ready block, then
-show two or three questions supported by the checked context immediately. Do not put an
-Ask AI menu before the question list. Answer the question or questions the person selects
-or supplies. End that turn on the answer, closing with one plain line of these next actions
-(no native question in the same turn, as ready describes):
+[ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
+to ask?" with the ready block as its text, offering two or three questions supported by the
+checked context. Do not put an Ask AI menu before the question list. Answer the question or
+questions the person selects or supplies. End that turn on the answer, closing with one plain
+`Next:` line built from these options (no native question in the same turn, as ready describes):
 
 | Option | Runs |
 | --- | --- |

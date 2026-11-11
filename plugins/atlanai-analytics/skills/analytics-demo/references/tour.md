@@ -25,13 +25,9 @@ throughout setup.
 
 ## The welcome: right after the demo is chosen
 
-**The welcome is the question's own text.** Reply text written in the same turn as a native
-question often never reaches the person: it stays in reasoning, and the host shows at most
-a one-line summary. What the question tool is handed arrives word for word. So the welcome
-goes in the text of one native question, as the celebration does in
-[context built](../../analytics-build/references/setup/save.md).
-
-Read the chosen demo's file, then, before any other tool call, file search or clone, ask
+**The welcome is the question's own text**, as
+[text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)
+requires. Read the chosen demo's file, then, before any other tool call, file search or clone, ask
 one native question whose text is that file's welcome lines, whole and as written (they end
 with "Ready to build?"). Keep the tour link exactly as written; it is the person's way to see
 the firm while the build runs.
@@ -42,7 +38,7 @@ the firm while the build runs.
 | Not now | Stop here; /atlanai-analytics:analytics-demo picks it up later. |
 
 Where there is no question tool at all, print the welcome lines as the last thing in the
-message, then the two choices in plain words, and call no tool after it.
+message, then the two choices as plain lines, and call no tool after it.
 
 The person may open the tour while the build runs; do not wait for them to finish looking.
 On "Not now", stop and repeat the tour link in one line, so they can explore meanwhile.
@@ -60,7 +56,10 @@ two short lines as an ordinary reply, at most 35 words together, in this shape:
 ```
 
 Fill in actual counts and names from the chosen demo. Use these, in order; the first of a
-step goes under its tracker. Skip a moment that does not happen in this run.
+step goes under its tracker. Skip a moment that does not happen in this run. A moment that
+opens with a native question (Sources question, Workspace question) puts its two lines at
+the top of that question's text instead of printing them before it. The Ready moment has
+no pair: its ready block says it.
 
 | Moment | Doing | Why |
 | --- | --- | --- |
@@ -74,7 +73,6 @@ step goes under its tracker. Skip a moment that does not happen in this run.
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
-| Ready | Your `<agent>` is ready. Showing questions this context can answer. | Pick a question to see an answer and the rules behind it. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
 first tracker right after "Start building", before reading setup's references or cloning.

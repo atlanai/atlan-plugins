@@ -7,14 +7,16 @@ context matters: change one rule once, and every answer that uses it changes wit
 
 Pick one metric from the built context that the demo's questions use. Propose one change that a person at the
 firm could plausibly want, taken from the metric's own rule: a population it excludes, a
-threshold it uses, or a cost it leaves out. Say the current rule in one sentence, then ask
-one native question:
+threshold it uses, or a cost it leaves out. Ask one native question whose text says the
+current rule in one sentence, then asks which change to make (where there is no question
+tool, print them last as plain lines, as
+[text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost) says):
 
 | Option | Description |
 | --- | --- |
 | The proposed change | One line: what the rule would count instead. |
 | My own change | The person types it. |
-| Leave it as it is | Return to the next-action choice. |
+| Leave it as it is | End the turn with the `Next:` line from [ready](../../analytics-build/references/setup/ready.md). |
 
 Never propose a change the demo's data cannot show: the tables must hold the column the
 new rule needs.
@@ -42,17 +44,19 @@ text of the save question, never reply text followed by a native question:
 > | `<the demo's worked example>` | `<old value>` | `<new value>` |
 > | Check | `<old check status>` | `<new check status>` |
 
-Then re-ask, through `analytics-ask`, one question the person already asked that uses this
-metric, and show the new answer beside the old one in one sentence. With no earlier
-question, use the demo's first question.
+Before showing it, re-ask, through `analytics-ask`, one question the person already asked
+that uses this metric. With no earlier question, use the demo's first question. Write one
+sentence with the new answer beside the old one; it goes right after the block, wherever
+the block goes.
 
 ## 4. Where the change lives
 
-- Context kept on this machine: the change is saved in the run. Print the block as reply
-  text, say so in one line, close with the plain next-actions line from
-  [ready](../../analytics-build/references/setup/ready.md) and end the turn.
+- Context kept on this machine: the change is saved in the run. Print the block and the
+  comparison sentence as reply text, say so in one line, close with the plain `Next:` line
+  from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
 - Context saved to Atlan Trident: ask one native question whose text is the block as plain
-  lines, then "Save this change for everyone who uses the metric?" On yes, call
+  lines, then the comparison sentence, then "Save this change for everyone who uses the
+  metric?" On yes, call
   `metrics-generation` `save`, which publishes a revision of the same metric after the
   person approves the plan. On no, the change stays on this machine and the published
   metric is unchanged. Then say in one line which rule answers from now on, close with the

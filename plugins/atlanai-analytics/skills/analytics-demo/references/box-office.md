@@ -15,8 +15,8 @@ and leading spaces. The fence only marks the lines; it is not part of the questi
 also print the welcome as a reply before the question.
 
 ```
-Build a ticket fees agent for Ticketfuddle. It answers questions about its sales
-and fees in plain English and shows the rule behind every number.
+Build a ticket fees agent for Ticketfuddle. It answers questions about
+its sales and fees in plain English, with the rule behind every number.
 
 Questions it will answer:
   - The dashboard says fees are 27% of what fans paid. Is that right?
@@ -25,10 +25,11 @@ Questions it will answer:
   - Which months sold the most, and what drove them?
 
 What you're working with:
-  Dashboard      Tableau, 4 tiles and 3 charts: gross sales, fees as a share of what
-                 fans paid, net fee revenue, sell-through
-  Data           6 venues, 45 shows (July 2025 to December 2026), 6,911 orders,
-                 15,327 tickets, 509 refunds, 10,760 gate scans
+  Dashboard      Tableau, 4 tiles and 3 charts: gross sales, fees as a
+                 share of what fans paid, net fee revenue, sell-through
+  Data           6 venues, 45 shows (July 2025 to December 2026),
+                 6,911 orders, 15,327 tickets, 509 refunds,
+                 10,760 gate scans
   Past queries   756 queries already run against this data
 
   ○─────────○─────────○─────────○─────────○
@@ -37,7 +38,8 @@ What you're working with:
             ~5 min                        (optional)
 
 About 15 to 20 minutes. Made-up data; nothing of yours is touched.
-See the firm first: https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/
+See the firm first:
+https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/
 
 Ready to build?
 ```
