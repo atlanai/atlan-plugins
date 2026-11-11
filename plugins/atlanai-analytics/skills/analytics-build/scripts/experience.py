@@ -408,11 +408,13 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     sources = _rows(state.get('sources', []))
     scope = [{'name': _text(s.get('path'), 200), 'kind': _text(s.get('kind'), 80),
               'status': _text(s.get('status'), 80)} for s in sources[:100]]
-    selection = []
+    selection, selection_kind = [], 'pages'
     scopes = state.get('scopes') or ({'selected': state['scope']} if state.get('scope') else {})
     for value in _dict(scopes).values():
         chosen = _dict(_dict(value).get('selection'))
         # A report scope names pages; a model-only scope names measures.
+        if 'pages' not in chosen and 'measures' in chosen:
+            selection_kind = 'measures'
         pages = chosen.get('pages', chosen.get('measures', []))
         if isinstance(pages, list):
             selection.extend(_text(p, 100) for p in pages[:100] if isinstance(p, str))
@@ -477,7 +479,7 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         prompt = 'Resume this saved analytics run from its current checkpoint.'
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
             'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
-            'selected_pages': selection, 'counts': counts,
+            'selected_pages': selection, 'selection_kind': selection_kind, 'counts': counts,
             'progress': {'completed': saved.get('completed_items'), 'total': saved.get('total_items')},
             'sample': sample, 'items': items, 'items_truncated': len(items) > 100,
             'engine': engine, 'auth_status': auth_status if isinstance(auth_status, str) else None,
@@ -553,7 +555,7 @@ def render_chat(model, detail=False):
         lines[1] = f"{counts['provisional']} provisional metric ideas; nothing saved in Atlan Trident."
     if model['scope']:
         source_label = 'source' if model['source_count'] == 1 else 'sources'
-        lines.append(f"Scope: {model['source_count']} {source_label}" + (', pages: ' + _markdown(', '.join(model['selected_pages'][:3])) if model['selected_pages'] else '') + '.')
+        lines.append(f"Scope: {model['source_count']} {source_label}" + (', ' + model.get('selection_kind', 'pages') + ': ' + _markdown(', '.join(model['selected_pages'][:3])) if model['selected_pages'] else '') + '.')
     if counts['held']:
         lines.append(f"{counts['held']} items need repair before publication.")
     if counts.get('review_required'):
@@ -636,7 +638,7 @@ def _render_html_base(model):
             + '. This view does not update itself. Ask in chat for a refreshed snapshot.</small><section class="summary" aria-label="Setup summary"><p>'
             + f"{counts['metrics']} metrics · {counts['queries']} queries · {counts['released']} saved in Atlan Trident · {counts['held']} need repair"
             + '</p><p>Sources: ' + esc(scope) + '</p>'
-            + ('<p>Selected pages: ' + esc(', '.join(model['selected_pages'])) + '</p>' if model['selected_pages'] else '')
+            + ('<p>Selected ' + esc(model.get('selection_kind', 'pages')) + ': ' + esc(', '.join(model['selected_pages'])) + '</p>' if model['selected_pages'] else '')
             + '<p>' + esc(model['next_step']) + '</p></section>'
             + ''.join('<p role="status">' + esc(w) + '</p>' for w in model['warnings'])
             + '<label for="filter">Find a definition</label><input id="filter" type="search" placeholder="Metric, query or source">'
