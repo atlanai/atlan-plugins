@@ -3,7 +3,7 @@
 Read when the person picks **Check how accurate it is**, or asks how accurate the agent built in
 this folder is. The demo has built the context; this shows how often it gets an answer right, on
 questions the firm's analysts already ask, and fixes the rule behind a miss. The demo runs the
-whole check; [eval-generation](../../eval-generation/SKILL.md) is called only to generate a set.
+whole check; [eval-generation](../../eval-generation/SKILL.md) is called only to generate or save a set.
 How a run, a score and a diagnosis work is in [run the accuracy check](accuracy-run.md).
 `<agent>` and `<firm>` come from the demo's facts file; `ACC`, `EVAL` and `PROJECT` are as that
 file names them.
@@ -24,7 +24,8 @@ Doing and Why lines first; a result is reply text that ends the turn with a plai
 | Fix | Changing the rule behind the miss. | One rule changed once changes every answer that uses it. |
 
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
-look up Trident, a workspace or saved evals for the questions, the run or the score.
+look up Trident, a workspace or saved evals for the questions, the run or the score. Only the
+save in step 5 reads a workspace.
 `context_saved_to` (from `ACC start` and `ACC load`) says where the context lives; `null` means
 this machine only.
 

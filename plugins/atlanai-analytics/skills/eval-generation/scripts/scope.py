@@ -10,6 +10,7 @@ input, picks the set (the focus metric first, then breadth) and writes it. Stand
     python3 scope.py inputs --project <project> [--run <run-dir>]
     python3 scope.py pick --gen <gen-dir> [--limit 5] [--focus-count 2]
     python3 scope.py emit --gen <gen-dir> --name <set name>
+    python3 scope.py ready --set <set.jsonl>
 
 `emit` writes <project>/.atlan-evals/sets/<name>.jsonl, one question per line: {"id", "question",
 "sql", "tests", "from"}, the same shape as a set a person brings, so whatever runs a set runs
@@ -58,7 +59,7 @@ def find_run(project: pathlib.Path) -> pathlib.Path:
 
 
 def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
-    """Where a set is drafted, beside the run and never inside it: answering agents read the run."""
+    """Where a set is drafted, outside the run: answering agents read the run."""
     return project / ".atlan-evals" / "gen" / run.name
 
 
