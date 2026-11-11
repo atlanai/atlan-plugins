@@ -1,0 +1,17 @@
+fee_code,fee_name,applies_to,basis,rate,effective_from,effective_to,paid_to,description
+service,Service fee,club,pct_of_face,0.12,2024-01-01,,ticketfuddle,"Per ticket, online orders"
+service,Service fee,theatre,pct_of_face,0.14,2024-01-01,,ticketfuddle,"Per ticket, online orders"
+service,Service fee,hall,pct_of_face,0.15,2024-01-01,,ticketfuddle,"Per ticket, online orders"
+service,Service fee,arena,pct_of_face,0.18,2024-01-01,,ticketfuddle,"Per ticket, online orders"
+service,Service fee,outdoor,pct_of_face,0.18,2024-01-01,,ticketfuddle,"Per ticket, online orders"
+facility,Facility fee,club,per_ticket,1.5,2024-01-01,,venue,"Per ticket, every channel; passed to the venue"
+facility,Facility fee,theatre,per_ticket,2.5,2024-01-01,,venue,"Per ticket, every channel; passed to the venue"
+facility,Facility fee,hall,per_ticket,3,2024-01-01,,venue,"Per ticket, every channel; passed to the venue"
+facility,Facility fee,arena,per_ticket,5,2024-01-01,,venue,"Per ticket, every channel; passed to the venue"
+facility,Facility fee,outdoor,per_ticket,4,2024-01-01,,venue,"Per ticket, every channel; passed to the venue"
+order_processing,Order processing fee,all,per_order,3.95,2024-01-01,,ticketfuddle,"Once per online order, primary or resale"
+delivery,Print-at-home delivery,all,per_order,1,2024-01-01,,ticketfuddle,Once per order
+delivery,Will-call delivery,all,per_order,2.5,2024-01-01,,ticketfuddle,Once per order
+demand,Dynamic demand fee,high_demand_events,pct_of_face,0.1,2026-07-01,,ticketfuddle,"Per ticket on events flagged high demand, online orders placed from 1 July 2026"
+resale_buyer,Resale buyer fee,all,pct_of_resale_price,0.1,2024-01-01,,ticketfuddle,Charged to the fan buying a resale ticket
+resale_seller,Resale seller fee,all,pct_of_resale_price,0.05,2024-01-01,,ticketfuddle,Deducted from the reseller's payout

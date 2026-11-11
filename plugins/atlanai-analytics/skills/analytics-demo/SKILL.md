@@ -16,8 +16,9 @@ Read plugin files with the Read tool, one file per call. In a shell, never print
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
 step below. The technical stages are the shared setup procedure in
-[setup](../analytics-build/references/setup.md), run on the demo repository. `PROJECT`
-means the helper named there, from the `analytics-build` skill's `scripts/`.
+[setup](../analytics-build/references/setup.md), run on the demo's working folder. `PROJECT`
+means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
+`python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
 
 ## The six steps
 
@@ -55,21 +56,27 @@ tool call, ask "Ready to build?" with its welcome lines as the question's own te
 
 After "Start building", show the tracker, then do all of step 1's work:
 
-1. **Download.** The checkout is `<folder>/analytics-agent-accelerator`, the path the welcome
-   named. Reuse it when its origin is https://github.com/atlanai/analytics-agent-accelerator,
-   after `git -C <checkout> pull --ff-only` so the demo is the published one; if it cannot
-   fast-forward, say so and ask before using it. Otherwise `git clone --depth 1` there. Never
-   search other folders or the home directory for a copy. Without git, ask the person to
-   download the repository into that path.
-2. **Read the sources.** Start a new setup run and inspect only the demo's source folder,
-   with [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
-   the person had asked to set up that folder from scratch.
-3. **Load the data.** Initialize or reuse the metrics engine's pinned runtime
-   ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1), then
-   use that runtime's Python with `PROJECT prepare` to load the demo's tables into a local
-   `.sqlite` database named after their schema (`site.sqlite`, `tix.sqlite`), as
-   [build and check](../analytics-build/references/setup/build-check.md) describes. Bind it once
-   with `--schema`. Every later check runs on these rows.
+1. **Open the demo.** Each demo lives in this skill, under `assets/<demo>/`. Run
+   `DEMO open <demo> "<folder>"` with `<demo>` as named in its facts file and `<folder>` the
+   current working folder. It sets up `<folder>/atlan-analytics-demo/<demo>/`, the working
+   folder the run reads and writes, and prints it as `working_folder`. Run it again on a later
+   demo: it reuses that folder and brings it up to date with this skill. Never clone, download
+   or search other folders for the demo. In the same call, initialize or
+   reuse the metrics engine's pinned runtime, the slowest part of this step:
+   `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime "<folder>/.atlan-metrics/runtime" setup`,
+   with `<metrics-dir>` the `metrics-generation` skill's directory
+   ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1).
+2. **Read the sources.** Start a new setup run and inspect only `working_folder`, with
+   [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
+   the person had asked to set up that folder from scratch. Then run
+   `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
+   files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
+   `database`, `schema` and `dialect`. Use these as given; do not work them out again. Give the
+   engine the `bi` file, not its folder.
+3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
+   [build and check](../analytics-build/references/setup/build-check.md) describes. When `open`
+   reported `database_exists`, bind that file instead of preparing it again. Bind it once
+   with `PROJECT bind "<database>" --schema <schema>`, and set the run's dialect to `dialect`. Every later check runs on these rows.
 4. **Record the preset intent.** `PROJECT journey domain --answer "<focus to record>"`, then
    `PROJECT journey purpose --answer "<purpose to record>"`, from the facts file. The demo asks
    neither intent question.
@@ -81,7 +88,8 @@ sources revealed.
 
 Ask the sources question from [the tour rules](references/tour.md): dashboard and past
 queries (recommended), or dashboard only. Scope the run to the answer through
-[inspect and scope](../source-survey/references/inspect-scope.md) section 2. The data
+[inspect and scope](../source-survey/references/inspect-scope.md) section 2, with
+`PROJECT scope "<scope>"` for the whole dashboard when `requests` wrote one. The data
 tables are used either way, to check the context.
 
 ## 3. Build and check metrics

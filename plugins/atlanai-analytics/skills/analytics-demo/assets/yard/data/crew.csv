@@ -1,0 +1,9 @@
+crew_id,crew_name,crew_type,role,hourly_rate_gbp,catchphrase
+C01,Rob,human,foreman,45.00,"Measure twice, pour once."
+C02,Wanda,human,builder,42.00,Already on it.
+C03,Sprout,human,self-appointed apprentice,18.00,I'm helping!
+C04,Dig,machine,digger,60.00,Dig deep.
+C05,Tipper,machine,dumper,40.00,"If it's heavy, I'll tip it."
+C06,Whirl,machine,cement mixer,25.00,Round and round!
+C07,Flatt,machine,steamroller,35.00,Flat out.
+C08,Lanky,machine,crane,85.00,"Er, how high?"

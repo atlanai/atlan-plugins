@@ -1,10 +1,8 @@
 # Demo: Fixit & Co., the builder's yard
 
 Read right after the person picks this demo, and again at each later moment for its facts.
-The source is the `yard/` folder of the demo repository.
-Its dashboard is `powerbi/model.bim`: give the engine that file as `bi`, not its folder. Its
-tables load into `data/site.sqlite` inside that folder (the prepare request's `database` is
-`data/site.sqlite`, relative to it) with schema `site`, and the run's dialect is `sqlite`.
+The demo is `yard`. It lives in this skill's `assets/yard/`; `DEMO open yard` sets up its
+working folder, and `DEMO requests yard` prints its dashboard file, database, schema and dialect.
 
 ## The welcome
 
@@ -51,7 +49,7 @@ Ready to build?
 | Firm | Fixit |
 | Agent | job profit agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/yard-tour/ |
-| Source folder | `yard/` |
+| Working folder | `atlan-analytics-demo/yard/` |
 | Dashboard | a Power BI dashboard with 4 tiles |
 | Tiles | gross margin, rework cost, material waste, late jobs |
 | Past queries | 110 |

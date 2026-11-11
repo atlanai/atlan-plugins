@@ -1,0 +1,8 @@
+venue_id,venue_name,city,venue_type,capacity,opened_year
+V01,The Rusty Anchor,Port Mallory,club,90,1987
+V02,Pemberton Theatre,Port Mallory,theatre,250,1924
+V03,Gasworks Hall,Little Hampden,hall,350,2011
+V04,Mallory Arena,Port Mallory,arena,700,1998
+V05,Riverside Fields,Little Hampden,outdoor,1000,2016
+V06,The Velvet Basement,Little Hampden,club,60,2019
+V99,QA Hall,Port Mallory,test,500,2024

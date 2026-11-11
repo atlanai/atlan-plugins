@@ -22,7 +22,7 @@ STEPS = {
         ('dashboard', 'Build a dashboard', 'Waiting for your dashboard choice', True),
     ),
     'demo': (
-        ('sources', 'Choose and load demo data', 'Downloading and loading the demo data', False),
+        ('sources', 'Choose and load demo data', 'Loading the demo data', False),
         ('scope', 'Choose what to build from', 'Waiting for your choice of sources', True),
         ('metrics', 'Build and check metrics', 'Building metrics and queries', False),
         ('save', 'Keep local or save to Atlan Trident', 'Waiting for where to save', True),

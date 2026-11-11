@@ -27,7 +27,7 @@ throughout setup.
 
 **The welcome is the question's own text**, as
 [text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)
-requires. Read the chosen demo's file, then, before any other tool call, file search or clone, ask
+requires. Read the chosen demo's file, then, before any other tool call or file search, ask
 one native question whose text is that file's welcome lines, whole and as written (they end
 with "Ready to build?"). Keep the tour link exactly as written; it is the person's way to see
 the firm while the build runs.
@@ -64,7 +64,7 @@ no pair: its ready block says it.
 
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Download | Downloading `<firm>`'s demo files into this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
+| Open the demo | Setting up `<firm>`'s demo in this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
 | Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures itself, so the context matches the firm instead of my guess. |
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
 | Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
