@@ -1152,7 +1152,12 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
 
 
 def cmd_summary(a) -> dict:
-    return summarize(Proj(a.dir), a.variant, a.final)
+    out = summarize(Proj(a.dir), a.variant, a.final)
+    if getattr(a, "require_isolation", False) and out["isolation_unverified"]:
+        # A host that keeps each answering agent's transcript can prove no answer saw the eval.
+        raise Blocked(f"{out['isolation_unverified']} row(s) have no answering-agent transcript, so isolation is unverified.",
+                      "Re-record each with --transcript <that agent's transcript file> (the Agent tool's output_file).")
+    return out
 
 
 def sign_test(up: int, down: int) -> float:
@@ -1960,6 +1965,12 @@ def _selftest_integrity(ok) -> None:
            and summ["validation"]["n"] == len(split["test_ids"]))
         ok("summary --final reads the holdout", summarize(Proj(d), "base", True)["holdout"]["n"] == len(split["holdout_ids"]))
         ok("a row without a transcript counts as isolation unverified", summ["isolation_unverified"] == 1)
+        try:
+            cmd_summary(argparse.Namespace(dir=d, variant="base", final=False, require_isolation=True))
+            refused = False
+        except Blocked:
+            refused = True
+        ok("--require-isolation refuses a score with an unverified row", refused)
         k = sum(1 for c in split["test_ids"] if case_means(read_results(Proj(d).vdir("base") / "results.jsonl")).get(c) == 1)
         ok("the score line states the scripted count", summ["score_line"].startswith(f"{k} of {len(split['test_ids'])} answered"))
         ok("context engagement is measured from cited definitions", summ["context_engagement"] == 1.0)
@@ -2294,6 +2305,8 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.add_argument("--variant", required=True)
     c.add_argument("--final", action="store_true", help="also the holdout: once, at hand-back")
+    c.add_argument("--require-isolation", action="store_true",
+                   help="refuse a score while any row lacks its answering agent's transcript")
     c.set_defaults(func=cmd_summary)
 
     c = s.add_parser("compare", help="paired per-case delta b − a, with an exact sign test")

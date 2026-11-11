@@ -52,7 +52,9 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
    4. `EVAL record --variant baseline --case <id> --rep 0 --answer-file <answer> --agent-result <agent result> --gold-result <evals-run>/eval/gold/<id>.json --transcript <output_file>`.
       A run that failed outside the agent (a timeout, a tool error) is
       `record --class harness_error --reason "<what failed>"` with no answer file.
-3. `EVAL summary --variant baseline` must show one row per question. Never quote a partial run.
+3. `EVAL summary --variant baseline --require-isolation` must show one row per question. It
+   refuses a score while a row lacks its agent's transcript: re-record that row with
+   `--transcript`. Never quote a partial run.
 
 ## Show the score
 
