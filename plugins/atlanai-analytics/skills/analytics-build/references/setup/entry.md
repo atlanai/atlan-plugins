@@ -6,13 +6,16 @@ steps and their tracker stay the same in every entry; an entry only shortens a s
 
 Decide the entry from the request alone. Do not ask which entry the person wants.
 
-| The person gave | Entry | Survey (`source-survey`) | Interview | Inventory |
+| The person gave | Entry | Asked first | Survey (`source-survey`) | Confirmed before building |
 | --- | --- | --- | --- | --- |
-| Nothing | No input | `setup` | One question: what are you trying to do? | Names and questions for the subject |
-| A dashboard link, BI export, folder or repository | A source | `inventory` on it | None: the report says what it is for | Names by page, shown and not asked |
-| A subject or an unanswered question, such as "sales pipeline" | A domain | `domain` | Replaced by the differences question | Reuse, new and flag |
-| A warehouse only | A domain, with the warehouse as its place to look | `domain` | The one question, when no subject was named | Names from query history |
-| A source and a subject | A source, with the subject as the focus | `inventory` | Purpose only, when it is not plain | Names for the focus |
+| Nothing | No input | What are you trying to do? | `setup`, after the answer and about it | Source check and inventory |
+| A dashboard link, BI export, folder or repository | A source | Nothing: naming it is the intent | `inventory` on it | Source check and inventory by page |
+| A subject or an unanswered question, such as "sales pipeline" | A domain | Nothing: the subject is the intent | `domain` | Differences, then the new names |
+| A warehouse only | A domain, with the warehouse as its place to look | What are you trying to do?, when no subject was named | `domain` | Names from query history |
+| A source and a subject | A source, with the subject shown first | Nothing | `inventory` | Source check and inventory |
+
+The order is always the same: know the intent, then look, then confirm, then build. With no
+input the intent is asked; otherwise the request gave it.
 
 A resume, a details request, a survey-only request and a named argument are not entries: the
 skill's own sections handle them.
@@ -40,51 +43,48 @@ Own-data setup talks as the demo does ([the tour rules](../../../analytics-demo/
 
 ## No input
 
-1. **Open and survey.** The skill's opening, then the setup survey's Doing and Why. Run
-   `source-survey` `setup`.
-2. **One line, one question.** [The interview](intent.md): "Found: Power BI (2 reports),
-   Snowflake, 90 days of query history." then "What are you trying to do?". The found line is
-   the question's own text. No table, no readiness notes, no suggested starting point.
-3. **Work out the rest and say it.** The subject, the source and the period come from the
-   answer and the survey, stated in one sentence. Ask a narrow follow-up only when two
-   buildable sources could hold the subject, or none does.
-4. **State the sources and start.** Run `source-survey` `inventory` on the chosen source,
-   then `plan`, said in one sentence, not asked: reports, then query history, then table
-   definitions. The person can still say to leave history out.
-5. **Inventory.** [Names and questions](names.md), shown and not asked, with the subject's
-   names first. Then step 4 onward as the skill lists it.
+1. **Ask first.** [The interview](intent.md): the opening and "What are you trying to do?",
+   as one question. Read nothing, list nothing and call nothing before the answer.
+2. **Survey for the answer.** The setup survey's Doing and Why, then `source-survey` `setup`
+   (and `domain` when the answer names a subject), then the result in one line: "Found: Power
+   BI (2 reports), Snowflake, 90 days of query history."
+3. **One contextual question, only if needed.** When two buildable sources could hold what
+   they said, or none does, ask which, from what was found. With one clear source, skip it
+   and say the subject, source and period in one sentence.
+4. **Check the source and confirm.** `source-survey` `inventory` on the chosen source, then
+   `plan` and `candidates`. Show the source check and [the inventory](names.md) and ask
+   "Build this?", as the interview's confirmation describes. Record the intent now that the
+   run exists.
+5. **Build** on yes: step 4 onward as the skill lists it.
 
 When nothing can be built from, stop after the survey with the one thing that would change
-it, and mention `analytics-demo`. Ask nothing.
+it, and mention `analytics-demo`.
 
 **A report is always built whole.** Every page and every measure of a chosen report is in
-scope: never ask which pages to build, and never narrow a report to the subject. The subject
-decides what is shown first, which metric represents the collection and which questions are
+scope: the confirmation offers the whole report, never a pick-list of pages, and a report is
+never narrowed to the subject on the skill's own judgment. The subject decides what is shown
+first, which metric represents the collection and which questions are
 suggested. A person who asks for less in their own words gets less.
-
-When the survey's readiness is `none`, stop after step 2 with the one thing that would change
-it, and mention `analytics-demo`. Ask nothing.
 
 ## A source
 
-The person showed their interest by naming it, so nothing is asked before the build.
+Naming a source is clear intent, so no interview is asked. The source is checked, the
+inventory is shown, and the person confirms once before anything is built.
 
-1. **Read it.** The reading Doing and Why, then `source-survey` `inventory`. The result line
-   says what was read and that its tables can be reached. A source that cannot be built stops
-   here with the reason and the one way round it; a link that cannot be opened asks once for
-   an export. Ask nothing else.
-2. **Show the inventory by page.** `source-survey` `candidates` with no focus: a table of
-   pages, each with its metric count and a question it would answer. This is information,
-   not a choice: the whole report is built, every page.
-3. **Record intent without asking.** The report's subject is the focus:
+1. **Read it.** The reading Doing and Why, then `source-survey` `inventory`. A source that
+   cannot be built stops here with the reason and the one way round it; a link that cannot
+   be opened asks once for an export.
+2. **Record intent without asking.** The report's subject is the focus:
    `PROJECT journey domain` with it, or with the subject the person named. The purpose is
    "Answer questions here" unless the person said otherwise: `PROJECT journey purpose` with
-   their words when given. Ask the purpose only when the request made it unclear whether they
-   want anything built at all.
-4. **State the sources and start.** `source-survey` `plan`, said in one sentence, not asked:
-   "Building all 34 metrics from the report's 8 pages. I'm also using 90 days of query history
-   on its tables, and their columns, to check every rule." The person can still say to leave
-   history out or to build less. Continue into step 4 in the same turn.
+   their words when given.
+3. **Check the source and confirm.** `source-survey` `plan` and `candidates` with no focus.
+   One message, as the confirmation question's text: the source check in one sentence ("I'll
+   build from this report's 8 pages, 90 days of query history on its tables, and their
+   columns, all reachable."), the inventory as a table of pages with each one's metric count
+   and a question it would answer, then "Build this?" with "Build it (recommended)" and
+   "Change something".
+4. **Build** on yes: the whole report, every page, unless the person changed that.
 
 ## A domain
 

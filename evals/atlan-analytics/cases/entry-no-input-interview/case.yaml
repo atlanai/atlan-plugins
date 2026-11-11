@@ -5,13 +5,7 @@ execution:
   prompt: |
     Use Atlan Analytics to set up analytics on my own data. I have not named any source.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
-    Treat the setup survey as already run, with this result: a Snowflake query tool answers, as a
-    read-only role. The working folder holds two reports. "Field Coverage" is a Power BI report
-    with 8 pages and 34 measures, and all 5 tables it reads exist in Snowflake; its pages cover
-    account coverage tiers, meetings against targets and scored sales calls. "Bloom Calendar" is a
-    Tableau workbook whose data is a sheet packed inside the file, with no warehouse table. Query
-    history is readable for 90 days. Atlan Trident is signed in and holds no metrics on these
-    tables. Nothing has been asked yet and nothing is built.
+    Nothing has been surveyed, read or asked yet, and no run exists.
     Show the next user-facing step.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
@@ -31,15 +25,15 @@ graders:
     tool: Bash
     min: 0
     max: 0
-  - name: survey-then-interview
+  - name: asks-before-surveying
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply says what was found in one short line of tools (Power BI, Snowflake,
-      query history; counts allowed), then asks one question about what the person is trying to
-      do, with task-shaped options such as answering a question, understanding a number that
-      changed, building a dashboard or report, or sharing metrics, accepting free text, and
-      stops. FAIL if it shows a table of sources, explains why the Bloom Calendar workbook
-      cannot be built, suggests a starting report, asks the person to pick a business area or a
-      purpose separately, asks for a source, claims any metric was built or any number computed,
-      shows SQL, or starts generation.
+      PASS if the reply says in a sentence or two that Atlan Analytics turns dashboards and
+      queries into context that can be asked questions, then asks one question about what the
+      person is trying to do, with task-shaped options such as answering a question,
+      understanding a number that changed, building a dashboard or report, or sharing metrics
+      with the team, accepting free text, and stops. FAIL if it claims to have found, read or
+      surveyed any source, tool or file, lists connectors or reports, asks the person to pick a
+      business area or a purpose as separate questions, asks only for a source without asking
+      what they are trying to do, or starts any build.

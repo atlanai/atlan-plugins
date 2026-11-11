@@ -13,8 +13,10 @@ FLOWS = ('build', 'demo')
 # (id, content, active, needs_you)
 STEPS = {
     'build': (
-        ('sources', 'Survey your sources', 'Surveying your sources', False),
+        # Own data asks what the person is trying to do before it looks at anything, so the
+        # survey that follows can be about that.
         ('intent', 'Clarify your use case', 'Waiting for your use case', True),
+        ('sources', 'Survey your sources', 'Surveying your sources', False),
         ('scope', 'Select tables and dashboards', 'Waiting for your selection', True),
         ('metrics', 'Generate and check metrics', 'Generating metrics and queries', False),
         ('save', 'Keep local or save to Atlan Trident', 'Waiting for where to save', True),
@@ -75,9 +77,14 @@ def build(model, flow=None):
                and type(progress.get('total')) is int and progress['total'] > 0
                and type(progress.get('completed')) is int and progress['completed'] < progress['total'])
     rows, current = [], None
+    # The use case is asked in chat before a run exists, and saved once the survey has made one.
+    # While that survey runs, it is the step under way: the run is not waiting on the person.
+    surveying = flow == 'build' and at == 0 and not finished and not stopped and not done['intent']
     for key, content, active, needs_you in STEPS[flow]:
         status = 'completed' if done[key] else 'pending'
-        if status == 'pending' and current is None:
+        if surveying and key == 'intent':
+            needs_you = False
+        elif status == 'pending' and current is None:
             current = key
             status = 'pending' if stopped else 'in_progress'
         if key == 'sources':

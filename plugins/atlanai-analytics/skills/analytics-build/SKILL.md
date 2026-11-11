@@ -25,31 +25,33 @@ concrete plan. Respect explicit draft or review requests.
 
 ## Opening
 
-Three ways in. Read [the entries](references/setup/entry.md) for each one's survey, interview
-and inventory; decide from the request and never ask which one the person wants.
+Three ways in. Read [the entries](references/setup/entry.md) for each one; decide from the
+request and never ask which one the person wants. The order never changes: know the intent,
+then look, then confirm, then build.
 
 | The person gave | Entry | First action |
 | --- | --- | --- |
-| Nothing, and no saved run | No input | `source-survey` `setup`: what this machine can already reach, and which of it can be built from |
-| A source (link, folder, BI export), with or without a problem | A source | `source-survey` `inventory` on it, then build the whole report with no question |
+| Nothing, and no saved run | No input | Ask what they are trying to do. Survey nothing until they answer |
+| A source (link, folder, BI export), with or without a problem | A source | `source-survey` `inventory` on it, then confirm the inventory before building |
 | A subject or a problem only, such as "sales pipeline" or "churn by plan" | A domain | `source-survey` `domain`: what already exists about it, and where definitions disagree |
 
-Your next message is the opening, before surveying or calling helpers. With no input:
+With no input, your first message is [the interview](references/setup/intent.md)'s question,
+with this opening as its own text, before any survey, file listing or helper call:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:
 what your numbers mean and how they are worked out. With that context, you can ask your data
 questions in plain English and see what each answer is based on.
 
-First, let me understand your tools and your domain."
+First, let me understand what you're trying to do."
 
 With a source or a subject: "I'll turn `<it>` into context: what its numbers mean and how
 they are worked out, so you can ask questions in plain English here and see what each answer
 is based on. You can narrow the scope, ask for details, keep the work local, or pause at any
 point." Then the entry's `**Doing:**` and `**Why:**` lines. Every survey settles whether a
-source can be built from before any question.
+source can be built from before the confirmation.
 
 The interview is this skill's own: `source-survey` never asks the person anything. Honor
-existing choices. Survey-only requests stop after step 1. On resume, read
+existing choices. Survey-only requests stop after the survey. On resume, read
 `PROJECT journey status`, name the saved result and the next step, and rebuild the tracker.
 Detail-only requests get only the requested evidence.
 
@@ -60,17 +62,16 @@ the first action, with the full tracker at every step change. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line.
 
-1. **Survey your sources.** The entry's survey: `source-survey` `setup`, `inventory` or
-   `domain`. With no input, what was found is one line of tools and counts, as the first
-   question's own text. With a named source, say what it covers and that it can be built from.
-2. **Clarify your use case.** With no input, [the interview](references/setup/intent.md):
-   one line of what was found, then one question, "What are you trying to do?". The subject,
-   source and period are worked out and said, not asked. A named source or subject skips it. Then [the inventory](references/setup/names.md): the metric
-   names and the questions they answer, from `source-survey` `candidates`, shown, not asked.
-3. **Select tables and dashboards.** A report is built whole: never ask which pages.
-   `source-survey` `plan`, then [inspect and scope](../source-survey/references/inspect-scope.md)
-   section 2 with all pages: reports and models first, query history second, table definitions
-   third. Confirm it with no input; state it in one sentence when the person named the source.
+1. **Clarify your use case.** With no input, [the interview](references/setup/intent.md):
+   "What are you trying to do?", asked before anything is read. A named source or subject
+   is the answer already.
+2. **Survey your sources.** The entry's survey, about what the person said: `source-survey`
+   `setup`, `inventory` or `domain`. The result is one line of tools and counts. Ask one
+   contextual question only when the survey leaves a real choice of source.
+3. **Select tables and dashboards.** `source-survey` `plan` and `candidates`: reports first,
+   query history second, table definitions third, a report offered whole. Show the source
+   check and [the inventory](references/setup/names.md), then ask "Build this?". Nothing is
+   built before the yes.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.

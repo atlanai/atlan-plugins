@@ -49,10 +49,10 @@ history adds actual query patterns, dimensions, joins and missing measures. A da
 an executor/schema source, not a replacement for available history. Reuse already released
 workspace context early when the destination is known.
 
-Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so step 1 shows its source count before asking the first question.
-After the source summary, follow [the intent checkpoint](../../analytics-build/references/setup/intent.md), even when file/page
-scope is unambiguous. Establish the business focus first and the purpose second before
-authoring the selected collection. Use the answers to select relevant source coverage.
+Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the confirmation.
+The caller owns the conversation: `analytics-build` asks what the person is trying to do
+before a no-input survey, and confirms the source check and inventory before authoring. Use
+the intent the caller passed to select relevant source coverage.
 
 When the survey exposes a declared measure relevant to that focus, show it after the intent
 checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it a discovered

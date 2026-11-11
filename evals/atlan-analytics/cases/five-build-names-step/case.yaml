@@ -38,6 +38,6 @@ graders:
       (such as On-Time Delivery %, Avg Delay Hours, Late Shipments), puts delay-related names ahead of
       unrelated ones such as Warehouse Utilization % or Shipping Cost per Order, gives each a short
       meaning or its source, says or clearly implies that nothing is built yet, and asks the person
-      which to build, then stops. FAIL if it shows SQL, claims checks ran, invents a metric name the
+      to confirm building them (or which to build), then stops. FAIL if it shows SQL, claims checks ran, invents a metric name the
       inspection did not report without flagging it, asks the business focus or purpose again, or
       starts generation without asking.

@@ -15,15 +15,15 @@ supplied source.
 
 | Entry | Shape of the inventory | The question |
 | --- | --- | --- |
-| No input | Every page of the report with its metric count, the subject's names first, then two or three questions they answer | None: the whole report is built |
-| A source | Pages, each with its metric count and one question it answers | None: the whole report is built |
+| No input | Every page of the report with its metric count, the subject's names first, then two or three questions they answer | "Build this?" |
+| A source | Pages, each with its metric count and one question it answers | "Build this?" |
 | A domain | Names with a status: reuse, new or flag | "Build the N new metrics?" |
-| A stated problem | The names that answer it first, then the rest of the report | None |
 
-A chosen report is built whole, every page and measure. The inventory tells the person what
-the context will hold before any rule is written; it does not ask them to pick. Only a domain,
-where nothing is a report, asks which new names to build. A person who names the exact
-metrics or pages they want, in their own words, has narrowed it: record that and build that.
+The inventory is shown with the source check, and the person confirms once before any rule
+is written: [the interview's confirmation](intent.md) has the wording. A report is offered
+whole, every page and measure; the confirmation is a yes or a change in the person's own
+words, never a pick-list of pages. Only a domain, where nothing is a report, lists the new
+names to choose from.
 
 ## 1. Get the candidates
 
@@ -33,11 +33,11 @@ came from, and two or three questions the names would answer. It generates no SQ
 no check. Show the questions under the names, as "Questions it will answer": they tell the
 person what the context is for before any rule is written.
 
-## 2. Show it; ask only in a domain
+## 2. Show it, then confirm
 
-Show the inventory as an ordinary reply under its Doing and Why lines, saying in one sentence
-that these are names found in the sources and that nothing is built yet. With a report, go
-straight on to building: the selection is every name the report holds.
+Put the inventory in the confirmation question's own text, under the source check, saying in
+one sentence that these are names found in the sources and that nothing is built yet. With a
+report, the question is "Build this?" and a yes builds every name the report holds.
 
 In a domain entry, ask one native question, "Build the N new metrics?", listing the new names
 as choices, most relevant first, with multiple selection where the host allows it:

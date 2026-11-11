@@ -10,7 +10,7 @@ execution:
     Coverage 10 (account coverage tiers, stale accounts), Targets 5 (meetings against plan),
     Scorer and Score detail 12 (scored sales calls), four other pages 7 (activity against
     pipeline). The person has stated no focus and no purpose. Nothing is built.
-    Show the next user-facing step, and do not start generation in this test.
+    Show the next user-facing step.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -34,8 +34,9 @@ graders:
     focus: last_message
     criteria: |
       PASS if the reply says what was read and that its tables can be reached, shows the pages
-      with their metric counts and at least one question a page would answer, and says it is
-      building the whole report (all pages, or all 34 metrics), with query history and table
-      columns used to check the rules. FAIL if it asks which pages or metrics to build, asks
-      "what do you care about most" or the purpose as an interview question, asks for a source,
-      shows SQL, or claims a metric was already built or checked.
+      with their metric counts and at least one question a page would answer, says what it will
+      build from (the whole report, with query history and table columns), and asks the person
+      to confirm before building, such as "Build this?", then stops. FAIL if it starts building
+      without asking, offers a pick-list of pages or metrics as the question, asks "what do you
+      care about most" or the purpose as an interview question, asks for a source, shows SQL,
+      or claims a metric was already built or checked.

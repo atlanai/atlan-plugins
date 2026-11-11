@@ -4,6 +4,10 @@ Read when a flow or a person asks what there is to build from and names no sourc
 survey looks, reports and suggests. It asks the person nothing: the caller decides what to
 ask. It changes nothing, signs in to nothing and installs nothing.
 
+The caller passes what the person said they are trying to do, when it asked. Look for that:
+its subject decides which reports, tables and published metrics are worth surveying in step
+2, and which source is the one to build from.
+
 `PROJECT` is the helper named in [the skill](../SKILL.md). Send the independent lookups
 together, in one turn.
 

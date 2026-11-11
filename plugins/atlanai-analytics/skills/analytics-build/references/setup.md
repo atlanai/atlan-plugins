@@ -23,8 +23,8 @@ for "continue".
 
 A demo follows [the demo skill](../../analytics-demo/SKILL.md), which uses this file's
 technical stages on the demo's working folder. An own-data request takes one of the
-[three entries](setup/entry.md): with nothing named, the setup survey finds what there is to
-build from instead of asking for a source.
+[three entries](setup/entry.md): with nothing named, it asks what the person is trying to do,
+then the setup survey finds what there is to build from.
 All setup uses [one presentation flow](setup/presentation.md), with actual source facts.
 
 Explain the outcome, next action and controls. For example: "I'll turn
@@ -39,8 +39,9 @@ before the first helper call, and keep both true to the saved run.
 Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
 run waits for an explicit resume; details requests do not resume work.
 
-With no input, say what was found in one line and ask [the one interview question](setup/intent.md)
-before authoring; with a named source, say what it covers. Demos use their preset intent and
+With no input, ask [the one interview question](setup/intent.md) before any survey, then
+survey for the answer; with a named source, say what it covers. Every entry shows the source
+check and the inventory and asks "Build this?" before authoring. Demos use their preset intent and
 source question instead. Retain answers already given. Technical source scope does not
 establish business intent, except that a named source or subject stands in for the question,
 as the entry says.

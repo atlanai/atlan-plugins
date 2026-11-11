@@ -1,67 +1,96 @@
-# The use-case interview: one question
+# The use-case interview: ask first, then look
 
 The interview belongs to `analytics-build`. `source-survey` reads and reports and never asks
-the person anything; this file turns what a survey found into the one question that
-establishes what the person is trying to do. [The entry](entry.md) says when to ask it: with
-no input, yes; when a source or a subject was named, no.
+the person anything. With no input, the interview comes before any survey: what the person
+is trying to do decides what to look for, so nothing is read until they have said it.
+[The entry](entry.md) says when to ask: with no input, yes; when a source or a subject was
+named, the request already answers it.
 
-Read after the survey on fresh setup, before metric generation or runtime setup. Ask about
-the task, not about the data: a person knows what they are trying to get done long before
-they can pick a business area from a list or name a purpose. Everything else is assumed,
-said out loud, and corrected later if wrong.
+Ask about the task, not about the data: a person knows what they are trying to get done long
+before they can pick a business area from a list or name a purpose. Everything else is
+assumed, said out loud, and corrected later if wrong.
 
-## 1. One short line of what was found, then the question
+## 1. Ask what they are trying to do, before reading anything
 
-The question's own visible text opens with what the survey found, as a list of tools and
-nothing else:
+The first thing the person sees is the opening and one question. The opening is the
+question's own visible text, because a block printed before a question is lost:
 
-"Found: Power BI (2 reports), Tableau (1 workbook), Snowflake, 90 days of query history."
+"Atlan Analytics turns your dashboards and the queries your team already runs into context:
+what your numbers mean and how they are worked out. With that context, you can ask your data
+questions in plain English and see what each answer is based on.
 
-Names of products and counts of things, in one line. No table, no per-source detail, no
-readiness notes, no file names, no suggested starting point, no account of what each report
-contains. A source that cannot be built from is left out of the line, not explained. Leave
-out anything empty: no "Atlan: not signed in", no "certified queries: none". Demo data is
-never listed: the survey skips the demo's folders.
+First, let me understand what you're trying to do."
 
-Then ask "What are you trying to do?" with task-shaped choices and free text:
+Then "What are you trying to do?" with task-shaped choices and free text:
 
 | Option | Description |
 | --- | --- |
-| Answer a question | Type the question, or pick one after the build. You get the number and the rule behind it |
+| Answer a question | Type the question. You get the number and the rule behind it |
 | Understand a number that changed | Name the number. You get what moved it, from the definitions your team already uses |
 | Build a dashboard or report | A page your team can open, with every number traced to its rule |
 | Give my team and agents shared metrics | One agreed rule per number, saved where every chat and tool finds it |
 
-Word the options for this person only when the sources make an example obvious ("Answer a
-question, such as which jobs lost money"). Never more than four, never a list of business
-areas or report names, and never a second question about purpose: the choice is the purpose.
+The free-text entry also takes what they have: a dashboard link, a file, a subject. Never
+more than four options, never a list of business areas or report names, and never a second
+question about purpose: the choice is the purpose. No survey, file listing, connector check
+or Atlan call runs before the answer.
 
-Render it with the host's native question tool, with the found line as the question's own
-text and the host's free-text entry. With no question tool, ask it in ordinary chat, the
-found line first, and end the turn. Nothing is preselected and no answer is assumed.
+Render it with the host's native question tool. With no question tool, print the opening
+and the question in ordinary chat and end the turn. Nothing is preselected.
 
-## 2. Work out the rest; do not ask it
+## 2. Survey for what they said
 
-From the answer and the survey, settle these yourself and say them in one sentence before
-building:
+Now run `source-survey` `setup`, with the answer as what to look for: the subject's words
+decide which reports, tables and published metrics matter. When the answer names a subject
+("pipeline", "churn by plan"), run `domain` for it as well. Say what is happening with the
+survey's Doing and Why lines, then its result in one line of products and counts:
+
+"Found: Power BI (2 reports), Snowflake, 90 days of query history."
+
+No table, no readiness notes, no file names. A source that cannot be built from is left out.
+Demo data is never listed.
+
+From the answer and the survey, settle these yourself:
 
 - **The subject.** From the words of the answer, matched against the reports' pages and
-  measures and the query history. A typed question names it. When the answer names no
-  subject and one buildable report exists, the subject is that report's.
+  measures and the query history. A typed question names it.
 - **Which source.** The buildable source that holds the subject, reports before query
   history before table definitions.
 - **Period, audience, grain.** The narrowest sensible reading: the latest complete period,
-  the team that owns the report, the report's own grain.
+  the team that owns the report, the report's own grain. These are assumptions, stated in the
+  reply and again as caveats on the first answer; never questions.
 
-"You want to see which jobs lost money. I'll build from the job-site report and its query
-history, and start with gross margin."
+**One contextual question, only when the survey leaves a real choice.** Ask it from what was
+found, with the found line as its text:
 
-Ask one narrow follow-up only when work cannot start without it: two or more buildable
-sources could hold the subject and the answer gives no way to choose ("Is this about job
-sites or ticket sales?"), or the answer names a subject no source holds. Never a follow-up
-about period, audience, layout or which metrics: those are assumptions, stated in the reply
-and again as caveats on the first answer ("I used the last complete quarter; say if you
-meant the fiscal one").
+| The survey shows | Ask |
+| --- | --- |
+| Two or more buildable sources could hold what they said, or they named a task and no subject | "Which of these is it about?", one option per source, each named by product and subject ("Power BI: job sites and margins") |
+| Nothing found holds the subject | "I found no source for `<subject>`. Where does it live?", with the found sources and free text |
+| One buildable source holds it | Nothing: go to the confirmation |
+
+Never a follow-up about period, audience, layout or which metrics.
+
+## 2a. Confirm before building
+
+Once the task, the subject and the source are known, check the source and show what will be
+built, then ask once before any rule is written. This is one message, as the confirmation
+question's own text:
+
+1. **The source check**, one sentence: what will be read, in order, and that it can be
+   reached. "I'll build from the job-site report (Power BI), 90 days of its query history
+   and the columns of its 4 tables, all reachable."
+2. **The inventory**, from [names](names.md): the metrics the context will hold, by page for
+   a report, and two or three questions it will answer.
+3. **The question**: "Build this?"
+
+| Option | Description |
+| --- | --- |
+| Build it (recommended) | All N metrics from the whole report, checked on the warehouse. About how long |
+| Change something | Say what: a different source, without query history, fewer metrics |
+
+Nothing is generated, installed or pulled from query history before the person confirms.
+This confirmation is asked in every entry, including when a source or a subject was named.
 
 ## 3. Record and use it
 
@@ -91,8 +120,8 @@ What the task changes:
 | Build a dashboard or report | Coverage of the subject's metrics, then the dashboard step | The page |
 | Share metrics | Coverage, consistent definitions and the save step after checks | Saved to Atlan Trident |
 
-A report is still built whole, as the entry says; the task decides what is shown first and
-where the flow ends, not how much is built. No answer grants publication permission or
+A report is still built whole unless the person changed that at the confirmation; the task
+decides what is shown first and where the flow ends, not how much is built. No answer grants publication permission or
 guarantees that an answer exists.
 
 ## Answers already given

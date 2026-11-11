@@ -38,7 +38,7 @@ Do not create a second authoring path because an executor is unavailable.
 Reuse the existing survey, scope, business focus and interview answers. Prepare one engine
 run under this setup run. Advance through its maintained gates for the complete selected
 collection. At X3, continue without an extra user decision: a demo selected its sources,
-and own data committed its names in step 2. Author all scoped
+and own data confirmed its inventory in step 3. Author all scoped
 cards using the returned instructions and continue through the remaining gates. Gate answers
 are the assistant's work, not customer choices. Keep factual progress visible while
 generation and checks run. Do not stop for a single-card preview or request permission to
