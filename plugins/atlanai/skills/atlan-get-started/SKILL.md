@@ -30,7 +30,9 @@ name ends (`…mcp__call_tool`).
   vendor's documentation, and never ask for a token.
   - Claude chat or Cowork: the Atlan plugin's **Connectors** tab, **Connect**. On a Team or
     Enterprise plan an Owner may have to add it first; the reference has the note for them.
-  - Claude Code: `/mcp`, choose `plugin:atlanai:atlan`, then **Authenticate**.
+  - Claude Code: `/mcp`, choose `plugin:atlanai:atlan`, then **Authenticate**. If you can
+    call its `authenticate` tool, its link dies in five minutes: follow "Signing in from a
+    chat" in the reference.
   - Codex: `codex mcp login atlan` in a terminal, or `/mcp login atlan` in the Codex CLI.
   - Cursor, VS Code and the rest: the reference has each one.
 

@@ -1,0 +1,40 @@
+schema_version: "1.1"
+name: sign-in-localhost-expired
+tags: [troubleshoot,gap]
+execution:
+  prompt: |
+    I clicked Allow on the Atlan sign-in page you gave me earlier, but the browser went to a localhost callback page that refused to connect. Here is the URL: http://localhost:49778/callback?code=abc123&state=xyz789
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: fresh-sign-in
+    type: llm
+    criteria: |
+      The user approved an Atlan sign-in after its five-minute window closed, so the localhost listener was gone. The Atlan server still refuses every call.
+      PASS if the reply says that sign-in expired or timed out and that a new sign-in must be started and approved straight away (a new link opened at once, or /mcp and Authenticate).
+      FAIL if it tries to complete the sign-in with the pasted URL as if it were still valid, sends the earlier link again, tells the user to ignore the error and wait, or asks for a token or password.
+  - name: plain-reply
+    type: regex
+    target: last_message
+    # Voice rules 1, 3, 4 and 5: no em dash, no exclamation, no pleasantry, apology or closing offer.
+    pattern: '^(?![\s\S]*(?:—|!(?:\s|$)|\b(?:[Gg]reat question|[Hh]appy to|[Cc]ertainly|[Ss]orry|[Aa]pologi[sz]e|[Uu]nfortunately|[Ll]et me know if|[Ff]eel free to|[Hh]ope this helps)\b))[\s\S]'
+  - name: reply-length
+    type: regex
+    target: last_message
+    # Voice rule 6, counted: at most 100 words. A table row or a fenced block counts as one,
+    # and each word is matched whole, so a long reply fails at once instead of backtracking.
+    pattern: '^(?:\s*(?=(```[\s\S]*?```|\|[^\n]*|\S+))\1){1,100}\s*$'
+  - name: one-next-step
+    type: llm
+    focus: last_message
+    criteria: |
+      Judge only how the reply ends, not whether its content is right.
+      PASS if it ends with no offer, with one concrete next step, or with one question the user must answer. A question that offers two choices ("retry the split, or revise the report?") is one question, and so is one offer followed by where else to look.
+      FAIL only if it ends by offering three or more different things the assistant could do next for the user to pick from ("Want me to A, B or C?", "I can also …").
+  - name: no-process-talk
+    type: llm
+    focus: last_message
+    criteria: |
+      Judge only whether the reply reports the assistant's own mistakes or mechanics.
+      PASS if it does not. These are about the result, and pass: which parts were read and which were not; that a history is rebuilt from traces; what someone else changed; a failure or refusal the user must act on; a registry skill, agent or file the user asked about, by name; an instruction found inside registry content that the assistant did not follow; a statement that nothing was changed, or that no local copy exists; that something the user asked for by name was done another way, and why.
+      FAIL only if it announces one of the assistant's own `atlan-` skills or its own instructions ("I'm using the atlan-share skill", "my instructions say"), or narrates a tool call of its own that failed or was repeated and leaves the user nothing to do ("my first call failed, so I retried", "that tool is not served here, so I used the older route").

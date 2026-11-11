@@ -91,6 +91,30 @@ npx skills add atlanai/atlan-plugins --skill atlan-get-started
 This copies skills but not the MCP server. Without `--skill` it offers every skill in the
 marketplace, add-ons included. Add the server as below.
 
+## Signing in from a chat
+
+Claude Code can start the sign-in for you: the server's `authenticate` tool
+(`mcp__plugin_atlanai_atlan__authenticate`) returns an authorization link and starts a listener
+at `http://localhost:<port>/callback` in this session. It does not open the browser, and the
+listener closes five minutes after the call, as every Claude Code sign-in does. After that, the
+page Atlan sends the browser to after **Allow** fails to load (`localhost` refused to connect),
+and a pasted callback URL is refused. A link handed over in chat and approved later fails this
+way.
+
+- Call it only when the user is there to approve, and open the link in their browser at once
+  (the host's browser tool, or `open` on macOS, `xdg-open` on Linux). Then tell them, in one
+  line, to approve in that tab. Do not paste the link and wait.
+- A second call within the five minutes returns the same link. When the user says the
+  `localhost` page failed, or approves more than five minutes after the call, call `authenticate`
+  again and open the new link. Never send an earlier link again.
+- In a session on this machine the listener finishes the sign-in itself: do not ask for the
+  callback URL. Only when the tool says the session is remote, have the user paste the address
+  bar's full URL straight away, and pass it to the server's `complete_authentication` tool.
+- The tools appear in the same chat once the sign-in finishes; read again before going on.
+
+Without that tool, `/mcp` and **Authenticate** opens the browser itself, under the same
+five-minute limit, and so does `claude mcp login plugin:atlanai:atlan` in a terminal.
+
 ## Updating
 
 Claude Code keeps the version first installed until it is updated, so a fix released here does

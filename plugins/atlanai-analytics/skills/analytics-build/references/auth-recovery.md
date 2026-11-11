@@ -74,6 +74,11 @@ background task, or a yielding terminal task with a retained task/session ID:
 - Claude Code: `claude mcp login plugin:atlanai:atlan` for the plugin's observed server name.
   If this CLI lacks `mcp login`, use `/mcp`, select that server and Authenticate through the
   available host UI. Do not invent a CLI flag or another MCP server.
+  When this chat can call the server's `authenticate` tool, use it instead and follow
+  "Signing in from a chat" in the core plugin's `atlan-get-started` sign-in reference.
+- Every Claude Code sign-in stops listening five minutes after it starts, before this
+  ten-minute deadline. A `localhost` page that fails after **Allow** means that attempt
+  expired: record `failed` and begin one new attempt; never resend its link.
 
 Record `login_started` with the real `task_id`. The client usually opens its issued
 authorization URL in the user's default browser itself; leave it there. Only when it did not,

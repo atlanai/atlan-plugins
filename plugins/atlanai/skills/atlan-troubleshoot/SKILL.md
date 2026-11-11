@@ -16,7 +16,7 @@ step that fixes it, under 80 words, with no apology or tour of how the tools wor
 | Symptom | Cause and fix |
 |---|---|
 | No `atlan` tools at all | The server is not installed or not started. Follow `atlan-get-started/references/install-and-sign-in.md` for the user's tool. |
-| `401`, "authentication required", "needs login" | The user has not signed in, or the sign-in expired. They re-authenticate from their tool (`/mcp` in Claude Code, `codex mcp login atlan` in Codex, Tools & MCP in Cursor). Never ask for a token. |
+| `401`, "authentication required", "needs login", `localhost` fails after Allow | Signed out or expired. Sign in anew: that file's "Signing in from a chat" in Claude Code, `codex mcp login atlan` in Codex, Cursor's Tools & MCP. Never ask for a token. |
 | Signed in but no organization, or sign-in refused | The account has no Atlan organization to join. They need an invitation from their organization's Atlan admin, or support@atlan.com. |
 | Every Atlan tool or skill appears twice | The `atlanai` plugin is installed from two marketplaces (this one and the registry's own `api.atlan.com/public/marketplace.git`, added by hand or left by an older Atlan desktop app), or the `atlan` server was also added by hand (`claude mcp add`). Keep one. |
 | The `atlan` tools are there but are not `mcp__search_tools`, `mcp__describe_tools` and the `mcp__call_…tool` runners | A different plugin's server answers: the data-catalog plugin named `atlan` (Anthropic's directory, atlanhq/agent-toolkit) points at `https://mcp.atlan.com/mcp`. Both can stay installed under their different names; this plugin's tools are the `plugin:atlanai:atlan` ones (`mcp__plugin_atlanai_atlan__…` in Claude Code). If only the other plugin's tools show, install `atlanai`. |
