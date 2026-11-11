@@ -44,26 +44,50 @@ area. With more than three left, keep the three most used in step 3.
 
 ### 3. Find the tables that matter
 
-One usage statement for the last 30 days, where the warehouse has one: tables read, with how
-many queries and how many distinct people.
+Two things, sent together: how much each table is used, and a search by name. The
+statements are in [warehouses](warehouses.md) under **Table usage** and **Table search**.
 
-| Warehouse | Usage comes from |
-| --- | --- |
-| Snowflake | `SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY`, flattened on the objects accessed, grouped by table |
-| Databricks | `system.access.table_lineage`, or `system.query.history` grouped by table |
-| BigQuery | `INFORMATION_SCHEMA.JOBS`, the referenced tables |
-| Another, or no grant | Table metadata only: row count and last change. Say that usage was not available; never show it as zero |
+**Usage: take the first rung that answers, and say which it was.**
 
-Then rank:
+| Rung | Snowflake | Databricks | Covers |
+| --- | --- | --- | --- |
+| 1. Account-wide access | `ACCOUNT_USAGE.ACCESS_HISTORY` | `system.access.table_lineage` | Every table read by anyone, 30 days |
+| 2. Account-wide queries | `ACCOUNT_USAGE.QUERY_HISTORY`, matched to table names | `system.query.history`, matched to table names | Everyone's queries, 30 days |
+| 3. The person's own queries | `INFORMATION_SCHEMA.QUERY_HISTORY_BY_USER`, matched to table names | Their own rows in `system.query.history`, or the Query History API | Only what this person ran, 7 days on Snowflake |
+| 4. None readable | Row count and last change from table metadata | The same | Size and freshness, not use |
 
-- **A named domain**: tables whose name, comment or columns hold the domain's words and
-  their plain synonyms (for sales pipeline: opportunity, deal, stage, account), most used
-  first.
-- **Let discovery decide**: the most used tables overall, grouped by subject. The subject
-  with the most use by the most people is the suggestion; name the runners-up in one line.
+Move down a rung only when the one above is refused or returns no rows, and never ask for a
+grant to stay on a higher one. One statement per rung tried, each with a limit of 50 tables. Do not
+run a rung to "confirm" another, and do not count or size history first.
 
-Prefer a modelled table (a mart, a fact or a dimension) over the raw table it was built
-from, and a current table over a dated copy. Usage is context, not proof a table is right.
+Say the rung in the suggestion, in plain words, because it changes what "most used" means:
+"across your account, last 30 days", "from your own queries, last 7 days", or "by size and
+last change; usage was not readable". Missing usage is never shown as zero.
+
+**Search: always, whatever the rung.** One statement over table names and comments:
+
+- a named domain searches its words and their plain synonyms (for sales pipeline:
+  opportunity, deal, stage, account);
+- "let discovery decide" searches the subject words of the most used tables, so their
+  rarely queried siblings are found too;
+- a BI source adds the names of the tables it reads.
+
+A table found by search and never queried is still a candidate: usage ranks, it does not
+exclude.
+
+**Rank what both returned:**
+
+1. Tables a shared BI source reads, then the tables those are built from when the warehouse
+   shows it. Start from what reports consume and work upstream.
+2. Modelled tables before raw ones: a view, a mart, a fact or a dimension before the staging
+   or raw table it was built from, and a current table before a dated copy.
+3. Within those, most used by the most people first. A table used heavily by one service
+   account ranks below one used by many people.
+4. For a named domain, a match on the table's name before a match on a comment or a column.
+
+For "let discovery decide", group the ranked tables by subject. The subject with the most use
+by the most people is the suggestion; name the runners-up in one line. Usage is context, not
+proof a table is right.
 
 ### 4. Read the columns of the top tables
 
@@ -84,12 +108,13 @@ Never sample rows to answer these, and never print a value that identifies a per
 - One line of what was found, products and counts only.
 - Three to eight tables, each with one plain line of what it holds and why it was picked
   (read by the report, how much it is used, what it links).
+- Where the usage came from, once, in plain words.
 - Two or three lines of what was worked out: the entities and how they link, and what will
   be left out.
 - Anything the warehouse could not settle, as at most one question for the caller.
 
-Bounds: one statement each for schemas, usage and columns; at most three schemas and eight
-tables. Stop earlier when the suggestion is clear. Query history itself is pulled later, by
+Bounds: one statement each for schemas, search and columns, and one per usage rung tried; at
+most three schemas and eight tables. Stop earlier when the suggestion is clear. Query history itself is pulled later, by
 generation, scoped to the confirmed tables.
 
 When no table fits, `readiness` is `none`: say which words were searched and that
