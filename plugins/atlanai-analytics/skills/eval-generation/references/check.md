@@ -4,6 +4,11 @@ The one flow for an accuracy check, the same whether a person asked for it or an
 called it. Read [test](test.md) for how the test runs and how the score is shown. `<agent>`,
 `<firm>` and the use case come from the run: its recorded business focus, purpose and source.
 
+Steps 1 to 3 run on this machine: an eval set lives in the project (`.atlan-evals/`), never
+fetched from Atlan Trident. Never look up Trident, a workspace or saved evals for them.
+`context_saved_to`, from `SCOPE inputs` or `SCOPE load`, says where the context lives (`null`:
+this machine only); read it only at **Improve it** and in step 4.
+
 ## 1. Choose the questions
 
 `SCOPE inputs --project <project>` returns `choose`, with the sets, when the project already
@@ -63,8 +68,11 @@ Ask "Where should the questions and the score live?":
 
 | Option | Description |
 | --- | --- |
-| Save to Atlan Trident (Recommended) | Beside your context in `<workspace>`, so your team can rerun the test. Only when the context is saved there |
+| Save to Atlan Trident (Recommended) | Beside your context in `<workspace>`, so your team can rerun the test. |
 | Keep on this machine | Nothing leaves this folder. |
+
+With `context_saved_to` `null`, skip the question: keep the set here and say it can go to Trident
+once the context is saved there.
 
 Save as `save` describes. Then end with one line whose tone follows the score, and the source
 caveat beside it:

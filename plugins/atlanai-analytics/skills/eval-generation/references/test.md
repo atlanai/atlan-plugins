@@ -69,7 +69,7 @@ the count; name how many. The caller decides what comes next.
 
 A fix goes to the metric's owner as a proposal in Metric Studio, never as a direct write. The
 owner applies it, which makes a new version of the metric. This needs the context saved to
-Atlan Trident: with it only on this machine, say so and offer that save first.
+Atlan Trident: with `context_saved_to` `null`, say so and offer that save first.
 
 1. **Pick one fix.** A miss marked *question asks the opposite* is fixed on the eval set, not the
    metric: say so, drop it with `EVALGEN review --reject <id>`, and redraft it in the next set.

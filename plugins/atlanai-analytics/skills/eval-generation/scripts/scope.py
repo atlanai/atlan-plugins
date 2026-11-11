@@ -62,6 +62,11 @@ def find_run(project: pathlib.Path) -> pathlib.Path:
     return ready[0]
 
 
+def saved_to(run: pathlib.Path):
+    """The Atlan Trident workspace the run's context was saved to, or None for this machine only."""
+    return ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
+
+
 def evals_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     """A fresh eval folder for this run: a scored set never changes, so a repeat check gets -2, -3."""
     base = project / ".atlan-evals" / run.name
@@ -130,7 +135,7 @@ def cmd_inputs(a) -> dict:
              "related": _related(run, focus_ref), "pool": pool}
     dump(ev / "scope.json", scope)
     dialect = next((r["dialect"] for r in rows if r.get("dialect")), None)
-    return {"status": "ok", "run": str(run), "evals": str(ev), "use_case": intent, "focus": names.get(focus_ref) or None,
+    return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "use_case": intent, "focus": names.get(focus_ref) or None,
             "pool": len(rows), "tiles": sum(1 for p in pool.values() if p["source"] == "tile"),
             "dialect": dialect, "tables": tables, "src": str(src)}
 
@@ -255,7 +260,8 @@ def cmd_load(a) -> dict:
                                     "from": f"eval set {src.stem}"} for rec, r in zip(records, rows)])
     interaction = load(run / "interaction.json", {}) or {}
     dump(ev / "scope.json", {"use_case": interaction.get("intent") or {}, "set": str(src), "pool": {}})
-    return {"status": "ok", "run": str(run), "evals": str(ev), "set": src.stem, "questions": len(records)}
+    return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run),
+            "set": src.stem, "questions": len(records)}
 
 
 def cmd_gold(a) -> dict:

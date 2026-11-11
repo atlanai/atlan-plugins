@@ -34,7 +34,8 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
   and must never see an answer. Never use `PROJECT location` here: it names a new run.
 - `SCOPE` is `python3 "<evals-dir>/scripts/scope.py"`. `EVAL` is
   `python3 "<build-dir>/scripts/analytics_eval.py"` with `--dir "<evals-run>"`. `PROJECT` is
-  `<build-dir>/scripts/project.py`.
+  `python3 "<build-dir>/scripts/project.py" --run-dir "<run>"`: without `--run-dir` it refuses
+  every query.
 - `EVALGEN` is `uv run --no-project --with "sqlglot>=30.20,<30.21" env
   PYTHONPATH="<evals-dir>/modules/evals/engine" python -m eval_builder.cli --work
   "<evals-run>/work"`. Without `uv`, name that one prerequisite and stop.

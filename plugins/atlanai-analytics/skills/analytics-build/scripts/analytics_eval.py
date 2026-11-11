@@ -882,6 +882,10 @@ def cmd_record(a) -> dict:
         raise Blocked(f"No answer file at {a.answer_file}.", "Write the agent's answer there, or record --class harness_error.")
     gold_res = load_json(a.gold_result) if a.gold_result else None
     agent_res = load_json(a.agent_result) if a.agent_result and pathlib.Path(a.agent_result).exists() else None
+    if isinstance(agent_res, dict) and agent_res.get("status") == "blocked" and not harness_error:
+        # The runner refused the request (no run named, say): the agent's SQL never ran, so it is no miss.
+        raise Blocked(f"The agent result for {a.case} is the runner refusing the query: {agent_res.get('reason') or agent_res}.",
+                      "Run the agent's SQL again through the run's runner (PROJECT with --run-dir), then record.")
     # keep the executed results beside the row so a re-grade needs no warehouse
     tag = f"{a.case}_rep{a.rep}"
     if gold_res is not None:
@@ -2028,6 +2032,9 @@ def _selftest_inputs(ok) -> None:
            blocked(lambda: rec("c1", gold_result="eval/gold/nope.json")))
         ok("a named agent result that is missing blocks the row",
            blocked(lambda: rec("c1", agent_result="hillclimb/v/agent_results/nope.json")))
+        dump_json(pr / "hillclimb" / "v" / "agent_results" / "refused.json", {"status": "blocked", "reason": "no run"})
+        ok("a refused query is not recorded as the agent's miss",
+           blocked(lambda: rec("c1", agent_result="hillclimb/v/agent_results/refused.json")))
         ok("a verdict on a case not tagged fuzzy is refused",
            blocked(lambda: rec("c1", verdict="hillclimb/v/verdict.json")))
         cwd = os.getcwd()
