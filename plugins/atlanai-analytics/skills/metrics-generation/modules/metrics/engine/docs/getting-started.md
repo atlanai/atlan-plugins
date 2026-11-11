@@ -740,11 +740,11 @@ settings:
 Sign-in needs no setting, and nothing asks which: the run uses a service principal when
 `PBI_TENANT_ID`, `PBI_CLIENT_ID` and `PBI_CLIENT_SECRET` are all set (in Fabric, the tenant
 setting *Service principals can use Fabric APIs* must allow it, and it needs a role on the
-workspace), else `PBI_ACCESS_TOKEN` when it is set, else your own sign-in with a device code
-when you run it at a terminal (the token is cached, owner-only, for the next run). Where your
-tenant blocks the device code, set `sign_in: browser` under `settings.powerbi-fabric`: you sign
-in in your own browser instead (the OAuth authorization code with PKCE; the answer comes back
-to a loopback address on your machine). A run that is not at a terminal and has neither is
+workspace), else `PBI_ACCESS_TOKEN` when it is set, else your own sign-in when you run it at
+a terminal (the token is cached, owner-only, for the next run): in your own browser where one
+can open on this machine (the OAuth authorization code with PKCE; the answer comes back to a
+loopback address), else with a device code, as over SSH. `sign_in: device` or
+`sign_in: browser` under `settings.powerbi-fabric` picks one. A run that is not at a terminal and has neither is
 refused by name. `metrics-agent setup --check` says
 which it found. Whatever signed in, the fetch takes the richest route that identity's rights
 allow: the definitions, else a report's `.pbix` export, plus the admin scanner's metadata for

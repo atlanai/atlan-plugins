@@ -44,18 +44,18 @@ The `powerbi-fabric` plug uses the first of these that is set; any one is enough
   report's workspace and on the workspace of the semantic model it binds to.
 - **An access token**: `PBI_ACCESS_TOKEN`, for a person or principal that already has one.
   One that has expired, or was issued for another API or another tenant, is refused by name.
-- **A person signs in with a code** at a terminal (device code), with nothing set. The person
+- **A person signs in with a code** at a terminal (device code): the default where no browser
+  can open on that machine (over SSH, a host with no display), or `sign_in: device`. The person
   needs **Contributor** (or higher) on each report's workspace. Where the tenant blocks the
   default sign-in app, ask for a public-client app registration and set its client id in
   `PBI_PUBLIC_CLIENT_ID` (an id, not a secret).
 - **A person signs in in their own browser** (the OAuth authorization code with PKCE), with
-  `sign_in: browser` in the plug's settings: for a tenant whose Conditional Access policy
-  blocks the device code flow. The sign-in address opens in their browser and the answer comes
+  nothing set: the default at a terminal where a browser can open. It also serves a tenant
+  whose Conditional Access policy blocks the device code flow. The sign-in address opens in their browser and the answer comes
   back to a loopback address on their machine; the same role is needed as for the device code,
   and the same public client is used (`PBI_PUBLIC_CLIENT_ID` where the default one is blocked;
   its registration must allow the redirect `http://localhost`). It waits
-  `fetch.max_sign_in_wait_seconds` (policy) for them. Tested against a stand-in identity
-  provider; a live sign-in needs the person.
+  `fetch.max_sign_in_wait_seconds` (policy) for them. Checked live as a workspace Admin.
 
 A service principal with only a certificate is not supported: ask for a client secret.
 
@@ -180,7 +180,7 @@ Every gap a capture names is printed by S0 (`WARNING ... has a gap`) and recorde
 | Power BI plug, service principal | `PBI_TENANT_ID`, `PBI_CLIENT_ID`, `PBI_CLIENT_SECRET`; Contributor; the Fabric API tenant setting | report and model | `executeQueries` (raw), with Build |
 | Power BI plug, access token | `PBI_ACCESS_TOKEN` for the Power BI API | report and model | as the identity allows |
 | Power BI plug, device code | a person at a terminal; Contributor | report and model | as the person allows |
-| Power BI plug, browser sign-in (PKCE) | a person at a terminal with a browser; `sign_in: browser`; Contributor | report and model | as the person allows |
+| Power BI plug, browser sign-in (PKCE), the default for a person | a person at a terminal with a browser; Contributor | report and model | as the person allows |
 | Tableau plug, PAT / connected app / password | the plug's variables; Explorer or Creator with Download | workbook and every published data source | view data and VizQL Data Service |
 | Browser capture (`fetch-bi-in-browser`) | the operator's signed-in browser; the role that downloads | the tool's own downloads | as displayed (Crosstab, Show as a table) and raw (Export data) |
 | MCP capture, Tableau (`fetch-bi-over-mcp`) | the operator's `tableau-mcp`; Explorer or Creator | the workbook; a published data source only from another route | as displayed (`get-view-data`) |

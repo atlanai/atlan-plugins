@@ -14,14 +14,17 @@ Sign-in, the first that applies (`sign_in()`):
     1. a service principal, when PBI_TENANT_ID, PBI_CLIENT_ID and PBI_CLIENT_SECRET are all
        set: for CI and unattended runs;
     2. PBI_ACCESS_TOKEN, a token already issued for the Power BI API, used as is;
-    3. a person's own sign-in with a device code, reusing the extractor's owner-only (0600)
-       token cache, ONLY when the run is at a terminal. A run that is not refuses by name
-       instead of waiting for a code nobody will see. PBI_PUBLIC_CLIENT_ID, when set, is the
-       public client (an app registration of the customer's) it signs in through, for a
-       tenant that blocks the default first-party one. With the setting `sign_in: browser`
-       the person signs in in their own browser instead (the OAuth authorization code with
-       PKCE, answered on a loopback address): for a tenant whose policy blocks the device
-       code flow. It waits `fetch.max_sign_in_wait_seconds` (policy) for them.
+    3. a person's own sign-in, reusing the extractor's owner-only (0600) token cache, ONLY
+       when the run is at a terminal. A run that is not refuses by name instead of waiting
+       for a sign-in nobody will see. Where a browser can open on this machine
+       (`X.local_browser`: not over SSH, not on a Linux host with no display) the person
+       signs in in their own browser (the OAuth authorization code with PKCE, answered on a
+       loopback address): single sign-on, nothing to copy. It waits
+       `fetch.max_sign_in_wait_seconds` (policy) for them. Elsewhere, a device code to enter
+       on another device. PBI_PUBLIC_CLIENT_ID, when set, is the public client (an app
+       registration of the customer's) it signs in through, for a tenant that blocks the
+       default first-party one; it keeps the device code unless `sign_in: browser` says its
+       registration allows the `http://localhost` redirect.
 A handed-over token is read (its claims, never its signature) before it is used: one that
 has expired, or was issued for another API or another tenant, is refused by name. A service
 principal with only a certificate (PBI_CLIENT_CERTIFICATE_PATH) is refused by name: not
@@ -38,8 +41,9 @@ Settings:
     with_model   also fetch the model each report binds to, and the models a composite
                  model chains to (default true)
     bi           an extract already on disk: returned as is, nothing is fetched
-    sign_in      a person's sign-in: `device` (the default: a code to enter on another
-                 device) or `browser` (in their own browser, authorization code with PKCE)
+    sign_in      a person's sign-in: `browser` (in their own browser, authorization code
+                 with PKCE; the default where a browser can open here) or `device` (a code
+                 to enter on another device; the default elsewhere)
     model        when the fetch brings several semantic models a run could read, the one
                  this run reads (its id); one model needs no choice, and the upstream models
                  of a composite model's chain are read through it, not chosen
@@ -69,7 +73,7 @@ SIGN_IN_KINDS = ("device", "browser")
 ALL_SIGN_INS = (*SIGN_IN_KINDS, 'spn', 'token', 'certificate', 'managed-identity')
 NO_SIGN_IN = ("no Fabric sign-in for a run that is not at a terminal: set PBI_TENANT_ID, "
               "PBI_CLIENT_ID and PBI_CLIENT_SECRET (a service principal) or PBI_ACCESS_TOKEN, "
-              "or run it at a terminal to sign in as yourself with a device code")
+              "or run it at a terminal to sign in as yourself")
 
 
 class SignInRefused(RuntimeError):
@@ -99,8 +103,8 @@ def at_terminal() -> bool:
 
 def sign_in(settings=None) -> str | None:
     """How a fetch signs in, the first that applies: `spn` (all three service-principal
-    variables set), `token` (PBI_ACCESS_TOKEN set), `device` (a person at a terminal), or None
-    when none can. Names only are read here; no value is kept."""
+    variables set), `token` (PBI_ACCESS_TOKEN set), a person at a terminal (`browser` where a
+    browser can open here, else `device`: `X.person_sign_in`), or None when none can. Names only are read here; no value is kept."""
     selected = (settings or {}).get('sign_in') or os.environ.get('PBI_SIGN_IN')
     if selected:
         if selected not in ALL_SIGN_INS:
@@ -113,7 +117,8 @@ def sign_in(settings=None) -> str | None:
     if os.environ.get(TOKEN_ENV, "").strip():
         return "token"
     if at_terminal():
-        return "device"
+        from metrics_agent_powerbi import pbi_definition_extract as X  # noqa: PLC0415
+        return X.person_sign_in()
     return None
 
 
@@ -129,7 +134,7 @@ class PowerBIFabric:
         "bi": (S.SetupQuestion("targets", "Report or workspace URLs to fetch from Fabric at the "
                                "start of the run; it signs in as a service principal "
                                "(PBI_TENANT_ID, PBI_CLIENT_ID, PBI_CLIENT_SECRET), with "
-                               "PBI_ACCESS_TOKEN, or as you with a device code at a terminal "
+                               "PBI_ACCESS_TOKEN, or as you at a terminal (in your browser, or with a device code) "
                                "(blank: you have an extract on disk)",
                                required=False, kind="list"),
                S.SetupQuestion("bi", "Path to a Fabric extract on disk (blank when the run "
@@ -171,10 +176,10 @@ class PowerBIFabric:
         S.CredentialRoute('certificate', ('PBI_TENANT_ID', 'PBI_CLIENT_ID', CERT_ENV)),
         S.CredentialRoute('managed identity', ('PBI_SIGN_IN',), note='Set PBI_SIGN_IN=managed-identity in a managed-identity host; PBI_CLIENT_ID optionally selects a user-assigned identity'),
         S.CredentialRoute("your own sign-in", (),
-                          note="nothing to set: run at a terminal and sign in with the code "
-                               "the run shows, or in your browser with `sign_in: browser` "
-                               "(authorization code with PKCE, for a tenant that blocks the "
-                               "device code); where the tenant blocks the default sign-in "
+                          note="nothing to set: run at a terminal and sign in in your browser "
+                               "(authorization code with PKCE) where one can open, else with the "
+                               "device code the run shows; `sign_in` picks either. Where the "
+                               "tenant blocks the default sign-in "
                                f"app, set {PUBLIC_CLIENT_ENV} to an app registration of "
                                "your own"),
     )
@@ -204,7 +209,7 @@ class PowerBIFabric:
     def check(self, settings: dict[str, Any]) -> S.CheckResult:
         """An extract already on disk exists; otherwise a target is named and there is a way
         to sign in: the service principal signs in (one token request, nothing read), a set
-        PBI_ACCESS_TOKEN is used as is, and at a terminal a person signs in with a device code
+        PBI_ACCESS_TOKEN is used as is, and at a terminal a person signs in (browser or device code)
         when the run starts (a cached sign-in is reused). Nothing here asks for a code."""
         if settings.get("bi"):
             ok = pathlib.Path(str(settings["bi"])).expanduser().exists()
@@ -245,7 +250,7 @@ class PowerBIFabric:
                 return S.CheckResult(False, problem, fix=TOKEN_ENV)
         else:
             route = ("signs in as you in your browser (authorization code with PKCE)"
-                     if settings.get("sign_in") == "browser" else
+                     if mode == "browser" else
                      "signs in as you (device code)")
             try:
                 client_id = X.public_client_id()
@@ -319,7 +324,7 @@ class PowerBIFabric:
     def command(self, dest: pathlib.Path, *, list_only: bool = False) -> list[str]:
         """The extractor command for these settings, signing in as `sign_in()` says. A run
         that is not at a terminal and has neither a service principal nor a token is refused
-        (`SignInRefused`): it never waits for a device code nobody will see."""
+        (`SignInRefused`): it never waits for a sign-in nobody will see."""
         targets = self.settings.get("targets") or []
         targets = [targets] if isinstance(targets, str) else list(targets)
         if not targets and not self.settings.get("workspace"):

@@ -10,10 +10,9 @@ native chat. No additional MCP server is installed.
    - **Power BI link: the `powerbi-fabric` plug first.** It is the only route that brings
      the report and its semantic model together, so metrics stay tied to the visuals.
      Set the report URL in `targets` with `with_model: true`, and sign in as the person.
-     Use `sign_in: browser` (authorization code with PKCE) when the agent runs on their
-     machine: the sign-in opens in their own browser with single sign-on and nothing to
-     copy. Use the device code (the default) when there is no local browser, such as an
-     SSH or cloud session. A token or service principal already set in the environment is
+     The plug signs in through their own browser (authorization code with PKCE: single
+     sign-on, nothing to copy) where one can open on this machine, and by device code where
+     none can, such as an SSH or cloud session; `sign_in` overrides it. A token or service principal already set in the environment is
      used without either.
      Setting up the runtime's `powerbi` feature for this is part of the procedure, not an
      extra install. See [the metrics module](metrics-engine.md) for the run.

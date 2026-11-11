@@ -555,6 +555,34 @@ def token_problem(token: str, tenant: Optional[str] = None,
     return None
 
 
+def local_browser() -> bool:
+    """Whether a person's sign-in can open in a browser on this machine and come back to its
+    loopback address: not over SSH, not on a Linux host with no display, and only when Python
+    knows a browser to open. Opens nothing."""
+    if any(os.environ.get(n) for n in ("SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY")):
+        return False
+    if sys.platform.startswith("linux") and not (os.environ.get("DISPLAY")
+                                                 or os.environ.get("WAYLAND_DISPLAY")):
+        return False
+    import webbrowser  # noqa: PLC0415 - only a person's sign-in needs one
+
+    try:
+        webbrowser.get()
+    except webbrowser.Error:
+        return False
+    return True
+
+
+def person_sign_in() -> str:
+    """A person's sign-in when none is chosen: in their own browser (authorization code with
+    PKCE: single sign-on, nothing to copy) where a browser can open here, else the device code.
+    A public client of the customer's own (PBI_PUBLIC_CLIENT_ID) keeps the device code: its
+    registration may not allow the `http://localhost` redirect the browser route answers on."""
+    if os.environ.get(PUBLIC_CLIENT_VAR, "").strip():
+        return "device"
+    return "browser" if local_browser() else "device"
+
+
 def public_client_id(default: str = DEFAULT_PUBLIC_CLIENT_ID) -> str:
     """The device-code sign-in's client: PBI_PUBLIC_CLIENT_ID when set (the customer's own
     app registration, for a tenant that blocks the default one), else `default`. A value
@@ -1638,9 +1666,10 @@ def main() -> int:
                         help="sign in and print, as JSON, what this identity can reach "
                              "(workspaces, the admin API); fetch no content")
     parser.add_argument("--auth", choices=["device", "browser", "spn", "token", "certificate", "managed-identity"],
-                        default="device",
-                        help="device: a person, with a device code; browser: a person, in "
-                             "their browser (authorization code with PKCE); spn; token")
+                        default=None,
+                        help="browser: a person, in their browser (authorization code with "
+                             "PKCE), the default where a browser can open here; device: a "
+                             "person, with a device code, the default otherwise; spn; token")
     parser.add_argument("--sign-in-timeout", type=int, default=SIGN_IN_WAIT_SECONDS,
                         metavar="SECONDS",
                         help=f"how long a browser sign-in waits (default "
@@ -1665,6 +1694,8 @@ def main() -> int:
         raise SystemExit("--operation-timeout and --max-retry-after must be at least 1 second")
 
     load_env_file()
+    if args.auth is None:
+        args.auth = person_sign_in()
     if not args.client_id:
         args.client_id = public_client_id()
 

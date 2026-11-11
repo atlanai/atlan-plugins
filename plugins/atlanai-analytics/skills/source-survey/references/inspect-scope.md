@@ -23,9 +23,8 @@ Preserve existing run locations; do not change host permissions or read credenti
   metadata query (`INFO.VIEW.MEASURES`) returns names without expressions for most roles.
   Get the definition files, in this order:
   1. the engine's own reader for that service (`powerbi`, `tableau` features), signed in as
-     the person: for Power BI the `powerbi-fabric` plug with `with_model: true`, through its
-     browser sign-in (`sign_in: browser`, PKCE) when the agent runs on the person's machine,
-     or its device code when there is no local browser, as
+     the person: for Power BI the `powerbi-fabric` plug with `with_model: true`, which signs in
+     through the person's browser (PKCE) where one can open, else by device code, as
      [Power BI service inputs](../../metrics-generation/modules/metrics/engine/docs/guides/power-bi-service-inputs.md) says.
      It is the only route that brings the report and the model together; every route below
      brings one of them, so name the other as a gap;

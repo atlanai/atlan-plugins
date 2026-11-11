@@ -182,5 +182,55 @@ class PrepareAndErrors(unittest.TestCase):
         self.assertIsNone(self.worker.own_message(OSError('path')))
 
 
+class PersonSignIn(unittest.TestCase):
+    """A person at a terminal signs in in their browser where one can open, else by code."""
+    LOCAL = {'PATH': '/usr/bin'}
+
+    def route(self, env, browser=True, platform='darwin'):
+        import webbrowser
+        get = mock.Mock() if browser else mock.Mock(side_effect=webbrowser.Error('none'))
+        with mock.patch.dict(x.os.environ, env, clear=True), \
+                mock.patch.object(webbrowser, 'get', get), \
+                mock.patch.object(x.sys, 'platform', platform):
+            return x.person_sign_in()
+
+    def test_local_browser_is_pkce(self):
+        self.assertEqual(self.route(self.LOCAL), 'browser')
+
+    def test_ssh_no_display_or_no_browser_is_the_device_code(self):
+        self.assertEqual(self.route({**self.LOCAL, 'SSH_CONNECTION': '10.0.0.1 22 10.0.0.2 22'}), 'device')
+        self.assertEqual(self.route(self.LOCAL, platform='linux'), 'device')
+        self.assertEqual(self.route({**self.LOCAL, 'DISPLAY': ':0'}, platform='linux'), 'browser')
+        self.assertEqual(self.route(self.LOCAL, browser=False), 'device')
+
+    def test_a_customers_own_sign_in_app_keeps_the_device_code(self):
+        self.assertEqual(self.route({**self.LOCAL, 'PBI_PUBLIC_CLIENT_ID':
+                                     '00000000-0000-0000-0000-000000000000'}), 'device')
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class PlugSignInChoice(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(ENGINE / 'src'))
+        from metrics_agent_powerbi import plug
+        cls.plug = plug
+
+    def test_at_a_terminal_the_plug_asks_for_the_persons_route(self):
+        with mock.patch.dict(x.os.environ, {'PATH': '/usr/bin'}, clear=True), \
+                mock.patch.object(self.plug, 'at_terminal', return_value=True), \
+                mock.patch.object(x, 'person_sign_in', return_value='browser'):
+            self.assertEqual(self.plug.sign_in({}), 'browser')
+            self.assertEqual(self.plug.sign_in({'sign_in': 'device'}), 'device')
+            cmd = self.plug.PowerBIFabric({'targets': ['synthetic']}).command(Path('/synthetic'))
+        self.assertEqual(cmd[cmd.index('--auth') + 1], 'browser')
+        self.assertIn('--sign-in-timeout', cmd)
+
+    def test_not_at_a_terminal_nothing_waits(self):
+        with mock.patch.dict(x.os.environ, {'PATH': '/usr/bin'}, clear=True), \
+                mock.patch.object(self.plug, 'at_terminal', return_value=False):
+            self.assertIsNone(self.plug.sign_in({}))
+
+
 if __name__ == '__main__':
     unittest.main()

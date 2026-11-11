@@ -55,12 +55,11 @@ a failed semantic check cannot be converted into parse-only success.
 ### Power BI from a report link
 
 The `powerbi-fabric` plug fetches the report and its semantic model in one step, the richest
-input a run can have. Sign in as the person; set `sign_in: browser` (authorization code with
-PKCE) when the agent runs on their machine, so the sign-in opens in their own browser with
-single sign-on and nothing to copy. Leave it out for the device code where there is no local
-browser (an SSH or cloud session), or where the public client does not allow the redirect
-`http://localhost`. A token or service principal already in the environment is used without
-either. Both interactive sign-ins need the terminal procedure under **Native sign-in**.
+input a run can have. It signs in as the person on its own: in their browser (authorization
+code with PKCE: single sign-on, nothing to copy) where one can open on this machine, else by
+device code (an SSH or cloud session, a host with no display, or a sign-in app of the
+customer's own in `PBI_PUBLIC_CLIENT_ID`). `sign_in: device` or `sign_in: browser` overrides
+it. A token or service principal already in the environment is used without either. Both interactive sign-ins need the terminal procedure under **Native sign-in**.
 
 ```yaml
 inputs:
@@ -69,7 +68,6 @@ settings:
   powerbi-fabric:
     targets: [https://app.powerbi.com/groups/<workspace-id>/reports/<report-id>]
     with_model: true
-    sign_in: browser
 ```
 
 Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run
