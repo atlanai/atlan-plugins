@@ -28,18 +28,19 @@ concrete plan. Respect explicit draft or review requests.
 One flow: ask, discover, confirm the tables, build.
 
 1. **Three questions**, in one card where the host allows it, as
-   [the interview](references/setup/intent.md) words them: which warehouse (offering the
-   connections already configured), what to build context for (first option "Let discovery
+   [the interview](references/setup/intent.md) words them: which warehouse (those already
+   connected are labelled so), what to build context for (first option "Let discovery
    decide", then domains personalised to the person), and whether there is a BI source to
    share (a Power BI or Tableau file, or a link).
 2. **Discovery** on the chosen warehouse: `source-survey` `discover` finds the schemas in
    use and the tables that matter, reads their columns and suggests tables.
 3. **One confirmation**, "Build from these tables?", then metric generation.
 
-A question the request already answers is not asked. Before the card, look only at what is
-already connected (`source-survey` `connections`) and at BI file names in the working folder
-(`PROJECT discover`), so the options are real. Read no data before the answers. The card's
-own text is the opening:
+A question the request already answers is not asked. Before the card, look silently at what
+is already connected (`source-survey` `connections`) and at BI file names in the working
+folder (`PROJECT discover`). Say nothing about that look or where the options came from,
+and read no data before the answers. The person's first sight is the card, whose own text is
+the opening:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:
 what your numbers mean and how they are worked out. With that context, you can ask your data

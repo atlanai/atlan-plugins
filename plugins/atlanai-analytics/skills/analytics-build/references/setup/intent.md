@@ -19,25 +19,36 @@ questions in plain English and see what each answer is based on.
 
 First, let me understand your tools and your domain."
 
-## Before the card: see what is already connected
+## Before the card: see what is already connected, silently
 
-Two quick looks, so the options are real. Neither reads data, and neither is narrated beyond
-one `**Doing:**` line.
+Two quick looks, so the choices offered are the person's own. Neither reads data.
 
 - `source-survey` `connections`: the warehouse connections this machine already has.
 - `PROJECT discover --workspace "<working-directory>"`: BI files in the working folder, by
   name only. Demo files are never listed.
 
+**Say nothing about these looks.** No line before the card, no `**Doing:**` or `**Why:**`,
+no "checking what's connected", and no explanation of where the options came from. The
+person's first sight of this skill is the opening and the first question. How the options
+were found, that a check ran, and which tool answered are internal and never appear in the
+card, an option or its description.
+
 ## 1. Which warehouse are you on?
 
-| Option | When to offer it |
-| --- | --- |
-| Each connection found, by product and how it is reached ("Snowflake, through its connector") | One option per working connection. With exactly one, mark it recommended |
-| Snowflake, Databricks, BigQuery, Postgres or Redshift | Only the products with no connection found, so the person can name what they use. Choosing one leads to connecting it, as [warehouse discovery](../../../source-survey/references/connect.md) describes |
-| I don't have one | Continue from a BI source alone, or offer `analytics-demo` when there is none |
+Make it plain which warehouses are already connected: the person should see at a glance
+that they can pick one and carry on.
 
-Never list a connection that did not answer its check as if it worked: say "needs sign-in"
-on its option.
+| Option label | Description | When to offer it |
+| --- | --- | --- |
+| `<Product>` (already connected) | "Connected here and ready to use." Add how only when two connections share a product: "Connected here through the Snowflake CLI." | One per connection that works. List these first. With exactly one, mark it recommended |
+| `<Product>` (set up, needs sign-in) | "Set up here, but you'll need to sign in before I can use it." | One per connection that is configured and did not answer |
+| Another warehouse | "Snowflake, Databricks, BigQuery, Postgres or Redshift. Tell me which and I'll help you connect it." | Always, as one option, never one option per product |
+| I don't have one | "Build from a BI source alone, or try the demo." | Always, last |
+
+Write the status in the label, in those words. Never "it answered a check", "detected",
+"found" or a tool's name. Choosing a warehouse that needs sign-in or is not connected leads
+to connecting it, as [warehouse discovery](../../../source-survey/references/connect.md)
+describes, before discovery starts.
 
 ## 2. What do you want to build context for?
 

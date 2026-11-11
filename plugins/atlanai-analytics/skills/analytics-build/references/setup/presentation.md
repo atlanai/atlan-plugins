@@ -53,9 +53,11 @@ the past tense, with counts. Never a file name, helper name or query-pattern cou
 lines, and never the words candidate, engine, gate, hold, export or Registry. A difference
 from a report is news: name it, say why, and count it.
 
+The look at what is connected before the interview has no line: it is silent, as
+[the interview](intent.md) says. The first Doing and Why come after the answers.
+
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Before the interview | Checking which warehouses are already connected. | So you can pick one instead of setting one up. |
 | Discovery | Looking at what `<warehouse>` is used for: its schemas, the most used tables and their columns. | The tables people already query are the ones worth building context on. |
 | Reading a BI source | Reading the report's pages and measures, and the tables behind them. | The report already says how your team measures this, so the context starts from it. |
 | Build and check | Writing the rule for each metric, then running each one on `<warehouse>`. | A rule that returns nothing or nonsense would give wrong answers later; this catches it now. |
