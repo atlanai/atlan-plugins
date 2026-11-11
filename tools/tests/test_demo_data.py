@@ -11,6 +11,7 @@ import zipfile
 import test_local_project as fixtures
 from project import Project, ProjectError, engine_table
 from context_state import resolve_run
+import local_data
 
 SKILL = fixtures.ROOT / 'plugins/atlanai-analytics/skills/analytics-demo'
 spec = importlib.util.spec_from_file_location('demo_data', SKILL / 'scripts/demo_data.py')
@@ -181,6 +182,19 @@ class BundledDemos(unittest.TestCase):
         self.assertTrue(all(t.count('.') == 2 for t in config['tables']))
         with self.assertRaisesRegex(ProjectError, 'No surveyed dashboard'):
             run.engine_config({'sources': 'dashboard'})
+
+    def test_the_engines_sqlite_names_run_on_the_bound_database(self):
+        placed, run_dir, run, asked = self.loaded('yard')
+        def value(sql):
+            return run.execute({'sql': sql})['rows'][0][0]
+        self.assertEqual(value('SELECT COUNT(*) FROM SITE.SITE.PROJECTS'), value('SELECT COUNT(*) FROM site.projects'))
+        self.assertEqual(value('SELECT COUNT(*) FROM "site"."site"."crew"'), value('SELECT COUNT(*) FROM site.crew'))
+        self.assertEqual(value("SELECT 'site.site.projects' FROM site.site.projects LIMIT 1"), 'site.site.projects')
+        self.assertEqual(local_data.engine_names('SELECT * FROM x.site.site.projects', 'site'),
+                         'SELECT * FROM x.site.site.projects')
+        run.bind(asked['database'], tables=['site.projects'], schema='site')
+        with self.assertRaisesRegex(ValueError, 'outside the selected scope'):
+            run.execute({'sql': 'SELECT COUNT(*) FROM site.site.crew'})
 
     def test_engine_tables_follow_the_database_kind(self):
         self.assertEqual(engine_table({'kind': 'sqlite', 'path': '/x/site.sqlite'}, 'site.crew'), 'site.site.crew')

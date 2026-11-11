@@ -165,6 +165,23 @@ def _value(value):
     raise DataError('The result has a nested or binary value; select scalar columns.')
 
 
+def engine_names(sql, schema):
+    """The metrics engine names a SQLite table DB.SCHEMA.TABLE with the file's schema as its
+    database (`site.site.projects`); the file is attached as that schema, so read the name as
+    `site.projects`. Only code changes, never a string literal; the authorizer still checks scope."""
+    from context_contracts import scan
+    name = re.escape(schema)
+    doubled = re.compile(r'(?<![\w."])("?)' + name + r'\1\s*\.\s*("?)(' + name + r')\2\s*\.', re.I)
+    parts, run = [], ''
+    for kind, text in scan(sql):
+        if kind in ('code', 'ident'):
+            run += text
+            continue
+        parts += [doubled.sub(lambda m: m.group(2) + m.group(3) + m.group(2) + '.', run), text]
+        run = ''
+    return ''.join(parts) + doubled.sub(lambda m: m.group(2) + m.group(3) + m.group(2) + '.', run)
+
+
 def sqlite_worker(request):
     import sqlite3
     binding = request['binding']
@@ -220,7 +237,7 @@ def sqlite_worker(request):
         con.set_authorizer(authorize)
         started = time.monotonic()
         try:
-            cursor = con.execute(sql, parameters)
+            cursor = con.execute(engine_names(sql, schema), parameters)
         except sqlite3.DatabaseError as exc:
             if 'not authorized' in str(exc):
                 raise DataError('Query tables or functions are outside the selected scope. Use schema-qualified base tables.') from None
