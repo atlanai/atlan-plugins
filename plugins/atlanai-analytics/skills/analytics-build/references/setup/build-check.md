@@ -23,12 +23,15 @@ through [connect](../../../source-survey/references/connect.md). No data connect
 execution access, mark SQL untested and preserve source work.
 All sources, including the demos and local-only files, use [the metrics engine](../../../metrics-generation/references/metrics-engine.md).
 For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
-`PROJECT prepare` to create a new `.sqlite` database named after its schema, and bind it.
-With past queries in scope, run `PROJECT history`. Then write the engine's configuration with
-`PROJECT engine-config` and a request file `{"sources": "all"}` or `{"sources": "dashboard"}`,
-adding `"bi": "<path>"` when the survey found more than one dashboard file. It configures
+`PROJECT prepare` to create a new `.sqlite` database named after its schema. Bind that file, or
+an existing SQLite or DuckDB file. With past queries in scope, run `PROJECT history`. Then, for
+any local database, write the engine's configuration with `PROJECT engine-config` and a request
+file `{"sources": "all"}` or `{"sources": "dashboard"}`, adding `"bi": "<path>"` (relative to
+the surveyed folder) when the survey found more than one dashboard file. It configures
 `local-files` with the dashboard, the cleaned history and the bound database, takes the dialect
-from the binding, keeps any history table bound and records `engine_run`. Do not write it by hand. When the engine has no compatible SQL-check plug, retain
+from the binding, and names the history's tables as the engine reads them. It prints `config`
+and `engine_run`. Do not write it by hand; only a Power BI project folder (TMDL) is configured
+as [the metrics module](../../../metrics-generation/references/metrics-engine.md) describes. When the engine has no compatible SQL-check plug, retain
 parse-only evidence and run exact local checks separately.
 Do not create a second authoring path because an executor is unavailable.
 

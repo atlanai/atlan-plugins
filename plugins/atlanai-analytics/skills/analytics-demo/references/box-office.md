@@ -2,8 +2,8 @@
 
 Read right after the person picks this demo, and again at each later moment for its facts.
 The demo is `box-office`. It lives in this skill's `assets/box-office/`; `DEMO open box-office`
-sets up its working folder, and `DEMO requests box-office` prints its dashboard file, database,
-schema and dialect.
+sets up its working folder, and `DEMO requests box-office` prints its dashboard file, database
+and schema.
 
 ## The welcome
 

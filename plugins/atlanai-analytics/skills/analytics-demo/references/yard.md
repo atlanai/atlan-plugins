@@ -2,7 +2,7 @@
 
 Read right after the person picks this demo, and again at each later moment for its facts.
 The demo is `yard`. It lives in this skill's `assets/yard/`; `DEMO open yard` sets up its
-working folder, and `DEMO requests yard` prints its dashboard file, database, schema and dialect.
+working folder, and `DEMO requests yard` prints its dashboard file, database and schema.
 
 ## The welcome
 

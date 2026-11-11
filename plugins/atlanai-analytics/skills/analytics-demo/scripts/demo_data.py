@@ -97,8 +97,11 @@ def requests(demo, run_dir):
     demo's fixed choices (its own CSVs as `schema.<file>`, the whole dashboard) are never worked out
     again. With the database already prepared, there is no prepare request: bind it."""
     facts = manifest(demo)
+    run = Path(run_dir).expanduser().resolve()
     try:
-        project = Project(Path(run_dir).expanduser().resolve())
+        if not (run / 'run.json').is_file():
+            raise ValueError
+        project = Project(run)
         state = project.current()
     except ValueError:
         raise DemoError("Survey the demo's working folder into this run first.") from None

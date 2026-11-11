@@ -42,8 +42,19 @@ _card_sql = importlib.util.module_from_spec(_card_spec)
 _card_spec.loader.exec_module(_card_sql)
 
 LOCAL = ('duckdb', 'sqlite')
-# Survey source kinds the metrics engine reads as BI definitions, by the engine's reader name.
-ENGINE_READERS = {'powerbi': 'powerbi', 'tableau': 'tableau'}
+# Survey source kinds the metrics engine reads as BI files; each is also the engine's reader name.
+ENGINE_READERS = ('powerbi', 'tableau')
+# Survey statuses of a BI file the engine can read (Tableau surveys as needing model review).
+USABLE_BI = ('available', 'needs_model_review')
+
+
+def engine_table(binding, name):
+    """A bound table as the engine names it, DB.SCHEMA.TABLE: a SQLite file is attached under its
+    schema, so the schema is also its database (local-files' qualify_table); DuckDB's is the file."""
+    parts = name.split('.')
+    if binding['kind'] == 'sqlite':
+        return '.'.join([parts[-2]] + parts[-2:])
+    return name if len(parts) == 3 else '.'.join([Path(binding['path']).stem] + parts[-2:])
 
 class ProjectError(ValueError):
     pass
@@ -353,6 +364,9 @@ class Project(ContextState):
 
     def history(self):
         state = self.current()
+        # Outputs describe this call only: an earlier scope's bound or log never carries over.
+        for stale in ('querylog.jsonl', 'querylog.clean.jsonl', 'history-tables.txt'):
+            (self.context / stale).unlink(missing_ok=True)
         inputs = []
         for item in state['sources']:
             if item['kind'] == 'query_history' and item['status'] == 'available':
@@ -382,8 +396,8 @@ class Project(ContextState):
                 'next': 'Pass the captured history to the metrics engine local-files input. The engine owns shaping and authoring.'}
 
     def engine_config(self, request):
-        """Write the metrics engine's configuration for a local run from its survey, binding and
-        history, and record the run's engine directory. Warehouse runs configure their own plugs."""
+        """Write the metrics engine's configuration for a local run from its survey, binding, scope
+        and history. Warehouse runs and Power BI project folders configure their own plugs."""
         state = self.current()
         binding = state.get('execution') or {}
         if binding.get('kind') not in LOCAL:
@@ -392,17 +406,21 @@ class Project(ContextState):
         sources = request.get('sources')
         if sources not in ('all', 'dashboard'):
             raise ProjectError('Choose sources "all" (dashboard and past queries) or "dashboard".')
-        dashboards = [s for s in state['sources'] if s['kind'] in ENGINE_READERS
-                      and s['path'] == request.get('bi', s['path'])]
-        if len(dashboards) > 1 or (sources == 'dashboard' and not dashboards):
-            raise ProjectError('Name one surveyed dashboard file as `bi`: '
-                               + ', '.join(s['path'] for s in dashboards) + '.')
+        usable = [s for s in state['sources'] if s['kind'] in ENGINE_READERS and s['status'] in USABLE_BI]
+        dashboards = [s for s in usable if s['path'] == request['bi']] if 'bi' in request else usable
+        if 'bi' in request and not dashboards or len(dashboards) > 1:
+            raise ProjectError('Name one surveyed dashboard file as `bi`, relative to the surveyed folder: '
+                               + (', '.join(s['path'] for s in usable) or 'none was surveyed') + '.')
+        if sources == 'dashboard' and not dashboards:
+            raise ProjectError('No surveyed dashboard file to configure. A Power BI project folder (TMDL) is '
+                               'configured as the metrics module describes.'
+                               if any(s['kind'] == 'powerbi_project' for s in state['sources'])
+                               else 'No surveyed dashboard file to configure; choose sources "all".')
         settings = {'database': binding['path']}
         inputs = {'history': [], 'schema': [], 'bi': [], 'sql_check': 'local-files'}
         if dashboards:
-            dashboard = dashboards[0]
-            settings.update(bi=str(safe_path(Path(state['source_root']) / dashboard['path'], state['source_root'])),
-                            bi_vendor=ENGINE_READERS[dashboard['kind']])
+            settings.update(bi=str(safe_path(Path(state['source_root']) / dashboards[0]['path'], state['source_root'])),
+                            bi_vendor=dashboards[0]['kind'])
             inputs['bi'] = ['local-files']
         config = {'version': 1, 'scope': re.sub(r'[^a-z0-9]+', '-', Path(state['source_root']).name.lower()).strip('-') or 'project',
                   'dialect': binding['kind'], 'mode': 'standalone', 'inputs': inputs,
@@ -414,14 +432,24 @@ class Project(ContextState):
                 raise ProjectError('Run PROJECT history first; the engine reads its cleaned past queries.')
             settings['history'] = str(cleaned)
             inputs['history'] = ['local-files']
-            bound = self.context / 'history-tables.txt'
-            if bound.is_file():
-                config['tables'] = bound.read_text().split()
-        target = self.root / 'engine-config.json'
+            # The same bound PROJECT history applied, or the bound tables when no dashboard bounds it.
+            scopes = list(state.get('scopes', {}).values()) or [state.get('scope', {})]
+            if any(s.get('narrowed') and not s.get('history_tables') for s in scopes):
+                raise ProjectError('Map the selected pages to physical tables before configuring history.')
+            tables = sorted({t for s in scopes for t in s.get('history_tables', [])}) or (
+                [] if dashboards else binding.get('tables', []))
+            if tables:
+                config['tables'] = [engine_table(binding, t) for t in tables]
+        # A prepared engine keeps its configuration; a changed one gets its own directory.
+        number = 1
+        while True:
+            name = 'engine' if number == 1 else f'engine-{number}'
+            target = self.root / (name + '-config.json')
+            if not (self.root / name).exists() or (target.is_file() and self.read(target) == config):
+                break
+            number += 1
         self.write(target, config)
-        state['engine_run'] = str(self.root / 'engine')
-        self.write(self.path, state)
-        return {'status': 'ok', 'config': str(target), 'engine_run': state['engine_run'],
+        return {'status': 'ok', 'config': str(target), 'engine_run': str(self.root / name),
                 'next': 'Run ENGINE prepare with this config and engine_run; do not write another by hand.'}
 
     def bind(self, database, tables=None, schema=None):

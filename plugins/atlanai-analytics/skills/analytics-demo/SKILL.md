@@ -24,7 +24,7 @@ means the helper named there, from the `analytics-build` skill's `scripts/`. `DE
 
 Show this tracker in chat and in the host's task list when available, following
 [the checklist](../analytics-build/references/setup/checklist.md) with `--flow demo`. Once
-the run exists, record the flow once with `PROJECT journey demo`, so a resumed run shows
+the run exists (its survey creates it), record the flow once with `PROJECT journey demo`, so a resumed run shows
 these steps.
 
 1. Choose and load demo data

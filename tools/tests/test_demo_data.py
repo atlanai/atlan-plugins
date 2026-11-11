@@ -6,9 +6,10 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+import zipfile
 
 import test_local_project as fixtures
-from project import Project, ProjectError
+from project import Project, ProjectError, engine_table
 from context_state import resolve_run
 
 SKILL = fixtures.ROOT / 'plugins/atlanai-analytics/skills/analytics-demo'
@@ -72,7 +73,8 @@ class BundledDemos(unittest.TestCase):
                     run.engine_config({'sources': 'all', 'bi': asked['bi']})
                 run.history()
                 configured = run.engine_config({'sources': 'all', 'bi': asked['bi']})
-                self.assertEqual(run.current()['engine_run'], str(run_dir / 'engine'))
+                self.assertEqual(configured['engine_run'], str(run_dir / 'engine'))
+                self.assertNotIn('engine_run', run.current())
                 config = json.loads(Path(configured['config']).read_text())
                 files = config['settings']['local-files']
                 self.assertEqual(files['history'], str(run_dir / 'context/querylog.clean.jsonl'))
@@ -131,14 +133,69 @@ class BundledDemos(unittest.TestCase):
         placed, run_dir, run, asked = self.loaded('yard')
         with self.assertRaisesRegex(ProjectError, 'Choose sources'):
             run.engine_config({'sources': 'everything'})
-        shutil.copy(Path(placed['working_folder']) / asked['bi'], Path(placed['working_folder']) / 'powerbi/copy.pbit')
+        with self.assertRaisesRegex(ProjectError, 'Name one surveyed dashboard.*hard-hat'):
+            run.engine_config({'sources': 'dashboard', 'bi': '/elsewhere/report.pbit'})
+        folder = Path(placed['working_folder'])
+        shutil.copy(folder / asked['bi'], folder / 'powerbi/copy.pbit')
         run.survey(placed['working_folder'])
         with self.assertRaisesRegex(ProjectError, 'Name one surveyed dashboard'):
             run.engine_config({'sources': 'dashboard'})
-        run.write_text(run.context / 'history-tables.txt', 'site.projects\nsite.crew')
+
+    def test_a_model_sidecar_is_not_a_second_dashboard(self):
+        placed, run_dir, run, asked = self.loaded('yard')
+        folder = Path(placed['working_folder'])
+        with zipfile.ZipFile(folder / asked['bi']) as template:
+            model = template.read('DataModelSchema').decode('utf-16-le').lstrip('\ufeff')
+        (folder / 'powerbi/model.bim').write_text(model)
+        statuses = {s['path']: s['status'] for s in run.survey(placed['working_folder'])['sources']}
+        self.assertEqual(statuses['powerbi/model.bim'], 'model_sidecar')
+        config = json.loads(Path(run.engine_config({'sources': 'dashboard'})['config']).read_text())
+        self.assertEqual(config['settings']['local-files']['bi'], str(folder / asked['bi']))
+
+    def test_history_tables_are_named_as_the_engine_reads_them(self):
+        placed, run_dir, run, asked = self.loaded('yard')
+        source_id = json.loads(Path(asked['scope']).read_text())['source_id']
+        run.scope({'source_id': source_id, 'pages': ['page1'], 'history_tables': ['site.projects', 'site.crew']})
         run.history()
-        config = json.loads(Path(run.engine_config({'sources': 'all', 'bi': asked['bi']})['config']).read_text())
-        self.assertEqual(config['tables'], ['site.projects', 'site.crew'])
+        config = json.loads(Path(run.engine_config({'sources': 'all'})['config']).read_text())
+        self.assertEqual(config['tables'], ['site.site.crew', 'site.site.projects'])
+        run.scope({'source_id': source_id, 'pages': ['all']})
+        run.history()
+        self.assertFalse((run.context / 'history-tables.txt').exists())
+        self.assertNotIn('tables', json.loads(Path(run.engine_config({'sources': 'all'})['config']).read_text()))
+
+    def test_history_without_a_dashboard_is_bounded_by_the_bound_tables(self):
+        estate = self.folder / 'estate'
+        shutil.copytree(SKILL / 'assets/yard/data', estate / 'data')
+        shutil.copytree(SKILL / 'assets/yard/history', estate / 'history')
+        run = Project(resolve_run(self.folder))
+        sources = run.survey(str(estate))['sources']
+        result = run.prepare({'database': 'data/site.sqlite', 'tables': [
+            {'source_id': s['source_id'], 'table': 'site.' + Path(s['path']).stem}
+            for s in sources if s['path'].endswith('.csv')]})
+        run.bind(result['database'], schema='site')
+        run.history()
+        config = json.loads(Path(run.engine_config({'sources': 'all'})['config']).read_text())
+        self.assertEqual(config['inputs']['bi'], [])
+        self.assertIn('site.site.projects', config['tables'])
+        self.assertTrue(all(t.count('.') == 2 for t in config['tables']))
+        with self.assertRaisesRegex(ProjectError, 'No surveyed dashboard'):
+            run.engine_config({'sources': 'dashboard'})
+
+    def test_engine_tables_follow_the_database_kind(self):
+        self.assertEqual(engine_table({'kind': 'sqlite', 'path': '/x/site.sqlite'}, 'site.crew'), 'site.site.crew')
+        self.assertEqual(engine_table({'kind': 'duckdb', 'path': '/x/warehouse.duckdb'}, 'main.crew'), 'warehouse.main.crew')
+        self.assertEqual(engine_table({'kind': 'duckdb', 'path': '/x/w.duckdb'}, 'db.main.crew'), 'db.main.crew')
+
+    def test_a_prepared_engine_keeps_its_configuration(self):
+        placed, run_dir, run, asked = self.loaded('yard')
+        first = run.engine_config({'sources': 'dashboard'})
+        Path(first['engine_run']).mkdir()
+        self.assertEqual(run.engine_config({'sources': 'dashboard'})['engine_run'], first['engine_run'])
+        run.history()
+        changed = run.engine_config({'sources': 'all'})
+        self.assertEqual(changed['engine_run'], str(run_dir / 'engine-2'))
+        self.assertEqual(json.loads(Path(first['config']).read_text())['inputs']['history'], [])
 
     def test_requests_need_a_survey_of_the_working_folder(self):
         with self.assertRaisesRegex(demo_data.DemoError, 'Survey the demo'):
