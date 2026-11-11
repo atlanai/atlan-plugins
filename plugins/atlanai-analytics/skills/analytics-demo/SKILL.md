@@ -50,8 +50,8 @@ questions in plain English and see what each answer is based on. Which demo shou
 | Use my own data | Load the `analytics-build` skill instead and follow its steps. |
 
 Each demo has its own facts file: [Fixit's builder's yard](references/yard.md),
-[Ticketfuddle's box office](references/box-office.md). Read the chosen one now, print its
-welcome block whole before any other tool call, then ask "Ready to build?" as
+[Ticketfuddle's box office](references/box-office.md). Read the chosen one now, then, before any other
+tool call, ask "Ready to build?" with its welcome lines as the question's own text, as
 [the tour rules](references/tour.md) describe. On "Not now", stop and repeat the tour link.
 
 After "Start building", show the tracker, then do all of step 1's work:
@@ -114,10 +114,11 @@ describes.
 ## 5 and 6. Ask a question, build a dashboard
 
 When the context is saved, or kept on this machine, read
-[ready for questions](../analytics-build/references/setup/ready.md): print the ready block, then
-show two or three questions supported by the checked context immediately. Do not put an
-Ask AI menu before the question list. Answer the question or questions the person selects
-or supplies. After answering that request, offer "What would you like to do next?":
+[ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
+to ask?" with the ready block as its text, offering two or three questions supported by the
+checked context. Do not put an Ask AI menu before the question list. Answer the question or
+questions the person selects or supplies. End that turn on the answer, closing with one plain
+`Next:` line built from these options (no native question in the same turn, as ready describes):
 
 | Option | Runs |
 | --- | --- |
