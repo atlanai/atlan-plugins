@@ -129,7 +129,8 @@ context on this machine, ask nothing: the set stays in the project.
 
 End with the closing line, a result: reply text with the source caveat beside it, then the
 demo's own `Next:` line from [ready](../../analytics-build/references/setup/ready.md). Nothing
-else comes after it: no offer to change a saved query, another metric or the set.
+else comes after it: no offer to change a saved query, another metric or the set, and no note
+about saved queries or past queries that still follow the old rule.
 
 - every question right: this banner, then the line:
 
