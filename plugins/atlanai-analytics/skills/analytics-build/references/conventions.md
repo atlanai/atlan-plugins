@@ -141,7 +141,8 @@ handed arrives word for word. So every visible moment takes one of two shapes:
 
 - **A block to read before choosing** (the welcome, a Doing/Why pair before a question, the
   celebration, the ready block, a dashboard layout, a rule change to save) is the native
-  question's own text, as plain lines. Before the question, print nothing, or one short line.
+  question's own text, as plain lines with no Markdown (`**`, `>`, `|` tables, backticks):
+  question text is shown as written. Before the question, print nothing, or one short line.
 - **A result** (an answer, a built dashboard, a rule change kept local, a missing-metric
   offer) is reply text that ends the turn. Close it with one plain `Next:` line built from
   that moment's options, one sentence and not a list, then stop, and treat the person's reply as the choice. No native

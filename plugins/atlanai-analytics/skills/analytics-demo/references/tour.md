@@ -58,7 +58,8 @@ two short lines as an ordinary reply, at most 35 words together, in this shape:
 Fill in actual counts and names from the chosen demo. Use these, in order; the first of a
 step goes under its tracker. Skip a moment that does not happen in this run. A moment that
 opens with a native question (Sources question, Workspace question) puts its two lines at
-the top of that question's text instead of printing them before it. The Ready moment has
+the top of that question's text instead of printing them before it, as plain `Doing:` and
+`Why:` with no `**`: question text is shown as written, so Markdown markers show as stars. The Ready moment has
 no pair: its ready block says it.
 
 | Moment | Doing | Why |
