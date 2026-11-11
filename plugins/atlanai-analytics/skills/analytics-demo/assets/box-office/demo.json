@@ -1,5 +1,4 @@
 {
-  "firm": "Ticketfuddle",
   "bi": "tableau/box-office-pulse.twb",
   "database": "data/tix.sqlite",
   "schema": "tix",

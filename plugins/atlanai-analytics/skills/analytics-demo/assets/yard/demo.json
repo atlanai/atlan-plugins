@@ -1,5 +1,4 @@
 {
-  "firm": "Fixit & Co.",
   "bi": "powerbi/hard-hat-area-site-performance.pbit",
   "database": "data/site.sqlite",
   "schema": "site",

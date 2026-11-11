@@ -55,6 +55,26 @@ class BundledDemos(unittest.TestCase):
                     self.assertEqual(len(scope['selection']['measure_refs']), 4)
                 else:
                     self.assertIsNone(asked['scope'])
+                with self.assertRaisesRegex(demo_data.DemoError, 'PROJECT history'):
+                    demo_data.engine(demo, run_dir, 'all')
+                run.history()
+                configured = demo_data.engine(demo, run_dir, 'all')
+                config = json.loads(Path(configured['config']).read_text())
+                files = config['settings']['local-files']
+                self.assertEqual(files['history'], str(run_dir / 'context/querylog.clean.jsonl'))
+                self.assertEqual((files['bi'], files['database']), (asked['bi'], asked['database']))
+                self.assertEqual(files['bi_vendor'], dashboards[0]['kind'])
+                self.assertEqual((config['dialect'], config['inputs']['schema']), ('sqlite', []))
+                dashboard_only = json.loads(Path(demo_data.engine(demo, run_dir, 'dashboard')['config']).read_text())
+                self.assertEqual(dashboard_only['inputs']['history'], [])
+                self.assertNotIn('history', dashboard_only['settings']['local-files'])
+
+    def test_engine_needs_the_prepared_database(self):
+        placed = demo_data.open_demo('yard', self.folder)
+        run_dir = self.folder / '.atlan-metrics' / 'run'
+        Project(run_dir).survey(placed['working_folder'])
+        with self.assertRaisesRegex(demo_data.DemoError, 'Prepare and bind'):
+            demo_data.engine('yard', run_dir, 'dashboard')
 
     def test_requests_need_a_survey_of_the_working_folder(self):
         with self.assertRaisesRegex(demo_data.DemoError, 'Survey the demo'):

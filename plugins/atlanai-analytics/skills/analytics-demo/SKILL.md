@@ -66,7 +66,8 @@ After "Start building", show the tracker, then do all of step 1's work:
    `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime "<folder>/.atlan-metrics/runtime" setup`,
    with `<metrics-dir>` the `metrics-generation` skill's directory
    ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1).
-2. **Read the sources.** Start a new setup run and inspect only `working_folder`, with
+2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
+   so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only `working_folder`, with
    [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
    the person had asked to set up that folder from scratch. Then run
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
@@ -94,7 +95,10 @@ tables are used either way, to check the context.
 
 ## 3. Build and check metrics
 
-The demo has no first-metric preview and asks no build-the-rest question. Run the metrics
+The demo has no first-metric preview and asks no build-the-rest question. With past queries in
+scope, run `PROJECT history` (no arguments). Then `DEMO engine <demo> --run-dir "<run-dir>"
+--sources all` (or `dashboard`) writes the engine's configuration and prints `config` and
+`engine_run`; prepare the engine with them, never with a configuration written by hand. Run the metrics
 engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every

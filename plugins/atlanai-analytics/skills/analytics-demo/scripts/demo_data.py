@@ -3,6 +3,7 @@
 
     python3 demo_data.py open <demo> <folder>   # sets up <folder>/atlan-analytics-demo/<demo>/
     python3 demo_data.py requests <demo> --run-dir <run>   # after the survey: prepare and scope requests
+    python3 demo_data.py engine <demo> --run-dir <run> --sources all|dashboard   # the engine's config
 
 Each demo lives in a folder under this skill's assets/: its dashboard, CSVs and query history laid
 out as a project, plus demo.json naming the dashboard file, the database to prepare, its schema and
@@ -19,7 +20,7 @@ import sys
 sys.dont_write_bytecode = True
 ASSETS = Path(__file__).resolve().parents[1] / 'assets'
 MANIFEST = 'demo.json'
-FIELDS = ('firm', 'bi', 'database', 'schema', 'dialect')
+FIELDS = ('bi', 'database', 'schema', 'dialect')
 
 
 class DemoError(ValueError):
@@ -73,9 +74,8 @@ def open_demo(demo, folder):
             'bytes': total, 'database_exists': database.exists()}
 
 
-def requests(demo, run_dir):
-    """Write the setup run's prepare and scope requests from its survey of the working folder, so the demo's
-    fixed choices (every CSV as `schema.<file>`, the whole dashboard) are never worked out again."""
+def surveyed(demo, run_dir):
+    """The run's survey of this demo's working folder: (facts, run, folder, sources by path)."""
     facts = manifest(demo)
     run = Path(run_dir).expanduser().resolve()
     try:
@@ -86,9 +86,18 @@ def requests(demo, run_dir):
     if root.parts[-2:] != ('atlan-analytics-demo', demo):
         raise DemoError(f'This run surveyed {root}, not the {demo} working folder. Open the demo and survey it.')
     sources = {s['path']: s for s in state.get('sources', [])}
+    if facts['bi'] not in sources:
+        raise DemoError('The survey is missing the demo files. Open the demo again, then survey it.')
+    return facts, run, root, sources
+
+
+def requests(demo, run_dir):
+    """Write the setup run's prepare and scope requests from its survey of the working folder, so the demo's
+    fixed choices (every CSV as `schema.<file>`, the whole dashboard) are never worked out again."""
+    facts, run, root, sources = surveyed(demo, run_dir)
     csvs = [s for p, s in sorted(sources.items())
             if p.startswith('data/') and p.endswith('.csv') and s.get('status') == 'available']
-    if not csvs or facts['bi'] not in sources:
+    if not csvs:
         raise DemoError('The survey is missing the demo files. Open the demo again, then survey it.')
     prepare = {'database': facts['database'], 'tables': [
         {'source_id': s['source_id'], 'table': facts['schema'] + '.' + Path(s['path']).stem} for s in csvs]}
@@ -104,6 +113,29 @@ def requests(demo, run_dir):
     return result
 
 
+def engine(demo, run_dir, scope):
+    """Write the metrics engine's configuration for this run: the dashboard, the cleaned past queries
+    when they are in scope, and the prepared database to check every statement on."""
+    facts, run, root, sources = surveyed(demo, run_dir)
+    database = root / facts['database']
+    history = run / 'context' / 'querylog.clean.jsonl'
+    if not database.is_file():
+        raise DemoError('Prepare and bind the demo database first.')
+    if scope == 'all' and not history.is_file():
+        raise DemoError('Run PROJECT history first; the engine reads its cleaned past queries.')
+    settings = {'bi': str(root / facts['bi']), 'bi_vendor': sources[facts['bi']]['kind'],
+                'database': str(database)}
+    if scope == 'all':
+        settings['history'] = str(history)
+    config = {'version': 1, 'scope': demo, 'dialect': facts['dialect'], 'mode': 'standalone',
+              'inputs': {'history': ['local-files'] if scope == 'all' else [], 'schema': [],
+                         'bi': ['local-files'], 'sql_check': 'local-files'},
+              'settings': {'local-files': settings},
+              'witness_mode': 'execute', 'publish': ['files'], 'observers': []}
+    run.joinpath('demo-engine.json').write_text(json.dumps(config, indent=1), encoding='utf-8')
+    return {'status': 'ok', 'config': str(run / 'demo-engine.json'), 'engine_run': str(run / 'engine')}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     sub = parser.add_subparsers(dest='command', required=True)
@@ -113,10 +145,19 @@ def main():
     ask = sub.add_parser('requests')
     ask.add_argument('demo')
     ask.add_argument('--run-dir', required=True)
+    configure = sub.add_parser('engine')
+    configure.add_argument('demo')
+    configure.add_argument('--run-dir', required=True)
+    configure.add_argument('--sources', choices=('all', 'dashboard'), required=True)
     args = parser.parse_args()
     try:
-        print(json.dumps(open_demo(args.demo, args.folder) if args.command == 'open'
-                         else requests(args.demo, args.run_dir)))
+        if args.command == 'open':
+            result = open_demo(args.demo, args.folder)
+        elif args.command == 'requests':
+            result = requests(args.demo, args.run_dir)
+        else:
+            result = engine(args.demo, args.run_dir, args.sources)
+        print(json.dumps(result))
     except (DemoError, OSError, ValueError) as error:
         print(json.dumps({'status': 'error', 'message': str(error)}))
         return 1
