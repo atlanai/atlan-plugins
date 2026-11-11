@@ -1375,6 +1375,114 @@
    "measured": null
   },
   {
+   "id": "registry-change-owner",
+   "plugin": "atlanai",
+   "skill": "atlan-manage-artifacts",
+   "title": "Hand an artifact to another person",
+   "route": "Search and find the person, head with its owner and workspace rights, readout and one yes, patch on the etag read, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<name>"
+      }
+     },
+     {
+      "tool": "registry__list_users",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<person>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     },
+     {
+      "tool": "registry__list_users",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<owner_id>"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {}
+     },
+     {
+      "tool": "registry__patch_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "artifact_id": "<picked>",
+       "patch": {
+        "owner_id": "<user_id>"
+       },
+       "if_match": "<etag>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     },
+     {
+      "tool": "registry__list_users",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<owner_id>"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {}
+     },
+     {
+      "tool": "registry__patch_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "artifact_id": "<handle>",
+       "patch": {
+        "owner_id": "<user_id>"
+       },
+       "if_match": "<etag>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 7,
+    "warm": 5
+   },
+   "warm_note": "Warm: the handle and the person's id are known; the head, the owner's name and the workspace rights go out together.",
+   "targets": null,
+   "measured": null
+  },
+  {
    "id": "registry-review-queue",
    "plugin": "atlanai",
    "skill": "atlan-manage-artifacts",

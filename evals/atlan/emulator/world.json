@@ -534,7 +534,7 @@
   },
   {
    "name": "registry__patch_artifact",
-   "description": "Change some of an artifact's fields, leaving the rest alone. This is the only update verb — there is no whole-document replace. \n\n**A key you omit is preserved; a key you send as `null` is cleared.** So send only what you are changing. A nested object merges key by key rather than replacing. \n\nContent is immutable per version. Definition edits on kinds with versioned updates append a successor and run its declared checks, including when the old head is blocked. Use append_artifact_version to replace bundle bytes. `workspace_id` cannot be patched — it is what authorization is resolved against; use `move_artifact` to file an artifact in another workspace.",
+   "description": "Change some of an artifact's fields, leaving the rest alone. This is the only update verb — there is no whole-document replace. \n\n**A key you omit is preserved; a key you send as `null` is cleared.** So send only what you are changing. A nested object merges key by key rather than replacing. \n\nContent is immutable per version. Definition edits on kinds with versioned updates append a successor and run its declared checks, including when the old head is blocked. Use append_artifact_version to replace bundle bytes. `workspace_id` cannot be patched — it is what authorization is resolved against; use `move_artifact` to file an artifact in another workspace. \n\n**`owner_id` hands it to another person**, on every version, with no new one. Its owner or a workspace admin may change it; only an admin can give an owner to an artifact with none. Find the `user_id` with `list_users`, and pass the `etag` you read as `if_match`.",
    "annotations": {
     "destructiveHint": false,
     "idempotentHint": true,
@@ -546,6 +546,11 @@
     "properties": {
      "artifact_id": {
       "description": "The artifact handle, as `<kind>_<identifier>`.",
+      "type": "string"
+     },
+     "if_match": {
+      "description": "The `etag` of the read this change is based on. When given, the patch is refused with `precondition_failed` if the artifact changed since; read it again and retry.",
+      "minLength": 1,
       "type": "string"
      },
      "patch": {
@@ -2406,6 +2411,35 @@
     ],
     "type": "object"
    }
+  },
+  {
+   "name": "registry__list_users",
+   "description": "Find people in this account by name or email, to name one as an artifact's owner. Each row has `user_id` (the value `owner_id` takes), `name` and `email`, in name order. \n\n`query` matches words of the name, email or id; omit it to page through everyone. A person who has never signed in to Atlan is not listed and cannot own anything yet. If two rows share a name, ask which one the person means. \n\nNeeds a sign-in allowed to read the account's people (`members:read`). Without it the call is refused with `insufficient_scope`: ask the person for the user id instead of guessing one.",
+   "annotations": {
+    "openWorldHint": false,
+    "readOnlyHint": true
+   },
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "limit": {
+      "description": "How many to return. Defaults to 50, at most 500.",
+      "type": "integer"
+     },
+     "offset": {
+      "description": "How many to skip, for the next page.",
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer"
+     },
+     "query": {
+      "description": "Words of the person's name or email, or their id.",
+      "type": "string"
+     }
+    },
+    "required": [],
+    "type": "object"
+   }
   }
  ],
  "workspaces": [
@@ -2985,7 +3019,8 @@
     ],
     "file_count": 1,
     "frontmatter_metadata": {}
-   }
+   },
+   "owner_id": "user_priya"
   },
   "skill_01evaltfplan02": {
    "id": "skill_01evaltfplan02",
@@ -3653,5 +3688,32 @@
    "error_every": 12,
    "by": {}
   }
- }
+ },
+ "users": [
+  {
+   "user_id": "user_dana",
+   "name": "Dana Whitfield",
+   "email": "dana@acme.example"
+  },
+  {
+   "user_id": "user_stefan",
+   "name": "Stefan Novak",
+   "email": "stefan@acme.example"
+  },
+  {
+   "user_id": "user_priya",
+   "name": "Priya Nair",
+   "email": "priya@acme.example"
+  },
+  {
+   "user_id": "user_sam_okafor",
+   "name": "Sam Okafor",
+   "email": "sam.okafor@acme.example"
+  },
+  {
+   "user_id": "user_sam_patel",
+   "name": "Sam Patel",
+   "email": "sam.patel@acme.example"
+  }
+ ]
 }

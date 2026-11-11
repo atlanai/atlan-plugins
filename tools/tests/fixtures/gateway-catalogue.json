@@ -1,5 +1,5 @@
 {
- "_source": "The registry tools Atlan's MCP gateway serves, as it defines them: each tool's name, title, description, annotations and input schema, before the gateway adds `session_id`, `rationale` and `objective`. The last two are the file tools the registry hosts. On 2026-11-10 every description, argument list and annotation here was identical to what production's `mcp__describe_tools` returned, for all 29 tools production serves; `registry__publish_output` has since moved to the agent app as `extension__agent__publish_output` (emulated in `world.json` with the same description and schema), so it is not listed here; `registry__submit_feedback` is offered only where a deployment has a feedback destination. Refresh this file from the gateway when a tool changes, then run `python3 tools/sync_gateway_tools.py` so the eval emulator and gateway-tools.json follow.",
+ "_source": "The registry tools Atlan's MCP gateway serves, as it defines them: each tool's name, title, description, annotations and input schema, before the gateway adds `session_id`, `rationale` and `objective`. The last two are the file tools the registry hosts. On 2026-11-10 every description, argument list and annotation here was identical to what production's `mcp__describe_tools` returned, for all 29 tools production serves; `registry__publish_output` has since moved to the agent app as `extension__agent__publish_output` (emulated in `world.json` with the same description and schema), so it is not listed here; `registry__submit_feedback` is offered only where a deployment has a feedback destination. Refresh this file from the gateway when a tool changes, then run `python3 tools/sync_gateway_tools.py` so the eval emulator and gateway-tools.json follow. `registry__list_users` and `registry__patch_artifact`'s `if_match` come from agent-gateway's discovery-2026-11-11-owner-transfer-over-mcp, taken from its registry-mcp catalogue before they reach production.",
  "tools": [
   {
    "annotations": {
@@ -335,6 +335,36 @@
     "openWorldHint": false,
     "readOnlyHint": true
    },
+   "description": "Find people in this account by name or email, to name one as an artifact's owner. Each row has `user_id` (the value `owner_id` takes), `name` and `email`, in name order. \n\n`query` matches words of the name, email or id; omit it to page through everyone. A person who has never signed in to Atlan is not listed and cannot own anything yet. If two rows share a name, ask which one the person means. \n\nNeeds a sign-in allowed to read the account's people (`members:read`). Without it the call is refused with `insufficient_scope`: ask the person for the user id instead of guessing one.",
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "limit": {
+      "description": "How many to return. Defaults to 50, at most 500.",
+      "type": "integer"
+     },
+     "offset": {
+      "description": "How many to skip, for the next page.",
+      "maximum": 10000,
+      "minimum": 0,
+      "type": "integer"
+     },
+     "query": {
+      "description": "Words of the person's name or email, or their id.",
+      "type": "string"
+     }
+    },
+    "required": [],
+    "type": "object"
+   },
+   "name": "registry__list_users",
+   "title": "Find people in the account"
+  },
+  {
+   "annotations": {
+    "openWorldHint": false,
+    "readOnlyHint": true
+   },
    "description": "List the releases of one artifact, newest first: each with its `channel`, `version_label` (the semver it shipped under), `version_id`, status and whether it is current on its channel. \n\nA release binds one version to one channel. Under a workspace's default `auto` policy, a version that passes its checks (a skill's scan) is released to the account's default channel, `latest`, without a call, labelled by bumping the line's minor: a first release is `0.1.0`. So an empty list right after a create usually means the checks are still running. To name a label or use another channel, call `release_artifact`.",
    "input_schema": {
     "additionalProperties": false,
@@ -610,12 +640,17 @@
     "openWorldHint": false,
     "readOnlyHint": false
    },
-   "description": "Change some of an artifact's fields, leaving the rest alone. This is the only update verb — there is no whole-document replace. \n\n**A key you omit is preserved; a key you send as `null` is cleared.** So send only what you are changing. A nested object merges key by key rather than replacing. \n\nContent is immutable per version. Definition edits on kinds with versioned updates append a successor and run its declared checks, including when the old head is blocked. Use append_artifact_version to replace bundle bytes. `workspace_id` cannot be patched — it is what authorization is resolved against; use `move_artifact` to file an artifact in another workspace.",
+   "description": "Change some of an artifact's fields, leaving the rest alone. This is the only update verb — there is no whole-document replace. \n\n**A key you omit is preserved; a key you send as `null` is cleared.** So send only what you are changing. A nested object merges key by key rather than replacing. \n\nContent is immutable per version. Definition edits on kinds with versioned updates append a successor and run its declared checks, including when the old head is blocked. Use append_artifact_version to replace bundle bytes. `workspace_id` cannot be patched — it is what authorization is resolved against; use `move_artifact` to file an artifact in another workspace. \n\n**`owner_id` hands it to another person**, on every version, with no new one. Its owner or a workspace admin may change it; only an admin can give an owner to an artifact with none. Find the `user_id` with `list_users`, and pass the `etag` you read as `if_match`.",
    "input_schema": {
     "additionalProperties": false,
     "properties": {
      "artifact_id": {
       "description": "The artifact handle, as `<kind>_<identifier>`.",
+      "type": "string"
+     },
+     "if_match": {
+      "description": "The `etag` of the read this change is based on. When given, the patch is refused with `precondition_failed` if the artifact changed since; read it again and retry.",
+      "minLength": 1,
       "type": "string"
      },
      "patch": {

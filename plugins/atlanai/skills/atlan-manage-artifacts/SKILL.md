@@ -1,6 +1,6 @@
 ---
 name: atlan-manage-artifacts
-description: Archive, move, deprecate, roll back or release an Atlan artifact, approve a pending version, or see the review queue. Use when asked what breaks if something is archived, to retire, replace or approve a skill or agent, or what awaits review.
+description: Archive, move, deprecate, roll back, release or reassign an Atlan artifact, approve a version, or see the review queue. Use when asked what breaks if one is archived, to retire, replace, hand over or approve a skill or agent, or what awaits review.
 license: Apache-2.0
 ---
 
@@ -79,6 +79,7 @@ report the new state in one line.
 | "Release 1.2 to stable", "ship it" | `registry__release_artifact` with `version_label` or `channel` | Only a version that is `active`. A `pending_review` one waits for its scan, or is approved first. A refusal carries a `code`: open [refusals](references/refusals.md) for its one step. |
 | "Move it to Platform" | `registry__move_artifact` | Open [refusals](references/refusals.md) before the readout: some kinds, statuses and targets cannot move, and the readout says so instead of asking. Readers of the old workspace may lose it, and an end that turns `is_readable: false` for the new readers is named. |
 | "Deprecate it, use X instead" | `registry__patch_artifact` with a `description` that starts `Deprecated: use <name> (<handle>) instead.` followed by the old description; then, when there is a replacement and `registry__get_kind_schema` lists a `replaced_by` relationship for the kind, `registry__relate_artifact` from the old artifact to it with `rel_type` `replaced_by` | Never set `artifact_status` to `deprecated`: the registry reads it as `active` and nothing changes. The description is what every search hit and `atlan-use-skill` read carries, so keep the rest of it. The `replaced_by` edge lets tools point at the successor. A skill's own `lifecycle: deprecated` comes from its bundle, so it changes only with a new version published through `atlan-author-skills`; offer that only when the owner wants it. |
+| "Make Stefan the owner", "hand it over to Priya" | [Changing the owner](references/owner.md) | Open it before the readout: it finds the person's id, says who may change it, and fences the write with the `etag` read. |
 | "Approve it", "what's waiting for my review?" | [The review queue](references/review-queue.md) | Read it before any approval. |
 | "It has been pending for ages", "the scan is stuck" | [The review queue](references/review-queue.md), under a scan that does not settle | One rerun of the scan after a yes, never an approval in its place. |
 
