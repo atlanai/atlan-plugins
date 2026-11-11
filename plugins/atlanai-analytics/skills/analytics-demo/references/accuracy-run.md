@@ -77,7 +77,10 @@ the count; name how many.
 Find why each miss failed and what would fix it. Diagnosing changes nothing: a metric, a saved
 query and the set stay as they are until a fix is chosen.
 
-1. **Each miss.** Read the agent's answer and SQL against the trusted SQL and the set's `note`,
+1. **Each miss.** The set is the source of truth for the rule: a miss is fixed in the context,
+   even when other queries in the context follow the old rule. Never offer changing the test as
+   an alternative; the one exception is *question asks the opposite*, where the wording, not the
+   rule, is wrong. Read the agent's answer and SQL against the trusted SQL and the set's `note`,
    and name the fix: the metric and the definition fields to change, a question to redraft
    (*question asks the opposite*: the set is wrong, not the context), or a metric to add (*no
    definition*).

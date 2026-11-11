@@ -65,7 +65,7 @@ class ScopeTest(unittest.TestCase):
         (self.tmp / "f.json").write_text(json.dumps(good))
         out = self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))
         self.assertEqual((out["fixes"], out["recommended"]), (2, "M"))
-        for bad in ([{**good[0], "misses": ["q9"]}], [{**good[0], "changes": [{"path": "version", "value": 2}]}],
+        for bad in ([{**good[0], "misses": ["q9"]}], [{"misses": ["q1"], "why": "Different rule", "kind": "redraft"}], [{**good[0], "changes": [{"path": "version", "value": 2}]}],
                     [{**good[0], "rule_now": ""}]):
             (self.tmp / "f.json").write_text(json.dumps(bad))
             self.assertEqual(self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "BLOCKED")

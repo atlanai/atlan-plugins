@@ -178,6 +178,9 @@ def cmd_fixes(a) -> dict:
             raise Blocked(f"Fix {n} names no miss of this set" + (f": {', '.join(missing)}" if missing else "") + ".")
         if not f.get("why"):
             raise Blocked(f"Fix {n} needs why the miss failed.")
+        if kind == "redraft" and "opposite" not in f["why"].lower():
+            raise Blocked(f"Fix {n}: the set is the source of truth; only a question that asks the opposite "
+                          "is redrafted. Fix the context instead.")
         if kind == "metric":
             changes = f.get("changes") or []
             if not (f.get("metric") and f.get("rule_now") and f.get("rule_proposed") and changes):
