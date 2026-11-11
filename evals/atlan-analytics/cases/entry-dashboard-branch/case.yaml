@@ -32,7 +32,7 @@ graders:
     focus: last_message
     criteria: |
       PASS if the reply asks the person to paste the dashboard's link or the path to its file,
-      in one short message, and stops. Mentioning file types or that the file can be dragged in
-      is fine. FAIL if it asks which BI tool the dashboard is in, offers a menu of BI tools,
+      in one short message, and stops. Mentioning file types, that the file can be dragged in,
+      or that the person can say skip to let discovery decide, is fine. FAIL if it asks which BI tool the dashboard is in, offers a menu of BI tools,
       asks which warehouse or what they want to do again, runs or describes discovery, suggests
       tables, or starts any build.

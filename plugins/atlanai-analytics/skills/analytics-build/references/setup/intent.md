@@ -113,7 +113,8 @@ file; say so if they chose A or C, and mention `analytics-demo`.
    `.twbx`). You can drag the file into this box."
 
    Add one line when a BI file is in the working folder: "Or say `use <file name>` for the
-   one in this folder." Do not ask which BI tool it is: the link or the file's extension
+   one in this folder." Always end with: "Or say skip and I'll let discovery decide." A
+   reply of skip is branch A from its start. Do not ask which BI tool it is: the link or the file's extension
    says. Take whatever comes back as the dashboard.
 2. **Access check.** `source-survey` `access` on the dashboard and the tables it reads. No
    question unless something fails; then one question, below.
@@ -121,12 +122,30 @@ file; say so if they chose A or C, and mention `analytics-demo`.
 
 ## Branch C: I have a use case and know my tables
 
-1. **Tell me.** One short message in ordinary chat. End the turn on it.
+1. **Tell me.** One card, so the person sees where to type and how to skip:
 
-   "In a line, what's the use case? Then list the tables, and any dashboard link or file."
+   "What's the use case, and which tables power it?"
 
-   Take the reply as given: the use case in their words, the tables as named, the
-   dashboards as links or paths. Do not suggest other tables or run discovery.
+   The question's own text shows what to type, in one line: "Type it in your own words, for
+   example: `Pipeline by stage and win rate. Tables: SALES.FCT_OPPORTUNITY,
+   SALES.DIM_ACCOUNT`. Add a dashboard link or file if you have one."
+
+   | Option | Description |
+   | --- | --- |
+   | Skip, let discovery decide | "I'll look at what your warehouse is used for and suggest use cases." |
+   | Share a dashboard instead | "Paste a dashboard link or file and I'll build from that." |
+
+   The host's free-text entry is where the use case and tables go; never add an option
+   that only says to type. Where the host has no question tool, ask the same thing in
+   ordinary chat and end with: "Or say skip and I'll let discovery decide."
+
+   | They answer | Do |
+   | --- | --- |
+   | A use case and tables | Take them as given: the use case in their words, the tables as named. Do not suggest other tables or run discovery |
+   | A use case and no tables | Branch A, with the use case as the subject: discovery finds its tables. Ask nothing more first |
+   | Skip, let discovery decide | Branch A from its start |
+   | Share a dashboard instead | Branch B from its start |
+
 2. **Access check.** `source-survey` `access` on each table and dashboard they named.
 3. **Confirm and trigger**, below.
 

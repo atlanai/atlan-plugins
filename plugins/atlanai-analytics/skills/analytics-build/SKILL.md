@@ -35,7 +35,7 @@ concrete plan. Respect explicit draft or review requests.
    | --- | --- |
    | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over two to four use cases with their tables, then at most two clarifying questions if something is unsettled |
    | Make my dashboard agentic | One chat message asking for the dashboard's link or file, then `source-survey` `access` on it and its tables |
-   | I have a use case and know my tables | One chat message asking for the use case, tables and dashboards, then `source-survey` `access` on them |
+   | I have a use case and know my tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 
 3. **Confirm and trigger**, the same in every branch: one line of what will be built and
    from what, then "Build it?". Nothing is built before the yes.
