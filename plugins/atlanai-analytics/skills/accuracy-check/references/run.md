@@ -24,7 +24,8 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
    resumes here.
 2. Start one subagent per question, all at once (a set has 5), so the test takes as long as its
    slowest question. For each:
-   1. Spawn a subagent with this prompt, filled in:
+   1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
+      cost down, with this prompt, filled in:
       ```
       <question>
 

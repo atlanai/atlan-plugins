@@ -16,7 +16,7 @@ tool, print them last as plain lines, as
 | --- | --- |
 | The proposed change | One line: what the rule would count instead. |
 | My own change | The person types it. |
-| Leave it as it is | End the turn with the `Next:` line from [ready](../../analytics-build/references/setup/ready.md). |
+| Leave it as it is | Ask "What would you like to do next?" from [ready](../../analytics-build/references/setup/ready.md). |
 
 Never propose a change the demo's data cannot show: the tables must hold the column the
 new rule needs.
@@ -52,9 +52,9 @@ the block goes.
 
 ## 4. Where the change lives
 
-- Context kept on this machine: the change is saved in the run. Print the block and the
-  comparison sentence as reply text, say so in one line, close with the plain `Next:` line
-  from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
+- Context kept on this machine: the change is saved in the run. Ask "What would you like to do next?" from
+  [ready](../../analytics-build/references/setup/ready.md), whose text is the block and the
+  comparison sentence as plain lines and one line saying the change is kept on this machine.
 - Context saved to Atlan Trident: ask one native question whose text is the block as plain
   lines, then the comparison sentence, then "Save this change for everyone who uses the
   metric?" On yes, call

@@ -61,16 +61,15 @@ questions the person selects or types; listing suggestions never authorizes answ
 all of them. If they selected several, finish those answers before offering next steps.
 An explicit dashboard or real-data request still takes precedence over this default flow.
 
-**After the selected questions are answered**, end the turn on the answer. Never call a
-native question in a turn that answers. Close the answer with one plain `Next:` line naming
-the options below that apply at this point, in the person's words, as one sentence and not
-a list, then stop. Build it from
-the table each time rather than copying an example: after a demo dashboard, Change a rule
-and see what happens takes Design a dashboard's place; own-data setup leaves out Continue
-building on real data. Treat the person's reply as the matching option. Ask the native
-"What would you like to do next?" question only when the person replies without choosing,
-and then with no answer text in that turn. The same rule ends the turn after a built
-dashboard and after the edit-metric block.
+**After the selected questions are answered**, the workflow continues with one native
+question, "What would you like to do next?", whose text is the answer: plain lines with no
+Markdown, the answer first, then its proof lines with their links written out, as
+[text before a native question is lost](../conventions.md#text-before-a-native-question-is-lost)
+describes. Print nothing before it but one short line. Its options are the ones below that
+apply at this point; build them from the table each time rather than copying an example:
+after a demo dashboard, Change a rule and see what happens takes Design a dashboard's place;
+own-data setup leaves out Continue building on real data. The same question follows a built
+dashboard and the edit-metric block, with that result as its text.
 
 | Option | Description |
 | --- | --- |
@@ -80,7 +79,7 @@ dashboard and after the edit-metric block.
 | Continue building on real data | Start with your own dashboard link, local folder or BI export, here in this chat. |
 | I'm done | Finish the demo here. |
 
-Offer these options in the `Next:` line after answering the person's request and after a
+Offer these options in that question after answering the person's request and after a
 dashboard is built. Ask more questions returns to the supported question list. Own-data setup omits the
 real-data transition option and, for now, the accuracy check. A supplied question or explicit next action takes precedence
 over asking again. Never start a flow until chosen.
@@ -97,7 +96,7 @@ numbers. Every answer has three parts, in this order:
    With the context only on this machine, the list says there is nothing to open yet and
    that saving to Atlan Trident gives each answer its links.
 3. After the first answer, record `PROJECT journey asked`. Finish all questions in the
-   selected request before the `Next:` line. After an own-data answer, that line offers
+   selected request before the question. After an own-data answer, it offers
    Design a dashboard, Ask another question and I'm done. Design a dashboard follows
    [the dashboard](../../../analytics-ask/references/dashboard.md).
 
@@ -118,10 +117,10 @@ this option authorizes setup, not publication. Use the normal destination and co
 authorization steps if the person later chooses to save the new context.
 
 **Change a rule and see what happens.** After a demo dashboard is built, this option takes
-the dashboard's place in the `Next:` line. Follow the demo's
+the dashboard's place in that question. Follow the demo's
 [edit a metric](../../../analytics-demo/references/edit-metric.md).
 
 **Wrap up.** On "I'm done", record `PROJECT journey dashboard` if no dashboard was built,
 then finish with the saved context or dashboard location. Do not ask another question or
-require a restart. Building a demo dashboard ends with the `Next:` line above, including
+require a restart. Building a demo dashboard ends with the question above, including
 the option to continue on real data.

@@ -120,8 +120,8 @@ When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
 to ask?" with the ready block as its text, offering two or three questions supported by the
 checked context. Do not put an Ask AI menu before the question list. Answer the question or
-questions the person selects or supplies. End that turn on the answer, closing with one plain
-`Next:` line built from these options (no native question in the same turn, as ready describes):
+questions the person selects or supplies, then ask "What would you like to do next?" with the
+answer as the question's text, as ready describes, offering these options:
 
 | Option | Runs |
 | --- | --- |

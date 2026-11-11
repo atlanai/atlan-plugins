@@ -17,7 +17,7 @@ to the list before diagnosing, and mark each done as it finishes.
 
 Every moment follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
 a block to read before choosing is the question's own text, as plain lines with no Markdown, its
-Doing and Why lines first; a result is reply text that ends the turn with a plain `Next:` line.
+Doing and Why lines first. Every step that leads to a choice ends on a native question.
 
 | Moment | Doing | Why |
 | --- | --- | --- |
@@ -112,19 +112,23 @@ in `<evals-run>/work/spec.json`, name the fix:
   words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>", "value":
   <new value>}]}]`. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has
   no `changes`.
-- **Show the fixes as a result**: reply text that ends the turn. One line per miss: the question,
-  why it failed, and the fix (rule now, rule proposed), the recommended one first. Close with a
-  plain `Next:` line naming the recommended fix and keeping the score, then stop.
+- **Ask "Apply this fix?"**, one native question whose text is the fixes as plain lines: one per
+  miss, the question, why it failed, and the fix (rule now, rule proposed), the recommended one
+  first.
 
-**Apply it.** The person's reply is the choice: applying it (or naming another fix) is the yes
-through the next score, so ask nothing more until the person must act in Metric Studio. Keeping
-the score goes to step 5.
+  | Option | Description |
+  | --- | --- |
+  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, then test the same questions again. |
+  | Keep the score | Keep this score as the bar to beat. |
+
+**Apply it** is the yes through the next score, so ask nothing more until the person must act in
+Metric Studio. Keep the score goes to step 5.
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
   rule there no longer tests the context), and run `PROJECT edit-metric <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
-  keeps the old rule, so say so and name the next fix in a `Next:` line. Change only that metric,
+  keeps the old rule, so say so and ask "Apply this fix?" again with the next fix. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
 - **Context in Atlan Trident:** read the metric's head with `registry__get_artifact` and write one
   proposal with `registry__create_artifact` as
@@ -154,10 +158,10 @@ With the context in Atlan Trident, save the set through `eval-generation` `save`
 which asks where it should live. With the context on this machine, ask nothing: the set stays in
 the project.
 
-End with the closing line, a result: reply text with the score's range as its only caveat (plus
-the source line only when `CHECK load` returned `generated: true`; no significance test, no open questions), then the
-demo's own `Next:` line from [ready](../../analytics-build/references/setup/ready.md). Nothing
-else comes after it: no offer to change a saved query, another metric or the set, and no note
+End with the demo's "What would you like to do next?" from
+[ready](../../analytics-build/references/setup/ready.md), whose text is the closing line as plain
+lines, with the score's range as its only caveat (plus the source line only when `CHECK load`
+returned `generated: true`; no significance test, no open questions). Nothing else comes after it: no offer to change a saved query, another metric or the set, and no note
 about saved queries or past queries that still follow the old rule.
 
 - every question right: this banner, then the line:

@@ -15,23 +15,23 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      PASS if the response gives the supplied dashboard location, then ends on one plain
-      next-actions line that offers Ask more questions, Change a rule and see what happens,
-      Continue building on real data and an exit choice, in any wording. Calling real-data
-      setup separate from the demo is correct. FAIL if the reply offers to design a dashboard
-      again, tells the person to open a new chat for real data, ends with a
-      separate "What would you like to do next?" menu instead of that line, ends only with a
-      restart command, automatically starts real-data setup, invents new results, or claims
-      the local dashboard was published.
+      PASS if the response gives the supplied dashboard location, then ends on the question
+      "What would you like to do next?" with options that offer Ask more questions, Change a
+      rule and see what happens, Continue building on real data and an exit choice, in any
+      wording, as plain lines (this host has no question tool). Calling real-data setup
+      separate from the demo is correct. FAIL if the reply offers to design a dashboard again,
+      tells the person to open a new chat for real data, ends only with a restart command,
+      automatically starts real-data setup, invents new results, or claims the local
+      dashboard was published.
   - name: plain-reply
     type: llm
     focus: last_message
     criteria: |
       PASS if the reply gives the concrete result or next step in plain language,
       without a greeting, apology, em dash, machine status footer or generic offer.
-      The dashboard location and the next-actions line have no word limit.
-      The closing `Next:` line of the demo's options is required by the skill; it is neither
-      a generic offer nor a menu.
+      The dashboard location and the next-step question have no word limit.
+      The closing "What would you like to do next?" question with its options is required by
+      the skill; it is neither a generic offer nor a menu.
   - name: no-shell-calls
     type: tool_used
     tool: Bash
