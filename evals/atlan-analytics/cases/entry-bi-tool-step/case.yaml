@@ -1,0 +1,38 @@
+schema_version: "1.1"
+name: entry-bi-tool-step
+tags: [analytics, build, entry, intent]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue setting up analytics on my own data.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    The person already answered the first card: Snowflake, which is already connected, and
+    "Sales pipeline" as what to build context for. The working folder holds no BI files and no
+    BI connector is connected. No data has been read and nothing is built.
+    Show the next user-facing step.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-build
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-build"'
+    min: 1
+  - name: reads-intent
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup/intent\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: asks-tool-name-only
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply asks which BI tool the person tracks sales pipeline in, offers tool names
+      such as Power BI, Tableau and Looker with a choice to use the warehouse only, and stops.
+      FAIL if the same reply asks for a link, a file path or an upload, gives export
+      instructions, asks which warehouse or what to build context for again, starts discovery,
+      or starts any build.

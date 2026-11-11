@@ -39,8 +39,9 @@ before the first helper call, and keep both true to the saved run.
 Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
 run waits for an explicit resume; details requests do not resume work.
 
-Ask [the interview's three questions](setup/intent.md) before reading any data, in one card
-where the host allows it, skipping what the request already answered. Then run discovery and
+Ask [the interview](setup/intent.md) before reading any data: warehouse and what to build
+context for in one card where the host allows it, then, for a chosen use case only, the BI
+tool and its report. Skip what the request already answered. Then run discovery and
 [suggest the tables](setup/names.md), and ask "Build from these tables?" before authoring.
 Demos use their preset intent and source question instead. Retain answers already given.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;

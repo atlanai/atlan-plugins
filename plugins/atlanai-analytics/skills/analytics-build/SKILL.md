@@ -27,11 +27,11 @@ concrete plan. Respect explicit draft or review requests.
 
 One flow: ask, discover, confirm the tables, build.
 
-1. **Three questions**, in one card where the host allows it, as
-   [the interview](references/setup/intent.md) words them: which warehouse (those already
-   connected are labelled so), what to build context for (first option "Let discovery
-   decide", then domains personalised to the person), and whether there is a BI source to
-   share (a Power BI or Tableau file, or a link).
+1. **The interview**, as [its file](references/setup/intent.md) words it. First, in one card
+   where the host allows it: which warehouse (those already connected are labelled so) and
+   what to build context for (first option "Let discovery decide", then domains
+   personalised to the person). Only when they chose a use case: which BI tool it is in,
+   then one chat message asking for that tool's report as a link or a file.
 2. **Discovery** on the chosen warehouse: `source-survey` `discover` finds the schemas in
    use and the tables that matter, reads their columns and suggests tables.
 3. **One confirmation**, "Build from these tables?", then metric generation.
@@ -60,8 +60,9 @@ the first action, with the full tracker at every step change. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line.
 
-1. **Clarify your use case.** [The interview](references/setup/intent.md): warehouse,
-   what to build context for, a BI source. Skip what the request already said.
+1. **Clarify your use case.** [The interview](references/setup/intent.md): warehouse and
+   what to build context for; then, for a chosen use case only, the BI tool and its report.
+   Skip what the request already said.
 2. **Survey your sources.** `source-survey` `discover`, through
    [discovery](../source-survey/references/discovery.md): any BI source first, then the
    schemas in use, the most used tables and their columns.

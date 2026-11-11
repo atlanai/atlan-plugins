@@ -32,13 +32,13 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      The host has no native question tool, so the interview's questions are asked in chat,
-      either together or the first one alone. PASS if the reply asks which warehouse the person
-      is on and offers Snowflake as a choice plainly marked as already connected. If it asks more
-      than that one question, it must ask what to build context for with "Let discovery decide"
-      as the first option followed by a few domains, and whether there is a BI source to share
-      (offering the pipeline-review file, another Power BI or Tableau file, a link, or none).
+      The host has no native question tool, so the interview's first questions are asked in
+      chat, either together or the first one alone. PASS if the reply asks which warehouse the
+      person is on and offers Snowflake as a choice plainly marked as already connected. If it
+      also asks the second question, that must be what to build context for, with "Let
+      discovery decide" as the first option followed by a few domains.
       FAIL if it narrates that it checked or looked for connections or files, explains how the
       options were chosen, claims to have read tables, schemas or report contents, lists table names,
       asks the person to pick a task such as answering a question or building a dashboard,
-      asks for a source without asking about the warehouse, or starts any build.
+      asks about a BI tool, a dashboard link or a file at this step (that comes only after a
+      use case is chosen), or starts any build.
