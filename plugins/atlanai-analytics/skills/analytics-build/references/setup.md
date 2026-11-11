@@ -22,7 +22,9 @@ for "continue".
 ## Orient before work
 
 A demo follows [the demo skill](../../analytics-demo/SKILL.md), which uses this file's
-technical stages on the demo's working folder. A bare own-data request asks once for the source.
+technical stages on the demo's working folder. An own-data request takes one of the
+[three entries](setup/entry.md): with nothing named, the setup survey finds what there is to
+build from instead of asking for a source.
 All setup uses [one presentation flow](setup/presentation.md), with actual source facts.
 
 Explain the outcome, next action and controls. For example: "I'll turn
@@ -40,9 +42,10 @@ run waits for an explicit resume; details requests do not resume work.
 Explain what sources were found, what they reveal about the project's subject, and what
 they could help analyse. Keep that explanation in the first question's visible prompt; a
 count-only final reply or collapsed commentary is insufficient. Then establish [business focus and purpose](setup/intent.md)
-before authoring. Demos use their preset intent and source question instead. Ask missing
-own-data answers in two separate native question steps; retain answers
-already given. Technical source scope does not establish business intent.
+before authoring. Demos use their preset intent and source question instead. Ask only the
+own-data answers the entry leaves missing, in one card where the host allows it, and retain
+answers already given. Technical source scope does not establish business intent, except that
+a chosen page or a named subject is the focus, as the entry says.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
 it does not require a destination or publication question. Render the question itself, without
 explaining the interview mechanics or showing helper commands.

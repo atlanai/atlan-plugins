@@ -7,6 +7,24 @@ copy them out by hand: turn each saved page into `querylog.jsonl` with `CONTEXT 
 section 2 of the metrics workflow (`metrics.md`) says. It keeps `{sql, exec, users}` and never
 writes a user name.
 
+## Through a chat SQL tool
+
+When the query tool is an MCP connector in this chat, pull history with one bounded statement
+per page and let the host save the result:
+
+- Send no sizing or counting statement first. `ACCOUNT_USAGE` scans are slow, and each one
+  costs minutes. The statement's own `limit` is the bound.
+- Scope it to the tables the report's measures are computed on, not every table it joins.
+  Shared tables such as accounts or opportunities match tens of thousands of statements.
+- Group by the warehouse's parameterised hash where it has one, so one pattern is one row:
+  on Snowflake, `any_value(query_text) as sql, count(*) as exec, count(distinct user_name) as
+  users ... group by query_parameterized_hash order by exec desc limit 500`. Start with 30
+  days; widen to 90 only when fewer than 20 rows come back.
+- A large result is saved by the host to a file, and the tool reply names it. Pass that file
+  to `CONTEXT querylog`; it reads Snowflake and Databricks connector results as saved. When
+  the reply holds the rows inline, write the reply's JSON to a file unchanged and pass that.
+  Never retype statements into a file.
+
 ## Snowflake
 
 When using the metrics module with its `snowflake` feature and a configured direct connection,

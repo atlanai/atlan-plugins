@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Atlan Analytics setup on your own data: survey, use case, scope, metrics, save, questions, dashboard. Use when setting up, resuming or handing off a run, showing its details, or for workspace access. Not for a demo (analytics-demo).
+description: Atlan Analytics setup on your own data, from nothing, a dashboard or a subject: survey, use case, metrics, save, questions. Use when setting up, resuming or handing off a run, its details, or workspace access. Not for a demo (analytics-demo).
 ---
 
 # Atlan Analytics on your own data: seven guided steps
@@ -25,22 +25,28 @@ concrete plan. Respect explicit draft or review requests.
 
 ## Opening
 
-Two ways in:
+Three ways in. Read [the entries](references/setup/entry.md) for each one's survey, interview
+and inventory; decide from the request and never ask which one the person wants.
 
-| The person gave | Do |
-| --- | --- |
-| A source (link, folder, BI export), with or without a problem | Open as below, then survey it |
-| A problem only, such as "churn by plan" | The problem is the focus: ask once for a source, then open |
-| Nothing, and no saved run | Ask once for a dashboard link, local folder or BI export, and mention that `analytics-demo` shows the same steps on made-up data |
+| The person gave | Entry | First action |
+| --- | --- | --- |
+| Nothing, and no saved run | No input | `source-survey` `setup`: what this machine can already reach, and which of it can be built from |
+| A source (link, folder, BI export), with or without a problem | A source | `source-survey` `inventory` on it, then build the whole report with no question |
+| A subject or a problem only, such as "sales pipeline" or "churn by plan" | A domain | `source-survey` `domain`: what already exists about it, and where definitions disagree |
 
-Your next message is the opening, before surveying files or calling helpers:
+Your next message is the opening, before surveying or calling helpers. With no input:
 
-"I'll survey your sources, explain what they cover, and ask what you want to use them for
-before generating metrics you can ask questions of here. I'll show the seven steps and where
-your choices matter. You can narrow the scope, ask for details, keep the work local, or pause
-at any point."
+"I'll turn the dashboards and queries your team already has into metrics you can ask
+questions of here. First I'm looking at what this machine can reach; nothing gets changed.
+You can narrow the scope, ask for details, keep the work local, or pause at any point."
 
-Honor existing choices. Survey-only requests stop after step 1. On resume, read
+With a source or a subject: "I'll survey `<it>`, show what it can become, and build metrics
+you can ask questions of here. You can narrow the scope, ask for details, keep the work
+local, or pause at any point." Then the entry's `**Doing:**` and `**Why:**` lines. Every
+survey settles whether a source can be built from before any question.
+
+The interview is this skill's own: `source-survey` never asks the person anything. Honor
+existing choices. Survey-only requests stop after step 1. On resume, read
 `PROJECT journey status`, name the saved result and the next step, and rebuild the tracker.
 Detail-only requests get only the requested evidence.
 
@@ -51,17 +57,17 @@ the first action, with the full tracker at every step change. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line.
 
-1. **Survey your sources.** `source-survey` `inventory`, through
-   [inspect and scope](../source-survey/references/inspect-scope.md) section 1. Explain
-   what was found, its business meaning and what it could help analyse, inside the first
+1. **Survey your sources.** The entry's survey: `source-survey` `setup`, `inventory` or
+   `domain`. Say what was found, what it means and what can be built from, inside the first
    question's visible prompt; an inventory followed by option labels alone is not enough.
-2. **Clarify your use case.** Follow [the intent flow](references/setup/intent.md): business
-   focus first, purpose second, as native questions, waiting for each answer. A stated problem
-   answers the focus question. Then [commit on names](references/setup/names.md): the person
-   picks the metric names to build from `source-survey` `candidates`.
-3. **Select tables and dashboards.** Follow
-   [inspect and scope](../source-survey/references/inspect-scope.md) section 2: pages,
-   measures and the query-history tables the chosen names need.
+2. **Clarify your use case.** [The interview](references/setup/intent.md), as much as the
+   entry leaves open: focus and purpose in one card with no input; a named source or subject
+   stands in for it otherwise. Then [the inventory](references/setup/names.md): the metric
+   names and the questions they answer, from `source-survey` `candidates`, shown, not asked.
+3. **Select tables and dashboards.** A report is built whole: never ask which pages.
+   `source-survey` `plan`, then [inspect and scope](../source-survey/references/inspect-scope.md)
+   section 2 with all pages: reports and models first, query history second, table definitions
+   third. Confirm it with no input; state it in one sentence when the person named the source.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.
@@ -93,7 +99,8 @@ These routes are reached only by name; the guided flow never offers them.
   hand-off stays. If the first argument is exactly `metrics`, no guided step runs.
 - `dashboard` or `propose`: load the `metrics-generation` skill with that argument.
 - `connect`: load the `source-survey` skill with that argument.
-- `ask`, or a data question with no setup work: load the `analytics-ask` skill.
+- `ask`, or a data question with no setup work: load the `analytics-ask` skill. When this
+  folder holds a run, pass its directory, so the answer uses the run's own rules.
 
 In Claude Code, load a sibling skill with the Skill tool as `atlanai-analytics:<name>`. The
 Registry marketplace bundles these skills in `atlanai`; use its installed namespace instead,
@@ -105,7 +112,7 @@ and do not install this add-on beside that bundle.
 | --- | --- | --- |
 | `analytics-demo` ("Continue building on real data") | here | Nothing but the connection. A demo run never becomes a build |
 | here | `analytics-ask` | The run, so answers read its context |
-| `analytics-ask` (no metric covers a question) | here | The question, as the problem |
+| `analytics-ask` (no metric covers a question) | here | The question, as the subject of the domain entry |
 | here, when the survey finds no readable source | `analytics-demo` | Nothing |
 
 ## MCP resources

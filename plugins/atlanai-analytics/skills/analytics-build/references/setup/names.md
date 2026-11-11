@@ -8,39 +8,51 @@ A resume with a saved selection skips it too.
 The point is relevance before accuracy. The person commits to metric names, so a wrong
 focus costs one question and not a generation run.
 
-## Two ways in
+## What it looks like in each entry
 
-| Entry | The person gave | Focus question |
+[The entry](entry.md) sets the shape. All three reach this step with a survey of every
+supplied source.
+
+| Entry | Shape of the inventory | The question |
 | --- | --- | --- |
-| Cold start | A source, no stated problem | Ask it, as [intent](intent.md) describes |
-| Problem-first | A problem, such as "churn by plan", with or without a source | Skip it: the problem is the focus. Ask for a source only if none is known |
+| No input | Every page of the report with its metric count, the chosen focus's names first, then two or three questions they answer | None: the whole report is built |
+| A source | Pages, each with its metric count and one question it answers | None: the whole report is built |
+| A domain | Names with a status: reuse, new or flag | "Build the N new metrics?" |
+| A stated problem | The names that answer it first, then the rest of the report | None |
 
-Both then reach this step with a focus and a survey of every supplied source.
+A chosen report is built whole, every page and measure. The inventory tells the person what
+the context will hold before any rule is written; it does not ask them to pick. Only a domain,
+where nothing is a report, asks which new names to build. A person who names the exact
+metrics or pages they want, in their own words, has narrowed it: record that and build that.
 
 ## 1. Get the candidates
 
 Call `source-survey` `candidates` with the focus or problem. It returns at most ten
 names from the sources, ranked by relevance, each with one line of meaning and where it
-came from. It generates no SQL and runs no check.
+came from, and two or three questions the names would answer. It generates no SQL and runs
+no check. Show the questions under the names, as "Questions it will answer": they tell the
+person what the context is for before any rule is written.
 
-## 2. Ask once
+## 2. Show it; ask only in a domain
 
-Ask one native question whose visible prompt says, in one sentence, that these are names
-found in the sources and that nothing is built yet. List the candidates as choices, most
-relevant first, with multiple selection where the host allows it:
+Show the inventory as an ordinary reply under its Doing and Why lines, saying in one sentence
+that these are names found in the sources and that nothing is built yet. With a report, go
+straight on to building: the selection is every name the report holds.
+
+In a domain entry, ask one native question, "Build the N new metrics?", listing the new names
+as choices, most relevant first, with multiple selection where the host allows it:
 
 | Option | Description |
 | --- | --- |
-| Each candidate name | Its one line of meaning and its source, such as "dashboard tile" or "41 past queries" |
-| All of these | Build every listed candidate |
+| All of these | Build every new name |
+| Each new name | Its one line of meaning and its source, such as "41 past queries" |
 | Something else | The person names a measure; check it against the survey before accepting |
 
 A measure the survey does not show is not refused: say that no source defines it, and that
 it would be authored from the tables alone and marked for review.
 
-For an understanding-only purpose, the selected names set what to explain; no build follows
-unless asked. A person who already named the exact metrics they want has answered this
-question: record the selection and continue.
+For an understanding-only purpose, the names set what to explain; no build follows unless
+asked.
 
 ## 3. Build from the selection
 

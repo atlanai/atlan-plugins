@@ -1247,8 +1247,46 @@
    "id": "analytics-build-own-data",
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
-   "title": "Own data: survey, commit on names, generate and save, then a question",
-   "route": "Survey the source, pick names, generate and check the selection, save it, answer one question",
+   "title": "Own data from a source: read it, show the inventory, build the whole report, save, then a question",
+   "route": "Read the named source, show its pages and metrics without asking, generate and check the whole report, save it, answer one question",
+   "includes": [
+    "analytics-connect-warehouse",
+    "analytics-bootstrap-metrics",
+    "analytics-ask-governed"
+   ],
+   "calls": null,
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-build-no-input",
+   "plugin": "atlanai-analytics",
+   "skill": "analytics-build",
+   "title": "Own data from nothing: setup survey, interview, sources in order, generate and save",
+   "route": "Survey what the machine can reach, ask focus and purpose in one card, confirm reports then history then tables, generate and check the whole report, save, answer one question",
+   "includes": [
+    "analytics-connect-warehouse",
+    "analytics-bootstrap-metrics",
+    "analytics-ask-governed"
+   ],
+   "calls": null,
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-build-domain",
+   "plugin": "atlanai-analytics",
+   "skill": "analytics-build",
+   "title": "Own data from a subject: reuse what exists, settle differences, build only the gaps",
+   "route": "Survey the subject across Atlan, certified queries, reports and tables, settle differences with one question, build the new names only, save them, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",

@@ -80,6 +80,22 @@ revenue on rows with no costs; distinguish an unchanged top result from an uncha
 Failed items remain held while usable items continue. Source/scope changes archive previous
 candidate files and clear publication receipts; re-author/reconcile before continuing.
 
+**Compare with the source, for every metric that has one.** A metric that came from a report
+tile is compared with that tile's own statement, run on the same warehouse and the same
+filters, not only the representative one. Record each as matching, or as a difference with
+its size and the reason, and show the count in the review ("9 of 10 match the report, 1
+needs a look"). A difference is news for the person, never something to smooth over. When a
+chat SQL tool is the executor, send the comparisons together where the host allows it.
+
+**Say how much of the population the numbers cover.** When a metric counts only rows that
+carry some value (a score, an owner, a pod), run one statement for how many rows lack it and
+put that in the review as a check result: "212 of 292 accounts have no score yet, so the
+tiers cover 80." A gap first seen in a dashboard footer was found too late.
+
+**The whole report is the selection.** Every page the engine reads is in scope, so every
+statement it compiles is part of the collection and is answered at each gate in full. Never
+edit, trim or copy the report file to shrink a run.
+
 The engine's X3 whole-card review and later consistency checks own semantic review for the
 full collection. Repair source bindings, descriptions, grain or dimensions in that same run;
 then revalidate, export and rerun checks on changed revisions. SQL execution alone is not

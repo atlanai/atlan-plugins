@@ -1,10 +1,22 @@
-# Business focus first, purpose second
+# The use-case interview: business focus, then purpose
 
-Read after the lightweight source inspection on fresh setup, before metric generation,
-runtime setup or the completed-collection review. The checkpoint always establishes two
-different things: what part of the business matters, and what the person wants to do with it.
-Clear file/page scope does not answer either question. Do not replace this with a generic
-"What do you want to do?" menu or an installation questionnaire.
+The interview belongs to `analytics-build`. `source-survey` reads and reports and never asks
+the person anything; this file turns what a survey returned into the questions that establish
+what the person wants. [The entry](entry.md) says how much of it to ask: both questions with
+no input, none when a source or a subject already answers them.
+
+Read after the survey on fresh setup, before metric generation, runtime setup or the
+completed-collection review. The interview establishes two different things: what part of the
+business matters, and what the person wants to do with it. Clear file or page scope does not
+answer either question. Do not replace this with a generic "What do you want to do?" menu or
+an installation questionnaire.
+
+**One card where the host allows it.** When the host's native question tool takes several
+questions in one call (Claude Code's does, up to four), ask the focus and the purpose
+together: the person waits once. The focus options come from the survey; the purpose options
+are the three kinds in section 2, worded for the suggested source. Where the tool takes one
+question, or there is none, ask the focus first and the purpose after its answer. Either way
+the survey's summary is the card's own visible text, and nothing is recorded until submitted.
 
 Render the user-facing step itself. For the first question, include the
 business summary below, then two or three short choices and free text. For the second,
@@ -56,7 +68,8 @@ Do not end with only "Choose above to continue" or repeat just file counts. Othe
 in ordinary chat with the same summary. Never create a custom form, install a UI dependency,
 or claim a picker exists when it does not. Let the host supply its free-text entry; do not
 add an Other option if the control already provides one. No answer is preselected consent.
-Wait for the submitted answer. Do not ask the purpose in the same call or proceed to build.
+Wait for the submitted answer and do not proceed to build. In a host that asks one question at a
+time, do not add the purpose to this message.
 
 ## 2. Ask what they want to accomplish in that area
 
@@ -68,7 +81,9 @@ shipping time: "What would you like to do with delivery performance?" Suggested 
 - Prepare delivery metrics for ongoing team analysis.
 
 These represent answering a business question, understanding/checking the source, and
-preparing reusable context. Use the person's language and accept goals outside these examples.
+preparing reusable context. In the one-card form the answer to the focus is not known yet, so
+word the three kinds for the suggested source: "Answer questions here", "Build a dashboard for
+my team", "Give agents shared definitions", each with one line on what the person ends with. Use the person's language and accept goals outside these examples.
 Keep suggested questions within the observed coverage. Do not add a period such as "last
 quarter" or a causal claim such as "what caused it" without the user's request and supporting
 evidence. Prefer "Which jobs lost margin, and where were costs concentrated?" when that is

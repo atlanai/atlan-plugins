@@ -7,7 +7,7 @@ the person sees and how it reaches the host's visible surface.
 
 | Moment | Presentation |
 | --- | --- |
-| Start | Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
+| Start | Open as [the entry](entry.md) says, with its Doing and Why lines and result lines through every moment. Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
 | Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
 | The selected collection has been checked | Review the completed collection with actual counts, check limitations and one representative definition from the accepted output. Read [context built and where to keep it](save.md) for the celebration and local-versus-shared choice through its native question delivery. |
 | The context is saved or kept local | Read [ready for questions](ready.md). Ask the ready question, with the ready block, material limitations and supported questions as its text, for both demo and own-data setup. Answer only a question the person has supplied or selected. |

@@ -34,6 +34,11 @@ credentials. Without a trustworthy revision/access scope, do not claim cross-ses
 validity. Local files are never copied merely to use this cache. Keep run files private and
 clean up only explicitly selected owned outputs, never source files.
 
+Settle whether each source can be built from before returning, as the skill's `readiness`
+section defines it: the tables a report reads must resolve in a reachable warehouse or a bound
+local database. Return that with the inventory, so no use-case question is asked about a
+source that cannot be built.
+
 Before authoring, give a short business summary: observed source types and subject, what
 the project appears to be about, and two or three analyses those sources could support.
 Explain how the sources complement each other; counts alone do not show understanding.
@@ -56,6 +61,21 @@ an explicit limit, not a guessed table mapping. This first look does not certify
 replace the engine's authored gates or satisfy the later checked publication preview.
 
 ## 2. Scope the report and evidence
+
+**Order the sources first (`plan`).** Return the sources to build from as one short list, in
+this order, each with what it adds and its scope:
+
+| Order | Source | What it adds |
+| --- | --- | --- |
+| 1 | BI reports and models | The rules the team already agreed: measures, filters, joins |
+| 2 | Query history | What people actually ask: the cuts, dimensions and measures the reports miss |
+| 3 | Table definitions | Columns and types, so every rule can run and be checked |
+
+Leave out a level that has no buildable source, and say so in one clause. The caller shows
+this list and decides whether to ask about it. A report is scoped whole, with
+`pages: ["all"]`, unless the person narrowed it in their own words. Query history is scoped
+to the tables the report's measures are computed on, never the whole warehouse; leave out a
+shared lookup table (accounts, users, dates) when it alone would match most of the history.
 
 For parsed Power BI inventories, run `PROJECT scope "<selection.json>"` with `source_id` and
 optional `pages` (exact IDs or unique labels). `pages: ["all"]` selects ordinary visible pages;
