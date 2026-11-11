@@ -43,7 +43,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 
 ## Who is calling
 
-- **A person called it** ("how accurate is my job profit agent"): run the
+- **A person called it** ("how accurate is my agent"): run the
   [check](references/check.md) on the current folder. Its use case is the one the run recorded;
   when `SCOPE inputs` is blocked, ask its question once and stop until told.
 - **A flow called it** (it named the run): follow the same check; the caller adds its lines.
@@ -66,7 +66,8 @@ every model step in a subagent and every count in a script.
 4. **Draft, in a subagent.** Give one subagent the paths of `work/prompts/` and
    `work/answers.json` and this instruction: follow each prompt and fill its key in
    `answers.json` with the JSON it asks for, and ask for what the SQL measures, in its direction:
-   SQL that returns an on-time rate gets an on-time question, never a "run late" one. Then reply
+   SQL that returns a share approved gets a question about the share approved, never one about
+   the share rejected. Then reply
    `done`. It never sees the run.
 5. **Check and run.** `EVALGEN review --name <slug>`, then
    `SCOPE gold --run <run> --evals <evals-run>`. A question whose trusted

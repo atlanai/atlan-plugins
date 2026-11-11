@@ -61,7 +61,7 @@ value, and **why it failed**, read from the agent's answer and SQL against the t
 | Different filter | Same formula, another population or window |
 | No definition | No metric covered it, so it wrote its own SQL |
 | Query failed | Its SQL did not run |
-| Question asks the opposite | The answer is the trusted result's complement (late share where the SQL counts on time), and both rank the same. The question's wording, not the context, is wrong |
+| Question asks the opposite | The answer is the trusted result's complement (the share rejected where the SQL counts the share approved), and both rank the same. The question's wording, not the context, is wrong |
 
 Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
 the count; name how many. The caller decides what comes next.
@@ -98,8 +98,8 @@ Metric Studio, never as a direct write; the owner applies it, which makes the ne
    - **In Trident: propose it** through `metrics-generation` `propose`, as a fix to that metric, without
      asking again. Its `evidence.runs` are the missed questions, one entry each, with the test
      agent as `agent` and this session's `EVAL session-run` trace. Say the score in the
-     `summary` ("2 of 3; total gross margin counts every job not cancelled where finance
-     reports completed jobs only").
+     `summary`: the count, then what the miss shows ("`<k>` of `<N>`; `<metric>` counts `<its
+     rule>` where the trusted query counts `<the other rule>`").
 3. **In Trident, send the person to approve it.** Give the Metric Studio link that opens the proposal
    (`suggestion=<file id>`), and ask one native question, "Approved it in Metric Studio?", with
    **Approved, test again** and **Not now**.
