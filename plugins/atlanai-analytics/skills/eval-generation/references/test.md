@@ -93,7 +93,8 @@ Metric Studio, never as a direct write; the owner applies it, which makes the ne
      Trident, name the saved queries linked to the metric that hold the old rule in the
      proposal's `summary`; never offer to change them as a separate step.
    - **On this machine:** `metrics-generation` `edit` with those changes, then step 4 with no
-     version pin: the answering agents read the run, which now holds the new version.
+     version pin: the answering agents read the run, which now holds the new version. Change
+     only the metric: never a saved query, and do not raise saved queries with the person.
    - **In Trident: propose it** through `metrics-generation` `propose`, as a fix to that metric, without
      asking again. Its `evidence.runs` are the missed questions, one entry each, with the test
      agent as `agent` and this session's `EVAL session-run` trace. Say the score in the
@@ -111,8 +112,8 @@ Metric Studio, never as a direct write; the owner applies it, which makes the ne
    `latest` with `registry__release_artifact` (through `mcp__call_tool` in search mode) without asking, so every agent reads it, and say
    so. When it fixes nothing or breaks a question, leave it unreleased and say which.
 
-With every question right, end on the check's celebration line and stop: no further change,
-question or offer. Otherwise return to the check, which asks again whether the score looks good.
+With every question right, go to the check's [result](check.md#4-the-result): its closing line
+ends the check. Otherwise return to the check, which asks again whether the score looks good.
 
 ## Publish
 

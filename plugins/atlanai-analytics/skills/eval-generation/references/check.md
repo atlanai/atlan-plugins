@@ -65,19 +65,27 @@ Name no fix in this question: the fixes come from the diagnosis.
 With no misses, skip this question. **Improve it** follows the [improve loop](test.md#improve-loop),
 then asks this question again.
 
-## 4. Where the questions live, then the result
+## 4. The result
 
-Ask "Where should the questions and the score live?":
+The check always ends here, after the last score: once every question is right, and when the
+person picks Looks good or Not now. Nothing comes after the closing line: no offer to change a
+saved query, another metric or the set.
+
+With the context in Atlan Trident (`context_saved_to` set), first ask "Where should the questions
+and the score live?":
 
 | Option | Description |
 | --- | --- |
 | Save to Atlan Trident (Recommended) | Beside your context in `<workspace>`, so your team can rerun the test. |
 | Keep on this machine | Nothing leaves this folder. |
 
-With `context_saved_to` `null`, skip the question: keep the set here and say it can go to Trident
-once the context is saved there.
+On Save to Atlan Trident, run `save`. With the context on this machine, ask nothing: the set
+stays in the project.
 
-On Save to Atlan Trident, run `save`. Then end with one line whose tone follows the score, and the source
-caveat beside it:
-- every question right: "Your `<agent>` answers all `<N>` questions `<firm>`'s analysts ask most."
+Then end with the closing line, its tone following the score, and the source caveat beside it:
+- every question right, after a fix: "🎉 Your `<agent>` now answers all `<N>` questions right:
+  `<metric>` v`<n>` counts `<the new rule, plain words>`, and the score went from `<k>` to `<N>`
+  of `<N>`."
+- every question right, first time: "🎉 Your `<agent>` answers all `<N>` questions `<firm>`'s
+  analysts ask most."
 - some missed: "`<k>` of `<N>` right, and `<what the misses share>`."
