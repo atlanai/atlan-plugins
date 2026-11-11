@@ -1,13 +1,25 @@
 # Retrieve released context, then reach the data
 
+## Which run is selected
+
+A run is selected when the caller passed its directory, or when the person refers to their
+setup. It is also selected without being named when all of these hold: the working folder has
+exactly one run (`PROJECT location --workspace "<working-directory>"`), `PROJECT journey
+status` shows it was kept on this machine, and one of its metrics or queries measures the
+question. Check this before writing any SQL of your own: the same question must not get one
+number from the run and another from a fresh guess. With several runs, or none that measures
+the question, continue with released context and say that no local definition applied.
+
 ## Explicit local exploration
 
 When the person selected Keep local and asks about that prepared local dataset, answer as
 local exploration. Read the selected run's saved definitions, source evidence and execution
 binding. Use its read-only `PROJECT execute` with a JSON request containing `sql`, separate
 `parameters` and `limit`. Preserve the local definition's formula and filters, run fresh SQL,
-and apply [explanation checks](answer-checks.md). Label the answer "Local sample data" and
-cite the local definition and check limitations. No sign-in or publication is needed.
+and apply [explanation checks](answer-checks.md). When the run has no local database and its
+checks ran on a warehouse, run the definition through the recorded warehouse query tool
+instead. Label the answer "Local sample data" for a local database, or "Local definition, not
+yet saved to Atlan Trident" for a warehouse, and cite the local definition and check limitations. No sign-in or publication is needed.
 Do not record a Registry receipt, claim team availability or call a local draft a released
 definition. This explicit local route is never a fallback for a missing, withdrawn, rejected
 or changed release. Requests for managed/team answers still follow the release path below.

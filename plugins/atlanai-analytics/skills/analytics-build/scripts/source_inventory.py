@@ -58,3 +58,40 @@ def discover(root, excluded=None, limit=5000, selected=None):
             if kind and path.is_file():
                 paths.append((path, kind))
     return paths, False
+
+
+# What each detected kind is to a person, and its place in the build order: reports and models
+# hold agreed rules, query history shows what people ask, table data lets the rules run.
+ROLES = {'powerbi': ('bi', 'Power BI report or model'), 'powerbi_project': ('bi', 'Power BI project'),
+         'tableau': ('bi', 'Tableau workbook'), 'model_candidate': ('bi', 'semantic model'),
+         'dashboard_html': ('bi', 'HTML dashboard'), 'query_history': ('history', 'query history export'),
+         'saved_sql': ('history', 'saved SQL'), 'rowsets': ('data', 'saved row sets'),
+         'duckdb': ('data', 'DuckDB database'), 'sqlite': ('data', 'SQLite database'),
+         'data_file': ('data', 'data file')}
+ORDER = ('bi', 'history', 'data')
+# Where Atlan Analytics' own demo lives in a working folder: never part of a person's setup.
+DEMO = ('atlan-analytics-demo', 'analytics-agent-accelerator')
+
+
+def summarize(root, limit=5000, per_role=12):
+    """Names and sizes only, grouped by role in build order. Reads no file contents and creates
+    nothing, so the setup survey can say what a folder offers before a run exists."""
+    root = Path(root).resolve()
+    if not root.is_dir():
+        raise ValueError('Select an existing folder to look in.')
+    paths, limited = discover(root, limit=limit)
+    groups = {role: [] for role in ORDER}
+    demo = 0
+    for path, kind in paths:
+        if any(part in DEMO for part in path.relative_to(root).parts):
+            demo += 1
+            continue
+        role, label = ROLES.get(kind, ('data', kind))
+        groups[role].append({'path': path.relative_to(root).as_posix(), 'kind': kind, 'label': label,
+                             'size_bytes': path.stat().st_size})
+    return {'folder': str(root), 'limited': limited, 'created': False, 'remote_writes': False,
+            'demo_files_skipped': demo,
+            'counts': {role: len(items) for role, items in groups.items()},
+            'sources': {role: sorted(items, key=lambda i: (-i['size_bytes'], i['path']))[:per_role]
+                        for role, items in groups.items()},
+            'omitted': {role: max(0, len(items) - per_role) for role, items in groups.items()}}

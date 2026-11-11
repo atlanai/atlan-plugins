@@ -60,6 +60,22 @@ def metric_body(card, layer, commit):
             'source_version': layer['layer_sha'], 'definition': definition}
 
 
+_PRIVATE = ("holds a person's name", 'holds an email address', 'holds an identifier literal')
+
+
+def privacy_holds(saved, check):
+    """Split saved queries into those to keep and those every error of which is a privacy
+    finding. The detail names the field and the kind of finding, never the value found."""
+    kept, private = [], []
+    for body in saved:
+        errors, _ = check(body)
+        if errors and all(any(mark in error for mark in _PRIVATE) for error in errors):
+            private.append((body, '; '.join(sorted({error.split(' (')[0].split(':')[0] for error in errors}))))
+        else:
+            kept.append(body)
+    return kept, private
+
+
 def project(cards, queries, relationships, scope, commit, producer=None):
     from metrics_agent.lib import slugs
     metrics = [metric_body(card, {'layer_sha': cards.get('layer_sha') or queries['layer_sha'], 'producer': producer}, commit)
@@ -203,6 +219,16 @@ def export_context(run, context, receipt, parity=None):
     # Use the existing publisher's checks; never relax them to accommodate the new engine.
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'analytics-build/scripts'))
     import context_contracts
+    # A saved query that only fails the privacy check is held and left out, as any other held
+    # query is: it never ships, and it no longer stops the metrics and queries that passed.
+    saved, private = privacy_holds(saved, context_contracts.check_query)
+    for body, detail in private:
+        held_queries.append({'name': body['name'], 'source_id': body['source_id'],
+                             'query_id': body['definition']['extensions']['metrics_agent']['vq_id'],
+                             'status': 'held', 'reason': 'privacy_review', 'detail': detail,
+                             'sql_sha256': publication_holds.sql_identity(body['definition']['sql'])})
+    endpoints = {('metric', body['name']) for body in metrics} | {('sql_query', body['name']) for body in saved}
+    links = [link for link in links if all((link[end]['kind'], link[end]['name']) in endpoints for end in ('from', 'to'))]
     failures = []
     for kind, bodies, check in (('metric', metrics, context_contracts.check_metric),
                                 ('sql_query', saved, context_contracts.check_query)):

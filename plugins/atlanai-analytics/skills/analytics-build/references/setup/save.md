@@ -24,6 +24,10 @@ as text before the question; one short line that the checks are done is enough t
 Open the chosen demo's file again for its facts ([Fixit](../../../analytics-demo/references/yard.md),
 [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
 
+Ask it only when the collection was exported and holds at least one metric or query. When
+the export was refused or the collection is empty, there is nothing to save: say what stopped
+it and the one thing that fixes it, and do not offer a destination.
+
 When every check has run, before any save, sign-in or workspace step, ask one native question with
 the values below. Fill `<angle brackets>` from this run and the sources the person chose.
 Every count is true: when some did not pass their check, the count line says so ("17 of

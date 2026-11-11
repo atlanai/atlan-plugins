@@ -91,6 +91,12 @@ def _records(value) -> list:
     result = value.get("result") if isinstance(value.get("result"), dict) else {}
     cols = value.get("columns") or ((value.get("manifest") or {}).get("schema") or {}).get("columns")
     rows = value.get("rows") if isinstance(value.get("rows"), list) else (value.get("data_array") or result.get("data_array"))
+    # Snowflake's SQL API, as its MCP connector returns it: column names under
+    # resultSetMetaData.rowType and rows as arrays under data, inside result_set or at the top.
+    sf = value.get("result_set") if isinstance(value.get("result_set"), dict) else value
+    row_type = (sf.get("resultSetMetaData") or {}).get("rowType") if isinstance(sf.get("resultSetMetaData"), dict) else None
+    if isinstance(row_type, list) and isinstance(sf.get("data"), list):
+        cols, rows = row_type, sf["data"]
     if isinstance(cols, list) and isinstance(rows, list) and all(isinstance(r, list) for r in rows):
         names = [c.get("name") if isinstance(c, dict) else c for c in cols]
         return [dict(zip(names, r)) for r in rows]
@@ -363,10 +369,10 @@ _NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|countr
                          r"domain|display|field|feature|model|schema|database|source)_?(?:full_)?name$", re.I)
 
 
-def _pii(text: str):
+def _pii(text: str, names: bool = True):
     if _EMAIL.search(text or ""):
         return "an email address"
-    name = full_name_hit(text)
+    name = full_name_hit(text) if names else None
     if name:
         return f"a person's name ({name})"
     if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
@@ -441,10 +447,27 @@ def _privacy_fields(body: dict) -> list:
     return out
 
 
+def _from_report(body: dict) -> bool:
+    """A saved query the engine compiled from a report or model, not mined from query history."""
+    d = body.get("definition") if isinstance(body.get("definition"), dict) else {}
+    ext = d.get("extensions") if isinstance(d.get("extensions"), dict) else {}
+    agent = ext.get("metrics_agent") if isinstance(ext.get("metrics_agent"), dict) else {}
+    evidence = agent.get("evidence") if isinstance(agent.get("evidence"), dict) else {}
+    if (evidence.get("provenance") or {}).get("lane") == "bi":
+        return True
+    # A metric names the statements it came from; those the engine compiled from a report are `bi-`.
+    derived = agent.get("derived_from")
+    return bool(derived) and isinstance(derived, list) and all(str(v).startswith("bi-") for v in derived)
+
+
 def _privacy_errors(body: dict) -> list:
     errs, seen = [], set()
+    # A report's own SQL ships as its author wrote it, names included: the owner decided a name a
+    # report hardcodes (an exclusion list, say) is part of its rule. Query history keeps the name
+    # check, and emails and identifiers are refused wherever they come from.
+    names = not _from_report(body)
     for where, how, text in _privacy_fields(body):
-        why = _pii(text) if how == "sql" else _pii_value(*text) if how == "value" else _pii_prose(text)
+        why = _pii(text, names) if how == "sql" else _pii_value(*text) if how == "value" else _pii_prose(text)
         if why and (where, why) not in seen:
             seen.add((where, why))
             errs.append(f"{where} holds {why}")
@@ -574,7 +597,7 @@ def check_metric(body: dict) -> tuple:
         used |= set(_PARAM.findall(text))
         if _DATE.search(text):
             errs.append(f"{where} holds a fixed date: make it a parameter with that date as its default")
-        why = _pii(text)
+        why = _pii(text, not _from_report(body))
         if why:
             errs.append(f"{where} holds {why}")
         if _writes(text):
@@ -623,7 +646,7 @@ def check_query(body: dict) -> tuple:
         errs.append("definition.sql holds more than one statement")
     if sql and _writes(sql):
         errs.append(f"definition.sql holds {_writes(sql)}: a saved query only reads")
-    why = _pii(d.get("sql") or "")
+    why = _pii(d.get("sql") or "", not _from_report(body))
     if why:
         errs.append(f"definition.sql holds {why}")
     for k in ("question", "description"):
@@ -1080,6 +1103,12 @@ def selftest() -> dict:
     ok("a good card passes", not e)
     ok("a business value of two capitalised words is not a person's name",
        _pii("where stage = 'Closed Won'") is None and _pii("where rep = 'Jane Smith'"))
+    ok("a label compared with a category column, or written by a CASE into one, is not a person's name",
+       _pii("UPPER(RTRIM(\"Engagement Status\")) = 'Actively Worked'") is None
+       and _pii("CASE WHEN s >= 4 THEN 'Well Covered' ELSE 'No Coverage' END AS coverage_tier") is None
+       and _pii("CASE WHEN on_track THEN 'On Pace' END") is None)
+    ok("a name beside a people column, or written by a CASE into one, is still refused",
+       _pii("status = 'Open' and owner_name = 'Jane Smith'") and _pii("CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name"))
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
@@ -1229,6 +1258,13 @@ def selftest() -> dict:
            and log["select 1 from t"]["exec"] == 5 and log["select 3 from t"] == {"sql": "select 3 from t", "exec": 2, "users": 2})
         ok("querylog keeps only successful SELECTs", res["skipped"] == 2 and "delete from t" not in log)
         ok("querylog never writes a user name", "example.com" not in out.read_text() and "eve" not in out.read_text())
+        (t / "snow.json").write_text(json.dumps([{"type": "text", "text": json.dumps({"query_id": "q", "result_set": {
+            "data": [["select 9 from t", "4", "2"]],
+            "resultSetMetaData": {"rowType": [{"name": "SQL"}, {"name": "EXEC"}, {"name": "USERS"}]}}})}]))
+        snow = t / "snow.jsonl"
+        cmd_querylog(argparse.Namespace(src=[str(t / "snow.json")], dst=str(snow), append=False, limit=5000))
+        ok("querylog reads a Snowflake connector result saved by the host",
+           read_jsonl(snow) == [{"sql": "select 9 from t", "exec": 4, "users": 2}])
         cmd_querylog(argparse.Namespace(src=[str(t / "export.csv")], dst=str(out), append=True, limit=5000))
         ok("querylog --append merges the next page", len(read_jsonl(out)) == 4 and read_jsonl(out)[0]["exec"] == 7)
         (t / "err.json").write_text(json.dumps({"isError": True, "content": [{"type": "text", "text": "permission denied"}]}))

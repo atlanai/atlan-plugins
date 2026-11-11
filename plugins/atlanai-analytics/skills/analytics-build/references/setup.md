@@ -22,7 +22,9 @@ for "continue".
 ## Orient before work
 
 A demo follows [the demo skill](../../analytics-demo/SKILL.md), which uses this file's
-technical stages on the demo's working folder. A bare own-data request asks once for the source.
+technical stages on the demo's working folder. An own-data request starts with
+[the interview](setup/intent.md): which warehouse and what the person wants to do, then one
+of three branches (discover use cases, a dashboard, or tables they already know).
 All setup uses [one presentation flow](setup/presentation.md), with actual source facts.
 
 Explain the outcome, next action and controls. For example: "I'll turn
@@ -37,12 +39,11 @@ before the first helper call, and keep both true to the saved run.
 Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
 run waits for an explicit resume; details requests do not resume work.
 
-Explain what sources were found, what they reveal about the project's subject, and what
-they could help analyse. Keep that explanation in the first question's visible prompt; a
-count-only final reply or collapsed commentary is insufficient. Then establish [business focus and purpose](setup/intent.md)
-before authoring. Demos use their preset intent and source question instead. Ask missing
-own-data answers in two separate native question steps; retain answers
-already given. Technical source scope does not establish business intent.
+Ask [the interview](setup/intent.md) before reading any data: card 1, then the chosen
+branch's ask, skipping what the request already answered. The discovery branch
+[offers use cases with their tables](setup/names.md); the other two check access to what the
+person named. Every branch ends with the interview's "Build it?" before authoring.
+Demos use their preset intent and source question instead. Retain answers already given.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
 it does not require a destination or publication question. Render the question itself, without
 explaining the interview mechanics or showing helper commands.

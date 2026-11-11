@@ -23,15 +23,13 @@ graders:
     focus: last_message
     criteria: |
       Known evidence: inspection found a Power BI report, model and query history about shipping
-      operations, plus sample shipments, delivery timestamps, capacity/occupancy and charges.
-      No numerical analysis has run. Neither business focus nor purpose is known. PASS if the
-      reply names the source types, explains that this is shipping operations context and how
-      the sources could support analysis, before the question. Counts or a menu alone fail. It
-      and asks exactly the first business-focus question, with source-grounded options such as shipping
-      time/delays, capacity/utilization and costs, accepting free text. It must stop to wait for that
-      answer. FAIL if it asks the purpose at the same time, jumps directly to metric generation,
-      auto-selects shipping, substitutes a generic answer/check/publish menu, or claims UI buttons
-      that the test host does not expose, invents measured findings or implies production data.
+      operations. No numerical analysis has run and the person has not said what they want to
+      do. PASS if the reply asks what the person wants to do, with choices that mean letting
+      discovery decide, making a dashboard agentic, and a use case with known tables, accepts
+      free text and stops to wait. Asking about the warehouse in the same reply is allowed.
+      FAIL if it asks a separate purpose question, asks the person to pick a business area from
+      a list of domains, jumps to metric generation, auto-selects an answer, claims UI buttons
+      the test host does not expose, or invents measured findings.
   - name: no-shell
     type: tool_used
     tool: Bash
