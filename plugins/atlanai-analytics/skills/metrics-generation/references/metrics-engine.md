@@ -200,13 +200,8 @@ tokens during a fetch. See the installed plug README for the required environmen
 Supplied access tokens must be replaced externally when they expire.
 
 Tableau's native routes (personal access token, connected-app JWT, supplied JWT/UAT and username/password) read
-configured environment variables and do not need a terminal. For a Tableau link the order is:
-the person's browser download first (no token; staged with `ENGINE stage-input` and read by
-`local-files` with `bi_vendor: tableau`), then the `tableau-cloud` plug with a Personal Access
-Token, then the plug with a user name and password. The person keeps a token's secret out of
-chat and out of files: one way is the system keychain, read into the plug's process
-environment for that command only. The MCP capture alternative keeps using its existing host
-tools.
+configured environment variables and do not need a terminal. Its browser-download and MCP
+capture alternatives continue to use their existing host tools.
 Private Tableau endpoints require an explicit exact-host entry in the operator's policy;
 never approve a host automatically or disable HTTPS verification to make it connect.
 

@@ -36,13 +36,6 @@ Preserve existing run locations; do not change host permissions or read credenti
      "report and data" `.pbix` holds both, copies the rows to disk (ask first) and needs the
      runtime's `pbix` feature.
 
-  A **Tableau workbook link** takes another order, because Tableau has no sign-in a tool can
-  start for the person: (1) the person's signed-in browser downloads the workbook and every
-  published data source it uses; (2) the `tableau-cloud` plug with a Personal Access Token
-  the person created; (3) the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`. A route
-  that brings the workbook without its published data sources leaves those sheets without
-  SQL: name the missing data sources.
-
   Never carry a definition through chat or page text: page readers cap output and collapse
   whitespace, so a copied model differs from the original. Check any staged file against the
   service's copy (size or hash) before surveying it.

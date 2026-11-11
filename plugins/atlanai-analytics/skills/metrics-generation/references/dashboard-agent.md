@@ -20,18 +20,7 @@ native chat. No additional MCP server is installed.
      sign-in, both sign-ins refused by the tenant) or is refused (a Viewer role, which only
      downloads). Follow [Power BI capture](dashboard/powerbi-capture.md). A browser route
      brings the report or the model, rarely both; name what is missing.
-   - **Tableau link: the browser first.** The person needs no token. Through their signed-in
-     browser, download the workbook (**Download > Tableau Workbook**) and every published data
-     source it uses (**Download** on each), with the steps in the customer-access guide's
-     browser route (`modules/metrics/engine/docs/guides/customer-access.md`). It needs an
-     Explorer or Creator seat with download rights.
-     Second, the `tableau-cloud` plug with a Personal Access Token: when the browser cannot
-     be used, or a data source download is refused. The person creates the token in Tableau
-     (My Account Settings) and keeps its secret out of chat and files, for example in the
-     system keychain. Third, the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`: Tableau
-     Server, or a Tableau Cloud user without single sign-on or multi-factor authentication.
-     A connected app or a supplied JWT already set in the environment is used as it is.
-     Either way, take the workbook and every published data source it reads.
+   - **Tableau:** the original workbook and its referenced datasource definitions.
 
    The existing dashboard helper may identify or inventory a Power BI download, and retain
    capture evidence. Its retired translator and card exporter are unavailable. A missing
