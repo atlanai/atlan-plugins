@@ -8,10 +8,9 @@ other surface unless the person asks for [a visual view](render.md).
 ## One useful result, one next action
 
 Orient before tools. Use preset demo intent, or [the interview](intent.md) for own data:
-warehouse and what to build context for, then the BI tool and its report when a use case was
-chosen, asked before any data is read,
-through the host's question control or ordinary chat. Then run discovery and put the
-use cases and their tables in the question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
+card 1 and the chosen branch's ask, before any data is read, through the host's question
+control or ordinary chat. Put what the person must read to decide (the use cases and their
+tables, or what will be built) in the question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
 Use [the presentation flow](presentation.md) for the completed-collection review after the run's

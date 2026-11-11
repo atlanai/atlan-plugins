@@ -23,14 +23,13 @@ graders:
     focus: last_message
     criteria: |
       Known evidence: inspection found a Power BI report, model and query history about shipping
-      operations. No numerical analysis has run and the person has not said what they want
-      context for. PASS if the reply asks what to build context for, offers "Let discovery
-      decide" as the first option followed by two or three domains that fit shipping operations
-      (such as delivery delays, capacity or shipping cost), accepts free text and stops to wait.
-      Asking about the warehouse in the same reply is allowed. FAIL if it asks the person to
-      pick a task such as answering a question or building a dashboard, asks a separate purpose
-      question, jumps to metric generation, auto-selects an answer, claims UI buttons the test
-      host does not expose, or invents measured findings.
+      operations. No numerical analysis has run and the person has not said what they want to
+      do. PASS if the reply asks what the person wants to do, with choices that mean letting
+      discovery decide, making a dashboard agentic, and a use case with known tables, accepts
+      free text and stops to wait. Asking about the warehouse in the same reply is allowed.
+      FAIL if it asks a separate purpose question, asks the person to pick a business area from
+      a list of domains, jumps to metric generation, auto-selects an answer, claims UI buttons
+      the test host does not expose, or invents measured findings.
   - name: no-shell
     type: tool_used
     tool: Bash

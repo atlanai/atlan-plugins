@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Atlan Analytics setup on your own data: pick a warehouse and domain, share a BI source, confirm tables, build metrics, save, ask. Use when setting up, resuming or handing off a run, its details, or workspace access. Not for a demo (analytics-demo).
+description: Atlan Analytics setup on your own data: pick a warehouse, then discover use cases, share a dashboard or name tables, and build. Use when setting up, resuming or handing off a run, its details, or workspace access. Not for a demo (analytics-demo).
 ---
 
 # Atlan Analytics on your own data: seven guided steps
@@ -25,23 +25,26 @@ concrete plan. Respect explicit draft or review requests.
 
 ## Opening
 
-One flow: ask, discover, confirm the tables, build.
+[The interview](references/setup/intent.md) has every question and its options. Its shape:
 
-1. **The interview**, as [its file](references/setup/intent.md) words it. First, in one card
-   where the host allows it: which warehouse (those already connected are labelled so) and
-   what to build context for (first option "Let discovery decide", then domains
-   personalised to the person). Only when they chose a use case: which BI tool it is in,
-   then one chat message asking for that tool's report as a link or a file.
-2. **Discovery** on the chosen warehouse: `source-survey` `discover` finds the schemas in
-   use and the tables that matter, and groups them into use cases.
-3. **One choice**, "Which should I build?": two to four use cases, each one line with the
-   tables that power it. Then metric generation.
+1. **Card 1**, two questions in one card where the host allows it: which warehouse (those
+   already connected are labelled so), and what the person wants to do.
+2. **One of three branches**, by that answer:
 
-A question the request already answers is not asked. Before the card, look silently at what
-is already connected (`source-survey` `connections`) and at BI file names in the working
-folder (`PROJECT discover`). Say nothing about that look or where the options came from,
-and read no data before the answers. The person's first sight is the card, whose own text is
-the opening:
+   | They chose | Then |
+   | --- | --- |
+   | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over two to four use cases with their tables, then at most two clarifying questions if something is unsettled |
+   | Make my dashboard agentic | One chat message asking for the dashboard's link or file, then `source-survey` `access` on it and its tables |
+   | I have a use case and know my tables | One chat message asking for the use case, tables and dashboards, then `source-survey` `access` on them |
+
+3. **Confirm and trigger**, the same in every branch: one line of what will be built and
+   from what, then "Build it?". Nothing is built before the yes.
+
+A question the request already answers is not asked. Before card 1, look silently at what is
+already connected (`source-survey` `connections`) and at BI file names in the working folder
+(`PROJECT discover`). Say nothing about that look or where the options came from (at most
+"Getting set up."), and read no data before the answers. The person's first sight is the card, whose own text is the
+opening:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:
 what your numbers mean and how they are worked out. With that context, you can ask your data
@@ -56,20 +59,19 @@ Detail-only requests get only the requested evidence.
 
 ## The seven steps
 
-Show [the checklist](references/setup/checklist.md) in chat and in the host's task list from
-the first action, with the full tracker at every step change. Follow
+Show [the checklist](references/setup/checklist.md) in the host's task list from the first
+action, and in chat with each step's result line, never inside a question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line.
 
-1. **Clarify your use case.** [The interview](references/setup/intent.md): warehouse and
-   what to build context for; then, for a chosen use case only, the BI tool and its report.
-   Skip what the request already said.
-2. **Survey your sources.** `source-survey` `discover`, through
-   [discovery](../source-survey/references/discovery.md): any BI source first, then the
-   schemas in use, the most used tables and their columns.
-3. **Select tables and dashboards.** [Offer the use cases](references/setup/names.md):
-   two to four, each one line with its tables, never a single suggestion. Ask "Which should
-   I build?". Nothing is built before the answer. A report is built whole.
+1. **Clarify your use case.** [The interview](references/setup/intent.md)'s card 1, and the
+   branch's own ask. Skip what the request already said.
+2. **Survey your sources.** By branch: `source-survey` `discover` through
+   [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
+   tables the person named.
+3. **Select tables and dashboards.** In the discovery branch,
+   [the use cases](references/setup/names.md) and any clarification. In every branch, the
+   interview's confirmation, "Build it?". A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.
@@ -114,7 +116,7 @@ and do not install this add-on beside that bundle.
 | --- | --- | --- |
 | `analytics-demo` ("Continue building on real data") | here | Nothing but the connection. A demo run never becomes a build |
 | here | `analytics-ask` | The run, so answers read its context |
-| `analytics-ask` (no metric covers a question) | here | The question, as the answer to what to build context for |
+| `analytics-ask` (no metric covers a question) | here | The question, as the subject for the discovery branch |
 | here, when the survey finds no readable source | `analytics-demo` | Nothing |
 
 ## MCP resources

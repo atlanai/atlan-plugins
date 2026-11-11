@@ -1,6 +1,6 @@
-# Connections and discovery
+# Connections, discovery and access
 
-Read for the `connections` and `discover` operations. Both look and report; neither asks the
+Read for the `connections`, `discover` and `access` operations. Both look and report; neither asks the
 person anything, changes anything, signs in to anything or installs anything. The caller owns
 every question.
 
@@ -28,7 +28,19 @@ Inputs from the caller: the chosen connection, the domain (or "let discovery dec
 any BI source. Statements are in [warehouses](warehouses.md), the section for this warehouse.
 Every statement is read-only with a limit.
 
-### 1. With a BI source, read it first
+### 1. Inventory what else there is, then read any BI source
+
+Alongside the warehouse, note what already exists, without asking:
+
+- BI files in the working folder (`PROJECT discover`), by name and tool. Demo files never.
+- Metrics already released in Atlan for the subjects found, when the Atlan connection
+  answers: one `extension__metric__search_metrics` call with the subjects' words. A failed
+  or signed-out read is skipped silently; discovery does not need Atlan.
+
+Each is attached to the use case it belongs to in step 5, so the person sees that a
+dashboard or existing metrics come with it. Existing metrics are reused, never rebuilt.
+
+**With a BI source, read it first.**
 
 `PROJECT survey` on the file, or the host's tools for a link. The tables it reads are the
 first suggestions, and its measures are the numbers people ask for. Check that those tables
@@ -140,3 +152,23 @@ generation, scoped to the confirmed tables.
 
 When no table fits, `readiness` is `none`: say which words were searched and that
 `analytics-demo` shows the flow on made-up data.
+
+## `access`: can the named sources be read
+
+For the dashboard branch and the known-tables branch: the person named the sources, so
+nothing is searched for or suggested. Check only that each can be read, and report.
+
+1. **Each dashboard**: `PROJECT survey` on a file; the host's tools for a link. Record
+   whether it opened, whether it needs sign-in, its page and measure counts, and the tables
+   it reads. A dashboard whose data is packed inside the file reads no warehouse table: say
+   so.
+2. **Each table**, named by the person or read by a dashboard: one metadata statement for
+   all of them on the chosen warehouse. Record which exist and can be read, and which
+   cannot.
+3. **Return** what can be read, with counts ("the report's 8 pages and 34 measures, 12
+   tables, all readable"), and exactly what cannot, by name, with the reason: needs sign-in,
+   not found, no permission. Never a credential, a role secret or a connection string.
+
+Never widen the set: a table the person did not name and the dashboard does not read is not
+added. Never sample rows. The caller decides what to ask when something failed.
+

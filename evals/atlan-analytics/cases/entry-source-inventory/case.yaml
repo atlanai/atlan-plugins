@@ -5,8 +5,8 @@ execution:
   prompt: |
     Use Atlan Analytics to continue setting up analytics on my own data.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
-    The person already answered the opening questions: Snowflake through its connector, "Let
-    discovery decide", and no BI source. Treat discovery as done, with this result. Three
+    The person already answered card 1: Snowflake, which is already connected, and "Let
+    discovery decide". Treat discovery as done, with this result. Three
     schemas are in use. The most used tables in the last 30 days are SALES.MARTS.FCT_OPPORTUNITY
     (1,240 queries by 14 people), SALES.MARTS.DIM_ACCOUNT (980 queries by 12 people) and
     SALES.MARTS.FCT_STAGE_HISTORY (310 queries by 6 people); support tickets are the next most

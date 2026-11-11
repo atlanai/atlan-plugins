@@ -1,13 +1,13 @@
 schema_version: "1.1"
-name: entry-bi-tool-step
+name: entry-dashboard-branch
 tags: [analytics, build, entry, intent]
 execution:
   prompt: |
     Use Atlan Analytics to continue setting up analytics on my own data.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
-    The person already answered the first card: Snowflake, which is already connected, and
-    "Sales pipeline" as what to build context for. The working folder holds no BI files and no
-    BI connector is connected. No data has been read and nothing is built.
+    The person already answered card 1: Snowflake, which is already connected, and "Make my
+    dashboard agentic". The working folder holds no BI files. No data has been read and
+    nothing is built.
     Show the next user-facing step.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
@@ -27,12 +27,12 @@ graders:
     tool: Bash
     min: 0
     max: 0
-  - name: asks-tool-name-only
+  - name: asks-for-the-dashboard
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply asks which BI tool the person tracks sales pipeline in, offers tool names
-      such as Power BI, Tableau and Looker with a choice to use the warehouse only, and stops.
-      FAIL if the same reply asks for a link, a file path or an upload, gives export
-      instructions, asks which warehouse or what to build context for again, starts discovery,
-      or starts any build.
+      PASS if the reply asks the person to paste the dashboard's link or the path to its file,
+      in one short message, and stops. Mentioning file types or that the file can be dragged in
+      is fine. FAIL if it asks which BI tool the dashboard is in, offers a menu of BI tools,
+      asks which warehouse or what they want to do again, runs or describes discovery, suggests
+      tables, or starts any build.

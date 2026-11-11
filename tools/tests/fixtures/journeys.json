@@ -1247,8 +1247,8 @@
    "id": "analytics-build-own-data",
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
-   "title": "Own data with a BI source: skip the answered questions, discover, confirm the tables, build the whole report",
-   "route": "Ask only what the request left open, read the BI source and the warehouse tables behind it, confirm the tables, generate and check the whole report, save it, answer one question",
+   "title": "Own data, dashboard or known-tables branch: share it, check access, confirm, build the whole report",
+   "route": "Ask which warehouse and what to do, take the dashboard or the tables the person names, check each can be read, confirm, generate and check, save it, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",
@@ -1266,8 +1266,8 @@
    "id": "analytics-build-no-input",
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
-   "title": "Own data from nothing: three questions, discovery, confirm the tables, generate and save",
-   "route": "Ask which warehouse, what to build context for and for any BI source, discover the tables that matter, confirm them, generate and check, save, answer one question",
+   "title": "Own data, discovery branch: warehouse, let discovery decide, pick use cases, confirm, generate and save",
+   "route": "Ask which warehouse and what to do, discover the most used tables, offer use cases with their tables, clarify what is unsettled, confirm, generate and check, save, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",

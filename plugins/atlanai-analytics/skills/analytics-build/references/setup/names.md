@@ -1,11 +1,12 @@
 # Offer the use cases, each with its tables
 
-Read after discovery, before runtime setup or generation. Demos skip this file: their source
-choice selects what to build. A resume with a saved selection skips it too.
+Read in the "Let discovery decide" branch, after discovery. The other two branches do not
+use this file: the person already named the dashboard or the tables, so they go from the
+access check straight to the confirmation in [the interview](intent.md). Demos skip it too,
+and so does a resume with a saved selection.
 
 Discovery ends in a short menu of use cases, never a single suggestion. The person picks
-which to build. This is the only question between the opening interview and metric
-generation.
+which to build.
 
 ## 1. Get the use cases
 
@@ -13,11 +14,12 @@ generation.
 it. With a BI source, `source-survey` `candidates` adds the metric names the report holds.
 Neither generates SQL or runs a check on a metric.
 
-- After "Let discovery decide": the use cases are the most used subjects in the warehouse,
-  most used first.
-- After a named domain: the use cases are the distinct things that domain's tables can
-  answer (for sales: pipeline and win rate, rep activity, account coverage).
-- With a BI source: its report is the first use case, with the tables it reads.
+- With no subject named: the use cases are the most used subjects in the warehouse, most
+  used first.
+- With a subject typed in card 1: the distinct things that subject's tables can answer (for
+  sales: pipeline and win rate, rep activity, account coverage).
+- A dashboard discovery found in the working folder, or a set of metrics already in Atlan,
+  is named on the use case it belongs to: "Tables: … Dashboard: pipeline-review.pbix".
 
 ## 2. One card, kept short
 
@@ -58,13 +60,15 @@ I'll leave out the test accounts on the exclusion list."
 
 For an understanding-only request, the menu is the result; no build follows unless asked.
 
-## 3. Build what was picked
+## 3. Then clarify and confirm
 
-Record the selection in the run, then enter [Build](build-check.md). Call
-`metrics-generation` `generate` with the tables of every chosen use case and the whole of
-any BI source: a report is built whole, every page and measure, and query history is scoped
-to the chosen tables. The collection review's representative metric is the one closest to
-the first chosen use case.
+With the choice made, ask [the interview's clarification](intent.md) only for what discovery
+could not settle about the chosen use cases, then its confirmation. Record the selection in
+the run. After the yes, enter [Build](build-check.md): call `metrics-generation` `generate`
+with the tables of every chosen use case and the whole of any dashboard named on them. A
+report is built whole, every page and measure, and query history is scoped to the chosen
+tables. The collection review's representative metric is the one closest to the first chosen
+use case.
 
 When discovery finds nothing to build from, do not ask this question. Say the one thing that
 is missing and offer `analytics-demo`.

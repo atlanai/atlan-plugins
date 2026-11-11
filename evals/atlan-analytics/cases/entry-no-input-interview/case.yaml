@@ -7,8 +7,8 @@ execution:
     subject or a source.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
     Treat the quick look at what is already connected as done, with this result: one working
-    warehouse connection, Snowflake through its connector, and one BI file in the working
-    folder named pipeline-review.pbix. No data has been read and nothing is built.
+    warehouse connection, Snowflake through its connector. No data has been read and nothing
+    is built.
     Show the next user-facing step.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
@@ -28,17 +28,16 @@ graders:
     tool: Bash
     min: 0
     max: 0
-  - name: opening-interview
+  - name: card-one
     type: llm
     focus: last_message
     criteria: |
-      The host has no native question tool, so the interview's first questions are asked in
-      chat, either together or the first one alone. PASS if the reply asks which warehouse the
-      person is on and offers Snowflake as a choice plainly marked as already connected. If it
-      also asks the second question, that must be what to build context for, with "Let
-      discovery decide" as the first option followed by a few domains.
-      FAIL if it narrates that it checked or looked for connections or files, explains how the
-      options were chosen, claims to have read tables, schemas or report contents, lists table names,
-      asks the person to pick a task such as answering a question or building a dashboard,
-      asks about a BI tool, a dashboard link or a file at this step (that comes only after a
-      use case is chosen), or starts any build.
+      The host has no native question tool, so card 1 is asked in chat, both questions together
+      or the first alone. PASS if the reply asks which warehouse the person is connected to and
+      offers Snowflake as a choice plainly marked as already connected. If it also asks the
+      second question, that must be what the person wants to do, with three choices meaning: let
+      discovery decide, make a dashboard agentic (share a dashboard), and a use case with known
+      tables. FAIL if it narrates that it checked or looked for connections or files, explains
+      how the options were chosen, claims to have read tables, schemas or report contents,
+      lists table names, asks for a dashboard link, a file or a BI tool at this step, or starts
+      any build.

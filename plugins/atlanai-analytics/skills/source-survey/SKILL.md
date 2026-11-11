@@ -27,8 +27,9 @@ in Claude Code). Pass separate argv entries; zsh does not split a scalar holding
 
 | Operation | Does | Procedure |
 | --- | --- | --- |
-| `connections` | Lists the warehouse connections already configured on this machine, and whether each answers | [Connections and discovery](references/discovery.md) |
-| `discover` | On a chosen warehouse, for a domain or with none: finds the schemas in use and the tables that matter, reads their columns and returns use cases, each with its tables | [Connections and discovery](references/discovery.md) |
+| `connections` | Lists the warehouse connections already configured on this machine, and whether each answers | [Connections, discovery and access](references/discovery.md) |
+| `discover` | On a chosen warehouse, for a domain or with none: finds the schemas in use and the tables that matter, reads their columns and returns use cases, each with its tables | [Connections, discovery and access](references/discovery.md) |
+| `access` | For sources the person named (a dashboard, a list of tables): whether each opens and can be read, and exactly what cannot | [Connections, discovery and access](references/discovery.md) |
 | `inventory` | Reads every supplied source in full (models, dashboards, query history, SQL, local data) and says what they cover and could answer | [Inspect and scope](references/inspect-scope.md), section 1 |
 | `plan` | Orders the sources to build from: BI reports and models, then query history, then table definitions | [Inspect and scope](references/inspect-scope.md), section 2 |
 | `scope` | Selects pages, measures and query-history tables | [Inspect and scope](references/inspect-scope.md), section 2 |
