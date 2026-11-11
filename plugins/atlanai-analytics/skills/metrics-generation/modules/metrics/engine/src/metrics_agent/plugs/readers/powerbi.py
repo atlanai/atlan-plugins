@@ -3064,6 +3064,35 @@ class PowerBIReader(FormulaCompiler):
                 return tabular.parse(path, **opts)
             return parse(path, **opts)
 
+    def model_gap(self, path: pathlib.Path) -> str | None:
+        """A report that came without its semantic model, or None.
+
+        A live-connection `.pbix` (the service's "live connection" download) holds the report
+        and no `DataModel`; a report extract fetched without its model holds PBIR files and no
+        `.tmdl`. The visuals name measures whose formulas live in the model, so nothing can be
+        compiled from either. Said by name so the run leaves the input out and goes on with its
+        other inputs, instead of failing on a file that was never a model."""
+        import zipfile  # noqa: PLC0415
+
+        path = pathlib.Path(path)
+        what = ("its formulas are in the semantic model. Supply the model: a fetch with the "
+                "model (`with_model`), its TMDL folder or .bim, or the full .pbix download "
+                "(report and data)")
+        if path.is_file() and path.suffix.lower() == ".pbix":
+            try:
+                with zipfile.ZipFile(path) as z:
+                    names = set(z.namelist())
+            except (OSError, zipfile.BadZipFile):
+                return None
+            if "DataModel" not in names and any(n.startswith("Report/") for n in names):
+                return (f"{path.name} is a live-connection report: it holds the report and no "
+                        f"semantic model, and {what}.")
+            return None
+        if path.is_dir() and not any(path.rglob("*.tmdl")) and not any(path.rglob("*.bim")):
+            if any(path.rglob("definition.pbir")) or any(path.rglob("report.json")):
+                return (f"{path.name} holds a report without its semantic model, and {what}.")
+        return None
+
     def refuse(self, path: pathlib.Path) -> str | None:
         """A crawler extract ROOT is a whole tenant, and a run builds ONE model: refused when
         it holds several models a run could read (one is `one_model`'s)."""

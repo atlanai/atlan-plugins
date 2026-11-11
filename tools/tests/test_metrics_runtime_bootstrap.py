@@ -114,3 +114,20 @@ class SetupPythonTest(unittest.TestCase):
             plain = driver.ordinary(root / 'project/.atlan-metrics/runtime')
             spelled = driver.ordinary(root / 'project/.atlan-metrics/run_1/../../.atlan-metrics/runtime')
             self.assertEqual(str(plain), str(spelled))
+
+
+class RuntimeMismatchFix(unittest.TestCase):
+    """A runtime from another plugin version is refused with the folder to set up instead."""
+
+    def test_an_older_runtime_names_the_new_folder(self):
+        with tempfile.TemporaryDirectory() as tmp, redirect_stdout(io.StringIO()) as out:
+            root = Path(tmp).resolve() / 'runtime'
+            root.mkdir()
+            (root / 'runtime.json').write_text(json.dumps(
+                {'module': 'metrics', 'commit': 'b' * 64, 'source_sha256': 'b' * 64}))
+            identity = 'c' * 64
+            with mock.patch.object(driver, 'snapshot', return_value=({'commit': identity}, identity)):
+                self.assertEqual(driver.main(['--runtime', str(root), 'discover']), 2)
+        result = json.loads(out.getvalue())
+        self.assertIn('does not match this plugin', result['reason'])
+        self.assertIn(str(root.parent / ('runtime-' + 'c' * 12)), result['fix'])

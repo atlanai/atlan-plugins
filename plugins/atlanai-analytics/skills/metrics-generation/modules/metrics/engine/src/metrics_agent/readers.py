@@ -101,6 +101,18 @@ def refusal(path: pathlib.Path) -> str | None:
     return None
 
 
+def model_gap(path: pathlib.Path) -> str | None:
+    """Why `path` holds no model any installed reader could read a measure from (a reader
+    that knows the path is, say, a report without its semantic model says so), or None.
+    Not a refusal: the input is left out and the run reads its other inputs."""
+    for r in all_readers():
+        hook = getattr(r, "model_gap", None)
+        why = hook(pathlib.Path(path)) if callable(hook) else None
+        if why:
+            return why
+    return None
+
+
 def one_model(path: pathlib.Path) -> pathlib.Path | None:
     """The single model `path` holds, when an installed reader knows `path` as a container of
     models (say, a whole tenant's extract) that holds exactly one a run could read; else None.

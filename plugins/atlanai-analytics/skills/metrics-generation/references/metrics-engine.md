@@ -9,6 +9,9 @@ Keep the runtime outside the installed plugin and any generated agent package. F
 setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
 permitted cache. Never choose an OS/session scratch directory: the saved executor must remain
 usable after this chat ends. Reuse a compatible pinned runtime rather than reinstalling it.
+A runtime built by another plugin version, or with other features, is refused, and the refusal's
+`fix` names the folder to set up instead (`runtime-<commit>` beside it). Use that folder and
+leave the old one for the projects built with it.
 The module source lives under `modules/metrics/engine/`. This plugin owns its source changes and tests. Runtime identity hashes the current source.
 
 This procedure requires the complete Analytics plugin, including its `modules/` folder. A
@@ -29,6 +32,8 @@ The core runtime supports query-history files, column-schema files, SQLite and D
 the installed Power BI/Tableau readers. Add only needed features: `snowflake`, `powerbi`,
 `tableau`, `databricks`, `postgres`, or `pbix`. These install the maintained plug packages or
 optional binary reader. A new source is a registered plug/reader, never a core edit.
+A source the person named needs its feature: for a Power BI link that is `powerbi`, set up as
+part of this procedure rather than skipped in favour of a browser capture.
 
 If the runtime is absent, announce its isolated, constrained initialization and run
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
@@ -46,6 +51,27 @@ Ask only for missing decisions affecting meaning or execution: bounded source/ta
 dialect, custody, verification mode and any required plug setting. Propose defaults from
 evidence. Never ask for credentials. Missing warehouse access can produce parse-only output;
 a failed semantic check cannot be converted into parse-only success.
+
+### Power BI from a report link
+
+The `powerbi-fabric` plug fetches the report and its semantic model in one step, the richest
+input a run can have. It signs in as the person on its own: in their browser (authorization
+code with PKCE: single sign-on, nothing to copy) where one can open on this machine, else by
+device code (an SSH or cloud session, a host with no display, or a sign-in app of the
+customer's own in `PBI_PUBLIC_CLIENT_ID`). `sign_in: device` or `sign_in: browser` overrides
+it. A token or service principal already in the environment is used without either. Both interactive sign-ins need the terminal procedure under **Native sign-in**.
+
+```yaml
+inputs:
+  bi: [powerbi-fabric]
+settings:
+  powerbi-fabric:
+    targets: [https://app.powerbi.com/groups/<workspace-id>/reports/<report-id>]
+    with_model: true
+```
+
+Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run
+or is refused, and say which.
 
 ### Direct Snowflake query history
 
