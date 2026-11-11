@@ -339,7 +339,8 @@ class Project(ContextState):
         if not isinstance(card, dict):
             return
         for change in changes:
-            field = self._CARD_FIELD.get(change['path'], change['path'])
+            path = change['path'].removeprefix('extensions.metrics_agent.card.')
+            field = self._CARD_FIELD.get(path, path)
             if '.' not in field and field in card:
                 card[field] = change['value']
 

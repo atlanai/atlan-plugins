@@ -59,6 +59,15 @@ class CardExecution(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})
 
+    def test_edit_metric_reaches_the_embedded_card_notes(self):
+        card = self.card()
+        card['definition']['extensions']['metrics_agent'] = {'card': {'gotchas': ['rework is not billable'], 'formula': 'x'}}
+        self.save(card)
+        self.run.edit_metric({'name': 'cost', 'changes': [
+            {'path': 'extensions.metrics_agent.card.gotchas', 'value': ['rework is billable']}]})
+        saved = self.run.read(self.run.context / 'metrics.json')[0]['definition']['extensions']['metrics_agent']['card']
+        self.assertEqual(saved['gotchas'], ['rework is billable'])
+
     def test_metric_is_found_by_its_display_name_or_slug(self):
         card = self.card()
         card['name'] = 'Gross Margin'

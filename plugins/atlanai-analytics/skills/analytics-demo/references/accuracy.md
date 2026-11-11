@@ -100,8 +100,9 @@ in `<evals-run>/work/spec.json`, name the fix:
 - **The change.** Each change names a definition field (`source.sql`, `mandatory_filters`,
   `population`, `exclusions`, `examples` and so on) or the metric's own `description`. A rule
   change covers every place the metric states the rule: its source SQL and filters, its
-  population and exclusions, each example whose SQL holds the old rule, **and** its
-  `description` when that states the old rule. Another metric whose description or card states
+  population and exclusions, each example whose SQL holds the old rule, its `description`, **and**
+  the engine card's own notes when they state it (`extensions.metrics_agent.card.gotchas` and
+  `.description`). Another metric whose description or card states
   the old rule (the cost of rework saying rework is never billed, say) gets its own fix entry: an
   agent that reads the old rule in any metric still answers with it. A miss on wording is fixed by adding that
   question to `examples`, with the SQL that answers it. A question that asks the opposite is a
