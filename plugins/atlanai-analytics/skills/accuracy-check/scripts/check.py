@@ -9,7 +9,7 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
     python3 check.py load --project <project> --file <set.jsonl>
 
 `start` finds the built run, where its context lives and the sets the project holds. `load` puts a
-set in a fresh eval folder beside the run, runs each trusted SQL on the run's data and sets the
+set in a fresh eval folder in .atlan-evals/, runs each trusted SQL on the run's data and sets the
 questions up for scoring. Every command prints one JSON object; exit 2 means something the person
 must supply. Standard library only.
 """
@@ -160,8 +160,8 @@ def cmd_load(a) -> dict:
                                            "expected": next(g["first"] for g in ran["ran"] if g["id"] == rec["id"])}
                                           for rec in records])
     stage(ev, re.sub(r"[^a-z0-9]+", "-", src.stem.lower()).strip("-") or "eval-set")
-    # eval-generation writes where each question came from; a set the person brought does not say.
-    generated = all(r.get("from") for r in rows)
+    # eval-generation marks each question it wrote; a set the person brought carries no mark.
+    generated = all(r.get("generated") is True for r in rows)
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run), "set": src.stem,
             "generated": generated,
             "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json")}

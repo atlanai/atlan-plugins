@@ -56,7 +56,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    the share rejected. Then reply `done`. It never sees the run.
 5. **Write the set.** `EVALGEN review --name <slug>`, then `SCOPE emit --gen <gen> --name <slug>`.
    It writes `<project>/.atlan-evals/sets/<slug>.jsonl`, one question per line: `{"id",
-   "question", "sql", "tests", "from"}`, the same shape as a set a person brings.
+   "question", "sql", "tests", "from", "generated"}`, the same shape as a set a person brings.
 
 Budget: about 2 minutes. Keep every model step in a subagent and every count in a script.
 

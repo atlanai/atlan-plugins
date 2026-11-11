@@ -4,8 +4,8 @@ Read when running a set, showing its score and testing again. `CHECK` is
 `python3 "<check-dir>/scripts/check.py"`, with `<check-dir>` this skill's directory. `EVAL` is
 `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<evals-run>"` and `PROJECT` is
 `python3 "<build-dir>/scripts/project.py" --run-dir "<run>"` (without `--run-dir` it refuses every
-query), with `<build-dir>` the `analytics-build` skill directory and `<run>`, `<evals-run>` as
-`CHECK load` returns them. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
+query), with `<build-dir>` the `analytics-build` skill directory, `<run>` load's `run` and `<evals-run>`
+load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
 `CHECK load` writes.
 
 ## Why the score can be trusted

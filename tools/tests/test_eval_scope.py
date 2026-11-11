@@ -118,7 +118,7 @@ class ScopeTest(unittest.TestCase):
         rows = [json.loads(l) for l in Path(res["set"]).read_text().splitlines()]
         self.assertEqual(Path(res["set"]), self.tmp / ".atlan-evals" / "sets" / "revenue-check.jsonl")
         self.assertEqual(rows, [{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1",
-                                 "tests": "Net Revenue", "from": "dashboard tile"}])
+                                 "tests": "Net Revenue", "from": "dashboard tile", "generated": True}])
 
     def test_ready_turns_any_set_file_into_an_approved_spec_to_save(self) -> None:
         sets = self.tmp / ".atlan-evals" / "sets"

@@ -26,8 +26,8 @@ Doing and Why lines first; a result is reply text that ends the turn with a plai
 | Fix | Changing the rule behind the miss. | One rule changed once changes every answer that uses it. |
 
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
-look up Trident, a workspace or saved evals for the questions, the run or the score. Only the
-save in step 5 reads a workspace.
+look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
+4's Trident fix and step 5's save touch a workspace.
 `context_saved_to` (from `CHECK start` and `CHECK load`) says where the context lives; `null` means
 this machine only.
 
@@ -94,7 +94,8 @@ Name no fix in the question's text: the fixes come from the diagnosis.
 even when the dashboard or other queries follow the old rule. Never weigh the set against the
 context's sources, question who wrote it, offer changing the test, or say that it cannot be
 changed; the one exception is *question asks the opposite*, where the wording, not the rule, is
-wrong. For each miss, from accuracy-check's why it failed and the set's `note`, name the fix:
+wrong. For each miss, from accuracy-check's why it failed and, when the set gave a note, the question's `question_spec`
+in `<evals-run>/work/spec.json`, name the fix:
 
 - **The change.** Each change names a definition field (`source.sql`, `mandatory_filters`,
   `population`, `exclusions`, `examples` and so on) or the metric's own `description`. A rule

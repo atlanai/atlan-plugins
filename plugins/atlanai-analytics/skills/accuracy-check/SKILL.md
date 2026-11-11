@@ -33,7 +33,7 @@ command as separate argv entries; zsh does not split a string holding one.
 1. **Find the run.** `CHECK start --project <project>` returns the built run, `context_saved_to`
    (where the context lives; `null` means this machine only) and the project's sets.
 2. **Load the set.** `CHECK load --project <project> --file <set>` puts it in a fresh eval folder
-   beside the run, runs each trusted SQL on the run's data, drops a question whose trusted SQL
+   in `.atlan-evals/`, runs each trusted SQL on the run's data, drops a question whose trusted SQL
    fails or returns nothing (`dropped`), and sets the rest up for scoring. Its
    `work/selection.json` holds each question's metric, source and expected answer.
 3. **Run and score it** as [run it](references/run.md#run-it) describes, then show the score as

@@ -13,7 +13,7 @@ input, picks the set (the focus metric first, then breadth) and writes it. Stand
     python3 scope.py ready --set <set.jsonl>
 
 `emit` writes <project>/.atlan-evals/sets/<name>.jsonl, one question per line: {"id", "question",
-"sql", "tests", "from"}, the same shape as a set a person brings, so whatever runs a set runs
+"sql", "tests", "from", "generated"}, the same shape as a set a person brings, so whatever runs a set runs
 this one. Every command prints one JSON object. Exit 2 means something the person must supply.
 """
 from __future__ import annotations
@@ -212,7 +212,7 @@ def cmd_emit(a) -> dict:
         raise Blocked("No drafted set: run eval-builder `review` first.")
     rows = [{"id": r["id"], "question": r.get("question"), "sql": r.get("golden_sql"),
              "tests": (selection.get(r["id"]) or {}).get("metric") or "",
-             "from": (selection.get(r["id"]) or {}).get("from") or ""}
+             "from": (selection.get(r["id"]) or {}).get("from") or "", "generated": True}
             for r in spec.get("records") or []
             if r.get("review_status") != "rejected" and r.get("question") and r.get("golden_sql")]
     if not rows:
