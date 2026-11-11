@@ -11,7 +11,9 @@ with the host's own page tool, every number from a metric or saved query.
 ## Nothing published covers the question
 
 Say so in the answer, as **Not managed**, with the formula and filters assumed. Then offer
-one next step, not a menu:
+one next step as the answer's last line, not a menu and not a native question, and treat
+the person's reply as the choice
+([text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)):
 
 - The person can build context here: offer to build the metric. On yes, load
   `analytics-build` with the question as the problem, so its focus question is already

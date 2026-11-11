@@ -23,7 +23,9 @@ explicit orchestration policy for phase approvals and continuation; these safety
 
 Send independent reads together: as one `mcp__call_read_tools` call (up to 8,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`) when the host lists it,
-otherwise as parallel calls in one turn. Hold for the rest of the conversation what does
+otherwise as parallel calls in one turn. A read that carries `receipt_dir` is the exception:
+it goes alone through `mcp__call_read_tool`, as [publication](../../metrics-generation/references/metrics/publish.md)
+says, because the receipt hook does not rewrite batches. Hold for the rest of the conversation what does
 not change within it: each metric's `workspace_id` and the warehouse query tool (or that there
 is none). A later question reuses them and skips discovery; look
 again only after a call is refused.
@@ -130,3 +132,22 @@ Show setup progress as [the checklist](setup/checklist.md) in chat and the host'
 when available, read from the saved run.
 Open no panel, browser view or snapshot unless the person asks for one. Never imply a
 snapshot is live or show controls that cannot act. Publish decisions stay in chat.
+
+### Text before a native question is lost
+
+Reply text written in the same turn as a native question often never reaches the person: it
+stays in reasoning, and the host shows at most a one-line summary. What the question tool is
+handed arrives word for word. So every visible moment takes one of two shapes:
+
+- **A block to read before choosing** (the welcome, a Doing/Why pair before a question, the
+  celebration, the ready block, a dashboard layout, a rule change to save) is the native
+  question's own text, as plain lines with no Markdown (`**`, `>`, `|` tables, backticks):
+  question text is shown as written. Before the question, print nothing, or one short line.
+- **A result** (an answer, a built dashboard, a rule change kept local, a missing-metric
+  offer) is reply text that ends the turn. Close it with one plain `Next:` line built from
+  that moment's options, one sentence and not a list, then stop, and treat the person's reply as the choice. No native
+  question in that turn. When one message asks for a result and something that needs a
+  choice, give the result and put the choice in its `Next:` line or as plain lines after it.
+
+Where the host has no question tool at all, print the question's text as the last thing in
+the message, then the choices as plain lines, and call no tool after it.
