@@ -9,8 +9,9 @@ How a run, a score and a diagnosis work is in [run the accuracy check](accuracy-
 file names them.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
-are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**,
-then, after Improve it, **Find what to fix**, **Apply the fix** and **Test again**.
+are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**.
+When the person picks Improve it, add **Find what to fix**, **Apply the fix** and **Test again**
+to the list before diagnosing, and mark each done as it finishes.
 
 Every moment follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
 a block to read before choosing is the question's own text, as plain lines with no Markdown, its
