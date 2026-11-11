@@ -36,14 +36,19 @@ and inventory; decide from the request and never ask which one the person wants.
 
 Your next message is the opening, before surveying or calling helpers. With no input:
 
-"I'll turn the dashboards and queries your team already has into metrics you can ask
-questions of here. First I'm looking at what this machine can reach; nothing gets changed.
-You can narrow the scope, ask for details, keep the work local, or pause at any point."
+"Atlan Analytics turns your dashboards and the queries your team already runs into context:
+what your numbers mean and how they are worked out. With that context, you can ask your data
+questions in plain English and see what each answer is based on.
 
-With a source or a subject: "I'll survey `<it>`, show what it can become, and build metrics
-you can ask questions of here. You can narrow the scope, ask for details, keep the work
-local, or pause at any point." Then the entry's `**Doing:**` and `**Why:**` lines. Every
-survey settles whether a source can be built from before any question.
+First, let me understand your tools and your domain. I'm looking at what this machine can
+reach; nothing gets changed. You can narrow the scope, ask for details, keep the work local,
+or pause at any point."
+
+With a source or a subject: "I'll turn `<it>` into context: what its numbers mean and how
+they are worked out, so you can ask questions in plain English here and see what each answer
+is based on. You can narrow the scope, ask for details, keep the work local, or pause at any
+point." Then the entry's `**Doing:**` and `**Why:**` lines. Every survey settles whether a
+source can be built from before any question.
 
 The interview is this skill's own: `source-survey` never asks the person anything. Honor
 existing choices. Survey-only requests stop after step 1. On resume, read

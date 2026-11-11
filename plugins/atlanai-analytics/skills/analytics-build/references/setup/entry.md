@@ -32,7 +32,7 @@ Own-data setup talks as the demo does ([the tour rules](../../../analytics-demo/
 
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Setup survey | Checking your connectors, Atlan and the files in this folder. | I build from what you already have, so I need to know what that is. |
+| Setup survey | Getting to know your tools: your connectors, Atlan and the files in this folder. | The context is built from what you already have, so I need to know what that is. |
 | Reading a source | Reading the report's pages and measures, and the tables behind them. | The report already says how your team measures this, so the context starts from it. |
 | Domain survey | Looking for everything about `<subject>`: Atlan metrics and team rules, certified queries, reports and tables. | If your team already defined these numbers, I reuse them and show where they disagree. |
 | Inventory | Listing what the context will hold. | You see the metrics and questions before I write each rule. |
