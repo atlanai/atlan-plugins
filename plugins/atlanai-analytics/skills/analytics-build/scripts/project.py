@@ -307,8 +307,11 @@ class Project(ContextState):
         self._apply_card(((new.get('extensions') or {}).get('metrics_agent') or {}).get('card'), changes)
         version = int(old.get('version') or 1)
         new['version'] = version + 1
-        kept = self.context / 'metric-versions' / f"{re.sub(r'[^a-z0-9]+', '-', body['name'].lower()).strip('-')}-v{version}.json"
-        self.write(kept, {**old_text, 'definition': old})
+        # Old versions live beside the run, never in it: an agent answering from the run must not
+        # find the old rule there.
+        root = self.context.parent
+        kept = root.parent / 'metric-versions' / root.name / f"{re.sub(r'[^a-z0-9]+', '-', body['name'].lower()).strip('-')}-v{version}.json"
+        self._keep(kept, {**old_text, 'definition': old})
         body['definition'] = new
         self.write(path, bodies)
         try:
@@ -318,12 +321,18 @@ class Project(ContextState):
             body.update(old_text)
             self.write(path, bodies)
             raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
-        self._mirror_metric_edit(body['name'], changes, kept)
+        self._mirror_metric_edit(body['name'], changes, kept, version)
         return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),
                 'changed': [c['path'] for c in changes]}
 
     # Where the engine keeps its own copy of a definition field (its card names a few differently).
     _CARD_FIELD = {'source.sql': 'sql', 'source.entity': 'entity', 'source.alias': 'alias'}
+
+    @staticmethod
+    def _keep(path, value):
+        # Beside the run under .atlan-metrics/, outside the run's guarded store on purpose.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value, indent=1))
 
     def _apply_card(self, card, changes):
         """Carry definition-field changes onto an engine card, which names a few fields differently."""
@@ -334,7 +343,7 @@ class Project(ContextState):
             if '.' not in field and field in card:
                 card[field] = change['value']
 
-    def _mirror_metric_edit(self, name, changes, kept):
+    def _mirror_metric_edit(self, name, changes, kept, version):
         """The engine keeps two more copies of each metric beside the context: its export and its
         card. An agent that searches the run can read either, so an edit reaches them too, with
         their old text kept beside the old definition."""
@@ -352,6 +361,7 @@ class Project(ContextState):
                         for key in keys[:-1]:
                             node = node.setdefault(key, {})
                         node[keys[-1]] = change['value']
+                    b.setdefault('definition', {})['version'] = version + 1
                     self._apply_card((((b.get('definition') or {}).get('extensions') or {}).get('metrics_agent') or {}).get('card'), changes)
             self.write(export, bodies)
         if cards.is_file():
@@ -362,7 +372,7 @@ class Project(ContextState):
                     self._apply_card(card, changes)
             self.write(cards, doc)
         if before:
-            self.write(kept.with_name(kept.stem + '-engine.json'), before)
+            self._keep(kept.with_name(kept.stem + '-engine.json'), before)
 
 
     def check_execution(self, request, kind):
