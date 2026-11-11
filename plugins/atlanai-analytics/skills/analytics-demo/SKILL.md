@@ -76,7 +76,7 @@ After "Start building", show the tracker, then do all of step 1's work:
 3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
    [build and check](../analytics-build/references/setup/build-check.md) describes. When `open`
    reported `database_exists`, bind that file instead of preparing it again. Bind it once
-   with `--schema`, and set the run's dialect to `dialect`. Every later check runs on these rows.
+   with `PROJECT bind "<database>" --schema <schema>`, and set the run's dialect to `dialect`. Every later check runs on these rows.
 4. **Record the preset intent.** `PROJECT journey domain --answer "<focus to record>"`, then
    `PROJECT journey purpose --answer "<purpose to record>"`, from the facts file. The demo asks
    neither intent question.

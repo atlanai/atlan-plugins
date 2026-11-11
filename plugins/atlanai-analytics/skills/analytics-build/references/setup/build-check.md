@@ -56,6 +56,8 @@ Run `PROJECT check` for local structural validation. It requires no workspace an
 `schema_checked`, not certification or execution. Use `PROJECT check-query "<request.json>"`
 with a candidate `name` and separate `parameters` to execute exact saved SQL on the bound SQLite or DuckDB file. Checks
 for metrics use `PROJECT check-metric` with `name`, `example_index` (zero-based) and parameters.
+The request files are `{"name": "<query>", "parameters": {}}` and
+`{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 It executes that exact authored SQL example and the calculation composed from the card's
 formula, source and mandatory filters, including an empty-population probe. Both must run;
 fix invalid column scope or bindings on the card and rerun. The local helper batches these statements in one bounded worker, retaining each statement's
