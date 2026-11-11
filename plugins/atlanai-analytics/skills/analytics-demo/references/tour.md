@@ -25,8 +25,8 @@ throughout setup.
 
 ## The welcome: right after the demo is chosen
 
-Read the chosen demo's file, then print its welcome block before any other tool call, file
-search or copy: whole and as written, with `<folder>` replaced by the current working
+Read the chosen demo's file, then print its welcome block before any other tool call or file
+search: whole and as written, with `<folder>` replaced by the current working
 folder's absolute path. The welcome names the demo's live tour page; keep that link exactly
 as written, on its own line, so it can be clicked.
 
@@ -57,7 +57,7 @@ step goes under its tracker. Skip a moment that does not happen in this run.
 
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Copy | Copying `<firm>`'s demo files into this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
+| Open the demo | Setting up `<firm>`'s demo in this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
 | Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures itself, so the context matches the firm instead of my guess. |
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
 | Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |

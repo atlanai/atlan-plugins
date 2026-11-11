@@ -1,12 +1,12 @@
 # Demo: Fixit & Co., the builder's yard
 
 Read right after the person picks this demo, and again at each later moment for its facts.
-The demo is `yard`: its files are this skill's `assets/yard/`, and `DEMO copy yard` places
-them and prints the dashboard file, database, schema and dialect.
+The demo is `yard`. It lives in this skill's `assets/yard/`; `DEMO open yard` sets up its
+working folder, and `DEMO requests yard` prints its dashboard file, database, schema and dialect.
 
 ## The welcome
 
-Print this block next, before any other tool call, file search or copy. Print it whole and
+Print this block next, before any other tool call or file search. Print it whole and
 as written, as an ordinary reply; it has nothing to fill in. Keep the step strip inside its
 code fence so its columns stay aligned.
 
@@ -43,7 +43,7 @@ code fence so its columns stay aligned.
 | Firm | Fixit |
 | Agent | job profit agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/yard-tour/ |
-| Source folder | `atlan-analytics-demo/yard/` |
+| Working folder | `atlan-analytics-demo/yard/` |
 | Dashboard | a Power BI dashboard with 4 tiles |
 | Tiles | gross margin, rework cost, material waste, late jobs |
 | Past queries | 110 |
