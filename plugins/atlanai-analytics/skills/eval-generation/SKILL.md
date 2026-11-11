@@ -33,7 +33,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
   them. The eval folder sits beside the run, never inside it: the answering agents read the run
   and must never see an answer. Never use `PROJECT location` here: it names a new run.
 - `SCOPE` is `python3 "<evals-dir>/scripts/scope.py"`. `EVAL` is
-  `python3 "<build-dir>/scripts/analytics_eval.py"` with `--dir "<evals-run>"`. `PROJECT` is
+  `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<evals-run>"`. `PROJECT` is
   `python3 "<build-dir>/scripts/project.py" --run-dir "<run>"`: without `--run-dir` it refuses
   every query.
 - `EVALGEN` is `uv run --no-project --with "sqlglot>=30.20,<30.21" env
@@ -68,7 +68,7 @@ every model step in a subagent and every count in a script.
    SQL that returns an on-time rate gets an on-time question, never a "run late" one. Then reply
    `done`. It never sees the run.
 5. **Check and run.** `EVALGEN review --name <slug>`, then
-   `SCOPE gold --run <run> --evals <evals-run> --project <PROJECT>`. A question whose trusted
+   `SCOPE gold --run <run> --evals <evals-run>`. A question whose trusted
    SQL fails or returns nothing leaves the set; say how many.
 
 Show the set with `work/selection.json`: the question, **the metric it tests**, where it came
@@ -80,7 +80,8 @@ approval: `EVALGEN review --approve all` only after it, never on your own.
 `SCOPE sets --project <project>` lists the sets in `<project>/.atlan-evals/sets/`, each a JSONL
 of `{"id", "question", "sql"}` plus optional `"tests"` (the metric) and `"note"` (the rule the SQL
 encodes). `SCOPE load --project <project> --file <set>` puts one where `generate` would, approved
-because the person brought it; then run `SCOPE gold` and continue as after generating.
+because the person brought it, and runs its trusted SQL (`gold_failed` names any that did not run).
+It is then ready to test.
 
 ## `save`: local or Trident
 

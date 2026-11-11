@@ -20,13 +20,14 @@ a set, ask once, "Which questions should I test with?":
 | `<set name>` (`<N>` questions) | The eval set you already have, one option per set. |
 | Generate 5 new questions | From your dashboard and the queries your analysts run most. |
 
-A named set skips the question. Load a set with `SCOPE load --project <project> --file <set>`;
-it lands exactly where `generate` would, so every later step is the same. To generate anyway,
-run `SCOPE inputs --project <project> --generate`.
+A named set skips the question. Picking a set is the approval to run it: `SCOPE load --project
+<project> --file <set>`, then `save` on this machine and `test` straight away, with no list to
+confirm; go on to step 3. To generate, run `SCOPE inputs --project <project> --generate`, then
+step 2.
 
-## 2. Show the questions, then ask to run them
+## 2. Generated questions: show them, then ask to run them
 
-Run `generate`, or the load above. There is no review step: the person sees the set and runs it.
+Only for questions generated now: the person has not seen them, so show them before running.
 Earlier checks in the same folder stay out of the reply unless the person asks about them.
 Print this block as an ordinary reply, with the values from the run:
 

@@ -62,6 +62,9 @@ def find_run(project: pathlib.Path) -> pathlib.Path:
     return ready[0]
 
 
+RUNNER = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts" / "project.py"
+
+
 def saved_to(run: pathlib.Path):
     """The Atlan Trident workspace the run's context was saved to, or None for this machine only."""
     return ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
@@ -260,8 +263,10 @@ def cmd_load(a) -> dict:
                                     "from": f"eval set {src.stem}"} for rec, r in zip(records, rows)])
     interaction = load(run / "interaction.json", {}) or {}
     dump(ev / "scope.json", {"use_case": interaction.get("intent") or {}, "set": str(src), "pool": {}})
+    # A set the person brought is already approved, so its trusted answers run now and it is ready to test.
+    gold = cmd_gold(argparse.Namespace(run=str(run), evals=str(ev), runner=getattr(a, "runner", None)))
     return {"status": "ok", "run": str(run), "evals": str(ev), "context_saved_to": saved_to(run),
-            "set": src.stem, "questions": len(records)}
+            "set": src.stem, "questions": len(records), "gold_ran": gold["ran"], "gold_failed": gold["failed"]}
 
 
 def cmd_gold(a) -> dict:
@@ -277,7 +282,7 @@ def cmd_gold(a) -> dict:
     for r in spec.get("records") or []:
         rq = req / f"{r['id']}.json"
         rq.write_text(json.dumps({"sql": r["golden_sql"], "limit": 1000}))
-        proc = subprocess.run([sys.executable, a.project, "--run-dir", a.run, "execute", str(rq)],
+        proc = subprocess.run([sys.executable, str(a.runner or RUNNER), "--run-dir", a.run, "execute", str(rq)],
                               capture_output=True, text=True, timeout=120)
         try:
             res = json.loads(proc.stdout)
@@ -326,7 +331,7 @@ def main(argv=None) -> int:
     c = s.add_parser("gold", help="run each reviewed record's trusted SQL on the run's data")
     c.add_argument("--run", required=True)
     c.add_argument("--evals", required=True)
-    c.add_argument("--project", required=True, help="analytics-build's scripts/project.py")
+    c.add_argument("--runner", help="another analytics-build scripts/project.py (tests only)")
     c.set_defaults(func=cmd_gold)
     a = p.parse_args(argv)
     try:

@@ -2351,6 +2351,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["--dir"] and len(argv) > 2:  # `--dir X <command>` reads as `<command> --dir X`
+        argv = [argv[2], "--dir", argv[1], *argv[3:]]
     args = build_parser().parse_args(argv)
     try:
         out = args.func(args)
