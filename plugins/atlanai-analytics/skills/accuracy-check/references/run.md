@@ -30,13 +30,17 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
       <question>
 
       Answer this question about <firm or project>'s data with the analytics-ask skill, from
-      the context saved in <workspace name, or: the analytics run at <run-dir>>. That is the
-      only context you need; do not search other folders. Run SQL only through the run's query
-      runner, as analytics-ask does, never by opening a database file. End with one JSON object
-      and nothing after it:
+      <where the context lives>. That is the only context you need; do not search other
+      folders. Run SQL only through the run's query runner, as analytics-ask does, never by
+      opening a database file. End with one JSON object and nothing after it:
       {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>",
        "used_context_ids": ["<each metric or query you relied on>"]}
       ```
+      `<where the context lives>` follows `context_saved_to`. In Atlan Trident: "the context
+      saved in the Atlan Trident workspace <name>". On this machine: "the context on this
+      machine, in the analytics run at <run-dir>: its metrics and queries are in that run's
+      context folder and are not in Atlan Trident, so do not search the registry; unreleased
+      local definitions are the ones to use". A small model answers from the registry unless told.
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
