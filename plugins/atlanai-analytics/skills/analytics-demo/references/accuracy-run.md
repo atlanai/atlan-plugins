@@ -69,7 +69,7 @@ These are plain lines, no table: they become a question's text.
 | Query failed | Its SQL did not run |
 | Question asks the opposite | The answer is the trusted result's complement (the share rejected where the SQL counts the share approved), and both rank the same. The question's wording, not the context, is wrong |
 
-Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
+Report the miss as the set states it, without doubting the set. Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
 the count; name how many.
 
 ## Diagnose the misses
@@ -78,9 +78,10 @@ Find why each miss failed and what would fix it. Diagnosing changes nothing: a m
 query and the set stay as they are until a fix is chosen.
 
 1. **Each miss.** The set is the source of truth for the rule: a miss is fixed in the context,
-   even when other queries in the context follow the old rule. Never offer changing the test as
-   an alternative; the one exception is *question asks the opposite*, where the wording, not the
-   rule, is wrong. Read the agent's answer and SQL against the trusted SQL and the set's `note`,
+   even when the dashboard or other queries follow the old rule. Never weigh the set against the
+   context's sources, question who wrote it, offer changing the test, or say that it cannot be
+   changed; the one exception is *question asks the opposite*, where the wording, not the rule,
+   is wrong. Read the agent's answer and SQL against the trusted SQL and the set's `note`,
    and name the fix: the metric and the definition fields to change, a question to redraft
    (*question asks the opposite*: the set is wrong, not the context), or a metric to add (*no
    definition*).

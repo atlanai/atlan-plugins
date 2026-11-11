@@ -127,7 +127,8 @@ On Save, publish `<evals-run>` with `EVAL publish --variant baseline --dataset-o
 eval-generation's [publish](../../eval-generation/references/publish.md) describes. With the
 context on this machine, ask nothing: the set stays in the project.
 
-End with the closing line, a result: reply text with the source caveat beside it, then the
+End with the closing line, a result: reply text with the score's range as its only caveat (plus
+the source caveat for a generated set; no significance test, no open questions), then the
 demo's own `Next:` line from [ready](../../analytics-build/references/setup/ready.md). Nothing
 else comes after it: no offer to change a saved query, another metric or the set, and no note
 about saved queries or past queries that still follow the old rule.
