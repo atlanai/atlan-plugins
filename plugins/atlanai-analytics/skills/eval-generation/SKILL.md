@@ -1,6 +1,6 @@
 ---
 name: eval-generation
-description: "Atlan Analytics: test how accurately a use case's context answers, from 5 questions its dashboard and analysts already ask, then propose fixes. Use when asked to check accuracy, build evals or golden questions. Not for metrics (metrics-generation)."
+description: "Atlan Analytics: test how accurately a use case's context answers, from 5 questions its dashboard and analysts already ask, diagnosing each miss. Use when asked to check accuracy, build evals or golden questions. Not for metrics (metrics-generation)."
 ---
 
 # Check accuracy for a use case
@@ -21,7 +21,7 @@ file, never chained in a shell with `echo` separators: zsh reads a word like `==
 | --- | --- |
 | Use case, question pool, picking 5, drafting, trusted answers, scoring, the check's moments | this skill |
 | Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Changing a metric | One tool call, never another skill: `PROJECT edit-metric` in the run when the context is on this machine; a proposal record through `registry__create_artifact` when it is in Atlan Trident, approved by the owner in Metric Studio |
+| Changing a metric, applying a fix | Never this skill: it writes each miss's fix to `fixes.json` and stops. Whoever called it applies one, then calls it again to test |
 | Saving the set, scorer and runs to Atlan Trident | this skill, through `EVAL publish` |
 | Anything a calling flow adds before or after the check | the caller |
 

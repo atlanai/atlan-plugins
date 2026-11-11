@@ -57,18 +57,18 @@ with improving as the default path:
 
 | Option | Description |
 | --- | --- |
-| Improve it (Recommended) | I look at why each miss failed and what would fix it, then you pick the fix to try. |
+| Improve it (Recommended) | I look at why each miss failed and what would fix it. |
 | Looks good | Keep this score as the bar to beat. |
 
 Name no fix in this question: the fixes come from the diagnosis.
 
-With no misses, skip this question. **Improve it** follows the [improve loop](test.md#improve-loop),
-then asks this question again.
+With no misses, skip this question. **Improve it** runs [diagnose the misses](test.md#diagnose-the-misses)
+and ends the check on the fixes. A later call on the same eval folder [tests again](test.md#test-again).
 
 ## 4. The result
 
-The check always ends here, after the last score: once every question is right, and when the
-person picks Looks good or Not now. Nothing comes after the closing line: no offer to change a
+The check ends here after a score with no diagnosis to follow: every question right, Looks good
+or Not now. After **Improve it**, the fixes end it instead. Nothing comes after the closing line: no offer to change a
 saved query, another metric or the set.
 
 With the context in Atlan Trident (`context_saved_to` set), first ask "Where should the questions
@@ -83,9 +83,8 @@ On Save to Atlan Trident, run `save`. With the context on this machine, ask noth
 stays in the project.
 
 Then end with the closing line, its tone following the score, and the source caveat beside it:
-- every question right, after a fix: "🎉 Your `<agent>` now answers all `<N>` questions right:
-  `<metric>` v`<n>` counts `<the new rule, plain words>`, and the score went from `<k>` to `<N>`
-  of `<N>`."
+- every question right, on a test again: "🎉 Your `<agent>` now answers all `<N>` questions
+  right: the score went from `<k>` to `<N>` of `<N>`, and `<what changed, plain words>`."
 - every question right, first time: "🎉 Your `<agent>` answers all `<N>` questions `<firm>`'s
   analysts ask most."
 - some missed: "`<k>` of `<N>` right, and `<what the misses share>`."

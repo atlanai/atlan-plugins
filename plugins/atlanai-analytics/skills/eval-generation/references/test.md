@@ -66,59 +66,36 @@ value, and **why it failed**, read from the agent's answer and SQL against the t
 Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
 the count; name how many. The caller decides what comes next.
 
-## Improve loop
+## Diagnose the misses
 
-Where the fix lands follows `context_saved_to`. With `null` (the context is on this machine),
-the fix is a new version of the metric in this run, through the `PROJECT edit-metric` tool, and
-nothing touches Atlan Trident. Saved to Trident, it goes to the metric's owner as a proposal in
-Metric Studio, never as a direct write; the owner applies it, which makes the new version.
+This skill finds why each miss failed and what would fix it. It never applies a fix: a metric,
+a saved query and the set stay as they are, whoever called it.
 
-1. **Diagnose the misses.** For each miss, read the agent's answer and SQL against the trusted
-   SQL and the set's `note`, and name what would fix it, one row each: the question, why it
-   failed, and the fix (the metric and field to change, or the question to redraft). A miss
-   marked *question asks the opposite* is fixed on the eval set, not a metric: drop it with
-   `EVALGEN review --reject <id>` and redraft it in the next set. A miss with no definition
-   becomes a new-metric proposal. Recommend the fix that turns the most misses, then ask one
-   native question, "Apply this fix?", with **Apply it (Recommended)**, then any other fix, then
-   **Not now**. Apply it's description says where the fix lands: "I change the rule in this
-   folder, keep the old version, and test again", or "I propose it to the metric's owner in
-   Metric Studio".
-2. **Apply it is the yes for the whole fix**, through the re-test. Ask nothing more until the
-   person must act in Metric Studio.
-   - **The change.** Every change names a field inside the definition: Metric Studio refuses a
-     change to the metric's top-level `description`. A rule change covers every place the
-     definition carries the rule: its source SQL and filters **and** each of its `examples`
-     whose SQL holds the old rule, since an example left on the old rule still leads agents to
-     the old answer. A miss on wording is fixed by adding that question to `examples`. In
-     Trident, name the saved queries linked to the metric that hold the old rule in the
-     proposal's `summary`; never offer to change them as a separate step.
-   - **On this machine:** write `{"name": "<metric>", "changes": [{"path", "value"}]}` to a file
-     and run `PROJECT edit-metric <file>`. It keeps the old definition under
-     `context/metric-versions/`, raises the version and re-checks the metric, keeping the old
-     rule when the new one fails. Then step 4 with no
-     version pin: the answering agents read the run, which now holds the new version. Change
-     only the metric: never a saved query, and do not raise saved queries with the person.
-   - **In Trident: propose it**, as a fix to that metric, without asking again: read the head
-     with `registry__get_artifact`, then write one record as
-     [the proposal record](../../metrics-generation/references/propose-record.md) describes,
-     with `registry__create_artifact`. Its `evidence.runs` are the missed questions, one entry each, with the test
-     agent as `agent` and this session's `EVAL session-run` trace. Say the score in the
-     `summary`: the count, then what the miss shows ("`<k>` of `<N>`; `<metric>` counts `<its
-     rule>` where the trusted query counts `<the other rule>`").
-3. **In Trident, send the person to approve it.** Give the Metric Studio link that opens the proposal
-   (`suggestion=<file id>`), and ask one native question, "Approved it in Metric Studio?", with
-   **Approved, test again** and **Not now**.
-4. **Test the new version.** Run `test` as the next variant (`v1`, then `v2`) on the same
-   questions. In Trident, approving makes a version that is not yet on `latest`: read its
-   `version_ordinal` with `registry__get_artifact` and tell each answering agent to read that
-   metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line per question
-   that changed.
-5. **In Trident, release it.** When the new version fixes the miss and breaks nothing, release it to
-   `latest` with `registry__release_artifact` (through `mcp__call_tool` in search mode) without asking, so every agent reads it, and say
-   so. When it fixes nothing or breaks a question, leave it unreleased and say which.
+1. **Each miss.** Read the agent's answer and SQL against the trusted SQL and the set's `note`,
+   and name the fix: the metric and the definition fields to change, a question to redraft
+   (*question asks the opposite*: the set is wrong, not the context), or a metric to add (*no
+   definition*).
+2. **A complete change.** Every change names a field inside the definition (`source.sql`,
+   `mandatory_filters`, `population`, `examples` and so on), never the metric's top-level
+   `description`. A rule change covers every place the definition carries the rule: its source
+   SQL and filters **and** each example whose SQL holds the old rule, since an example left on
+   the old rule still leads agents to the old answer. A miss on wording is fixed by adding that
+   question to `examples`, with the SQL that answers it.
+3. **Write the fixes** to `<evals-run>/fixes.json`, the recommended one first (the one that turns
+   the most misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now":
+   "<plain words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>",
+   "value": <new value>}]}]`. A question redraft or a new metric carries `"kind"` and no
+   `changes`.
+4. **Show** one row per miss: the question, why it failed, and the fix in one line (rule now,
+   rule proposed). Name the recommended fix and where `fixes.json` is. The check ends there.
 
-With every question right, go to the check's [result](check.md#4-the-result): its closing line
-ends the check. Otherwise return to the check, which asks again whether the score looks good.
+## Test again
+
+Called again on an eval folder that already has a score, after the context changed: run `test`
+as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
+question first. When the caller names a metric version to read, tell each answering agent to
+read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line
+per question that changed, then the check's [result](check.md#4-the-result).
 
 ## Publish
 

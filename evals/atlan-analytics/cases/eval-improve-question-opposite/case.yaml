@@ -7,7 +7,7 @@ execution:
     The check scored 4 of 5. The miss: "Which stations tend to run late?" tests the turnaround_time
     metric. The trusted query returns each station's on-time share (DEL 0.82, BOM 0.74); the agent
     returned each station's late share (DEL 0.18, BOM 0.26), the same ranking.
-    I pick Improve it, and Apply it for the fix you recommend.
+    I pick Improve it.
     The host exposes no native question tool in this test, so use ordinary chat. Don't mention this test's limits in your reply.
   max_turns: 24
   allowed_tools: [Read, Glob, Grep, Skill, Bash]
