@@ -48,6 +48,21 @@ class ScopeTest(unittest.TestCase):
         out = subprocess.run([sys.executable, str(SCOPE), *args], capture_output=True, text=True)
         return json.loads(out.stdout)
 
+    def test_fixes_are_checked_before_they_are_written(self):
+        ev = self.tmp / "ev"
+        (ev / "eval").mkdir(parents=True)
+        (ev / "eval" / "cases.jsonl").write_text(json.dumps({"case_id": "q1"}) + "\n")
+        good = [{"misses": ["q1"], "why": "Different filter", "metric": "M", "rule_now": "all rows",
+                 "rule_proposed": "closed rows", "changes": [{"path": "source.sql", "value": "x"}]},
+                {"misses": ["q1"], "why": "Question asks the opposite", "kind": "redraft"}]
+        (self.tmp / "f.json").write_text(json.dumps(good))
+        out = self.scope("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))
+        self.assertEqual((out["fixes"], out["recommended"]), (2, "M"))
+        for bad in ([{**good[0], "misses": ["q9"]}], [{**good[0], "changes": [{"path": "version", "value": 2}]}],
+                    [{**good[0], "rule_now": ""}]):
+            (self.tmp / "f.json").write_text(json.dumps(bad))
+            self.assertEqual(self.scope("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "BLOCKED")
+
     def test_inputs_reads_the_use_case_and_links_every_query_to_its_metrics(self) -> None:
         res = self.scope("inputs", "--project", str(self.tmp), "--evals", str(self.ev))
         self.assertEqual((res["focus"], res["pool"], res["tiles"]), ("Net Revenue", 6, 1))

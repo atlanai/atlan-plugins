@@ -1,6 +1,6 @@
 schema_version: "1.1"
-name: eval-improve-proposes
-tags: [analytics, evals, improve, propose]
+name: eval-improve-diagnoses
+tags: [analytics, evals, improve, diagnose]
 execution:
   prompt: |
     Continue my accuracy check on the Indigo workspace's context with Atlan Analytics.
@@ -12,11 +12,6 @@ execution:
   max_turns: 30
   allowed_tools: [Read, Glob, Grep, Skill, Bash]
 graders:
-  - name: reads-the-metric-head
-    type: tool_used
-    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
-    input_match: '"registry__get_artifact"[\s\S]*metric_01evalm01|metric_01evalm01[\s\S]*"registry__get_artifact"'
-    min: 1
   - name: never-edits-the-metric
     type: tool_used
     tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool

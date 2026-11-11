@@ -4,10 +4,15 @@ The one flow for an accuracy check, the same whether a person asked for it or an
 called it. Read [test](test.md) for how the test runs and how the score is shown. `<agent>`,
 `<firm>` and the use case come from the run: its recorded business focus, purpose and source.
 
-Steps 1 to 3 run on this machine: an eval set lives in the project (`.atlan-evals/`), never
-fetched from Atlan Trident. Never look up Trident, a workspace or saved evals for them.
+An eval set lives in the project (`.atlan-evals/`), never fetched from Atlan Trident: never look
+up Trident, a workspace or saved evals for the questions, the run or the score. The context
+itself is read where it lives.
 `context_saved_to`, from `SCOPE inputs` or `SCOPE load`, says where the context lives (`null`:
-this machine only); read it only at **Improve it** and in step 4.
+this machine only); read it only in step 4.
+
+Each moment below follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
+a block to read before choosing is the question's own text, as plain lines with no Markdown,
+and a result is reply text that ends the turn with a plain `Next:` line.
 
 ## 1. Choose the questions
 
@@ -28,19 +33,21 @@ step 2.
 
 Only for questions generated now: the person has not seen them, so show them before running.
 Earlier checks in the same folder stay out of the reply unless the person asks about them.
-Print this block as an ordinary reply, with the values from the run:
+Ask one native question whose text is this block, as plain lines, with the values from the run:
 
-> **5 questions to test your `<agent>`.** They test the metrics it needs to answer
-> `<the use case>`, starting with `<focus metric>`. Each comes from `<firm>`'s dashboard or a
-> query its analysts already run, and the expected answer is what that query returns.
->
-> | # | Question | Tests | From | Expected answer |
-> | --- | --- | --- | --- | --- |
-> | 1 | `<question_natural>` | `<metric>` | dashboard tile, or past query, run `<N>` times | `<one short value>` |
+```
+<N> questions to test your <agent>. They test the metrics it needs to answer
+<the use case>, starting with <focus metric>. Each comes from <firm>'s dashboard or a
+query its analysts already run, and the expected answer is what that query returns.
 
-The expected answer is one value or one short phrase ("North region, 12%"), never a
-table. Never show SQL here; give it when asked. Then ask one native question, "Run these 5
-questions?":
+1. <question_natural>
+   Tests <metric>, from <a dashboard tile, or a past query run <N> times>. Expected: <value>
+
+Run these <N> questions?
+```
+
+The expected answer is one value or one short phrase ("North region, 12%"), never a table.
+Never show SQL here; give it when asked. The options:
 
 | Option | Description |
 | --- | --- |
@@ -52,18 +59,18 @@ then `test`. There is no edit option.
 
 ## 3. The score, and whether to improve it
 
-Show the score and the misses as [test](test.md) describes. Then ask "Does the score look good?",
-with improving as the default path:
+With every question right, the score is the [result](#4-the-result). With misses, ask one
+native question, "Does the score look good?", whose text is the score and the misses as
+[test](test.md#show-the-score) describes, as plain lines. Before it, print nothing:
 
 | Option | Description |
 | --- | --- |
 | Improve it (Recommended) | I look at why each miss failed and what would fix it. |
 | Looks good | Keep this score as the bar to beat. |
 
-Name no fix in this question or the text before it: the fixes come from the diagnosis.
-
-With no misses, skip this question. **Improve it** runs [diagnose the misses](test.md#diagnose-the-misses)
-and ends the check on the fixes. A later call on the same eval folder [tests again](test.md#test-again).
+Name no fix in the question's text: the fixes come from the diagnosis. **Improve it** runs
+[diagnose the misses](test.md#diagnose-the-misses), whose fixes are a result that ends the
+check. A later call on the same eval folder [tests again](test.md#test-again).
 
 ## 4. The result
 
@@ -82,9 +89,18 @@ and the score live?":
 On Save to Atlan Trident, run `save`. With the context on this machine, ask nothing: the set
 stays in the project.
 
-Then end with the closing line, its tone following the score, and the source caveat beside it:
-- every question right, on a test again: "🎉 Your `<agent>` now answers all `<N>` questions
-  right: the score went from `<k>` to `<N>` of `<N>`, and `<what changed, plain words>`."
-- every question right, first time: "🎉 Your `<agent>` answers all `<N>` questions `<firm>`'s
-  analysts ask most."
-- some missed: "`<k>` of `<N>` right, and `<what the misses share>`."
+Then end with the closing line, a result: reply text that ends the turn, with the source caveat
+beside it.
+
+- every question right: this banner, then the line:
+
+  ```
+   *   .  '   *    .   '  *   .    '   *  .
+     '   *   .   ALL <N> RIGHT   .   *   '
+   .   *    '   .    *   '    .   *    '  .
+  ```
+
+  on a test again, "Your <agent> now answers all <N> questions right: the score went from <k>
+  to <N> of <N>, and <what changed, plain words>."; first time, "Your <agent> answers all <N>
+  questions <firm>'s analysts ask most."
+- some missed: "<k> of <N> right, and <what the misses share>."

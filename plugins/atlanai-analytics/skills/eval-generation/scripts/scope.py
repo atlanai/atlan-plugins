@@ -288,6 +288,40 @@ def cmd_stage(a) -> dict:
     return {"status": "ok", **stage(pathlib.Path(a.evals))}
 
 
+FIX_KINDS = ("metric", "redraft", "new_metric")
+
+
+def cmd_fixes(a) -> dict:
+    """Check the diagnosed fixes and write them to <evals-run>/fixes.json, recommended first. A
+    caller applies one from there, so its shape is checked here rather than trusted."""
+    ev = pathlib.Path(a.evals)
+    fixes = load(pathlib.Path(a.file))
+    if not isinstance(fixes, list) or not fixes:
+        raise Blocked("Give the fixes as a JSON list, the recommended one first.")
+    cases = {json.loads(l)["case_id"] for l in (ev / "eval" / "cases.jsonl").read_text().splitlines() if l.strip()} \
+        if (ev / "eval" / "cases.jsonl").exists() else set()
+    for n, f in enumerate(fixes, 1):
+        kind = f.setdefault("kind", "metric")
+        if kind not in FIX_KINDS:
+            raise Blocked(f"Fix {n}: kind is one of {', '.join(FIX_KINDS)}.")
+        missing = [m for m in f.get("misses") or [] if cases and m not in cases]
+        if not f.get("misses") or missing:
+            raise Blocked(f"Fix {n} names no miss of this set" + (f": {', '.join(missing)}" if missing else "") + ".")
+        if not f.get("why"):
+            raise Blocked(f"Fix {n} needs why the miss failed.")
+        if kind == "metric":
+            changes = f.get("changes") or []
+            if not (f.get("metric") and f.get("rule_now") and f.get("rule_proposed") and changes):
+                raise Blocked(f"Fix {n} needs metric, rule_now, rule_proposed and changes.")
+            for c in changes:
+                head = str(c.get("path") or "").split(".")[0]
+                if not head or head in ("version", "spec_version") or "value" not in c:
+                    raise Blocked(f"Fix {n}: each change is a definition field, description or display_name, with a value.")
+    dump(ev / "fixes.json", fixes)
+    return {"status": "ok", "fixes": len(fixes), "recommended": fixes[0].get("metric") or fixes[0]["kind"],
+            "file": str(ev / "fixes.json")}
+
+
 def cmd_gold(a) -> dict:
     """Run each reviewed record's trusted SQL on the run's bound data, through PROJECT execute."""
     ev = pathlib.Path(a.evals)
@@ -347,6 +381,10 @@ def main(argv=None) -> int:
     c.add_argument("--run")
     c.add_argument("--evals")
     c.set_defaults(func=cmd_load)
+    c = s.add_parser("fixes", help="check the diagnosed fixes and write fixes.json, recommended first")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--file", required=True, help="a JSON list of fixes")
+    c.set_defaults(func=cmd_fixes)
     c = s.add_parser("stage", help="set approved questions up for scoring (after EVALGEN review --approve)")
     c.add_argument("--evals", required=True)
     c.set_defaults(func=cmd_stage)

@@ -31,7 +31,7 @@ graders:
     focus: last_message
     criteria: |
       PASS if the reply says it will pick questions from the past queries, pair each with the SQL
-      whose result is the right answer, let the person keep or drop them, and then test them and
+      whose result is the right answer, show them and ask once whether to run them, and then test them and
       report how many were answered correctly.
       FAIL if it asks the person to write the questions or the SQL by hand, promises to build or
       change metrics, proposes a train, validation and holdout split, or registers a new agent.

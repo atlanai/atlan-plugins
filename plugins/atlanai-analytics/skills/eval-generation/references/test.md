@@ -52,8 +52,9 @@ Lead with the summary's `score_line`, word for word ("2 of 3 answered correctly 
 same past queries the context was built from, say so in one line: the score shows the context
 reproduces what the analysts asked, not how it handles a new question.
 
-Then one row per miss: the question, the metric it tests, the expected value, the agent's
-value, and **why it failed**, read from the agent's answer and SQL against the trusted SQL:
+Then one line per miss: the question, the metric it tests, the expected value, the agent's
+value, and **why it failed**, read from the agent's answer and SQL against the trusted SQL.
+These are plain lines, no table: they become a question's text.
 
 | Why | Means |
 | --- | --- |
@@ -82,13 +83,15 @@ a saved query and the set stay as they are, whoever called it.
    its `description` when that states the old rule. An agent that reads the old rule anywhere in
    the metric still answers with it. A miss on wording is fixed by adding that
    question to `examples`, with the SQL that answers it.
-3. **Write the fixes** to `<evals-run>/fixes.json`, the recommended one first (the one that turns
-   the most misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now":
+3. **Write the fixes** with `SCOPE fixes --evals <evals-run> --file <a JSON list>`, which checks
+   them and writes `<evals-run>/fixes.json`, the recommended one first (the one that turns the
+   most misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now":
    "<plain words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>",
-   "value": <new value>}]}]`. A question redraft or a new metric carries `"kind"` and no
-   `changes`.
-4. **Show** one row per miss: the question, why it failed, and the fix in one line (rule now,
-   rule proposed). Name the recommended fix and where `fixes.json` is. The check ends there.
+   "value": <new value>}]}]`. A question redraft (`"kind": "redraft"`) or a new metric
+   (`"kind": "new_metric"`) has no `changes`.
+4. **Show the fixes as a result**: reply text that ends the turn. One line per miss: the
+   question, why it failed, and the fix (rule now, rule proposed), the recommended one first.
+   Close with a plain `Next:` line naming the recommended fix and keeping the score, then stop.
 
 ## Test again
 

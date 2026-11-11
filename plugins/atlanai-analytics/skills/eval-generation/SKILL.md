@@ -8,7 +8,7 @@ description: "Atlan Analytics: test how accurately a use case's context answers,
 A capability. An eval set is built for one use case: the agent the context was built for,
 answering what its dashboard and analysts already ask. It picks questions that test the
 metrics that use case needs, runs them against the context, scores each answer, and turns a
-miss into a fix proposal. A person can call it directly, and another skill can call it as a step;
+miss into a recommended fix. A person can call it directly, and another skill can call it as a step;
 it behaves the same either way.
 
 Read [shared conventions](../analytics-build/references/conventions.md) first: privacy,
@@ -101,5 +101,4 @@ Counts first: questions kept and dropped, the metrics covered, where the set liv
 the score with its range and each miss with the metric involved and why it failed. Never call a
 question checked when its SQL did not run.
 
-Before sending: the first sentence is the result; one next step, not a menu; no apology, no
-closing offer; commas and full stops, no em dashes or exclamation marks.
+Reply as [conventions](../analytics-build/references/conventions.md) describes.

@@ -23,9 +23,10 @@ new rule needs.
 
 ## 2. Make the change
 
-Call `metrics-generation` `edit` on that metric with the chosen change. It changes the
-definition through the engine, re-runs the check and returns the old rule, the new rule and
-both check results. The metric keeps its identity; this is a revision, not a new metric.
+Write `{"name": "<metric>", "changes": [{"path": "<definition field, description or
+display_name>", "value"}]}` to a file in the run and run `PROJECT edit-metric <file>`. It keeps
+the old version, raises the version, re-runs the check and keeps the old rule when the new one
+fails. The metric keeps its identity; this is a revision, not a new metric.
 
 If the check on the new rule fails, say so in one line, keep the old rule, and offer one
 other change. Never show a failed check as a result.
