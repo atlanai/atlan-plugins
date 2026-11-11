@@ -291,10 +291,15 @@ class Project(ContextState):
             raise ProjectError('Name at least one change: {"path": "<definition field, dotted>", "value": ...}.')
         old = json.loads(json.dumps(body['definition']))
         new = json.loads(json.dumps(old))
+        old_text = {k: body.get(k) for k in ('description', 'display_name')}
         for change in changes:
             keys = str(change.get('path') or '').split('.')
+            if keys[0] in old_text and len(keys) == 1:
+                # The metric's own words: agents read them beside the rule, so they change with it.
+                body[keys[0]] = change.get('value')
+                continue
             if not keys[0] or keys[0] in ('version', 'spec_version'):
-                raise ProjectError('A change names a field inside the definition, never version or spec_version.')
+                raise ProjectError('A change names a definition field, description or display_name, never version or spec_version.')
             node = new
             for key in keys[:-1]:
                 node = node.setdefault(key, {})
@@ -302,13 +307,14 @@ class Project(ContextState):
         version = int(old.get('version') or 1)
         new['version'] = version + 1
         kept = self.context / 'metric-versions' / f"{re.sub(r'[^a-z0-9]+', '-', body['name'].lower()).strip('-')}-v{version}.json"
-        self.write(kept, old)
+        self.write(kept, {**old_text, 'definition': old})
         body['definition'] = new
         self.write(path, bodies)
         try:
             self.check_metric({'name': body['name']})
         except ValueError as error:
             body['definition'] = old
+            body.update(old_text)
             self.write(path, bodies)
             raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
         return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),

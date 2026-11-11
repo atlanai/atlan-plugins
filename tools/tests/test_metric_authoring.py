@@ -50,10 +50,12 @@ class CardExecution(unittest.TestCase):
         card = self.run.read(self.run.context / 'metrics.json')[0]
         self.assertEqual((out['version'], card['definition']['version']), (2, 2))
         self.assertIn("<> 'rework'", card['definition']['source']['sql'])
-        self.assertIn("= 'rework'", self.run.read(Path(out['previous']))['source']['sql'])
+        self.assertIn("= 'rework'", self.run.read(Path(out['previous']))['definition']['source']['sql'])
+        self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'description', 'value': 'Cost of non-rework work.'}]})
+        self.assertEqual(self.run.read(self.run.context / 'metrics.json')[0]['description'], 'Cost of non-rework work.')
         with self.assertRaises(ValueError):
             self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'source.sql', 'value': '(SELECT nope FROM nowhere)'}]})
-        self.assertEqual(self.run.read(self.run.context / 'metrics.json')[0]['definition']['version'], 2)
+        self.assertEqual(self.run.read(self.run.context / 'metrics.json')[0]['definition']['version'], 3)
         with self.assertRaises(ValueError):
             self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})
 

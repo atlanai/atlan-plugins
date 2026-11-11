@@ -60,7 +60,7 @@ with improving as the default path:
 | Improve it (Recommended) | I look at why each miss failed and what would fix it. |
 | Looks good | Keep this score as the bar to beat. |
 
-Name no fix in this question: the fixes come from the diagnosis.
+Name no fix in this question or the text before it: the fixes come from the diagnosis.
 
 With no misses, skip this question. **Improve it** runs [diagnose the misses](test.md#diagnose-the-misses)
 and ends the check on the fixes. A later call on the same eval folder [tests again](test.md#test-again).

@@ -29,7 +29,8 @@ act in Metric Studio.
 - **Context in Atlan Trident:** read the metric's head with `registry__get_artifact`, write one
   proposal with `registry__create_artifact` as
   [the proposal record](../../metrics-generation/references/propose-record.md) describes (the
-  fix's changes, the missed questions as `evidence.runs`), give the Metric Studio link that opens
+  fix's definition changes, leaving out `description`, which Metric Studio refuses; the missed
+  questions as `evidence.runs`), give the Metric Studio link that opens
   it (`suggestion=<file id>`) and ask "Approved it in Metric Studio?" (**Approved, test again**,
   **Not now**). Read the approved version's `version_ordinal`.
 

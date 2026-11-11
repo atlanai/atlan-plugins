@@ -75,11 +75,12 @@ a saved query and the set stay as they are, whoever called it.
    and name the fix: the metric and the definition fields to change, a question to redraft
    (*question asks the opposite*: the set is wrong, not the context), or a metric to add (*no
    definition*).
-2. **A complete change.** Every change names a field inside the definition (`source.sql`,
-   `mandatory_filters`, `population`, `examples` and so on), never the metric's top-level
-   `description`. A rule change covers every place the definition carries the rule: its source
-   SQL and filters **and** each example whose SQL holds the old rule, since an example left on
-   the old rule still leads agents to the old answer. A miss on wording is fixed by adding that
+2. **A complete change.** Each change names a definition field (`source.sql`,
+   `mandatory_filters`, `population`, `exclusions`, `examples` and so on) or the metric's own
+   `description`. A rule change covers every place the metric states the rule: its source SQL
+   and filters, its population and exclusions, each example whose SQL holds the old rule, **and**
+   its `description` when that states the old rule. An agent that reads the old rule anywhere in
+   the metric still answers with it. A miss on wording is fixed by adding that
    question to `examples`, with the SQL that answers it.
 3. **Write the fixes** to `<evals-run>/fixes.json`, the recommended one first (the one that turns
    the most misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now":
