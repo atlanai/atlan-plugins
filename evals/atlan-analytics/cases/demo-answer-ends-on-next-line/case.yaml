@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: demo-answer-ends-on-next-line
+tags: [demo-flow-fix, analytics, demo, ask, regression]
+execution:
+  prompt: |
+    Continue the Fixit & Co. demo of Atlan Analytics from this saved checkpoint.
+    Read plugin instructions only in this test; do not execute commands or contact services.
+    The context is built, all 4 metrics and 4 queries checked, and kept on this machine.
+    The ready question was shown and the person picked "Which job lost the most margin, and why?".
+    The ask route already returned this result; present it as the answer:
+    Buttercup Vale Wind Turbine Base, contract £150,000, gross margin -£6,360.
+    Labour £97,620, of which rework £30,084 (660 hours). Materials delivered £58,740, of
+    which £3,804 ended up in the skip. Finished 28 days after its planned end date.
+    Next largest losses: two small jobs at -£647 and -£180.
+    No dashboard has been built yet. `PROJECT journey asked` is already recorded for this answer.
+  max_turns: 14
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-demo
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-demo"'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: answer-then-next-line
+    type: llm
+    focus: last_message
+    criteria: |
+      One question only: does the message give the answer (Buttercup Vale Wind Turbine Base
+      lost the most) before anything else, and end with a single plain sentence of next
+      actions that includes designing a dashboard? PASS if yes. FAIL if it ends with a
+      separate question followed by a list or table of options, or if it asks something
+      before giving the answer. Ignore everything else about the content.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the concrete result or next step in plain language,
+      without a greeting, apology, em dash, machine status footer or generic offer.
+      The answer, its table and the next-actions line have no word limit.
+      The closing `Next:` line of the demo's options is required by the skill; it is neither
+      a generic offer nor a menu.
