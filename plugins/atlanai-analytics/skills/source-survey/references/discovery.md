@@ -98,13 +98,21 @@ exclude.
    account ranks below one used by many people.
 4. For a named domain, a match on the table's name before a match on a comment or a column.
 
-For "let discovery decide", group the ranked tables by subject. The subject with the most use
-by the most people is the suggestion; name the runners-up in one line. Usage is context, not
+**Group the ranked tables into two to four use cases.** A use case is something a person
+could ask about, with the two to five tables that answer it:
+
+- "Let discovery decide": one use case per subject the warehouse is used for, most used by
+  the most people first.
+- A named domain: the distinct things its tables can answer (for sales: pipeline and win
+  rate, rep activity, account coverage).
+
+Never return a single use case when the warehouse shows more than one: the person chooses,
+discovery does not choose for them. A table may serve two use cases. Usage is context, not
 proof a table is right.
 
 ### 4. Read the columns of the top tables
 
-One statement for the columns of at most eight tables. From them, work out and record:
+One statement for the columns of the use cases' tables, at most twelve. From them, work out and record:
 
 | What | How to tell | If it cannot be told |
 | --- | --- | --- |
@@ -116,18 +124,18 @@ One statement for the columns of at most eight tables. From them, work out and r
 
 Never sample rows to answer these, and never print a value that identifies a person.
 
-### 5. Return the suggestion
+### 5. Return the use cases
 
-- One line of what was found, products and counts only.
-- Three to eight tables, each with one plain line of what it holds and why it was picked
-  (read by the report, how much it is used, what it links).
-- Where the usage came from, once, in plain words.
-- Two or three lines of what was worked out: the entities and how they link, and what will
-  be left out.
+- One line of what was found and where the usage came from: "Snowflake. Most used across
+  your account in the last 7 days."
+- Two to four use cases, most used first. For each: a name of two to four words, one line of
+  at most twelve words on what it answers, and its two to five tables by name.
+- Kept in the run, not returned for display: per table, how much it is used, what it holds,
+  how it links and what will be left out. The caller shows these only when asked.
 - Anything the warehouse could not settle, as at most one question for the caller.
 
 Bounds: one statement each for schemas, search and columns, and one per usage rung tried; at
-most three schemas and eight tables. Stop earlier when the suggestion is clear. Query history itself is pulled later, by
+most four use cases and twelve tables in all. Stop earlier when the suggestion is clear. Query history itself is pulled later, by
 generation, scoped to the confirmed tables.
 
 When no table fits, `readiness` is `none`: say which words were searched and that

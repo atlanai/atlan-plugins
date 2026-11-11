@@ -32,14 +32,14 @@ graders:
     tool: Bash
     min: 0
     max: 0
-  - name: suggests-tables
+  - name: offers-use-cases
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply suggests the three sales tables as the place to start, gives for each a
-      short reason such as how much it is used or what it holds, says how opportunities link
-      to accounts and that test and internal accounts will be left out, and asks the person to
-      confirm building from these tables (or to change them), then stops. Mentioning support
-      tickets as the runner-up is allowed. FAIL if it starts building without asking, invents
-      a table that discovery did not report, asks which warehouse or domain again, asks the
-      person to pick a task, shows SQL, or claims a metric was built or checked.
+      PASS if the reply offers at least two use cases to choose from (sales pipeline and
+      support tickets), each with one short line of what it answers and the tables that power
+      it, with the sales tables named for the sales use case, asks which to build, and stops.
+      FAIL if it offers only one suggestion, starts building without asking, invents a table
+      that discovery did not report, lists row counts, query counts, join keys or exclusions
+      in the menu, asks which warehouse or domain again, asks the person to pick a task, shows
+      SQL, or claims a metric was built or checked.

@@ -28,7 +28,7 @@ in Claude Code). Pass separate argv entries; zsh does not split a scalar holding
 | Operation | Does | Procedure |
 | --- | --- | --- |
 | `connections` | Lists the warehouse connections already configured on this machine, and whether each answers | [Connections and discovery](references/discovery.md) |
-| `discover` | On a chosen warehouse, for a domain or with none: finds the schemas in use and the tables that matter, reads their columns and suggests tables to build from | [Connections and discovery](references/discovery.md) |
+| `discover` | On a chosen warehouse, for a domain or with none: finds the schemas in use and the tables that matter, reads their columns and returns use cases, each with its tables | [Connections and discovery](references/discovery.md) |
 | `inventory` | Reads every supplied source in full (models, dashboards, query history, SQL, local data) and says what they cover and could answer | [Inspect and scope](references/inspect-scope.md), section 1 |
 | `plan` | Orders the sources to build from: BI reports and models, then query history, then table definitions | [Inspect and scope](references/inspect-scope.md), section 2 |
 | `scope` | Selects pages, measures and query-history tables | [Inspect and scope](references/inspect-scope.md), section 2 |
@@ -95,8 +95,8 @@ Return to the caller, or show the person:
 - the source types found and their subject, in two or three sentences, and how they
   complement each other;
 - two or three analyses the sources could support, phrased as things to learn;
-- for `connections`, the list; for `discover`, one line of what was found, then the
-  suggested tables with why each was picked and what was worked out about them;
+- for `connections`, the list; for `discover`, one line of what was found, then two to
+  four use cases, each with one line of what it answers and the tables that power it;
 - for `candidates`, the ranked names and questions; for `readiness`, the answer and its one
   next step.
 

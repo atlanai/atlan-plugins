@@ -33,8 +33,9 @@ One flow: ask, discover, confirm the tables, build.
    personalised to the person). Only when they chose a use case: which BI tool it is in,
    then one chat message asking for that tool's report as a link or a file.
 2. **Discovery** on the chosen warehouse: `source-survey` `discover` finds the schemas in
-   use and the tables that matter, reads their columns and suggests tables.
-3. **One confirmation**, "Build from these tables?", then metric generation.
+   use and the tables that matter, and groups them into use cases.
+3. **One choice**, "Which should I build?": two to four use cases, each one line with the
+   tables that power it. Then metric generation.
 
 A question the request already answers is not asked. Before the card, look silently at what
 is already connected (`source-survey` `connections`) and at BI file names in the working
@@ -66,9 +67,9 @@ reached and never replace a moment with a status line.
 2. **Survey your sources.** `source-survey` `discover`, through
    [discovery](../source-survey/references/discovery.md): any BI source first, then the
    schemas in use, the most used tables and their columns.
-3. **Select tables and dashboards.** [Suggest the tables](references/setup/names.md) with
-   why each was picked, what links them and what will be left out, then ask "Build from
-   these tables?". Nothing is built before the yes. A report is built whole.
+3. **Select tables and dashboards.** [Offer the use cases](references/setup/names.md):
+   two to four, each one line with its tables, never a single suggestion. Ask "Which should
+   I build?". Nothing is built before the answer. A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.

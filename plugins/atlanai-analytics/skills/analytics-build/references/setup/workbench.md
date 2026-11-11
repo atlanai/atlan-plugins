@@ -11,7 +11,7 @@ Orient before tools. Use preset demo intent, or [the interview](intent.md) for o
 warehouse and what to build context for, then the BI tool and its report when a use case was
 chosen, asked before any data is read,
 through the host's question control or ordinary chat. Then run discovery and put the
-suggested tables in the confirmation question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
+use cases and their tables in the question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
 Use [the presentation flow](presentation.md) for the completed-collection review after the run's

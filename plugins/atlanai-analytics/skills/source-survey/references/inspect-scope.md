@@ -51,7 +51,7 @@ workspace context early when the destination is known.
 
 Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the confirmation.
 The caller owns the conversation: `analytics-build` asks its opening questions before any
-data is read, and confirms the suggested tables before authoring. Use the domain the caller
+data is read, and asks which use cases to build before authoring. Use the domain the caller
 passed to select relevant source coverage.
 
 When the survey exposes a declared measure relevant to that focus, show it after the intent

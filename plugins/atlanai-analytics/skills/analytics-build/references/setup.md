@@ -42,7 +42,7 @@ run waits for an explicit resume; details requests do not resume work.
 Ask [the interview](setup/intent.md) before reading any data: warehouse and what to build
 context for in one card where the host allows it, then, for a chosen use case only, the BI
 tool and its report. Skip what the request already answered. Then run discovery and
-[suggest the tables](setup/names.md), and ask "Build from these tables?" before authoring.
+[offer the use cases with their tables](setup/names.md), and ask "Which should I build?" before authoring.
 Demos use their preset intent and source question instead. Retain answers already given.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
 it does not require a destination or publication question. Render the question itself, without
