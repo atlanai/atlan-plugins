@@ -28,46 +28,52 @@ fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) 
             count(distinct ah.query_id) as queries, count(distinct ah.user_name) as people
      from snowflake.account_usage.access_history ah,
           lateral flatten(input => ah.base_objects_accessed) f
-     where ah.query_start_time >= dateadd('day', -30, current_timestamp())
+     where ah.query_start_time >= dateadd('day', -7, current_timestamp())
        and f.value:"objectDomain"::string in ('Table', 'View')
      group by 1 order by people desc, queries desc limit 50
      ```
-  2. Account-wide queries. `<db>` is each database in use. The 2,000 most run query patterns
-     are matched to table names on a word boundary, so `ACCOUNTS` does not count queries on
-     `DIM_ACCOUNTS`. `people` is the most people on any one pattern, so say "at least":
+  2. Account-wide queries. Table names are pulled out of the query text, never matched
+     against a list of tables: the cost grows with the number of query patterns, not with
+     patterns times tables. Start with 7 days.
 
      ```sql
-     with q as (select any_value(upper(query_text)) as sql, count(*) as runs,
-                       count(distinct user_name) as people
+     with q as (select any_value(query_text) as sql, count(*) as runs,
+                       array_agg(distinct user_name) as users
                 from snowflake.account_usage.query_history
-                where start_time >= dateadd('day', -30, current_timestamp())
+                where start_time >= dateadd('day', -7, current_timestamp())
                   and execution_status = 'SUCCESS' and query_type = 'SELECT'
-                group by query_parameterized_hash order by runs desc limit 2000)
-     select t.table_schema, t.table_name, sum(q.runs) as queries, max(q.people) as people
-     from <db>.information_schema.tables t
-     join q on regexp_instr(q.sql, '\\b' || t.table_name || '\\b') > 0
-     where t.table_schema <> 'INFORMATION_SCHEMA'
-     group by 1, 2 order by people desc, queries desc limit 50
+                group by query_parameterized_hash order by runs desc limit 500),
+     refs as (select distinct q.sql, q.runs, q.users,
+                     upper(replace(f.value::string, '"', '')) as ref
+              from q, lateral flatten(input => regexp_substr_all(
+                     q.sql, '(from|join)\\s+([A-Za-z0-9_$."]+)', 1, 1, 'ie', 2)) f)
+     select ref as table_ref, array_size(array_union_agg(users)) as people, sum(runs) as queries
+     from refs
+     where ref like '%.%' and ref not like 'SNOWFLAKE.%' and ref not like '%INFORMATION_SCHEMA%'
+     group by 1 order by people desc, queries desc limit 50
      ```
   3. The person's own queries, with no grant at all. Just under seven days, the most the
      function allows, and only what they ran:
 
      ```sql
-     with q as (select upper(query_text) as sql
-                from table(<db>.information_schema.query_history_by_user(
+     with q as (select query_text as sql
+                from table(snowflake.information_schema.query_history_by_user(
                        end_time_range_start => dateadd('hour', -167, current_timestamp()),
                        result_limit => 10000))
-                where execution_status = 'SUCCESS' and query_type = 'SELECT')
-     select t.table_schema, t.table_name, count(*) as queries
-     from <db>.information_schema.tables t
-     join q on regexp_instr(q.sql, '\\b' || t.table_name || '\\b') > 0
-     where t.table_schema <> 'INFORMATION_SCHEMA'
-     group by 1, 2 order by queries desc limit 50
+                where execution_status = 'SUCCESS' and query_type = 'SELECT'),
+     refs as (select upper(replace(f.value::string, '"', '')) as ref
+              from q, lateral flatten(input => regexp_substr_all(
+                     q.sql, '(from|join)\\s+([A-Za-z0-9_$."]+)', 1, 1, 'ie', 2)) f)
+     select ref as table_ref, count(*) as queries
+     from refs
+     where ref like '%.%' and ref not like 'SNOWFLAKE.%' and ref not like '%INFORMATION_SCHEMA%'
+     group by 1 order by queries desc limit 50
      ```
   4. None readable: `row_count` and `last_altered` from `<db>.information_schema.tables`.
 
-  A bare table name that exists in more than one schema is counted for each: say so when the
-  top tables share a name.
+  Only names written with a schema are kept (`ref like '%.%'`): a bare name in a query is
+  usually a CTE. A two-part name such as `SALESFORCE.ACCOUNT` is the same table as its
+  three-part form when the search below finds one match: add their counts.
 - **Table search**, always, beside the usage statement. Name matches come first:
 
   ```sql
@@ -98,22 +104,27 @@ fallbacks and the view an admin can create), [through a CLI](warehouses/cli.md) 
      select source_table_full_name as table_name,
             count(*) as reads, count(distinct created_by) as people
      from system.access.table_lineage
-     where event_time >= current_timestamp() - interval 30 days
+     where event_time >= current_timestamp() - interval 7 days
        and source_table_full_name is not null
      group by 1 order by people desc, reads desc limit 50
      ```
-  2. Account-wide queries, when lineage is refused:
+  2. Account-wide queries, when lineage is refused. Table names are pulled out of the
+     statement text, never matched against a list of tables. Start with 7 days:
 
      ```sql
-     with q as (select upper(statement_text) as sql, executed_by
+     with q as (select any_value(statement_text) as sql, count(*) as runs,
+                       collect_set(executed_by) as users
                 from system.query.history
-                where start_time >= current_timestamp() - interval 30 days
-                  and execution_status = 'FINISHED' and statement_type = 'SELECT')
-     select t.table_schema, t.table_name, count(*) as queries, count(distinct q.executed_by) as people
-     from <catalog>.information_schema.tables t
-     join q on q.sql rlike concat('\\b', upper(t.table_name), '\\b')
-     where t.table_schema <> 'information_schema'
-     group by 1, 2 order by people desc, queries desc limit 50
+                where start_time >= current_timestamp() - interval 7 days
+                  and execution_status = 'FINISHED' and statement_type = 'SELECT'
+                group by statement_text order by runs desc limit 500),
+     refs as (select distinct q.sql, q.runs, q.users, lower(replace(ref, '`', '')) as ref
+              from q lateral view explode(
+                     regexp_extract_all(q.sql, '(?i)(from|join)\\s+([A-Za-z0-9_.`]+)', 2)) x as ref)
+     select ref as table_ref, size(array_distinct(flatten(collect_list(users)))) as people,
+            sum(runs) as queries
+     from refs where ref like '%.%' and ref not like 'system.%'
+     group by 1 order by people desc, queries desc limit 50
      ```
   3. The person's own queries: the statement in 2 with `and executed_by = current_user()`
      where their own rows are readable, otherwise the Query History API through the CLI,

@@ -51,20 +51,33 @@ statements are in [warehouses](warehouses.md) under **Table usage** and **Table 
 
 | Rung | Snowflake | Databricks | Covers |
 | --- | --- | --- | --- |
-| 1. Account-wide access | `ACCOUNT_USAGE.ACCESS_HISTORY` | `system.access.table_lineage` | Every table read by anyone, 30 days |
-| 2. Account-wide queries | `ACCOUNT_USAGE.QUERY_HISTORY`, matched to table names | `system.query.history`, matched to table names | Everyone's queries, 30 days |
-| 3. The person's own queries | `INFORMATION_SCHEMA.QUERY_HISTORY_BY_USER`, matched to table names | Their own rows in `system.query.history`, or the Query History API | Only what this person ran, 7 days on Snowflake |
+| 1. Account-wide access | `ACCOUNT_USAGE.ACCESS_HISTORY` | `system.access.table_lineage` | Every table read by anyone, 7 days to start |
+| 2. Account-wide queries | `ACCOUNT_USAGE.QUERY_HISTORY`, table names read from the query text | `system.query.history`, the same | Everyone's queries, 7 days to start |
+| 3. The person's own queries | `INFORMATION_SCHEMA.QUERY_HISTORY_BY_USER`, table names read from the query text | Their own rows in `system.query.history`, or the Query History API | Only what this person ran, 7 days on Snowflake |
 | 4. None readable | Row count and last change from table metadata | The same | Size and freshness, not use |
 
 Move down a rung only when the one above is refused or returns no rows, and never ask for a
 grant to stay on a higher one. One statement per rung tried, each with a limit of 50 tables. Do not
 run a rung to "confirm" another, and do not count or size history first.
 
+**Keep every usage statement small enough to finish.** A warehouse tool gives up after a
+minute or two, and a timed-out statement returns nothing.
+
+- Use the statements in [warehouses](warehouses.md) as written. They pull table names out
+  of the query text. Never join query text against a list of tables, and never bring an
+  account-wide table list into a usage statement: that multiplies every query by every
+  table and does not finish.
+- Start with 7 days and the 500 most run query patterns. Widen to 30 days only when fewer
+  than ten tables come back.
+- When a statement times out, halve the window and send it once more. Do not resend it
+  unchanged, and after a second timeout move down a rung.
+
 Say the rung in the suggestion, in plain words, because it changes what "most used" means:
-"across your account, last 30 days", "from your own queries, last 7 days", or "by size and
+"across your account, last 7 days", "from your own queries, last 7 days", or "by size and
 last change; usage was not readable". Missing usage is never shown as zero.
 
-**Search: always, whatever the rung.** One statement over table names and comments:
+**Search: always, whatever the rung.** One statement over table names and comments, in the
+databases the usage statement's tables came from (or the connection's own, with no usage):
 
 - a named domain searches its words and their plain synonyms (for sales pipeline:
   opportunity, deal, stage, account);
