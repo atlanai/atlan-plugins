@@ -10,8 +10,11 @@ the person sees and how it reaches the host's visible surface.
 | Start | Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
 | Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
 | The selected collection has been checked | Review the completed collection with actual counts, check limitations and one representative definition from the accepted output. Read [context built and where to keep it](save.md) for the celebration and local-versus-shared choice through its native question delivery. |
-| The context is saved or kept local | Read [ready for questions](ready.md). Show the ready block and material limitations, then supported questions immediately for both demo and own-data setup. Answer only a question the person has supplied or selected. |
-| The selected questions are answered | Follow [ready for questions](ready.md) for Ask more questions, Design a dashboard and the demo's real-data continuation. |
+| The context is saved or kept local | Read [ready for questions](ready.md). Ask the ready question, with the ready block, material limitations and supported questions as its text, for both demo and own-data setup. Answer only a question the person has supplied or selected. |
+| The selected questions are answered | End the turn on the answer with the `Next:` line from [ready for questions](ready.md): Ask more questions, Design a dashboard and the demo's real-data continuation. |
+
+Every moment follows [text before a native question](../conventions.md#text-before-a-native-question-is-lost):
+a block to read before a choice is the question's own text, and a result ends its turn.
 
 Read the moment's file when it is reached, including on resume. Fill its values from the
 selected definition, source evidence and current checks. For own data, derive the facts
@@ -38,4 +41,5 @@ Keep execution, source review, holds and release status distinct in every block.
 work still gets the celebration with honest counts. A ready block names the usable scope
 and what remains unavailable; it never turns a failed check into success. Preserve the
 full meaning and evidence when a host collapses intermediate updates by retaining the
-selected metric's rule and status in the final handoff as well.
+selected metric's rule and status in the final handoff as well. That handoff is the ready
+question's text, so the rule, holds and limitations go there, never before the question.

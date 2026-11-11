@@ -25,17 +25,20 @@ throughout setup.
 
 ## The welcome: right after the demo is chosen
 
-Read the chosen demo's file, then print its welcome block before any other tool call, file
-search or clone: whole and as written, with `<folder>` replaced by the current working
-folder's absolute path. The welcome names the demo's live tour page; keep that link exactly
-as written, on its own line, so it can be clicked.
-
-Then ask one native question, "Ready to build?":
+**The welcome is the question's own text**, as
+[text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)
+requires. Read the chosen demo's file, then, before any other tool call or file search, ask
+one native question whose text is that file's welcome lines, whole and as written (they end
+with "Ready to build?"). Keep the tour link exactly as written; it is the person's way to see
+the firm while the build runs.
 
 | Option | Description |
 | --- | --- |
 | Start building | Begin step 1: download the demo files into this folder and read them. |
 | Not now | Stop here; /atlanai-analytics:analytics-demo picks it up later. |
+
+Where there is no question tool at all, print the welcome lines as the last thing in the
+message, then the two choices as plain lines, and call no tool after it.
 
 The person may open the tour while the build runs; do not wait for them to finish looking.
 On "Not now", stop and repeat the tour link in one line, so they can explore meanwhile.
@@ -53,11 +56,15 @@ two short lines as an ordinary reply, at most 35 words together, in this shape:
 ```
 
 Fill in actual counts and names from the chosen demo. Use these, in order; the first of a
-step goes under its tracker. Skip a moment that does not happen in this run.
+step goes under its tracker. Skip a moment that does not happen in this run. A moment that
+opens with a native question (Sources question, Workspace question) puts its two lines at
+the top of that question's text instead of printing them before it, as plain `Doing:` and
+`Why:` with no `**`: question text is shown as written, so Markdown markers show as stars. The Ready moment has
+no pair: its ready block says it.
 
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Download | Downloading `<firm>`'s demo files into this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
+| Open the demo | Setting up `<firm>`'s demo in this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
 | Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures itself, so the context matches the firm instead of my guess. |
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
 | Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
@@ -67,7 +74,6 @@ step goes under its tracker. Skip a moment that does not happen in this run.
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
-| Ready | Your `<agent>` is ready. Showing questions this context can answer. | Pick a question to see an answer and the rules behind it. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
 first tracker right after "Start building", before reading setup's references or cloning.
