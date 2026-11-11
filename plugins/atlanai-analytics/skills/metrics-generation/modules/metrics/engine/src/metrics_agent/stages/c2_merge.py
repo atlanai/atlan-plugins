@@ -28,6 +28,7 @@ import sys
 from collections import defaultdict
 
 
+from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
 from metrics_agent.lib import observed as _observed  # noqa: E402
 from metrics_agent.lib import stage  # noqa: E402
 
@@ -37,7 +38,8 @@ OUT = "merged_candidates.json"
 
 
 def _predicate_set(c: dict) -> set[str]:
-    return {f"{f['column']} {f['op']}" for f in c.get("filters", [])}
+    # Polarity is part of the predicate: `x IS NULL` and `x IS NOT NULL` are not near matches.
+    return {_filter_text.key(f) for f in c.get("filters", [])}
 
 
 def _near(a: dict, b: dict, max_delta: int) -> bool:

@@ -4,6 +4,13 @@ The SQL each skill sends, per warehouse. Every statement is read-only: a single 
 SHOW or DESCRIBE, with a LIMIT on anything that returns rows. Replace `<…>` slots before
 running.
 
+**Check several numbers in one statement without UNION.** Some read-only tools refuse
+statement types beyond a single SELECT, UNION among them. Put each check in its own scalar
+subquery, `SELECT (SELECT …) AS a, (SELECT …) AS b`, one column per metric. When the tool
+refuses a statement type the definition itself needs (a UNION inside a metric's source), record
+that metric as not executable through this tool, with the tool's reason, and keep it parse-only;
+never rewrite the definition to get it to run.
+
 Read only the section for the recorded warehouse, or for the dialect a metric names when none
 is recorded. Three topics live apart, because most runs
 never need them: [query history](warehouses/query-history.md) (metrics mode's pull, its

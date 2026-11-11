@@ -38,6 +38,7 @@ import re
 import sys
 
 
+from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import sqlshape as S  # noqa: E402
 from metrics_agent.lib import dialect as _dialect
@@ -393,16 +394,8 @@ def _restrictions_of(o: dict, dialect: str) -> list[str]:
 
 
 def _restriction(f: dict) -> str:
-    """One filter as the author reads it, with its polarity. Without `negated` an exclusion
-    reads as an inclusion: `x IS NOT NULL` was shown as `x is null`, the opposite."""
-    col, op, value = f.get("column"), str(f.get("op") or ""), f.get("value")
-    if f.get("negated"):
-        text = (f"{col} is not {value}" if op == "is"
-                else f"{col} not {op} {value}" if op in ("in", "between", "like", "ilike")
-                else f"not ({col} {op}" + (f" {value}" if value is not None else "") + ")")
-    else:
-        text = f"{col} {op}" + (f" {value}" if value is not None else "")
-    return text + (" [in a CTE]" if (f.get("stage") or "") not in ("where", "") else "")
+    """One filter as the author reads it, with its polarity (see `lib/filter_text`)."""
+    return _filter_text.restriction(f)
 
 
 def body(ctx: stage.Ctx) -> None:

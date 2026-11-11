@@ -42,6 +42,7 @@ import sys
 
 from metrics_agent import plug_runtime as _runtime  # noqa: E402
 from metrics_agent import socket_gates as _gates  # noqa: E402
+from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
 from metrics_agent.lib import access as _access  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import evidence as _ev  # noqa: E402
@@ -275,7 +276,7 @@ def body(ctx: stage.Ctx) -> None:
         if ungrounded:
             flagged.add(cid)
             repaired.append({"candidate_id": cid,
-                             "stripped": [f"{f['column']} {f['op']} {f.get('value')!r}"
+                             "stripped": [_filter_text.restriction(f, mark_stage=False)
                                           for f in ungrounded]})
             c["filters"] = [f for f in c["filters"] if f not in ungrounded]
             checks.append({

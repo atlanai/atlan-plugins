@@ -103,11 +103,33 @@ def canonicalise(tree: exp.Expression, dialect: str) -> str:
     out = strip_comments(tree)
     for lit in list(out.find_all(exp.Literal)):
         lit.replace(exp.Placeholder())
+    _collapse_value_lists(out)
     for node in list(out.find_all(exp.Identifier)):
         node.set("this", str(node.this).lower())
         node.set("quoted", False)
     sql = out.sql(dialect=dialect, pretty=False, normalize=True)
     return _WS.sub(" ", sql).strip().lower()
+
+
+def _only_placeholders(node: exp.Expression) -> bool:
+    """A value with no column in it: a placeholder, a NULL, a signed or cast placeholder."""
+    return not any(isinstance(n, (exp.Column, exp.Select, exp.Subquery)) for n in node.walk()) \
+        and any(isinstance(n, (exp.Placeholder, exp.Null)) for n in node.walk())
+
+
+def _collapse_value_lists(tree: exp.Expression) -> None:
+    """A LIST OF VALUES IS ONE VALUE. `x IN (1, 2, 3)` and `x IN (4, 5)` ask the same question
+    of a different list, and so do two `VALUES` tables of different lengths. After literals
+    become placeholders their only difference is the list's length, which gave every hardcoded
+    batch of ids its own shape. Keep one element of a literal-only list (in place)."""
+    for node in list(tree.find_all(exp.In)):
+        items = node.args.get("expressions") or []
+        if len(items) > 1 and all(_only_placeholders(i) for i in items):
+            node.set("expressions", [items[0]])
+    for node in list(tree.find_all(exp.Values)):
+        rows = node.expressions or []
+        if len(rows) > 1 and all(_only_placeholders(r) for r in rows):
+            node.set("expressions", [rows[0]])
 
 
 def shape_key(shape_sql: str) -> str:
@@ -852,7 +874,20 @@ def defining_literals(tree: exp.Expression) -> list[str]:
     measure, a DATE_TRUNC grain, a constant factor, a join condition's value. Two statements
     differing in one of these are two metrics, never one shape."""
     return sorted({node.sql() for node in tree.find_all(exp.Literal, exp.Var)
-                   if node.find_ancestor(*_NON_DEFINING) is None})
+                   if node.find_ancestor(*_NON_DEFINING) is None and not _in_key_list(node)})
+
+
+def _in_key_list(node: exp.Expression) -> bool:
+    """A literal in a ONE-COLUMN inline `VALUES` table: a hardcoded list of keys the statement
+    then filters or joins on, the same role as an `IN (...)` list. Two batches of ids are one
+    question asked of two lists, not two metrics. A wider `VALUES` can map a key to a label or
+    a weight, which changes what is computed, so it stays defining."""
+    values = node.find_ancestor(exp.Values)
+    if values is None:
+        return False
+    rows = values.expressions or []
+    return bool(rows) and all(len(r.expressions) == 1 if isinstance(r, exp.Tuple) else True
+                              for r in rows)
 
 
 def compute_constructs(tree: exp.Expression, feat: dict[str, Any]) -> dict[str, bool]:
@@ -936,7 +971,10 @@ def derive_grain(feat: dict[str, Any]) -> str:
 def normalised_predicates(feat: dict[str, Any]) -> list[str]:
     """Predicate set with literals dropped, for the semantic shape key. Two questions that
     differ only in a filter VALUE are the same question."""
-    return sorted({f"{f['column']} {f['op']}" for f in feat["filters"]})
+    from metrics_agent.lib import filter_text as _filter_text  # noqa: PLC0415
+    # The literal is dropped, the polarity is not: `x IS NULL` and `x IS NOT NULL` are two
+    # questions, and one shape key for both merged them.
+    return sorted({_filter_text.key(f) for f in feat["filters"]})
 
 
 
