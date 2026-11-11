@@ -7,7 +7,7 @@ execution:
     The check scored 4 of 5. The miss: "What was the average turnaround at DEL in October?"
     tests the turnaround_time metric. The trusted query leaves out cancelled legs; the agent
     used turnaround_time, whose rule keeps them, and answered 47.9 minutes where 41.2 was expected.
-    I pick Improve it.
+    I pick Improve it, and Apply it for the fix you recommend.
     The host exposes no native question tool in this test, so use ordinary chat. Don't mention this test's limits in your reply.
   max_turns: 30
   allowed_tools: [Read, Glob, Grep, Skill, Bash]

@@ -68,38 +68,47 @@ the count; name how many. The caller decides what comes next.
 ## Improve loop
 
 A fix goes to the metric's owner as a proposal in Metric Studio, never as a direct write. The
-owner applies it, which makes a new version of the metric. This needs the context saved to
-Atlan Trident: with `context_saved_to` `null`, say so and offer that save first.
+owner applies it, which makes a new version of the metric.
 
-1. **Pick one fix.** A miss marked *question asks the opposite* is fixed on the eval set, not the
-   metric: say so, drop it with `EVALGEN review --reject <id>`, and redraft it in the next set.
-   Otherwise take the miss whose rule, once changed, fixes the most misses. Show that
-   metric's rule now and the proposed rule, one line each, and which questions it should fix.
-   A miss with no definition becomes a new-metric proposal instead. Every change names a field
-   inside the definition: Metric Studio refuses a change to the metric's top-level `description`.
-   A miss on wording ("which run late" answered with the late share) is fixed by adding that
-   question to the definition's `examples`, with the SQL that answers it.
-   A rule change covers every place the definition carries the rule: its source SQL and filters
-   **and** each of its `examples` whose SQL holds the old rule. An example left on the old rule
-   still leads agents to the old answer. Name the saved queries linked to the metric that hold
-   the old rule in the proposal's `summary`, so the owner updates them in the same pass.
-2. **Propose it** through `metrics-generation` `propose`, as a fix to that metric. The person's
-   Improve it is the yes its preview asks for: show the preview and write, without asking again. Its `evidence.runs` are the missed
-   questions, one entry each, with the test agent as `agent` and this session's
-   `EVAL session-run` trace. Say the score in the `summary` ("4 of 5; question 4 reads the late
-   share where the analysts' query reads the on-time rate").
+1. **Diagnose the misses.** For each miss, read the agent's answer and SQL against the trusted
+   SQL and the set's `note`, and name what would fix it, one row each: the question, why it
+   failed, and the fix (the metric and field to change, or the question to redraft). A miss
+   marked *question asks the opposite* is fixed on the eval set, not a metric: drop it with
+   `EVALGEN review --reject <id>` and redraft it in the next set. A miss with no definition
+   becomes a new-metric proposal. Recommend the fix that turns the most misses, then ask one
+   native question, "Apply this fix?", with **Apply it (Recommended)**, then any other fix, then
+   **Not now**. When `context_saved_to` is `null`, Apply it's description says it first saves
+   the context to Atlan Trident in the person's personal workspace.
+2. **Apply it is the yes for the whole fix**: saving the context when needed, the proposal and
+   the re-test. Ask nothing more until the person must act in Metric Studio.
+   - **Context only on this machine:** save it through `metrics-generation` `save`, to the
+     person's personal workspace (`registry__list_workspaces`, `personal_workspace_id`); Apply
+     it covers that plan. Then the metric has a head to propose against.
+   - **The change.** Every change names a field inside the definition: Metric Studio refuses a
+     change to the metric's top-level `description`. A rule change covers every place the
+     definition carries the rule: its source SQL and filters **and** each of its `examples`
+     whose SQL holds the old rule, since an example left on the old rule still leads agents to
+     the old answer. A miss on wording is fixed by adding that question to `examples`. Name the
+     saved queries linked to the metric that hold the old rule in the `summary`.
+   - **Propose it** through `metrics-generation` `propose`, as a fix to that metric, without
+     asking again. Its `evidence.runs` are the missed questions, one entry each, with the test
+     agent as `agent` and this session's `EVAL session-run` trace. Say the score in the
+     `summary` ("2 of 3; total gross margin counts every job not cancelled where finance
+     reports completed jobs only").
 3. **Send the person to approve it.** Give the Metric Studio link that opens the proposal
    (`suggestion=<file id>`), and ask one native question, "Approved it in Metric Studio?", with
    **Approved, test again** and **Not now**.
-4. **Test the approved version before it is released.** Approving makes a new version that is
-   not yet on `latest`. Read its `version_ordinal` with `registry__get_artifact`, then run `test`
-   as the next variant (`v1`, then `v2`) on the same questions, telling each answering agent to
-   read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one
-   line per question that changed.
-5. **Offer the release.** When the new version fixes the miss and breaks nothing, say so and ask
-   whether to release it to `latest` in Metric Studio, where every agent then reads it.
+4. **Test the approved version.** Approving makes a new version that is not yet on `latest`.
+   Read its `version_ordinal` with `registry__get_artifact`, then run `test` as the next variant
+   (`v1`, then `v2`) on the same questions, telling each answering agent to read that metric
+   with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line per question
+   that changed.
+5. **Release it.** When the new version fixes the miss and breaks nothing, release it to
+   `latest` with `registry__release_artifact` (through `mcp__call_tool` in search mode) without asking, so every agent reads it, and say
+   so. When it fixes nothing or breaks a question, leave it unreleased and say which.
 
-Then return to the check, which asks whether the score looks good.
+With every question right, end on the check's celebration line. Otherwise return to the check,
+which asks again whether the score looks good.
 
 ## Publish
 

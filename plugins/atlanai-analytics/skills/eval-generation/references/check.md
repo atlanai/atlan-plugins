@@ -53,12 +53,15 @@ Run them is the approval: run `EVALGEN review --approve all`, `save` on this mac
 
 ## 3. The score, and whether to improve it
 
-Show the score and the misses as [test](test.md) describes. Then ask "Does the score look good?":
+Show the score and the misses as [test](test.md) describes. Then ask "Does the score look good?",
+with improving as the default path:
 
 | Option | Description |
 | --- | --- |
+| Improve it (Recommended) | I look at why each miss failed and what would fix it, then you pick the fix to try. |
 | Looks good | Keep this score as the bar to beat. |
-| Improve it | I propose one change to the rule behind a miss. You approve it in Metric Studio, which makes a new version of the metric, and I test again. |
+
+Name no fix in this question: the fixes come from the diagnosis.
 
 With no misses, skip this question. **Improve it** follows the [improve loop](test.md#improve-loop),
 then asks this question again.
