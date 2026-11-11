@@ -23,15 +23,14 @@ graders:
     focus: last_message
     criteria: |
       Known evidence: inspection found a Power BI report, model and query history about shipping
-      operations. No numerical analysis has run and the person has not said what they want. PASS
-      if the reply says what was found in one short line naming the tools (such as a Power BI
-      report and query history), then asks one question about what the person is trying to do,
-      with task-shaped options such as answering a question, understanding a number that changed,
-      building a dashboard or report, or sharing metrics with the team, accepting free text, and
-      stops to wait. FAIL if it asks the person to pick a business area or a purpose as separate
-      questions, shows a table or a long description of the sources, jumps to metric generation,
-      auto-selects an answer, claims UI buttons the test host does not expose, or invents
-      measured findings.
+      operations. No numerical analysis has run and the person has not said what they want
+      context for. PASS if the reply asks what to build context for, offers "Let discovery
+      decide" as the first option followed by two or three domains that fit shipping operations
+      (such as delivery delays, capacity or shipping cost), accepts free text and stops to wait.
+      Asking about the warehouse in the same reply is allowed. FAIL if it asks the person to
+      pick a task such as answering a question or building a dashboard, asks a separate purpose
+      question, jumps to metric generation, auto-selects an answer, claims UI buttons the test
+      host does not expose, or invents measured findings.
   - name: no-shell
     type: tool_used
     tool: Bash

@@ -1,11 +1,14 @@
 schema_version: "1.1"
 name: entry-no-input-interview
-tags: [analytics, build, entry, survey, intent]
+tags: [analytics, build, entry, intent]
 execution:
   prompt: |
-    Use Atlan Analytics to set up analytics on my own data. I have not named any source.
+    Use Atlan Analytics to set up analytics on my own data. I have not named a warehouse, a
+    subject or a source.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
-    Nothing has been surveyed, read or asked yet, and no run exists.
+    Treat the quick look at what is already connected as done, with this result: one working
+    warehouse connection, Snowflake through its connector, and one BI file in the working
+    folder named pipeline-review.pbix. No data has been read and nothing is built.
     Show the next user-facing step.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
@@ -15,25 +18,26 @@ graders:
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-build"'
     min: 1
-  - name: reads-entry
+  - name: reads-intent
     type: tool_used
     tool: Read
-    input_match: 'references/setup/entry\.md'
+    input_match: 'references/setup/intent\.md'
     min: 1
   - name: no-shell
     type: tool_used
     tool: Bash
     min: 0
     max: 0
-  - name: asks-before-surveying
+  - name: opening-interview
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply says in a sentence or two that Atlan Analytics turns dashboards and
-      queries into context that can be asked questions, then asks one question about what the
-      person is trying to do, with task-shaped options such as answering a question,
-      understanding a number that changed, building a dashboard or report, or sharing metrics
-      with the team, accepting free text, and stops. FAIL if it claims to have found, read or
-      surveyed any source, tool or file, lists connectors or reports, asks the person to pick a
-      business area or a purpose as separate questions, asks only for a source without asking
-      what they are trying to do, or starts any build.
+      The host has no native question tool, so the interview's questions are asked in chat,
+      either together or the first one alone. PASS if the reply asks which warehouse the person
+      is on and offers the already connected Snowflake connection as a choice. If it asks more
+      than that one question, it must ask what to build context for with "Let discovery decide"
+      as the first option followed by a few domains, and whether there is a BI source to share
+      (offering the pipeline-review file, another Power BI or Tableau file, a link, or none).
+      FAIL if it claims to have read tables, schemas or report contents, lists table names,
+      asks the person to pick a task such as answering a question or building a dashboard,
+      asks for a source without asking about the warehouse, or starts any build.

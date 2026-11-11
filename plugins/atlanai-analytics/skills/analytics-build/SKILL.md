@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Atlan Analytics setup on your own data, from nothing, a dashboard or a subject: survey, use case, metrics, save, questions. Use when setting up, resuming or handing off a run, its details, or workspace access. Not for a demo (analytics-demo).
+description: Atlan Analytics setup on your own data: pick a warehouse and domain, share a BI source, confirm tables, build metrics, save, ask. Use when setting up, resuming or handing off a run, its details, or workspace access. Not for a demo (analytics-demo).
 ---
 
 # Atlan Analytics on your own data: seven guided steps
@@ -25,30 +25,27 @@ concrete plan. Respect explicit draft or review requests.
 
 ## Opening
 
-Three ways in. Read [the entries](references/setup/entry.md) for each one; decide from the
-request and never ask which one the person wants. The order never changes: know the intent,
-then look, then confirm, then build.
+One flow: ask, discover, confirm the tables, build.
 
-| The person gave | Entry | First action |
-| --- | --- | --- |
-| Nothing, and no saved run | No input | Ask what they are trying to do. Survey nothing until they answer |
-| A source (link, folder, BI export), with or without a problem | A source | `source-survey` `inventory` on it, then confirm the inventory before building |
-| A subject or a problem only, such as "sales pipeline" or "churn by plan" | A domain | `source-survey` `domain`: what already exists about it, and where definitions disagree |
+1. **Three questions**, in one card where the host allows it, as
+   [the interview](references/setup/intent.md) words them: which warehouse (offering the
+   connections already configured), what to build context for (first option "Let discovery
+   decide", then domains personalised to the person), and whether there is a BI source to
+   share (a Power BI or Tableau file, or a link).
+2. **Discovery** on the chosen warehouse: `source-survey` `discover` finds the schemas in
+   use and the tables that matter, reads their columns and suggests tables.
+3. **One confirmation**, "Build from these tables?", then metric generation.
 
-With no input, your first message is [the interview](references/setup/intent.md)'s question,
-with this opening as its own text, before any survey, file listing or helper call:
+A question the request already answers is not asked. Before the card, look only at what is
+already connected (`source-survey` `connections`) and at BI file names in the working folder
+(`PROJECT discover`), so the options are real. Read no data before the answers. The card's
+own text is the opening:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:
 what your numbers mean and how they are worked out. With that context, you can ask your data
 questions in plain English and see what each answer is based on.
 
-First, let me understand what you're trying to do."
-
-With a source or a subject: "I'll turn `<it>` into context: what its numbers mean and how
-they are worked out, so you can ask questions in plain English here and see what each answer
-is based on. You can narrow the scope, ask for details, keep the work local, or pause at any
-point." Then the entry's `**Doing:**` and `**Why:**` lines. Every survey settles whether a
-source can be built from before the confirmation.
+First, let me understand your tools and your domain."
 
 The interview is this skill's own: `source-survey` never asks the person anything. Honor
 existing choices. Survey-only requests stop after the survey. On resume, read
@@ -62,16 +59,14 @@ the first action, with the full tracker at every step change. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line.
 
-1. **Clarify your use case.** With no input, [the interview](references/setup/intent.md):
-   "What are you trying to do?", asked before anything is read. A named source or subject
-   is the answer already.
-2. **Survey your sources.** The entry's survey, about what the person said: `source-survey`
-   `setup`, `inventory` or `domain`. The result is one line of tools and counts. Ask one
-   contextual question only when the survey leaves a real choice of source.
-3. **Select tables and dashboards.** `source-survey` `plan` and `candidates`: reports first,
-   query history second, table definitions third, a report offered whole. Show the source
-   check and [the inventory](references/setup/names.md), then ask "Build this?". Nothing is
-   built before the yes.
+1. **Clarify your use case.** [The interview](references/setup/intent.md): warehouse,
+   what to build context for, a BI source. Skip what the request already said.
+2. **Survey your sources.** `source-survey` `discover`, through
+   [discovery](../source-survey/references/discovery.md): any BI source first, then the
+   schemas in use, the most used tables and their columns.
+3. **Select tables and dashboards.** [Suggest the tables](references/setup/names.md) with
+   why each was picked, what links them and what will be left out, then ask "Build from
+   these tables?". Nothing is built before the yes. A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.
@@ -116,7 +111,7 @@ and do not install this add-on beside that bundle.
 | --- | --- | --- |
 | `analytics-demo` ("Continue building on real data") | here | Nothing but the connection. A demo run never becomes a build |
 | here | `analytics-ask` | The run, so answers read its context |
-| `analytics-ask` (no metric covers a question) | here | The question, as the subject of the domain entry |
+| `analytics-ask` (no metric covers a question) | here | The question, as the answer to what to build context for |
 | here, when the survey finds no readable source | `analytics-demo` | Nothing |
 
 ## MCP resources

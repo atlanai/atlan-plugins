@@ -50,9 +50,9 @@ an executor/schema source, not a replacement for available history. Reuse alread
 workspace context early when the destination is known.
 
 Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the confirmation.
-The caller owns the conversation: `analytics-build` asks what the person is trying to do
-before a no-input survey, and confirms the source check and inventory before authoring. Use
-the intent the caller passed to select relevant source coverage.
+The caller owns the conversation: `analytics-build` asks its opening questions before any
+data is read, and confirms the suggested tables before authoring. Use the domain the caller
+passed to select relevant source coverage.
 
 When the survey exposes a declared measure relevant to that focus, show it after the intent
 checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it a discovered

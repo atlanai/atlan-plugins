@@ -34,10 +34,10 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply lists candidate metric names taken from the stated measures and query history
-      (such as On-Time Delivery %, Avg Delay Hours, Late Shipments), puts delay-related names ahead of
-      unrelated ones such as Warehouse Utilization % or Shipping Cost per Order, gives each a short
-      meaning or its source, says or clearly implies that nothing is built yet, and asks the person
-      to confirm building them (or which to build), then stops. FAIL if it shows SQL, claims checks ran, invents a metric name the
-      inspection did not report without flagging it, asks the business focus or purpose again, or
-      starts generation without asking.
+      PASS if the reply shows what will be built before building: the candidate metric names
+      taken from the stated measures and query history (such as On-Time Delivery %, Avg Delay
+      Hours, Late Shipments), with a short meaning or source for each, says or clearly implies
+      that nothing is built yet, and asks the person to confirm building (or to change it), then
+      stops. FAIL if it shows SQL, claims checks ran, invents a metric name the inspection did
+      not report without flagging it, asks the business focus or purpose again, or starts
+      generation without asking.

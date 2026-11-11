@@ -1,6 +1,6 @@
 ---
 name: source-survey
-description: "Atlan Analytics: survey a setup, subject, folder, dashboard or warehouse: what exists and covers, metric names, readiness. Use when asked what data or sources exist, what one holds, or if it is usable. Not for building metrics (metrics-generation)."
+description: "Atlan Analytics: survey a warehouse, folder or dashboard: connections, key tables, what a source covers, metric names. Use when asked what data exists, which tables to use, or if a source is usable. Not for building metrics (metrics-generation)."
 ---
 
 # Survey a source and check it is ready
@@ -27,8 +27,8 @@ in Claude Code). Pass separate argv entries; zsh does not split a scalar holding
 
 | Operation | Does | Procedure |
 | --- | --- | --- |
-| `setup` | With no source named: what this machine can already reach for talking to data (warehouse tools, BI connectors, Atlan, certified queries, local files), and which of it can be built from | [Setup survey](references/setup-survey.md) |
-| `domain` | For a named subject such as "sales pipeline": everything about it that already exists, where definitions disagree, and what is missing | [Domain survey](references/domain-survey.md) |
+| `connections` | Lists the warehouse connections already configured on this machine, and whether each answers | [Connections and discovery](references/discovery.md) |
+| `discover` | On a chosen warehouse, for a domain or with none: finds the schemas in use and the tables that matter, reads their columns and suggests tables to build from | [Connections and discovery](references/discovery.md) |
 | `inventory` | Reads every supplied source in full (models, dashboards, query history, SQL, local data) and says what they cover and could answer | [Inspect and scope](references/inspect-scope.md), section 1 |
 | `plan` | Orders the sources to build from: BI reports and models, then query history, then table definitions | [Inspect and scope](references/inspect-scope.md), section 2 |
 | `scope` | Selects pages, measures and query-history tables | [Inspect and scope](references/inspect-scope.md), section 2 |
@@ -36,8 +36,8 @@ in Claude Code). Pass separate argv entries; zsh does not split a scalar holding
 | `readiness` | Says whether work can proceed: source readable, data executable, Atlan reachable, published context present | Below |
 | `connect` | Finds and checks the warehouse query tool | [Warehouse discovery](references/connect.md) |
 
-`setup` and `domain` come first when no source was supplied and end in the sources to run
-`inventory` on. Run `inventory` before `plan`, `scope` and `candidates`; `readiness` and
+`connections` and `discover` come first when a warehouse is the starting point. Run
+`inventory` on a supplied file or folder before `plan`, `scope` and `candidates`; `readiness` and
 `connect` can run alone. Query history follows
 [query history](references/warehouses/query-history.md); a warehouse's dialect and statements
 are in [warehouses](references/warehouses.md), only the section for that warehouse. Reuse a
@@ -64,8 +64,7 @@ The person commits to names, so a wrong focus costs one question and not a gener
    focus's page first, and do not cut the report to ten.
 4. Add two or three questions the names would answer, phrased as things to learn and worded
    from the sources. No period, cause or number the sources do not hold.
-5. After a `domain` survey, give each name its status from that survey: reuse, new or flag.
-6. Label every one as discovered, with SQL not generated and checks not run. Do not preview
+5. Label every one as discovered, with SQL not generated and checks not run. Do not preview
    SQL, run the engine or install its runtime for this operation.
 
 ### `readiness`: one of three answers
@@ -96,7 +95,8 @@ Return to the caller, or show the person:
 - the source types found and their subject, in two or three sentences, and how they
   complement each other;
 - two or three analyses the sources could support, phrased as things to learn;
-- for `setup`, one line of what was found; for `domain`, the tables its procedure defines;
+- for `connections`, the list; for `discover`, one line of what was found, then the
+  suggested tables with why each was picked and what was worked out about them;
 - for `candidates`, the ranked names and questions; for `readiness`, the answer and its one
   next step.
 

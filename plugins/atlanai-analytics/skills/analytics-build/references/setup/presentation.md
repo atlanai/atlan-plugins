@@ -7,7 +7,7 @@ the person sees and how it reaches the host's visible surface.
 
 | Moment | Presentation |
 | --- | --- |
-| Start | Open as [the entry](entry.md) says, with its Doing and Why lines and result lines through every moment. Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
+| Start | Open with [the interview](intent.md), its opening as the card's own text, then the Doing and Why lines below through every moment. Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
 | Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
 | The selected collection has been checked | Review the completed collection with actual counts, check limitations and one representative definition from the accepted output. Read [context built and where to keep it](save.md) for the celebration and local-versus-shared choice through its native question delivery. |
 | The context is saved or kept local | Read [ready for questions](ready.md). Ask the ready question, with the ready block, material limitations and supported questions as its text, for both demo and own-data setup. Answer only a question the person has supplied or selected. |
@@ -43,3 +43,19 @@ and what remains unavailable; it never turns a failed check into success. Preser
 full meaning and evidence when a host collapses intermediate updates by retaining the
 selected metric's rule and status in the final handoff as well. That handoff is the ready
 question's text, so the rule, holds and limitations go there, never before the question.
+
+## Say what and why, as the demo does
+
+Own-data setup talks as the demo does ([the tour rules](../../../analytics-demo/references/tour.md),
+"Say what and why at every moment"), with this run's facts. Before each moment, two short
+lines as an ordinary reply, at most 35 words together; after it, the result in one line, in
+the past tense, with counts. Never a file name, helper name or query-pattern count in those
+lines, and never the words candidate, engine, gate, hold, export or Registry. A difference
+from a report is news: name it, say why, and count it.
+
+| Moment | Doing | Why |
+| --- | --- | --- |
+| Before the interview | Checking which warehouses are already connected. | So you can pick one instead of setting one up. |
+| Discovery | Looking at what `<warehouse>` is used for: its schemas, the most used tables and their columns. | The tables people already query are the ones worth building context on. |
+| Reading a BI source | Reading the report's pages and measures, and the tables behind them. | The report already says how your team measures this, so the context starts from it. |
+| Build and check | Writing the rule for each metric, then running each one on `<warehouse>`. | A rule that returns nothing or nonsense would give wrong answers later; this catches it now. |

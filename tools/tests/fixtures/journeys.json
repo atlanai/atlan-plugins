@@ -1247,8 +1247,8 @@
    "id": "analytics-build-own-data",
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
-   "title": "Own data from a source: read it, confirm the inventory, build the whole report, save, then a question",
-   "route": "Read the named source, show its source check and inventory, confirm once, generate and check the whole report, save it, answer one question",
+   "title": "Own data with a BI source: skip the answered questions, discover, confirm the tables, build the whole report",
+   "route": "Ask only what the request left open, read the BI source and the warehouse tables behind it, confirm the tables, generate and check the whole report, save it, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",
@@ -1266,27 +1266,8 @@
    "id": "analytics-build-no-input",
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
-   "title": "Own data from nothing: one question, a survey for the answer, confirm, generate and save",
-   "route": "Ask what the person is trying to do, survey what the machine can reach for it, confirm the source check and inventory, build the whole report from reports then history then tables, save, answer one question",
-   "includes": [
-    "analytics-connect-warehouse",
-    "analytics-bootstrap-metrics",
-    "analytics-ask-governed"
-   ],
-   "calls": null,
-   "budget": {
-    "cold": null,
-    "warm": null
-   },
-   "targets": null,
-   "measured": null
-  },
-  {
-   "id": "analytics-build-domain",
-   "plugin": "atlanai-analytics",
-   "skill": "analytics-build",
-   "title": "Own data from a subject: reuse what exists, settle differences, build only the gaps",
-   "route": "Survey the subject across Atlan, certified queries, reports and tables, settle differences with one question, build the new names only, save them, answer one question",
+   "title": "Own data from nothing: three questions, discovery, confirm the tables, generate and save",
+   "route": "Ask which warehouse, what to build context for and for any BI source, discover the tables that matter, confirm them, generate and check, save, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",

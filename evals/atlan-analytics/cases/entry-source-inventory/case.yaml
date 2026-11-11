@@ -3,13 +3,16 @@ name: entry-source-inventory
 tags: [analytics, build, entry, names]
 execution:
   prompt: |
-    Use Atlan Analytics to set up analytics from ./reports/field-coverage.pbix.
+    Use Atlan Analytics to continue setting up analytics on my own data.
     Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
-    Treat reading the report as already done, with this result: 8 pages and 34 measures, all from
-    5 Snowflake tables that a connected read-only query tool can reach. Pages and measure counts:
-    Coverage 10 (account coverage tiers, stale accounts), Targets 5 (meetings against plan),
-    Scorer and Score detail 12 (scored sales calls), four other pages 7 (activity against
-    pipeline). The person has stated no focus and no purpose. Nothing is built.
+    The person already answered the opening questions: Snowflake through its connector, "Let
+    discovery decide", and no BI source. Treat discovery as done, with this result. Three
+    schemas are in use. The most used tables in the last 30 days are SALES.MARTS.FCT_OPPORTUNITY
+    (1,240 queries by 14 people), SALES.MARTS.DIM_ACCOUNT (980 queries by 12 people) and
+    SALES.MARTS.FCT_STAGE_HISTORY (310 queries by 6 people); support tickets are the next most
+    used subject. Opportunities link to accounts on ACCOUNT_ID. DIM_ACCOUNT has IS_TEST and
+    IS_INTERNAL flags. Query history shows people asking for pipeline by stage and win rate by
+    segment. Nothing is built.
     Show the next user-facing step.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
@@ -19,24 +22,24 @@ graders:
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-build"'
     min: 1
-  - name: reads-entry
+  - name: reads-names
     type: tool_used
     tool: Read
-    input_match: 'references/setup/entry\.md'
+    input_match: 'references/setup/names\.md'
     min: 1
   - name: no-shell
     type: tool_used
     tool: Bash
     min: 0
     max: 0
-  - name: inventory-by-page
+  - name: suggests-tables
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply says what was read and that its tables can be reached, shows the pages
-      with their metric counts and at least one question a page would answer, says what it will
-      build from (the whole report, with query history and table columns), and asks the person
-      to confirm before building, such as "Build this?", then stops. FAIL if it starts building
-      without asking, offers a pick-list of pages or metrics as the question, asks "what do you
-      care about most" or the purpose as an interview question, asks for a source, shows SQL,
-      or claims a metric was already built or checked.
+      PASS if the reply suggests the three sales tables as the place to start, gives for each a
+      short reason such as how much it is used or what it holds, says how opportunities link
+      to accounts and that test and internal accounts will be left out, and asks the person to
+      confirm building from these tables (or to change them), then stops. Mentioning support
+      tickets as the runner-up is allowed. FAIL if it starts building without asking, invents
+      a table that discovery did not report, asks which warehouse or domain again, asks the
+      person to pick a task, shows SQL, or claims a metric was built or checked.

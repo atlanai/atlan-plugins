@@ -7,11 +7,10 @@ other surface unless the person asks for [a visual view](render.md).
 
 ## One useful result, one next action
 
-Orient before tools. Use preset demo intent, or [the interview](intent.md) for own data when
-[the entry](entry.md) calls for it: one question about what the person is trying to do, asked
-before any survey, through the host's question control or ordinary chat. Then survey for
-what they said and reuse existing acquisitions. Put what was found, the source check and the
-inventory in the confirmation question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
+Orient before tools. Use preset demo intent, or [the interview](intent.md) for own data:
+warehouse, what to build context for and any BI source, asked before any data is read,
+through the host's question control or ordinary chat. Then run discovery and put the
+suggested tables in the confirmation question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
 Use [the presentation flow](presentation.md) for the completed-collection review after the run's
