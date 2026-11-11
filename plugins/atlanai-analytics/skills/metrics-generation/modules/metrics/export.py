@@ -18,6 +18,8 @@ JOIN = ('name', 'to', 'sql', 'cardinality', 'origin')
 DIMENSION = ('name', 'kind', 'sql', 'datatype', 'values', 'values_truncated', 'value_map',
              'required_join', 'filter_form', 'description')
 EXAMPLE = ('source', 'sql', 'question', 'group_by', 'filters', 'parameters', 'result')
+# Dialects whose names stop at SCHEMA.TABLE(.COLUMN): the database file is its own schema.
+NO_CATALOG = ('sqlite',)
 
 
 def pick(value, fields):
@@ -53,6 +55,14 @@ def metric_body(card, layer, commit):
                      # Includes conversion quality, parameter descriptions, dimensional roles,
                      # trust tier and original evidence without claiming fresh verification.
                      'card': copy.deepcopy(card)}}}
+    # The engine keys a table as DB.SCHEMA.TABLE; a dialect with no catalog level cannot run
+    # that, so the published definition names it the way its warehouse does. The examples are
+    # SQL as written and the extension keeps the engine's own card.
+    if str(card.get('dialect') or '').lower() in NO_CATALOG:
+        from metrics_agent.lib import card_sql
+        declared = [card['entity']] + [j.get('to') for j in card.get('joins') or []]
+        for key in [k for k in definition if k not in ('examples', 'extensions')]:
+            definition[key] = card_sql.without_catalog(definition[key], declared)
     return {'name': card['name'], 'display_name': card.get('display_name') or card['name'],
             'description': card['description'],
             'search_text': ' '.join(card.get('synonyms') or []),

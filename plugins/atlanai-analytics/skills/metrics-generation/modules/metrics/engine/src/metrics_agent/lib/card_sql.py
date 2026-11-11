@@ -9,6 +9,7 @@ two destinations never derive them two ways.
 from __future__ import annotations
 
 import hashlib
+import re
 
 
 def statement_sha(sql: str) -> str:
@@ -77,6 +78,50 @@ def canonical_statement(card: dict) -> str:
     if mand:
         out.append("WHERE  " + "\n  AND  ".join(mand))
     return "\n".join(out)
+
+
+_LITERAL = re.compile(r"'(?:[^']|'')*'")
+
+
+def without_catalog(value, declared):
+    """`value` with each declared `X.X.TABLE` written as `X.TABLE`.
+
+    The engine names every table DB.SCHEMA.TABLE, and an estate with no catalog level (a file
+    attached as its own schema) is spelled with the schema twice. That is the right key for
+    matching and linking, but such an estate runs at most `schema.table.column`, so a card that
+    keeps the key fails on the first column it names. The caller decides when a dialect has no
+    catalog; this only rewrites tables in `declared` whose first two parts are the same name,
+    only outside string literals. Strings, lists and dicts are walked; anything else is
+    returned as it is."""
+    names = []
+    for name in declared or []:
+        parts = [p.strip('"') for p in str(name or "").split(".")]
+        if len(parts) == 3 and parts[0].lower() == parts[1].lower() and all(parts):
+            names.append(parts)
+    if not names:
+        return value
+    q = r'"?'
+    pattern = re.compile(
+        r'(?<![\w."])(' + "|".join(
+            q + re.escape(a) + q + r"\." + q + re.escape(b) + q + r"\." + q + re.escape(t) + q
+            for a, b, t in names) + r')(?![\w"])', re.IGNORECASE)
+
+    def code(text: str) -> str:
+        return pattern.sub(lambda m: m.group(1).split(".", 1)[1], text)
+
+    def walk(v):
+        if isinstance(v, str):
+            out, last = [], 0
+            for lit in _LITERAL.finditer(v):
+                out += [code(v[last:lit.start()]), lit.group(0)]
+                last = lit.end()
+            return "".join(out + [code(v[last:])])
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        return v
+    return walk(value)
 
 
 def aggregation_problems(sql: str, dialect: str | None) -> list[str]:
