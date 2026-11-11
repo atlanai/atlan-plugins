@@ -107,4 +107,4 @@ query and the set stay as they are until a fix is chosen.
 After a fix is applied: run the test on the same eval folder as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
 question first. In Trident, tell each answering agent to
 read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line
-per question that changed, then the check's [result](accuracy.md#4-the-result).
+per question that changed, then the check's [result](accuracy.md#5-the-result).

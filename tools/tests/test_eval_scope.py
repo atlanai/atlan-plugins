@@ -115,6 +115,14 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(rows, [{"id": "m1", "question": "Total net revenue?", "sql": "SELECT 1",
                                  "tests": "Net Revenue", "from": "dashboard tile"}])
 
+    def test_ready_turns_any_set_file_into_an_approved_spec_to_save(self) -> None:
+        sets = self.tmp / ".atlan-evals" / "sets"
+        sets.mkdir(parents=True)
+        (sets / "finance.jsonl").write_text('{"id": "f1", "question": "Q?", "sql": "SELECT 1", "from": "dashboard tile"}\n')
+        res = self.scope("ready", "--set", str(sets / "finance.jsonl"))
+        spec = json.loads((Path(res["dir"]) / "work" / "spec.json").read_text())
+        self.assertEqual((res["slug"], [(r["id"], r["review_status"]) for r in spec["records"]]), ("finance", [("f1", "approved")]))
+
     def test_start_finds_the_run_and_the_sets_and_a_scored_set_gets_a_fresh_folder(self) -> None:
         (self.tmp / ".atlan-metrics" / "run_unbuilt").mkdir()  # location's fresh, empty run
         sets = self.tmp / ".atlan-evals" / "sets"

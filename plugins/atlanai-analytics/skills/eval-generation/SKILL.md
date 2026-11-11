@@ -30,8 +30,8 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 - `<evals-dir>` is this skill's directory (`${CLAUDE_PLUGIN_ROOT}/skills/eval-generation` in
   Claude Code). `<build-dir>` is `analytics-build` beside it.
 - `<run>` is the analytics run and `<gen>` the drafting folder, both as `SCOPE inputs` returns
-  them. The drafting folder sits beside the run, never inside it: agents that answer from the
-  run must never see an answer. Never use `PROJECT location` here: it names a new run.
+  them. The drafting folder sits under `.atlan-evals/gen/`, outside the run: agents that answer
+  from the run must never see an answer. Never use `PROJECT location` here: it names a new run.
 - `SCOPE` is `python3 "<evals-dir>/scripts/scope.py"`. `EVAL` is
   `python3 "<build-dir>/scripts/analytics_eval.py" <command> --dir "<gen>"`.
 - `EVALGEN` is `uv run --no-project --with "sqlglot>=30.20,<30.21" env
@@ -44,7 +44,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    folder, reads the use case and focus metric, and writes the pool: every dashboard tile and
    analyst query the metrics engine verified, each linked to the metrics it computes. A blocked
    reply names what to ask: ask it once and stop until told.
-2. **Gate and score.** `EVALGEN init --local`, then
+2. **Gate and rank.** `EVALGEN init --local`, then
    `EVALGEN build --from-files "<gen>/src" --dialect <its dialect> --limit 100`. It drops a query
    pinned to one record and withholds personal data. Do not reopen its JSON.
 3. **Pick 5.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
@@ -62,19 +62,20 @@ Budget: about 2 minutes. Keep every model step in a subagent and every count in 
 
 ## `save`: on this machine, or to Atlan Trident
 
-The set is already on this machine once written. Ask one question, "Where should the set
-live?":
+Any set file can be saved: one this skill wrote, or one the person brought. It is already on this
+machine. Unless the caller already chose, ask one question, "Where should the set live?":
 
 | Option | Description |
 | --- | --- |
 | Keep on this machine (Recommended) | It stays in this folder, ready to run. |
 | Save to Atlan Trident | Your team can find and rerun it. Questions and a digest of each SQL, never the SQL. |
 
-On Save to Atlan Trident: `EVALGEN review --approve all`, `EVAL init --slug <slug>`,
-`EVAL import-spec --spec "<gen>/work/spec.json"`, then loop
-`EVAL publish --variant baseline --dataset-only --workspace <id>` and `EVAL publish-ack` as
-[publish](references/publish.md) describes, in the workspace the context was saved to, else the
-person's personal workspace (`registry__list_workspaces`, `personal_workspace_id`).
+On Save to Atlan Trident: `SCOPE ready --set <set file>` returns a `dir` and `slug`; then, with
+`--dir` set to that `dir`, `EVAL init --slug <slug>`, `EVAL import-spec --spec "<dir>/work/spec.json"`
+and the loop `EVAL publish --variant baseline --dataset-only --workspace <id>` and `EVAL
+publish-ack`, as [publish](references/publish.md) describes. The workspace is the one the context
+was saved to, else the person's personal workspace (`registry__list_workspaces`,
+`personal_workspace_id`).
 
 ## What comes back
 

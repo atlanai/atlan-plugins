@@ -49,7 +49,8 @@ request named a set, ask one native question, "Which questions should I test wit
 ## 2. Generated questions: show them, then ask to run them
 
 The person has not seen these, so show them before running. Ask one native question whose text
-is this block, as plain lines, from `<evals-run>/work/selection.json`:
+is this block, as plain lines: each question from `<evals-run>/work/spec.json`, its metric, source
+and expected answer from `<evals-run>/work/selection.json`, and the use case from `ACC start`:
 
 ```
 <N> questions to test your <agent>. They test the metrics it needs to answer
@@ -116,16 +117,9 @@ leave it unreleased and say which question changed. Then step 5.
 
 ## 5. The result
 
-With the context in Atlan Trident, first ask "Where should the questions and the score live?":
-
-| Option | Description |
-| --- | --- |
-| Save to Atlan Trident (Recommended) | Beside your context in `<workspace>`, so your team can rerun the test. |
-| Keep on this machine | Nothing leaves this folder. |
-
-On Save, publish `<evals-run>` with `EVAL publish --variant baseline --dataset-only` as
-eval-generation's [publish](../../eval-generation/references/publish.md) describes. With the
-context on this machine, ask nothing: the set stays in the project.
+With the context in Atlan Trident, save the set through `eval-generation` `save` on its set file,
+which asks where it should live. With the context on this machine, ask nothing: the set stays in
+the project.
 
 End with the closing line, a result: reply text with the score's range as its only caveat (plus
 the source caveat for a generated set; no significance test, no open questions), then the

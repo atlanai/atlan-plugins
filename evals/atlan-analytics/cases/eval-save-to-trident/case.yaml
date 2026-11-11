@@ -5,8 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: |
-    The eval set you generated for the Indigo context is drafted in .atlan-evals/indigo.
-    I pick Save to Atlan Trident, in the Indigo workspace.
+    Save the Indigo eval set in .atlan-evals/sets/indigo.jsonl to Atlan Trident, in the Indigo workspace.
     The host exposes no native question tool in this test, so use ordinary chat. Don't mention this test's limits in your reply.
   max_turns: 30
   allowed_tools: [Read, Glob, Grep, Skill, Bash]

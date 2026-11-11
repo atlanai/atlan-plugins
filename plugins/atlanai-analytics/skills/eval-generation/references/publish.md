@@ -5,7 +5,7 @@ Read when saving a set to Atlan Trident.
 Each `EVAL publish` prints the next `step` and its `calls`, each a `{tool, arguments}` pair.
 Send every call in order with that exact name and arguments (in search mode, through
 `mcp__call_write_tool` with the session id beside them). Save the tool results, in call
-order, as one JSON list in `<gen>/hillclimb/baseline/publish-<step>.json` with the Write
+order, as one JSON list in `<dir>/hillclimb/baseline/publish-<step>.json` with the Write
 tool (never under a temporary folder outside the project), and run
 `EVAL publish-ack --variant baseline --step <step> --responses <that file>`.
 Repeat until `publish` prints `"step": "done"`.

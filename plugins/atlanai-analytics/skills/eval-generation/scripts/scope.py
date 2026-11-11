@@ -224,6 +224,22 @@ def cmd_emit(a) -> dict:
             "metrics": sorted({r["tests"] for r in rows if r["tests"]})}
 
 
+def cmd_ready(a) -> dict:
+    """A set file, generated or brought, as the approved spec a save publishes from."""
+    src = pathlib.Path(a.set)
+    rows = [json.loads(l) for l in src.read_text().splitlines() if l.strip()]
+    if not rows or not all(r.get("question") and r.get("sql") for r in rows):
+        raise Blocked(f"{src.name} needs a question and its sql on every line.")
+    out = src.parents[1] / "saved" / src.stem
+    if out.exists():
+        shutil.rmtree(out)
+    dump(out / "work" / "spec.json", {"name": src.stem, "source_description": f"eval set {src.name}", "records": [
+        {"id": str(r.get("id") or f"q{i}"), "question": r["question"], "question_spec": r.get("note") or "",
+         "golden_sql": r["sql"], "review_status": "approved", "provenance": {"source": r.get("from") or "eval set"},
+         "modes": []} for i, r in enumerate(rows, 1)]})
+    return {"status": "ok", "dir": str(out), "questions": len(rows), "slug": src.stem}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     s = p.add_subparsers(dest="cmd", required=True)
@@ -240,6 +256,9 @@ def main(argv=None) -> int:
     c.add_argument("--gen", required=True)
     c.add_argument("--name", required=True)
     c.set_defaults(func=cmd_emit)
+    c = s.add_parser("ready", help="a set file as the approved spec a save publishes from")
+    c.add_argument("--set", required=True)
+    c.set_defaults(func=cmd_ready)
     a = p.parse_args(argv)
     try:
         print(json.dumps(a.func(a), indent=1))
