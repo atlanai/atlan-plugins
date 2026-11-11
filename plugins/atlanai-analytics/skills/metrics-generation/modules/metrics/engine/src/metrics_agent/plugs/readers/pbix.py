@@ -330,7 +330,14 @@ def _relationships(model) -> list[dict]:
 def parse(path: pathlib.Path, report_index: dict | None = None) -> dict[str, Any]:
     """`report_index` is accepted and ignored: a `.pbix` carries its own report layer inside
     the file, so there is no sibling tree to join against."""
-    from pbixray import PBIXRay  # noqa: PLC0415 — deliberately lazy
+    try:
+        from pbixray import PBIXRay  # noqa: PLC0415 — deliberately lazy
+    except ImportError:
+        raise PBIXError(
+            "reading a .pbix needs the optional `pbix` feature, which this runtime was set up "
+            "without. Set up a new runtime with `--feature pbix` (a runtime keeps the features "
+            "it was set up with), or supply the model as a TMDL folder or .bim instead."
+        ) from None
 
     pbix = pathlib.Path(path)
     if not pbix.is_file():
@@ -339,6 +346,12 @@ def parse(path: pathlib.Path, report_index: dict | None = None) -> dict[str, Any
     try:
         model = PBIXRay(str(pbix))
     except Exception as exc:                                     # noqa: BLE001
+        if "LiveConnection" in type(exc).__name__:
+            raise PBIXError(
+                f"{pbix.name} is a live-connection report: it holds the report and no semantic "
+                "model, so there are no measure formulas to read. Supply the model (its TMDL "
+                "folder or .bim, a fetch with the model, or the full .pbix download)."
+            ) from None
         raise PBIXError(
             f"pbixray could not read {pbix.name}: {type(exc).__name__}. A .pbix saved by a "
             "very old Desktop, or one whose model is encrypted by a sensitivity label, is "

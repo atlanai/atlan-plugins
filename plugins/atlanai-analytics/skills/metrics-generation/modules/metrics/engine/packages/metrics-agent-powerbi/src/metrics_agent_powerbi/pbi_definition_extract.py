@@ -761,6 +761,17 @@ class FabricClient:
     def _attempts(self) -> int:
         return self.max_attempts or MAX_ATTEMPTS
 
+    def _renew_after_401(self, status: int, raw: str) -> None:
+        """Renew the token once after a 401. A token that cannot be renewed (a supplied
+        PBI_ACCESS_TOKEN) leaves the 401 as the API's own answer: an admin endpoint refuses a
+        non-admin with 401, and the probe reads that as "not an admin", never as an expired
+        token. A token that is really expired is refused by its claims before any call."""
+        try:
+            self._token = self._token_provider(force=True)
+        except AuthError:
+            code, message = _error_fields(raw)
+            raise ApiError(status, code, message) from None
+
     def _request(
         self, method: str, url: str, body: Optional[dict] = None, *, _refreshed=False
     ) -> Tuple[int, Dict[str, str], Any]:
@@ -785,7 +796,7 @@ class FabricClient:
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode(errors="replace")
                 if exc.code == 401 and self._token_provider and not _refreshed:
-                    self._token = self._token_provider(force=True)
+                    self._renew_after_401(exc.code, raw)
                     return self._request(method, url, body, _refreshed=True)
                 if exc.code == 429 and self.limiter is not None:
                     self.limiter.note_throttle()
@@ -829,7 +840,7 @@ class FabricClient:
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode(errors="replace")
                 if exc.code == 401 and self._token_provider and not _refreshed:
-                    self._token = self._token_provider(force=True)
+                    self._renew_after_401(exc.code, raw)
                     return self.download(url, target, _refreshed=True)
                 if exc.code in (429, 500, 502, 503, 504) and attempt < self._attempts():
                     time.sleep(_retry_after(dict(exc.headers), attempt, self.max_retry_after,
