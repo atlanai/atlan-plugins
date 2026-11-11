@@ -67,8 +67,10 @@ the count; name how many. The caller decides what comes next.
 
 ## Improve loop
 
-A fix goes to the metric's owner as a proposal in Metric Studio, never as a direct write. The
-owner applies it, which makes a new version of the metric.
+Where the fix lands follows `context_saved_to`. With `null` (the context is on this machine),
+the fix is a new version of the metric in this run, through `metrics-generation` `edit`, and
+nothing touches Atlan Trident. Saved to Trident, it goes to the metric's owner as a proposal in
+Metric Studio, never as a direct write; the owner applies it, which makes the new version.
 
 1. **Diagnose the misses.** For each miss, read the agent's answer and SQL against the trusted
    SQL and the set's `note`, and name what would fix it, one row each: the question, why it
@@ -77,33 +79,33 @@ owner applies it, which makes a new version of the metric.
    `EVALGEN review --reject <id>` and redraft it in the next set. A miss with no definition
    becomes a new-metric proposal. Recommend the fix that turns the most misses, then ask one
    native question, "Apply this fix?", with **Apply it (Recommended)**, then any other fix, then
-   **Not now**. When `context_saved_to` is `null`, Apply it's description says it first saves
-   the context to Atlan Trident in the person's personal workspace.
-2. **Apply it is the yes for the whole fix**: saving the context when needed, the proposal and
-   the re-test. Ask nothing more until the person must act in Metric Studio.
-   - **Context only on this machine:** save it through `metrics-generation` `save`, to the
-     person's personal workspace (`registry__list_workspaces`, `personal_workspace_id`); Apply
-     it covers that plan. Then the metric has a head to propose against.
+   **Not now**. Apply it's description says where the fix lands: "I change the rule in this
+   folder, keep the old version, and test again", or "I propose it to the metric's owner in
+   Metric Studio".
+2. **Apply it is the yes for the whole fix**, through the re-test. Ask nothing more until the
+   person must act in Metric Studio.
    - **The change.** Every change names a field inside the definition: Metric Studio refuses a
      change to the metric's top-level `description`. A rule change covers every place the
      definition carries the rule: its source SQL and filters **and** each of its `examples`
      whose SQL holds the old rule, since an example left on the old rule still leads agents to
      the old answer. A miss on wording is fixed by adding that question to `examples`. Name the
      saved queries linked to the metric that hold the old rule in the `summary`.
-   - **Propose it** through `metrics-generation` `propose`, as a fix to that metric, without
+   - **On this machine:** `metrics-generation` `edit` with those changes, then step 4 with no
+     version pin: the answering agents read the run, which now holds the new version.
+   - **In Trident: propose it** through `metrics-generation` `propose`, as a fix to that metric, without
      asking again. Its `evidence.runs` are the missed questions, one entry each, with the test
      agent as `agent` and this session's `EVAL session-run` trace. Say the score in the
      `summary` ("2 of 3; total gross margin counts every job not cancelled where finance
      reports completed jobs only").
-3. **Send the person to approve it.** Give the Metric Studio link that opens the proposal
+3. **In Trident, send the person to approve it.** Give the Metric Studio link that opens the proposal
    (`suggestion=<file id>`), and ask one native question, "Approved it in Metric Studio?", with
    **Approved, test again** and **Not now**.
-4. **Test the approved version.** Approving makes a new version that is not yet on `latest`.
-   Read its `version_ordinal` with `registry__get_artifact`, then run `test` as the next variant
-   (`v1`, then `v2`) on the same questions, telling each answering agent to read that metric
-   with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line per question
+4. **Test the new version.** Run `test` as the next variant (`v1`, then `v2`) on the same
+   questions. In Trident, approving makes a version that is not yet on `latest`: read its
+   `version_ordinal` with `registry__get_artifact` and tell each answering agent to read that
+   metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line per question
    that changed.
-5. **Release it.** When the new version fixes the miss and breaks nothing, release it to
+5. **In Trident, release it.** When the new version fixes the miss and breaks nothing, release it to
    `latest` with `registry__release_artifact` (through `mcp__call_tool` in search mode) without asking, so every agent reads it, and say
    so. When it fixes nothing or breaks a question, leave it unreleased and say which.
 

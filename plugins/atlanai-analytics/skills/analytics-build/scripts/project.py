@@ -278,6 +278,42 @@ class Project(ContextState):
     def check_metric(self, request):
         return self.check_execution(request, 'metric')
 
+    def edit_metric(self, request):
+        """Change one metric in this run by definition field, as a proposal's changes name them. The
+        old definition is kept beside the run and the new one must pass its check, or nothing changes."""
+        name, changes = request.get('name', ''), request.get('changes') or []
+        path = self.context / 'metrics.json'
+        bodies = self.read(path) if path.exists() else []
+        body = next((b for b in bodies if name in (b.get('name'), b.get('display_name'))), None)
+        if not body:
+            raise ProjectError('Select a metric in this run by name: ' + ', '.join(b.get('name', '') for b in bodies) + '.')
+        if not changes:
+            raise ProjectError('Name at least one change: {"path": "<definition field, dotted>", "value": ...}.')
+        old = json.loads(json.dumps(body['definition']))
+        new = json.loads(json.dumps(old))
+        for change in changes:
+            keys = str(change.get('path') or '').split('.')
+            if not keys[0] or keys[0] in ('version', 'spec_version'):
+                raise ProjectError('A change names a field inside the definition, never version or spec_version.')
+            node = new
+            for key in keys[:-1]:
+                node = node.setdefault(key, {})
+            node[keys[-1]] = change.get('value')
+        version = int(old.get('version') or 1)
+        new['version'] = version + 1
+        kept = self.context / 'metric-versions' / f"{re.sub(r'[^a-z0-9]+', '-', body['name'].lower()).strip('-')}-v{version}.json"
+        self.write(kept, old)
+        body['definition'] = new
+        self.write(path, bodies)
+        try:
+            self.check_metric({'name': body['name']})
+        except ValueError as error:
+            body['definition'] = old
+            self.write(path, bodies)
+            raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
+        return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),
+                'changed': [c['path'] for c in changes]}
+
     def check_execution(self, request, kind):
         items = metric_preview.candidates(self)
         keys = [i['key'] for i in items]
@@ -580,7 +616,7 @@ def main():
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'edit-metric', 'acquisition', 'auth', 'engine-config'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

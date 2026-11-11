@@ -41,6 +41,22 @@ class CardExecution(unittest.TestCase):
         self.assertEqual(check['composition']['rows'], [[14.75]])
         self.assertEqual(check['composition']['coverage'], 'formula_source_mandatory_filters')
 
+    def test_edit_metric_keeps_the_old_version_and_refuses_a_failing_rule(self):
+        self.save(self.card())
+        out = self.run.edit_metric({'name': 'cost', 'changes': [
+            {'path': 'source.sql', 'value': "(SELECT cost FROM site.work WHERE kind <> 'rework')"},
+            {'path': 'examples', 'value': [{'source': 'declared:example',
+                                            'sql': "SELECT SUM(cost) FROM site.work WHERE kind <> 'rework'"}]}]})
+        card = self.run.read(self.run.context / 'metrics.json')[0]
+        self.assertEqual((out['version'], card['definition']['version']), (2, 2))
+        self.assertIn("<> 'rework'", card['definition']['source']['sql'])
+        self.assertIn("= 'rework'", self.run.read(Path(out['previous']))['source']['sql'])
+        with self.assertRaises(ValueError):
+            self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'source.sql', 'value': '(SELECT nope FROM nowhere)'}]})
+        self.assertEqual(self.run.read(self.run.context / 'metrics.json')[0]['definition']['version'], 2)
+        with self.assertRaises(ValueError):
+            self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})
+
     def test_metric_is_found_by_its_display_name_or_slug(self):
         card = self.card()
         card['name'] = 'Gross Margin'

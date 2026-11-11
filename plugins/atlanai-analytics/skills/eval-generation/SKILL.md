@@ -20,7 +20,7 @@ read-only SQL and status reporting apply.
 | --- | --- |
 | Use case, question pool, picking 5, drafting, trusted answers, scoring, the check's moments | this skill |
 | Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Changing a metric | `metrics-generation` `propose`; the owner approves in Metric Studio |
+| Changing a metric | `metrics-generation`: `edit` in this run when the context is on this machine; `propose` when it is in Atlan Trident, approved by the owner in Metric Studio |
 | Saving the set, scorer and runs to Atlan Trident | this skill, through `EVAL publish` |
 | Anything a calling flow adds before or after the check | the caller |
 
