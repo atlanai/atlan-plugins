@@ -54,7 +54,8 @@ Send the whole body, unencoded, with your **Authorization header**. `is_presigne
 on today's gateway; if a server ever answers `true`, the URL carries its own authorization, so
 send no Authorization header to it. A `false` `upload_url` is root-relative (`/file/v1/...`):
 resolve it against the API origin you called `registry__request_file_upload` on. A missing bearer
-returns 401.
+returns 401. Send the Authorization header only when the resolved URL's origin is that API origin;
+otherwise stop, send nothing, and tell the user the upload URL pointed somewhere unexpected.
 
 Start the PUT within `expires_in_seconds` (900 seconds). Expired or unissued tickets return
 400 with instructions to request a fresh ticket. A transfer started in time may finish after

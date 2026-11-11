@@ -3,27 +3,27 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT:-.}/command-hooks/publish_hook.py\" session-start --host cursor",
+        "command": "[ -n \"$CURSOR_PLUGIN_ROOT\" ] && python3 \"$CURSOR_PLUGIN_ROOT/command-hooks/publish_hook.py\" session-start --host cursor",
         "timeout": 10
       }
     ],
     "preToolUse": [
       {
         "matcher": "^MCP:mcp__call(?:_(?:write|read))?_tool$",
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT:-.}/command-hooks/publish_hook.py\" pre --host cursor",
+        "command": "[ -n \"$CURSOR_PLUGIN_ROOT\" ] && python3 \"$CURSOR_PLUGIN_ROOT/command-hooks/publish_hook.py\" pre --host cursor",
         "timeout": 30
       }
     ],
     "postToolUse": [
       {
         "matcher": "^MCP:mcp__call(?:_(?:write|read))?_tool$",
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT:-.}/command-hooks/publish_hook.py\" post --host cursor",
+        "command": "[ -n \"$CURSOR_PLUGIN_ROOT\" ] && python3 \"$CURSOR_PLUGIN_ROOT/command-hooks/publish_hook.py\" post --host cursor",
         "timeout": 10
       }
     ],
     "beforeMCPExecution": [
       {
-        "command": "python3 \"${CURSOR_PLUGIN_ROOT:-.}/command-hooks/publish_hook.py\" mcp-guard --host cursor",
+        "command": "[ -n \"$CURSOR_PLUGIN_ROOT\" ] && python3 \"$CURSOR_PLUGIN_ROOT/command-hooks/publish_hook.py\" mcp-guard --host cursor",
         "timeout": 10
       }
     ]

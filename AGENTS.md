@@ -286,6 +286,8 @@ Repo-specific rules. The full guide, with patterns, anti-patterns and a pre-PR c
   either, and no hook sends feedback.
 - **[MUST]** `command-hooks/` and `claude-hooks/` enforce the same rules as `check_bundle.py`;
   change all three together, with tests.
+- **[MUST]** A hook command runs the script from its plugin root and nothing when that is unset
+  (`CURSOR_ENTRIES` and `lint_command_hooks` in `tools/lint.py`).
 - **[MUST]** A hook fails open to the call as sent, never to a wider one (`main` in
   `publish_hook.py`, each handler's `.catch` in `register.ts`).
 - **[MUST]** `atlanai-mods` keeps archive, approve, move, release and roll-back confirming, and refuses them where

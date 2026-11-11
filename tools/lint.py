@@ -237,6 +237,9 @@ COMMAND_HOOKS = {
     ".cursor-plugin/plugin.json": ("hooks", "./command-hooks/cursor.json"),
 }
 HOOK_SCRIPT = "command-hooks/publish_hook.py"
+# Cursor's only command per event: an unset root exits 1, which Cursor passes over (exit 2 would block).
+CURSOR_ENTRIES = {"sessionStart": "session-start", "preToolUse": "pre", "postToolUse": "post", "beforeMCPExecution": "mcp-guard"}
+CURSOR_COMMAND = '[ -n "$CURSOR_PLUGIN_ROOT" ] && python3 "$CURSOR_PLUGIN_ROOT/command-hooks/publish_hook.py" {} --host cursor'
 
 
 def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
@@ -302,6 +305,12 @@ def lint_command_hooks(root: Path) -> list[str]:
             command = handler.get("command", "")
             if HOOK_SCRIPT not in command or "claude-hooks" in command or handler.get("type", "command") != "command":
                 errors.append(f"{path.relative_to(ROOT)}: every hook runs {HOOK_SCRIPT}, and nothing else")
+            if ":-" in command:
+                errors.append(f"{path.relative_to(ROOT)}: a hook runs the script from its plugin root, and nothing when that is unset")
+        if path.name == "cursor.json":
+            shapes = {event: [h.get("command") for h in groups] for event, groups in document.get("hooks", {}).items()}
+            if shapes != {event: [CURSOR_COMMAND.format(entry)] for event, entry in CURSOR_ENTRIES.items()}:
+                errors.append(f"{path.relative_to(ROOT)}: each Cursor event runs its own entry from $CURSOR_PLUGIN_ROOT, and nothing when that is unset")
     copilot = root / "com.github.copilot" / "hooks" / "hooks.json"
     if copilot.is_file():
         document = json.loads(copilot.read_text(encoding="utf-8"))

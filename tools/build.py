@@ -56,10 +56,10 @@ HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cu
 # Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
 FIXTURES = "tools/tests/fixtures/publish-bundles.json"
 # Files every plugin folder gets a copy of, from the repository root.
-SHARED = ("assets/logo.svg", "LICENSE")
+SHARED = ("assets/logo.svg", "LICENSE", "NOTICE")
 # What the directory package takes from the core's folder, beside the manifests it writes.
 DIRECTORY_TREES = ("skills", "assets")
-DIRECTORY_FILES = ("LICENSE",)
+DIRECTORY_FILES = ("LICENSE", "NOTICE")
 # A fixed timestamp for the directory package's zip entries, so one source gives one archive.
 ZIP_TIME = (2026, 1, 1, 0, 0, 0)
 # Codex's per-skill metadata, inside each skill folder: written from [skills] in plugin.toml.
