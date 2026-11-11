@@ -72,12 +72,11 @@ After "Start building", show the tracker, then do all of step 1's work:
    the person had asked to set up that folder from scratch. Then run
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
-   `database`, `schema` and `dialect`. Use these as given; do not work them out again. Give the
-   engine the `bi` file, not its folder.
+   `database` and `schema`. Use these as given; do not work them out again.
 3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
-   [build and check](../analytics-build/references/setup/build-check.md) describes. When `open`
-   reported `database_exists`, bind that file instead of preparing it again. Bind it once
-   with `PROJECT bind "<database>" --schema <schema>`, and set the run's dialect to `dialect`. Every later check runs on these rows.
+   [build and check](../analytics-build/references/setup/build-check.md) describes; `prepare`
+   is null when the database is already loaded. Then bind it once with
+   `PROJECT bind "<database>" --schema <schema>`. Every later check runs on these rows.
 4. **Record the preset intent.** `PROJECT journey domain --answer "<focus to record>"`, then
    `PROJECT journey purpose --answer "<purpose to record>"`, from the facts file. The demo asks
    neither intent question.
@@ -96,10 +95,10 @@ tables are used either way, to check the context.
 ## 3. Build and check metrics
 
 The demo has no first-metric preview and asks no build-the-rest question. With past queries in
-scope, run `PROJECT history` (no arguments). Then `DEMO engine <demo> --run-dir "<run-dir>"
---sources all` (or `dashboard`) writes the engine's configuration and prints `config` and
-`engine_run`; prepare the engine with them, never with a configuration written by hand. Run the metrics
-engine as
+scope, run `PROJECT history` (no arguments). Then `PROJECT engine-config` with a request file
+`{"sources": "all", "bi": "<bi>"}` (or `"dashboard"`) writes the engine's configuration and
+prints `config` and `engine_run`; prepare the engine with them, never with a configuration
+written by hand. Run the metrics engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every
 card without a metric-list checkpoint or another build confirmation. Keep proposal and

@@ -3,13 +3,13 @@
 
     python3 demo_data.py open <demo> <folder>   # sets up <folder>/atlan-analytics-demo/<demo>/
     python3 demo_data.py requests <demo> --run-dir <run>   # after the survey: prepare and scope requests
-    python3 demo_data.py engine <demo> --run-dir <run> --sources all|dashboard   # the engine's config
 
 Each demo lives in a folder under this skill's assets/: its dashboard, CSVs and query history laid
-out as a project, plus demo.json naming the dashboard file, the database to prepare, its schema and
-the dialect. Adding a demo is adding a folder. A run works in a folder of the person's, because
-preparation writes the database inside the folder it surveyed and the plugin's own folder is not
-the person's to write in. Standard library only; nothing is downloaded.
+out as a project, plus demo.json naming the dashboard file, the database to prepare and its schema.
+A new demo is that folder, its facts file in references/ and a row in the skill's demo choice.
+A run works in a folder of the person's, because preparation writes the database inside the folder
+it surveyed and the plugin's own folder is not the person's to write in. The run's state is read
+and written through the setup helper's Project. Standard library only; nothing is downloaded.
 """
 import argparse
 import json
@@ -18,9 +18,13 @@ import shutil
 import sys
 
 sys.dont_write_bytecode = True
-ASSETS = Path(__file__).resolve().parents[1] / 'assets'
+SKILLS = Path(__file__).resolve().parents[2]
+ASSETS = SKILLS / 'analytics-demo' / 'assets'
+sys.path.insert(0, str(SKILLS / 'analytics-build' / 'scripts'))
+from project import Project, ProjectError  # noqa: E402
+
 MANIFEST = 'demo.json'
-FIELDS = ('bi', 'database', 'schema', 'dialect')
+FIELDS = ('bi', 'database', 'schema')
 
 
 class DemoError(ValueError):
@@ -43,21 +47,34 @@ def manifest(demo):
 
 def files(demo):
     source = ASSETS / demo
-    return sorted(p.relative_to(source) for p in source.rglob('*') if p.is_file() and p.name != MANIFEST)
+    return sorted(p.relative_to(source) for p in source.rglob('*') if p.is_file() and p != source / MANIFEST)
 
 
 def open_demo(demo, folder):
-    """Set up the demo's working folder, or bring an earlier one up to date with this skill. A
-    database prepared from older files is removed, since its rows no longer match the CSVs; nothing
-    else in the folder is touched."""
+    """Set up the demo's working folder, or bring an earlier one up to date with this skill: files
+    the skill no longer ships are removed, and a database prepared from older CSVs is removed since
+    its rows no longer match. Files the person added are never touched."""
     facts = manifest(demo)
     folder = Path(folder).expanduser().resolve()
     if not folder.is_dir():
         raise DemoError(f'{folder} is not a folder. Choose an existing working folder.')
     source, target = ASSETS / demo, folder / 'atlan-analytics-demo' / demo
+    # The files placed last time, kept beside the working folder so its survey never reads them.
+    ledger = target.parent / f'.{demo}-files.json'
     existed = target.is_dir()
+    wanted = [r.as_posix() for r in files(demo)]
+    try:
+        placed = set(json.loads(ledger.read_text(encoding='utf-8'))) if ledger.is_file() else set()
+    except ValueError:
+        placed = set()
+    removed = []
+    for relative in sorted(placed - set(wanted)):
+        stale = (target / relative).resolve()
+        if stale.is_relative_to(target) and stale.is_file():
+            stale.unlink()
+            removed.append(relative)
     changed, total = [], 0
-    for relative in files(demo):
+    for relative in wanted:
         data = (source / relative).read_bytes()
         total += len(data)
         destination = target / relative
@@ -65,75 +82,46 @@ def open_demo(demo, folder):
             continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source / relative, destination)
-        changed.append(relative.as_posix())
+        changed.append(relative)
+    ledger.write_text(json.dumps(wanted), encoding='utf-8')
     database = target / facts['database']
-    if existed and changed and database.exists():
+    if existed and database.exists() and any(r.startswith('data/') and r.endswith('.csv') for r in changed + removed):
         database.unlink()
-    status = 'created' if not existed else 'refreshed' if changed else 'current'
-    return {'status': status, 'demo': demo, 'working_folder': str(target), 'files': len(files(demo)),
+    status = 'created' if not existed else 'refreshed' if changed or removed else 'current'
+    return {'status': status, 'demo': demo, 'working_folder': str(target), 'files': len(wanted),
             'bytes': total, 'database_exists': database.exists()}
 
 
-def surveyed(demo, run_dir):
-    """The run's survey of this demo's working folder: (facts, run, folder, sources by path)."""
+def requests(demo, run_dir):
+    """Write the setup run's prepare and scope requests from its survey of the working folder, so the
+    demo's fixed choices (its own CSVs as `schema.<file>`, the whole dashboard) are never worked out
+    again. With the database already prepared, there is no prepare request: bind it."""
     facts = manifest(demo)
-    run = Path(run_dir).expanduser().resolve()
     try:
-        state = json.loads((run / 'run.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        raise DemoError('Survey the demo\'s working folder into this run first.') from None
-    root = Path(state.get('source_root', ''))
+        project = Project(Path(run_dir).expanduser().resolve())
+        state = project.current()
+    except ValueError:
+        raise DemoError("Survey the demo's working folder into this run first.") from None
+    root = Path(state['source_root'])
     if root.parts[-2:] != ('atlan-analytics-demo', demo):
         raise DemoError(f'This run surveyed {root}, not the {demo} working folder. Open the demo and survey it.')
-    sources = {s['path']: s for s in state.get('sources', [])}
-    if facts['bi'] not in sources:
-        raise DemoError('The survey is missing the demo files. Open the demo again, then survey it.')
-    return facts, run, root, sources
-
-
-def requests(demo, run_dir):
-    """Write the setup run's prepare and scope requests from its survey of the working folder, so the demo's
-    fixed choices (every CSV as `schema.<file>`, the whole dashboard) are never worked out again."""
-    facts, run, root, sources = surveyed(demo, run_dir)
-    csvs = [s for p, s in sorted(sources.items())
-            if p.startswith('data/') and p.endswith('.csv') and s.get('status') == 'available']
-    if not csvs:
-        raise DemoError('The survey is missing the demo files. Open the demo again, then survey it.')
-    prepare = {'database': facts['database'], 'tables': [
-        {'source_id': s['source_id'], 'table': facts['schema'] + '.' + Path(s['path']).stem} for s in csvs]}
-    run.joinpath('demo-prepare.json').write_text(json.dumps(prepare, indent=1), encoding='utf-8')
-    result = {'status': 'ok', 'prepare': str(run / 'demo-prepare.json'), 'scope': None,
-              'bi': str(root / facts['bi']), 'database': str(root / facts['database']),
-              'schema': facts['schema'], 'dialect': facts['dialect'], 'tables': len(csvs)}
-    bi = sources[facts['bi']]
-    if bi.get('kind') == 'powerbi':
-        run.joinpath('demo-scope.json').write_text(
-            json.dumps({'source_id': bi['source_id'], 'pages': ['all']}), encoding='utf-8')
-        result['scope'] = str(run / 'demo-scope.json')
-    return result
-
-
-def engine(demo, run_dir, scope):
-    """Write the metrics engine's configuration for this run: the dashboard, the cleaned past queries
-    when they are in scope, and the prepared database to check every statement on."""
-    facts, run, root, sources = surveyed(demo, run_dir)
+    surveyed = {s['path']: s for s in state['sources']}
+    csvs = [r for r in map(Path.as_posix, files(demo)) if r.startswith('data/') and r.endswith('.csv')]
+    missing = [p for p in csvs + [facts['bi']]
+               if p not in surveyed or (p in csvs and surveyed[p]['status'] != 'available')]
+    if missing:
+        raise DemoError(f'The survey is missing {", ".join(missing)}. Open the demo again, then survey it.')
     database = root / facts['database']
-    history = run / 'context' / 'querylog.clean.jsonl'
-    if not database.is_file():
-        raise DemoError('Prepare and bind the demo database first.')
-    if scope == 'all' and not history.is_file():
-        raise DemoError('Run PROJECT history first; the engine reads its cleaned past queries.')
-    settings = {'bi': str(root / facts['bi']), 'bi_vendor': sources[facts['bi']]['kind'],
-                'database': str(database)}
-    if scope == 'all':
-        settings['history'] = str(history)
-    config = {'version': 1, 'scope': demo, 'dialect': facts['dialect'], 'mode': 'standalone',
-              'inputs': {'history': ['local-files'] if scope == 'all' else [], 'schema': [],
-                         'bi': ['local-files'], 'sql_check': 'local-files'},
-              'settings': {'local-files': settings},
-              'witness_mode': 'execute', 'publish': ['files'], 'observers': []}
-    run.joinpath('demo-engine.json').write_text(json.dumps(config, indent=1), encoding='utf-8')
-    return {'status': 'ok', 'config': str(run / 'demo-engine.json'), 'engine_run': str(run / 'engine')}
+    result = {'status': 'ok', 'prepare': None, 'scope': None, 'bi': facts['bi'],
+              'database': str(database), 'schema': facts['schema'], 'tables': len(csvs)}
+    if not database.exists():
+        project.write(project.root / 'demo-prepare.json', {'database': facts['database'], 'tables': [
+            {'source_id': surveyed[p]['source_id'], 'table': facts['schema'] + '.' + Path(p).stem} for p in csvs]})
+        result['prepare'] = str(project.root / 'demo-prepare.json')
+    if surveyed[facts['bi']]['kind'] == 'powerbi':
+        project.write(project.root / 'demo-scope.json', {'source_id': surveyed[facts['bi']]['source_id'], 'pages': ['all']})
+        result['scope'] = str(project.root / 'demo-scope.json')
+    return result
 
 
 def main():
@@ -145,20 +133,11 @@ def main():
     ask = sub.add_parser('requests')
     ask.add_argument('demo')
     ask.add_argument('--run-dir', required=True)
-    configure = sub.add_parser('engine')
-    configure.add_argument('demo')
-    configure.add_argument('--run-dir', required=True)
-    configure.add_argument('--sources', choices=('all', 'dashboard'), required=True)
     args = parser.parse_args()
     try:
-        if args.command == 'open':
-            result = open_demo(args.demo, args.folder)
-        elif args.command == 'requests':
-            result = requests(args.demo, args.run_dir)
-        else:
-            result = engine(args.demo, args.run_dir, args.sources)
+        result = open_demo(args.demo, args.folder) if args.command == 'open' else requests(args.demo, args.run_dir)
         print(json.dumps(result))
-    except (DemoError, OSError, ValueError) as error:
+    except (DemoError, ProjectError, OSError, ValueError) as error:
         print(json.dumps({'status': 'error', 'message': str(error)}))
         return 1
     return 0

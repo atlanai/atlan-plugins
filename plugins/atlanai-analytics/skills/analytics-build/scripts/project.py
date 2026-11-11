@@ -42,6 +42,8 @@ _card_sql = importlib.util.module_from_spec(_card_spec)
 _card_spec.loader.exec_module(_card_sql)
 
 LOCAL = ('duckdb', 'sqlite')
+# Survey source kinds the metrics engine reads as BI definitions, by the engine's reader name.
+ENGINE_READERS = {'powerbi': 'powerbi', 'tableau': 'tableau'}
 
 class ProjectError(ValueError):
     pass
@@ -379,6 +381,49 @@ class Project(ContextState):
                 'source_ids': [s['source_id'] for s in state['sources'] if s['kind'] == 'query_history'],
                 'next': 'Pass the captured history to the metrics engine local-files input. The engine owns shaping and authoring.'}
 
+    def engine_config(self, request):
+        """Write the metrics engine's configuration for a local run from its survey, binding and
+        history, and record the run's engine directory. Warehouse runs configure their own plugs."""
+        state = self.current()
+        binding = state.get('execution') or {}
+        if binding.get('kind') not in LOCAL:
+            raise ProjectError('Bind the local database first. A warehouse run writes its engine '
+                               'configuration as the metrics module describes.')
+        sources = request.get('sources')
+        if sources not in ('all', 'dashboard'):
+            raise ProjectError('Choose sources "all" (dashboard and past queries) or "dashboard".')
+        dashboards = [s for s in state['sources'] if s['kind'] in ENGINE_READERS
+                      and s['path'] == request.get('bi', s['path'])]
+        if len(dashboards) > 1 or (sources == 'dashboard' and not dashboards):
+            raise ProjectError('Name one surveyed dashboard file as `bi`: '
+                               + ', '.join(s['path'] for s in dashboards) + '.')
+        settings = {'database': binding['path']}
+        inputs = {'history': [], 'schema': [], 'bi': [], 'sql_check': 'local-files'}
+        if dashboards:
+            dashboard = dashboards[0]
+            settings.update(bi=str(safe_path(Path(state['source_root']) / dashboard['path'], state['source_root'])),
+                            bi_vendor=ENGINE_READERS[dashboard['kind']])
+            inputs['bi'] = ['local-files']
+        config = {'version': 1, 'scope': re.sub(r'[^a-z0-9]+', '-', Path(state['source_root']).name.lower()).strip('-') or 'project',
+                  'dialect': binding['kind'], 'mode': 'standalone', 'inputs': inputs,
+                  'settings': {'local-files': settings}, 'witness_mode': 'execute',
+                  'publish': ['files'], 'observers': []}
+        if sources == 'all':
+            cleaned = self.context / 'querylog.clean.jsonl'
+            if not cleaned.is_file():
+                raise ProjectError('Run PROJECT history first; the engine reads its cleaned past queries.')
+            settings['history'] = str(cleaned)
+            inputs['history'] = ['local-files']
+            bound = self.context / 'history-tables.txt'
+            if bound.is_file():
+                config['tables'] = bound.read_text().split()
+        target = self.root / 'engine-config.json'
+        self.write(target, config)
+        state['engine_run'] = str(self.root / 'engine')
+        self.write(self.path, state)
+        return {'status': 'ok', 'config': str(target), 'engine_run': state['engine_run'],
+                'next': 'Run ENGINE prepare with this config and engine_run; do not write another by hand.'}
+
     def bind(self, database, tables=None, schema=None):
         state = self.current()
         # Binding is an explicit input independent of the report's filesystem location.
@@ -507,7 +552,7 @@ def main():
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

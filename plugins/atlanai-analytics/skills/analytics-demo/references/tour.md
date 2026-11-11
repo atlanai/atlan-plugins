@@ -34,7 +34,7 @@ Then ask one native question, "Ready to build?":
 
 | Option | Description |
 | --- | --- |
-| Start building | Begin step 1: download the demo files into this folder and read them. |
+| Start building | Begin step 1: set up the demo in this folder and read its files. |
 | Not now | Stop here; /atlanai-analytics:analytics-demo picks it up later. |
 
 The person may open the tour while the build runs; do not wait for them to finish looking.
@@ -70,7 +70,7 @@ step goes under its tracker. Skip a moment that does not happen in this run.
 | Ready | Your `<agent>` is ready. Showing questions this context can answer. | Pick a question to see an answer and the rules behind it. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
-first tracker right after "Start building", before reading setup's references or cloning.
+first tracker right after "Start building", before reading setup's references or opening the demo.
 Never use file names, helper names or query-shape counts in these lines. After reading
 sources, add one sentence on what they revealed, such as which questions the analysts
 asked most. Never leave a minute without a line; follow [progress](../../analytics-build/references/setup/progress.md).
