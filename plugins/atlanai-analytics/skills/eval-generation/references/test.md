@@ -89,8 +89,9 @@ Metric Studio, never as a direct write; the owner applies it, which makes the ne
      change to the metric's top-level `description`. A rule change covers every place the
      definition carries the rule: its source SQL and filters **and** each of its `examples`
      whose SQL holds the old rule, since an example left on the old rule still leads agents to
-     the old answer. A miss on wording is fixed by adding that question to `examples`. Name the
-     saved queries linked to the metric that hold the old rule in the `summary`.
+     the old answer. A miss on wording is fixed by adding that question to `examples`. In
+     Trident, name the saved queries linked to the metric that hold the old rule in the
+     proposal's `summary`; never offer to change them as a separate step.
    - **On this machine:** `metrics-generation` `edit` with those changes, then step 4 with no
      version pin: the answering agents read the run, which now holds the new version.
    - **In Trident: propose it** through `metrics-generation` `propose`, as a fix to that metric, without
@@ -110,8 +111,8 @@ Metric Studio, never as a direct write; the owner applies it, which makes the ne
    `latest` with `registry__release_artifact` (through `mcp__call_tool` in search mode) without asking, so every agent reads it, and say
    so. When it fixes nothing or breaks a question, leave it unreleased and say which.
 
-With every question right, end on the check's celebration line. Otherwise return to the check,
-which asks again whether the score looks good.
+With every question right, end on the check's celebration line and stop: no further change,
+question or offer. Otherwise return to the check, which asks again whether the score looks good.
 
 ## Publish
 
