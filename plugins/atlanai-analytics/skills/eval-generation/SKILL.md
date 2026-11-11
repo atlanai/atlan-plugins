@@ -12,7 +12,8 @@ miss into a fix proposal. A person can call it directly, and another skill can c
 it behaves the same either way.
 
 Read [shared conventions](../analytics-build/references/conventions.md) first: privacy,
-read-only SQL and status reporting apply.
+read-only SQL and status reporting apply. Open this skill's files with the Read tool, one call per
+file, never chained in a shell with `echo` separators: zsh reads a word like `=====` as a command.
 
 ## What this skill owns, and what it hands off
 
