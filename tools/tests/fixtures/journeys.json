@@ -1192,6 +1192,73 @@
    "measured": null
   },
   {
+   "id": "analytics-eval-save",
+   "plugin": "atlanai-analytics",
+   "skill": "eval-generation",
+   "title": "Save a generated eval set beside the context",
+   "route": "Scorer, dataset, one batched record create, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "scorer"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset_record",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "dataset_record",
+       "workspace_id": "<ws>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset_record",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "dataset_record",
+       "workspace_id": "<ws>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 2
+   },
+   "mode": "evals",
+   "budget_note": "Shell needed; picking, drafting, gold runs and grading run locally and are not counted. Warm reuses the workspace's scorer and dataset.",
+   "targets": null,
+   "measured": null
+  },
+  {
    "id": "analytics-demo-save",
    "plugin": "atlanai-analytics",
    "skill": "analytics-demo",

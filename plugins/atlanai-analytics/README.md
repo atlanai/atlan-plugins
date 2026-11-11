@@ -1,6 +1,6 @@
 # Analytics
 
-The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own dashboards, BI exports and query history, in seven steps. source-survey says what a source holds and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
+The analytics workload on the Atlan registry, as six skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own dashboards, BI exports and query history, in seven steps. source-survey says what a source holds and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, saves it to Atlan and tests how many the context answers correctly. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
 
 ## Install
 

@@ -15,7 +15,7 @@ Every skill is also held to:
   * at most 500 lines and 9 KiB in SKILL.md (longer material goes in references/);
   * a description of at most 250 characters, since every session carries it and hosts cut longer ones;
   * every `references/...` and `skills/...` path they cite exists (`skills/` from the plugin's folder);
-  * every backticked `atlan-...`, `analytics-...`, `metrics-generation` or `source-survey`
+  * every backticked `atlan-...`, `analytics-...`, `metrics-generation`, `eval-generation` or `source-survey`
     skill name they cite exists, or is served by the gateway only.
 Commands (commands/*.md) and agents (agents/*.md): frontmatter with a `description`; commands
 also set `disable-model-invocation: true`.
@@ -51,7 +51,7 @@ PLUGIN_CONTENT = ("skills", "commands", "agents", "plugin.json", "mcp.json", ".m
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 XML_TAG = re.compile(r"<[A-Za-z/][^>]*>")
 CITED_PATH = re.compile(r"`((?:skills|references)/[A-Za-z0-9_./-]+\.md)`")
-CITED_SKILL = re.compile(r"`((?:atlan|analytics)-[a-z0-9-]+|metrics-generation|source-survey)`")
+CITED_SKILL = re.compile(r"`((?:atlan|analytics)-[a-z0-9-]+|metrics-generation|eval-generation|source-survey)`")
 WHEN = re.compile(r"\bUse (?:when|for)\b")
 # Every installed skill's description sits in every session's context, so owned skills keep it
 # short; and SKILL.md is read whole whenever the skill loads, so detail goes in references/ that

@@ -446,6 +446,29 @@ def session_trace_id(harness: str, session_id: str) -> str:
     return digest[:16].hex()
 
 
+def cmd_import_spec(a) -> dict:
+    """Write eval/cases.jsonl and eval/answers.jsonl from an eval-generation `spec.json`, approved records only."""
+    pr = Proj(a.dir)
+    spec = load_json(a.spec)
+    if not isinstance(spec, dict) or not isinstance(spec.get("records"), list):
+        raise Blocked(f"No eval set at {a.spec}.", "Pass the spec.json that eval-generation's review wrote.")
+    keep = [r for r in spec["records"] if r.get("review_status") == "approved" and r.get("golden_sql")]
+    if not keep:
+        raise Blocked("The set has no approved records.", "Approve the questions the person kept, then import again.")
+    cases = [{"case_id": r["id"], "question": r["question"],
+              "tags": [((r.get("provenance") or {}).get("source") or "eval")] + list(r.get("modes") or [])}
+             for r in keep]
+    answers = [{"case_id": r["id"], "gold_sql": r["golden_sql"], "notes": r.get("question_spec") or ""} for r in keep]
+    if pr.p("eval", "cases.jsonl").exists() and _scored_variants(pr) and \
+            {c["case_id"]: c["question"] for c in pr.cases()} != {c["case_id"]: c["question"] for c in cases}:
+        raise Blocked("This set already has graded runs.", "Import the changed set into a new --dir.")
+    pr.p("eval").mkdir(parents=True, exist_ok=True)
+    for name, rows in (("cases.jsonl", cases), ("answers.jsonl", answers)):
+        pr.p("eval", name).write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return {"status": "ok", "cases": len(cases), "skipped": len(spec["records"]) - len(keep),
+            "source": spec.get("source_description") or spec.get("name")}
+
+
 def cmd_session_run(a) -> dict:
     """This session as a run a proposal can cite. The trace exists in the registry once the session is synced."""
     session = a.session_id or (os.environ.get("CLAUDE_CODE_SESSION_ID", "") if a.harness == "claude-code" else "")
@@ -633,7 +656,7 @@ _DISPATCH = re.compile(r"(?:^|__)call(?:_read|_write)?_tool$")
 _WRITE_TOOL = re.compile(r"__(?:create|update|patch|put|delete|archive|restore|relate|unrelate|append|publish"
                          r"|release|withdraw|upload|install|uninstall|grant|revoke|rotate|set)(?:_|$)", re.I)
 _EVAL_ID = re.compile(r"\b(?:dataset|dataset_record|experiment|experiment_result|scorer)_[0-9a-z]{10,}\b")
-_EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics|/eval/v1/|gold_results", re.I)
+_EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics|\.atlan-evals|/eval/v1/|gold_results", re.I)
 _NARRATION = ("rationale", "objective", "description")
 
 
@@ -1107,6 +1130,11 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     if out["gold"]["stale"]:
         out["gold_next"] = (f"The oldest gold ran {out['gold']['age_days']} days ago. If the tables under it were "
                             f"backfilled or corrected since, re-run the gold, refreeze and re-run the baseline.")
+    v = out["validation"]
+    if v["n"]:
+        # The count a person reads, worded here so no one recounts it from the rows.
+        out["score_line"] = (f"{sum(1 for i in validation if means.get(i) == 1)} of {v['n']} answered correctly "
+                             f"(likely between {v['ci95_low']:.0%} and {v['ci95_high']:.0%}; a small sample)")
     if final:
         out["holdout"] = rate(means, holdout)
     elif holdout and any(r.get("prompt_id") in holdout for r in all_rows):
@@ -1154,7 +1182,8 @@ def paired_delta(ma: dict, mb: dict, ids) -> dict:
 
 def cmd_compare(a) -> dict:
     pr = Proj(a.dir)
-    sp = pr.split()
+    # A set never split (a generated set tested whole) compares every case, as `summary` reports it.
+    sp = load_json(pr.p("eval", "split.json")) or {"train_ids": [], "test_ids": sorted(c["case_id"] for c in pr.cases())}
     train, validation, holdout = split_sets(sp)
     ra, rb = read_results(pr.vdir(a.a) / "results.jsonl"), read_results(pr.vdir(a.b) / "results.jsonl")
     fa, fb = {r["freeze"] for r in ra if r.get("freeze")}, {r["freeze"] for r in rb if r.get("freeze")}
@@ -1317,10 +1346,11 @@ def _context(pr: Proj, a) -> dict:
     ids = {k: st[k] for k in ("agent_id", "workspace_id") if st.get(k)} | (st.get("ids") or {})
     ws = getattr(a, "workspace", None) or ids.get("eval_workspace_id") or ids.get("workspace_id")
     agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
-    if not ws or not agent_id:
+    dataset_only = getattr(a, "dataset_only", False)
+    if not ws or not (agent_id or dataset_only):
         raise Blocked("state.json has no workspace_id / agent_id.", "Register the agent first (build phase 5).")
-    rows = read_results(pr.vdir(a.variant) / "results.jsonl")
-    if not rows:
+    rows = [] if dataset_only else read_results(pr.vdir(a.variant) / "results.jsonl")
+    if not rows and not dataset_only:
         raise Blocked(f"No recorded results for {a.variant}.", "Record cases with `analytics_eval.py record` first.")
     return {"ids": ids, "ws": ws, "agent_id": agent_id, "rows": rows, "slug": st.get("slug") or pr.dir.name,
             "agent_name": ids.get("agent_name") or st.get("slug") or "talk-to-data-agent"}
@@ -1366,6 +1396,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                       "label": (cs.get("tags") or ["untagged"])[0], "categories": cs.get("tags") or [],
                       "source_kind": "manual"} for cs in new]
             return "records", [_create_many("dataset_record", items)], [cs["case_id"] for cs in new]
+    if getattr(a, "dataset_only", False):
+        return "done", [], []
     exps = ids.get("experiments") or {}
     if full and not exps.get(V):
         name = f"{slug}-{V}"
@@ -1489,6 +1521,9 @@ def cmd_publish(a) -> dict:
                        "with `publish-ack --reconcile`. Never resend a batch blindly: it duplicates what worked.",
                 "pending": pending}
     step, calls, names = _next_step(pr, pub, c, a)
+    if step == "done" and getattr(a, "dataset_only", False):
+        return {"status": "ok", "step": "done", "dataset_id": c["ids"].get("eval_dataset_id"),
+                "records": len(load_json(pr.p("eval", "records.json"), {}) or {})}
     if step == "done":
         exp = ((c["ids"].get("experiments") or {}).get(a.variant))
         return {"status": "ok", "step": "done", "experiment_id": exp, "sessions": len(pub.s["sessions"]),
@@ -1590,6 +1625,36 @@ def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
 
 
 # ====================================================================== selftest
+
+def _selftest_generated_set(pr: pathlib.Path) -> tuple:
+    """An eval-generation spec imports as cases and answers, then publishes as a dataset with no agent."""
+    pr.mkdir(parents=True)
+    spec = {"name": "s", "records": [
+        {"id": "q1", "question": "How many tickets sold?", "golden_sql": "select count(*) from t",
+         "review_status": "approved", "provenance": {"source": "query_history"}, "modes": ["grain"]},
+        {"id": "q2", "question": "Unread", "golden_sql": "select 1", "review_status": "pending"}]}
+    dump_json(pr / "spec.json", spec)
+    out = cmd_import_spec(argparse.Namespace(dir=str(pr), spec=str(pr / "spec.json")))
+    proj = Proj(str(pr))
+    imported = out["cases"] == 1 and proj.cases()[0]["tags"] == ["query_history", "grain"] \
+        and proj.answers()["q1"]["gold_sql"] == "select count(*) from t"
+    proj.set_id("workspace_id", "workspace_t")
+    steps = []
+    for _ in range(6):
+        res = cmd_publish(argparse.Namespace(dir=str(pr), variant="baseline", baseline=None, agent_id=None,
+                                             workspace=None, sessions_only=False, resend=False,
+                                             dataset_only=True))
+        if res.get("step") == "done" or res.get("status") != "ok":
+            break
+        steps.append(res["step"])
+        resps = [{"items": [{"status": 201, "artifact": {"id": f"dataset_record_{i}", "name": it["name"]}}
+                            for i, it in enumerate(c["arguments"]["items"])]} if "items" in c["arguments"]
+                 else {"artifact": {"id": f"{c['arguments']['kind']}_1", "name": "x"}} for c in res["calls"]]
+        dump_json(pr / "resp.json", resps)
+        cmd_publish_ack(argparse.Namespace(dir=str(pr), variant="baseline", step=res["step"],
+                                           responses=str(pr / "resp.json"), reconcile=False))
+    return imported, steps == ["scorer", "dataset", "records"] and res.get("records") == 1
+
 
 def _selftest_publish(pr: pathlib.Path) -> bool:
     """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot, one lost
@@ -1806,6 +1871,9 @@ def selftest() -> dict:
         ok("record retains exact published and query revision citations", cited["used_context_refs"] == refs
            and cited["used_context_ids"] == [r["artifact_id"] for r in refs])
         ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
+        imported, dataset_only = _selftest_generated_set(pathlib.Path(d) / "generated")
+        ok("import-spec keeps only approved records with SQL", imported)
+        ok("a dataset-only publish needs no agent and stops after the records", dataset_only)
         filled, capped = _selftest_message_fill(pathlib.Path(d) / "fill")
         ok("one messages step fills its batch across sessions", filled)
         ok("a messages step stops at the byte cap", capped)
@@ -1888,6 +1956,8 @@ def _selftest_integrity(ok) -> None:
            and summ["validation"]["n"] == len(split["test_ids"]))
         ok("summary --final reads the holdout", summarize(Proj(d), "base", True)["holdout"]["n"] == len(split["holdout_ids"]))
         ok("a row without a transcript counts as isolation unverified", summ["isolation_unverified"] == 1)
+        k = sum(1 for c in split["test_ids"] if case_means(read_results(Proj(d).vdir("base") / "results.jsonl")).get(c) == 1)
+        ok("the score line states the scripted count", summ["score_line"].startswith(f"{k} of {len(split['test_ids'])} answered"))
         ok("context engagement is measured from cited definitions", summ["context_engagement"] == 1.0)
         try:
             cmd_split(argparse.Namespace(dir=d, test_frac=0.5, seed=8, holdout_frac=0.2, redraw=True))
@@ -2245,7 +2315,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="sessions only (smoke runs): no dataset, experiment or results")
     c.add_argument("--resend", action="store_true",
                    help="repeat an unacknowledged step whose calls carry idempotency keys")
+    c.add_argument("--dataset-only", action="store_true",
+                   help="the scorer, dataset and records only: no agent, experiment or sessions")
     c.set_defaults(func=cmd_publish)
+
+    c = s.add_parser("import-spec", help="cases and answers from an eval-generation spec.json (approved only)")
+    c.add_argument("--dir", required=True)
+    c.add_argument("--spec", required=True)
+    c.set_defaults(func=cmd_import_spec)
 
     c = s.add_parser("publish-ack", help="record the registry's results for the pending publish step")
     c.add_argument("--dir", required=True)

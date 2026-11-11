@@ -75,13 +75,14 @@ dashboard and after the edit-metric block.
 | Option | Description |
 | --- | --- |
 | Ask more questions | Choose another supported question, or type your own. |
+| Check how accurate it is | I test the context on 5 questions the analysts already ask and show how many it gets right. |
 | Design a dashboard | I propose a layout from your metrics, you adjust it, and I build it as a page you can open. |
 | Continue building on real data | Start with your own dashboard link, local folder or BI export, here in this chat. |
 | I'm done | Finish the demo here. |
 
 Offer these options in the `Next:` line after answering the person's request and after a
 dashboard is built. Ask more questions returns to the supported question list. Own-data setup omits the
-real-data transition option. A supplied question or explicit next action takes precedence
+real-data transition option and, for now, the accuracy check. A supplied question or explicit next action takes precedence
 over asking again. Never start a flow until chosen.
 
 Answer only the question the person picks or types, through the ask route, with real
