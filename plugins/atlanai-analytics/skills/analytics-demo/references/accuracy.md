@@ -120,8 +120,9 @@ in `<evals-run>/work/spec.json`, name the fix:
 through the next score, so ask nothing more until the person must act in Metric Studio. Keeping
 the score goes to step 5.
 
-- **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to a
-  file in the run and run `PROJECT edit-metric <file>`. It keeps the old version beside the run (never where answering agents read), raises the
+- **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
+  `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
+  rule there no longer tests the context), and run `PROJECT edit-metric <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
   keeps the old rule, so say so and name the next fix in a `Next:` line. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
