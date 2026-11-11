@@ -7,6 +7,8 @@
 3. A .pbix model read in a runtime set up without the `pbix` feature failed mid-run with a
    missing-module error.
 4. A run-configuration error said only its type, never what to change.
+5. A semantic model fetched with --with-model, named by its report only by id, was recorded in
+   the manifest with no display name.
 """
 import importlib.util
 import io
@@ -113,6 +115,24 @@ class ReportWithoutModel(unittest.TestCase):
         self.assertEqual(b['effect'], 'not_read')
         schema = (ENGINE / 'src/metrics_agent/data/schemas/access_report.schema.json').read_text()
         self.assertIn('"model_not_included"', schema)
+
+
+class BoundModelName(unittest.TestCase):
+    def client(self):
+        client = x.FabricClient('synthetic-token')
+        client.max_attempts = 1
+        return client
+
+    def test_a_bound_model_is_named_from_its_item(self):
+        with mock.patch.object(x.FabricClient, '_request',
+                               return_value=(200, {}, {'displayName': 'Sales Model'})) as call:
+            self.assertEqual(x.item_name(self.client(), 'ws-1', 'model-1'), 'Sales Model')
+        self.assertEqual(call.call_args.args[1], f'{x.FABRIC_API}/workspaces/ws-1/items/model-1')
+
+    def test_a_refused_lookup_leaves_the_name_unknown(self):
+        with mock.patch.object(x.FabricClient, '_request',
+                               side_effect=x.ApiError(404, 'ItemNotFound', 'not visible')):
+            self.assertIsNone(x.item_name(self.client(), 'ws-1', 'model-1'))
 
 
 @unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')

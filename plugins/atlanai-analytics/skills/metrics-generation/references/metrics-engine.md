@@ -9,6 +9,9 @@ Keep the runtime outside the installed plugin and any generated agent package. F
 setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
 permitted cache. Never choose an OS/session scratch directory: the saved executor must remain
 usable after this chat ends. Reuse a compatible pinned runtime rather than reinstalling it.
+A runtime built by another plugin version, or with other features, is refused, and the refusal's
+`fix` names the folder to set up instead (`runtime-<commit>` beside it). Use that folder and
+leave the old one for the projects built with it.
 The module source lives under `modules/metrics/engine/`. This plugin owns its source changes and tests. Runtime identity hashes the current source.
 
 This procedure requires the complete Analytics plugin, including its `modules/` folder. A

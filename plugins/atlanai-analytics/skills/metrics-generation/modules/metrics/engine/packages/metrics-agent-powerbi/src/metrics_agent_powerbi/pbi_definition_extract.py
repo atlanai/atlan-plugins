@@ -1253,6 +1253,16 @@ def upstream_refs(model_dir: str) -> List[Tuple[Optional[str], str]]:
     return refs
 
 
+def item_name(client: FabricClient, workspace: str, item_id: str) -> Optional[str]:
+    """An item's display name, for one a report names only by id (its bound semantic model).
+    A refused or failed lookup leaves the name unknown; it never fails the fetch."""
+    try:
+        _, _, body = client._request("GET", f"{FABRIC_API}/workspaces/{workspace}/items/{item_id}")
+    except ApiError:
+        return None
+    return (body or {}).get("displayName") or None
+
+
 def find_upstream(client: FabricClient, workspace: Optional[str], model: str,
                   cache: Dict[str, Any]) -> Optional[dict]:
     """The work entry for the semantic model a chain link names, or None when this identity
@@ -1796,7 +1806,7 @@ def main() -> int:
                         "workspace": entry["workspace"],
                         "kind": KIND_MODEL,
                         "id": model_id,
-                        "displayName": None,
+                        "displayName": item_name(client, entry["workspace"], model_id),
                     }
             if extra:
                 log(f"--with-model: {len(extra)} bound semantic model(s)")
