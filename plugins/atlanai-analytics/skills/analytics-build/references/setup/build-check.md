@@ -23,10 +23,15 @@ through [connect](../../../source-survey/references/connect.md). No data connect
 execution access, mark SQL untested and preserve source work.
 All sources, including the demos and local-only files, use [the metrics engine](../../../metrics-generation/references/metrics-engine.md).
 For CSVs, initialize or reuse its pinned runtime, then use that runtime's Python with
-`PROJECT prepare` to create a new `.sqlite` database named after its schema. Configure
-`local-files` with the selected BI definitions, cleaned history and this database, and set the
-run's `dialect` to the file's engine (`sqlite`, or `duckdb` for an existing DuckDB file). Respect
-Dashboard only versus history scope. When the engine has no compatible SQL-check plug, retain
+`PROJECT prepare` to create a new `.sqlite` database named after its schema. Bind that file, or
+an existing SQLite or DuckDB file. With past queries in scope, run `PROJECT history`. Then, for
+any local database, write the engine's configuration with `PROJECT engine-config` and a request
+file `{"sources": "all"}` or `{"sources": "dashboard"}`, adding `"bi": "<path>"` (relative to
+the surveyed folder) when the survey found more than one dashboard file. It configures
+`local-files` with the dashboard, the cleaned history and the bound database, takes the dialect
+from the binding, and names the history's tables as the engine reads them. It prints `config`
+and `engine_run`. Do not write it by hand; only a Power BI project folder (TMDL) is configured
+as [the metrics module](../../../metrics-generation/references/metrics-engine.md) describes. When the engine has no compatible SQL-check plug, retain
 parse-only evidence and run exact local checks separately.
 Do not create a second authoring path because an executor is unavailable.
 
@@ -56,14 +61,15 @@ Run `PROJECT check` for local structural validation. It requires no workspace an
 `schema_checked`, not certification or execution. Use `PROJECT check-query "<request.json>"`
 with a candidate `name` and separate `parameters` to execute exact saved SQL on the bound SQLite or DuckDB file. Checks
 for metrics use `PROJECT check-metric` with `name`, `example_index` (zero-based) and parameters.
-The request files are `{"name": "<query>", "parameters": {}}` and
-`{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 It executes that exact authored SQL example and the calculation composed from the card's
 formula, source and mandatory filters, including an empty-population probe. Both must run;
 fix invalid column scope or bindings on the card and rerun. The local helper batches these statements in one bounded worker, retaining each statement's
 read-only validation, table scope, parameter bindings, schema check and separate result.
 The evidence records example and composition separately. Neither establishes source equivalence or dashboard parity; compare
 the source calculation and relevant edge cases separately.
+Run `check-query` on every saved query and `check-metric` on every metric: a query left at
+`schema_checked` has not run. Their request files are `{"name": "<query>", "parameters": {}}`
+and `{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 Both types of checks
 are bound to definition hashes. For warehouses use the existing read-only tool and retain
 actual revision-bound check evidence. Test representative parameters, excluded populations

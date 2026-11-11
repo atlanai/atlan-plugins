@@ -2,7 +2,7 @@
 
 Read right after the person picks this demo, and again at each later moment for its facts.
 The demo is `yard`. It lives in this skill's `assets/yard/`; `DEMO open yard` sets up its
-working folder, and `DEMO requests yard` prints its dashboard file, database, schema and dialect.
+working folder, and `DEMO requests yard` prints its dashboard file, database and schema.
 
 ## The welcome
 
@@ -15,13 +15,8 @@ also print the welcome as a reply before the question.
 Build a job profit agent for Fixit & Co. It answers questions about
 Fixit's jobs in plain English and shows the rule behind every number.
 
-Questions it will answer:
-  - Fixit lost £6,360 on its biggest job, a £150,000 wind turbine base.
-    Why?
-  - Which jobs finished late, once the contract's week of grace is
-    allowed for?
-  - Where did rework cost the most?
-  - How much material ended up in the skip, and on which jobs?
+It reads the dashboard and the questions analysts already ran, then
+suggests the questions this context can answer once it is built.
 
 What you're working with:
   Dashboard      Power BI, 4 tiles: gross margin, rework cost,
@@ -56,18 +51,8 @@ Ready to build?
 | Data tables | 5 |
 | Focus to record | Job margin |
 | Purpose to record | Build a job profit agent that answers which jobs lost margin and why |
-| The question | Which job lost the most margin last quarter, and why? |
 | What a metric is, by example | a number Fixit cares about, such as gross margin, with the rule for working it out |
 | Why build them | Margin says which job lost money. Labour, materials, rework and late jobs say why. |
 | What the agent can answer | Questions about job margin, rework, material waste and late jobs |
-
-Questions to offer when the agent is ready, when this run's context supports them:
-
-| Question | Description |
-| --- | --- |
-| Which job lost the most margin, and why? | Margin by job, with what drove the cost. |
-| Which jobs finished late? | Planned against actual finish dates. |
-| Where did rework cost the most? | Rework cost by job. |
-| Where was the most material wasted? | Material waste by job. |
 
 The dashboard to offer at the end is named `fixit-job-profit-dashboard.html`.

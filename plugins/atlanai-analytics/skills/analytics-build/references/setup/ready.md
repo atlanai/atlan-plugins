@@ -20,7 +20,7 @@ The agent is this chat with the saved context; do not register, deploy or evalua
 separate agent, and say so only if asked. Do not answer any question the person has not
 chosen. When the question step starts, show what they made, then let them pick a supported question.
 
-Open the chosen demo's file again for its facts and its questions
+Open the chosen demo's file again for its facts
 ([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
 Send these lines, filled from the facts and this run, as the text of the "What would you
 like to ask?" question, with their line breaks and leading spaces. The fence only marks the
@@ -51,8 +51,8 @@ then the supported questions as plain numbered lines, and call no tool after it.
 
 **First show questions, for both demo and own-data setup.** The question whose text is the
 ready block offers two or three questions supported by the
-checked context (fewer if needed) and the host's free-text entry. Use the demo's facts
-file only for a demo; own-data questions come from its saved context. Omit any question
+checked context (fewer if needed) and the host's free-text entry. For a demo and for own
+data alike, write them from this run's saved context; no demo ships a question list. Omit any question
 that depends on an unchecked or unavailable metric. Do not show an Ask AI menu, dashboard
 choice or real-data transition before this first question list.
 

@@ -9,7 +9,8 @@ sample schema or database name. Explicit agent and evaluation modes remain separ
 
 `PROJECT` means `python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>"`.
 It is command notation, not a shell string variable. Use separate argv entries or a shell
-function; zsh does not split a scalar containing an executable and its arguments.
+function; zsh does not split a scalar containing an executable and its arguments. Write its
+request files inside `<run-dir>`: it refuses paths through a symlink, such as `/tmp` on macOS.
 Use the metrics engine's pinned Python 3.11/3.12 runtime for generation and CSV
 preparation. The project helper retains local checks and publication state.
 The [local procedures](project.md) describe binding, preparation and complete release readbacks.

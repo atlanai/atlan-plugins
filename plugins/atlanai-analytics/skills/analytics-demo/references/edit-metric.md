@@ -5,7 +5,7 @@ context matters: change one rule once, and every answer that uses it changes wit
 
 ## 1. Offer one real change
 
-Pick one metric from the built context that the demo's questions use. Propose one change that a person at the
+Pick one metric from the built context that this run's questions use. Propose one change that a person at the
 firm could plausibly want, taken from the metric's own rule: a population it excludes, a
 threshold it uses, or a cost it leaves out. Ask one native question whose text says the
 current rule in one sentence, then asks which change to make (where there is no question
@@ -41,11 +41,11 @@ text of the save question, never reply text followed by a native question:
 > | | Before | After |
 > | --- | --- | --- |
 > | Rule | `<old rule, plain words>` | `<new rule, plain words>` |
-> | `<the demo's worked example>` | `<old value>` | `<new value>` |
+> | `<one worked example from this run's data>` | `<old value>` | `<new value>` |
 > | Check | `<old check status>` | `<new check status>` |
 
 Before showing it, re-ask, through `analytics-ask`, one question the person already asked
-that uses this metric. With no earlier question, use the demo's first question. Write one
+that uses this metric. With no earlier question, use the first question offered in this run. Write one
 sentence with the new answer beside the old one; it goes right after the block, wherever
 the block goes.
 

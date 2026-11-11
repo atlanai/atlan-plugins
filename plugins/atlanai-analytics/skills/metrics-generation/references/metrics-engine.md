@@ -116,7 +116,8 @@ asset or generated instructions/answers/receipts. A host file permission dialog 
 the person's answer; do not edit sandbox settings or repeat the same access request per stage.
 Use this plugin's isolated runtime and packaged gate instructions for every run.
 
-Write the agreed configuration to a private file, with absolute staged input paths. It is the normal
+For a setup run on a local database, `PROJECT engine-config` writes this configuration; see
+[build and check](../../analytics-build/references/setup/build-check.md). Otherwise, write the agreed configuration to a private file, with absolute staged input paths. It is the normal
 metrics-agent `run.yml` contract, with `publish: [files]` and `observers: []`. This destination
 means local handoff to the plugin, not authorization to publish to Registry. All input plug
 settings and entry-point discovery remain unchanged.

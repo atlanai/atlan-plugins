@@ -34,7 +34,7 @@ the firm while the build runs.
 
 | Option | Description |
 | --- | --- |
-| Start building | Begin step 1: download the demo files into this folder and read them. |
+| Start building | Begin step 1: set up the demo in this folder and read its files. |
 | Not now | Stop here; /atlanai-analytics:analytics-demo picks it up later. |
 
 Where there is no question tool at all, print the welcome lines as the last thing in the
@@ -76,13 +76,13 @@ no pair: its ready block says it.
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
-first tracker right after "Start building", before reading setup's references or cloning.
+first tracker right after "Start building", before reading setup's references or opening the demo.
 Never use file names, helper names or query-shape counts in these lines. After reading
 sources, add one sentence on what they revealed, such as which questions the analysts
 asked most. Never leave a minute without a line; follow [progress](../../analytics-build/references/setup/progress.md).
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
-the steps, a question or an example. Use the firm's name and the demo's question. A name
+the steps, a question or an example. Use the firm's name. A name
 from the data may appear in an answer only when the person's question asks who, and never
 a customer's personal details.
 
