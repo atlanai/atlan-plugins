@@ -32,6 +32,8 @@ The core runtime supports query-history files, column-schema files, SQLite and D
 the installed Power BI/Tableau readers. Add only needed features: `snowflake`, `powerbi`,
 `tableau`, `databricks`, `postgres`, or `pbix`. These install the maintained plug packages or
 optional binary reader. A new source is a registered plug/reader, never a core edit.
+A source the person named needs its feature: for a Power BI link that is `powerbi`, set up as
+part of this procedure rather than skipped in favour of a browser capture.
 
 If the runtime is absent, announce its isolated, constrained initialization and run
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
@@ -49,6 +51,29 @@ Ask only for missing decisions affecting meaning or execution: bounded source/ta
 dialect, custody, verification mode and any required plug setting. Propose defaults from
 evidence. Never ask for credentials. Missing warehouse access can produce parse-only output;
 a failed semantic check cannot be converted into parse-only success.
+
+### Power BI from a report link
+
+The `powerbi-fabric` plug fetches the report and its semantic model in one step, the richest
+input a run can have. Sign in as the person; set `sign_in: browser` (authorization code with
+PKCE) when the agent runs on their machine, so the sign-in opens in their own browser with
+single sign-on and nothing to copy. Leave it out for the device code where there is no local
+browser (an SSH or cloud session), or where the public client does not allow the redirect
+`http://localhost`. A token or service principal already in the environment is used without
+either. Both interactive sign-ins need the terminal procedure under **Native sign-in**.
+
+```yaml
+inputs:
+  bi: [powerbi-fabric]
+settings:
+  powerbi-fabric:
+    targets: [https://app.powerbi.com/groups/<workspace-id>/reports/<report-id>]
+    with_model: true
+    sign_in: browser
+```
+
+Fall back to [browser capture](dashboard/powerbi-capture.md) only when the plug cannot run
+or is refused, and say which.
 
 ### Direct Snowflake query history
 

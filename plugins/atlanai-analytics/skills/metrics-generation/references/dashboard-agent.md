@@ -5,12 +5,27 @@ metrics module. Existing saved dashboard jobs stay readable as source evidence; 
 or revisions use a new main-engine run. Keep identification, evidence and progress in
 native chat. No additional MCP server is installed.
 
-1. **Identify and capture.** Reuse the supplied original file or fetch once through the
-   existing authorized browser/BI connector. Keep its source URL, title and identity. The
-   existing dashboard helper may identify or inventory a Power BI download, and retain capture evidence. Its retired translator and card exporter are unavailable. Read
-   [Power BI capture](dashboard/powerbi-capture.md) when fetching Power BI. For Tableau,
-   obtain the original workbook and its referenced datasource definitions. A missing file
-   is a named gap, not a reason to infer definitions from chart values.
+1. **Identify and capture.** Reuse the supplied original file when there is one. Keep the
+   source URL, title and identity.
+   - **Power BI link: the `powerbi-fabric` plug first.** It is the only route that brings
+     the report and its semantic model together, so metrics stay tied to the visuals.
+     Set the report URL in `targets` with `with_model: true`, and sign in as the person.
+     Use `sign_in: browser` (authorization code with PKCE) when the agent runs on their
+     machine: the sign-in opens in their own browser with single sign-on and nothing to
+     copy. Use the device code (the default) when there is no local browser, such as an
+     SSH or cloud session. A token or service principal already set in the environment is
+     used without either.
+     Setting up the runtime's `powerbi` feature for this is part of the procedure, not an
+     extra install. See [the metrics module](metrics-engine.md) for the run.
+   - **Browser capture: the fallback** when the plug cannot run (no terminal for the
+     sign-in, both sign-ins refused by the tenant) or is refused (a Viewer role, which only
+     downloads). Follow [Power BI capture](dashboard/powerbi-capture.md). A browser route
+     brings the report or the model, rarely both; name what is missing.
+   - **Tableau:** the original workbook and its referenced datasource definitions.
+
+   The existing dashboard helper may identify or inventory a Power BI download, and retain
+   capture evidence. Its retired translator and card exporter are unavailable. A missing
+   file is a named gap, not a reason to infer definitions from chart values.
 2. **Reuse the interview.** Use the already selected workspace, purpose, table scope,
    warehouse connection and approval mode. Propose missing physical mappings from actual
    lineage. Ask only for unresolved business choices. Inherit auto approval as the project

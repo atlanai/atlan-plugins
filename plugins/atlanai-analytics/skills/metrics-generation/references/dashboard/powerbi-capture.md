@@ -1,5 +1,17 @@
 # Power BI capture procedure
 
+This is the fallback. A Power BI link is fetched by the `powerbi-fabric` plug first, which
+brings the report and its semantic model together ([dashboard](../dashboard-agent.md), step 1).
+Use this procedure only when the plug cannot run or was refused, and say which.
+
+What each browser download holds:
+
+| Download | Report | Model (formulas) | Note |
+|---|---|---|---|
+| **A copy of your report and data (.pbix)** | yes | yes | Copies the model's rows to disk: ask the person first. Reading it needs the runtime's `pbix` feature. |
+| **A copy of your report with a live connection (.pbix)** | yes | no | The run leaves it out (`model_not_included`): add the model's definition (TMDL) from the session. |
+| The model's definition (TMDL) through the signed-in session | no | yes | Measures without their place on the dashboard. |
+
 Use the host's installed connector or documented computer-use APIs. Browser automation runs under the host's permission model. This package cannot assume a browser is installed, available or signed in.
 
 Generic talk-to-data setup uses [shared setup](../../../analytics-build/references/setup.md) for metadata-first page selection,

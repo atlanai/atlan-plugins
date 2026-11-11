@@ -23,12 +23,19 @@ Preserve existing run locations; do not change host permissions or read credenti
   metadata query (`INFO.VIEW.MEASURES`) returns names without expressions for most roles.
   Get the definition files, in this order:
   1. the engine's own reader for that service (`powerbi`, `tableau` features), signed in as
-     the person through its device-code or browser route, as
-     [Power BI service inputs](../../metrics-generation/modules/metrics/engine/docs/guides/power-bi-service-inputs.md) says;
+     the person: for Power BI the `powerbi-fabric` plug with `with_model: true`, through its
+     browser sign-in (`sign_in: browser`, PKCE) when the agent runs on the person's machine,
+     or its device code when there is no local browser, as
+     [Power BI service inputs](../../metrics-generation/modules/metrics/engine/docs/guides/power-bi-service-inputs.md) says.
+     It is the only route that brings the report and the model together; every route below
+     brings one of them, so name the other as a gap;
   2. the service's definition export through the person's signed-in session (Power BI's
-     item definition, TMDL format), saved as a file into the run's `sources/` folder by one
-     announced download, then `ENGINE stage-input`;
-  3. a supported export the person downloads (`.pbix`, `.pbip`, `.twbx`).
+     item definition, TMDL format: the model without the report), saved as a file into the
+     run's `sources/` folder by one announced download, then `ENGINE stage-input`;
+  3. a supported export the person downloads (`.pbix`, `.pbip`, `.twbx`). A Power BI
+     "live connection" `.pbix` holds the report and no model, so the run leaves it out; a
+     "report and data" `.pbix` holds both, copies the rows to disk (ask first) and needs the
+     runtime's `pbix` feature.
 
   Never carry a definition through chat or page text: page readers cap output and collapse
   whitespace, so a copied model differs from the original. Check any staged file against the
