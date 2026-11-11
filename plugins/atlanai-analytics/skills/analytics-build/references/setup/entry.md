@@ -8,10 +8,10 @@ Decide the entry from the request alone. Do not ask which entry the person wants
 
 | The person gave | Entry | Survey (`source-survey`) | Interview | Inventory |
 | --- | --- | --- | --- | --- |
-| Nothing | No input | `setup` | Both questions, in one card | Names and questions for the focus |
+| Nothing | No input | `setup` | One question: what are you trying to do? | Names and questions for the subject |
 | A dashboard link, BI export, folder or repository | A source | `inventory` on it | None: the report says what it is for | Names by page, shown and not asked |
 | A subject or an unanswered question, such as "sales pipeline" | A domain | `domain` | Replaced by the differences question | Reuse, new and flag |
-| A warehouse only | A domain, with the warehouse as its place to look | `domain` | Both questions when no subject was named | Names from query history |
+| A warehouse only | A domain, with the warehouse as its place to look | `domain` | The one question, when no subject was named | Names from query history |
 | A source and a subject | A source, with the subject as the focus | `inventory` | Purpose only, when it is not plain | Names for the focus |
 
 A resume, a details request, a survey-only request and a named argument are not entries: the
@@ -40,21 +40,25 @@ Own-data setup talks as the demo does ([the tour rules](../../../analytics-demo/
 
 ## No input
 
-1. **Open and survey.** One opening line on the outcome and that nothing gets changed, then
-   the setup survey's Doing and Why. Run `source-survey` `setup`.
-2. **Say what was found.** The result line, then the survey's table with its "Can build from
-   it" column, then the suggested starting point in business words. This is the visible text
-   of the interview's card, not a message before it.
-3. **Interview.** [Both questions](intent.md) in one card when the host's question tool takes
-   several, otherwise one after the other. Every focus option comes from a buildable source.
-4. **Confirm the sources.** Run `source-survey` `inventory` on the suggested source, then
-   `plan`. Show the ordered list (reports, then query history, then table definitions) with
-   what each adds, and ask one question: build from these, or leave out history.
-5. **Inventory.** [Names and questions](names.md), shown and not asked, with the focus's
+1. **Open and survey.** The skill's opening, then the setup survey's Doing and Why. Run
+   `source-survey` `setup`.
+2. **One line, one question.** [The interview](intent.md): "Found: Power BI (2 reports),
+   Snowflake, 90 days of query history." then "What are you trying to do?". The found line is
+   the question's own text. No table, no readiness notes, no suggested starting point.
+3. **Work out the rest and say it.** The subject, the source and the period come from the
+   answer and the survey, stated in one sentence. Ask a narrow follow-up only when two
+   buildable sources could hold the subject, or none does.
+4. **State the sources and start.** Run `source-survey` `inventory` on the chosen source,
+   then `plan`, said in one sentence, not asked: reports, then query history, then table
+   definitions. The person can still say to leave history out.
+5. **Inventory.** [Names and questions](names.md), shown and not asked, with the subject's
    names first. Then step 4 onward as the skill lists it.
 
+When nothing can be built from, stop after the survey with the one thing that would change
+it, and mention `analytics-demo`. Ask nothing.
+
 **A report is always built whole.** Every page and every measure of a chosen report is in
-scope: never ask which pages to build, and never narrow a report to the focus. The focus
+scope: never ask which pages to build, and never narrow a report to the subject. The subject
 decides what is shown first, which metric represents the collection and which questions are
 suggested. A person who asks for less in their own words gets less.
 

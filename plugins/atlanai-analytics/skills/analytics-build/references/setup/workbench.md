@@ -9,11 +9,9 @@ other surface unless the person asks for [a visual view](render.md).
 
 Orient before tools. Survey the supplied source and reuse existing acquisitions. Explain
 what was found, its business meaning and plausible analyses in the first question's visible
-prompt, not only in commentary. Use preset demo intent, or establish missing [business focus
-and purpose](intent.md) for own data, as much of it as [the entry](entry.md) calls for. Ask
-both in one card where the host's question tool takes several questions, otherwise one after
-the other, waiting for each; use ordinary chat if the host exposes no question control. Asked
-separately, adapt the second question to the first answer. Free text is always valid. Do not invent a tool or display a
+prompt, not only in commentary. Use preset demo intent, or [the interview](intent.md) for own
+data when [the entry](entry.md) calls for it: one question about what the person is trying to
+do, through the host's question control or ordinary chat. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
 Use [the presentation flow](presentation.md) for the completed-collection review after the run's

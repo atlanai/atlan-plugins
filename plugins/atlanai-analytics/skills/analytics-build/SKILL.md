@@ -40,9 +40,7 @@ Your next message is the opening, before surveying or calling helpers. With no i
 what your numbers mean and how they are worked out. With that context, you can ask your data
 questions in plain English and see what each answer is based on.
 
-First, let me understand your tools and your domain. I'm looking at what this machine can
-reach; nothing gets changed. You can narrow the scope, ask for details, keep the work local,
-or pause at any point."
+First, let me understand your tools and your domain."
 
 With a source or a subject: "I'll turn `<it>` into context: what its numbers mean and how
 they are worked out, so you can ask questions in plain English here and see what each answer
@@ -63,11 +61,11 @@ the first action, with the full tracker at every step change. Follow
 reached and never replace a moment with a status line.
 
 1. **Survey your sources.** The entry's survey: `source-survey` `setup`, `inventory` or
-   `domain`. Say what was found, what it means and what can be built from, inside the first
-   question's visible prompt; an inventory followed by option labels alone is not enough.
-2. **Clarify your use case.** [The interview](references/setup/intent.md), as much as the
-   entry leaves open: focus and purpose in one card with no input; a named source or subject
-   stands in for it otherwise. Then [the inventory](references/setup/names.md): the metric
+   `domain`. With no input, what was found is one line of tools and counts, as the first
+   question's own text. With a named source, say what it covers and that it can be built from.
+2. **Clarify your use case.** With no input, [the interview](references/setup/intent.md):
+   one line of what was found, then one question, "What are you trying to do?". The subject,
+   source and period are worked out and said, not asked. A named source or subject skips it. Then [the inventory](references/setup/names.md): the metric
    names and the questions they answer, from `source-survey` `candidates`, shown, not asked.
 3. **Select tables and dashboards.** A report is built whole: never ask which pages.
    `source-survey` `plan`, then [inspect and scope](../source-survey/references/inspect-scope.md)

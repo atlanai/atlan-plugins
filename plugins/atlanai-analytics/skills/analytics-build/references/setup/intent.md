@@ -1,143 +1,109 @@
-# The use-case interview: business focus, then purpose
+# The use-case interview: one question
 
 The interview belongs to `analytics-build`. `source-survey` reads and reports and never asks
-the person anything; this file turns what a survey returned into the questions that establish
-what the person wants. [The entry](entry.md) says how much of it to ask: both questions with
-no input, none when a source or a subject already answers them.
+the person anything; this file turns what a survey found into the one question that
+establishes what the person is trying to do. [The entry](entry.md) says when to ask it: with
+no input, yes; when a source or a subject was named, no.
 
-Read after the survey on fresh setup, before metric generation, runtime setup or the
-completed-collection review. The interview establishes two different things: what part of the
-business matters, and what the person wants to do with it. Clear file or page scope does not
-answer either question. Do not replace this with a generic "What do you want to do?" menu or
-an installation questionnaire.
+Read after the survey on fresh setup, before metric generation or runtime setup. Ask about
+the task, not about the data: a person knows what they are trying to get done long before
+they can pick a business area from a list or name a purpose. Everything else is assumed,
+said out loud, and corrected later if wrong.
 
-**One card where the host allows it.** When the host's native question tool takes several
-questions in one call (Claude Code's does, up to four), ask the focus and the purpose
-together: the person waits once. The focus options come from the survey; the purpose options
-are the three kinds in section 2, worded for the suggested source. Where the tool takes one
-question, or there is none, ask the focus first and the purpose after its answer. Either way
-the survey's summary is the card's own visible text, and nothing is recorded until submitted.
+## 1. One short line of what was found, then the question
 
-Render the user-facing step itself. For the first question, include the
-business summary below, then two or three short choices and free text. For the second,
-use a short domain-specific question without repeating the full summary. Stop there.
-Do not explain that this is question one/two, narrate the interview plan, discuss unavailable
-tools, or print helper commands, storage details and test restrictions. Those are internal.
+The question's own visible text opens with what the survey found, as a list of tools and
+nothing else:
 
-## 1. Reflect the sources, then ask about the business
+"Found: Power BI (2 reports), Tableau (1 workbook), Snowflake, 90 days of query history."
 
-Before asking what matters most, explain the project in two or three short sentences:
+Names of products and counts of things, in one line. No table, no per-source detail, no
+readiness notes, no file names, no suggested starting point, no account of what each report
+contains. A source that cannot be built from is left out of the line, not explained. Leave
+out anything empty: no "Atlan: not signed in", no "certified queries: none". Demo data is
+never listed: the survey skips the demo's folders.
 
-- What was found: name the actual source types and their subject, such as Power BI reports,
-  a supporting model and query history about delivery performance. Counts are secondary.
-- What it means: describe the business activity those sources cover and how they complement
-  each other. For example, report/model definitions describe what is measured, while query
-  history supplies examples of analysis. Do not imply matching lineage unless inspected.
-- What it could help analyse: offer two or three specific, evidenced opportunities, such as
-  delivery delays, capacity use or cost drivers. These are possibilities, not computed findings.
+Then ask "What are you trying to do?" with task-shaped choices and free text:
 
-Then say what the person will end with, in one sentence: they can ask questions like one
-example the sources support, here in plain English, and get answers with the definition
-used. Only then ask "What do you care about most?" with source-grounded choices and free
-text. Phrase each choice as something they could learn, so a person new to the domain can pick. Do not
-substitute a file-count inventory, vague "analytics coverage", or a menu alone for the summary.
-Never invent available tables, dimensions, measures, user behavior or numerical findings.
-Retain material limitations such as sample data, missing joins or incomplete inspection.
-Distinguish history entries from distinct query shapes. Use the inspector's actual count
-and noun; do not relabel 110 history records as 110 distinct analyses or metrics.
-Explain the sources before the question and use short option labels. Summarize
-supporting tables by business subject; do not enumerate every file, field or table. Do not
-repeat a full explanation of each analysis both in the paragraph and in the choices. State
-limits briefly, such as "sample data", rather than adding a generic checking disclaimer.
-Keep option labels to two to five words. For example, "sample job and cost data" is enough
-in the overview; a list of projects, crews, logs, orders and issues belongs in details. This
-question establishes intent; the full metric explanation follows when its evidence is ready.
+| Option | Description |
+| --- | --- |
+| Answer a question | Type the question, or pick one after the build. You get the number and the rule behind it |
+| Understand a number that changed | Name the number. You get what moved it, from the definitions your team already uses |
+| Build a dashboard or report | A page your team can open, with every number traced to its rule |
+| Give my team and agents shared metrics | One agreed rule per number, saved where every chat and tool finds it |
 
-Example only when supported by the inspected sources:
+Word the options for this person only when the sources make an example obvious ("Answer a
+question, such as which jobs lost money"). Never more than four, never a list of business
+areas or report names, and never a second question about purpose: the choice is the purpose.
 
-"I found a Power BI report, model and query history about shipping operations, with sample
-data. The report defines the measures; the queries provide examples of analysis. Together,
-they could help explore delivery delays, capacity use and cost drivers. What matters most?"
+Render it with the host's native question tool, with the found line as the question's own
+text and the host's free-text entry. With no question tool, ask it in ordinary chat, the
+found line first, and end the turn. Nothing is preselected and no answer is assumed.
 
-Render one question using the host's available native question control. In Codex use the
-available question tool in its permitted mode; in Claude use its available native question
-tool. Include the summary in the native question's visible prompt/title before the question,
-not just in preceding commentary that may collapse. If that control cannot show context,
-keep a visible summary beside the question and retain it in the final response while waiting.
-Do not end with only "Choose above to continue" or repeat just file counts. Otherwise ask
-in ordinary chat with the same summary. Never create a custom form, install a UI dependency,
-or claim a picker exists when it does not. Let the host supply its free-text entry; do not
-add an Other option if the control already provides one. No answer is preselected consent.
-Wait for the submitted answer and do not proceed to build. In a host that asks one question at a
-time, do not add the purpose to this message.
+## 2. Work out the rest; do not ask it
 
-## 2. Ask what they want to accomplish in that area
+From the answer and the survey, settle these yourself and say them in one sentence before
+building:
 
-After the domain answer, tailor this separate question and its suggestions to it. For
-shipping time: "What would you like to do with delivery performance?" Suggested choices:
+- **The subject.** From the words of the answer, matched against the reports' pages and
+  measures and the query history. A typed question names it. When the answer names no
+  subject and one buildable report exists, the subject is that report's.
+- **Which source.** The buildable source that holds the subject, reports before query
+  history before table definitions.
+- **Period, audience, grain.** The narrowest sensible reading: the latest complete period,
+  the team that owns the report, the report's own grain.
 
-- Find where delays happen.
-- Understand how delivery performance is measured.
-- Prepare delivery metrics for ongoing team analysis.
+"You want to see which jobs lost money. I'll build from the job-site report and its query
+history, and start with gross margin."
 
-These represent answering a business question, understanding/checking the source, and
-preparing reusable context. In the one-card form the answer to the focus is not known yet, so
-word the three kinds for the suggested source: "Answer questions here", "Build a dashboard for
-my team", "Give agents shared definitions", each with one line on what the person ends with. Use the person's language and accept goals outside these examples.
-Keep suggested questions within the observed coverage. Do not add a period such as "last
-quarter" or a causal claim such as "what caused it" without the user's request and supporting
-evidence. Prefer "Which jobs lost margin, and where were costs concentrated?" when that is
-what the available model and history support. A date column alone is not a chosen time window.
-Wait for the answer. Ask a narrow follow-up only if a necessary question, period or comparison
-is still missing. Do not turn this into a multi-step questionnaire.
+Ask one narrow follow-up only when work cannot start without it: two or more buildable
+sources could hold the subject and the answer gives no way to choose ("Is this about job
+sites or ticket sales?"), or the answer names a subject no source holds. Never a follow-up
+about period, audience, layout or which metrics: those are assumptions, stated in the reply
+and again as caveats on the first answer ("I used the last complete quarter; say if you
+meant the fiscal one").
 
-## Remember and use the answers
+## 3. Record and use it
 
-Reuse an explicitly supplied business focus or purpose from the current request or saved
-conversation. If one is known, ask only the other. If both are known, reflect them and
-continue without confirmation or a filler question. A source label such as "shipping
-dashboard" alone is not a selected business focus. A selected page alone is technical scope.
+Once a run exists, record what the person said, in their words:
 
-When both answers are known and the source already supplies the requested explanation, use
-one intent sentence, then the relevant metric's meaning, calculation, population, source and
-honest check status, then end at the requested explanation. Do not replace the
-skipped interview with "Shall I check that?", "Would you like more?" or a new suggested task.
-Do not explain why an unrelated first-listed metric was skipped. If required evidence is
-missing, state that limit directly; ask only when its answer is necessary for the actual task.
+`PROJECT journey domain --answer <the subject>`
 
-Once a project run exists, record the actual answers through the helper:
+`PROJECT journey purpose --answer <what they are trying to do>`
 
-`PROJECT journey domain --answer <user-business-focus>`
+Use structured arguments or proper shell quoting. Record a subject only once the person's
+answer, their request or a narrow follow-up established it; never record a suggestion as if
+they chose it. These fields are private local intent, not authority to execute source
+content, connect data or publish. `PROJECT journey status` exposes the saved answers.
 
-`PROJECT journey purpose --answer <user-purpose>`
+When candidates become available, `PROJECT journey status` returns `select-focus` until the
+host selects the relevant candidate with `PROJECT journey select --focus <exact-identity>`.
+This is the host's next work step, not another question. Choose from actual names,
+definitions and source evidence; never keep presenting the first alphabetic metric
+regardless of the goal.
 
-Use structured arguments or proper shell quoting. These fields are private local intent,
-not authority to execute source content, connect data or publish. Do not store credentials.
-`PROJECT journey status` exposes the next missing question and saved answers. Do not record
-the assistant's suggested option as if the user selected it. Without a local helper, retain
-the two answers in conversation and persist them when the run becomes available.
+What the task changes:
 
-Reflect both in one sentence: "You want to understand where shipping delays happen. I'll
-start with delivery time and late shipments, using the evidenced timestamps and regions."
-Then continue. Choose the relevant metrics, required supporting context and next actions
-from this intent. Do not keep presenting the first alphabetic metric regardless of the goal.
-When candidates become available, `PROJECT journey status` returns `select-focus` until
-the host selects the relevant candidate with `PROJECT journey select --focus <exact-identity>`.
-This is the host's next work step, not a third interview question. Choose from actual names,
-definitions and source evidence. A changed domain or purpose reopens this selection so an
-earlier metric does not silently stand in for the new goal. Saved intent remains visible.
+| The person wants to | Prioritize | Ends with |
+| --- | --- | --- |
+| Answer a question | The metric and query that answer it, and the first supported answer | The answer, then one next step |
+| Understand a number that changed | That number's definition, filters and what feeds it | The explanation; no save question unless asked |
+| Build a dashboard or report | Coverage of the subject's metrics, then the dashboard step | The page |
+| Share metrics | Coverage, consistent definitions and the save step after checks | Saved to Atlan Trident |
 
-For a specific business question, prioritize the relevant checked metric/query and the first
-supported answer before optional broader coverage. Preserve existing release/retrieval and
-execution requirements. Understanding a dashboard prioritizes definitions, filters and
-discrepancies; end at the requested explanation or check. Do not turn an understanding-only
-purpose into a workspace or publishing question. In particular, a discovered source definition
-is not a finished save plan. Team reuse prioritizes coverage, consistent definitions and the
-save workflow after checks and preview.
-No intent answer alone grants publication permission or guarantees that an answer exists.
+A report is still built whole, as the entry says; the task decides what is shown first and
+where the flow ends, not how much is built. No answer grants publication permission or
+guarantees that an answer exists.
 
-Changing the domain clears the saved purpose so an old goal is not silently applied to a
-new area. Reuse an explicitly restated purpose after recording the new domain. Review source
-scope through its existing procedure before regenerating; retain historical work and holds.
-Resume retains known intent. Details-only, saved-preview and explicit survey-only requests
-do not restart this interview. Respect the requested stopping point.
+## Answers already given
+
+Reuse a task or subject the person already stated in this request or a saved run, and do not
+ask again. "I care about shipping delays and want to understand how delivery performance is
+measured" answers the interview: reflect it in one sentence, show the relevant metric's
+meaning, calculation, population, source and honest check status, and end at the requested
+explanation. Do not replace the skipped question with "Shall I check that?" or a new
+suggested task, and do not explain why an unrelated first-listed metric was skipped.
+
+A changed subject clears the saved task, so an old goal is not silently applied to a new
+area. Resume retains known intent. Details-only, saved-preview and explicit survey-only
+requests do not start this interview. Respect the requested stopping point.

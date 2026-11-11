@@ -35,11 +35,11 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply reports what the survey found in business words, including that the
-      Field Coverage report can be built from and that the Bloom Calendar workbook cannot (its data
-      is inside the file), suggests Field Coverage as the starting point, and then asks what the
-      person wants to understand with options taken from that report's subjects (such as account
-      coverage, meetings against targets, call quality), accepting free text, and stops. Asking the
-      purpose in the same reply is allowed but not required. FAIL if it asks the person to supply a
-      source, offers a focus option about the Bloom Calendar workbook, claims any metric was
-      built or any number computed, shows SQL, or starts generation.
+      PASS if the reply says what was found in one short line of tools (Power BI, Snowflake,
+      query history; counts allowed), then asks one question about what the person is trying to
+      do, with task-shaped options such as answering a question, understanding a number that
+      changed, building a dashboard or report, or sharing metrics, accepting free text, and
+      stops. FAIL if it shows a table of sources, explains why the Bloom Calendar workbook
+      cannot be built, suggests a starting report, asks the person to pick a business area or a
+      purpose separately, asks for a source, claims any metric was built or any number computed,
+      shows SQL, or starts generation.

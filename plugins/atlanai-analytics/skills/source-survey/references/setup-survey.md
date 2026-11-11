@@ -20,8 +20,9 @@ together, in one turn.
 Look only in the working folder. Another folder is looked in only when the person named it.
 Never open a credential or connection config file, and never list a home directory.
 
-An admin or write-capable warehouse role is a finding, not a blocker: record it, send only
-read-only statements, and return one line saying a read-only role would be safer.
+An admin or write-capable warehouse role is a finding, not a blocker: record it in the run
+and send only read-only statements. Say it when the person asks about access or before
+saving, not in the survey's line.
 
 ## 2. Say what can be built from
 
@@ -38,20 +39,30 @@ For each source found, settle `readiness` before returning, cheaply:
 Survey at most three report files this way, largest and most recent first; list the rest by
 name only.
 
-## 3. Return one table and a suggestion
+## 3. Return one line, and keep the rest for the caller
 
-| What | Found | Can build from it |
-| --- | --- | --- |
-| Warehouse | The kind and how it is reached | Yes, or the one thing missing |
-| BI reports | Each surveyed report with its page and measure counts | Yes with the reason, or No with the reason |
-| Query history | Where it would come from and the window | Yes, or the grant that is missing |
-| Already in Atlan | Metrics on these subjects, or none | Reuse, or nothing to reuse |
-| Certified queries | Count and subjects, when the host has them | Reuse |
+Return what was found as one line of products and counts, buildable sources only:
 
-Then the suggested starting point, by this order: a buildable BI report first, because it
-holds rules the team already agreed; query history next, for what people actually ask; table
-definitions last, so the rules can run. Say what the suggested source is about in business
-words, in two sentences.
+"Found: Power BI (2 reports), Tableau (1 workbook), Snowflake, 90 days of query history."
+
+- A product is named once, with a count in brackets when there is more than one thing or the
+  count helps. Atlan Trident and certified queries appear only when they hold something on
+  these subjects.
+- A source that cannot be built from is left out of the line. Keep its reason for when the
+  person asks or picks it.
+- No table, no file names, no table or measure counts, no readiness notes, no advice about
+  roles, and no suggested starting point. The caller asks the person what they are trying to
+  do; the survey does not guess it.
+
+Keep the detail (what each report covers, which tables it reads, why a source is held) in
+the run for the caller to use after the person answers. Use the build order when the caller
+asks which source to start from: a buildable BI report first, because it holds rules the team
+already agreed; query history next, for what people actually ask; table definitions last, so
+the rules can run.
+
+**Never the demo.** Atlan Analytics' own demo data is not the person's setup. `PROJECT
+discover` skips the demo's folders; leave out of the line any other source that is plainly
+the demo (its made-up firms, or a demo database), and never suggest building from it.
 
 When nothing is buildable, `readiness` is `none`: name the one thing that would change that
 (connect a warehouse, or name a report), and that `analytics-demo` shows the flow on made-up

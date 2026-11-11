@@ -96,7 +96,7 @@ Return to the caller, or show the person:
 - the source types found and their subject, in two or three sentences, and how they
   complement each other;
 - two or three analyses the sources could support, phrased as things to learn;
-- for `setup` and `domain`, the table their procedure defines, then the suggested sources;
+- for `setup`, one line of what was found; for `domain`, the tables its procedure defines;
 - for `candidates`, the ranked names and questions; for `readiness`, the answer and its one
   next step.
 

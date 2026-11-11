@@ -43,6 +43,18 @@ class DiscoverTest(unittest.TestCase):
             out = summarize(d, per_role=12)
             self.assertEqual((len(out['sources']['history']), out['omitted']['history']), (12, 3))
 
+    def test_the_demo_folders_are_never_part_of_a_setup(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for folder in ('atlan-analytics-demo/yard/powerbi', 'analytics-agent-accelerator/box-office', 'reports'):
+                (root / folder).mkdir(parents=True)
+            (root / 'atlan-analytics-demo/yard/powerbi/model.bim').write_text('{}')
+            (root / 'analytics-agent-accelerator/box-office/pulse.twb').write_text('<workbook/>')
+            (root / 'reports/sales.bim').write_text('{}')
+            out = summarize(root)
+            self.assertEqual([s['path'] for s in out['sources']['bi']], ['reports/sales.bim'])
+            self.assertEqual(out['demo_files_skipped'], 2)
+
     def test_cli_needs_no_run_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             d = str(Path(tmp).resolve())  # the helper refuses a path that runs through a symlink

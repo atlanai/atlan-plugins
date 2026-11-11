@@ -15,7 +15,7 @@ supplied source.
 
 | Entry | Shape of the inventory | The question |
 | --- | --- | --- |
-| No input | Every page of the report with its metric count, the chosen focus's names first, then two or three questions they answer | None: the whole report is built |
+| No input | Every page of the report with its metric count, the subject's names first, then two or three questions they answer | None: the whole report is built |
 | A source | Pages, each with its metric count and one question it answers | None: the whole report is built |
 | A domain | Names with a status: reuse, new or flag | "Build the N new metrics?" |
 | A stated problem | The names that answer it first, then the rest of the report | None |

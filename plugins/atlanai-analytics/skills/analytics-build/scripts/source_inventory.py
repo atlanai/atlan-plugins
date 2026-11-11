@@ -69,6 +69,8 @@ ROLES = {'powerbi': ('bi', 'Power BI report or model'), 'powerbi_project': ('bi'
          'duckdb': ('data', 'DuckDB database'), 'sqlite': ('data', 'SQLite database'),
          'data_file': ('data', 'data file')}
 ORDER = ('bi', 'history', 'data')
+# Where Atlan Analytics' own demo lives in a working folder: never part of a person's setup.
+DEMO = ('atlan-analytics-demo', 'analytics-agent-accelerator')
 
 
 def summarize(root, limit=5000, per_role=12):
@@ -79,11 +81,16 @@ def summarize(root, limit=5000, per_role=12):
         raise ValueError('Select an existing folder to look in.')
     paths, limited = discover(root, limit=limit)
     groups = {role: [] for role in ORDER}
+    demo = 0
     for path, kind in paths:
+        if any(part in DEMO for part in path.relative_to(root).parts):
+            demo += 1
+            continue
         role, label = ROLES.get(kind, ('data', kind))
         groups[role].append({'path': path.relative_to(root).as_posix(), 'kind': kind, 'label': label,
                              'size_bytes': path.stat().st_size})
     return {'folder': str(root), 'limited': limited, 'created': False, 'remote_writes': False,
+            'demo_files_skipped': demo,
             'counts': {role: len(items) for role, items in groups.items()},
             'sources': {role: sorted(items, key=lambda i: (-i['size_bytes'], i['path']))[:per_role]
                         for role, items in groups.items()},

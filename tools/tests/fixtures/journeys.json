@@ -1266,8 +1266,8 @@
    "id": "analytics-build-no-input",
    "plugin": "atlanai-analytics",
    "skill": "analytics-build",
-   "title": "Own data from nothing: setup survey, interview, sources in order, generate and save",
-   "route": "Survey what the machine can reach, ask focus and purpose in one card, confirm reports then history then tables, generate and check the whole report, save, answer one question",
+   "title": "Own data from nothing: setup survey, one question, sources in order, generate and save",
+   "route": "Survey what the machine can reach, say it in one line, ask what the person is trying to do, build the whole report from reports then history then tables, save, answer one question",
    "includes": [
     "analytics-connect-warehouse",
     "analytics-bootstrap-metrics",

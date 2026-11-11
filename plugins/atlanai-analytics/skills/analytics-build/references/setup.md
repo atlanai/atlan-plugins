@@ -39,13 +39,11 @@ before the first helper call, and keep both true to the saved run.
 Read `PROJECT journey status` for an existing run before continuing. A paused or local-only
 run waits for an explicit resume; details requests do not resume work.
 
-Explain what sources were found, what they reveal about the project's subject, and what
-they could help analyse. Keep that explanation in the first question's visible prompt; a
-count-only final reply or collapsed commentary is insufficient. Then establish [business focus and purpose](setup/intent.md)
-before authoring. Demos use their preset intent and source question instead. Ask only the
-own-data answers the entry leaves missing, in one card where the host allows it, and retain
-answers already given. Technical source scope does not establish business intent, except that
-a chosen page or a named subject is the focus, as the entry says.
+With no input, say what was found in one line and ask [the one interview question](setup/intent.md)
+before authoring; with a named source, say what it covers. Demos use their preset intent and
+source question instead. Retain answers already given. Technical source scope does not
+establish business intent, except that a named source or subject stands in for the question,
+as the entry says.
 The purpose sets the stopping point. Understanding-only intent ends with requested evidence;
 it does not require a destination or publication question. Render the question itself, without
 explaining the interview mechanics or showing helper commands.
