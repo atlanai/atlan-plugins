@@ -1,0 +1,52 @@
+order_id,project_id,material,unit,quantity,unit_cost_gbp,supplier,order_date,order_status,wasted_quantity
+M001,P01,timber,m3,3.00,520.00,Hammerton Builders' Merchant,2026-07-14,delivered,0.10
+M002,P01,timber,m3,2.00,520.00,Hammerton Builders' Merchant,2026-07-11,delivered,0.10
+M003,P01,paint,tin,3.00,28.00,Hammerton Builders' Merchant,2026-07-10,delivered,0.20
+M004,P01,paint,tin,2.00,28.00,Hammerton Builders' Merchant,2026-07-13,delivered,0.10
+M005,P01,paint,tin,3.00,28.00,Hammerton Builders' Merchant,2026-07-11,delivered,0.20
+M006,P01,nails,box,2.00,9.00,Hammerton Builders' Merchant,2026-07-06,delivered,0.20
+M007,P01,nails,box,2.00,9.00,Hammerton Builders' Merchant,2026-07-15,delivered,0.20
+M008,P01,nails,box,2.00,9.00,Hammerton Builders' Merchant,2026-07-08,delivered,0.20
+M009,P02,bricks,pallet,8.00,380.00,Hammerton Builders' Merchant,2026-07-22,delivered,0.30
+M010,P02,bricks,pallet,14.00,380.00,Hammerton Builders' Merchant,2026-07-07,cancelled,0.00
+M011,P02,bricks,pallet,10.00,380.00,Hammerton Builders' Merchant,2026-07-05,delivered,0.20
+M012,P02,cement,tonne,16.00,140.00,Buttercup Vale Quarry,2026-07-24,delivered,1.10
+M013,P02,cement,tonne,12.00,140.00,Buttercup Vale Quarry,2026-07-18,delivered,0.80
+M014,P02,cement,tonne,12.00,140.00,Buttercup Vale Quarry,2026-07-11,delivered,0.70
+M015,P02,timber,m3,13.00,520.00,Hammerton Builders' Merchant,2026-07-22,delivered,0.60
+M016,P02,timber,m3,14.00,520.00,Hammerton Builders' Merchant,2026-07-23,delivered,0.60
+M017,P02,nails,box,9.00,9.00,Hammerton Builders' Merchant,2026-07-10,delivered,1.20
+M018,P02,nails,box,10.00,9.00,Hammerton Builders' Merchant,2026-07-10,delivered,1.20
+M019,P03,cement,tonne,16.00,140.00,Buttercup Vale Quarry,2026-08-04,delivered,6.00
+M020,P03,cement,tonne,24.00,140.00,Buttercup Vale Quarry,2026-07-31,delivered,7.70
+M021,P03,cement,tonne,18.00,140.00,Buttercup Vale Quarry,2026-08-07,delivered,6.90
+M022,P03,steel rebar,tonne,16.00,900.00,Buttercup Vale Quarry,2026-07-31,delivered,0.20
+M023,P03,steel rebar,tonne,28.00,900.00,Buttercup Vale Quarry,2026-07-29,delivered,0.40
+M024,P03,bricks,pallet,29.00,380.00,Hammerton Builders' Merchant,2026-07-30,delivered,1.00
+M025,P03,bricks,pallet,22.00,380.00,Hammerton Builders' Merchant,2026-07-28,cancelled,0.00
+M026,P04,timber,m3,2.00,520.00,Hammerton Builders' Merchant,2026-08-03,delivered,0.10
+M027,P04,timber,m3,2.00,520.00,Hammerton Builders' Merchant,2026-08-05,cancelled,0.00
+M028,P04,paint,tin,2.00,28.00,Hammerton Builders' Merchant,2026-08-10,delivered,0.10
+M029,P04,paint,tin,3.00,28.00,Hammerton Builders' Merchant,2026-08-08,delivered,0.20
+M030,P04,nails,box,2.00,9.00,Hammerton Builders' Merchant,2026-08-06,delivered,0.20
+M031,P05,cement,tonne,45.00,140.00,Buttercup Vale Quarry,2026-08-15,delivered,3.40
+M032,P05,steel rebar,tonne,48.00,900.00,Buttercup Vale Quarry,2026-08-22,delivered,0.70
+M033,P05,paint,tin,44.00,28.00,Hammerton Builders' Merchant,2026-08-10,delivered,3.80
+M034,P05,paint,tin,46.00,28.00,Hammerton Builders' Merchant,2026-08-20,delivered,5.10
+M035,P06,bricks,pallet,11.00,380.00,Hammerton Builders' Merchant,2026-09-05,delivered,0.30
+M036,P06,bricks,pallet,6.00,380.00,Hammerton Builders' Merchant,2026-09-04,delivered,0.20
+M037,P06,bricks,pallet,9.00,380.00,Hammerton Builders' Merchant,2026-09-23,delivered,0.30
+M038,P06,timber,m3,9.00,520.00,Hammerton Builders' Merchant,2026-09-07,delivered,0.50
+M039,P06,timber,m3,11.00,520.00,Hammerton Builders' Merchant,2026-09-14,delivered,0.30
+M040,P08,timber,m3,8.00,520.00,Hammerton Builders' Merchant,2026-09-25,delivered,0.40
+M041,P08,paint,tin,9.00,28.00,Hammerton Builders' Merchant,2026-09-28,delivered,0.60
+M042,P08,nails,box,10.00,9.00,Hammerton Builders' Merchant,2026-10-14,delivered,0.80
+M043,P08,nails,box,10.00,9.00,Hammerton Builders' Merchant,2026-09-28,cancelled,0.00
+M044,P09,timber,m3,3.00,520.00,Hammerton Builders' Merchant,2026-10-03,delivered,0.10
+M045,P09,steel rebar,tonne,3.00,900.00,Buttercup Vale Quarry,2026-10-05,delivered,0.00
+M046,P09,steel rebar,tonne,4.00,900.00,Buttercup Vale Quarry,2026-10-08,delivered,0.10
+M047,P09,nails,box,3.00,9.00,Hammerton Builders' Merchant,2026-10-08,delivered,0.40
+M048,P09,nails,box,4.00,9.00,Hammerton Builders' Merchant,2026-10-04,delivered,0.40
+M049,P10,timber,m3,1.00,520.00,Hammerton Builders' Merchant,2026-10-21,cancelled,0.00
+M050,P10,nails,box,1.00,9.00,Hammerton Builders' Merchant,2026-10-20,delivered,0.10
+M051,P03,cement,tonne,40.00,140.00,Buttercup Vale Quarry,2026-09-17,cancelled,0.00

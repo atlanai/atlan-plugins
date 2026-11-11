@@ -1,0 +1,370 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!-- build 20242.24.0807.0327 -->
+<workbook original-version='18.1' source-build='2024.2.0 (20242.24.0807.0327)' source-platform='win' version='18.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+<document-format-change-manifest><SheetIdentifierTracking /><WindowsPersistSimpleIdentifiers /></document-format-change-manifest>
+<preferences><preference name='ui.encoding.shelf.height' value='24' /><preference name='ui.shelf.height' value='26' /></preferences>
+<datasources>
+<datasource caption="Box Office" inline='true' name="federated.0box_office" version='18.1'>
+<connection class='federated'>
+<named-connections>
+<named-connection caption="tix.sqlite" name="genericodbc.0tix_sqlite">
+<connection class='genericodbc' dbname='tix.sqlite' odbc-connect-string-extras='' odbc-dbms-name='SQLite' odbc-driver='SQLite3 ODBC Driver' odbc-dsn='' schema='tix' server='' />
+</named-connection>
+</named-connections>
+<relation connection="genericodbc.0tix_sqlite" name='Custom SQL Query' type='text'>SELECT t.ticket_id, t.order_id, t.event_id, e.event_name, e.event_date, e.status AS event_status,
+       v.venue_name, v.venue_type, o.order_ts, substr(o.order_ts, 1, 10) AS order_date,
+       lower(replace(o.channel, ' ', '_')) AS channel, t.tier, t.is_comp,
+       t.face_value, t.service_fee, t.facility_fee, t.demand_fee,
+       (o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order AS order_fees_allocated
+FROM tix.tickets t
+JOIN tix.orders o ON o.order_id = t.order_id
+JOIN tix.events e ON e.event_id = t.event_id
+JOIN tix.venues v ON v.venue_id = e.venue_id
+JOIN (SELECT order_id, COUNT(*) AS tickets_in_order FROM tix.tickets GROUP BY order_id) n
+  ON n.order_id = t.order_id
+WHERE t.ticket_type = 'primary'
+  AND o.status &lt;&gt; 'chargeback'
+  AND v.venue_type &lt;&gt; 'test'</relation>
+<metadata-records>
+<metadata-record class='column'><remote-name>ticket_id</remote-name><remote-type>129</remote-type><local-name>[ticket_id]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>ticket_id</remote-alias><ordinal>0</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>order_id</remote-name><remote-type>129</remote-type><local-name>[order_id]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>order_id</remote-alias><ordinal>1</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_id</remote-name><remote-type>129</remote-type><local-name>[event_id]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_id</remote-alias><ordinal>2</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_name</remote-name><remote-type>129</remote-type><local-name>[event_name]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_name</remote-alias><ordinal>3</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_date</remote-name><remote-type>7</remote-type><local-name>[event_date]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_date</remote-alias><ordinal>4</ordinal><local-type>date</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_status</remote-name><remote-type>129</remote-type><local-name>[event_status]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_status</remote-alias><ordinal>5</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>venue_name</remote-name><remote-type>129</remote-type><local-name>[venue_name]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>venue_name</remote-alias><ordinal>6</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>venue_type</remote-name><remote-type>129</remote-type><local-name>[venue_type]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>venue_type</remote-alias><ordinal>7</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>order_ts</remote-name><remote-type>135</remote-type><local-name>[order_ts]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>order_ts</remote-alias><ordinal>8</ordinal><local-type>datetime</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>order_date</remote-name><remote-type>7</remote-type><local-name>[order_date]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>order_date</remote-alias><ordinal>9</ordinal><local-type>date</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>channel</remote-name><remote-type>129</remote-type><local-name>[channel]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>channel</remote-alias><ordinal>10</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>tier</remote-name><remote-type>129</remote-type><local-name>[tier]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>tier</remote-alias><ordinal>11</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>is_comp</remote-name><remote-type>20</remote-type><local-name>[is_comp]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>is_comp</remote-alias><ordinal>12</ordinal><local-type>integer</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>face_value</remote-name><remote-type>5</remote-type><local-name>[face_value]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>face_value</remote-alias><ordinal>13</ordinal><local-type>real</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>service_fee</remote-name><remote-type>5</remote-type><local-name>[service_fee]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>service_fee</remote-alias><ordinal>14</ordinal><local-type>real</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>facility_fee</remote-name><remote-type>5</remote-type><local-name>[facility_fee]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>facility_fee</remote-alias><ordinal>15</ordinal><local-type>real</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>demand_fee</remote-name><remote-type>5</remote-type><local-name>[demand_fee]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>demand_fee</remote-alias><ordinal>16</ordinal><local-type>real</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>order_fees_allocated</remote-name><remote-type>5</remote-type><local-name>[order_fees_allocated]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>order_fees_allocated</remote-alias><ordinal>17</ordinal><local-type>real</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+</metadata-records>
+</connection>
+<aliases enabled='yes' />
+<column datatype="string" name="[ticket_id]" role="dimension" type="nominal" />
+<column datatype="string" name="[order_id]" role="dimension" type="nominal" />
+<column datatype="string" name="[event_id]" role="dimension" type="nominal" />
+<column datatype="string" name="[event_name]" role="dimension" type="nominal" />
+<column datatype="date" name="[event_date]" role="dimension" type="nominal" />
+<column datatype="string" name="[event_status]" role="dimension" type="nominal" />
+<column datatype="string" name="[venue_name]" role="dimension" type="nominal" />
+<column datatype="string" name="[venue_type]" role="dimension" type="nominal" />
+<column datatype="datetime" name="[order_ts]" role="dimension" type="nominal" />
+<column datatype="date" name="[order_date]" role="dimension" type="nominal" />
+<column datatype="string" name="[channel]" role="dimension" type="nominal" />
+<column datatype="string" name="[tier]" role="dimension" type="nominal" />
+<column datatype="integer" name="[is_comp]" role="dimension" type="quantitative" />
+<column datatype="real" name="[face_value]" role="measure" type="quantitative" />
+<column datatype="real" name="[service_fee]" role="measure" type="quantitative" />
+<column datatype="real" name="[facility_fee]" role="measure" type="quantitative" />
+<column datatype="real" name="[demand_fee]" role="measure" type="quantitative" />
+<column datatype="real" name="[order_fees_allocated]" role="measure" type="quantitative" />
+<column caption="Gross Sales" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417001]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="SUM([face_value]) + SUM([service_fee]) + SUM([facility_fee]) + SUM([demand_fee]) + SUM([order_fees_allocated])" />
+  <desc><formatted-text><run>Everything fans paid for primary tickets at the time of purchase: face value plus every fee, order fees shared across the tickets in the order. Before refunds. Chargebacks, resale and test events are left out.</run></formatted-text></desc>
+</column>
+<column caption="Total Fees" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417002]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="SUM([service_fee]) + SUM([facility_fee]) + SUM([demand_fee]) + SUM([order_fees_allocated])" />
+  <desc><formatted-text><run>Every fee on primary tickets, the venue's facility fee included.</run></formatted-text></desc>
+</column>
+<column caption="Fee Take Rate" datatype="real" default-format="p0.0%" name="[Calculation_4417003]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="(SUM([service_fee]) + SUM([facility_fee]) + SUM([demand_fee]) + SUM([order_fees_allocated])) / SUM([face_value])" />
+  <desc><formatted-text><run>All fees divided by face value: the take rate finance reports to venues and promoters. Guest-list comps have no face value and no fees, so they do not move it.</run></formatted-text></desc>
+</column>
+<column caption="Avg Ticket Price" datatype="real" default-format='c"$"#,##0.00' name="[Calculation_4417004]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="SUM(IIF([is_comp] = 0, [face_value], 0)) / SUM(IIF([is_comp] = 0, 1, 0))" />
+  <desc><formatted-text><run>Average face value of a paid ticket. Guest-list comps are left out.</run></formatted-text></desc>
+</column>
+<column caption="Tickets per Order" datatype="real" default-format="n#,##0.0" name="[Calculation_4417005]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="AVG({FIXED [order_id] : COUNT([ticket_id])})" />
+  <desc><formatted-text><run>Tickets in an order, averaged over orders.</run></formatted-text></desc>
+</column>
+<layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+</datasource>
+<datasource caption="Fee Ledger" inline='true' name="federated.0fee_ledger" version='18.1'>
+<connection class='federated'>
+<named-connections>
+<named-connection caption="tix.sqlite" name="genericodbc.0tix_sqlite">
+<connection class='genericodbc' dbname='tix.sqlite' odbc-connect-string-extras='' odbc-dbms-name='SQLite' odbc-driver='SQLite3 ODBC Driver' odbc-dsn='' schema='tix' server='' />
+</named-connection>
+</named-connections>
+<relation connection="genericodbc.0tix_sqlite" name='Custom SQL Query' type='text'>SELECT o.order_id, substr(o.order_ts, 1, 10) AS entry_date, o.event_id,
+       CASE WHEN t.ticket_type = 'resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,
+       t.service_fee AS amount
+FROM tix.tickets t
+JOIN tix.orders o ON o.order_id = t.order_id
+JOIN tix.events e ON e.event_id = o.event_id
+WHERE e.venue_id &lt;&gt; 'V99' AND t.service_fee &gt; 0
+UNION ALL
+SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'demand', t.demand_fee
+FROM tix.tickets t
+JOIN tix.orders o ON o.order_id = t.order_id
+JOIN tix.events e ON e.event_id = o.event_id
+WHERE e.venue_id &lt;&gt; 'V99' AND t.demand_fee &gt; 0
+UNION ALL
+SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'resale_seller', t.seller_fee
+FROM tix.tickets t
+JOIN tix.orders o ON o.order_id = t.order_id
+JOIN tix.events e ON e.event_id = o.event_id
+WHERE e.venue_id &lt;&gt; 'V99' AND t.seller_fee &gt; 0
+UNION ALL
+SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'order_processing', o.order_processing_fee
+FROM tix.orders o
+JOIN tix.events e ON e.event_id = o.event_id
+WHERE e.venue_id &lt;&gt; 'V99' AND o.order_processing_fee &gt; 0
+UNION ALL
+SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'delivery', o.delivery_fee
+FROM tix.orders o
+JOIN tix.events e ON e.event_id = o.event_id
+WHERE e.venue_id &lt;&gt; 'V99' AND o.delivery_fee &gt; 0
+UNION ALL
+SELECT r.order_id, substr(r.refund_ts, 1, 10), o.event_id, 'refunded',
+       -(r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded)
+FROM tix.refunds r
+JOIN tix.orders o ON o.order_id = r.order_id
+JOIN tix.events e ON e.event_id = o.event_id
+WHERE e.venue_id &lt;&gt; 'V99'
+  AND r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded &gt; 0</relation>
+<metadata-records>
+<metadata-record class='column'><remote-name>order_id</remote-name><remote-type>129</remote-type><local-name>[order_id]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>order_id</remote-alias><ordinal>0</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>entry_date</remote-name><remote-type>7</remote-type><local-name>[entry_date]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>entry_date</remote-alias><ordinal>1</ordinal><local-type>date</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_id</remote-name><remote-type>129</remote-type><local-name>[event_id]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_id</remote-alias><ordinal>2</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>fee_type</remote-name><remote-type>129</remote-type><local-name>[fee_type]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>fee_type</remote-alias><ordinal>3</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>amount</remote-name><remote-type>5</remote-type><local-name>[amount]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>amount</remote-alias><ordinal>4</ordinal><local-type>real</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+</metadata-records>
+</connection>
+<aliases enabled='yes' />
+<column datatype="string" name="[order_id]" role="dimension" type="nominal" />
+<column datatype="date" name="[entry_date]" role="dimension" type="nominal" />
+<column datatype="string" name="[event_id]" role="dimension" type="nominal" />
+<column datatype="string" name="[fee_type]" role="dimension" type="nominal" />
+<column datatype="real" name="[amount]" role="measure" type="quantitative" />
+<column caption="Net Fee Revenue" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417101]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="SUM([amount])" />
+  <desc><formatted-text><run>Ticketfuddle's own fee income: service, demand, order processing and delivery fees, and both resale fees, less any of those refunded. Facility fees are collected for the venue and are not ours. Dated by order; refunds by the day they were paid.</run></formatted-text></desc>
+</column>
+<layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+</datasource>
+<datasource caption="Event Sales" inline='true' name="federated.0event_sales" version='18.1'>
+<connection class='federated'>
+<named-connections>
+<named-connection caption="tix.sqlite" name="genericodbc.0tix_sqlite">
+<connection class='genericodbc' dbname='tix.sqlite' odbc-connect-string-extras='' odbc-dbms-name='SQLite' odbc-driver='SQLite3 ODBC Driver' odbc-dsn='' schema='tix' server='' />
+</named-connection>
+</named-connections>
+<relation connection="genericodbc.0tix_sqlite" name='Custom SQL Query' type='text'>SELECT e.event_id, e.event_name, e.event_date, e.status, v.venue_name, v.venue_type, e.capacity,
+       COUNT(t.ticket_id) AS tickets_issued, COALESCE(SUM(t.is_comp), 0) AS comps
+FROM tix.events e
+JOIN tix.venues v ON v.venue_id = e.venue_id
+LEFT JOIN tix.orders o ON o.event_id = e.event_id AND o.status &lt;&gt; 'chargeback'
+LEFT JOIN tix.tickets t ON t.order_id = o.order_id AND t.ticket_type = 'primary'
+WHERE v.venue_type &lt;&gt; 'test'
+GROUP BY e.event_id, e.event_name, e.event_date, e.status, v.venue_name, v.venue_type, e.capacity</relation>
+<metadata-records>
+<metadata-record class='column'><remote-name>event_id</remote-name><remote-type>129</remote-type><local-name>[event_id]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_id</remote-alias><ordinal>0</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_name</remote-name><remote-type>129</remote-type><local-name>[event_name]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_name</remote-alias><ordinal>1</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>event_date</remote-name><remote-type>7</remote-type><local-name>[event_date]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>event_date</remote-alias><ordinal>2</ordinal><local-type>date</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>status</remote-name><remote-type>129</remote-type><local-name>[status]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>status</remote-alias><ordinal>3</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>venue_name</remote-name><remote-type>129</remote-type><local-name>[venue_name]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>venue_name</remote-alias><ordinal>4</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>venue_type</remote-name><remote-type>129</remote-type><local-name>[venue_type]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>venue_type</remote-alias><ordinal>5</ordinal><local-type>string</local-type><aggregation>Count</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>capacity</remote-name><remote-type>20</remote-type><local-name>[capacity]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>capacity</remote-alias><ordinal>6</ordinal><local-type>integer</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>tickets_issued</remote-name><remote-type>20</remote-type><local-name>[tickets_issued]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>tickets_issued</remote-alias><ordinal>7</ordinal><local-type>integer</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+<metadata-record class='column'><remote-name>comps</remote-name><remote-type>20</remote-type><local-name>[comps]</local-name><parent-name>[Custom SQL Query]</parent-name><remote-alias>comps</remote-alias><ordinal>8</ordinal><local-type>integer</local-type><aggregation>Sum</aggregation><contains-null>true</contains-null></metadata-record>
+</metadata-records>
+</connection>
+<aliases enabled='yes' />
+<column datatype="string" name="[event_id]" role="dimension" type="nominal" />
+<column datatype="string" name="[event_name]" role="dimension" type="nominal" />
+<column datatype="date" name="[event_date]" role="dimension" type="nominal" />
+<column datatype="string" name="[status]" role="dimension" type="nominal" />
+<column datatype="string" name="[venue_name]" role="dimension" type="nominal" />
+<column datatype="string" name="[venue_type]" role="dimension" type="nominal" />
+<column datatype="integer" name="[capacity]" role="dimension" type="quantitative" />
+<column datatype="integer" name="[tickets_issued]" role="dimension" type="quantitative" />
+<column datatype="integer" name="[comps]" role="dimension" type="quantitative" />
+<column caption="Sell-Through" datatype="real" default-format="p0%" name="[Calculation_4417201]" role='measure' type='quantitative'>
+  <calculation class='tableau' formula="SUM([tickets_issued]) / SUM([capacity])" />
+  <desc><formatted-text><run>Primary tickets issued, guest-list comps included, against the event's own capacity. A seated show in the arena holds fewer than the venue. The sheets show completed events.</run></formatted-text></desc>
+</column>
+<layout dim-ordering='alphabetic' measure-ordering='alphabetic' show-structure='true' />
+</datasource>
+</datasources>
+<worksheets>
+<worksheet name="Gross Sales">
+<layout-options><title><formatted-text><run>Gross Sales</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Box Office" name="federated.0box_office" /></datasources>
+<datasource-dependencies datasource="federated.0box_office">
+<column caption="Gross Sales" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417001]" role='measure' type='quantitative'><calculation class='tableau' formula="SUM([face_value]) + SUM([service_fee]) + SUM([facility_fee]) + SUM([demand_fee]) + SUM([order_fees_allocated])" /></column>
+
+<column-instance column="[Calculation_4417001]" derivation='User' name="[usr:Calculation_4417001:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0box_office].[usr:Calculation_4417001:qk]" value='c"$"#,##0;-"$"#,##0' /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Text" /><encodings><text column="[federated.0box_office].[usr:Calculation_4417001:qk]" /></encodings></pane></panes>
+<rows></rows>
+<cols></cols>
+</table>
+<simple-id uuid="{0E687AC4-F5F3-AE64-B8E2-DEEF66DD1FB6}" />
+</worksheet>
+<worksheet name="Fee Take Rate">
+<layout-options><title><formatted-text><run>Fees as % of what fans paid</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Box Office" name="federated.0box_office" /></datasources>
+<datasource-dependencies datasource="federated.0box_office">
+<column caption="Fee Take Rate" datatype="real" default-format="p0.0%" name="[Calculation_4417003]" role='measure' type='quantitative'><calculation class='tableau' formula="(SUM([service_fee]) + SUM([facility_fee]) + SUM([demand_fee]) + SUM([order_fees_allocated])) / SUM([face_value])" /></column>
+
+<column-instance column="[Calculation_4417003]" derivation='User' name="[usr:Calculation_4417003:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0box_office].[usr:Calculation_4417003:qk]" value="p0.0%" /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Text" /><encodings><text column="[federated.0box_office].[usr:Calculation_4417003:qk]" /></encodings></pane></panes>
+<rows></rows>
+<cols></cols>
+</table>
+<simple-id uuid="{3C419C67-459D-4BAE-9CC0-6F3B937E13F1}" />
+</worksheet>
+<worksheet name="Net Fee Revenue">
+<layout-options><title><formatted-text><run>Net Fee Revenue</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Fee Ledger" name="federated.0fee_ledger" /></datasources>
+<datasource-dependencies datasource="federated.0fee_ledger">
+<column caption="Net Fee Revenue" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417101]" role='measure' type='quantitative'><calculation class='tableau' formula="SUM([amount])" /></column>
+
+<column-instance column="[Calculation_4417101]" derivation='User' name="[usr:Calculation_4417101:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0fee_ledger].[usr:Calculation_4417101:qk]" value='c"$"#,##0;-"$"#,##0' /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Text" /><encodings><text column="[federated.0fee_ledger].[usr:Calculation_4417101:qk]" /></encodings></pane></panes>
+<rows></rows>
+<cols></cols>
+</table>
+<simple-id uuid="{EE064245-03DE-3CA4-5354-9160B85A7721}" />
+</worksheet>
+<worksheet name="Sell-Through">
+<layout-options><title><formatted-text><run>Sell-Through</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Event Sales" name="federated.0event_sales" /></datasources>
+<datasource-dependencies datasource="federated.0event_sales">
+<column datatype="string" name="[status]" role='dimension' type='nominal' />
+<column caption="Sell-Through" datatype="real" default-format="p0%" name="[Calculation_4417201]" role='measure' type='quantitative'><calculation class='tableau' formula="SUM([tickets_issued]) / SUM([capacity])" /></column>
+<column-instance column="[status]" derivation='None' name="[none:status:nk]" pivot='key' type="nominal" />
+<column-instance column="[Calculation_4417201]" derivation='User' name="[usr:Calculation_4417201:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<filter class='categorical' column='[federated.0event_sales].[none:status:nk]'><groupfilter function='member' level='[none:status:nk]' member='&quot;completed&quot;' user:ui-domain='database' user:ui-enumeration='inclusive' user:ui-marker='enumerate' /></filter>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0event_sales].[usr:Calculation_4417201:qk]" value="p0%" /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Text" /><encodings><text column="[federated.0event_sales].[usr:Calculation_4417201:qk]" /></encodings></pane></panes>
+<rows></rows>
+<cols></cols>
+</table>
+<simple-id uuid="{BB5628D1-2763-9B7E-D536-BD4937182037}" />
+</worksheet>
+<worksheet name="Gross Sales by Month">
+<layout-options><title><formatted-text><run>Gross Sales by Month</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Box Office" name="federated.0box_office" /></datasources>
+<datasource-dependencies datasource="federated.0box_office">
+<column datatype="date" name="[order_date]" role='dimension' type='nominal' />
+<column caption="Gross Sales" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417001]" role='measure' type='quantitative'><calculation class='tableau' formula="SUM([face_value]) + SUM([service_fee]) + SUM([facility_fee]) + SUM([demand_fee]) + SUM([order_fees_allocated])" /></column>
+<column-instance column='[order_date]' derivation='Month-Trunc' name='[tmn:order_date:qk]' pivot='key' type='quantitative' />
+<column-instance column="[Calculation_4417001]" derivation='User' name="[usr:Calculation_4417001:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0box_office].[usr:Calculation_4417001:qk]" value='c"$"#,##0;-"$"#,##0' /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Line" /></pane></panes>
+<rows>[federated.0box_office].[usr:Calculation_4417001:qk]</rows>
+<cols>[federated.0box_office].[tmn:order_date:qk]</cols>
+</table>
+<simple-id uuid="{5E88E80A-05BC-EC2F-6DBB-CF5AA10E8517}" />
+</worksheet>
+<worksheet name="Fee Income by Type">
+<layout-options><title><formatted-text><run>Fee Income by Type</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Fee Ledger" name="federated.0fee_ledger" /></datasources>
+<datasource-dependencies datasource="federated.0fee_ledger">
+<column datatype="string" name="[fee_type]" role='dimension' type='nominal' />
+<column caption="Net Fee Revenue" datatype="real" default-format='c"$"#,##0;-"$"#,##0' name="[Calculation_4417101]" role='measure' type='quantitative'><calculation class='tableau' formula="SUM([amount])" /></column>
+<column-instance column="[fee_type]" derivation='None' name="[none:fee_type:nk]" pivot='key' type="nominal" />
+<column-instance column="[Calculation_4417101]" derivation='User' name="[usr:Calculation_4417101:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0fee_ledger].[usr:Calculation_4417101:qk]" value='c"$"#,##0;-"$"#,##0' /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Bar" /></pane></panes>
+<rows>[federated.0fee_ledger].[none:fee_type:nk]</rows>
+<cols>[federated.0fee_ledger].[usr:Calculation_4417101:qk]</cols>
+</table>
+<simple-id uuid="{0260AFFD-730A-07C1-98CD-3F5487883D12}" />
+</worksheet>
+<worksheet name="Sell-Through by Event">
+<layout-options><title><formatted-text><run>Sell-Through by Event</run></formatted-text></title></layout-options>
+<table>
+<view>
+<datasources><datasource caption="Event Sales" name="federated.0event_sales" /></datasources>
+<datasource-dependencies datasource="federated.0event_sales">
+<column datatype="string" name="[event_name]" role='dimension' type='nominal' />
+<column datatype="string" name="[status]" role='dimension' type='nominal' />
+<column caption="Sell-Through" datatype="real" default-format="p0%" name="[Calculation_4417201]" role='measure' type='quantitative'><calculation class='tableau' formula="SUM([tickets_issued]) / SUM([capacity])" /></column>
+<column-instance column="[event_name]" derivation='None' name="[none:event_name:nk]" pivot='key' type="nominal" />
+<column-instance column="[status]" derivation='None' name="[none:status:nk]" pivot='key' type="nominal" />
+<column-instance column="[Calculation_4417201]" derivation='User' name="[usr:Calculation_4417201:qk]" pivot='key' type='quantitative' />
+</datasource-dependencies>
+<filter class='categorical' column='[federated.0event_sales].[none:status:nk]'><groupfilter function='member' level='[none:status:nk]' member='&quot;completed&quot;' user:ui-domain='database' user:ui-enumeration='inclusive' user:ui-marker='enumerate' /></filter>
+<aggregation value='true' />
+</view>
+<style><style-rule element='cell'><format attr='text-format' field="[federated.0event_sales].[usr:Calculation_4417201:qk]" value="p0%" /></style-rule></style>
+<panes><pane selection-relaxation-option='selection-relaxation-allow'><view><breakdown value='auto' /></view><mark class="Bar" /></pane></panes>
+<rows>[federated.0event_sales].[none:event_name:nk]</rows>
+<cols>[federated.0event_sales].[usr:Calculation_4417201:qk]</cols>
+</table>
+<simple-id uuid="{97A95B14-F5D8-2886-B5C5-0DA09215B743}" />
+</worksheet>
+</worksheets>
+<dashboards>
+<dashboard name='Box Office Pulse'>
+<layout-options><title><formatted-text><run>Box Office Pulse</run></formatted-text></title></layout-options>
+<style />
+<size maxheight='1000' maxwidth='1400' minheight='1000' minwidth='1400' sizing-mode='fixed' />
+<zones>
+<zone h='100000' id='1' type-v2='layout-basic' w='100000' x='0' y='0'>
+<zone h='8000' id='2' type-v2='text' w='100000' x='0' y='0'><formatted-text><run>Box Office Pulse. Ticketfuddle, all venues, US dollars. Refreshed daily at 06:00 UTC.</run></formatted-text></zone>
+<zone h='18000' id='3' name="Gross Sales" w='25000' x='0' y='8000' />
+<zone h='18000' id='4' name="Fee Take Rate" w='25000' x='25000' y='8000' />
+<zone h='18000' id='5' name="Net Fee Revenue" w='25000' x='50000' y='8000' />
+<zone h='18000' id='6' name="Sell-Through" w='25000' x='75000' y='8000' />
+<zone h='37000' id='7' name="Gross Sales by Month" w='50000' x='0' y='26000' />
+<zone h='37000' id='8' name="Fee Income by Type" w='50000' x='50000' y='26000' />
+<zone h='37000' id='9' name="Sell-Through by Event" w='100000' x='0' y='63000' />
+</zone>
+</zones>
+</dashboard>
+</dashboards>
+<windows source-height='30'>
+<window class='worksheet' name="Gross Sales"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='worksheet' name="Fee Take Rate"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='worksheet' name="Net Fee Revenue"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='worksheet' name="Sell-Through"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='worksheet' name="Gross Sales by Month"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='worksheet' name="Fee Income by Type"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='worksheet' name="Sell-Through by Event"><cards><edge name='left'><strip size='160'><card type='pages' /><card type='filters' /><card type='marks' /></strip></edge></cards></window>
+<window class='dashboard' maximized='true' name='Box Office Pulse'><viewpoints /><active id='-1' /></window>
+</windows>
+</workbook>

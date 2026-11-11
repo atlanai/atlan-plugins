@@ -21,7 +21,7 @@ for "continue".
 ## Orient before work
 
 A demo follows [the demo skill](../../analytics-demo/SKILL.md), which uses this file's
-technical stages on the demo repository. A bare own-data request asks once for the source.
+technical stages on the demo's copied folder. A bare own-data request asks once for the source.
 All setup uses [one presentation flow](setup/presentation.md), with actual source facts.
 
 Explain the outcome, next action and controls. For example: "I'll turn

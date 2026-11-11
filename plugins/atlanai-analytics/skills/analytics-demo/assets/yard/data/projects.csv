@@ -1,0 +1,11 @@
+project_id,project_name,client_name,site_town,project_type,contract_value_gbp,start_date,planned_end_date,actual_end_date,status
+P01,Mrs Kettle's Pergola,Mrs Kettle,Hammerton,residential,9800.00,2026-07-06,2026-07-24,2026-07-22,complete
+P02,Farmer Marrow's Barn Extension,Farmer Marrow,Buttercup Vale,farm,72000.00,2026-07-01,2026-08-28,2026-08-27,complete
+P03,Buttercup Vale Wind Turbine Base,Buttercup Vale Council,Buttercup Vale,civic,150000.00,2026-07-13,2026-09-25,2026-10-23,complete
+P04,Sprout's Scarecrow Workshop,Sprout,Buttercup Vale,farm,10500.00,2026-08-03,2026-08-21,2026-09-04,complete
+P05,Hammerton Skate Park,Hammerton Town Council,Hammerton,civic,96000.00,2026-08-10,2026-09-30,2026-09-29,complete
+P06,Town Hall Clock Tower Repair,Hammerton Town Council,Hammerton,civic,54000.00,2026-09-01,2026-10-16,,on_hold
+P07,Jojo's Yard Fence,Jojo,Hammerton,commercial,3200.00,2026-09-14,2026-09-25,,cancelled
+P08,Mr Bramley's Office Refit,Mr Bramley,Hammerton,commercial,61000.00,2026-09-21,2026-11-20,,in_progress
+P09,Buttercup Vale Bus Shelter,Buttercup Vale Council,Buttercup Vale,civic,21000.00,2026-10-01,2026-10-09,2026-10-15,complete
+P10,Kipper's Cat Flap,Rob (personal job),Hammerton,residential,150.00,2026-10-20,2026-10-28,2026-10-27,complete

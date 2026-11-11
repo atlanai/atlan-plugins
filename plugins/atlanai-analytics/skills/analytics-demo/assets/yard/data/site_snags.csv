@@ -1,0 +1,12 @@
+snag_id,project_id,reported_date,caused_by,description,severity
+S01,P03,2026-08-12,KIPPER,Kipper sat in the wet turbine-base concrete. Paw prints set overnight.,high
+S02,P03,2026-08-27,C06,Whirl over-mixed batch 14. It came out as soup.,medium
+S03,P03,2026-09-16,KIPPER,Kipper sat in the wet concrete again. Same spot. Same paws.,high
+S04,P03,2026-09-30,C08,Lanky lowered the turbine base mould two feet left of the pegs.,high
+S05,P04,2026-08-18,C03,Sprout built the scarecrow a door. On the roof.,medium
+S06,P04,2026-08-25,C03,Sprout 'improved' the paint colour to turnip.,low
+S07,P02,2026-08-04,WEATHER,Rain washed out the barn footings.,medium
+S08,P05,2026-09-08,C07,Flatt rolled the half-pipe flat. It is now a quarter-pipe.,low
+S09,P10,2026-10-21,C01,Cat flap fitted upside down. Kipper unimpressed.,low
+S10,P09,2026-10-07,WEATHER,Wind blew the shelter roof panels into the duck pond.,low
+S11,P08,2026-10-14,C05,Tipper delivered the office carpet to the farm.,low

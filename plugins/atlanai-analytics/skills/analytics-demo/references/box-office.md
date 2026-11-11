@@ -1,15 +1,12 @@
 # Demo: Ticketfuddle, the box office
 
 Read right after the person picks this demo, and again at each later moment for its facts.
-The source is the `box-office/` folder of the demo repository.
-Its dashboard is `tableau/box-office-pulse.twb`: give the engine that file as `bi`, not its
-folder. Its tables load into `data/tix.sqlite` inside that folder (the prepare request's
-`database` is `data/tix.sqlite`, relative to it) with schema `tix`, and the run's dialect is
-`sqlite`.
+The demo is `box-office`: its files are this skill's `assets/box-office/`, and
+`DEMO copy box-office` places them and prints the dashboard file, database, schema and dialect.
 
 ## The welcome
 
-Print this block next, before any other tool call, file search or clone. Print it whole and
+Print this block next, before any other tool call, file search or copy. Print it whole and
 as written, as an ordinary reply; it has nothing to fill in. Keep the step strip inside its
 code fence so its columns stay aligned.
 
@@ -46,7 +43,7 @@ code fence so its columns stay aligned.
 | Firm | Ticketfuddle |
 | Agent | ticket fees agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/ |
-| Source folder | `box-office/` |
+| Source folder | `atlan-analytics-demo/box-office/` |
 | Dashboard | a Tableau workbook with 4 tiles and 3 charts |
 | Tiles | gross sales, fees as a share of what fans paid, net fee revenue, sell-through |
 | Past queries | 68 distinct, over 756 runs |
