@@ -18,6 +18,21 @@ Preserve existing run locations; do not change host permissions or read credenti
 - **Report/web link:** inspect lightweight metadata through the existing authorized host tools.
   A visible chart is evidence, not its missing SQL. Obtain a supported export when necessary;
   if definitions are unavailable, hold that coverage with one specific next step.
+- **A BI service link whose model holds the measures** (a Power BI report, a Tableau
+  workbook): the measure formulas are in the model, not on the page. A page read or a
+  metadata query (`INFO.VIEW.MEASURES`) returns names without expressions for most roles.
+  Get the definition files, in this order:
+  1. the engine's own reader for that service (`powerbi`, `tableau` features), signed in as
+     the person through its device-code or browser route, as
+     [Power BI service inputs](../../metrics-generation/modules/metrics/engine/docs/guides/power-bi-service-inputs.md) says;
+  2. the service's definition export through the person's signed-in session (Power BI's
+     item definition, TMDL format), saved as a file into the run's `sources/` folder by one
+     announced download, then `ENGINE stage-input`;
+  3. a supported export the person downloads (`.pbix`, `.pbip`, `.twbx`).
+
+  Never carry a definition through chat or page text: page readers cap output and collapse
+  whitespace, so a copied model differs from the original. Check any staged file against the
+  service's copy (size or hash) before surveying it.
 
 For downloads, announce the necessary acquisition once. A request to use the source covers
 necessary acquisition within its scope; host/provider approval still applies. Do not add a

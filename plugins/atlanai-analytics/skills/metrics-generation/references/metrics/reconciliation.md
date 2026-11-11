@@ -8,6 +8,14 @@ Preserve `id`, `kind`, `name`, `display_name`, `description`, `source_id` and `d
 Registry compact reads may omit repeated descriptions: use `registry__get_artifact` with
 `verbose: true` for missing body fields. Never fill missing live prose from the local candidate.
 
+For saved queries the checker compares the executable contract: `spec_version`, `dialect`,
+the SQL byte for byte and any binding constraints, not the prose. Batched reads can cut each
+result to a fixed size; when a definition comes back cut, read that artifact alone with
+`properties: ["definition"]`, or let the host save the full read to a file, before writing it
+to `existing.json`. A live query whose `sql_sha256` equals the candidate's SQL hash, with the
+same dialect and spec version, is the same contract: record it with its id so the plan reuses
+it instead of colliding on its name.
+
 If `reconciliation-review.json` has entries, compare each candidate with the listed existing
 definitions. Read both bodies, including extensions. Explain their meaning, population, grain,
 dimensions, parameter constraints and limitations. For a parameterized query, identify the

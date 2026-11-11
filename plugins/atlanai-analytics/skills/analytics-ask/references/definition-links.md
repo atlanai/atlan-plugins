@@ -81,7 +81,9 @@ This returns a URL of the form:
 https://app.atlan.com/example-org/apps/metric?path=%2Fm%2Fmetric_example%3Fworkspace%3Dworkspace_example&ws=workspace_example
 ```
 
-Render it as `[Gross margin](<returned URL>)`. For a saved query, use `--kind sql_query`
+When the helper says the CLI is signed in to another of the person's organizations, the
+answer keeps its named proof and the reply names the one step: sign the CLI in to the
+organization that holds the artifact. Render it as `[Gross margin](<returned URL>)`. For a saved query, use `--kind sql_query`
 and the returned `sql_query_...` handle. The helper verifies the active organization and exact artifact workspace before composing
 the link. Use the workspace returned with that artifact, not a guessed default.
 

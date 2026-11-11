@@ -411,7 +411,9 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     selection = []
     scopes = state.get('scopes') or ({'selected': state['scope']} if state.get('scope') else {})
     for value in _dict(scopes).values():
-        pages = _dict(_dict(value).get('selection')).get('pages', [])
+        chosen = _dict(_dict(value).get('selection'))
+        # A report scope names pages; a model-only scope names measures.
+        pages = chosen.get('pages', chosen.get('measures', []))
         if isinstance(pages, list):
             selection.extend(_text(p, 100) for p in pages[:100] if isinstance(p, str))
     next_text, prompt = 'Inspect the selected sources to find useful metrics.', 'Show what sources are available and what you will use.'

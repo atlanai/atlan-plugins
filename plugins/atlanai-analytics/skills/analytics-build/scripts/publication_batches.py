@@ -23,7 +23,7 @@ def encode(value):
     return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
 
 
-def prepare(context, authorization, workspace, sources, record_receipts=False):
+def prepare(context, authorization, workspace, sources, record_receipts=False, max_bytes=MAX_BYTES):
     root = Path(context).resolve()
     documents = {name: json.loads((root / (name + '.json')).read_text(encoding='utf-8'))
                  for name in ('plan', 'metrics', 'queries', 'links')}
@@ -68,12 +68,12 @@ def prepare(context, authorization, workspace, sources, record_receipts=False):
             raise ValueError('The checked plan omits publication bodies.')
         chunk = []
         for item in selected:
-            if chunk and (len(chunk) == MAX_ITEMS or len(encode(chunk + [item])) > MAX_BYTES):
+            if chunk and (len(chunk) == MAX_ITEMS or len(encode(chunk + [item])) > max_bytes):
                 batches.append((kind, chunk))
                 chunk = []
             if len(encode([item])) > MAX_BYTES:
                 raise ValueError('One definition exceeds the local batch limit; nothing was truncated.')
-            chunk.append(item)
+            chunk.append(item)  # an item larger than max_bytes travels alone
         if chunk:
             batches.append((kind, chunk))
     # Validate everything before writing the first request file.
@@ -102,7 +102,15 @@ def prepare(context, authorization, workspace, sources, record_receipts=False):
                                     'items_from': str(path), 'items_sha256': sha}})
         if record_receipts:
             calls[-1]['arguments']['receipt_dir'] = receipt_dir
-    return {'plan_id': plan_id, 'calls': calls, 'deferred': deferred,
+    # RUN THIS FIRST, ON THE CONNECTION THAT WILL WRITE. A host can hold two Atlan connections
+    # signed in to different organizations; a refused or empty answer here means this
+    # connection cannot reach the reviewed workspace, and nothing should be sent through it.
+    # The counts it returns are also the "before" side of the post-write count check.
+    preflight = {'name': 'registry__get_artifact_counts',
+                 'arguments': {'workspace_id': workspace, 'group_by': 'kind'},
+                 'expect_created': {'metric': sum(c['count'] for c in calls if c['arguments']['kind'] == 'metric'),
+                                    'sql_query': sum(c['count'] for c in calls if c['arguments']['kind'] == 'sql_query')}}
+    return {'plan_id': plan_id, 'preflight': preflight, 'calls': calls, 'deferred': deferred,
             **({'receipt_dir': receipt_dir} if record_receipts else {}),
             'links': sum(item['ok'] for item in documents['plan']['links'])}
 
@@ -114,10 +122,14 @@ def main():
     parser.add_argument('--workspace', required=True)
     parser.add_argument('--source', action='append', required=True)
     parser.add_argument('--record-receipts', action='store_true')
+    parser.add_argument('--max-bytes', type=int, default=MAX_BYTES,
+                        help='cap each batch file; use a small cap (for example 60000) when the host '
+                             'cannot run the file-backed helper and the items must be sent inline')
     args = parser.parse_args()
     try:
         authorization = json.loads(args.authorization.read_text(encoding='utf-8'))
-        result = prepare(args.context, authorization, args.workspace, args.source, args.record_receipts)
+        result = prepare(args.context, authorization, args.workspace, args.source, args.record_receipts,
+                         max_bytes=max(1, min(args.max_bytes, MAX_BYTES)))
         print(json.dumps(result))
         return 0
     except (ValueError, OSError, KeyError, TypeError, context_contracts.Blocked):
