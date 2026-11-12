@@ -103,3 +103,7 @@ semantic review or dashboard parity.
 
 Save progress and candidate evidence at meaningful phase changes, then refresh
 [the checklist](checklist.md) from `PROJECT checklist`.
+
+**After the checks, in the discovery branch only**, and before the save question:
+[offer a dashboard](intent.md), once, when none was part of this build. Adding one starts a
+new engine run with the dashboard as a source, as any source change does.

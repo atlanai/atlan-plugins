@@ -87,8 +87,9 @@ file; say so if they chose A or C, and mention `analytics-demo`.
 
 1. **Discover.** No question. `source-survey` `discover` on the chosen warehouse, with the
    discovery Doing and Why lines.
-2. **Which should I build?** [The use cases](names.md): two to four, each one line with its
-   tables. More than one can be picked.
+2. **Which should I build?** [The use cases](names.md): up to three, each one line with its
+   tables, then "I have a dashboard". More than one can be picked. Picking the dashboard
+   option asks for its link or file next.
 3. **Clarify, only if needed.** One card of at most two questions, asked only where
    discovery could not settle something that changes the numbers, with what was found as the
    options:
@@ -103,21 +104,67 @@ file; say so if they chose A or C, and mention `analytics-demo`.
    Ask nothing that discovery settled: state those as assumptions in the confirmation. Never
    ask about audience, layout or which metrics.
 4. **Confirm and trigger**, below.
+5. **After the build, offer a dashboard**, next.
+
+### After the build, in this branch only: offer a dashboard
+
+Discovery builds from query history and table definitions. A dashboard holds rules the team
+already agreed, so adding one can improve what was built. When generation and its checks
+have finished, and no dashboard was part of this build, ask once, before the save question:
+
+"Built from your warehouse: `<N>` metrics and `<N>` queries, from query history and table
+definitions. The quality can improve if you add more sources: a dashboard brings the rules
+your team already agreed for these numbers.
+
+Would you like to add a dashboard?"
+
+| Option | Description |
+| --- | --- |
+| Add a dashboard | "Share its link or file. I'll read it and update the metrics it covers." |
+| Not now | "Keep what's built and carry on to saving." |
+
+- **Add a dashboard**: ask for it with branch B's card, open it and check access (signing
+  the person in when a link needs it), then confirm and build with the dashboard added. Metrics the
+  dashboard also defines are reconciled with it and any change is shown as news; the rest
+  stay as built. Then continue to the save question.
+- **Not now**, or the dashboard cannot be read: continue to the save question. Do not ask
+  again in this run.
+
+Say "can improve", never that the current metrics are wrong or incomplete, and never offer
+this in the dashboard branch, the known-tables branch or a demo. Skip it when the person
+already picked "I have a dashboard" in the menu, and on a resume that is past this point.
 
 ## Branch B: Make my dashboard agentic
 
-1. **Share the dashboard.** One short message in ordinary chat, not a card: the answer is a
-   link or a file, which a list of options cannot hold. End the turn on it.
+1. **Share the dashboard.** One card, so the person picks where they can and types only the
+   link or path:
 
-   "Paste your dashboard's link, or the path to its file (`.pbix`, `.pbit`, `.twb`,
-   `.twbx`). You can drag the file into this box."
+   "Which dashboard should I use?"
 
-   Add one line when a BI file is in the working folder: "Or say `use <file name>` for the
-   one in this folder." Always end with: "Or say skip and I'll let discovery decide." A
-   reply of skip is branch A from its start. Do not ask which BI tool it is: the link or the file's extension
-   says. Take whatever comes back as the dashboard.
-2. **Access check.** `source-survey` `access` on the dashboard and the tables it reads. No
-   question unless something fails; then one question, below.
+   The question's own text is one line: "Paste its link or a file path below, or pick one."
+
+   | Option | Description | When to offer it |
+   | --- | --- | --- |
+   | Each BI file in the working folder, by name | "The `<Power BI>` file in this folder." | One per file `PROJECT discover` found, at most two, largest first |
+   | I know my tables instead | "Skip the dashboard and tell me the use case and tables." | When fewer than two files were found |
+   | Skip, let discovery decide | "I'll look at what your warehouse is used for and suggest use cases." | Always, last |
+
+   The host's free-text entry takes the link or the path. Never add an option that only says
+   to paste or type, and never ask which BI tool it is: the link's host or the file's
+   extension says. Where the host has no question tool, ask in ordinary chat and list the
+   same choices.
+
+   | They answer | Do |
+   | --- | --- |
+   | A file in the folder, or a typed path | Step 2, on that file |
+   | A link | Step 2, on that link: open it, signing the person in when it needs it |
+   | I know my tables instead | Branch C from its start |
+   | Skip, let discovery decide | Branch A from its start |
+
+2. **Open it and check access.** `source-survey` `access` on the dashboard and the tables it
+   reads. A link that needs sign-in starts that tool's sign-in straight away, as
+   **A link that needs sign-in** below says: do not stop to ask whether to sign in. Ask a
+   question only when something cannot be read after that.
 3. **Confirm and trigger**, below.
 
 ## Branch C: I have a use case and know my tables
@@ -151,13 +198,43 @@ file; say so if they chose A or C, and mention `analytics-demo`.
 
 ## The access check, in branches B and C
 
-Silent when everything can be read: go straight to the confirmation, which says so. When
-something cannot be read, ask one question that names it and offers the ways forward:
+Silent when everything can be read: go straight to the confirmation, which says so.
+
+### A link that needs sign-in
+
+A link is as good as a file. Recognise the tool from the link's host, then open the report
+through that tool's own route, in the order
+[the dashboard routes](../../../metrics-generation/references/dashboard-agent.md) give.
+When the route can sign the person in, start it without asking, say one line, and carry on
+when it completes:
+
+| Tool | What to do | Say |
+| --- | --- | --- |
+| Power BI | Start the plug's browser sign-in (a device code where no browser can open) | "Opening Power BI sign-in in your browser. I'll carry on once you're signed in." |
+| Another tool whose route can start a sign-in | Start it the same way | The same line, with the tool's name |
+| Tableau, or any tool with no sign-in a tool can start | Ask the one question below | |
+
+Signing in is the person's own act in their own browser. Never ask for, print or store a
+password, token or key, and never paste a credential into a command.
+
+Only when no sign-in can be started for that tool, ask how to get the dashboard, with that
+tool's routes as the options:
+
+| Option | Description |
+| --- | --- |
+| Download it and give me the file (recommended) | "In Tableau, Download, then Tableau Workbook. Paste the path here." |
+| Use an access token | "For Tableau, a Personal Access Token you create. I'll tell you where to put it, never in this chat." |
+| Skip, let discovery decide | "Build from the warehouse instead." |
+
+A sign-in that fails or is cancelled falls back to that same question, once.
+
+### When something still cannot be read
+
+Ask one question that names it and offers the ways forward:
 
 | What failed | Ask | Options |
 | --- | --- | --- |
-| A dashboard link needs sign-in | "`<Tool>` needs you to sign in before I can open this." | Sign in now · I'll send a file instead |
-| A dashboard cannot be opened at all | "I can't open this link from here." | I'll send a file instead · Build without it |
+| A dashboard cannot be opened even after sign-in | "I can't open this dashboard: `<the reason>`." | I'll send a file instead · Skip, let discovery decide |
 | Some tables cannot be read | "I can't read `<N>` of its `<M>` tables: `<names>`." | Build from the `<M-N>` I can read · I'll fix access first |
 | No table can be read | "I can't read any of these tables on `<warehouse>`." | I'll fix access first · Pick another warehouse |
 | A dashboard's data is packed inside the file | "This dashboard's data is inside the file, with no warehouse table behind it." | Name the table that holds the same data · Stop here |
