@@ -33,10 +33,11 @@ YOU, DEMO, SETUP, SURVEY, ENGINE, ATLAN, ASK = (
     'You', 'Demo guide', 'Setup helper', 'Source survey', 'Metrics engine', 'Atlan', 'Ask guide')
 
 
-def node(title, text, by, n=None, always=False, done=None):
+def node(title, text, by, n=None, always=False, done=None, warn=False):
     """One piece of work. It ticks as soon as the run has finished it: by default, once the run left its count.
-    A finished step shows it only when the run left its count, or when it has none to leave."""
-    return {'t': title, 'd': text, 'by': by, 'n': n, 'always': always, 'done': n is not None if done is None else done}
+    A finished step shows it only when the run left its count, or when it has none to leave. `warn` marks a piece that
+    finished with something for a person to look at."""
+    return {'t': title, 'd': text, 'by': by, 'n': n, 'always': always, 'done': n is not None if done is None else done, 'warn': warn}
 
 
 def ratio(a, b, form='%d of %d'):
@@ -55,12 +56,18 @@ def intent(f, s):
 
 
 def _found(f):
-    return [k for k in ((f.dashboard.get('tool') and '%s dashboard' % f.dashboard['tool'] if f.usable(*BI_TOOLS) else ''),
+    """What the run reads, as a person says it."""
+    return [k for k in (f.warehouse and '%s warehouse' % f.warehouse,
+                        f.usable(*BI_TOOLS) and '%s dashboard' % BI_TOOLS[f.usable(*BI_TOOLS)[0]['kind']],
                         count(len(f.usable('data_file')), 'data file') if f.usable('data_file') else '',
                         'query history' if f.usable('query_history') else '') if k]
 
 
 def _tables_node(f):
+    """Local data loads into a small database on this machine; a warehouse is read where it is."""
+    if f.warehouse:
+        return node("Read the chosen tables' columns", 'Their names and types, through the read-only connection; no data '
+                    'is copied.', SETUP, count(f.scoped_tables, 'table') if f.scoped_tables else None)
     tables = f.tables
     return node('Load the tables on this machine', 'Into a small read-only database, so every number can be tested '
                 'without touching anything real.', SETUP,
@@ -68,53 +75,72 @@ def _tables_node(f):
 
 
 def sources(f, s):
-    history, dash = f.history, f.dashboard
+    dash = f.dashboard
     # A demo's run starts from its copied files, so both pieces are done once there is a run to show.
     how = ([node('You pick a demo', 'A made-up firm with its own dashboard, past queries and data.', YOU, always=True, done=True),
             node('Copy its files into a working folder', 'Nothing leaves this machine until you choose to save.', DEMO, always=True,
                  done=True)]
            if s['demo'] else [])
+    found = len(f.sources) + bool(f.warehouse)
     how.append(node('Find every source', 'Each file is listed and fingerprinted, so a later change is noticed.', SETUP,
-                    count(len(f.sources), 'source') if f.sources else None))
+                    count(found, 'source') if found else None))
+    if f.warehouse:
+        how.append(node('Connect to the warehouse', 'A read-only connection: only single read statements are ever sent.',
+                        SETUP, f.warehouse))
     if dash or f.usable(*BI_TOOLS):
         how.append(node('Read the dashboard', 'Its tiles and the formula behind each one.', SURVEY,
                         count(dash['formulas'], 'formula') if dash.get('formulas') else None))
-    if history or f.usable('query_history'):
+    if f.usable('query_history'):
+        history = f.history
         how.append(node('Count the past queries', 'What analysts actually ran is the best evidence of what they measure.', SETUP,
                         '%s · run %s times' % ('{:,}'.format(history['statements']), '{:,}'.format(history['runs'])) if history else None))
     if s['demo']:
-        # A demo loads its data in this step; on your own data the tables load when the build starts.
+        # A demo loads its data in this step; own data loads or reads its tables when the build starts.
         how.append(_tables_node(f))
-    found, tables = _found(f), f.tables
-    return {'how': how, 'fact': ', '.join(found),
-            'result': ([{'title': 'Found', 'list': [[k, ''] for k in found]}] if found else [])
+    kinds, tables = _found(f), f.tables
+    return {'how': how, 'fact': ', '.join(kinds),
+            'result': ([{'title': 'Found', 'list': [[k, ''] for k in kinds]}] if kinds else [])
             + ([{'title': 'Tables loaded', 'list': [[table_name(t[0]), count(t[1], 'row')] for t in tables]}] if s['demo'] and tables else [])}
 
 
+def _chosen(f):
+    """What the build reads: the person's choice once the build is configured; before that, what the run could use."""
+    if f.inputs:
+        return f.inputs
+    return {'bi': bool(f.usable(*BI_TOOLS)), 'history': bool(f.usable('query_history') or f.warehouse)}
+
+
 def scope(f, s):
-    config = f.file('engine-config.json')
-    inputs = config.get('inputs') if isinstance(config.get('inputs'), dict) else {}
-    chosen = ('Dashboard and past queries' if inputs.get('history') and inputs.get('bi') else 'Past queries' if inputs.get('history')
-              else 'Dashboard only' if inputs.get('bi') else None) if config else None
+    inputs = f.inputs
+    chosen = None
+    if inputs:
+        chosen = ('Dashboard and past queries' if inputs['history'] and inputs['bi'] else 'Past queries' if inputs['history']
+                  else 'Dashboard only' if inputs['bi'] else 'The chosen tables')
+        if f.warehouse and f.scoped_tables:
+            chosen += ', ' + count(f.scoped_tables, 'table')
     return {'how': [node('You choose what to build from', 'More sources give fuller context; the dashboard alone is faster.'
                          if s['demo'] else 'The tables and dashboards the metrics come from.', YOU, chosen, always=True,
-                         done=bool(config))],
+                         done=bool(inputs))],
             'fact': chosen or ''}
 
 
 def metrics(f, s):
-    st = f.stage
+    st, use = f.stage, _chosen(f)
     how = [] if s['demo'] else [_tables_node(f)]
-    if f.stages.get('h0_corpus') is not None or s['open'] and f.usable('query_history'):
+    if use['history']:
+        if f.warehouse:
+            history = f.history
+            how.append(node('Read the past queries from %s' % f.warehouse, 'Successful read statements on the chosen tables, '
+                            'through the read-only connection.', SETUP, count(history['statements'], 'query', 'queries') if history else None))
         raw, scanned, kept, shapes = f.query_log, st('h0_corpus', 'scanned'), st('h0_corpus', 'kept'), st('h1_shapes', 'canonical_shapes')
         if raw and scanned is not None and raw > scanned:
             how.append(node('Set aside queries with names in them', 'A privacy filter holds back any query that looks like it '
                             'names a person or a business.', SETUP, ratio(raw, scanned, '%d → %d')))
-        how += [node("Keep queries about the dashboard's tables" if f.dashboard else 'Keep queries about the chosen tables',
+        how += [node("Keep queries about the dashboard's tables" if use['bi'] else 'Keep queries about the chosen tables',
                      "Queries about other tables can't explain these numbers.", ENGINE, ratio(scanned, kept, '%d → %d')),
                 node('Group repeats into questions', 'Queries that differ only in a value, such as a date, count as one; '
                      'plain table dumps are left out.', ENGINE, ratio(kept, shapes, '%d → %d'))]
-    if f.stages.get('a4_witness_bi') is not None or s['open'] and f.usable(*BI_TOOLS):
+    if use['bi']:
         tried = st('a4_witness_bi', 'witnessed')
         how += [node("Translate the dashboard's formulas", 'Each tile formula becomes a query that runs on the data.', ENGINE,
                      ratio(st('a4_witness_bi', 'verdict_pass') or 0, tried) if tried is not None else None,
@@ -123,9 +149,11 @@ def metrics(f, s):
                      count(st('a3b_emit', 'prompted'), 'formula') if st('a3b_emit', 'prompted') and 'a3b_ingest' in f.stages else None)]
     described, none, proposals, made = st('m2_ingest', 'described'), st('x1_ingest', 'no_metric'), st('x1_ingest', 'proposals'), st('x2_ingest', 'metrics_out')
     measuring = described - none if isinstance(described, int) and isinstance(none, int) else None
+    what = ('The dashboard tiles and the questions from past queries' if use['bi'] and use['history']
+            else 'The dashboard tiles' if use['bi'] else 'The questions from past queries')
     how += [
-        node('Describe every question in plain words', 'The dashboard tiles and the questions from past queries, each said '
-             'so a person, or another agent, can tell what it answers.', ENGINE, count(described, 'question') if described else None),
+        node('Describe every question in plain words', what + ', each said so a person, or another agent, can tell what it '
+             'answers.', ENGINE, count(described, 'question') if described else None),
         node('Keep the ones that measure a number', 'Lists and row counts stay as saved queries, not metrics.', ENGINE,
              ratio(measuring, described)),
         node('Merge numbers that share a rule', ('Those questions hold %s; numbers worked out the same way become one metric.'
@@ -138,17 +166,21 @@ def metrics(f, s):
     c = f.context
     checked = bool(c)
     n_metrics, n_queries = (len(c['metrics']), c['queries']) if checked else (None, None)
+    all_metrics = checked and c['metrics_checked'] == n_metrics
+    all_queries = checked and c['queries_checked'] == n_queries
+    where = 'on %s' % f.warehouse if f.warehouse else 'on the data'
     how += [node('Check each item is complete', 'Every metric and query needs all its parts before it runs.', SETUP,
                  '%s + %s' % (count(n_metrics, 'metric'), count(n_queries, 'query', 'queries')) if checked else None),
-            node('Run each metric on the data', 'Its examples, its full calculation, and a test that its filter leaves '
+            node('Run each metric ' + where, 'Its examples, its full calculation, and a test that its filter leaves '
                  'nothing in when nothing should count.', SETUP, ratio(c['metrics_ran'], n_metrics) if checked and n_metrics else None,
-                 done=checked and c['metrics_checked'] == n_metrics),
-            node('Run each query', 'Each one runs as written on the loaded tables.', SETUP,
-                 ratio(c['queries_ran'], n_queries) if checked and n_queries else None, done=checked and c['queries_checked'] == n_queries)]
-    if not checked or c['review']:
-        how.append(node('Flag what needs a person', 'Queries the engine could not fully confirm, such as a filter value it '
-                        'could not match or a query that came back empty, wait for a person to review.', ENGINE,
-                        count(c['review'], 'query', 'queries') if checked else None, done=checked and c['queries_checked'] == n_queries))
+                 done=all_metrics, warn=all_metrics and c['metrics_ran'] < n_metrics),
+            node('Run each query ' + where, 'Each one runs as written.', SETUP,
+                 ratio(c['queries_ran'], n_queries) if checked and n_queries else None, done=all_queries,
+                 warn=all_queries and c['queries_ran'] < n_queries)]
+    if not checked or c['need_look']:
+        how.append(node('Hold what needs a look', 'Anything that did not pass its check is kept back and listed for a '
+                        'person, never shown as a result.', SETUP, '%d need a look' % c['need_look'] if checked else None,
+                        done=all_metrics and all_queries, warn=checked and bool(c['need_look'])))
 
     def came_from(m):
         return ', '.join(x for x in (count(m['tiles'], 'dashboard tile') if m['tiles'] else '',
@@ -177,7 +209,8 @@ def save(f, s):
         return sum(int(part.get(x) or 0) for x in ('create', 'revise')) if isinstance(part, dict) else None
     how = [node('You choose where the context lives', 'Keep it on this machine, or save it to Atlan, where your team and its '
                 'agents can use it. Saving goes like this:', YOU, always=True, done=bool(picked or p)),
-           node('You pick a workspace', 'Where the metrics live in Atlan.', YOU, p.get('workspace'), done=bool(picked or p)),
+           node('You pick a workspace', 'Where the metrics live in Atlan.', YOU, None if s['private'] else p.get('workspace'),
+                always=True, done=bool(picked or p)),
            node('Plan the save', 'What is new, what changed, and what each item links to.', SETUP,
                 '%s · %s' % (count(made('metrics'), 'metric'), count(made('queries') or 0, 'query', 'queries')) if made('metrics') is not None else None),
            node('Save each metric and query', 'Each one becomes an item in the workspace.', ATLAN,
@@ -187,8 +220,8 @@ def save(f, s):
            node('Read every item back', 'Proof that each one is live, which is what lets agents find it.', ATLAN,
                 '%d live' % p['items'] if p else None)]
     return {'how': how, 'fact': '%d live in Atlan' % p['items'] if p else '',
-            'result': [{'title': 'Saved to Atlan Trident', 'kv': [['Workspace', p.get('workspace') or 'Atlan'], ['Metrics', str(len(p['metrics']))],
-                                                                 ['Queries', str(p['queries'])]]}] if p else []}
+            'result': [{'title': 'Saved to Atlan Trident', 'kv': ([] if s['private'] else [['Workspace', p.get('workspace') or 'Atlan']])
+                        + [['Metrics', str(len(p['metrics']))], ['Queries', str(p['queries'])]]}] if p else []}
 
 
 def ask(f, s):
@@ -205,6 +238,8 @@ def ask(f, s):
     if breakdown.get('steps'):
         how.append(node('Break the answer down', 'Into the parts that add up to it.', ASK, count(len(breakdown['steps']), 'part')))
     how.append(node('Write the answer', 'In plain words, with the rule behind it.', ASK, '1 answer' if answered else None))
+    if s['private']:
+        return {'how': how, 'fact': 'Answered in the chat' if answered else ''}
     return {'how': how, 'fact': str(a.get('headline') or '').rpartition(': ')[2],
             'result': [{'title': 'The answer', 'answer': {k: a[k] for k in ('question', 'headline', 'summary', 'rule') if isinstance(a.get(k), str)}}]
             if answered else []}
@@ -223,8 +258,6 @@ def dashboard(f, s):
 # Each task-list step: its short name on the page, and what it holds.
 BUILDERS = {'intent': ('Use case', intent), 'sources': ('Sources', sources), 'scope': ('Select', scope), 'metrics': ('Metrics', metrics),
             'save': ('Save', save), 'ask': ('Ask', ask), 'dashboard': ('Dashboard', dashboard)}
-# Steps a person repeats keep showing their latest; every other step keeps what it showed when it finished.
-REPEATS = ('ask', 'dashboard')
 # When the saved run cannot be read, the moments seen say how far it got: the step each one finishes.
 FINISHED_BY = {'sources': 'sources', 'build': 'scope', 'context': 'metrics', 'saved': 'save', 'answer': 'ask'}
 
@@ -255,7 +288,7 @@ def _state(run):
         return state
     # A state file that is missing or unreadable starts over, but never reuses a document number the page has seen.
     written = [int(m.group(1)) for d in (Path(run) / 'view' / 'steps').glob('s*.json') if (m := re.fullmatch(r's(\d+)\.json', d.name))]
-    return {'moments': [], 'written': max(written, default=0), 'frozen': {}}
+    return {'moments': [], 'written': max(written, default=0)}
 
 
 @contextmanager
@@ -278,13 +311,22 @@ def seen(run):
 
 
 # The moments the run's own files can show without a data file from the agent, so the run names them when due.
-MIDWAY = ('connect', 'sources', 'build', 'context')
+MIDWAY = ('connect', 'found', 'sources', 'build', 'context')
+# How many updates offer to open the page before the run assumes the host has no artifact tools and stops asking.
+OFFERS = 3
 
 
 def _shows(kind, run, engine_dir):
     import visuals
     if kind == 'connect':
         return True
+    if kind == 'found':
+        # Own data only, right before the person chooses what to build from, so it can name a warehouse just connected.
+        if _state(run).get('demo') or RunFacts(run).interaction.get('flow') == 'demo':
+            return False
+        rows = _rows(run, 'build', seen(run), engine_dir)
+        if next((r['id'] for r in rows if r['status'] != 'completed'), None) != 'scope':
+            return False
     if kind == 'context':
         # Checks are recorded one by one; the moment waits for the last.
         c = RunFacts(run, engine_dir).context
@@ -316,61 +358,65 @@ def _rows(run, flow, kinds, engine_dir):
 
 
 def model(run, state=None, engine_dir=None):
-    """The whole view as one document: the flow's steps, their status, what came out and how."""
+    """The whole view as one document: the flow's steps, their status, what came out and how, always from the run's
+    current files. On own data the page carries progress only: step and piece names, statuses, counts and the person's
+    own use-case words. Metric names, values, answers and workspace names stay in the chat."""
     run = Path(run)
     state = state or _state(run)
-    engine_dir = engine_dir or state.get('engine_dir')
     facts = RunFacts(run, engine_dir)
     kinds = [m.get('kind') for m in state['moments'] if isinstance(m, dict)]
     flow = 'demo' if state.get('demo') else 'build'
-    rows = _rows(run, flow, kinds, engine_dir)
+    private = flow != 'demo'
+    # The task list counts the build as started only once the run (or the command) names its engine run; a run that
+    # moved keeps finding that engine inside it.
+    named = engine_dir or facts.meta.get('engine_run')
+    rows = _rows(run, flow, kinds, facts.engine if named and facts.engine.is_dir() else None)
     current = next((i for i, r in enumerate(rows) if r['status'] != 'completed'), len(rows))
-    frozen = state.setdefault('frozen', {})
     steps = []
     for i, row in enumerate(rows):
         name, build = BUILDERS[row['id']]
         # A step can finish ahead of one still open: own data surveys its sources before the use case is saved.
         done, now = row['status'] == 'completed', i == current
-        keep = done and row['id'] not in REPEATS
-        section = frozen.get(row['id']) if keep and row['id'] in frozen else build(facts, {'demo': flow == 'demo', 'open': not done})
-        if keep:
-            frozen.setdefault(row['id'], section)
+        section = build(facts, {'demo': flow == 'demo', 'open': not done, 'private': private})
         nodes = [n for n in section.get('how') or [] if not done or n['n'] or n['always']]
         steps.append({'id': row['id'], 'name': name, 'status': 'done' if done else 'now' if now else 'next',
                       'doing': row['active'] if now else row['content'], 'purpose': row['content'],
                       **({'needs_you': True} if now and row.get('needs_you') else {}),
                       # The step that is running ticks each piece as it finishes; steps ahead only say how they work.
                       'how': [{k: v for k, v in (('t', n['t']), ('d', n['d']), ('by', n['by']), ('n', n['n'] if done or now else None),
-                                                 ('s', 'done' if done or now and n['done'] else 'next')) if v}
+                                                 ('s', 'done' if done or now and n['done'] else 'next'),
+                                                 ('w', (done or now) and n['done'] and n['warn'])) if v}
                               for n in nodes],
-                      **{k: section[k] for k in ('fact', 'result') if done and section.get(k)}})
+                      **{k: section[k] for k in ('fact',) if done and section.get(k)},
+                      **({'result': section['result']} if done and section.get('result') and not private else {})})
     a = facts.file('answer.json')
     asked = any(s['id'] == 'ask' and s['status'] == 'done' for s in steps)
     return {'title': state.get('title') or 'Analytics setup', 'subject': state.get('subject'), 'demo': flow == 'demo',
             **({'tagline': state.get('tagline') or facts.purpose} if state.get('tagline') or facts.purpose else {}),
             'updated': _now(), 'current': current, 'steps': steps,
             **({'answer': {k: a[k] for k in ('question', 'headline', 'summary', 'rule') if isinstance(a.get(k), str)}}
-               if asked and a.get('headline') else {})}
+               if asked and a.get('headline') and not private else {})}
 
 
 # Recording ------------------------------------------------------------------------------------
 
-def link(run, url=None):
-    """Remember where the side view was published, so every later update names it; with no address, that the run
-    follows its local page instead, which refreshes itself and needs no push."""
-    if url is not None and not re.match(r'https://claude\.ai/', str(url)):
+def link(run, url):
+    """Remember where the side view was published, so every later update names it."""
+    if not re.match(r'https://claude\.ai/', str(url)):
         raise ValueError('A side view is a claude.ai artifact address.')
     with _locked(run):
         state = _state(run)
-        state.update({'url': url} if url else {'local': True})
+        state['url'] = url
         _write(Path(run) / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
 
 
 def _offer(run, state, out):
-    """Until the run has a page, every update offers one, so a moment that skipped it is caught at the next."""
+    """Name the published page, or offer to publish one: a moment that skipped it is caught at the next update. After
+    OFFERS updates without a page the run stops asking: the host has no artifact tools, and the local page serves."""
     if state.get('url'):
         out['url'] = state['url']
-    elif not state.get('local'):
+    elif int(state.get('offers') or 0) < OFFERS:
+        state['offers'] = int(state.get('offers') or 0) + 1
         side = run / 'view' / 'side.html'
         out['page'] = str(side if side.is_file() else page(run, state.get('title') or 'Analytics setup'))
         out['local'] = str(run / 'view' / 'progress.html')
@@ -380,7 +426,7 @@ def record(run, kind, spec=None, engine_dir=None):
     """Log a moment; when the page would show something new, write a new document and refresh the local page.
 
     Returns the paths to publish or push: `doc` on every write, then `url` once the page is published, or
-    `page` and `local` until it is (or until the run follows its local page instead)."""
+    `page` and `local` while it is not, a few times at most."""
     with _locked(run):
         return _record(Path(run), kind, spec or {}, engine_dir)
 
@@ -389,22 +435,22 @@ def _record(run, kind, spec, engine_dir):
     state = _state(run)
     first = not state['moments']
     facts = RunFacts(run)
-    if engine_dir:
-        state['engine_dir'] = str(engine_dir)
-    if spec.get('firm') and not state.get('subject'):
-        state['subject'] = spec['firm']
-    if spec.get('tagline') and not state.get('tagline'):
-        state['tagline'] = spec['tagline']
-    if not state.get('title'):
-        root = facts.meta.get('source_root')
-        state['title'] = spec.get('title') or ('%s analytics' % Path(root).name if root else 'Analytics setup')
+    # A demo's facts name its firm and title; own data takes its title from the person's use case once they give it.
+    for key, value in (('subject', spec.get('firm')), ('tagline', spec.get('tagline'))):
+        if value:
+            state[key] = value
+    if spec.get('title'):
+        state['title'], state['titled'] = spec['title'], True
+    elif not state.get('titled'):
+        # A folder's name can be a stray file's; until the person names the use case, the page is the setup.
+        state['title'] = facts.use_case or 'Analytics setup'
     if spec.get('flow') == 'demo' or facts.interaction.get('flow') == 'demo':
         state['demo'] = True
     state['moments'].append({'kind': kind, 'at': _now()})
     out = {}
     # A moment writes a document only when the page would show something new.
-    if first or _ticks(model(run, state)) != state.get('ticks'):
-        doc, path = _emit(run, state)
+    if first or _ticks(model(run, state, engine_dir)) != state.get('ticks'):
+        doc, path = _emit(run, state, engine_dir)
         if first or not (run / 'view' / 'side.html').is_file():
             page(run, doc['title'])
         out['doc'] = str(path)
@@ -419,10 +465,10 @@ def _ticks(doc):
     return [[s['status'], [n.get('s') for n in s['how']]] for s in doc['steps']]
 
 
-def _emit(run, state):
+def _emit(run, state, engine_dir=None):
     """The view as a new numbered document for the page, and the same data for the local copy."""
     state['written'] = int(state.get('written') or 0) + 1
-    doc = dict(model(run, state), n=state['written'])
+    doc = dict(model(run, state, engine_dir), n=state['written'])
     state['ticks'] = _ticks(doc)
     path = run / 'view' / 'steps' / ('s%02d.json' % state['written'])
     _write(path, json.dumps(doc, ensure_ascii=False, indent=1))
@@ -440,11 +486,9 @@ def progress(run, engine_dir=None):
         state = _state(run)
         if not state['moments']:
             return {}
-        if engine_dir and not state.get('engine_dir'):
-            state['engine_dir'] = str(engine_dir)
-        if _ticks(model(run, state)) == state.get('ticks'):
+        if _ticks(model(run, state, engine_dir)) == state.get('ticks'):
             return {}
-        _, path = _emit(run, state)
+        _, path = _emit(run, state, engine_dir)
         _write(run / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
         out = {'doc': str(path)}
         _offer(run, state, out)
@@ -459,11 +503,10 @@ def push(update):
         return ('Push it to the side view: `ArtifactData` set, url `%s`, collection `steps`, doc_id `%s`, file_path `%s`.'
                 % (update['url'], Path(update['doc']).stem, update['doc']))
     if update.get('page'):
-        return ('Open the side view, once: with the `Artifact` tool, publish `%s` (read it in full first) with `capabilities` '
-                '`{"db": {}}`, `icon` `chart` and a one-sentence `description`, run `PROJECT view --url "<its address>"`, then '
-                'push `%s` to it with `ArtifactData` set, collection `steps`, doc_id `%s`. Without that tool, say once in '
-                'your reply: "Follow the build: open `%s` in a browser.", and run `PROJECT view --local`.'
-                % (update['page'], update['doc'], Path(update['doc']).stem, update['local']))
+        return ('Open the side view now, once: publish `%s` with the `Artifact` tool (read the file in full first), with '
+                '`capabilities` `{"db": {}}`, `icon` `chart` and a one-sentence `description`; run `PROJECT view --url '
+                '"<its address>"`; then push `%s` with `ArtifactData` (load it with ToolSearch first if it is deferred): set, '
+                'collection `steps`, doc_id `%s`.' % (update['page'], update['doc'], Path(update['doc']).stem))
     return None
 
 

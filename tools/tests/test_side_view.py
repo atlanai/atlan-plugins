@@ -193,8 +193,8 @@ class SideView(unittest.TestCase):
         self.assertEqual(self.record(run, 'build', 'context'), {'build': {}, 'context': {}}, 'a repeated moment writes nothing')
 
     def test_a_finished_step_shows_how_with_numbers_and_who_did_it(self):
-        run = make_run(self.root, saved=False)
-        self.record(run, 'connect')
+        run = make_run(self.root, demo=True, saved=False)
+        self.record(run, 'connect', data=[facts()])
         metrics = self.step(self.doc(run), 'Metrics')
         self.assertEqual((metrics['status'], metrics['fact']), ('done', '2 metrics'))
         nodes = self.nodes(self.doc(run), 'Metrics')
@@ -204,6 +204,98 @@ class SideView(unittest.TestCase):
         self.assertEqual(nodes['Review each translation']['by'], 'Metrics engine')
         self.assertEqual(metrics['result'][0]['list'], [['Gross margin', '1 dashboard tile, 1 past query'], ['Rework cost', '1 past query']])
         self.assertEqual(self.step(self.doc(run), 'Save')['status'], 'now')
+
+    def test_own_data_pages_carry_progress_only(self):
+        run = make_run(self.root)
+        self.record(run, 'connect')
+        doc = self.doc(run)
+        text = json.dumps(doc)
+        for private in ('Gross margin', 'Rework cost', '118,681', 'Turbine base', '6,360', 'Test workspace'):
+            self.assertNotIn(private, text, 'metric names, values, answers and workspaces stay in the chat')
+        self.assertNotIn('answer', doc)
+        self.assertFalse([s['name'] for s in doc['steps'] if 'result' in s])
+        self.assertEqual((self.step(doc, 'Metrics')['fact'], self.step(doc, 'Ask')['fact']), ('2 metrics', 'Answered in the chat'))
+        self.assertEqual((doc['title'], doc['tagline']), ('Job margin', 'See which jobs lose margin and why'),
+                         'named from the person\'s own use case, not a folder')
+        early = make_run(self.root / 'early', saved=False)
+        interaction = json.loads((early / 'interaction.json').read_text(encoding='utf-8'))
+        (early / 'interaction.json').write_text(json.dumps({k: v for k, v in interaction.items() if k != 'intent'}), encoding='utf-8')
+        self.assertIn('<title>Analytics setup</title>', Path(self.record(early, 'connect')['connect']['page']).read_text(),
+                      'published before the use case: a neutral name, never a stray folder\'s')
+
+    def test_after_the_answer_a_demo_page_leads_with_it(self):
+        run = make_run(self.root, demo=True)
+        self.record(run, 'connect', data=[facts()])
+        doc = self.doc(run)
+        self.assertEqual((doc['current'], doc['answer']['headline']), (5, 'Turbine base: -£6,360'))
+        self.assertEqual(self.nodes(doc, 'Ask')['Read the saved rules']['n'], '1 rule · from Atlan')
+        unasked = make_run(self.root / 'b', answered=False, demo=True)
+        self.assertNotIn('answer', side_view.model(unasked), 'no answer before a question')
+
+    def test_a_finished_step_shows_the_runs_current_truth(self):
+        run = make_run(self.root, demo=True, saved=False)
+        self.record(run, 'connect', data=[facts()])
+        checks = run / 'context' / 'candidate-checks.json'
+        changed = json.loads(checks.read_text(encoding='utf-8'))
+        changed['metric:Gross Margin']['composition']['rows'] = [[1.0]]
+        checks.write_text(json.dumps(changed))
+        values = dict((r[0], r[1]) for r in self.step(side_view.model(run), 'Metrics')['result'][1]['list'])
+        self.assertEqual(values['Gross margin'], '£1', 'a rule changed after the checks shows its new value, as the edit card does')
+
+    def test_a_warehouse_run_reads_as_a_warehouse(self):
+        run = make_run(self.root, warehouse='snowflake', chosen={'bi': False, 'history': True}, saved=False)
+        self.record(run, 'connect')
+        doc = self.doc(run)
+        self.assertEqual(self.step(doc, 'Sources')['fact'], 'Snowflake warehouse, Power BI dashboard', 'a stray dashboard file is found, truthfully')
+        self.assertEqual(self.step(doc, 'Select')['fact'], 'Past queries, 2 tables')
+        metrics = self.nodes(doc, 'Metrics')
+        self.assertEqual(metrics["Read the chosen tables' columns"]['n'], '2 tables')
+        self.assertEqual(metrics['Read the past queries from Snowflake']['n'], '3 queries')
+        self.assertIn('Keep queries about the chosen tables', metrics, 'no dashboard was chosen')
+        self.assertIn('Run each metric on Snowflake', metrics)
+        for absent in ('Load the tables on this machine', "Translate the dashboard's formulas", "Keep queries about the dashboard's tables"):
+            self.assertNotIn(absent, metrics, absent + ': a piece the run never does is never drawn')
+
+    def test_a_dashboard_only_choice_shows_no_history_work(self):
+        run = make_run(self.root, chosen={'bi': True, 'history': False}, saved=False)
+        before_the_engine(run, 'scope')
+        self.record(run, 'connect')
+        titles = [n['t'] for n in self.step(self.doc(run), 'Metrics')['how']]
+        self.assertNotIn('Group repeats into questions', titles, 'past queries exist but were not chosen')
+        self.assertIn("Translate the dashboard's formulas", titles)
+
+    def test_failed_checks_need_a_look_and_say_so(self):
+        run = make_run(self.root, failing=2, saved=False)
+        self.record(run, 'connect')
+        metrics = self.nodes(self.doc(run), 'Metrics')
+        self.assertEqual((metrics['Run each query on the data']['n'], metrics['Run each query on the data'].get('w')), ('0 of 2', True))
+        self.assertEqual((metrics['Hold what needs a look']['n'], metrics['Hold what needs a look'].get('w')), ('2 need a look', True))
+        self.assertNotIn('w', metrics['Run each metric on the data'], 'every metric passed')
+
+    def test_a_moved_run_folder_keeps_its_engine(self):
+        import shutil
+        run = make_run(self.root / 'before', saved=False)
+        moved = self.root / 'after' / 'run'
+        shutil.copytree(run, moved)
+        shutil.rmtree(self.root / 'before')
+        doc = side_view.model(moved)
+        self.assertEqual(self.step(doc, 'Metrics')['fact'], '2 metrics')
+        self.assertEqual(self.step(doc, 'Save')['status'], 'now', 'statuses still come from the task list, not a guess')
+
+    def test_the_page_offer_is_bounded_and_has_no_escape(self):
+        run = make_run(self.root, saved=False)
+        meta = before_the_engine(run)
+        line = side_view.push(self.record(run, 'connect')['connect'])
+        self.assertTrue(line.startswith('Open the side view now'))
+        self.assertIn('ToolSearch', line, 'a deferred push tool is loaded, not taken as missing')
+        self.assertNotIn('local', line.lower().replace('local_', ''), 'no branch an agent with the tools could take')
+        state = json.loads((run / 'view' / 'state.json').read_text(encoding='utf-8'))
+        (run / 'view' / 'state.json').write_text(json.dumps(dict(state, offers=side_view.OFFERS)), encoding='utf-8')
+        (run / 'run.json').write_text(json.dumps({**meta, 'engine_run': str(run / 'engine')}), encoding='utf-8')
+        at(run, 'check')
+        update = self.record(run, 'build')['build']
+        self.assertIn('doc', update)
+        self.assertNotIn('page', update, 'after a few offers the host is taken to have no artifact tools')
 
     def test_every_piece_names_the_part_that_did_it_and_nothing_more(self):
         run = make_run(self.root)
@@ -225,19 +317,6 @@ class SideView(unittest.TestCase):
             self.assertTrue(step['how'], step['name'])
             self.assertFalse([n for n in step['how'] if 'n' in n], step['name'])
             self.assertEqual({n['s'] for n in step['how']}, {'next'}, step['name'])
-
-    def test_a_finished_step_keeps_what_it_showed(self):
-        run = make_run(self.root, saved=False)
-        self.record(run, 'connect', 'sources', 'build', 'context')
-        checks = run / 'context' / 'candidate-checks.json'
-        changed = json.loads(checks.read_text(encoding='utf-8'))
-        changed['metric:Gross Margin']['composition']['rows'] = [[1.0]]
-        checks.write_text(json.dumps(changed))
-        make_run(self.root, saved=True)
-        checks.write_text(json.dumps(changed))
-        self.record(run, 'saved')
-        values = dict((r[0], r[1]) for r in self.step(self.doc(run), 'Metrics')['result'][1]['list'])
-        self.assertEqual(values['Gross margin'], '£118,681', 'a later edit does not rewrite what the check found')
 
     def test_a_dashboard_only_run_shows_no_history_work(self):
         run = make_run(self.root, history=False)
@@ -307,17 +386,8 @@ class SideView(unittest.TestCase):
         self.record(run, 'connect')
         self.assertEqual({s['name']: s.get('fact') for s in self.doc(run)['steps']},
                          {'Use case': 'Job margin', 'Sources': 'Power BI dashboard, 2 data files, query history',
-                          'Select': 'Dashboard and past queries', 'Metrics': '2 metrics', 'Save': '4 live in Atlan', 'Ask': '-£6,360',
+                          'Select': 'Dashboard and past queries', 'Metrics': '2 metrics', 'Save': '4 live in Atlan', 'Ask': 'Answered in the chat',
                           'Dashboard': None})
-
-    def test_after_the_answer_the_view_leads_with_it(self):
-        run = make_run(self.root)
-        self.record(run, 'connect')
-        doc = self.doc(run)
-        self.assertEqual((doc['current'], doc['answer']['headline']), (6, 'Turbine base: -£6,360'))
-        self.assertEqual(self.nodes(doc, 'Ask')['Read the saved rules']['n'], '1 rule · from Atlan')
-        unasked = make_run(self.root / 'b', answered=False)
-        self.assertNotIn('answer', side_view.model(unasked), 'no answer before a question')
 
     def test_a_run_whose_task_list_cannot_be_read_follows_its_moments(self):
         run = make_run(self.root, saved=False)
@@ -336,12 +406,6 @@ class SideView(unittest.TestCase):
         (run / 'view' / 'state.json').write_text('{not json', encoding='utf-8')
         self.record(run, 'sources')
         self.assertEqual(self.doc(run)['n'], 2, 'the page shows the newest number, so a new start continues from it')
-
-    def test_own_data_is_named_from_its_folder_and_purpose(self):
-        run = make_run(self.root)
-        self.record(run, 'connect')
-        doc = self.doc(run)
-        self.assertEqual((doc['title'], doc['tagline'], doc['demo']), ('source analytics', 'See which jobs lose margin and why', False))
 
     def test_the_local_page_loads_its_data_file_by_itself(self):
         run = make_run(self.root)

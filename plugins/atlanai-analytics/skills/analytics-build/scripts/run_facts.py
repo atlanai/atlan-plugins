@@ -17,6 +17,9 @@ CURRENCY = {'GBP': '£', 'USD': '$', 'EUR': '€'}
 USABLE = ('available', 'needs_model_review')
 # The dashboard kinds source_inventory.source_kind reports, and the tool each one is.
 BI_TOOLS = {'powerbi': 'Power BI', 'powerbi_project': 'Power BI', 'tableau': 'Tableau'}
+# Warehouses as a person names them; any other kind reads as its own name.
+WAREHOUSES = {'snowflake': 'Snowflake', 'databricks': 'Databricks', 'bigquery': 'BigQuery', 'redshift': 'Redshift',
+              'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB'}
 
 
 # Words ----------------------------------------------------------------------------------------
@@ -162,6 +165,38 @@ class RunFacts:
         intent = self.interaction.get('intent')
         return intent.get('purpose') if isinstance(intent, dict) else None
 
+    @property
+    def use_case(self):
+        intent = self.interaction.get('intent')
+        return ' '.join(str(intent.get('domain') or '').split()) if isinstance(intent, dict) else ''
+
+    @cached_property
+    def warehouse(self):
+        """The warehouse the run reads, as the connection recorded it in the run's state, or None for local data."""
+        recorded = self.file('state.json').get('warehouse')
+        kind = recorded.get('kind') if isinstance(recorded, dict) else None
+        return WAREHOUSES.get(str(kind).lower(), str(kind)) if kind else None
+
+    @cached_property
+    def config(self):
+        return self.file('engine-config.json')
+
+    @cached_property
+    def inputs(self):
+        """What the person chose to build from, once the build is configured: {'bi': bool, 'history': bool}; None before."""
+        given = self.config.get('inputs')
+        if not isinstance(given, dict):
+            return None
+        return {k: bool(given.get(k)) for k in ('bi', 'history')}
+
+    @cached_property
+    def scoped_tables(self):
+        """How many warehouse tables the build reads: the chosen scope, else the columns the run read."""
+        chosen = self.config.get('tables')
+        if isinstance(chosen, list) and chosen:
+            return len(chosen)
+        return len(self.file('context', 'table-schema.json'))
+
     @cached_property
     def sources(self):
         survey = self.file('survey-cache.json').get('sources') or self.meta.get('sources') or []
@@ -193,12 +228,14 @@ class RunFacts:
         root = self.meta.get('source_root')
         source = next((s for s in self.meta.get('sources') or [] if isinstance(s, dict) and s.get('kind') == 'query_history'
                        and s.get('status') in USABLE and s.get('path')), None)
-        if not root or not source:
-            return None
-        try:
-            rows = [r for r in contracts.read_querylog_source(Path(root) / source['path']) if isinstance(r, dict)]
-        except (OSError, ValueError, UnicodeDecodeError):
-            return None
+        if root and source:
+            try:
+                rows = [r for r in contracts.read_querylog_source(Path(root) / source['path']) if isinstance(r, dict)]
+            except (OSError, ValueError, UnicodeDecodeError):
+                return None
+        else:
+            # A warehouse's history arrives as the engine's own input file, pulled through the query tool.
+            rows = read_lines(self.dir / 'context' / 'querylog.jsonl')
         picked = [(contracts._pick(r, contracts._SQL_COLS), contracts._pick(r, contracts._EXEC_COLS)) for r in rows]
         picked = [(re.sub(r'\s+', ' ', str(sql)).strip().lower(), whole(runs, 1)) for sql, runs in picked if sql]
         if not picked:
@@ -207,10 +244,12 @@ class RunFacts:
 
     @cached_property
     def engine(self):
-        if self.engine_dir:
-            given = Path(self.engine_dir)
-            return self.dir / given if not given.is_absolute() and (self.dir / given).is_dir() else given
-        return Path(self.meta['engine_run']) if self.meta.get('engine_run') else self.dir / 'engine'
+        """The engine folder: one named on the command, else the run's current engine run. A run folder that moved
+        keeps finding its engine by name inside it."""
+        given = Path(self.engine_dir) if self.engine_dir else Path(self.meta['engine_run']) if self.meta.get('engine_run') else Path('engine')
+        if not given.is_absolute():
+            return self.dir / given
+        return given if given.is_dir() or not (self.dir / given.name).is_dir() else self.dir / given.name
 
     def engine_file(self, name, kind=dict):
         return read_json(self.engine / name, kind, kind())
@@ -278,15 +317,17 @@ class RunFacts:
             rows.append({'name': sentence(m.get('display_name') or m['name']), 'ok': ok,
                          'origin': 'tile' if any(from_dashboard(x) for x in derived or []) else 'queries',
                          'value': 'not run' if not ok else number(values[0][0] if values and values[0] else None, unit)
-                         if len(values) == 1 else count(len(values), 'row'),
-                         'unmeasured': (((d.get('extensions') or {}).get('atlan_analytics') or {}).get('dashboard_validation') or {}).get('parity') == 'unmeasured'})
+                         if len(values) == 1 else count(len(values), 'row')})
         rows.sort(key=lambda r: r['origin'] != 'tile')
-        review = [q for q in queries if ((q.get('definition') or {}).get('review_status') not in (None, 'verified'))]
-        return {'metrics': rows, 'queries': len(queries),
-                'metrics_ran': sum(r['ok'] for r in rows), 'queries_ran': sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries),
+        metrics_ran = sum(r['ok'] for r in rows)
+        queries_ran = sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries)
+        # One check fact for every place that counts: what passed, and what needs a look (did not pass, for any reason),
+        # the save question's own rule.
+        total = len(rows) + len(queries)
+        return {'metrics': rows, 'queries': len(queries), 'metrics_ran': metrics_ran, 'queries_ran': queries_ran,
                 'metrics_checked': sum(isinstance(checks.get('metric:' + m['name']), dict) for m in metrics),
                 'queries_checked': sum(isinstance(checks.get('sql_query:' + q['name']), dict) for q in queries),
-                'review': len(review)}
+                'total': total, 'passed': metrics_ran + queries_ran, 'need_look': total - metrics_ran - queries_ran}
 
     @staticmethod
     def unit_of(metric):
@@ -311,10 +352,6 @@ class RunFacts:
         plan = self.file('context', 'plan.json')
         counts = plan.get('counts') if isinstance(plan.get('counts'), dict) else {}
         links = counts.get('links') if isinstance(counts.get('links'), int) else len(plan.get('links') or [])
-        live = {a['name'] for a in items if a.get('kind') == 'sql_query'}
-        review = [q for q in self.file('context', 'queries.json', kind=list) if isinstance(q, dict) and q.get('name') in live
-                  and (q.get('definition') or {}).get('review_status') not in (None, 'verified')]
         return {'metrics': [sentence(a['name']) for a in items if a.get('kind') == 'metric'],
                 'queries': sum(1 for a in items if a.get('kind') == 'sql_query'), 'items': len(items), 'links': links,
-                'planned': plan.get('counts') or {}, 'review': len(review),
-                'workspace': self.file('saved.json').get('workspace')}
+                'planned': plan.get('counts') or {}, 'workspace': self.file('saved.json').get('workspace')}

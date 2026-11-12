@@ -16,7 +16,7 @@ import sys
 import visual_kit as k
 from run_facts import BI_TOOLS, RunFacts, count, number, read_json, sentence, table_name, their  # noqa: F401 (re-exported)
 
-KINDS = ('connect', 'sources', 'build', 'context', 'saved', 'answer', 'layout', 'edit')
+KINDS = ('connect', 'found', 'sources', 'build', 'context', 'saved', 'answer', 'layout', 'edit')
 # The moments big enough for a mini card. A later answer, and a context kept on this machine, get a chip.
 CARDS = ('build', 'saved', 'answer', 'edit')
 # The moments whose data the agent writes, the fields each needs, and the shape of every field.
@@ -79,23 +79,28 @@ def _names(value):
 
 def collect(kind, facts):
     """What the run's own files say about a moment."""
-    if kind == 'connect' and facts.sources:
-        found = [k for k in ((facts.dashboard.get('tool') and '%s dashboard' % facts.dashboard['tool'] if facts.usable(*BI_TOOLS) else ''),
+    if kind == 'found' and (facts.sources or facts.warehouse):
+        # What the survey and the warehouse connection found, right before the person chooses what to build from.
+        kinds = [k for k in (facts.warehouse and '%s warehouse' % facts.warehouse,
+                             facts.usable(*BI_TOOLS) and '%s dashboard' % BI_TOOLS[facts.usable(*BI_TOOLS)[0]['kind']],
                              count(len(facts.usable('data_file')), 'data file') if facts.usable('data_file') else '',
                              'query history' if facts.usable('query_history') else '') if k]
-        return {'found': len(facts.sources), 'kinds': found}
+        return {'found': len(facts.sources) + bool(facts.warehouse), 'kinds': kinds}
     if kind == 'sources' and facts.tables:
         return {'tables': [list(t) for t in facts.tables], **({'history': facts.history} if facts.history else {}),
                 **({'dashboard': facts.dashboard} if facts.dashboard else {})}
+    if kind == 'sources' and facts.warehouse and facts.history and facts.scoped_tables:
+        # A warehouse is read in place: its past queries and the chosen tables, nothing loaded here.
+        return {'warehouse': facts.warehouse, 'history': facts.history, 'scoped': facts.scoped_tables}
     if kind == 'build' and facts.funnel.get('metrics'):
         return {'funnel': facts.funnel, 'merged': [m['name'] for m in facts.merged]}
     if kind == 'context' and facts.context:
         c = facts.context
-        return {'ran': c['metrics_ran'] + c['queries_ran'], 'total': len(c['metrics']) + c['queries'], 'review': c['review']}
+        return {'ran': c['passed'], 'total': c['total'], 'need_look': c['need_look'], **({'warehouse': facts.warehouse} if facts.warehouse else {})}
     if kind == 'saved':
         if facts.local:
             c = facts.context
-            return {'local': True, **({'kept': len(c['metrics']) + c['queries']} if c else {})}
+            return {'local': True, **({'kept': c['total']} if c else {})}
         return dict(facts.publication)
     return {}
 
@@ -186,8 +191,12 @@ def _headline(s):
 
 def _ticker(kind, s):
     """A chip's parts: how far its ring goes or the values its spark draws, the number, then what it counts."""
-    if kind == 'connect' and s.get('found'):
+    if kind == 'found' and s.get('found'):
         return {'num': str(s['found']), 'what': 'sources found' if s['found'] != 1 else 'source found', 'tail': ', '.join(s.get('kinds') or [])}
+    if kind == 'sources' and s.get('warehouse') and s.get('history'):
+        read = s['history']['statements']
+        return {'num': '{:,}'.format(read), 'what': 'past query read' if read == 1 else 'past queries read',
+                'tail': '%s, %s' % (s['warehouse'], count(s['scoped'], 'table'))}
     if kind == 'saved' and s.get('local') and s.get('kept'):
         return {'num': str(s['kept']), 'what': 'metrics and queries kept on this machine', 'tail': 'nothing saved to Atlan'}
     if kind == 'sources' and s.get('tables'):
@@ -201,8 +210,9 @@ def _ticker(kind, s):
         return {'num': str(len(tables)), 'what': 'tables loaded' if len(tables) != 1 else 'table loaded',
                 'tail': ', '.join(x for x in (rows, '%s dashboard' % tool if tool else '') if x)}
     if kind == 'context' and s.get('total'):
-        tail = 'on %s data' % their(s.get('firm')) + (', %s for a person to confirm' % count(s['review'], 'query', 'queries') if s.get('review') else '')
-        return {'ring': (s['ran'], s['total']), 'num': '%d/%d' % (s['ran'], s['total']), 'what': 'metrics and queries ran', 'tail': tail}
+        where = '%s data' % their(s.get('firm')) if s.get('firm') else 'your %s data' % s['warehouse'] if s.get('warehouse') else 'your data'
+        tail = 'on ' + where + (', %d need a look' % s['need_look'] if s.get('need_look') else '')
+        return {'ring': (s['ran'], s['total']), 'num': '%d/%d' % (s['ran'], s['total']), 'what': 'metrics and queries checked', 'tail': tail}
     if kind == 'answer' and s.get('headline'):
         label, value = _headline(s)
         return {'values': [r[1] for r in s.get('rows') or [] if isinstance(r, list) and len(r) > 1], 'num': value, 'what': '', 'tail': label}
@@ -246,8 +256,7 @@ def _parts(kind, s):
     if kind == 'saved' and s.get('metrics') and not s.get('local'):
         return {'icon': 'check-circle', 'title': 'Saved to Atlan Trident',
                 'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'query', 'queries')),
-                'line': 'Live in %s, where agents can find them' % (s.get('workspace') or 'your workspace'),
-                'warn': '%s for a person to confirm' % count(s['review'], 'query', 'queries') if s.get('review') else ''}
+                'line': 'Live in %s, where agents can find them' % (s.get('workspace') or 'your workspace')}
     if kind == 'answer' and s.get('headline'):
         label, value = _headline(s)
         rows = [r for r in s.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]

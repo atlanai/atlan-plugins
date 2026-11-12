@@ -13,7 +13,7 @@ run has reached but not shown yet: run it before going on. A demo adds `--data` 
 [Fixit](../../../analytics-demo/references/yard.json) or
 [Ticketfuddle](../../../analytics-demo/references/box-office.json), on every call. It prints:
 
-1. **What the chat shows**: a chip, one line such as `● **4/4** metrics and queries ran · on
+1. **What the chat shows**: a chip, one line such as `● **4/4** metrics and queries checked · on
    your data`, or at the four big moments a mini card: a bold headline over a few indented lines.
    Show it at once, as the moment's result; a command's own output is folded away, so the person
    never sees it there.
@@ -27,35 +27,39 @@ run has reached but not shown yet: run it before going on. A demo adds `--data` 
      right before one keeps to that, so when a question follows, these lines are the text
      before it.
    When the helper prints nothing here, the chat shows nothing for this moment. When it prints
-   nothing at all, the run has nothing true to show yet: run it again once the step's work is done.
+   nothing at all, the run has nothing true to show yet: carry on; the helper names the moment
+   again when it is due.
 2. **A last line, `side view: {...}`**, a JSON object; never print it. `next` says what to do
    with the lines above it. The other fields say what to publish or push, as the next section
    says. An `error` field means the side view missed this update: carry on.
 
 | Moment | Kind | The chat shows | Data |
 | --- | --- | --- | --- |
-| The run folder exists, right after the first survey | `connect` | Chip: the sources found. It opens the side view | |
-| Sources read and the data loaded: the end of a demo's step 1; on own data, right after `PROJECT bind` | `sources` | Chip | |
+| The run folder exists, right after the first survey | `connect` | Nothing: it opens the side view | |
+| Own data, right before choosing what to build from | `found` | Chip: the sources and the warehouse found | |
+| Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip | |
 | Metrics generated: the engine run is complete, before the checks | `build` | Mini card | |
-| Every check has run | `context` | Chip, before the save question | |
+| Every check has run | `context` | Chip: how many checked, and how many need a look | |
 | Saved to Atlan Trident, or kept on this machine | `saved` | Mini card, or a chip when kept, before the ready question | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
 | Dashboard layout proposed | `layout` | Chip | `layout.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |
 
-The helper names the first four when they are due. A chip or card is the moment's result line:
+The helper names the first five when they are due. A chip or card is the moment's result line:
 add no other line that repeats its numbers.
 
 ## The side view
 
-A private claude.ai page that shows every step, what came out of it and how. It needs the
-`Artifact` and `ArtifactData` tools: Claude Code and the Claude apps, signed in with claude.ai.
+A private claude.ai page that shows every step and how it got there. It uses the `Artifact` and
+`ArtifactData` tools of Claude Code and the Claude apps signed in with claude.ai. `ArtifactData`
+is often deferred: load it with ToolSearch before the first push; a deferred tool is not a missing
+one. On own data the page carries progress only (steps, pieces of work, statuses and counts);
+metric names, values, answers and workspace names stay in the chat.
 
-- `page=<path>`, on every update until the run has a page: publish it once with the `Artifact` tool,
-  `file_path` the path, `capabilities` `{"db": {}}`, `icon` `chart` and a one-sentence
-  `description`, reading the file in full first as that tool asks. Then run
-  `PROJECT view --url "<its address>"`, and say in one clause that the run's progress is in the
-  page beside the chat, with its address.
+- `page=<path>`: publish it once with the `Artifact` tool, `file_path` the path, `capabilities`
+  `{"db": {}}`, `icon` `chart` and a one-sentence `description`, reading the file in full first
+  as that tool asks. Then run `PROJECT view --url "<its address>"`, push `doc`, and say in one
+  clause that the run's progress is in the page beside the chat, with its address.
 - `doc=<path>`: push it with `ArtifactData`: `action` `set`, the page's `url`, `collection`
   `steps`, `doc_id` the file's name without `.json` (such as `s02`) and `file_path` the path.
   Never read or retype it.
@@ -64,11 +68,11 @@ A private claude.ai page that shows every step, what came out of it and how. It 
   run has no page yet, or push a newer document. Do as it says before going on. These updates tick
   each piece of work while its step runs.
 
-Without those tools (Codex, Cursor, or Claude Code signed in with an API key, Bedrock or
-Vertex), `local=<path>` is the same page as a file that refreshes itself. Say once, in your
-reply: "Follow the build: open `<path>` in a browser.", and run `PROJECT view --local`. Then ignore
-`doc` paths. A failed publish or push leaves the run unchanged: carry on without the side
-view, and try a failed step once more at most.
+Codex, Cursor, and Claude Code signed in with an API key, Bedrock or Vertex have no artifact
+tools. There, `local=<path>` (given with `page`) is the same page as a file that refreshes itself:
+say once, in your reply, "Follow the build: open `<path>` in a browser.", and ignore `page` and
+`doc`; the helper stops offering the page after a few updates. A failed publish or push leaves the run unchanged: carry on without the
+side view, and try a failed step once more at most.
 
 ## Data files
 

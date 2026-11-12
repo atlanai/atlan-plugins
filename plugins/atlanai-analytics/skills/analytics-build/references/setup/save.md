@@ -20,7 +20,7 @@ the options' descriptions, and leaves it in the transcript after the answer.
 Do not put it in an option `preview`: a preview is cut to a few lines on a short terminal,
 hides the descriptions and is gone once the person answers. Do not also print the block
 as text before the question; one short line that the checks are done is enough there: the
-`context` chip ([visuals](visuals.md)).
+`context` visual, shown as [visuals](visuals.md) says for this host.
 
 Open the chosen demo's file again for its facts ([Fixit](../../../analytics-demo/references/yard.md),
 [Ticketfuddle](../../../analytics-demo/references/box-office.md)).

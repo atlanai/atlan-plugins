@@ -55,9 +55,19 @@ class Moments(unittest.TestCase):
         run = make_run(self.root / 'b', history=False)
         self.assertEqual(self.show('sources', run), '● **2** tables loaded · 129 rows, Power BI dashboard')
 
-    def test_checks_show_a_ring_and_what_needs_review(self):
-        self.assertEqual(self.show('context'), '● **4/4** metrics and queries ran · on your data, 1 query for a person to confirm')
-        self.assertEqual(self.show('context', data=[facts()]), "● **4/4** metrics and queries ran · on Fixit's data, 1 query for a person to confirm")
+    def test_checks_show_a_ring_and_what_needs_a_look(self):
+        self.assertEqual(self.show('context'), '● **4/4** metrics and queries checked · on your data')
+        self.assertEqual(self.show('context', data=[facts()]), "● **4/4** metrics and queries checked · on Fixit's data")
+        failing = make_run(self.root / 'f', failing=1)
+        self.assertEqual(self.show('context', failing), '◕ **3/4** metrics and queries checked · on your data, 1 need a look',
+                         "the save question's own count: what did not pass")
+        warehouse = make_run(self.root / 'w', warehouse='snowflake')
+        self.assertTrue(self.show('context', warehouse).endswith('on your Snowflake data'))
+
+    def test_a_warehouse_run_has_its_own_chips(self):
+        run = make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True})
+        self.assertEqual(self.show('found', run), '● **2** sources found · Snowflake warehouse, Power BI dashboard')
+        self.assertEqual(self.show('sources', run), '● **3** past queries read · Snowflake, 2 tables', 'read in place, nothing loaded')
 
     def test_a_card_at_each_big_moment(self):
         cards = {kind: self.show(kind) for kind in visuals.CARDS}
@@ -68,7 +78,7 @@ class Moments(unittest.TestCase):
         self.assertIn('4 queries: 2 from the dashboard, 2 from past queries', cards['build'], 'counts that add up on their face')
         self.assertNotIn('question', cards['build'])
         self.assertIn('Live in Test workspace, where agents can find them', cards['saved'])
-        self.assertIn('! 1 query for a person to confirm', cards['saved'])
+        self.assertNotIn('!', cards['saved'], 'one need-a-look number, said once, at the checks')
         self.assertIn('▶ Turbine base', cards['answer'], 'the row that answers is marked')
         for kind, card in cards.items():
             body = card.splitlines()[1:]
@@ -97,7 +107,8 @@ class Moments(unittest.TestCase):
         empty.mkdir()
         for kind in visuals.KINDS:
             self.assertEqual(visuals.render(kind, visuals.build_spec(kind, empty)), '', kind)
-        self.assertEqual(self.show('connect'), '● **4** sources found · Power BI dashboard, 2 data files, query history')
+        self.assertEqual(self.show('connect'), '', 'the first moment opens the side view and does nothing else')
+        self.assertEqual(self.show('found'), '● **4** sources found · Power BI dashboard, 2 data files, query history')
 
     def test_a_widget_card_is_small_and_self_contained(self):
         for kind in visuals.CARDS:
@@ -108,7 +119,7 @@ class Moments(unittest.TestCase):
             self.assertLess(len(html), 6000, kind + ': every character is an output token')
 
     def test_a_chip_is_a_small_widget_where_the_host_draws_one(self):
-        for kind in ('connect', 'sources', 'context', 'saved', 'layout'):
+        for kind in ('found', 'sources', 'context', 'saved', 'layout'):
             html = visuals.render(kind, visuals.build_spec(kind, make_run(self.root / 'l', local=True) if kind == 'saved' else self.run), widget=True)
             self.assertTrue(html.startswith('<style>') and 'class="a c3"' in html, kind)
             self.assertNotRegex(html, r'https?://', kind)
@@ -184,7 +195,7 @@ class Moments(unittest.TestCase):
         entries = json.loads(checks.read_text(encoding='utf-8'))
         entries['metric:Gross Margin'] = 'broken'
         checks.write_text(json.dumps(entries), encoding='utf-8')
-        self.assertTrue(self.show('context').startswith('◕ **3/4** metrics and queries ran'))
+        self.assertTrue(self.show('context').startswith('◕ **3/4** metrics and queries checked'))
 
     def test_a_card_shows_the_data_as_written(self):
         spec = visuals.build_spec('answer', self.run)
@@ -218,35 +229,42 @@ class Helper(unittest.TestCase):
         self.assertEqual(done.stderr, '')
         return done.stdout
 
+    def start_engine(self, run):
+        """What `PROJECT engine-config` and the first engine gates leave: the engine run named, its manifest written."""
+        meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
+        (run / 'run.json').write_text(json.dumps({**meta, 'engine_run': str(run / 'engine')}), encoding='utf-8')
+        (run / 'engine').mkdir()
+        (run / 'engine' / 'manifest.json').write_bytes((self.run / 'engine' / 'manifest.json').read_bytes())
+
     def side(self, out):
         line = [l for l in out.splitlines() if l.startswith('side view: ')]
         return json.loads(line[0][len('side view: '):]) if line else None
 
     def test_each_moment_prints_its_chip_and_the_side_view_update(self):
         out = self.project('visual', 'connect')
-        self.assertTrue(out.startswith('● **4** sources found'), 'the chip comes first')
+        self.assertTrue(out.startswith('side view: '), 'nothing in the chat: the first moment only opens the side view')
         first = self.side(out)
         self.assertEqual(sorted(first), ['doc', 'local', 'next', 'page'])
         self.assertTrue(first['page'].endswith('side.html') and first['doc'].endswith('s01.json'))
-        self.assertIn("Never put it in a question's text", first['next'], 'a terminal draws question text in a colour light themes hide')
-        self.assertIn('--widget', first['next'], 'a host that draws widgets learns it at the first moment')
+        self.assertTrue(first['next'].startswith('Open the side view now'), 'one duty, so it is not dropped for another')
         out = self.project('visual', 'sources')
+        self.assertIn("Never put it in a question's text", self.side(out)['next'], 'a terminal draws question text in a colour light themes hide')
+        self.assertIn('--widget', self.side(out)['next'], 'a host that draws widgets learns it at the first chip')
         self.assertTrue(out.startswith('● **3** past queries read'))
         self.assertEqual(sorted(self.side(out)), ['next'], 'the finished run already shows it: no new document')
 
     def test_the_next_line_names_every_duty_the_update_carries(self):
         first = self.side(self.project('visual', 'connect', '--widget'))['next']
-        self.assertTrue(first.startswith('Draw it now'), 'the widget first, as the very next call')
-        self.assertIn('Then open the side view, once: with the `Artifact` tool, publish `', first,
-                      'the first update opens the side view without the agent recalling the reference')
+        self.assertTrue(first.startswith('Open the side view now, once: publish `'), 'the first moment has one duty: the page')
         self.assertIn('side.html', first)
         self.assertIn('doc_id `s01`', first)
-        self.assertIn('progress.html', first, 'and says what to do without the artifact tools')
+        self.assertNotIn('Draw it now', first, 'nothing to draw')
         meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
         self.project('view', '--url', 'https://claude.ai/artifact/abc')
         at(self.run, 'scope')
         (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
         later = self.side(self.project('visual', 'sources', '--widget'))['next']
+        self.assertTrue(later.startswith('Draw it now'))
         self.assertIn('Then push it to the side view: `ArtifactData` set, url `https://claude.ai/artifact/abc`', later)
         self.assertNotIn('Open the side view', later, 'the page is published once')
 
@@ -258,14 +276,13 @@ class Helper(unittest.TestCase):
                                   capture_output=True, text=True, encoding='utf-8', timeout=60).stdout
         helper('survey', str(self.run.parent / 'source'))
         helper('visual', 'connect')
-        (fresh / 'engine').mkdir()
-        (fresh / 'engine' / 'manifest.json').write_bytes((self.run / 'engine' / 'manifest.json').read_bytes())
+        self.start_engine(fresh)
         line = json.loads(helper('survey', str(self.run.parent / 'source')))['side_view']
-        self.assertTrue(line.startswith('Open the side view, once'), 'a run whose first moment skipped the page is reminded mid-build')
-        self.assertIn('PROJECT view --local', line)
-        self.assertEqual(helper('view', '--local'), '')
+        self.assertTrue(line.startswith('Open the side view now'), 'a run whose first moment skipped the page is reminded mid-build')
+        self.assertNotIn('view --local', line, 'no escape an agent with the tools could take')
+        helper('view', '--url', 'https://claude.ai/artifact/abc')
         (fresh / 'engine' / 'manifest.json').write_text(json.dumps({'stages': []}), encoding='utf-8')
-        self.assertNotIn('side_view', json.loads(helper('survey', str(self.run.parent / 'source'))), 'following the local page: no line')
+        self.assertIn('Push it to the side view', json.loads(helper('survey', str(self.run.parent / 'source')))['side_view'])
 
     def test_the_build_card_and_the_checks_chip_are_reply_text(self):
         for kind in ('connect', 'sources'):
@@ -274,7 +291,7 @@ class Helper(unittest.TestCase):
         self.assertTrue(built.startswith('**2 metrics** · Built from your sources\n  4 queries: 2 from the dashboard'), 'shown when it happens')
         self.assertLessEqual(len(built.splitlines()), 6)
         checked = self.project('visual', 'context')
-        self.assertTrue(checked.startswith('● **4/4** metrics and queries ran'), 'one line before the save question')
+        self.assertTrue(checked.startswith('● **4/4** metrics and queries checked'), 'one line before the save question')
         self.assertNotIn('Built from your sources', checked, 'the card is not shown twice')
         self.assertIn("Never put it in a question's text", self.side(checked)['next'])
 
@@ -305,6 +322,20 @@ class Helper(unittest.TestCase):
                               capture_output=True, text=True, encoding='utf-8', timeout=60)
         self.assertIn('`visual connect`', json.loads(done.stdout)['visual'], 'the survey that makes the run names its first moment')
 
+    def test_the_found_chip_waits_for_the_select_decision(self):
+        import side_view
+        run = make_run(Path(self.tmp.name).resolve() / 'early', saved=False)
+        meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
+        (run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
+        at(run, 'inspect')
+        interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
+        (run / 'interaction.json').write_text(json.dumps({k: v for k, v in interaction.items() if k != 'intent'}), encoding='utf-8')
+        self.assertNotIn('found', side_view.due(run), 'the use case comes first; nothing to choose yet')
+        (run / 'interaction.json').write_text(json.dumps(interaction), encoding='utf-8')
+        self.assertIn('found', side_view.due(run), 'right before choosing what to build from')
+        demo = make_run(Path(self.tmp.name).resolve() / 'demo', demo=True, saved=False, stage=('inspect', 'complete'))
+        self.assertNotIn('found', side_view.due(demo), 'a demo shows its sources chip instead')
+
     def test_the_checks_moment_waits_for_the_last_check(self):
         import side_view
         checks = self.run / 'context' / 'candidate-checks.json'
@@ -326,8 +357,7 @@ class Helper(unittest.TestCase):
         (fresh / 'context' / 'data-preparation.json').write_bytes((self.run / 'context' / 'data-preparation.json').read_bytes())
         helper('visual', 'sources')
         helper('view', '--url', 'https://claude.ai/artifact/abc')
-        (fresh / 'engine').mkdir()
-        (fresh / 'engine' / 'manifest.json').write_bytes((self.run / 'engine' / 'manifest.json').read_bytes())
+        self.start_engine(fresh)
         push = json.loads(helper('survey', str(self.run.parent / 'source')))['side_view']
         self.assertIn('https://claude.ai/artifact/abc', push)
         self.assertRegex(push, r'doc_id `s02`', 'the next document, for the page to tick the engine gates that just finished')

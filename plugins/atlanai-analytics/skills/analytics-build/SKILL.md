@@ -69,7 +69,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    branch's own ask. Skip what the request already said.
 2. **Survey your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named.
+   tables the person named. Once the survey creates the run, `PROJECT visual connect` opens the
+   side view.
 3. **Select tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md) and any clarification. In every branch, the
    interview's confirmation, "Build it?". A report is built whole.

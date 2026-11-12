@@ -24,7 +24,7 @@ Open the chosen demo's file again for its facts
 ([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
 Send these lines, filled from the facts and this run, as the text of the "What would you
 like to ask?" question, with their line breaks and leading spaces. The fence only marks the
-lines. The `saved` visual's lines ([visuals](visuals.md)) go right before the question, as reply text.
+lines. Show the `saved` visual right before the question, as [visuals](visuals.md) says for this host.
 Omit the See the environment line when there is no tour; own-data setup never has one.
 Keep each filled line within 76 characters, wrapping a long value onto an indented line.
 

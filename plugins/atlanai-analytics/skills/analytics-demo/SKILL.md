@@ -69,8 +69,8 @@ After "Start building", show the tracker, then do all of step 1's work:
 2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
    so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only `working_folder`, with
    [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
-   the person had asked to set up that folder from scratch. Then run
-   `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
+   the person had asked to set up that folder from scratch; then `PROJECT visual connect` opens
+   the side view. Then run `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
    `database` and `schema`. Use these as given; do not work them out again.
 3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as

@@ -44,14 +44,14 @@ h1{font-weight:600;font-size:18px;line-height:24px;margin:2px 0 0;text-wrap:bala
 .hw{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:10px;position:relative;padding-bottom:12px}.hw:last-child{padding-bottom:0}
 .hw:not(:last-child):before{content:"";position:absolute;left:9.25px;top:22px;bottom:2px;width:1.5px;background:var(--bd)}
 .nb{width:20px;height:20px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:500;background:var(--bg);border:1px solid var(--bd);color:var(--ts)}
-.hw.done .nb{background:var(--pf);border-color:var(--pf);color:var(--po)}
+.hw.done .nb{background:var(--pf);border-color:var(--pf);color:var(--po)}.hw.done.warn .nb{background:var(--wx);border-color:var(--wx)}
 .ht{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.ht b{font-weight:500}.ht em{font-style:normal;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
 .hw p{margin:2px 0 0;color:var(--ts)}
 .by{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:11px;line-height:16px;font-weight:500;padding:0 6px;border-radius:6px;background:var(--mu);color:var(--ts)}
 .ans{display:grid;gap:4px}.ans .q{color:var(--ts)}
 .msg{color:var(--ts);font-size:13px}
 .bs{list-style:none;margin:0;padding:0;display:grid;gap:6px}.bs li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
-.bs .by{margin-top:0;flex:none}.bs .si{width:16px;height:16px}.bs li.done .si{color:var(--sx)}
+.bs .by{margin-top:0;flex:none}.bs .si{width:16px;height:16px}.bs li.done .si{color:var(--sx)}.bs li.warn .si{color:var(--wx)}
 .bs .bt{flex:1;min-width:0}.bs li.next .bt{color:var(--ts)}.bs em{font-style:normal;color:var(--ts);font-variant-numeric:tabular-nums}
 </style>
 <div class="v" id="v"><p class="msg" id="msg">Loading the run's progress…</p></div>
@@ -88,7 +88,7 @@ h1{font-weight:600;font-size:18px;line-height:24px;margin:2px 0 0;text-wrap:bala
     if (!step.how || !step.how.length) return '';
     const label = step.status === 'done' ? 'How we got there' : 'How it works';
     return '<div class="lb">' + label + '</div><div class="how">' + step.how.map((n, i) =>
-      '<div class="hw ' + esc(n.s) + '"><span class="nb">' + (n.s === 'done' ? svg('tick') : i + 1) + '</span><div>' +
+      '<div class="hw ' + esc(n.s) + (n.w ? ' warn' : '') + '"><span class="nb">' + (n.s === 'done' ? svg(n.w ? 'warn' : 'tick') : i + 1) + '</span><div>' +
       '<div class="ht"><b>' + esc(n.t) + '</b>' + (n.n ? '<em>' + esc(n.n) + '</em>' : '') + '</div><p>' + esc(n.d) + '</p>' +
       '<span class="by">' + esc(n.by) + '</span></div></div>').join('') + '</div>';
   }
@@ -120,8 +120,8 @@ h1{font-weight:600;font-size:18px;line-height:24px;margin:2px 0 0;text-wrap:bala
     return '<section class="hero"><div class="k"><span>' + where + '</span>' + dots(d) + '</div>' +
       '<h2>' + esc(finished ? step.purpose : step.doing) + '</h2>' + (finished || step.needs_you ? '' : '<div class="pb"><i></i></div>') +
       (shown.length ? '<div class="lb">Behind the scenes' + (pieces.length > 4 ? ' · ' + done + ' of ' + pieces.length + ' done' : '') + '</div><ul class="bs">' +
-        shown.map(n => '<li class="' + esc(n.s) + '"><span class="si">' + (n.s === 'done' ? svg('tick') : '<span class="o"></span>') +
-          '</span><span class="bt">' + esc(n.t) + (n.n ? ' <em>' + esc(n.n) + '</em>' : '') + '<span class="sr">, ' + (n.s === 'done' ? 'done' : 'not done yet') + '</span></span>' +
+        shown.map(n => '<li class="' + esc(n.s) + (n.w ? ' warn' : '') + '"><span class="si">' + (n.s === 'done' ? svg(n.w ? 'warn' : 'tick') : '<span class="o"></span>') +
+          '</span><span class="bt">' + esc(n.t) + (n.n ? ' <em>' + esc(n.n) + '</em>' : '') + '<span class="sr">, ' + (n.s !== 'done' ? 'not done yet' : n.w ? 'done, needs a look' : 'done') + '</span></span>' +
           '<span class="by">' + esc(n.by) + '</span></li>').join('') + '</ul>' +
         (pieces.length > 4 ? '<div class="up">Every piece is under ' + esc(step.name) + ' below</div>' : '') : '') + '</section>';
   }

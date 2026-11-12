@@ -3,7 +3,9 @@
 `make_run` writes only what the chosen sources produce: a dashboard-only run has no query history or
 history stages, a history-only run has no dashboard reading, a run kept local has no publication. The run's
 task-list state (progress.json, interaction.json) says it finished, unless `stage` names where it stands;
-`at` moves it on.
+`at` moves it on. `warehouse` makes it read a warehouse in place, as a real own-data run does: no local tables,
+history pulled into the engine's own input, the connection recorded in the run's state. `chosen` is what the
+person picked to build from when it differs from what exists; `failing` checks fail.
 """
 import json
 from pathlib import Path
@@ -19,15 +21,15 @@ def _write(path, body):
 
 
 def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=False, answered=True, engine='engine', history_format='jsonl',
-             stage=None):
+             stage=None, warehouse=None, chosen=None, failing=0):
     root = Path(root)
     run, source = root / 'run', root / 'source'
-    sources = [{'kind': 'data_file', 'path': 'data/jobs.csv', 'status': 'available'},
-               {'kind': 'data_file', 'path': 'data/work_logs.csv', 'status': 'available'}]
-    if history:
-        rows = [{'sql': 'SELECT SUM(hours) FROM site.work_logs', 'exec': 30},
-                {'sql': 'SELECT * FROM site.jobs WHERE id = 3', 'exec': 3},
-                {'sql': 'SELECT COUNT(*) FROM site.jobs', 'exec': 7}]
+    sources = [] if warehouse else [{'kind': 'data_file', 'path': 'data/jobs.csv', 'status': 'available'},
+                                    {'kind': 'data_file', 'path': 'data/work_logs.csv', 'status': 'available'}]
+    rows = [{'sql': 'SELECT SUM(hours) FROM site.work_logs', 'exec': 30},
+            {'sql': 'SELECT * FROM site.jobs WHERE id = 3', 'exec': 3},
+            {'sql': 'SELECT COUNT(*) FROM site.jobs', 'exec': 7}]
+    if history and not warehouse:
         name = 'history/querylog.csv' if history_format == 'csv' else 'history/querylog.jsonl'
         sources.append({'kind': 'query_history', 'path': name, 'status': 'available'})
         if history_format == 'csv':
@@ -36,19 +38,27 @@ def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=F
             _write(source / name, '\n'.join(json.dumps({'QUERY_TEXT': r['sql'], 'EXECUTION_COUNT': r['exec']}) for r in rows) + '\n')
         else:
             _write(source / name, '\n'.join(json.dumps(r) for r in rows) + '\n')
+    if history:
+        # The engine's own history input: copied from a local file, or pulled from a warehouse.
         _write(run / 'context' / 'querylog.jsonl', '\n'.join(json.dumps(r) for r in rows) + '\n')
     if dashboard:
         sources.append({'kind': 'powerbi', 'path': 'bi/report.pbit', 'status': 'available'})
         _write(run / 'context' / 'src_1.json', {'counts': {'measures': 2, 'pages': 1}})
     _write(run / 'run.json', {'source_root': str(source), **({'engine_run': str(run / engine)} if engine == 'engine' else {}), 'sources': sources,
-                              'execution': {'tables': ['site.work_logs', 'site.jobs']}})
+                              **({} if warehouse else {'execution': {'tables': ['site.work_logs', 'site.jobs']}})})
+    if warehouse:
+        _write(run / 'state.json', {'warehouse': {'kind': warehouse, 'dialect': warehouse}})
+        _write(run / 'context' / 'table-schema.json', {'SITE.WORK_LOGS': [{}, {}], 'SITE.JOBS': [{}]})
     _write(run / 'survey-cache.json', {'sources': sources})
     _write(run / 'interaction.json', {'version': 1, 'flow': 'demo' if demo else 'build', 'mode': 'local' if local else 'active',
                                       'intent': {'domain': 'Job margin', 'purpose': 'See which jobs lose margin and why'},
                                       'asked': bool(answered and (saved or local))})
     at(run, *(stage or (('ready' if saved and not local else 'preview' if local else 'check'), 'complete')))
-    _write(run / 'engine-config.json', {'inputs': {'bi': ['local-files'] if dashboard else [], 'history': ['local-files'] if history else []}})
-    _write(run / 'context' / 'data-preparation.json', {'tables': [{'table': 'site.work_logs', 'rows': 120}, {'table': 'site.jobs', 'rows': 9}]})
+    picked = chosen or {'bi': dashboard, 'history': history}
+    _write(run / 'engine-config.json', {'inputs': {'bi': ['local-files'] if picked['bi'] else [], 'history': ['local-files'] if picked['history'] else []},
+                                        **({'tables': ['SITE.WORK_LOGS', 'SITE.JOBS']} if warehouse else {})})
+    if not warehouse:
+        _write(run / 'context' / 'data-preparation.json', {'tables': [{'table': 'site.work_logs', 'rows': 120}, {'table': 'site.jobs', 'rows': 9}]})
 
     stages = [{'stage': 's0_inputs', 'counts': {}}]
     if history:
@@ -79,9 +89,11 @@ def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=F
     _write(run / 'context' / 'queries.json', [{'name': 'q-margin', 'definition': {'review_status': 'verified'}},
                                               {'name': 'q-jobs', 'definition': {'review_status': 'unreviewed'}}])
     check = lambda v: {'status': 'example_executed', 'errors': [], 'composition': {'status': 'executed', 'rows': [[v]]}}
-    _write(run / 'context' / 'candidate-checks.json', {'metric:Gross Margin': check(118681.0), 'metric:Rework Cost': check(33800.0),
-                                                       'sql_query:q-margin': {'status': 'executed'},
-                                                       'sql_query:q-jobs': {'status': 'executed'}})
+    checks = {'metric:Gross Margin': check(118681.0), 'metric:Rework Cost': check(33800.0),
+              'sql_query:q-margin': {'status': 'executed'}, 'sql_query:q-jobs': {'status': 'executed'}}
+    for key in list(checks)[::-1][:failing]:
+        checks[key] = {'status': 'failed', 'errors': ['The table no longer holds that period.']}
+    _write(run / 'context' / 'candidate-checks.json', checks)
     if saved and not local:
         _write(run / 'context' / 'plan.json', {'counts': {'metrics': {'create': 2}, 'queries': {'create': 2}, 'links': 3}, 'links': [{}] * 3})
         meta = json.loads((run / 'run.json').read_text())
