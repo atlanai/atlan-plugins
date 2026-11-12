@@ -136,6 +136,10 @@ class ScopeTest(unittest.TestCase):
         res = self.check("start", "--project", str(self.tmp))
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
+        (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
+        (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
+        self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")
+        (self.run / "context" / "published.json").unlink()
         (self.run / "context" / "published-manual.json").write_text(json.dumps({"workspace_id": "workspace_01abc"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01abc")
         first = check.evals_dir(self.tmp, self.run)

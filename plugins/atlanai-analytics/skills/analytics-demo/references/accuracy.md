@@ -37,6 +37,9 @@ Next I ask each question to a fresh agent that sees only your context, and compa
 its answer with the trusted one. Which questions should I test with?
 ```
 
+Nothing else goes in it or before it: not a set's notes or expected answers, where its questions
+came from, or what the test is likely to find. Those would answer the test before it runs.
+
 | Option | Description |
 | --- | --- |
 | `<set name>` (`<N>` questions) | The eval set you already have, one option per set. |

@@ -63,6 +63,10 @@ def saved_to(run: pathlib.Path):
         for r in rec if isinstance(rec, list) else [rec]:
             if isinstance(r, dict) and str(r.get("workspace_id") or "").startswith("workspace_"):
                 return r["workspace_id"]
+    # A save's id map names no workspace; the approved plan beside it does.
+    ids = load(run / "context" / "published.json", {}) if not ws else {}
+    if isinstance(ids, dict) and any(str(v).startswith(("metric_", "sql_query_")) for v in ids.values()):
+        ws = (load(run / "authorization.json", {}) or {}).get("workspace_id")
     return ws
 
 
