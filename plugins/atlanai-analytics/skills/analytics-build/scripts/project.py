@@ -675,7 +675,7 @@ def main():
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
-                shown = visuals.render(args.kind, spec, args.widget, 'answer' not in side_view.seen(run))
+                shown = visuals.render(args.kind, spec, args.widget, side_view.first_answer(run, spec))
             except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
                 # A file the run wrote in a shape this cannot read leaves the moment unshown, never the run stopped.
                 print('side view: ' + json.dumps({'error': 'This moment could not be read: %s' % type(exc).__name__}))
@@ -687,11 +687,11 @@ def main():
             # the moment, so a failure here never blocks the run.
             update, steps = {}, []
             if shown and args.widget:
-                steps.append("Draw it now: pass the HTML above to `show_widget` as your next call (after its `read_me`, the "
-                             "first time), before any other work. Never put it in a question's text.")
+                steps.append("Draw it now: pass the HTML above to `show_widget` (after its `read_me`, the first time), before "
+                             "your next question or reply. Never put it in a question's text.")
             elif shown:
                 steps.append("Show the text above, unchanged, as this moment's result: in your reply, on its own lines, "
-                             "before your next tool call or question. Never put it in a question's text. If you have a "
+                             "before your next question. Never put it in a question's text. If you have a "
                              "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
                              "`--widget` to every later `visual` call.")
             if shown or args.kind == 'connect':
@@ -699,21 +699,24 @@ def main():
                     update.update(side_view.record(run, args.kind, spec, args.engine_dir))
                 except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
                     update['error'] = 'The side view was not updated: %s' % type(exc).__name__
-            # Every duty this update carries, in order, so the agent never has to recall the reference mid-run.
+            # Every duty this update carries, in order, so the agent never has to recall the reference mid-run. Opening
+            # the page comes first: dropped, it costs the whole side view; a push comes after the moment's own result.
             line = side_view.push(update)
             if line:
-                steps.append('Then ' + line[0].lower() + line[1:] if steps else line)
+                steps.insert(0, line) if update.get('page') else steps.append(line)
             if steps:
-                update['next'] = ' '.join(steps)
+                update['next'] = ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]])
             if update:
                 print(('\n' if shown else '') + 'side view: ' + json.dumps(update, ensure_ascii=False))
             return 0
         if args.command == 'view':
             import side_view
             try:
-                side_view.link(safe_path(args.run_dir), args.url)
+                line = side_view.push(side_view.link(safe_path(args.run_dir), args.url))
             except ValueError as exc:
                 raise ProjectError(str(exc)) from None
+            if line:
+                print(json.dumps({'side_view': line}, ensure_ascii=False))
             return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
@@ -782,8 +785,6 @@ def main():
         print(json.dumps({'status': 'canceled', 'next': 'Resume the same run; completed artifacts are retained.'}))
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
-        # Only a command that advances a stage can fail it. A read, a query or a check that
-        # refused its parameters ran nothing, so the run's progress stays as it was.
         if 'project' in locals() and args.command not in ('experience', 'journey'):
             try:
                 path = project.root / 'progress.json'

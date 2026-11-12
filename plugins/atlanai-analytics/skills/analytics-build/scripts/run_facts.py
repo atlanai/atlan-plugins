@@ -206,6 +206,24 @@ class RunFacts:
         return [s for s in self.sources if s.get('kind') in kinds and s.get('status') in USABLE]
 
     @cached_property
+    def found(self):
+        """What the survey and the warehouse connection found, as (how many, the words for them): only what can be named
+        is counted, so the count and the words always agree."""
+        items = [(1, '%s warehouse' % self.warehouse)] if self.warehouse else []
+        dashboards = self.usable(*BI_TOOLS)
+        if dashboards:
+            tool = BI_TOOLS[dashboards[0]['kind']]
+            items.append((len(dashboards), '%s dashboard' % tool if len(dashboards) == 1 else count(len(dashboards), '%s dashboard' % tool)))
+        for kinds, word in ((('data_file',), 'data file'), (('sqlite', 'duckdb'), 'database')):
+            found = [s for s in self.sources if s.get('kind') in kinds]
+            if found:
+                items.append((len(found), count(len(found), word)))
+        history = self.usable('query_history')
+        if history:
+            items.append((len(history), 'query history'))
+        return sum(n for n, _ in items), [label for _, label in items]
+
+    @cached_property
     def dashboard(self):
         """The dashboard the survey read: its tool, and how many formulas its file holds."""
         tools = [BI_TOOLS[s['kind']] for s in self.usable(*BI_TOOLS)]

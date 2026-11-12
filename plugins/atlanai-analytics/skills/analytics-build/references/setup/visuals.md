@@ -46,7 +46,8 @@ run has reached but not shown yet: run it before going on. A demo adds `--data` 
 | A rule changed | `edit` | Mini card | `edit.json` |
 
 The helper names the first five when they are due. A chip or card is the moment's result line:
-add no other line that repeats its numbers.
+add no other line that repeats its numbers. After an answer's card, the reply leads with what
+answers (the name) and what explains it.
 
 ## The side view
 
@@ -56,10 +57,12 @@ is often deferred: load it with ToolSearch before the first push; a deferred too
 one. On own data the page carries progress only (steps, pieces of work, statuses and counts);
 metric names, values, answers and workspace names stay in the chat.
 
-- `page=<path>`: publish it once with the `Artifact` tool, `file_path` the path, `capabilities`
-  `{"db": {}}`, `icon` `chart` and a one-sentence `description`, reading the file in full first
-  as that tool asks. Then run `PROJECT view --url "<its address>"`, push `doc`, and say in one
-  clause that the run's progress is in the page beside the chat, with its address.
+- `page=<path>`, on every moment until the run has a page: publish it once with the `Artifact`
+  tool, `file_path` the path, `capabilities` `{"db": {}}`, `icon` `chart` and a one-sentence
+  `description` that names no metric, table or value, reading the file in full first as that
+  tool asks. Then run `PROJECT view --url "<its address>"`: it records the page and names the
+  update to push. Say in one clause that the run's progress is in the page beside the chat, with
+  its address. If you published it but did not run that command, run it now; never publish twice.
 - `doc=<path>`: push it with `ArtifactData`: `action` `set`, the page's `url`, `collection`
   `steps`, `doc_id` the file's name without `.json` (such as `s02`) and `file_path` the path.
   Never read or retype it.
@@ -69,9 +72,9 @@ metric names, values, answers and workspace names stay in the chat.
   each piece of work while its step runs.
 
 Codex, Cursor, and Claude Code signed in with an API key, Bedrock or Vertex have no artifact
-tools. There, `local=<path>` (given with `page`) is the same page as a file that refreshes itself:
-say once, in your reply, "Follow the build: open `<path>` in a browser.", and ignore `page` and
-`doc`; the helper stops offering the page after a few updates. A failed publish or push leaves the run unchanged: carry on without the
+tools. There, the run's `view/progress.html` is the same page as a file that refreshes itself:
+say once, in your reply, "Follow the build: open `<path>` in a browser.", and ignore `page`,
+`doc` and push lines. A failed publish or push leaves the run unchanged: carry on without the
 side view, and try a failed step once more at most.
 
 ## Data files

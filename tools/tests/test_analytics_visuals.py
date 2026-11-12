@@ -64,6 +64,21 @@ class Moments(unittest.TestCase):
         warehouse = make_run(self.root / 'w', warehouse='snowflake')
         self.assertTrue(self.show('context', warehouse).endswith('on your Snowflake data'))
 
+    def test_the_data_chip_follows_what_the_person_chose(self):
+        dashboard_only = make_run(self.root / 'd', chosen={'bi': True, 'history': False})
+        self.assertEqual(self.show('sources', dashboard_only), '● **2** tables loaded · 129 rows, Power BI dashboard',
+                         'a history file left out of the choice is not read')
+        history_only = make_run(self.root / 'h', chosen={'bi': False, 'history': True})
+        self.assertNotIn('dashboard', self.show('sources', history_only))
+
+    def test_found_counts_only_what_it_names(self):
+        run = make_run(self.root / 'db')
+        meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
+        meta['sources'].append({'kind': 'sqlite', 'path': 'data/site.sqlite', 'status': 'needs_binding'})
+        (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
+        (run / 'survey-cache.json').write_text(json.dumps({'sources': meta['sources']}), encoding='utf-8')
+        self.assertEqual(self.show('found', run), '● **5** sources found · Power BI dashboard, 2 data files, 1 database, query history')
+
     def test_a_warehouse_run_has_its_own_chips(self):
         run = make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True})
         self.assertEqual(self.show('found', run), '● **2** sources found · Snowflake warehouse, Power BI dashboard')
@@ -97,7 +112,8 @@ class Moments(unittest.TestCase):
 
     def test_a_context_kept_local_is_a_chip(self):
         run = make_run(self.root / 'l', local=True)
-        self.assertEqual(self.show('saved', run), '● **4** metrics and queries kept on this machine · nothing saved to Atlan')
+        self.assertEqual(self.show('saved', run), '● **4** checked metrics and queries kept on this machine · nothing saved to Atlan')
+        self.assertTrue(self.show('saved', make_run(self.root / 'lf', local=True, failing=1)).startswith('● **3** checked'), 'what can be used, not what needs a look')
 
     def test_a_dashboard_proposal_is_a_chip(self):
         self.assertEqual(self.show('layout'), '● **2** tiles · dashboard proposed, with 1 more metric below them')
@@ -244,20 +260,19 @@ class Helper(unittest.TestCase):
         out = self.project('visual', 'connect')
         self.assertTrue(out.startswith('side view: '), 'nothing in the chat: the first moment only opens the side view')
         first = self.side(out)
-        self.assertEqual(sorted(first), ['doc', 'local', 'next', 'page'])
+        self.assertEqual(sorted(first), ['doc', 'next', 'page'])
         self.assertTrue(first['page'].endswith('side.html') and first['doc'].endswith('s01.json'))
         self.assertTrue(first['next'].startswith('Open the side view now'), 'one duty, so it is not dropped for another')
         out = self.project('visual', 'sources')
         self.assertIn("Never put it in a question's text", self.side(out)['next'], 'a terminal draws question text in a colour light themes hide')
         self.assertIn('--widget', self.side(out)['next'], 'a host that draws widgets learns it at the first chip')
         self.assertTrue(out.startswith('● **3** past queries read'))
-        self.assertEqual(sorted(self.side(out)), ['next'], 'the finished run already shows it: no new document')
+        self.assertNotIn('doc', self.side(out), 'the finished run already shows it: no new document')
 
     def test_the_next_line_names_every_duty_the_update_carries(self):
         first = self.side(self.project('visual', 'connect', '--widget'))['next']
-        self.assertTrue(first.startswith('Open the side view now, once: publish `'), 'the first moment has one duty: the page')
+        self.assertTrue(first.startswith('Open the side view now: publish `'), 'the first moment has one duty: the page')
         self.assertIn('side.html', first)
-        self.assertIn('doc_id `s01`', first)
         self.assertNotIn('Draw it now', first, 'nothing to draw')
         meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
         self.project('view', '--url', 'https://claude.ai/artifact/abc')
@@ -265,10 +280,11 @@ class Helper(unittest.TestCase):
         (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
         later = self.side(self.project('visual', 'sources', '--widget'))['next']
         self.assertTrue(later.startswith('Draw it now'))
-        self.assertIn('Then push it to the side view: `ArtifactData` set, url `https://claude.ai/artifact/abc`', later)
+        self.assertNotIn('before any other work', later)
+        self.assertIn('Then push it to the side view: `ArtifactData` (load it with ToolSearch first if it is deferred) set, url `https://claude.ai/artifact/abc`', later)
         self.assertNotIn('Open the side view', later, 'the page is published once')
 
-    def test_every_result_offers_the_side_view_until_the_run_has_one(self):
+    def test_a_skipped_page_is_offered_again_at_the_next_moment(self):
         fresh = Path(self.tmp.name).resolve() / 'fresh'
 
         def helper(*args):
@@ -277,12 +293,14 @@ class Helper(unittest.TestCase):
         helper('survey', str(self.run.parent / 'source'))
         helper('visual', 'connect')
         self.start_engine(fresh)
-        line = json.loads(helper('survey', str(self.run.parent / 'source')))['side_view']
-        self.assertTrue(line.startswith('Open the side view now'), 'a run whose first moment skipped the page is reminded mid-build')
-        self.assertNotIn('view --local', line, 'no escape an agent with the tools could take')
-        helper('view', '--url', 'https://claude.ai/artifact/abc')
-        (fresh / 'engine' / 'manifest.json').write_text(json.dumps({'stages': []}), encoding='utf-8')
-        self.assertIn('Push it to the side view', json.loads(helper('survey', str(self.run.parent / 'source')))['side_view'])
+        result = json.loads(helper('survey', str(self.run.parent / 'source')))
+        self.assertNotIn('side_view', result, 'between moments there is nothing to push yet, and no offer to repeat')
+        (fresh / 'context').mkdir(exist_ok=True)
+        (fresh / 'context' / 'data-preparation.json').write_bytes((self.run / 'context' / 'data-preparation.json').read_bytes())
+        line = self.side(helper('visual', 'sources'))['next']
+        self.assertTrue(line.startswith('Open the side view now'), 'the next moment offers the page again, before its chip')
+        self.assertIn('Then show the text above', line, 'then the chip, in the same reply')
+        self.assertNotIn('view --local', line)
 
     def test_the_build_card_and_the_checks_chip_are_reply_text(self):
         for kind in ('connect', 'sources'):
@@ -377,7 +395,7 @@ class Helper(unittest.TestCase):
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         out = self.project('visual', 'saved')
-        self.assertTrue(out.startswith('● **4** metrics and queries kept on this machine'))
+        self.assertTrue(out.startswith('● **4** checked metrics and queries kept on this machine'))
         self.assertIn('saved', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
 
     def test_an_answer_without_its_file_shows_and_records_nothing(self):
@@ -386,6 +404,16 @@ class Helper(unittest.TestCase):
         (self.run / 'answer.json').unlink()
         self.assertEqual(self.project('visual', 'answer'), '')
         self.assertNotIn('answer', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
+
+    def test_a_widget_rerun_keeps_the_first_answer_card(self):
+        for kind in ('connect', 'sources', 'build', 'context', 'saved'):
+            self.project('visual', kind)
+        self.assertTrue(self.project('visual', 'answer').startswith('**'), 'the first answer is a card')
+        self.assertIn('class="a mc"', self.project('visual', 'answer', '--widget'),
+                      'the same answer drawn again as a widget is still the card, not a chip')
+        (self.run / 'answer.json').write_text(json.dumps({'question': 'Another', 'headline': 'Barn: £1', 'rows': [['Barn', 1]]}), encoding='utf-8')
+        self.assertTrue(self.project('visual', 'answer').startswith('● ') or self.project('visual', 'answer').startswith('▁'),
+                        'a different, later answer is a chip')
 
     def test_numbers_in_a_data_file_must_be_finite(self):
         blocked = json.loads(self.project('visual', 'answer', '--input', '-', stdin='{"question": "Q", "headline": "H: 1", "rows": [["a", NaN]]}'))
@@ -418,7 +446,8 @@ class Helper(unittest.TestCase):
         (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
         at(self.run, 'scope')
         self.project('visual', 'connect')
-        self.assertEqual(self.project('view', '--url', 'https://claude.ai/artifact/abc'), '')
+        named = json.loads(self.project('view', '--url', 'https://claude.ai/artifact/abc'))['side_view']
+        self.assertTrue(named.startswith('Push it to the side view') and 'doc_id `s01`' in named, 'recording the page names the first push')
         (self.run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         at(self.run, 'check')
         self.assertEqual(self.side(self.project('visual', 'build'))['url'], 'https://claude.ai/artifact/abc', 'the next update names it')

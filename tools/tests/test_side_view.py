@@ -136,9 +136,9 @@ class SideView(unittest.TestCase):
                             encoding='utf-8')
         side_view.progress(run)
         metrics = self.nodes(self.doc(run), 'Metrics')
-        self.assertEqual(metrics["Translate the dashboard's formulas"].get('s'), 'done', 'translated before it was reviewed')
+        self.assertEqual(metrics['Translate each tile and chart'].get('s'), 'done', 'translated before it was reviewed')
         self.assertEqual(metrics['Review each translation'].get('s'), 'done')
-        self.assertNotEqual(metrics['Describe every question in plain words'].get('s'), 'done')
+        self.assertNotEqual(metrics['Describe every query in plain words'].get('s'), 'done')
 
     def test_a_piece_waits_for_every_item_before_ticking_a_run_of_checks(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))
@@ -166,13 +166,13 @@ class SideView(unittest.TestCase):
         run = make_run(self.root, demo=True, saved=False)
         before_the_engine(run, 'inspect')
         out = self.record(run, 'connect', data=[facts()])['connect']
-        self.assertEqual(set(out), {'page', 'local', 'doc'})
+        self.assertEqual(set(out), {'page', 'doc'})
         page = Path(out['page']).read_text()
         self.assertIn('<title>Job profit agent for Fixit &amp; Co.</title>', page)
         self.assertNotIn('<!doctype', page.lower(), 'the artifact tool wraps the page in its own document')
         self.assertIn('--bg:light-dark(', page, 'the design tokens are filled in, light and dark')
         self.assertEqual(set(re.findall(r'https://([^/\'")]+)', page)), {'fonts.googleapis.com'}, 'the page loads nothing but its font')
-        local = Path(out['local']).read_text()
+        local = (run / 'view' / 'progress.html').read_text()
         self.assertNotIn('https://', local, 'the local copy loads nothing from the network')
         doc = self.doc(run)
         self.assertEqual([s['status'] for s in doc['steps']], ['done', 'now', 'next', 'next', 'next', 'next'])
@@ -186,11 +186,12 @@ class SideView(unittest.TestCase):
         meta = before_the_engine(run)
         out = self.record(run, 'connect', 'sources')
         self.assertTrue(out['connect']['doc'].endswith('s01.json'))
-        self.assertEqual(out['sources'], {}, 'nothing new on the page')
+        self.assertEqual(sorted(out['sources']), ['page'], 'nothing new on the page, but the page is offered again until published')
         (run / 'run.json').write_text(json.dumps({**meta, 'engine_run': str(run / 'engine')}), encoding='utf-8')
         at(run, 'check')
         self.assertTrue(self.record(run, 'build')['build']['doc'].endswith('s02.json'), 'the metrics finished: the page moves on')
-        self.assertEqual(self.record(run, 'build', 'context'), {'build': {}, 'context': {}}, 'a repeated moment writes nothing')
+        repeated = self.record(run, 'build', 'context')
+        self.assertFalse([k for k, v in repeated.items() if 'doc' in v], 'a repeated moment writes nothing')
 
     def test_a_finished_step_shows_how_with_numbers_and_who_did_it(self):
         run = make_run(self.root, demo=True, saved=False)
@@ -202,7 +203,7 @@ class SideView(unittest.TestCase):
         self.assertEqual(nodes['Merge numbers that share a rule']['n'], '3 → 2')
         self.assertIn('hold 3 numbers', nodes['Merge numbers that share a rule']['d'], 'the counts before and after add up')
         self.assertEqual(nodes['Review each translation']['by'], 'Metrics engine')
-        self.assertEqual(metrics['result'][0]['list'], [['Gross margin', '1 dashboard tile, 1 past query'], ['Rework cost', '1 past query']])
+        self.assertEqual(metrics['result'][0]['list'], [['Gross margin', '1 from the dashboard, 1 from past queries'], ['Rework cost', '1 from past queries']])
         self.assertEqual(self.step(self.doc(run), 'Save')['status'], 'now')
 
     def test_own_data_pages_carry_progress_only(self):
@@ -253,7 +254,7 @@ class SideView(unittest.TestCase):
         self.assertEqual(metrics['Read the past queries from Snowflake']['n'], '3 queries')
         self.assertIn('Keep queries about the chosen tables', metrics, 'no dashboard was chosen')
         self.assertIn('Run each metric on Snowflake', metrics)
-        for absent in ('Load the tables on this machine', "Translate the dashboard's formulas", "Keep queries about the dashboard's tables"):
+        for absent in ('Load the tables on this machine', 'Translate each tile and chart', "Keep queries about the dashboard's tables"):
             self.assertNotIn(absent, metrics, absent + ': a piece the run never does is never drawn')
 
     def test_a_dashboard_only_choice_shows_no_history_work(self):
@@ -262,7 +263,7 @@ class SideView(unittest.TestCase):
         self.record(run, 'connect')
         titles = [n['t'] for n in self.step(self.doc(run), 'Metrics')['how']]
         self.assertNotIn('Group repeats into questions', titles, 'past queries exist but were not chosen')
-        self.assertIn("Translate the dashboard's formulas", titles)
+        self.assertIn('Translate each tile and chart', titles)
 
     def test_failed_checks_need_a_look_and_say_so(self):
         run = make_run(self.root, failing=2, saved=False)
@@ -282,20 +283,43 @@ class SideView(unittest.TestCase):
         self.assertEqual(self.step(doc, 'Metrics')['fact'], '2 metrics')
         self.assertEqual(self.step(doc, 'Save')['status'], 'now', 'statuses still come from the task list, not a guess')
 
-    def test_the_page_offer_is_bounded_and_has_no_escape(self):
+    def test_the_page_is_offered_at_every_moment_until_published(self):
         run = make_run(self.root, saved=False)
         meta = before_the_engine(run)
         line = side_view.push(self.record(run, 'connect')['connect'])
-        self.assertTrue(line.startswith('Open the side view now'))
-        self.assertIn('ToolSearch', line, 'a deferred push tool is loaded, not taken as missing')
-        self.assertNotIn('local', line.lower().replace('local_', ''), 'no branch an agent with the tools could take')
-        state = json.loads((run / 'view' / 'state.json').read_text(encoding='utf-8'))
-        (run / 'view' / 'state.json').write_text(json.dumps(dict(state, offers=side_view.OFFERS)), encoding='utf-8')
+        self.assertTrue(line.startswith('Open the side view now: publish `'))
+        self.assertIn('names no metric, table or value', line, 'the artifact description keeps the run private')
+        self.assertIn('If you already published this page, run only that command', line, 'a half-finished open never publishes twice')
+        self.assertNotIn('local', line.replace('local_', ''), 'no branch an agent with the tools could take')
         (run / 'run.json').write_text(json.dumps({**meta, 'engine_run': str(run / 'engine')}), encoding='utf-8')
         at(run, 'check')
-        update = self.record(run, 'build')['build']
-        self.assertIn('doc', update)
-        self.assertNotIn('page', update, 'after a few offers the host is taken to have no artifact tools')
+        between = side_view.progress(run)
+        self.assertNotIn('page', between, 'between moments only pushes: a host with no artifact tools hears the offer a few times')
+        self.assertIn('page', self.record(run, 'build')['build'], 'a skipped offer comes back at the next moment, however many updates passed')
+        named = side_view.link(run, 'https://claude.ai/artifact/abc')
+        self.assertEqual(Path(named['doc']).name, 's%02d.json' % self.doc(run)['n'], 'recording the address names the newest update to push')
+        self.assertIn('ToolSearch', side_view.push(named))
+
+    def test_a_paused_run_says_so_instead_of_looking_busy(self):
+        run = make_run(self.root, saved=False, stage=('check', 'running'))
+        interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
+        (run / 'interaction.json').write_text(json.dumps(dict(interaction, mode='paused')), encoding='utf-8')
+        self.assertEqual(side_view.model(run).get('state'), 'paused')
+        self.assertNotIn('state', side_view.model(make_run(self.root / 'b', saved=False)), 'a running run carries no state')
+        page = side_view.PAGE.read_text(encoding='utf-8')
+        self.assertIn("paused: 'Paused'", page)
+        self.assertIn('.stopped .sp{animation:none}', page, 'no spinner on a run that is not moving')
+
+    def test_a_survey_path_stays_off_an_own_data_page(self):
+        run = make_run(self.root, saved=False)
+        before_the_engine(run, 'inspect')
+        at(run, 'inspect', 'running')
+        progress = json.loads((run / 'progress.json').read_text(encoding='utf-8'))
+        (run / 'progress.json').write_text(json.dumps(dict(progress, completed_items=1, total_items=3)), encoding='utf-8')
+        meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
+        meta['scope'] = [{'name': 'secret/folder/report.pbit', 'status': 'pending_inspection'}]
+        (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
+        self.assertNotIn('secret/folder', json.dumps(side_view.model(run)), 'the count, never the path')
 
     def test_every_piece_names_the_part_that_did_it_and_nothing_more(self):
         run = make_run(self.root)
@@ -324,14 +348,14 @@ class SideView(unittest.TestCase):
         titles = [n['t'] for s in self.doc(run)['steps'] for n in s['how']]
         self.assertNotIn('Group repeats into questions', titles)
         self.assertNotIn('Count the past queries', titles)
-        self.assertIn("Translate the dashboard's formulas", titles)
+        self.assertIn('Translate each tile and chart', titles)
         self.assertEqual(self.step(self.doc(run), 'Select')['fact'], 'Dashboard only')
 
     def test_a_history_only_run_shows_no_dashboard_work(self):
         run = make_run(self.root, dashboard=False)
         self.record(run, 'connect')
         titles = [n['t'] for s in self.doc(run)['steps'] for n in s['how']]
-        self.assertNotIn("Translate the dashboard's formulas", titles)
+        self.assertNotIn('Translate each tile and chart', titles)
         self.assertNotIn('Read the dashboard', titles)
         self.assertIn('Keep queries about the chosen tables', titles)
 
@@ -353,7 +377,7 @@ class SideView(unittest.TestCase):
         manifest = run / 'engine' / 'manifest.json'
         manifest.write_text(json.dumps({'stages': [{'stage': 'a4_witness_bi', 'counts': {'witnessed': 2}}, {'stage': 'x2_ingest', 'counts': {}}]}))
         self.record(run, 'connect')
-        self.assertEqual(self.nodes(self.doc(run), 'Metrics')["Translate the dashboard's formulas"]['n'], '0 of 2')
+        self.assertEqual(self.nodes(self.doc(run), 'Metrics')['Translate each tile and chart']['n'], '0 of 2')
         manifest.write_text('{"stages": "not a list"}')
         self.assertTrue(side_view.model(run)['steps'], 'a broken manifest leaves a step with less to show, not a crash')
 

@@ -14,7 +14,7 @@ import re
 import sys
 
 import visual_kit as k
-from run_facts import BI_TOOLS, RunFacts, count, number, read_json, sentence, table_name, their  # noqa: F401 (re-exported)
+from run_facts import RunFacts, count, number, read_json, sentence, table_name, their  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'found', 'sources', 'build', 'context', 'saved', 'answer', 'layout', 'edit')
 # The moments big enough for a mini card. A later answer, and a context kept on this machine, get a chip.
@@ -79,16 +79,14 @@ def _names(value):
 
 def collect(kind, facts):
     """What the run's own files say about a moment."""
-    if kind == 'found' and (facts.sources or facts.warehouse):
+    if kind == 'found' and facts.found[0]:
         # What the survey and the warehouse connection found, right before the person chooses what to build from.
-        kinds = [k for k in (facts.warehouse and '%s warehouse' % facts.warehouse,
-                             facts.usable(*BI_TOOLS) and '%s dashboard' % BI_TOOLS[facts.usable(*BI_TOOLS)[0]['kind']],
-                             count(len(facts.usable('data_file')), 'data file') if facts.usable('data_file') else '',
-                             'query history' if facts.usable('query_history') else '') if k]
-        return {'found': len(facts.sources) + bool(facts.warehouse), 'kinds': kinds}
+        return {'found': facts.found[0], 'kinds': facts.found[1]}
     if kind == 'sources' and facts.tables:
-        return {'tables': [list(t) for t in facts.tables], **({'history': facts.history} if facts.history else {}),
-                **({'dashboard': facts.dashboard} if facts.dashboard else {})}
+        # Only what the person chose to build from: a history file left out of the choice is not read.
+        chosen = facts.inputs or {'bi': True, 'history': True}
+        return {'tables': [list(t) for t in facts.tables], **({'history': facts.history} if facts.history and chosen['history'] else {}),
+                **({'dashboard': facts.dashboard} if facts.dashboard and chosen['bi'] else {})}
     if kind == 'sources' and facts.warehouse and facts.history and facts.scoped_tables:
         # A warehouse is read in place: its past queries and the chosen tables, nothing loaded here.
         return {'warehouse': facts.warehouse, 'history': facts.history, 'scoped': facts.scoped_tables}
@@ -100,7 +98,7 @@ def collect(kind, facts):
     if kind == 'saved':
         if facts.local:
             c = facts.context
-            return {'local': True, **({'kept': c['total']} if c else {})}
+            return {'local': True, **({'kept': c['passed']} if c else {})}
         return dict(facts.publication)
     return {}
 
@@ -198,7 +196,7 @@ def _ticker(kind, s):
         return {'num': '{:,}'.format(read), 'what': 'past query read' if read == 1 else 'past queries read',
                 'tail': '%s, %s' % (s['warehouse'], count(s['scoped'], 'table'))}
     if kind == 'saved' and s.get('local') and s.get('kept'):
-        return {'num': str(s['kept']), 'what': 'metrics and queries kept on this machine', 'tail': 'nothing saved to Atlan'}
+        return {'num': str(s['kept']), 'what': 'checked metrics and queries kept on this machine', 'tail': 'nothing saved to Atlan'}
     if kind == 'sources' and s.get('tables'):
         tables = s['tables']
         tool = (s.get('dashboard') or {}).get('tool')
