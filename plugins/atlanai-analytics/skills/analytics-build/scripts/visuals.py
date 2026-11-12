@@ -123,10 +123,14 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
 
     A demo's facts file holds its firm and a section per kind. Counts that a receipt proves always win."""
     supplied = {}
+    # A demo's facts file is for a demo run only: on own data it would put the demo's names on the person's page.
+    demo_run = not run or read_json(Path(run) / 'interaction.json', dict, {}).get('flow') == 'demo'
     for item in (data if isinstance(data, list) else [data] if data else []):
         if not isinstance(item, dict):
             continue
         if any(key in item for key in KINDS):
+            if not demo_run:
+                continue
             item = {**{key: item[key] for key in ('firm', 'flow') if key in item}, **(item.get(kind) if isinstance(item.get(kind), dict) else {})}
         supplied.update(item)
     facts = RunFacts(run, engine_dir) if run else None

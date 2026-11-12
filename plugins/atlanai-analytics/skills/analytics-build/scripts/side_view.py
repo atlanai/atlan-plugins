@@ -480,7 +480,7 @@ def _record(run, kind, spec, engine_dir):
     elif not state.get('titled'):
         # A folder's name can be a stray file's; until the person names the use case, the page is the setup.
         state['title'] = facts.use_case or 'Analytics setup'
-    if spec.get('flow') == 'demo' or facts.interaction.get('flow') == 'demo':
+    if facts.interaction.get('flow') == 'demo':
         state['demo'] = True
     state['moments'].append({'kind': kind, 'at': _now(), **({'key': _answer_key(spec)} if kind == 'answer' else {})})
     out = {}

@@ -337,6 +337,14 @@ class SideView(unittest.TestCase):
         pieces = self.nodes(side_view.model(run), 'Metrics')
         self.assertNotIn('Translate each tile and chart', pieces, 'the person chose past queries only; a stray dashboard file is not read')
 
+    def test_a_demo_facts_file_never_turns_an_own_data_page_into_a_demo(self):
+        run = make_run(self.root, saved=False)
+        self.record(run, 'connect', data=[facts()])
+        doc = self.doc(run)
+        self.assertFalse(doc['demo'], "a demo's facts passed on an own-data run would put its names and values on the page")
+        self.assertNotIn(facts()['firm'], json.dumps(doc))
+        self.assertNotIn(facts()['firm'], visuals.render('context', visuals.build_spec('context', run, [facts()])))
+
     def test_a_save_to_atlan_finishes_the_save_step_whatever_was_held(self):
         # A save that held an item leaves progress at publish; a rule changed after it puts progress back at the checks.
         from context_state import digest

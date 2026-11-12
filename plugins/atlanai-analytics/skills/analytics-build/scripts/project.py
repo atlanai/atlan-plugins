@@ -675,7 +675,7 @@ def main():
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
-                demo = spec.get('flow') == 'demo' or visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
+                demo = visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
                 facts = visuals.RunFacts(run)
                 saved = bool(facts.publication) and facts.interaction.get('mode') != 'local'
                 asked = None if args.widget else visuals.asked(args.kind, demo, saved)

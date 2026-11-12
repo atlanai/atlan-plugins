@@ -57,7 +57,10 @@ class Moments(unittest.TestCase):
 
     def test_checks_show_a_ring_and_what_needs_a_look(self):
         self.assertEqual(self.show('context'), '● **4/4** metrics and queries checked · on your data')
-        self.assertEqual(self.show('context', data=[facts()]), "● **4/4** metrics and queries checked · on Fixit's data")
+        demo = make_run(self.root / 'd', demo=True)
+        self.assertEqual(self.show('context', demo, data=[facts()]), "● **4/4** metrics and queries checked · on Fixit's data")
+        self.assertEqual(self.show('context', data=[facts()]), '● **4/4** metrics and queries checked · on your data',
+                         "a demo's facts never name the person's own data")
         failing = make_run(self.root / 'f', failing=1)
         self.assertEqual(self.show('context', failing), '◕ **3/4** metrics and queries checked · on your data, 1 need a look',
                          "the save question's own count: what did not pass")
