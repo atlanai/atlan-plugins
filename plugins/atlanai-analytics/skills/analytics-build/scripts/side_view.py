@@ -255,8 +255,10 @@ def dashboard(f, s):
     tiles = layout.get('tiles') if isinstance(layout.get('tiles'), list) else []
     return {'how': [node('Propose the tiles', 'A tile for each dashboard metric, the other metrics named under them.', ASK,
                          count(len(tiles), 'tile') if tiles else None),
+                    # The step also ends when the person is done without a dashboard: a page is only claimed once tiles
+                    # were proposed for it.
                     node('Build the page', 'Every tile runs on the data, so the page and the chat agree.', ASK,
-                         always=True, done=bool(f.interaction.get('dashboard')))],
+                         always=bool(tiles), done=bool(tiles and f.interaction.get('dashboard')))],
             'fact': count(len(tiles), 'tile') if tiles else ''}
 
 

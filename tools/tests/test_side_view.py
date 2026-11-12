@@ -326,6 +326,15 @@ class SideView(unittest.TestCase):
         pieces = self.nodes(side_view.model(run), 'Metrics')
         self.assertNotIn('Translate each tile and chart', pieces, 'the person chose past queries only; a stray dashboard file is not read')
 
+    def test_finishing_without_a_dashboard_claims_no_page_built(self):
+        run = make_run(self.root, demo=True, saved=False, local=True)
+        interaction = run / 'interaction.json'
+        interaction.write_text(json.dumps({**json.loads(interaction.read_text(encoding='utf-8')), 'dashboard': True}), encoding='utf-8')
+        (run / 'layout.json').unlink(missing_ok=True)
+        doc = side_view.model(run)
+        self.assertEqual(self.step(doc, 'Dashboard')['status'], 'done')
+        self.assertNotIn('Build the page', self.nodes(doc, 'Dashboard'), 'the person picked "I\'m done" with no tiles proposed')
+
     def test_the_answer_moment_finishes_the_ask_step_before_the_journey_records_it(self):
         run = make_run(self.root, demo=True, saved=False, local=True)
         interaction = run / 'interaction.json'

@@ -9,7 +9,8 @@ answer. For a demo, take the file name from its facts file
 business focus, such as `<focus>-dashboard.html`.
 
 Record `PROJECT journey dashboard` once a dashboard is built, or when the person picks
-"I'm done" without one; nothing else ticks this step. Both moments follow
+"I'm done" without one; nothing else ticks this step. Read its result: in a setup or demo
+run it names the side view's last update to push ([visuals](../../analytics-build/references/setup/visuals.md)). Both moments follow
 [text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost).
 
 ## Design a dashboard
