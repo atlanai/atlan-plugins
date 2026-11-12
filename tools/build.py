@@ -56,7 +56,7 @@ HOOK_KEYS = {"claude_hooks": "claude-hooks", "codex_hooks": "command-hooks", "cu
 # Skill bundles every pre-send check must agree on: check_bundle.py's tests and the publish hook's.
 FIXTURES = "tools/tests/fixtures/publish-bundles.json"
 # Files every plugin folder gets a copy of, from the repository root.
-SHARED = ("assets/logo.svg", "LICENSE", "NOTICE")
+SHARED = ("assets/logo.svg", "assets/logo.png", "LICENSE", "NOTICE")
 # What the directory package takes from the core's folder, beside the manifests it writes.
 DIRECTORY_TREES = ("skills", "assets")
 DIRECTORY_FILES = ("LICENSE", "NOTICE")
@@ -182,8 +182,9 @@ def codex_interface(source: dict) -> dict:
         "composerIcon": plugin["logo"],
         "logo": plugin["logo"],
     }
-    # Codex's directory asks for both; terms_url stays optional until Atlan names the page.
-    for key, field in (("privacy_policy_url", "privacyPolicyURL"), ("terms_url", "termsOfServiceURL")):
+    # Public MCP review needs support and legal URLs; leave unconfirmed pages out of drafts.
+    for key, field in (("privacy_policy_url", "privacyPolicyURL"),
+                       ("support_url", "supportURL"), ("terms_url", "termsOfServiceURL")):
         if key in plugin:
             interface[field] = plugin[key]
     if codex.get("screenshots"):
@@ -316,10 +317,10 @@ or copies them.
 """
 
 
-def plugin_assets(source: dict) -> dict[str, str]:
+def plugin_assets(source: dict) -> dict[str, str | bytes]:
     """The shared files in every plugin folder, and each add-on's README. The core's and each
     mod's README are written by hand."""
-    shared = {relative: (ROOT / relative).read_text(encoding="utf-8") for relative in SHARED}
+    shared = {relative: (ROOT / relative).read_bytes() for relative in SHARED}
     files = {}
     bases = (core_dir(source), *(addon_dir(a) for a in source.get("addons", [])), *(mod_dir(m) for m in source.get("mods", [])))
     for base in bases:
@@ -484,11 +485,14 @@ def outputs(source: dict) -> dict[str, dict]:
         # median task from 13.3 s to 11.8 s with no score loss, for about 1k tokens. Search mode
         # lists only the helpers and a few core reads, so this is not the whole catalogue.
         f"{base}/.mcp.json": {"mcpServers": {mcp["server"]: {"type": "http", "url": mcp["url"], "headers": dict(headers), "alwaysLoad": True}}},
-        # No privacyPolicyUrl: claude.ai's organization sync strips it as unknown. The plugin
-        # directory reads the privacy link from the README instead.
+        # Directory fields are supported by Claude Code 2.1.281 and later.
+        # They belong on the plugin manifest, never the marketplace entry.
         f"{base}/.claude-plugin/plugin.json": {
             **core(source),
             "displayName": plugin["display_name"],
+            "icon": plugin["logo"],
+            "privacyPolicyUrl": plugin["privacy_policy_url"],
+            "documentationUrl": plugin["documentation_url"],
             "mcpServers": "./.mcp.json",
             # Claude Code alone runs a hooks module; no other manifest names it.
             **({"hooks": plugin["claude_hooks"]} if plugin.get("claude_hooks") else {}),
@@ -558,7 +562,12 @@ def directory_files(source: dict) -> dict[str, bytes]:
     documents = outputs(source)
     manifest = copy.deepcopy(documents[f"{base}/plugin.json"])
     manifest["extensions"]["com.openai"].pop("hooks", None)
-    files = {"plugin.json": render(manifest).encode(), "mcp.json": render(documents[f"{base}/mcp.json"]).encode()}
+    mcp = copy.deepcopy(documents[f"{base}/mcp.json"])
+    server = mcp["mcpServers"][source["mcp"]["server"]]
+    server.pop("headers", None)
+    server["extensions"] = {"com.openai": {
+        "auth": copy.deepcopy(source["submission"]["openai"]["auth"])}}
+    files = {"plugin.json": render(manifest).encode(), "mcp.json": render(mcp).encode()}
     folder = ROOT / base
     for tree in DIRECTORY_TREES:
         for path in sorted((folder / tree).rglob("*")):
@@ -575,6 +584,8 @@ def directory_files(source: dict) -> dict[str, bytes]:
 def directory_gaps(source: dict) -> list[str]:
     """What the directory's listing asks for that plugin.toml does not set yet."""
     gaps = []
+    if not source["plugin"].get("support_url"):
+        gaps.append("plugin.support_url (supportURL)")
     if "terms_url" not in source["plugin"]:
         gaps.append("plugin.terms_url (termsOfServiceURL)")
     if not source.get("codex", {}).get("screenshots"):
@@ -617,19 +628,20 @@ def plugin_dirs(source: dict) -> list[str]:
     return [core_dir(source), *(addon_dir(addon) for addon in source.get("addons", []))]
 
 
-def sync(texts: dict[str, str], root: Path, check: bool) -> list[str]:
+def sync(texts: dict[str, str | bytes], root: Path, check: bool) -> list[str]:
     """Write `texts` under `root`, or list what differs."""
     drift = []
     for relative, text in texts.items():
         path = root / relative
-        current = path.read_text(encoding="utf-8") if path.exists() else None
-        if current == text:
+        data = text.encode("utf-8") if isinstance(text, str) else text
+        current = path.read_bytes() if path.exists() else None
+        if current == data:
             continue
         if check:
             drift.append(relative)
             continue
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        path.write_bytes(data)
         print(f"wrote {relative}")
     return drift
 

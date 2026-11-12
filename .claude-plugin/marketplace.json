@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "atlanai",
-      "displayName": "AI Registry",
+      "displayName": "Atlan trident",
       "source": "./plugins/atlanai",
       "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
       "author": {

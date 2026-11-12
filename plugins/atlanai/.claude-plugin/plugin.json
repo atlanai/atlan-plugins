@@ -1,6 +1,6 @@
 {
   "name": "atlanai",
-  "version": "0.5.54",
+  "version": "0.5.57",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -19,7 +19,10 @@
     "catalog",
     "governance"
   ],
-  "displayName": "AI Registry",
+  "displayName": "Atlan trident",
+  "icon": "./assets/logo.png",
+  "privacyPolicyUrl": "https://atlan.com/privacy-policy/",
+  "documentationUrl": "https://platform.atlan.com/",
   "mcpServers": "./.mcp.json",
   "hooks": "./claude-hooks/hooks.json"
 }

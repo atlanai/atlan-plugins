@@ -1,4 +1,6 @@
-# AI Registry
+# Atlan trident
+
+<img src="assets/logo.png" alt="Atlan trident" width="96" height="96">
 
 Connects your coding agent to the Atlan registry: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and
@@ -73,7 +75,51 @@ conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. 
 - The `atlan` plugin in Anthropic's directory (atlanhq/agent-toolkit) is Atlan's data catalog,
   on a different server. It can stay installed beside this one.
 
+## Directory review: local helper and network access
+
+The Claude Code helper starts only `python3` with the bundled
+`command-hooks/receipt_store.py`, in `check` or `capture` mode, to validate a selected
+receipt directory and save the native result. JSON returned by that script never selects
+the next executable. Each call has a five-second timeout. Repeated calls may start the
+machine's Python launcher again; no resolved interpreter path is cached.
+
+The update check makes one GET to
+`https://raw.githubusercontent.com/atlanai/atlan-plugins/main/plugins/atlanai/plugin.json`.
+It sends no conversation text, local files, cookies, tokens or authorization headers.
+The response supplies version metadata, never executable code. Local receipt data is
+written inside the checked working tree and is not uploaded by the receipt writer.
+Publishing sends the explicitly selected content in the existing authorized Atlan MCP call.
+
+`claude-hooks/tests/` contains synthetic test fixtures and assertions. The hooks manifest
+loads `claude-hooks/register.ts`, not the test modules. Credential-shaped strings in those
+tests exercise refusal behavior; they do not read an installer's environment. The tests
+remain in the repository and plugin folder for inspection.
+
 ## Privacy
+
+See the [Atlan privacy notice](https://atlan.com/privacy-policy/).
+
+Atlan stores account identity, selected registry content and call/session records, which
+can contain personal data. The [trace privacy reference](https://platform.atlan.com/registry/traces/references/limits-and-privacy)
+states that traces have no automatic expiry. Organization settings can discard future
+trace content; changing them does not erase existing content. Trace-content deletion
+preserves structure and usage counts. Retention is longer than 30 days, not a promise
+that all content expires after 30 days.
+
+### Services and data sent
+
+| Destination | Data and trigger |
+| --- | --- |
+| Atlan, `api.atlan.com` | OAuth identity, requested tool arguments and explicitly selected files or outputs. Registry records and session activity are stored. |
+| Organization-registered MCP services, for example Slack and Linear | Arguments and selected content for the downstream tool the user requests. Atlan routes these calls with the caller's permissions. |
+| GitHub, `github.com` and `raw.githubusercontent.com` | Approved repository changes and CI configuration when setting up repository publishing; the update check sends only an ordinary public-manifest request. |
+| npm package registry | Package requests and connection metadata when the user runs the documented `npx plugins` installer. |
+| Atlan downloads, `app.atlan.com` | Installer requests and connection metadata when the user chooses to download the `aireg` CLI. |
+
+Third-party services depend on the organization's integrations and the requested task.
+Installing the plugin does not send the conversation to every destination above. The
+local receipt writer does not upload receipts. Review downloaded scripts before running
+them; downloaded skill scripts are not run merely to install a skill.
 
 The plugin has no binaries. In Claude Code, Codex, Cursor and GitHub Copilot CLI
 it runs one hook, the publish helper (outside Claude Code, a Python script, once you trust the
@@ -132,6 +178,7 @@ changes how this plugin's calls behave: registry reads run without a prompt, wri
 approvals and moves ask first and name what they touch, a `session_id` or `rationale` put inside
 `arguments` is moved beside them, temporary gateway errors tell Claude how to retry, and a
 fitting registry skill is named beside your request. This plugin works the same without it.
-Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
+The OpenAI directory package omits the local hooks and the client-identification header.
+Repository installs send your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).

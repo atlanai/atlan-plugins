@@ -12,11 +12,11 @@
 # silently replaces the other. `atlanai` is also the name of the registry's own plugin, which
 # serves the same `atlan` server, so installing both collapses to one server instead of two.
 name = "atlanai"
-display_name = "AI Registry"
+display_name = "Atlan trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.54"
+version = "0.5.57"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
-short_description = "Atlan AI Registry"
+short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
 license = "Apache-2.0"
 homepage = "https://github.com/atlanai/atlan-plugins"
@@ -28,9 +28,10 @@ category = "Developer Tools"
 # database, data, ...); claude.ai shows its own label for each.
 claude_category = "development"
 brand_color = "#2026D2"
-# Plugin-relative. The build copies assets/logo.svg into every plugin folder.
-logo = "./assets/logo.svg"
+# Plugin-relative. The build copies the Registry-sourced PNG into every plugin folder.
+logo = "./assets/logo.png"
 privacy_policy_url = "https://atlan.com/privacy-policy/"
+documentation_url = "https://platform.atlan.com/"
 # Claude Code's hooks module, plugin-relative: the publish helper, which lets the skill create take
 # `files_from` (see claude-hooks/register.ts). Named only in .claude-plugin/plugin.json and kept out
 # of hooks/, the folder Codex and Cursor read by default, since only Claude Code runs a module. A
@@ -42,7 +43,8 @@ claude_hooks = "./claude-hooks/hooks.json"
 # harness's hooks/hooks.json discovery. A variant leaves them out too.
 codex_hooks = "./command-hooks/codex.json"
 cursor_hooks = "./command-hooks/cursor.json"
-# terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
+# support_url = ""  # Awaiting the approved public support page for MCP review.
+# terms_url = ""  # Awaiting the approved public terms page for MCP review.
 
 [author]
 name = "Atlan"
@@ -53,7 +55,7 @@ url = "https://atlan.com"
 # each organization's own marketplace after its org handle (`atlan-prod`, `atlan-com`); an org
 # handled exactly `atlan` would collide with this one on one machine.
 name = "atlan"
-display_name = "Atlan Trident"
+display_name = "Atlan trident"
 description = "Atlan's plugins for coding agents: the Atlan registry's MCP server, the skills to use it, and workloads built on it."
 
 [mcp]
@@ -83,6 +85,12 @@ default_prompts = [
 # (plugins/atlanai/assets/), plugin-relative. `make codex-directory` says when none are set.
 # screenshots = ["./assets/screenshot-search.png"]
 
+[submission.openai.auth]
+type = "oauth"
+
+[submission.openai.auth.client]
+mode = "cimd"
+
 # Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
 # marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through
 # this plugin's connection. Its skills, commands and agents are written in its folder; the app
@@ -90,7 +98,7 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.9.0"
+version = "0.9.1"
 description = "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard."
 short_description = "Publish analytics context and ask your data with Atlan"
 long_description = "The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
@@ -113,7 +121,7 @@ default_prompts = [
 [[mods]]
 name = "atlanai-mods"
 display_name = "Registry Mods"
-version = "0.4.9"
+version = "0.4.10"
 description = "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection."
 keywords = ["atlan", "registry", "mods", "permissions"]
 claude_category = "development"

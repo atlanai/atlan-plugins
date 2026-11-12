@@ -78,6 +78,21 @@ class BuildTest(unittest.TestCase):
             for relative in ("assets/logo.svg", "LICENSE", "README.md"):
                 self.assertTrue((ROOT / "plugins" / name / relative).is_file(), f"{name}/{relative}")
 
+    def test_binary_logo_is_preserved_and_drift_is_detected(self) -> None:
+        logo = self.source["plugin"]["logo"].removeprefix("./")
+        relative = f"plugins/{self.source['plugin']['name']}/{logo}"
+        data = (ROOT / logo).read_bytes()
+        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertEqual(build.plugin_assets(self.source)[relative], data)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with contextlib.redirect_stdout(io.StringIO()):
+                build.sync({relative: data}, root, check=False)
+            self.assertEqual((root / relative).read_bytes(), data)
+            self.assertEqual(build.sync({relative: data}, root, check=True), [])
+            (root / relative).write_bytes(data + b"corruption")
+            self.assertEqual(build.sync({relative: data}, root, check=True), [relative])
+
     def test_render_is_deterministic(self) -> None:
         first = {k: build.render(v) for k, v in build.outputs(self.source).items()}
         second = {k: build.render(v) for k, v in build.outputs(build.load()).items()}
@@ -219,7 +234,7 @@ class ModTest(unittest.TestCase):
         self.assertEqual(len(errors), 2)
 
 
-    def test_a_claude_manifest_holds_only_keys_every_claude_host_reads(self) -> None:
+    def test_a_claude_manifest_holds_only_portable_runtime_or_directory_keys(self) -> None:
         for path, document in self.documents.items():
             if path.endswith(".claude-plugin/plugin.json"):
                 self.assertLessEqual(set(document), lint.CLAUDE_MANIFEST_KEYS, path)
@@ -1075,7 +1090,11 @@ class CodexDirectoryTest(unittest.TestCase):
         self.assertEqual(manifest["extensions"]["com.openai"]["onboardingSkill"], "./skills/atlan-get-started/SKILL.md")
         self.assertIn("skills/atlan-get-started/SKILL.md", files)
         self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
-        self.assertEqual(json.loads(files["mcp.json"]), build.outputs(source)["plugins/atlanai/mcp.json"])
+        server = json.loads(files["mcp.json"])["mcpServers"][source["mcp"]["server"]]
+        self.assertNotIn("headers", server)
+        self.assertEqual(server["extensions"]["com.openai"]["auth"], {
+            "type": "oauth", "client": {"mode": "cimd"}})
+        self.assertIn("headers", build.outputs(source)["plugins/atlanai/mcp.json"]["mcpServers"][source["mcp"]["server"]])
         tops = {path.split("/")[0] for path in files}
         self.assertEqual(tops, {"plugin.json", "mcp.json", "skills", "assets", "LICENSE", "NOTICE"})
         self.assertFalse([path for path in files if "hooks" in path.split("/")[0] or path.endswith(".pyc")])
@@ -1095,8 +1114,10 @@ class CodexDirectoryTest(unittest.TestCase):
     def test_the_build_names_what_the_listing_still_needs(self) -> None:
         source = copy.deepcopy(build.load())
         source["plugin"].pop("terms_url", None)
+        source["plugin"].pop("support_url", None)
         source["codex"].pop("screenshots", None)
-        self.assertEqual(len(build.directory_gaps(source)), 2)
+        self.assertEqual(len(build.directory_gaps(source)), 3)
+        source["plugin"]["support_url"] = "https://example.com/support"
         source["plugin"]["terms_url"] = "https://example.com/terms"
         source["codex"]["screenshots"] = ["./assets/missing.png"]
         self.assertEqual(build.directory_gaps(source), [])
