@@ -34,27 +34,6 @@ STEPS = {
 }
 
 
-# The end-to-end lifecycle the tracker line draws, and where each step of either flow sits on it.
-LIFECYCLE = ('Connect', 'Read', 'Build', 'Check', 'Publish', 'Answer')
-PLACE = {'sources': 0, 'intent': 1, 'scope': 1, 'metrics': 2, 'save': 4, 'ask': 5, 'dashboard': 5}
-
-
-def lifecycle(rows, checking=False, local=False):
-    """The tracker line: `●` before the current step, the current one bold, `○` after; a context
-    kept on this machine shows `◌ Kept local` where Publish would be."""
-    current = next((r['id'] for r in rows if r['status'] != 'completed'), None)
-    at = len(LIFECYCLE) - 1 if current is None else PLACE[current] + (current == 'metrics' and checking)
-    marks = []
-    for i, name in enumerate(LIFECYCLE):
-        if i == at and current is not None:
-            marks.append(f'**◉ {name}**')
-        elif i < at or current is None:
-            marks.append('◌ Kept local' if local and name == 'Publish' else f'● {name}')
-        else:
-            marks.append(f'○ {name}')
-    return ' ─ '.join(marks)
-
-
 def _flow(flow):
     return flow if flow in FLOWS else 'build'
 
@@ -141,5 +120,5 @@ def build(model, flow=None):
                      'status': status})
     state = 'paused' if stopped and current else 'blocked' if phase['status'] in ('blocked', 'failed') else \
         'access_needed' if phase['status'] == 'access_needed' else 'done' if current is None else 'running'
-    return {'flow': flow, 'steps': rows, 'state': state, 'lifecycle': lifecycle(rows, at == 3, local),
+    return {'flow': flow, 'steps': rows, 'state': state,
             'step': next((i + 1 for i, r in enumerate(rows) if r['id'] == current), len(rows)), 'of': len(rows)}

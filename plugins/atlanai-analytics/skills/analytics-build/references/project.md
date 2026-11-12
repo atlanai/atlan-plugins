@@ -141,10 +141,9 @@ Do not call a standalone dashboard translator or author Registry bodies by hand.
 Run `PROJECT check` for provisional local schema checks before a workspace is selected.
 Run `CONTEXT check` against the actual workspace schemas and existing definitions before publishing. For local execution checks, save an
 ordinary JSON request with `sql`, separate `parameters` and optional `limit` (1 to 1000), then
-run `PROJECT execute "<request.json>"`. Use schema-qualified base tables and the database's
-native bindings, `:name` for SQLite and `$name` for DuckDB; convert Registry `{{name}}`
-placeholders outside SQL literals to native bindings, never interpolate values. Check the
-exact SQL/formula and mandatory filters being published.
+run `PROJECT execute "<request.json>"`. Use schema-qualified base tables and native `$name`
+bindings; convert Registry `{{name}}` placeholders outside SQL literals to native bindings,
+never interpolate values. Check the exact SQL/formula and mandatory filters being published.
 Record execution evidence against that definition revision. Failed items are held; untested
 items cannot be advertised as verified. PBIT parity stays unmeasured without source values.
 For parameterized SQL, one successful example does not check every supported slice. Check

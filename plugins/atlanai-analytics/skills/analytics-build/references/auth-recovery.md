@@ -24,8 +24,6 @@ When that read succeeds without a sign-in flow, record the actual observation di
 {"operation":"record_read","host":"codex","server":"atlan","read_tool":"registry__list_workspaces","read_succeeded":true}
 ```
 
-`host` is `claude_code` in Claude Code, including the Code tab of the Claude desktop app, and
-`codex` in Codex; the helper accepts no other value.
 Both host and server must name the connection just read. This appends a timestamped,
 host/server-scoped observation to `registry-readiness.json`; it leaves `auth-recovery.json`
 unchanged. Do not invent a failed connection, `begin` or login event to record an already

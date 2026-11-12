@@ -1,7 +1,9 @@
 """A made-up run folder with the files a finished setup run leaves, for the chat and side-view tests.
 
 `make_run` writes only what the chosen sources produce: a dashboard-only run has no query history or
-history stages, a history-only run has no dashboard reading, a run kept local has no publication.
+history stages, a history-only run has no dashboard reading, a run kept local has no publication. The run's
+task-list state (progress.json, interaction.json) says it finished, unless `stage` names where it stands;
+`at` moves it on.
 """
 import json
 from pathlib import Path
@@ -16,7 +18,8 @@ def _write(path, body):
     path.write_text(body if isinstance(body, str) else json.dumps(body), encoding='utf-8')
 
 
-def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=False, answered=True, engine='engine', history_format='jsonl'):
+def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=False, answered=True, engine='engine', history_format='jsonl',
+             stage=None):
     root = Path(root)
     run, source = root / 'run', root / 'source'
     sources = [{'kind': 'data_file', 'path': 'data/jobs.csv', 'status': 'available'},
@@ -37,10 +40,14 @@ def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=F
     if dashboard:
         sources.append({'kind': 'powerbi', 'path': 'bi/report.pbit', 'status': 'available'})
         _write(run / 'context' / 'src_1.json', {'counts': {'measures': 2, 'pages': 1}})
-    _write(run / 'run.json', {'source_root': str(source), **({'engine_run': str(run / engine)} if engine == 'engine' else {}), 'sources': sources})
+    _write(run / 'run.json', {'source_root': str(source), **({'engine_run': str(run / engine)} if engine == 'engine' else {}), 'sources': sources,
+                              'execution': {'tables': ['site.work_logs', 'site.jobs']}})
     _write(run / 'survey-cache.json', {'sources': sources})
-    _write(run / 'interaction.json', {'flow': 'demo' if demo else 'build', 'mode': 'local' if local else 'active',
-                                      'intent': {'purpose': 'See which jobs lose margin and why'}})
+    _write(run / 'interaction.json', {'version': 1, 'flow': 'demo' if demo else 'build', 'mode': 'local' if local else 'active',
+                                      'intent': {'domain': 'Job margin', 'purpose': 'See which jobs lose margin and why'},
+                                      'asked': bool(answered and (saved or local))})
+    at(run, *(stage or (('ready' if saved and not local else 'preview' if local else 'check'), 'complete')))
+    _write(run / 'engine-config.json', {'inputs': {'bi': ['local-files'] if dashboard else [], 'history': ['local-files'] if history else []}})
     _write(run / 'context' / 'data-preparation.json', {'tables': [{'table': 'site.work_logs', 'rows': 120}, {'table': 'site.jobs', 'rows': 9}]})
 
     stages = [{'stage': 's0_inputs', 'counts': {}}]
@@ -96,6 +103,11 @@ def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=F
     _write(run / 'edit.json', {'metric': 'Late Jobs', 'before': 'Late after a week', 'after': 'Late after a day',
                                'values': [['Late jobs', 2, 3]], 'added': ['Bus shelter']})
     return run
+
+
+def at(run, stage, status='complete'):
+    """Where the run stands, as its progress file says."""
+    _write(Path(run) / 'progress.json', {'stage': stage, 'status': status})
 
 
 def facts():

@@ -1,9 +1,9 @@
 """A moment of a run in the chat: a one-line chip, or a mini card at the four big moments.
 
 `build_spec` gathers the moment's facts: the moment's data file and a demo's facts file first, then what the
-run's own files prove (run_facts.py), which always wins. `render` turns them into what the chat shows: a
-chip, a text line every host prints as it is, or a mini card, as HTML for a host's inline visual tool or as
-a bold headline and a short text block for every other host. The agent passes the output through; it never
+run's own files prove (run_facts.py), which always wins. `render` turns them into what the chat shows: as HTML
+for a host's inline visual tool, or as plain reply text a terminal prints as written, in its own colours: a
+chip on one line, a card as a bold headline over indented lines. The agent passes the output through; it never
 designs or retypes a number.
 """
 import argparse
@@ -14,16 +14,11 @@ import re
 import sys
 
 import visual_kit as k
-from run_facts import RunFacts, count, number, read_json, sentence, table_name, their  # noqa: F401 (re-exported)
+from run_facts import BI_TOOLS, RunFacts, count, number, read_json, sentence, table_name, their  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'sources', 'build', 'context', 'saved', 'answer', 'layout', 'edit')
-# The moments big enough for a mini card. A later answer gets a chip; a context kept on this machine shows nothing,
-# since the ready block right after it says where the context lives.
+# The moments big enough for a mini card. A later answer, and a context kept on this machine, get a chip.
 CARDS = ('build', 'saved', 'answer', 'edit')
-# The moments that always come right before a native question, and where in it they go. Text written just before
-# a tool call can reach the person as a one-line summary, so these go inside the question, which shows its text
-# as written: plain, with no Markdown.
-ASKED = {'context': "the save question's text, after the celebration's two lines", 'saved': "the ready question's text, first"}
 # The moments whose data the agent writes, the fields each needs, and the shape of every field.
 DATA = {
     'saved': {'workspace': str},
@@ -84,6 +79,11 @@ def _names(value):
 
 def collect(kind, facts):
     """What the run's own files say about a moment."""
+    if kind == 'connect' and facts.sources:
+        found = [k for k in ((facts.dashboard.get('tool') and '%s dashboard' % facts.dashboard['tool'] if facts.usable(*BI_TOOLS) else ''),
+                             count(len(facts.usable('data_file')), 'data file') if facts.usable('data_file') else '',
+                             'query history' if facts.usable('query_history') else '') if k]
+        return {'found': len(facts.sources), 'kinds': found}
     if kind == 'sources' and facts.tables:
         return {'tables': [list(t) for t in facts.tables], **({'history': facts.history} if facts.history else {}),
                 **({'dashboard': facts.dashboard} if facts.dashboard else {})}
@@ -94,7 +94,8 @@ def collect(kind, facts):
         return {'ran': c['metrics_ran'] + c['queries_ran'], 'total': len(c['metrics']) + c['queries'], 'review': c['review']}
     if kind == 'saved':
         if facts.local:
-            return {'local': True}
+            c = facts.context
+            return {'local': True, **({'kept': len(c['metrics']) + c['queries']} if c else {})}
         return dict(facts.publication)
     return {}
 
@@ -145,12 +146,12 @@ def ring(done, total):
 
 
 def spark(values):
-    """A row of bars in one line, at most eight, lowest to highest, in a code span so each bar keeps its width."""
+    """A row of bars in one line, at most eight, lowest to highest. Plain text, so it takes the reply's own colour."""
     values = [v for v in values if isinstance(v, (int, float))][:8]
     if len(values) < 2:
         return RINGS[4]
     low, high = min(values), max(values)
-    return '`%s`' % ''.join(SPARKS[round((v - low) / (high - low) * 7) if high > low else 3] for v in values)
+    return ''.join(SPARKS[round((v - low) / (high - low) * 7) if high > low else 3] for v in values)
 
 
 def _chip(glyph, num, what, tail=''):
@@ -185,6 +186,10 @@ def _headline(s):
 
 def _ticker(kind, s):
     """A chip's parts: how far its ring goes or the values its spark draws, the number, then what it counts."""
+    if kind == 'connect' and s.get('found'):
+        return {'num': str(s['found']), 'what': 'sources found' if s['found'] != 1 else 'source found', 'tail': ', '.join(s.get('kinds') or [])}
+    if kind == 'saved' and s.get('local') and s.get('kept'):
+        return {'num': str(s['kept']), 'what': 'metrics and queries kept on this machine', 'tail': 'nothing saved to Atlan'}
     if kind == 'sources' and s.get('tables'):
         tables = s['tables']
         tool = (s.get('dashboard') or {}).get('tool')
@@ -222,9 +227,9 @@ def _queries_line(f):
     """Where the queries came from, so the counts on the card add up on their face."""
     shown, asked = f.get('tiles', 0), f.get('questions', 0) - f.get('tiles', 0)
     if shown and asked > 0:
-        return "%s built: %d from the dashboard's tiles and charts, %d from past queries" % (count(f['questions'], 'query', 'queries'), shown, asked)
+        return '%s: %d from the dashboard, %d from past queries' % (count(f['questions'], 'query', 'queries'), shown, asked)
     if shown:
-        return "%s built from the dashboard's tiles and charts" % count(shown, 'query', 'queries')
+        return '%s built from the dashboard' % count(shown, 'query', 'queries')
     return '%s built from past queries' % count(asked, 'query', 'queries') if asked > 0 else ''
 
 
@@ -236,7 +241,8 @@ def _parts(kind, s):
         return {'icon': 'metric', 'title': 'Built from your sources', 'value': count(f['metrics'], 'metric'), 'line': _queries_line(f),
                 'bars': [{'label': label, 'value': f[key], 'shown': '{:,}'.format(f[key])}
                          for label, key in (('Past queries', 'queries'), ('Queries built', 'questions'), ('Metrics', 'metrics')) if f.get(key)],
-                'chips': names if len(names) <= NAMES else names[:NAMES - 1] + ['+%d more' % (len(names) - NAMES + 1)]}
+                'chips': names if len(names) <= NAMES else names[:NAMES - 1] + ['+%d more' % (len(names) - NAMES + 1)],
+                'names': names}
     if kind == 'saved' and s.get('metrics') and not s.get('local'):
         return {'icon': 'check-circle', 'title': 'Saved to Atlan Trident',
                 'value': '%s, %s' % (count(len(s['metrics']), 'metric'), count(s.get('queries', 0), 'query', 'queries')),
@@ -355,60 +361,53 @@ def _text_bars(bars):
 
 
 def _plain(text):
-    """Text that Markdown shows as written: its own stars, underscores and backticks are escaped."""
-    return re.sub(r'([\\`*_])', r'\\\1', str(text))
+    """Text that Markdown shows as written: its own stars and backticks are escaped, and an underscore that could
+    start or end emphasis. One inside a word, as in a column name, is shown as it is."""
+    return re.sub(r'(?<![A-Za-z0-9])_|_(?![A-Za-z0-9])', r'\\_', re.sub(r'([\\`*])', r'\\\1', str(text)))
 
 
-def card_head(p, plain=False):
-    """The card's headline, outside the block so it can be bold: the number first, then what it is."""
+def card_head(p):
+    """The card's headline, in bold: the number first, then what it is."""
     lead = ' '.join(x for x in (p.get('pre') if p['icon'] == 'edit' else '', _minus(p['value'])) if x)
-    return '%s · %s' % (lead, p['title']) if plain else '**%s** · %s' % (_plain(lead), _plain(p['title']))
+    return '**%s** · %s' % (_plain(lead), _plain(p['title']))
 
 
-def _fenced(body):
-    """A text block whose fence is longer than any run of backticks inside it, so no value can close it early."""
-    fence = '`' * max(3, max((len(run) for run in re.findall('`+', body)), default=0) + 1)
-    return '%stext\n%s\n%s' % (fence, body, fence)
+def _one_line(names, width=WIDTH, sep=' · '):
+    """As many names as fit one line, then how many more."""
+    for n in range(len(names), 0, -1):
+        line = sep.join(names[:n] + (['+%d more' % (len(names) - n)] if n < len(names) else []))
+        if len(line) <= width:
+            return line
+    return '%d metrics' % len(names)
 
 
-def card_text(p, rule='│ '):
-    """The rest of the card as a left-ruled block every terminal and chat prints aligned."""
+def card_text(p):
+    """The rest of the card as plain lines under the headline, indented. A terminal prints them as written, so a
+    card of six lines or fewer shows whole, even right before a question. The build card keeps to that."""
     lines = _wrap(p['pre']) if p.get('pre') and p['icon'] != 'edit' else []
     lines += _wrap(p['line']) if p.get('line') else []
     lines += _wrap(p['why']) if p.get('why') else []
-    if p.get('bars'):
-        lines += [''] + _text_bars(p['bars'])
-    if p.get('rule'):
-        lines += [''] + [x for r in p['rule'] for x in _wrap(r)]
-    if p.get('chips'):
-        lines += [''] + _wrap_items(p['chips'])
-    if p.get('warn'):
-        lines += _wrap('! ' + p['warn'])
-    while lines and not lines[0]:
-        lines.pop(0)
-    return '\n'.join((rule + _fit(line)).rstrip() for line in lines)
+    lines += _text_bars(p['bars']) if p.get('bars') else []
+    lines += [x for r in p.get('rule', []) for x in _wrap(r)]
+    if p.get('names'):
+        lines.append(_one_line(p['names']))
+    elif p.get('chips'):
+        lines += _wrap_items(p['chips'])
+    lines += _wrap('! ' + p['warn']) if p.get('warn') else []
+    return '\n'.join(('  ' + _plain(_fit(line))).rstrip() for line in lines)
 
 
-def render(kind, spec, widget=False, first=True, plain=False):
-    """What the chat shows for a moment: a mini card at a big moment, else a chip; empty when nothing is true yet.
-
-    `plain` writes it for a native question's text: no Markdown, the card's block indented under its headline."""
+def render(kind, spec, widget=False, first=True):
+    """What the chat shows for a moment: a mini card at a big moment, else a chip; empty when nothing is true yet."""
     if kind not in KINDS:
         raise ValueError('Unknown moment: %s' % kind)
     parts = _parts(kind, spec) if kind in CARDS and (first or kind != 'answer') else None
     if parts:
         if widget:
             return card_html(parts)
-        if plain:
-            # A question draws its own rule beside its text, so the block is indented instead.
-            body = card_text(parts, rule='  ')
-            return card_head(parts, plain=True) + ('\n' + body if body else '')
         body = card_text(parts)
-        return card_head(parts) + ('\n\n' + _fenced(body) if body else '')
-    if widget:
-        return chip_html(kind, spec)
-    shown = chip(kind, spec)
-    return shown.replace('**', '') if plain else shown
+        return card_head(parts) + ('\n' + body if body else '')
+    return chip_html(kind, spec) if widget else chip(kind, spec)
 
 
 def main(argv=None):

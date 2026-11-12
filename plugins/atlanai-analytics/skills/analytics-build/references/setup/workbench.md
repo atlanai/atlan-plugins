@@ -2,14 +2,8 @@
 
 Read on starting or resuming setup. Claude and Codex own the interface: use their normal
 messages, task list, code disclosures and question controls. Progress is
-[the setup checklist](checklist.md) in chat and that task list when available. Each moment
-shows a chip or a mini card in the chat and updates [the side view](visuals.md), published once
-per run. Open no other panel or browser view unless the person asks for [a visual view](render.md).
-
-Where the host has no question control (Codex outside Plan mode), ask in one plain sentence
-that names the recommended answer and the other choice, such as "Shall I build from the
-dashboard and past queries? That is the fuller option; say 'dashboard only' for the faster
-one." Never lay out a lettered or numbered menu of choices as text.
+[the setup checklist](checklist.md) in chat and that task list when available. Open no side panel, browser view or
+other surface unless the person asks for [a visual view](render.md).
 
 ## One useful result, one next action
 

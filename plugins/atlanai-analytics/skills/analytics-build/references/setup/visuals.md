@@ -3,7 +3,8 @@
 Read before the opening or the welcome, and again when a moment below is reached. The flow,
 its questions and its words do not change. At each moment the helper reads the run's own files
 and prints what the chat shows, and the side view, a page beside the chat, gets an update each
-time a piece of work finishes, so the person watches each step tick through. Never draw, design or retype a visual, and never put a number in one by hand.
+time a piece of work finishes, so the person watches each step tick through. Never draw, design
+or retype a visual, and never put a number in one by hand.
 
 ## At each moment
 
@@ -13,37 +14,37 @@ run has reached but not shown yet: run it before going on. A demo adds `--data` 
 [Ticketfuddle](../../../analytics-demo/references/box-office.json), on every call. It prints:
 
 1. **What the chat shows**: a chip, one line such as `● **4/4** metrics and queries ran · on
-   your data`, or at the four big moments a mini card: a bold headline line, then a short `text`
-   block. Copy it unchanged into your reply as the moment's result: a command's own output is
-   folded away, so the person never sees it there. In a host with an inline visual tool
-   (`show_widget`, as in the Claude desktop app), add `--widget` to every `visual` call and pass
-   the HTML it prints to that tool, chips and cards alike, right before your next question or
-   reply: there, text inside a question or between tool calls does not reach the person. Inside
-   a native question's text, drop the chip's `**` and backticks. When the helper
-   prints nothing here, the chat shows nothing for this moment. When it prints nothing at all,
-   the run has nothing true to show yet: run it again once the step's work is done.
+   your data`, or at the four big moments a mini card: a bold headline over a few indented lines.
+   Show it at once, as the moment's result; a command's own output is folded away, so the person
+   never sees it there.
+   - **With a `show_widget` tool** (the Claude desktop app): add `--widget` to every `visual`
+     call and pass the HTML it prints to that tool, chips and cards alike. There, text between
+     tool calls or inside a question never reaches the person.
+   - **Otherwise** (a terminal): copy the lines unchanged into your reply, on their own lines.
+     Never put them in a native question's text: a terminal draws question text in one fixed
+     colour that a light background hides, and these lines take the reply's own colours. A
+     terminal shows six lines or fewer before a question whole, and every card that can come
+     right before one keeps to that, so when a question follows, these lines are the text
+     before it.
+   When the helper prints nothing here, the chat shows nothing for this moment. When it prints
+   nothing at all, the run has nothing true to show yet: run it again once the step's work is done.
 2. **A last line, `side view: {...}`**, a JSON object; never print it. `next` says what to do
-   with the lines above it. The other fields, when the moment finished a step, say what to
-   publish or push, as the next section says. An `error` field means the side view missed this
-   update: carry on.
+   with the lines above it. The other fields say what to publish or push, as the next section
+   says. An `error` field means the side view missed this update: carry on.
 
 | Moment | Kind | The chat shows | Data |
 | --- | --- | --- | --- |
-| The run folder exists, right after the first survey | `connect` | Nothing; it opens the side view | |
+| The run folder exists, right after the first survey | `connect` | Chip: the sources found. It opens the side view | |
 | Sources read and the data loaded: the end of a demo's step 1; on own data, right after `PROJECT bind` | `sources` | Chip | |
-| Metrics generated: the engine run is complete, before the checks | `build` | Nothing; its card waits for the checks, since a card mid-build goes unseen | |
-| Every check has run | `context` | The build's mini card and a chip, for the save question | |
-| Saved to Atlan Trident, or kept on this machine | `saved` | Mini card for the ready question; nothing when kept, as the ready block says so | `saved.json` |
+| Metrics generated: the engine run is complete, before the checks | `build` | Mini card | |
+| Every check has run | `context` | Chip, before the save question | |
+| Saved to Atlan Trident, or kept on this machine | `saved` | Mini card, or a chip when kept, before the ready question | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
 | Dashboard layout proposed | `layout` | Chip | `layout.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |
 
-A chip or card is the moment's result line: add no other line that repeats its numbers. When the
-moment comes right before a native question, put the chip first in the question's own text, since
-[text before a native question is lost](../conventions.md#text-before-a-native-question-is-lost).
-`context` and `saved` always come right before one, so the helper writes them for it: plain
-lines that go in the question as they are. Any other mini card is your reply's last text, or a
-widget.
+The helper names the first four when they are due. A chip or card is the moment's result line:
+add no other line that repeats its numbers.
 
 ## The side view
 
@@ -63,9 +64,8 @@ A private claude.ai page that shows every step, what came out of it and how. It 
   it as the line says before going on. These updates tick each piece of work while its step runs.
 
 Without those tools (Codex, Cursor, or Claude Code signed in with an API key, Bedrock or
-Vertex), `local=<path>` is the same page as a file that refreshes itself. Say once, first in the
-next native question's text: "Follow the build: open `<path>` in a browser." Then ignore `doc`
-paths. A failed publish or push leaves the run unchanged: carry on without the side
+Vertex), `local=<path>` is the same page as a file that refreshes itself. Say once, in your
+reply: "Follow the build: open `<path>` in a browser." Then ignore `doc` paths. A failed publish or push leaves the run unchanged: carry on without the side
 view, and try a failed step once more at most.
 
 ## Data files

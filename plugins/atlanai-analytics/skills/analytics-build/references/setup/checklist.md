@@ -1,7 +1,7 @@
 # The guided-flow checklist
 
 Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
-when available, kept true to the saved run. Open no panel or page other than [the side view](visuals.md)
+when available, kept true to the saved run. Open no side panel, browser view or preview page
 unless the person asks for a visual view.
 
 ## Start with the list
@@ -28,12 +28,9 @@ Use the host's task tool, loading it first when it is listed but not loaded: `Ta
 and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's plan tool
 (`update_plan`) in the Claude desktop app and in Codex, the todo tool in Cursor. Update it
 in the same turn as every stage change, so the list on screen is never behind the run.
-When each step starts, show the tracker in chat as one line, never as a table: the
-`lifecycle` the helper returns, unchanged. It is the end-to-end lifecycle, the same six steps in
-both flows, with the current one in bold, such as
-`● Connect ─ ● Read ─ **◉ Build** ─ ○ Check ─ ○ Publish ─ ○ Answer`; a context kept on this
-machine shows `◌ Kept local` in Publish's place. The task list keeps the flow's own steps. A step's result is its
-moment's chip or mini card ([visuals](visuals.md)), so skip the tracker right after one. In a demo, step 2 is `Choose what to build from`, because focus and purpose
+When each step starts, show the full tracker in chat. Finished steps carry their actual
+results; the current step says `now`, with `your choice` when it needs an answer; the next
+step says `next`. In a demo, step 2 is `Choose what to build from`, because focus and purpose
 are already set, and step 3 builds and checks without an extra decision. Own data's step 4 runs
 through the selected collection without an extra build decision. Do not substitute a task
 update for the collection review or celebration.
@@ -64,6 +61,5 @@ celebration and ready block. A step-complete line never replaces those moments.
 
 ## Without a task tool
 
-Where the host has no task tool (the Claude Code CLI on current models, and Codex unless its
-plan tool is on), the one-line tracker in chat at each step change is the whole list, kept
-true to `step`, `of` and status from the helper.
+Where the host has no task tool, keep the same full tracker in chat at each step change,
+using `step`, `of`, status and actual counts from the helper.

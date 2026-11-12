@@ -63,24 +63,11 @@ Effective compiler-review failures become structured publication holds; never by
 
 | The definition is | Do |
 | --- | --- |
-| In this run, not yet published | The three steps below, then return the old rule, the new rule and both check results |
+| In this run, not yet published | Change it through the engine, run `check`, and return the old rule, the new rule and both check results |
 | Published, and the person owns the run that made it | The same, then `save` as a revision of the same metric, never a new one |
 | Published by someone else, or the request came from an answer | `propose`: a proposal for its owners. It never saves |
 
-1. `ENGINE edit --run <engine-dir> --metric "<name>"` returns the metric's authored card and rule.
-2. Write that card to a new file with the same `name` and only the rule changed, then run
-   `ENGINE edit --run <engine-dir> --metric "<name>" --card <file> --model <model-id>`. The
-   engine reads it again through the card, consistency and relationship gates and the export
-   checks, and keeps the metric's identity. `edited` returns the old and new rule, both gate
-   results and an `edit` folder. `refused` has already restored the old card.
-3. `PROJECT revise-metric` with `name`, `edit` (that folder) and the check's `example_index`
-   and parameters checks the old rule on the data, installs the new one into `context/` and
-   checks it. `calculation` is the rule's value; `example` is the saved query, which the rule
-   does not change. If the new rule fails, the context keeps the old one: restore the engine
-   card with step 2 and the `previous-card.json` the message names.
-
-Never change `answers/`, `metric_cards.json` or `context/metrics.json` by hand: that skips the
-gates or forks the metric's identity. If reconciliation changes a definition or a
+Keep the metric's identity through an edit. If reconciliation changes a definition or a
 count, say which and show its check status again ([reconciliation](references/metrics/reconciliation.md)).
 
 ### `save`: local or Trident

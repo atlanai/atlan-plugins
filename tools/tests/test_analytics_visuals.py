@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from analytics_run import SCRIPTS, facts, make_run
+from analytics_run import SCRIPTS, at, facts, make_run
 
 sys.path.insert(0, str(SCRIPTS))
 import visuals
@@ -32,7 +32,7 @@ class Numbers(unittest.TestCase):
 
     def test_glyphs_show_how_far_and_how_much(self):
         self.assertEqual([visuals.ring(d, 4) for d in (0, 1, 2, 3, 4)], ['○', '◔', '◑', '◕', '●'])
-        self.assertEqual(visuals.spark([1, 8, 4]), '`▁█▄`')
+        self.assertEqual(visuals.spark([1, 8, 4]), '▁█▄', 'plain text, in the reply\'s own colour: a code span is faint on a light terminal')
         self.assertEqual(visuals.spark([5]), '●', 'one value is not a series')
 
 
@@ -65,28 +65,29 @@ class Moments(unittest.TestCase):
         self.assertEqual(heads, {'build': '**2 metrics** · Built from your sources', 'saved': '**2 metrics, 2 queries** · Saved to Atlan Trident',
                                  'answer': '**\u2212£6,360** · Answer', 'edit': '**Late jobs 2 → 3** · Rule changed'},
                          'the number leads, bold, outside the block')
-        self.assertIn('4 queries built: 2 from the dashboard', cards['build'], 'one name for the 30 items, and counts that add up on their face')
+        self.assertIn('4 queries: 2 from the dashboard, 2 from past queries', cards['build'], 'counts that add up on their face')
         self.assertNotIn('question', cards['build'])
         self.assertIn('Live in Test workspace, where agents can find them', cards['saved'])
         self.assertIn('! 1 query for a person to confirm', cards['saved'])
         self.assertIn('▶ Turbine base', cards['answer'], 'the row that answers is marked')
         for kind, card in cards.items():
-            head, block = card.split('\n\n', 1)
-            self.assertTrue(block.startswith('```text\n│ ') and block.endswith('\n```'), kind)
-            body = block.splitlines()[1:-1]
-            self.assertTrue(all(line.startswith('│') and len(line) <= visuals.WIDTH + 2 for line in body),
-                            kind + ': a left rule only, so a narrow pane wraps it without breaking a box')
+            body = card.splitlines()[1:]
+            self.assertNotIn('```', card, kind + ': plain lines, which a terminal prints as written in its own colours')
+            self.assertTrue(all(line.startswith('  ') and len(line) <= visuals.WIDTH + 4 for line in body),
+                            kind + ': indented under the headline, narrow enough for a split pane')
+        for kind in ('build', 'saved'):
+            self.assertLessEqual(len(cards[kind].splitlines()), 6, kind + ': a terminal shows six lines before a question whole')
 
     def test_cards_carry_no_step_label(self):
         for kind in visuals.CARDS:
             self.assertNotIn('step', self.show(kind), 'the chat line before a card already names its step')
 
     def test_a_later_answer_is_a_chip(self):
-        self.assertEqual(self.show('answer', first=False), '`▁▃█` **-£6,360** · Turbine base')
+        self.assertEqual(self.show('answer', first=False), '▁▃█ **-£6,360** · Turbine base')
 
-    def test_a_context_kept_local_shows_nothing_in_chat(self):
+    def test_a_context_kept_local_is_a_chip(self):
         run = make_run(self.root / 'l', local=True)
-        self.assertEqual(self.show('saved', run), '', 'the ready block right after it already says where the context lives')
+        self.assertEqual(self.show('saved', run), '● **4** metrics and queries kept on this machine · nothing saved to Atlan')
 
     def test_a_dashboard_proposal_is_a_chip(self):
         self.assertEqual(self.show('layout'), '● **2** tiles · dashboard proposed, with 1 more metric below them')
@@ -96,7 +97,7 @@ class Moments(unittest.TestCase):
         empty.mkdir()
         for kind in visuals.KINDS:
             self.assertEqual(visuals.render(kind, visuals.build_spec(kind, empty)), '', kind)
-        self.assertEqual(self.show('connect'), '', 'the first moment opens the side view and says nothing in chat')
+        self.assertEqual(self.show('connect'), '● **4** sources found · Power BI dashboard, 2 data files, query history')
 
     def test_a_widget_card_is_small_and_self_contained(self):
         for kind in visuals.CARDS:
@@ -107,8 +108,8 @@ class Moments(unittest.TestCase):
             self.assertLess(len(html), 6000, kind + ': every character is an output token')
 
     def test_a_chip_is_a_small_widget_where_the_host_draws_one(self):
-        for kind in ('sources', 'context', 'layout'):
-            html = visuals.render(kind, visuals.build_spec(kind, self.run), widget=True)
+        for kind in ('connect', 'sources', 'context', 'saved', 'layout'):
+            html = visuals.render(kind, visuals.build_spec(kind, make_run(self.root / 'l', local=True) if kind == 'saved' else self.run), widget=True)
             self.assertTrue(html.startswith('<style>') and 'class="a c3"' in html, kind)
             self.assertNotRegex(html, r'https?://', kind)
             self.assertLess(len(html), 2500, kind + ': a chip costs a few seconds of writing, not a card\'s')
@@ -185,12 +186,14 @@ class Moments(unittest.TestCase):
         checks.write_text(json.dumps(entries), encoding='utf-8')
         self.assertTrue(self.show('context').startswith('◕ **3/4** metrics and queries ran'))
 
-    def test_a_card_fence_outlasts_backticks_in_the_data(self):
+    def test_a_card_shows_the_data_as_written(self):
         spec = visuals.build_spec('answer', self.run)
-        spec['question'] = 'Why ``` here?'
+        spec['question'] = 'Why ``` and *this* here?'
+        spec['rows'] = [['order_processing', 5], ['_hidden', 3]]
         card = visuals.render('answer', spec)
-        self.assertIn('\n````text\n', card)
-        self.assertTrue(card.endswith('\n````'))
+        self.assertIn('Why \\`\\`\\` and \\*this\\* here?', card, 'Markdown in the data cannot start code or emphasis')
+        self.assertIn('order_processing', card, 'an underscore inside a word needs no escape')
+        self.assertIn('\\_hidden', card)
 
     def test_a_malformed_data_file_is_ignored_not_fatal(self):
         (self.run / 'answer.json').write_text('[1, 2]')
@@ -220,60 +223,63 @@ class Helper(unittest.TestCase):
         return json.loads(line[0][len('side view: '):]) if line else None
 
     def test_each_moment_prints_its_chip_and_the_side_view_update(self):
-        first = self.side(self.project('visual', 'connect'))
+        out = self.project('visual', 'connect')
+        self.assertTrue(out.startswith('● **4** sources found'), 'the chip comes first')
+        first = self.side(out)
         self.assertEqual(sorted(first), ['doc', 'local', 'next', 'page'])
         self.assertTrue(first['page'].endswith('side.html') and first['doc'].endswith('s01.json'))
-        self.assertIn('--widget', first['next'], 'connect shows nothing in chat; it tells a widget host how to draw what follows')
+        self.assertIn("Never put it in a question's text", first['next'], 'a terminal draws question text in a colour light themes hide')
+        self.assertIn('--widget', first['next'], 'a host that draws widgets learns it at the first moment')
         out = self.project('visual', 'sources')
-        self.assertTrue(out.startswith('● **3** past queries read'), 'the chip comes first')
-        self.assertTrue(self.side(out)['doc'].endswith('s02.json'))
-        self.assertIn('once', self.side(out)['next'], 'a command output is folded away, so the line says to show it, and only once')
-        self.assertEqual(sorted(self.side(self.project('visual', 'sources'))), ['next'], 'a repeated moment updates nothing')
+        self.assertTrue(out.startswith('● **3** past queries read'))
+        self.assertEqual(sorted(self.side(out)), ['next'], 'the finished run already shows it: no new document')
 
-    def test_the_build_card_waits_for_the_pause_after_the_checks(self):
+    def test_the_build_card_and_the_checks_chip_are_reply_text(self):
         for kind in ('connect', 'sources'):
             self.project('visual', kind)
-        built = self.project('visual', 'build')
-        self.assertTrue(built.startswith('side view: '), 'mid-build, only the side view moves')
-        self.assertEqual(sorted(self.side(built)), ['doc'])
+        built = self.project('visual', 'build').split('\nside view: ')[0]
+        self.assertTrue(built.startswith('**2 metrics** · Built from your sources\n  4 queries: 2 from the dashboard'), 'shown when it happens')
+        self.assertLessEqual(len(built.splitlines()), 6)
         checked = self.project('visual', 'context')
-        self.assertTrue(checked.startswith('2 metrics · Built from your sources\n  4 queries'), 'the card leads the moment, indented: a question draws its own rule')
-        self.assertIn('\n● 4/4 metrics and queries ran', checked, 'the chip follows it')
-        self.assertNotIn('`', checked.split('side view: ')[0], "a question shows its text as written, so it gets no Markdown")
-        self.assertNotIn('**', checked.split('side view: ')[0])
-        self.assertIn('save question', self.side(checked)['next'])
-        self.assertIn('--widget', self.side(checked)['next'], 'a host that draws widgets shows the card as one, never as folded text')
-        self.assertTrue(self.side(checked)['doc'].endswith('s04.json'))
+        self.assertTrue(checked.startswith('● **4/4** metrics and queries ran'), 'one line before the save question')
+        self.assertNotIn('Built from your sources', checked, 'the card is not shown twice')
+        self.assertIn("Never put it in a question's text", self.side(checked)['next'])
 
-    def test_the_saved_card_is_written_for_the_ready_question(self):
+    def test_the_saved_card_is_reply_text_before_the_ready_question(self):
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         out = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
-        self.assertTrue(out.startswith('2 metrics, 2 queries · Saved to Atlan Trident\n  Live in Personal'))
-        self.assertNotIn('`', out.split('side view: ')[0])
-        self.assertIn('ready question', self.side(out)['next'])
+        self.assertTrue(out.startswith('**2 metrics, 2 queries** · Saved to Atlan Trident\n  Live in Personal'))
+        self.assertLessEqual(len(out.split('\nside view: ')[0].splitlines()), 6)
 
-    def test_a_widget_card_goes_to_the_inline_tool(self):
-        first = self.side(self.project('visual', 'connect'))
-        self.assertIn('--widget', first['next'], 'the first moment tells a widget host to draw every later one')
-        for kind in ('sources', 'build'):
+    def test_a_widget_goes_to_the_inline_tool(self):
+        for kind in ('connect', 'sources', 'build'):
             self.project('visual', kind)
         out = self.project('visual', 'context', '--widget')
         self.assertTrue(out.startswith('<style>'))
-        self.assertIn('class="a c3"', out, 'the checks chip is drawn with the card, not left as text in the question')
+        self.assertIn('class="a c3"', out)
         self.assertIn('show_widget', self.side(out)['next'])
-        self.assertIn("not in the question", self.side(out)['next'])
+        self.assertIn("Never put it in a question's text", self.side(out)['next'])
 
     def test_a_helper_result_names_the_moments_the_run_has_reached(self):
         import side_view
-        self.assertEqual(side_view.due(self.run), ['connect', 'sources', 'build'], 'in the order the run reached them')
-        for kind in ('connect', 'sources', 'build'):
+        self.assertEqual(side_view.due(self.run), ['connect', 'sources', 'build', 'context'], 'in the order the run reached them')
+        for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         self.assertEqual(side_view.due(self.run), [], 'nothing is due once each is recorded')
         fresh = Path(self.tmp.name).resolve() / 'fresh'
         done = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(fresh), 'survey', str(self.run.parent / 'source')],
                               capture_output=True, text=True, encoding='utf-8', timeout=60)
         self.assertIn('`visual connect`', json.loads(done.stdout)['visual'], 'the survey that makes the run names its first moment')
+
+    def test_the_checks_moment_waits_for_the_last_check(self):
+        import side_view
+        checks = self.run / 'context' / 'candidate-checks.json'
+        entries = json.loads(checks.read_text(encoding='utf-8'))
+        checks.write_text(json.dumps({k: v for k, v in entries.items() if k != 'sql_query:q-jobs'}), encoding='utf-8')
+        self.assertNotIn('context', side_view.due(self.run), 'three of four checked is not every check')
+        checks.write_text(json.dumps(entries), encoding='utf-8')
+        self.assertIn('context', side_view.due(self.run))
 
     def test_a_helper_result_names_a_newer_side_view_update_to_push(self):
         fresh = Path(self.tmp.name).resolve() / 'fresh'
@@ -291,7 +297,7 @@ class Helper(unittest.TestCase):
         (fresh / 'engine' / 'manifest.json').write_bytes((self.run / 'engine' / 'manifest.json').read_bytes())
         push = json.loads(helper('survey', str(self.run.parent / 'source')))['side_view']
         self.assertIn('https://claude.ai/artifact/abc', push)
-        self.assertRegex(push, r'doc_id `s03`', 'the next document, for the page to tick the engine gates that just finished')
+        self.assertRegex(push, r'doc_id `s02`', 'the next document, for the page to tick the engine gates that just finished')
         self.assertNotIn('side_view', json.loads(helper('survey', str(self.run.parent / 'source'))), 'nothing new: nothing to push')
 
     def test_a_moment_too_early_records_nothing(self):
@@ -299,15 +305,17 @@ class Helper(unittest.TestCase):
         (self.run / 'context' / 'data-preparation.json').rename(self.run / 'context' / 'later.json')
         self.assertEqual(self.project('visual', 'sources'), '', 'no tables loaded yet: nothing to show, nothing recorded')
         (self.run / 'context' / 'later.json').rename(self.run / 'context' / 'data-preparation.json')
-        self.assertTrue(self.side(self.project('visual', 'sources'))['doc'].endswith('s02.json'))
+        self.assertTrue(self.project('visual', 'sources').startswith('● **3** past queries read'))
+        moments = json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']
+        self.assertEqual([m['kind'] for m in moments], ['connect', 'sources'])
 
-    def test_a_context_kept_local_still_finishes_its_step(self):
+    def test_a_context_kept_local_shows_its_chip(self):
         self.run = make_run(Path(self.tmp.name).resolve() / 'local', local=True)
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         out = self.project('visual', 'saved')
-        self.assertTrue(out.startswith('side view: '), 'no chip, only the update')
-        self.assertTrue(self.side(out)['doc'].endswith('s05.json'))
+        self.assertTrue(out.startswith('● **4** metrics and queries kept on this machine'))
+        self.assertIn('saved', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
 
     def test_an_answer_without_its_file_shows_and_records_nothing(self):
         for kind in ('connect', 'sources', 'build', 'context', 'saved'):
@@ -343,9 +351,14 @@ class Helper(unittest.TestCase):
         self.assertEqual(json.loads((self.run / 'answer.json').read_text(encoding='utf-8'))['headline'], 'Barn: £1')
 
     def test_the_published_address_is_remembered(self):
+        meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
+        (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
+        at(self.run, 'scope')
         self.project('visual', 'connect')
         self.assertEqual(self.project('view', '--url', 'https://claude.ai/artifact/abc'), '')
-        self.assertEqual(self.side(self.project('visual', 'sources'))['url'], 'https://claude.ai/artifact/abc')
+        (self.run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
+        at(self.run, 'check')
+        self.assertEqual(self.side(self.project('visual', 'build'))['url'], 'https://claude.ai/artifact/abc', 'the next update names it')
         blocked = json.loads(self.project('view', '--url', 'https://example.com/x'))
         self.assertEqual(blocked['status'], 'blocked')
         self.assertIn('claude.ai', blocked['message'])

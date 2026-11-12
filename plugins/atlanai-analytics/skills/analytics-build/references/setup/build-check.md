@@ -40,9 +40,8 @@ run under this setup run. Advance through its maintained gates for the complete 
 collection. At X3, continue without an extra user decision: a demo selected its sources,
 and own data chose its use cases in step 3. Author all scoped
 cards using the returned instructions and continue through the remaining gates. Gate answers
-are the assistant's work, not customer choices. Keep factual progress in the host's task
-list while generation and checks run; the chat gets one line when the build starts, and the
-`build` moment's mini card when it ends. Do not stop for a single-card preview or request permission to
+are the assistant's work, not customer choices. Keep factual progress visible while
+generation and checks run. Do not stop for a single-card preview or request permission to
 generate the remaining already-selected context.
 
 After completion, export into a fresh `engine-export/` and install the unchanged metric,
@@ -53,8 +52,7 @@ After export, select a relevant completed candidate with `PROJECT journey select
 --focus <exact-identity>` so review and ready moments reflect the business focus.
 
 After a gate or phase transition, run `PROJECT experience --format chat --engine-dir
-<within-run-engine>` and keep the task list true; record the `build` moment where
-[visuals](visuals.md) says, never a chat line per gate. Review the collection after its checks, using
+<within-run-engine>` and show factual progress. Review the collection after its checks, using
 [the presentation flow](presentation.md). Keep Build as the stage while work remains.
 
 ## 4. Check the actual revisions

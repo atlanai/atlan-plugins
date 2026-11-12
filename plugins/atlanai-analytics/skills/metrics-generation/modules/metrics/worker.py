@@ -307,136 +307,10 @@ def own_message(exc):
     return None
 
 
-def completed(run, receipt):
-    if receipt['status'] != 'complete' or not receipt.get('outputs'):
-        raise ValueError('Finish the original engine gates before exporting context.')
-    if any(digest(run / name) != sha for name, sha in receipt['outputs'].items()):
-        raise ValueError('Engine output changed after completion; advance and revalidate it.')
-
-
-# The engine reads this to keep a revised metric's identity (X3 ingest), and an edit writes it.
-REVISIONS = 'metric_revisions.json'
-# What a rule is, as the person reads it, and the gates an edited card passes again.
-RULE = ('description', 'formula', 'population', 'exclusions', 'grain', 'entity', 'sql',
-        'mandatory_filters', 'filters', 'joins')
-EDIT_GATES = {'card': 'x3_ingest', 'consistency': 'd4b_consistency', 'relationships': 'x4_ingest'}
-
-
-def cards_by_name(run):
-    return {card['name']: card for card in load(run / 'metric_cards.json')['metrics']}
-
-
-def authored_card(run, card):
-    """The X3 answer file, position and text the card was ingested from. A card the declared
-    model renamed keeps the author's name among its synonyms."""
-    from metrics_agent.stages.run import GATES
-    answers = sorted((run / 'answers').glob(GATES['x3'][1]))
-    for names in ({card['name']}, set(card.get('synonyms') or [])):
-        found = [(path, index, item) for path in answers
-                 for index, item in enumerate(load(path).get('metrics') or []) if item.get('name') in names]
-        if len(found) == 1:
-            return found[0]
-    raise ValueError('The authored card for this metric is missing or ambiguous; revise it through the X3 gate.')
-
-
-def gate_checks(run):
-    stages = {s['stage']: s for s in load(run / 'manifest.json').get('stages') or []}
-    return {name: {'verdict': (stages.get(label) or {}).get('verdict'), 'notes': (stages.get(label) or {}).get('notes')}
-            for name, label in EDIT_GATES.items()}
-
-
-def after_last_ingest(run):
-    """Wait until a file written now is newer than the last card ingest's start. The manifest
-    records starts to the second, and the runner ingests an answer again only when it is newer."""
-    import datetime
-    import time
-    starts = [s['started_at'] for s in load(run / 'manifest.json').get('stages') or []
-              if s['stage'] == 'x3_ingest' and s.get('started_at')]
-    since = datetime.datetime.fromisoformat(starts[-1]).timestamp() + 1 if starts else 0
-    while time.time() <= since:
-        time.sleep(0.05)
-
-
-def edit(run, runtime, metric, card_path=None, model=None):
-    """Revise one metric's authored card in a completed run: the engine ingests it again through
-    the card, consistency and relationship gates and the export checks, keeping the metric's
-    identity. A refusal restores the previous card through the same gates."""
-    run, receipt = state(run, runtime)
-    completed(run, receipt)
-    cards = cards_by_name(run)
-    old = cards.get(metric)
-    if old is None:
-        raise ValueError('Name a metric of this run: ' + ', '.join(sorted(cards)) + '.')
-    path, index, current = authored_card(run, old)
-    if card_path is None:
-        return {'status': 'current', 'metric': metric, 'source_id': old['source_id'], 'card': current,
-                'rule': {key: old.get(key) for key in RULE},
-                'next': 'Write this card to a file with only its rule changed, then run edit again with --card and --model.'}, 0
-    if not model:
-        raise ValueError('Name the model that wrote the revised card with --model.')
-    revised = load(card_path)
-    if not isinstance(revised, dict) or revised.get('name') != current['name']:
-        raise ValueError(f"Keep the metric's name, {current['name']!r}: an edit revises this metric and never makes another.")
-    if revised == current:
-        raise ValueError('The revised card changes nothing; change its rule or keep the current one.')
-    before = gate_checks(run)
-    pins = run / REVISIONS
-    saved = {path: path.read_text(), pins: pins.read_text() if pins.is_file() else None}
-
-    def refuse(reason, feedback=None):
-        after_last_ingest(run)
-        for target, text in saved.items():
-            if text is None:
-                target.unlink(missing_ok=True)
-            else:
-                ordinary(target).write_text(text)
-        _, code = advance(run, runtime, model)
-        if code or cards_by_name(run).get(metric) != old:
-            raise ValueError('The edit was refused and the previous card could not be restored; read the private log.')
-        return {'status': 'refused', 'metric': metric, 'reason': reason,
-                **({'feedback': feedback} if feedback else {}), 'rule': {key: old.get(key) for key in RULE},
-                'next': 'Keep the current rule, or correct the card and edit again.'}, 2
-
-    revisions = load(pins) if pins.is_file() else {'format': 1, 'metrics': {}}
-    revisions['metrics'][old['metric_ref']] = old['measure_id']
-    write(pins, revisions)
-    after_last_ingest(run)
-    answer = load(path)
-    answer['metrics'][index] = revised
-    write(path, answer)
-    result, code = advance(run, runtime, model)
-    if code:
-        return refuse(result.get('reason') or 'The engine refused the revised card.', result.get('feedback'))
-    edited = cards_by_name(run)
-    card = edited.get(metric)
-    if card is None or card['source_id'] != old['source_id']:
-        return refuse("The engine did not keep this metric's identity.")
-    if card == old:
-        return refuse('The engine did not read the revised card.')
-    others = sorted(name for name in set(cards) | set(edited) if name != metric and cards.get(name) != edited.get(name))
-    if others:
-        return refuse('The change also changes ' + ', '.join(others) + '; an edit changes one metric.')
-    folder = run / 'edits' / str(1 + max((int(p.name) for p in (run / 'edits').glob('*') if p.name.isdigit()), default=0))
-    from export import export_context
-    try:
-        export_context(run, folder / 'context', load(run / 'module.json'))
-    except ValueError as exc:
-        return refuse(str(exc))
-    record = {'status': 'edited', 'metric': metric, 'source_id': old['source_id'],
-              'changed': sorted(key for key in set(current) | set(revised) if current.get(key) != revised.get(key)),
-              'before': {'rule': {key: old.get(key) for key in RULE}, 'checks': before},
-              'after': {'rule': {key: card.get(key) for key in RULE}, 'checks': gate_checks(run)},
-              'edit': str(folder), 'context': str(folder / 'context'),
-              'next': 'Check the old and new rule on the data and install the new one with PROJECT revise-metric.'}
-    write(folder / 'previous-card.json', current)
-    write(folder / 'edit.json', record)
-    return record, 0
-
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export', 'edit'))
-    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id', 'metric', 'card'):
+    parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export'))
+    for name in ('runtime', 'run', 'config', 'model', 'context', 'parity', 'source', 'destination', 'source-id'):
         parser.add_argument('--' + name)
     parser.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
     args = parser.parse_args()
@@ -453,14 +327,15 @@ def main():
             code = 2 if result['status'] == 'NEEDS_CONTEXT' else 0
         elif args.command == 'advance':
             result, code = advance(args.run, runtime, args.model)
-        elif args.command == 'edit':
-            result, code = edit(args.run, runtime, args.metric, args.card, args.model)
         else:
             run, receipt = state(args.run, runtime)
             if args.command == 'status':
                 result = receipt.get('last_result') or {'status': receipt['status'], 'run': str(run)}
             else:
-                completed(run, receipt)
+                if receipt['status'] != 'complete' or not receipt.get('outputs'):
+                    raise ValueError('Finish the original engine gates before exporting context.')
+                if any(digest(run / name) != sha for name, sha in receipt['outputs'].items()):
+                    raise ValueError('Engine output changed after completion; advance and revalidate it.')
                 if args.command == 'parity-plan':
                     from validation import plans
                     result = {'format': 1, 'outputs': receipt['outputs'],

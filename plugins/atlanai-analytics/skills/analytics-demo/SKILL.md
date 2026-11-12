@@ -15,8 +15,7 @@ Read plugin files with the Read tool, one file per call. In a shell, never print
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
-step below. Read [visuals](../analytics-build/references/setup/visuals.md) with them: the chip
-or mini card each moment below shows, and the side view. The technical stages are the shared setup procedure in
+step below. Show each moment's chip or card as [visuals](../analytics-build/references/setup/visuals.md) says. The technical stages are the shared setup procedure in
 [setup](../analytics-build/references/setup.md), run on the demo's working folder. `PROJECT`
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
 `python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
@@ -68,10 +67,9 @@ After "Start building", show the tracker, then do all of step 1's work:
    with `<metrics-dir>` the `metrics-generation` skill's directory
    ([the metrics module](../metrics-generation/references/metrics-engine.md), section 1).
 2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
-   so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only
-   `working_folder`, with [inspect and scope](../source-survey/references/inspect-scope.md)
-   section 1, as if the person had asked to set up that folder from scratch; the survey creates
-   the run folder, so then show the `connect` visual to open the side view. Then run
+   so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only `working_folder`, with
+   [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
+   the person had asked to set up that folder from scratch. Then run
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
    `database` and `schema`. Use these as given; do not work them out again.
@@ -83,7 +81,8 @@ After "Start building", show the tracker, then do all of step 1's work:
    `PROJECT journey purpose --answer "<purpose to record>"`, from the facts file. The demo asks
    neither intent question.
 
-Step 2's question opens with the `sources` chip and one sentence on what the sources revealed.
+End the step with one line in the past tense with counts, and one sentence on what the
+sources revealed.
 
 ## 2. Choose what to build from
 
@@ -103,19 +102,17 @@ written by hand. Run the metrics engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every
 card without a metric-list checkpoint or another build confirmation. Keep proposal and
-deduplication details internal; show brief progress about building and checking context,
-and run the `build` visual when the engine run completes; its card waits for the checks.
+deduplication details internal; show brief progress about building and checking context.
 Advance the same run through all its gates, export and run every check on the loaded
 data, through [build and check](../analytics-build/references/setup/build-check.md).
 
 ## 4. Keep local or save to Atlan Trident
 
 When every check has run, read [context built and where to keep it](../analytics-build/references/setup/save.md).
-The `context` visual's lines go in the save question. After a save, or keeping it
-local, run the `saved` visual: its lines open the ready question. Saving reads the person's workspaces with
+The celebration is the save question's own text. Saving reads the person's workspaces with
 `registry__list_workspaces` (`user_default` for the personal destination) and writes
 in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
-describes.
+describes. After the save, or once the context is kept here, show the `saved` visual.
 
 ## 5 and 6. Ask a question, build a dashboard
 

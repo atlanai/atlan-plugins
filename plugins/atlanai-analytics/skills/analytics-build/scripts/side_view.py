@@ -1,12 +1,13 @@
-"""The run's side view: every step, what came out of it and how, read from the run's own files.
+"""The run's side view: the flow's own steps, what came out of each and how, read from the run's own files.
 
-`record` logs a moment. When the moment finishes a step it writes one self-contained document,
-`view/steps/sNN.json`, for the claude.ai artifact to show, and refreshes `view/progress.html`, the same
-page as a local file for hosts without artifacts. Every number comes from a file the run wrote. A step's
-"how we got there" lists only the work this run did and names the part of the plugin that did it; once a
-step is done, what it showed is kept, so a later change does not rewrite what an earlier step found.
+The steps and their status are the host's task list (`checklist`). `record` logs a moment and `progress`
+follows the run between moments; whenever the page would show something new, either writes one
+self-contained document, `view/steps/sNN.json`, for the claude.ai artifact to show, and refreshes
+`view/progress.html`, the same page as a local file for hosts without artifacts. Every number comes from a
+file the run wrote. A step's "how we got there" lists only the work this run did and names the part of the
+plugin that did it; once a step is done, what it showed is kept, so a later change does not rewrite what an
+earlier step found.
 """
-from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from html import escape
@@ -21,70 +22,89 @@ try:
 except ImportError:
     fcntl = None
 
-from run_facts import BI_TOOLS, RunFacts, count, read_json, table_name, their
+from run_facts import BI_TOOLS, RunFacts, count, read_json, table_name
 import visual_kit
 
 PAGE = Path(__file__).with_name('side_view.html')
 FONT = re.compile(r'@import url\([^)]*\);\n?')
 
-# Who did a piece of work, in the words the person reads. `ai` marks the judgements Claude makes; every
-# other part follows fixed rules. The page's key explains each name.
-YOU, DEMO, SETUP, SURVEY, ENGINE, CLAUDE, ATLAN, ASK = (
-    'You', 'Demo guide', 'Setup helper', 'Source survey', 'Metrics engine', 'Claude', 'Atlan', 'Ask guide')
-PARTS = {CLAUDE: 'judgement calls, such as which numbers share a rule', ENGINE: 'fixed rules that turn queries into metrics',
-         SETUP: 'runs each step on this machine', SURVEY: 'reads dashboard files', DEMO: 'sets up the made-up firm',
-         ASK: 'answers from the saved rules', ATLAN: 'stores what you save, where agents find it'}
+# Who did a piece of work, in the words the person reads.
+YOU, DEMO, SETUP, SURVEY, ENGINE, ATLAN, ASK = (
+    'You', 'Demo guide', 'Setup helper', 'Source survey', 'Metrics engine', 'Atlan', 'Ask guide')
 
 
-def node(title, text, by, n=None, ai=False, always=False, done=None):
+def node(title, text, by, n=None, always=False, done=None):
     """One piece of work. It ticks as soon as the run has finished it: by default, once the run left its count.
     A finished step shows it only when the run left its count, or when it has none to leave."""
-    return {'t': title, 'd': text, 'by': by, 'n': n, 'ai': ai, 'always': always, 'done': n is not None if done is None else done}
+    return {'t': title, 'd': text, 'by': by, 'n': n, 'always': always, 'done': n is not None if done is None else done}
 
 
 def ratio(a, b, form='%d of %d'):
     return form % (a, b) if isinstance(a, int) and isinstance(b, int) else None
 
 
-# Each step: what it shows while it runs, and what came out of it --------------------------------
+# Each step of the flow's own task list: its pieces of work, and what came out of it --------------
 
-def connect(f, s):
-    files = len(f.sources)
-    how = ([node('You pick a demo', 'A made-up firm with its own dashboard, past queries and data.', YOU, always=True),
-            node('Copy its files into a working folder', 'Nothing leaves this machine until you choose to save.', DEMO, always=True)]
-           if s['demo'] else
-           [node('You point at your sources', 'A folder, a dashboard export or query history.', YOU, always=True)])
-    how += [node('Set up the metrics engine', 'A private copy on this machine; later runs reuse it.', SETUP, always=True),
-            node('Open this view', 'Each step lands here as it finishes; the chat stays short.', SETUP, always=True)]
-    kinds = [(f.dashboard.get('tool') and '%s dashboard' % f.dashboard['tool'] if f.usable(*BI_TOOLS) else ''),
-             count(len(f.usable('data_file')), 'data file') if f.usable('data_file') else '',
-             'query history' if f.usable('query_history') else '']
-    found = [k for k in kinds if k]
-    return {'how': how, 'fact': ', '.join(found), 'result': [{'title': 'Found', 'list': [[k, ''] for k in found]}] if found else []}
+def intent(f, s):
+    said = f.interaction.get('intent') or {}
+    return {'how': [node('You say what you want to answer', said.get('domain') or 'The use case decides which sources and '
+                         'metrics matter.', YOU, always=True, done=bool(said.get('domain'))),
+                    node('You name the goal', said.get('purpose') or 'What the agent should help you do.', YOU, always=True,
+                         done=bool(said.get('purpose')))],
+            'fact': said.get('domain', '')}
 
 
-def read(f, s):
-    history, tables, dash = f.history, f.tables, f.dashboard
-    rows = sum(t[1] for t in tables)
-    how = [node('Find every source', 'Each file is listed and fingerprinted, so a later change is noticed.', SETUP,
-                count(len(f.sources), 'source') if f.sources else None)]
+def _found(f):
+    return [k for k in ((f.dashboard.get('tool') and '%s dashboard' % f.dashboard['tool'] if f.usable(*BI_TOOLS) else ''),
+                        count(len(f.usable('data_file')), 'data file') if f.usable('data_file') else '',
+                        'query history' if f.usable('query_history') else '') if k]
+
+
+def _tables_node(f):
+    tables = f.tables
+    return node('Load the tables on this machine', 'Into a small read-only database, so every number can be tested '
+                'without touching anything real.', SETUP,
+                '%s · %s rows' % (count(len(tables), 'table'), '{:,}'.format(sum(t[1] for t in tables))) if tables else None)
+
+
+def sources(f, s):
+    history, dash = f.history, f.dashboard
+    # A demo's run starts from its copied files, so both pieces are done once there is a run to show.
+    how = ([node('You pick a demo', 'A made-up firm with its own dashboard, past queries and data.', YOU, always=True, done=True),
+            node('Copy its files into a working folder', 'Nothing leaves this machine until you choose to save.', DEMO, always=True,
+                 done=True)]
+           if s['demo'] else [])
+    how.append(node('Find every source', 'Each file is listed and fingerprinted, so a later change is noticed.', SETUP,
+                    count(len(f.sources), 'source') if f.sources else None))
     if dash or f.usable(*BI_TOOLS):
         how.append(node('Read the dashboard', 'Its tiles and the formula behind each one.', SURVEY,
                         count(dash['formulas'], 'formula') if dash.get('formulas') else None))
-    how.append(node('Load the tables on this machine', 'Into a small read-only database, so every number can be tested '
-                    'without touching anything real.', SETUP, '%s · %s rows' % (count(len(tables), 'table'), '{:,}'.format(rows)) if tables else None))
     if history or f.usable('query_history'):
         how.append(node('Count the past queries', 'What analysts actually ran is the best evidence of what they measure.', SETUP,
                         '%s · run %s times' % ('{:,}'.format(history['statements']), '{:,}'.format(history['runs'])) if history else None))
-    fact = ', '.join(x for x in (count(history['statements'], 'query', 'queries') if history else '',
-                                 count(len(tables), 'table') if tables else '') if x)
-    return {'how': how, 'fact': fact,
-            'result': [{'title': 'Tables loaded', 'list': [[table_name(t[0]), count(t[1], 'row')] for t in tables]}] if tables else []}
+    if s['demo']:
+        # A demo loads its data in this step; on your own data the tables load when the build starts.
+        how.append(_tables_node(f))
+    found, tables = _found(f), f.tables
+    return {'how': how, 'fact': ', '.join(found),
+            'result': ([{'title': 'Found', 'list': [[k, ''] for k in found]}] if found else [])
+            + ([{'title': 'Tables loaded', 'list': [[table_name(t[0]), count(t[1], 'row')] for t in tables]}] if s['demo'] and tables else [])}
 
 
-def build(f, s):
+def scope(f, s):
+    config = f.file('engine-config.json')
+    inputs = config.get('inputs') if isinstance(config.get('inputs'), dict) else {}
+    chosen = ('Dashboard and past queries' if inputs.get('history') and inputs.get('bi') else 'Past queries' if inputs.get('history')
+              else 'Dashboard only' if inputs.get('bi') else None) if config else None
+    return {'how': [node('You choose what to build from', 'More sources give fuller context; the dashboard alone is faster.'
+                         if s['demo'] else 'The tables and dashboards the metrics come from.', YOU, chosen, always=True,
+                         done=bool(config))],
+            'fact': chosen or ''}
+
+
+def metrics(f, s):
     st = f.stage
-    how = []
+    how = [] if s['demo'] else [_tables_node(f)]
     if f.stages.get('h0_corpus') is not None or s['open'] and f.usable('query_history'):
         raw, scanned, kept, shapes = f.query_log, st('h0_corpus', 'scanned'), st('h0_corpus', 'kept'), st('h1_shapes', 'canonical_shapes')
         if raw and scanned is not None and raw > scanned:
@@ -99,61 +119,51 @@ def build(f, s):
         how += [node("Translate the dashboard's formulas", 'Each tile formula becomes a query that runs on the data.', ENGINE,
                      ratio(st('a4_witness_bi', 'verdict_pass') or 0, tried) if tried is not None else None,
                      done='a3_translate' in f.stages or tried is not None),
-                node('Review each translation', 'A second read of every translated formula, before it is used.', CLAUDE,
-                     count(st('a3b_emit', 'prompted'), 'formula') if st('a3b_emit', 'prompted') and 'a3b_ingest' in f.stages else None, ai=True)]
-    described, none, proposals, metrics = st('m2_ingest', 'described'), st('x1_ingest', 'no_metric'), st('x1_ingest', 'proposals'), st('x2_ingest', 'metrics_out')
+                node('Review each translation', 'A second read of every translated formula, before it is used.', ENGINE,
+                     count(st('a3b_emit', 'prompted'), 'formula') if st('a3b_emit', 'prompted') and 'a3b_ingest' in f.stages else None)]
+    described, none, proposals, made = st('m2_ingest', 'described'), st('x1_ingest', 'no_metric'), st('x1_ingest', 'proposals'), st('x2_ingest', 'metrics_out')
     measuring = described - none if isinstance(described, int) and isinstance(none, int) else None
     how += [
         node('Describe every question in plain words', 'The dashboard tiles and the questions from past queries, each said '
-             'so a person, or another agent, can tell what it answers.', CLAUDE, count(described, 'question') if described else None, ai=True),
-        node('Keep the ones that measure a number', 'Lists and row counts stay as saved queries, not metrics.', CLAUDE,
-             ratio(measuring, described), ai=True),
+             'so a person, or another agent, can tell what it answers.', ENGINE, count(described, 'question') if described else None),
+        node('Keep the ones that measure a number', 'Lists and row counts stay as saved queries, not metrics.', ENGINE,
+             ratio(measuring, described)),
         node('Merge numbers that share a rule', ('Those questions hold %s; numbers worked out the same way become one metric.'
                                                  % count(proposals, 'number')) if proposals else
-             'Numbers worked out the same way become one metric.', CLAUDE, ratio(proposals, metrics, '%d → %d'), ai=True),
-        node("Write each metric's full rule", 'What it counts, what it leaves out and how it is worked out.', CLAUDE,
-             count(metrics, 'rule') if metrics and 'x3_ingest' in f.stages else None, ai=True),
-        node('Link related metrics', 'Such as a margin that is built from two costs.', CLAUDE,
-             count(st('x4_ingest', 'edges'), 'link') if st('x4_ingest', 'edges') is not None else None, ai=True)]
-    made = f.merged
-
-    def source(m):
-        return ', '.join(x for x in ('the dashboard' if m['tiles'] == 1 else count(m['tiles'], 'dashboard question') if m['tiles'] else '',
-                                     count(m['queries'], 'past query', 'past queries') if m['queries'] else '') if x)
-    return {'how': how, 'fact': count(len(made), 'metric') if made else '',
-            'result': [{'title': 'Metrics, and what each came from', 'list': [[m['name'], source(m)] for m in made]}] if made else []}
-
-
-def check(f, s):
+             'Numbers worked out the same way become one metric.', ENGINE, ratio(proposals, made, '%d → %d')),
+        node("Write each metric's full rule", 'What it counts, what it leaves out and how it is worked out.', ENGINE,
+             count(made, 'rule') if made and 'x3_ingest' in f.stages else None),
+        node('Link related metrics', 'Such as a margin that is built from two costs.', ENGINE,
+             count(st('x4_ingest', 'edges'), 'link') if st('x4_ingest', 'edges') is not None else None)]
     c = f.context
-    done = bool(c)
-    metrics, queries = (len(c['metrics']), c['queries']) if done else (None, None)
-    how = [node('Check each item is complete', 'Every metric and query needs all its parts before it runs.', SETUP,
-                '%s + %s' % (count(metrics, 'metric'), count(queries, 'query', 'queries')) if done else None),
-           node('Run each metric on the data', 'Its examples, its full calculation, and a test that its filter leaves '
-                'nothing in when nothing should count.', SETUP, ratio(c['metrics_ran'], metrics) if done and metrics else None,
-                done=done and c['metrics_checked'] == metrics),
-           node('Run each query', 'Each one runs as written on the loaded tables.', SETUP,
-                ratio(c['queries_ran'], queries) if done and queries else None, done=done and c['queries_checked'] == queries)]
-    if not done or c['review']:
+    checked = bool(c)
+    n_metrics, n_queries = (len(c['metrics']), c['queries']) if checked else (None, None)
+    how += [node('Check each item is complete', 'Every metric and query needs all its parts before it runs.', SETUP,
+                 '%s + %s' % (count(n_metrics, 'metric'), count(n_queries, 'query', 'queries')) if checked else None),
+            node('Run each metric on the data', 'Its examples, its full calculation, and a test that its filter leaves '
+                 'nothing in when nothing should count.', SETUP, ratio(c['metrics_ran'], n_metrics) if checked and n_metrics else None,
+                 done=checked and c['metrics_checked'] == n_metrics),
+            node('Run each query', 'Each one runs as written on the loaded tables.', SETUP,
+                 ratio(c['queries_ran'], n_queries) if checked and n_queries else None, done=checked and c['queries_checked'] == n_queries)]
+    if not checked or c['review']:
         how.append(node('Flag what needs a person', 'Queries the engine could not fully confirm, such as a filter value it '
                         'could not match or a query that came back empty, wait for a person to review.', ENGINE,
-                        count(c['review'], 'query', 'queries') if done else None, done=done and c['queries_checked'] == queries))
-    if not done:
-        return {'how': how}
-    ran, total = c['metrics_ran'] + c['queries_ran'], metrics + queries
-    unmeasured = sum(1 for m in c['metrics'] if m['unmeasured'])
-    fact = ('%d ran' % ran if ran == total else '%d of %d ran' % (ran, total)) + (', %d to confirm' % c['review'] if c['review'] else '')
-    return {'how': how, 'fact': fact,
-            'result': [{'title': 'Each metric, run on the data', 'list': [[m['name'], m['value']] + ([] if m['ok'] else ['warn']) for m in c['metrics']]}],
-            'note': ('Running cleanly is not the same as matching the dashboard: %s not been compared with %s yet.'
-                     % ('the tile number has' if unmeasured == 1 else 'the %d tile numbers have' % unmeasured, f.dashboard.get('tool') or 'it'))
-            if unmeasured else None}
+                        count(c['review'], 'query', 'queries') if checked else None, done=checked and c['queries_checked'] == n_queries))
+
+    def came_from(m):
+        return ', '.join(x for x in (count(m['tiles'], 'dashboard tile') if m['tiles'] else '',
+                                     count(m['queries'], 'past query', 'past queries') if m['queries'] else '') if x)
+    merged = f.merged
+    return {'how': how, 'fact': count(len(merged), 'metric') if merged else '',
+            'result': ([{'title': 'Metrics, and what each came from', 'list': [[m['name'], came_from(m)] for m in merged]}] if merged else [])
+            + ([{'title': 'Each metric, run on the data', 'list': [[m['name'], m['value']] + ([] if m['ok'] else ['warn']) for m in c['metrics']]}]
+               if checked else [])}
 
 
-def publish(f, s):
+def save(f, s):
     if f.local:
-        return {'how': [node('You keep the context on this machine', 'Nothing is saved to Atlan; answers use the local copy.', YOU, always=True)],
+        return {'how': [node('You keep the context on this machine', 'Nothing is saved to Atlan; answers use the local copy.', YOU,
+                             always=True, done=True)],
                 'fact': 'Kept on this machine'}
     # The save's own files land in order, so each piece ticks as it happens: the workspace and its inventory, the plan,
     # each batch as it is created, then the receipt of what was read back as live.
@@ -165,8 +175,9 @@ def publish(f, s):
     def made(kind):
         part = planned.get(kind)
         return sum(int(part.get(x) or 0) for x in ('create', 'revise')) if isinstance(part, dict) else None
-    how = [node('You pick a workspace', 'Where the metrics live in Atlan, for your team and its agents.', YOU, p.get('workspace'),
-                done=bool(picked or p)),
+    how = [node('You choose where the context lives', 'Keep it on this machine, or save it to Atlan, where your team and its '
+                'agents can use it. Saving goes like this:', YOU, always=True, done=bool(picked or p)),
+           node('You pick a workspace', 'Where the metrics live in Atlan.', YOU, p.get('workspace'), done=bool(picked or p)),
            node('Plan the save', 'What is new, what changed, and what each item links to.', SETUP,
                 '%s · %s' % (count(made('metrics'), 'metric'), count(made('queries') or 0, 'query', 'queries')) if made('metrics') is not None else None),
            node('Save each metric and query', 'Each one becomes an item in the workspace.', ATLAN,
@@ -175,44 +186,47 @@ def publish(f, s):
                 count(p['links'], 'link') if p and p.get('links') else None),
            node('Read every item back', 'Proof that each one is live, which is what lets agents find it.', ATLAN,
                 '%d live' % p['items'] if p else None)]
-    if not p:
-        # A later step can finish without the save's read-back; the view then says so rather than showing it done.
-        return {'how': how, 'fact': 'Not confirmed live',
-                'note': 'Nothing was read back from Atlan as live, so this run cannot show the save as done.'}
-    return {'how': how, 'fact': '%d live in Atlan' % p['items'],
+    return {'how': how, 'fact': '%d live in Atlan' % p['items'] if p else '',
             'result': [{'title': 'Saved to Atlan Trident', 'kv': [['Workspace', p.get('workspace') or 'Atlan'], ['Metrics', str(len(p['metrics']))],
-                                                                 ['Queries', str(p['queries'])]]}]}
+                                                                 ['Queries', str(p['queries'])]]}] if p else []}
 
 
-def answer(f, s):
-    a = f.file('answer.json') if 'answer' in s['seen'] else {}
-    retrieved = f.file('retrieved-result.json').get('artifacts') or []
+def ask(f, s):
+    a = f.file('answer.json')
+    answered = bool(a.get('headline'))
+    proof = [p for p in a.get('proof') or [] if isinstance(p, dict)] if isinstance(a.get('proof'), list) else []
+    rows = a.get('rows') if isinstance(a.get('rows'), list) else []
     breakdown = a.get('breakdown') if isinstance(a.get('breakdown'), dict) else {}
-    how = [node('Fetch the saved rules', 'Answers use the rules you saved, not a fresh guess at the tables.', ASK,
-                count(len(retrieved), 'item') if a and retrieved else None),
-           node('Run the query', "On the loaded data, with the metric's rule.", ASK,
-                count(len(a['rows']), 'row') if isinstance(a.get('rows'), list) and a['rows'] else None)]
-    if breakdown or not a:
-        how.append(node('Break the answer down', 'Into the parts that add up to it.', ASK,
-                        count(len(breakdown.get('steps') or []), 'part') if breakdown.get('steps') else None))
-    how.append(node('Write the answer', 'In plain words, with the rule behind it.', CLAUDE, '1 answer' if a.get('headline') else None, ai=True))
+    how = [node('Read the saved rules', 'Answers use the rules this run saved, not a fresh guess at the tables.', ASK,
+                ('%s · %s' % (count(len(proof), 'rule'), 'on this machine' if f.local else 'from Atlan')) if answered and proof else None,
+                done=answered),
+           node('Run them on the data', 'The query runs fresh, so the number is today\'s.', ASK,
+                count(len(rows), 'row') if answered and rows else None, done=answered)]
+    if breakdown.get('steps'):
+        how.append(node('Break the answer down', 'Into the parts that add up to it.', ASK, count(len(breakdown['steps']), 'part')))
+    how.append(node('Write the answer', 'In plain words, with the rule behind it.', ASK, '1 answer' if answered else None))
     return {'how': how, 'fact': str(a.get('headline') or '').rpartition(': ')[2],
             'result': [{'title': 'The answer', 'answer': {k: a[k] for k in ('question', 'headline', 'summary', 'rule') if isinstance(a.get(k), str)}}]
-            if a.get('headline') else []}
+            if answered else []}
 
 
-Step = namedtuple('Step', 'name moments doing purpose build')
-STEPS = (
-    Step('Connect', ('connect',), 'Getting {their} sources ready', 'Open the folder and set up the engine', connect),
-    Step('Read', ('sources',), 'Reading {their} dashboard and past queries', 'Read the dashboard, the past queries and the data', read),
-    Step('Build', ('build',), 'Turning {their} questions into metrics', 'Turn questions into metrics, each with its rule', build),
-    Step('Check', ('context',), 'Testing each metric on {their} data', 'Run every metric and query on the data', check),
-    Step('Publish', ('saved',), 'Saving the metrics to Atlan', 'Save to Atlan, or keep it here', publish),
-    Step('Answer', ('answer', 'layout', 'edit'), 'Ready for a question in the chat', 'Ask a question', answer),
-)
-STEP_OF = {kind: i for i, step in enumerate(STEPS) for kind in step.moments}
-# The moment that finishes each step, and so writes a document: at most one write per step.
-FINISHES = tuple(step.moments[0] for step in STEPS)
+def dashboard(f, s):
+    layout = f.file('layout.json')
+    tiles = layout.get('tiles') if isinstance(layout.get('tiles'), list) else []
+    return {'how': [node('Propose the tiles', 'A tile for each dashboard metric, the other metrics named under them.', ASK,
+                         count(len(tiles), 'tile') if tiles else None),
+                    node('Build the page', 'Every tile runs on the data, so the page and the chat agree.', ASK,
+                         always=True, done=bool(f.interaction.get('dashboard')))],
+            'fact': count(len(tiles), 'tile') if tiles else ''}
+
+
+# Each task-list step: its short name on the page, and what it holds.
+BUILDERS = {'intent': ('Use case', intent), 'sources': ('Sources', sources), 'scope': ('Select', scope), 'metrics': ('Metrics', metrics),
+            'save': ('Save', save), 'ask': ('Ask', ask), 'dashboard': ('Dashboard', dashboard)}
+# Steps a person repeats keep showing their latest; every other step keeps what it showed when it finished.
+REPEATS = ('ask', 'dashboard')
+# When the saved run cannot be read, the moments seen say how far it got: the step each one finishes.
+FINISHED_BY = {'sources': 'sources', 'build': 'scope', 'context': 'metrics', 'saved': 'save', 'answer': 'ask'}
 
 
 # The document ---------------------------------------------------------------------------------
@@ -263,56 +277,79 @@ def seen(run):
     return [m.get('kind') for m in _state(run)['moments'] if isinstance(m, dict)]
 
 
-# The moments in the middle of a run: no question or turn end waits for them, so the run names them when due.
-MIDWAY = ('connect', 'sources', 'build')
+# The moments the run's own files can show without a data file from the agent, so the run names them when due.
+MIDWAY = ('connect', 'sources', 'build', 'context')
+
+
+def _shows(kind, run, engine_dir):
+    import visuals
+    if kind == 'connect':
+        return True
+    if kind == 'context':
+        # Checks are recorded one by one; the moment waits for the last.
+        c = RunFacts(run, engine_dir).context
+        if not c or c['metrics_checked'] < len(c['metrics']) or c['queries_checked'] < c['queries']:
+            return False
+    return bool(visuals.render(kind, visuals.build_spec(kind, run, engine_dir=engine_dir)))
 
 
 def due(run, engine_dir=None):
-    """The mid-run moments the run's files can show but the side view has not recorded, in order."""
-    import visuals
+    """The moments the run's files can show but the side view has not recorded, in order."""
     run = Path(run)
     if not (run / 'run.json').is_file():
         return []
     done = set(seen(run))
-    return [kind for kind in MIDWAY if kind not in done
-            and (kind == 'connect' or visuals.render(kind, visuals.build_spec(kind, run, engine_dir=engine_dir)))]
+    return [kind for kind in MIDWAY if kind not in done and _shows(kind, run, engine_dir)]
+
+
+def _rows(run, flow, kinds, engine_dir):
+    """The flow's own task list with each step's saved state, as the host's task list shows it."""
+    import checklist
+    try:
+        import experience
+        return checklist.build(experience.snapshot(run, engine_dir), flow)['steps']
+    except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError):
+        rows = checklist.initial(flow)
+        ids = [r['id'] for r in rows]
+        last = max((ids.index(FINISHED_BY[k]) for k in kinds if FINISHED_BY.get(k) in ids), default=-1)
+        return [dict(r, status='completed' if i <= last else 'in_progress' if i == last + 1 else 'pending') for i, r in enumerate(rows)]
 
 
 def model(run, state=None, engine_dir=None):
-    """The whole view as one document: the steps, their status, what came out and how."""
+    """The whole view as one document: the flow's steps, their status, what came out and how."""
     run = Path(run)
     state = state or _state(run)
-    facts = RunFacts(run, engine_dir or state.get('engine_dir'))
+    engine_dir = engine_dir or state.get('engine_dir')
+    facts = RunFacts(run, engine_dir)
     kinds = [m.get('kind') for m in state['moments'] if isinstance(m, dict)]
-    last = max((STEP_OF[k] for k in kinds if k in STEP_OF), default=-1)
+    flow = 'demo' if state.get('demo') else 'build'
+    rows = _rows(run, flow, kinds, engine_dir)
+    current = next((i for i, r in enumerate(rows) if r['status'] != 'completed'), len(rows))
     frozen = state.setdefault('frozen', {})
-    ctx = {'demo': bool(state.get('demo')), 'seen': kinds}
     steps = []
-    for i, step in enumerate(STEPS):
-        done = i <= last
-        status = 'now' if i == last + 1 else 'next'
-        if done:
-            status = 'done' if step.name != 'Publish' else 'local' if facts.local else 'done' if facts.publication else 'unconfirmed'
-        section = frozen.get(step.name) if done and step.name in frozen else step.build(facts, dict(ctx, open=not done))
-        if done and status != 'unconfirmed':
-            frozen.setdefault(step.name, section)
+    for i, row in enumerate(rows):
+        name, build = BUILDERS[row['id']]
+        done, now = i < current, i == current
+        keep = done and row['id'] not in REPEATS
+        section = frozen.get(row['id']) if keep and row['id'] in frozen else build(facts, {'demo': flow == 'demo', 'open': not done})
+        if keep:
+            frozen.setdefault(row['id'], section)
         nodes = [n for n in section.get('how') or [] if not done or n['n'] or n['always']]
-        steps.append({'name': step.name, 'status': status, 'doing': step.doing.format(their=their(state.get('subject'))),
-                      'purpose': step.purpose,
+        steps.append({'id': row['id'], 'name': name, 'status': 'done' if done else 'now' if now else 'next',
+                      'doing': row['active'] if now else row['content'], 'purpose': row['content'],
+                      **({'needs_you': True} if now and row.get('needs_you') else {}),
                       # The step that is running ticks each piece as it finishes; steps ahead only say how they work.
-                      'how': [{k: v for k, v in (('t', n['t']), ('d', n['d']), ('by', n['by']), ('n', n['n'] if done or status == 'now' else None),
-                                                 ('ai', n['ai'] or None), ('s', 'done' if done or status == 'now' and n.get('done') else 'next')) if v}
+                      'how': [{k: v for k, v in (('t', n['t']), ('d', n['d']), ('by', n['by']), ('n', n['n'] if done or now else None),
+                                                 ('s', 'done' if done or now and n['done'] else 'next')) if v}
                               for n in nodes],
-                      **{k: section[k] for k in ('fact', 'result', 'note') if done and section.get(k)}})
-    current = next((i for i, s in enumerate(steps) if s['status'] == 'now'), len(STEPS))
-    a = facts.file('answer.json') if 'answer' in kinds else {}
-    return {'title': state.get('title') or 'Analytics setup', 'subject': state.get('subject'), 'demo': bool(state.get('demo')),
+                      **{k: section[k] for k in ('fact', 'result') if done and section.get(k)}})
+    a = facts.file('answer.json')
+    asked = any(s['id'] == 'ask' and s['status'] == 'done' for s in steps)
+    return {'title': state.get('title') or 'Analytics setup', 'subject': state.get('subject'), 'demo': flow == 'demo',
             **({'tagline': state.get('tagline') or facts.purpose} if state.get('tagline') or facts.purpose else {}),
             'updated': _now(), 'current': current, 'steps': steps,
-            'parts': {by: PARTS[by] for by in dict.fromkeys(n['by'] for s in steps for n in s['how']) if by in PARTS},
-            **({'answer': {**{k: a[k] for k in ('question', 'headline', 'summary', 'rule') if isinstance(a.get(k), str)},
-                           **({'proof': [str(x.get('name')) for x in a['proof'] if isinstance(x, dict)][:3]} if isinstance(a.get('proof'), list) else {})}}
-               if a.get('headline') else {})}
+            **({'answer': {k: a[k] for k in ('question', 'headline', 'summary', 'rule') if isinstance(a.get(k), str)}}
+               if asked and a.get('headline') else {})}
 
 
 # Recording ------------------------------------------------------------------------------------
@@ -328,7 +365,7 @@ def link(run, url):
 
 
 def record(run, kind, spec=None, engine_dir=None):
-    """Log a moment; when it finishes a step, write that step's document and refresh the local page.
+    """Log a moment; when the page would show something new, write a new document and refresh the local page.
 
     Returns the paths to publish or push: `page` and `local` on the first write, `doc` on every write,
     and `url` once the page is published."""
@@ -338,7 +375,7 @@ def record(run, kind, spec=None, engine_dir=None):
 
 def _record(run, kind, spec, engine_dir):
     state = _state(run)
-    before = [m.get('kind') for m in state['moments'] if isinstance(m, dict)]
+    first = not state['moments']
     facts = RunFacts(run)
     if engine_dir:
         state['engine_dir'] = str(engine_dir)
@@ -353,9 +390,10 @@ def _record(run, kind, spec, engine_dir):
         state['demo'] = True
     state['moments'].append({'kind': kind, 'at': _now()})
     out = {}
-    if kind in FINISHES and kind not in before:
+    # A moment writes a document only when the page would show something new.
+    if first or _ticks(model(run, state)) != state.get('ticks'):
         doc, path = _emit(run, state)
-        if not before or not (run / 'view' / 'side.html').is_file():
+        if first or not (run / 'view' / 'side.html').is_file():
             out['page'] = str(page(run, doc['title']))
             out['local'] = str(run / 'view' / 'progress.html')
         out['doc'] = str(path)
@@ -366,8 +404,9 @@ def _record(run, kind, spec, engine_dir):
 
 
 def _ticks(doc):
-    """What the page shows changing: each step's status and each piece of work's tick and count."""
-    return [[s['status'], [[n.get('s'), n.get('n')] for n in s['how']]] for s in doc['steps']]
+    """What makes a new document worth pushing: a step's status or a piece of work's tick. Counts that move
+    without either ride along in the next one."""
+    return [[s['status'], [n.get('s') for n in s['how']]] for s in doc['steps']]
 
 
 def _emit(run, state):

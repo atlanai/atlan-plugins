@@ -90,31 +90,6 @@ class Checklist(unittest.TestCase):
                                  ['completed'] * saved + ['in_progress', 'pending'])
                 self.assertEqual(result['checklist']['steps'][saved - 1]['content'], 'Kept on this machine')
 
-    def test_a_passing_recheck_after_keeping_local_does_not_rewind_the_steps(self):
-        # Changing a rule re-checks one metric; the save choice already made still stands.
-        import progress
-        fixture.seed_checked(self.run, 'checked')
-        self.run.write(self.run.root / 'progress.json', {'stage': 'check', 'status': 'complete'})
-        self.bind(self.run)
-        self.run.journey('demo')
-        self.run.journey('keep-local')
-        self.run.journey('asked')
-        progress.update_checks(self.run)
-        self.assertEqual([r['status'] for r in self.steps()['steps']], ['completed'] * 5 + ['in_progress'])
-
-    def test_the_tracker_line_is_the_lifecycle_with_the_current_step_in_bold(self):
-        self.assertEqual(checklist.lifecycle(checklist.initial('demo')),
-                         '**◉ Connect** ─ ○ Read ─ ○ Build ─ ○ Check ─ ○ Publish ─ ○ Answer')
-        fixture.seed_checked(self.run, 'checked')
-        self.bind(self.run)
-        self.run.journey('demo')
-        self.progress(stage='check', status='running', completed_items=1, total_items=3)
-        self.assertEqual(self.steps()['lifecycle'], '● Connect ─ ● Read ─ ● Build ─ **◉ Check** ─ ○ Publish ─ ○ Answer')
-        self.progress(stage='check', status='complete')
-        self.run.journey('keep-local')
-        self.assertEqual(self.steps()['lifecycle'], '● Connect ─ ● Read ─ ● Build ─ ● Check ─ ◌ Kept local ─ **◉ Answer**',
-                         'a context kept on this machine was never published')
-
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)
         result = self.steps()
@@ -169,12 +144,6 @@ class Checklist(unittest.TestCase):
         self.progress(stage='scope', status='complete')
         result = self.steps()
         self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'])
-        self.assertIn('**◉ Build**', result['lifecycle'])
-
-    def test_the_first_tracker_needs_no_run_folder(self):
-        out = subprocess.run([sys.executable, str(PROJECT), 'checklist', '--flow', 'demo'], capture_output=True, text=True)
-        self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual(json.loads(out.stdout)['lifecycle'], '**◉ Connect** ─ ○ Read ─ ○ Build ─ ○ Check ─ ○ Publish ─ ○ Answer')
 
     def test_command_reads_only_and_starts_before_a_run_exists(self):
         fresh = Path(self.tmp.name).resolve() / 'not-started'

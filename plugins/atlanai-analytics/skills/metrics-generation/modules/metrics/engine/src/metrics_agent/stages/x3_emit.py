@@ -44,7 +44,6 @@ IN_MERGED = "merged_metrics.json"
 IN_LAYER = "verified_queries.json"
 IN_PROPOSALS = "metric_proposals.json"
 IN_CANDS = "metric_candidates.json"
-IN_REVISIONS = "metric_revisions.json"
 PROMPT = "x3_prompt.json"
 REPAIR = "x3_repair.json"
 OUT = "metric_cards.json"
@@ -1032,16 +1031,6 @@ def _ingest(ctx: stage.Ctx) -> None:
                 + ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in sorted(completed.items()))
                 + (f"; {len(renamed)} card(s) named as declared" if renamed else "") + ".")
 
-    # A REVISION KEEPS ITS IDENTITY. The identity above is the measure, so changing a metric's
-    # rule mints a new one, and publishing it would leave the old artifact beside a second.
-    # An edit of a completed run pins the metric to the measure it had before
-    # (`metric_revisions.json`, metric_ref -> measure_id), so the change revises that artifact.
-    pins = _revisions(ctx)
-    for c in cards:
-        if c["metric_ref"] in pins:
-            c["measure_id"] = pins[c["metric_ref"]]
-            c["source_id"] = slugs.metric_source_id(scope, c["measure_id"])
-
     doc = {"contract_version": "1.0",
            # The registry's own contract version, not this stage's — the card layer declares
            # which metric spec it was written against.
@@ -1067,18 +1056,6 @@ def _ingest(ctx: stage.Ctx) -> None:
     ctx.say(f"x3: {len(cards)} card(s) authored — "
             f"{sum(1 for c in cards if c.get('joins'))} declare a join, "
             f"{sum(1 for c in cards if c.get('dimensions'))} declare dimensions.")
-
-
-def _revisions(ctx: stage.Ctx) -> dict[str, str]:
-    """{metric_ref: measure_id} for each metric an edit revised; empty for an unedited run."""
-    path = ctx.run / IN_REVISIONS
-    if not path.is_file():
-        return {}
-    ctx.note_input_path(path)
-    pins = json.loads(path.read_text()).get("metrics")
-    if not isinstance(pins, dict) or not all(isinstance(v, str) and v for v in pins.values()):
-        raise SystemExit(f"x3: {path} must map each revised metric_ref to its measure_id.")
-    return pins
 
 
 def _declared_sources(m: dict, stmts: dict) -> list[dict]:

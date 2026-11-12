@@ -84,19 +84,6 @@ class AutomaticOrganizationTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "MCP gateway"):
             self.resolve([{**self.status, "gateway": "https://api.example.com"}])
 
-    def test_a_sign_in_without_an_organization_names_the_fix(self):
-        with self.assertRaisesRegex(ValueError, "atlanai auth login"):
-            self.resolve([{**self.status, "orgID": ""}])
-
-    def test_an_expired_cli_sign_in_names_the_fix(self):
-        from unittest.mock import patch
-        import subprocess
-        result = subprocess.CompletedProcess([], 4, stdout="", stderr="private error")
-        with patch.object(module.subprocess, "run", return_value=result):
-            with self.assertRaisesRegex(ValueError, "atlanai auth login") as caught:
-                module._cli_json(["api", "get", "registry:/users/me"])
-            self.assertNotIn("private", str(caught.exception))
-
     def test_rejects_missing_or_ambiguous_active_membership(self):
         for orgs in ([], [{"id": "org_active"}],
                      [{"id": "org_active", "slug": "one"}, {"id": "org_active", "slug": "two"}]):

@@ -62,32 +62,27 @@ Detail-only requests get only the requested evidence.
 Show [the checklist](references/setup/checklist.md) in the host's task list from the first
 action, and in chat with each step's result line, never inside a question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
-reached and never replace a moment with a status line. Each `visual` moment named below
-follows [visuals](references/setup/visuals.md): the helper prints a chip or a mini card, which you
-show in the chat, and updates the side view.
+reached and never replace a moment with a status line. Show each moment's chip or card, from
+the first survey on, as [visuals](references/setup/visuals.md) says.
 
 1. **Clarify your use case.** [The interview](references/setup/intent.md)'s card 1, and the
    branch's own ask. Skip what the request already said.
 2. **Survey your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named. Once the run folder exists, the `connect` visual opens the side view.
+   tables the person named.
 3. **Select tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md) and any clarification. In every branch, the
    interview's confirmation, "Build it?". A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
-   and the whole survey, through [build and check](references/setup/build-check.md). Show the
-   `sources` visual once the data is bound, run the `build` visual once the engine run is
-   complete, and show the `context` visual when every check has run. Then review the
-   completed collection with actual counts and one representative metric.
+   and the whole survey, through [build and check](references/setup/build-check.md). Then
+   review the completed collection with actual counts and one representative metric.
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
-   Show the `saved` visual after the save, or once the person keeps the context local.
+   Then show the `saved` visual.
 6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
-   question the person picks, through `analytics-ask`, with its `answer` visual, then
-   `PROJECT journey asked`.
-7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md), with
-   its `layout` visual.
+   question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
+7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).
 
 Keep execution, source review, holds and releases separate, with factual check labels and
 the tracker's step headings. Total definitions = metrics + queries. Attribute saved checks

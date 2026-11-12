@@ -32,13 +32,6 @@ def releases(payload):
         artifact = {**{k: raw.get(k) for k in ('workspace_id', 'id', 'kind', 'name')},
                     **{k: release.get(k) for k in ('release_id', 'version_id', 'channel')},
                     'definition': definition}
-        # When each item was first saved and this revision released, for the receipt a person reads.
-        dated = {'created_at': raw.get('created_at'), 'released_at': release.get('released_at'), 'version': release.get('version_ordinal'),
-                 'visibility': release.get('visibility'), 'version_label': release.get('version_label'), 'workspace_kind': raw.get('workspace_kind')}
-        artifact.update({k: v for k, v in dated.items() if isinstance(v, (str, int)) and not isinstance(v, bool)})
-        # Whether the person who released it owns it, without keeping either person's id.
-        if raw.get('owner_id'):
-            artifact['owner'] = 'saver' if raw['owner_id'] == release.get('released_by') else 'other'
         if artifact.get('workspace_id') != workspace or artifact.get('kind') not in ('metric', 'sql_query'):
             raise RetrievalError('Every readback must be a metric or query in the selected workspace.')
         if any(not isinstance(artifact.get(k), str) or not artifact[k] for k in

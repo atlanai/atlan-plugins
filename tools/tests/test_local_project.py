@@ -114,30 +114,6 @@ class LocalProject(unittest.TestCase):
         payload = readbacks(); payload['artifacts'][0]['workspace_id'] = 'workspace_other'
         with self.assertRaises(ValueError): self.run.publication(payload)
 
-    def test_the_receipt_keeps_when_each_item_was_created_and_released(self):
-        payload = readbacks()
-        payload['artifacts'][0]['created_at'] = '2026-11-09T17:49:31.444Z'
-        payload['artifacts'][0]['release'].update(released_at='2026-11-11T17:48:21.465Z', version_ordinal=2, visibility='private', version_label='0.2.0')
-        payload['artifacts'][0]['workspace_kind'] = 'user_default'
-        self.run.survey(self.estate); self.run.publication(payload)
-        recorded = Project(self.run.root).current()['publication']['artifacts'][0]
-        self.assertEqual((recorded['created_at'], recorded['released_at'], recorded['version'], recorded['visibility'],
-                          recorded['version_label'], recorded['workspace_kind']),
-                         ('2026-11-09T17:49:31.444Z', '2026-11-11T17:48:21.465Z', 2, 'private', '0.2.0', 'user_default'))
-        self.run.publication(readbacks())
-        self.assertNotIn('created_at', self.run.current()['publication']['artifacts'][0], 'a readback without dates records none')
-
-    def test_the_receipt_says_whether_the_person_who_saved_owns_each_item(self):
-        self.run.survey(self.estate)
-        for owner, expected in (('user_a', 'saver'), ('user_b', 'other')):
-            payload = readbacks()
-            payload['artifacts'][0]['owner_id'] = owner
-            payload['artifacts'][0]['release']['released_by'] = 'user_a'
-            self.run.publication(payload)
-            recorded = self.run.current()['publication']['artifacts'][0]
-            self.assertEqual(recorded['owner'], expected)
-            self.assertNotIn('user_a', json.dumps(recorded), 'no person id is kept')
-
     def test_retrieval_rejects_drafts_changes_and_wrong_workspace(self):
         self.run.survey(self.estate); self.run.publication(readbacks())
         for change in ({'release': {**readbacks()['artifacts'][0]['release'], 'release_id': 'rel_changed'}},

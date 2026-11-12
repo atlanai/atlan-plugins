@@ -12,8 +12,6 @@ and leading spaces. The fence only marks the lines; it is not part of the questi
 also print the welcome as a reply before the question.
 
 ```
-◉ Connect ─ ○ Read ─ ○ Build ─ ○ Check ─ ○ Publish ─ ○ Answer
-
 Build a job profit agent for Fixit & Co. It answers questions about
 Fixit's jobs in plain English and shows the rule behind every number.
 
@@ -26,6 +24,11 @@ What you're working with:
   Data           10 jobs (July to October 2026), 8 crew and machines,
                  746 work logs, 51 material orders, 11 snags
   Past queries   110 questions Fixit's analysts already ran
+
+  ○─────────○─────────○─────────○─────────○
+  Pick      Build     Save to   Ask       Build a
+  sources   context   Atlan     questions dashboard
+            ~5 min                        (optional)
 
 About 15 minutes. Made-up data; nothing of yours is touched.
 See the firm first:
@@ -51,6 +54,5 @@ Ready to build?
 | What a metric is, by example | a number Fixit cares about, such as gross margin, with the rule for working it out |
 | Why build them | Margin says which job lost money. Labour, materials, rework and late jobs say why. |
 | What the agent can answer | Questions about job margin, rework, material waste and late jobs |
-| Change to offer | Late jobs: count a job late from the day after its planned end, with no week of grace. The bus shelter, finished 6 days after its planned end, becomes late |
 
 The dashboard to offer at the end is named `fixit-job-profit-dashboard.html`.
