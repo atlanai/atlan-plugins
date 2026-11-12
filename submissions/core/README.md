@@ -39,16 +39,14 @@ The separate Analytics and Registry Mods plugins are outside this submission.
 ## Claude portal findings, 12 November 2026
 
 The account is signed into the Atlan Claude organization, where Rohan has the Owner role.
-The portal fetched current GitHub main and validated `plugins/atlanai`, but reports that
-GitHub did not accept the connected account for this repository. The repository checker
-specifically says atlanai SSO is hiding repositories and asks to reconnect GitHub.
-This is not proof of push access. Complete the reconnection and rerun validation.
+GitHub reconnection succeeded and the portal confirmed repository access. The Atlan
+Trident draft was saved. The candidate scan passes with zero blocking errors, two warnings
+and thirteen policy holds. The exact findings and explanations are in
+`claude-review-notes.md`; the remaining form inputs are in `submission-inputs.md`.
 
-The current remote source still displays AI Registry, and its core includes a publish-helper
-hooks module. The portal reported two warnings and fourteen policy holds. Several holds
-concern that helper; others concern credentials and brand resemblance. These are review
-findings, not a local test failure, and must be checked against the exact candidate commit.
-Do not submit the old local core or silently remove current helper behavior to clear them.
+The candidate displays Atlan Trident and includes the core publish-helper module. The
+remaining holds concern declared capabilities, synthetic tests and fuzzy name matches.
+They require human review; package validation alone does not approve them.
 
 Submit the MCP endpoint `https://api.atlan.com/mcp` as a connector too, under the same
 Atlan organization, then pair it with the bundle. The existing Atlan directory connector
