@@ -31,8 +31,9 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply asks the person to paste the dashboard's link or the path to its file,
-      in one short message, and stops. Mentioning file types, that the file can be dragged in,
-      or that the person can say skip to let discovery decide, is fine. FAIL if it asks which BI tool the dashboard is in, offers a menu of BI tools,
-      asks which warehouse or what they want to do again, runs or describes discovery, suggests
-      tables, or starts any build.
+      PASS if the reply asks which dashboard to use, says the person can paste its link or a
+      file path, offers at least one other choice such as letting discovery decide or naming
+      their tables instead, and stops. FAIL if it asks which BI tool the dashboard is in,
+      offers a menu of BI tools, offers an option that only says to paste or type, asks which
+      warehouse or what they want to do again, runs or describes discovery, suggests tables, or
+      starts any build.

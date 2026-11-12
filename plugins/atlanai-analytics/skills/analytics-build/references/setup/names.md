@@ -46,8 +46,9 @@ first; name a fourth in the found line only if it matters. Never mark the dashbo
 recommended.
 
 When the person picks it, alone or with use cases, ask for the dashboard next, exactly as
-[the interview](intent.md)'s dashboard branch does: one short message asking for the link or
-the file path, then the access check on it and the tables it reads. Then:
+[the interview](intent.md)'s dashboard branch does: its card for the link, path or a file in
+the folder, then opening it (signing the person in when a link needs it) and the access
+check on the tables it reads. Then:
 
 - picked alone: the dashboard is what gets built, as in the dashboard branch;
 - picked with use cases: the dashboard is added to them. Its report is built whole, and its
