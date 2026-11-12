@@ -124,6 +124,27 @@ def local_config(path):
     return doc
 
 
+def optional_readers_missing(doc):
+    """Requirements for BI files this runtime cannot read, named before the run starts.
+
+    A `.pbix` model is read through the optional `pbix` feature. Without it the run used to
+    stop at its BI stage with a missing-module error, after the history lane had run. A
+    `.pbix` that holds no model (a live-connection report) needs no reader: the run leaves it
+    out and says why."""
+    import importlib.util
+    out = []
+    for plug, settings in (doc.get('settings') or {}).items():
+        bi = (settings or {}).get('bi') if isinstance(settings, dict) else None
+        if not bi or not str(bi).lower().endswith('.pbix'):
+            continue
+        from metrics_agent import readers
+        path = Path(str(bi)).expanduser()
+        if readers.model_gap(path) is None and importlib.util.find_spec('pbixray') is None:
+            out.append(f'settings.{plug}.bi is a .pbix ({path.name}); reading it needs the '
+                       '`pbix` feature, which this runtime was set up without.')
+    return '\n'.join(out)
+
+
 def prepare(run, config, runtime, approval_mode='auto'):
     from metrics_agent import setup
     run, config = ordinary(run), ordinary(config)
@@ -136,6 +157,10 @@ def prepare(run, config, runtime, approval_mode='auto'):
         return {'status': 'prepared', 'run': str(run), 'reused': True}
     if run.exists() and any(run.iterdir()):
         raise ValueError('Use a new module run directory; existing engine runs require an explicit migration.')
+    missing = optional_readers_missing(doc)
+    if missing:
+        return {'status': 'NEEDS_CONTEXT', 'requirements': missing,
+                'fix': 'Set up a new runtime with the named feature and prepare this run with it.'}
     # check_file performs the original plug/session checks, but never asks the setup interview.
     messages = io.StringIO()
     stream = Transcript(messages, sys.stderr) if at_terminal() else messages
@@ -269,6 +294,19 @@ def advance(run, runtime, model):
     return result, 3 if proc.returncode == 3 else 0 if proc.returncode == 0 else 2
 
 
+def own_message(exc):
+    """The message of an error this module or the core engine wrote itself, else None.
+
+    A plain ValueError and the core's own errors (`metrics_agent.*`, such as a run
+    configuration's ConfigError) carry text the engine authored: the setting, the file, what
+    to change. Anything else can come from a connector and carry a connection string or a
+    source row, so only its type is said."""
+    module = (type(exc).__module__ or '').split('.')[0]
+    if type(exc) is ValueError or (isinstance(exc, ValueError) and module == 'metrics_agent'):
+        return str(exc)[:600] or None
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=('discover', 'stage-input', 'prepare', 'advance', 'status', 'parity-plan', 'export'))
@@ -311,10 +349,12 @@ def main():
     except (ValueError, OSError, KeyError, RuntimeError) as exc:
         # Do not echo connector exceptions, connection strings or raw source rows to chat.
         diagnostic = runtime / 'last-error.json'
-        write(diagnostic, {'type': type(exc).__name__, 'frames': [
+        reason = own_message(exc)
+        write(diagnostic, {'type': type(exc).__name__, **({'message': reason} if reason else {}),
+                           'frames': [
             {'file': Path(frame.filename).name, 'line': frame.lineno, 'function': frame.name}
             for frame in traceback.extract_tb(exc.__traceback__)]})
-        print(json.dumps({'status': 'BLOCKED', 'reason': str(exc) if type(exc) is ValueError else
+        print(json.dumps({'status': 'BLOCKED', 'reason': reason or
                           f'Metrics runtime operation failed ({type(exc).__name__}).',
                           'diagnostic': str(diagnostic), 'fix': 'Resolve the requirement; keep all gates enabled.'}))
         return 2

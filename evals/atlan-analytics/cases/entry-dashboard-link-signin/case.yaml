@@ -1,0 +1,39 @@
+schema_version: "1.1"
+name: entry-dashboard-link-signin
+tags: [analytics, build, entry, intent]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue setting up analytics on my own data.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    The person chose Snowflake, which is already connected, then "Make my dashboard agentic",
+    then pasted a Power BI report link: https://app.powerbi.example/groups/example/reports/example.
+    Treat the first attempt to open it as done, with this result: the report needs a Power BI
+    sign-in, and a browser can open on this machine. Nothing is built.
+    Say what you do next and show the user-facing step.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-build
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-build"'
+    min: 1
+  - name: reads-intent
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup/intent\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: starts-sign-in
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply says it is opening or starting the Power BI sign-in in the person's
+      browser and will carry on once they are signed in. FAIL if it asks whether to sign in or
+      offers a choice between signing in and sending a file, asks for a file instead of using
+      the link, asks for a password, token or key, asks which BI tool it is, or claims the
+      report was read or anything was built.

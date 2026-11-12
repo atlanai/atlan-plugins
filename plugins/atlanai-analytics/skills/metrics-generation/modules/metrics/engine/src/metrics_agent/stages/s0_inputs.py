@@ -268,6 +268,19 @@ def _deliver_bi(ctx, doc: dict, entries: list[dict], dialect: str, scrubber) -> 
         if only is not None and only.resolve() != root:
             ctx.say(f"s0: {root} holds one model; the run reads {only.resolve()}")
             root = only.resolve()
+        # A REPORT WITHOUT ITS MODEL IS AN ACQUISITION GAP, NOT A FAILED RUN: its visuals name
+        # measures whose formulas are in the model, so nothing in it compiles. The input is
+        # left out, named in the access report, and the run reads its other inputs; with none
+        # left the refusal below says so. Every installed reader is asked.
+        gap = _readers.model_gap(root)
+        if gap:
+            _access.record(ctx.run, [_access.blocker(
+                "model_not_included", source=name, stage=STAGE,
+                item={"kind": "bi_input", "name": root.name}, not_read=gap,
+                ask="the semantic model behind this report, in any form the reader reads")])
+            ctx.say(f"s0: WARNING {name}: {gap} The run goes on without it. What to ask "
+                    f"for: {_access.REPORT}")
+            continue
         # A path that is not ONE model (a whole tenant's extract, and a run builds one) is
         # refused HERE rather than at A1, so the run is never recorded at all. Every installed
         # reader is asked; the core does not know which layouts exist.

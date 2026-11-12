@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: entry-source-inventory
+tags: [analytics, build, entry, names]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue setting up analytics on my own data.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    The person already answered card 1: Snowflake, which is already connected, and "Let
+    discovery decide". Treat discovery as done, with this result. Three
+    schemas are in use. The most used tables in the last 30 days are SALES.MARTS.FCT_OPPORTUNITY
+    (1,240 queries by 14 people), SALES.MARTS.DIM_ACCOUNT (980 queries by 12 people) and
+    SALES.MARTS.FCT_STAGE_HISTORY (310 queries by 6 people); support tickets are the next most
+    used subject. Opportunities link to accounts on ACCOUNT_ID. DIM_ACCOUNT has IS_TEST and
+    IS_INTERNAL flags. Query history shows people asking for pipeline by stage and win rate by
+    segment. Nothing is built.
+    Show the next user-facing step.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: loads-build
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?analytics-build"'
+    min: 1
+  - name: reads-names
+    type: tool_used
+    tool: Read
+    input_match: 'references/setup/names\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: offers-use-cases
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply offers at least two use cases to choose from (sales pipeline and
+      support tickets), each with one short line of what it answers and the tables that power
+      it, with the sales tables named for the sales use case, also offers a choice to share a
+      dashboard (such as "I have a dashboard"), asks which to build, and stops.
+      FAIL if it offers only one suggestion, leaves out the dashboard choice, starts building
+      without asking, invents a table that discovery did not report, lists row counts, query
+      counts, join keys or exclusions in the menu, asks which warehouse or domain again, asks
+      the person to pick a task, shows SQL, or claims a metric was built or checked.

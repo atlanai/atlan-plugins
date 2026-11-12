@@ -30,6 +30,17 @@ FEATURES = {'snowflake': 'packages/metrics-agent-snowflake',
             'postgres': 'examples/plugs/postgres-direct', 'pbix': '.[pbix]', 'test': '.[dev]'}
 
 
+class RuntimeMismatch(ValueError):
+    """A runtime built from other module source or features. Its `fix` names the sibling
+    folder to set up instead: one per module commit, so an upgrade never needs a made-up name."""
+
+    def __init__(self, reason, root, commit):
+        super().__init__(reason)
+        self.fix = (f'Set up a new runtime in {Path(root).parent / ("runtime-" + commit[:12])} '
+                    'with the features this run needs. Keep existing projects on the runtime '
+                    'they were built with.')
+
+
 def ordinary(path):
     # One folder has one name: `run/../..` and its plain spelling are the same runtime. With
     # symbolic links refused, removing `..` by text names the folder the filesystem would.
@@ -150,7 +161,8 @@ def _setup(root, features):
     if (root / 'runtime.json').exists():
         receipt = json.loads((root / 'runtime.json').read_text())
         if receipt.get('source_sha256') != sha or receipt.get('features') != selected:
-            raise ValueError('Runtime selection changed; use a new runtime directory.')
+            raise RuntimeMismatch('Runtime selection changed; use a new runtime directory.',
+                                  root, data['commit'])
         return {'status': 'ready', 'runtime': str(root), 'commit': data['commit'], 'reused': True}
     source = root / 'source'
     unpack(source)
@@ -203,7 +215,8 @@ def _invoke(root, command, args):
     data, sha = snapshot()
     receipt = json.loads(ordinary(root / 'runtime.json').read_text())
     if receipt.get('source_sha256') != sha or receipt.get('commit') != data['commit']:
-        raise ValueError('Runtime does not match this plugin; keep old projects on their pinned runtime.')
+        raise RuntimeMismatch('Runtime does not match this plugin; keep old projects on their '
+                              'pinned runtime.', root, data['commit'])
     # Gate instructions are part of the pinned implementation too, not mutable runtime
     # prompts that can drift independently from the validators.
     unpack(root / 'source')
@@ -273,6 +286,7 @@ def main(argv=None):
             result, code = invoke(args.runtime, args.command, forwarded)
     except (ValueError, OSError, KeyError) as exc:
         result, code = {'status': 'BLOCKED', 'reason': str(exc),
-                        'fix': 'Resolve this requirement before advancing the metrics module.'}, 2
+                        'fix': getattr(exc, 'fix', None)
+                        or 'Resolve this requirement before advancing the metrics module.'}, 2
     print(json.dumps(result, ensure_ascii=False))
     return code

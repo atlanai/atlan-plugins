@@ -9,8 +9,8 @@ Read [shared conventions](../analytics-build/references/conventions.md) first; i
 truth**, read-only SQL and safety rules apply. Answer here without creating a project,
 eval, agent or registry write. No subagents are needed.
 
-If a setup run was selected, follow [setup retrieval](references/retrieval.md)
-and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
+If a setup run was selected, or this folder holds one kept local, follow
+[setup retrieval](references/retrieval.md) and return. Resolve ambiguity only among relevant runs in this project. Otherwise continue
 below using existing Atlan context. Ordinary questions require no local run, publication
 receipt or DuckDB. Do not search the whole machine or substitute drafts for released context.
 
