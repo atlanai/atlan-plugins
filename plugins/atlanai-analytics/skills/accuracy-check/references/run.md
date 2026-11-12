@@ -39,7 +39,9 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
        "used_context_ids": ["<each metric or query you relied on>"]}
       ```
       `<where the context lives>` follows `context_saved_to`. In Atlan Trident: "the context
-      saved in the Atlan Trident workspace <name>". On this machine: "the context on this
+      saved in the Atlan Trident workspace <name>: read its metrics and queries there, at their
+      released versions, never from files on this machine; the run folder is only for the query
+      runner". On this machine: "the context on this
       machine, in the analytics run at <run-dir>: its metrics and queries are in that run's
       context folder and are not in Atlan Trident, so do not search the registry; unreleased
       local definitions are the ones to use". A small model answers from the registry unless told.
