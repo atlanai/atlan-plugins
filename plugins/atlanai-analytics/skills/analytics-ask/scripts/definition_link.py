@@ -45,9 +45,11 @@ def _cli_json(arguments):
                                 timeout=30, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ValueError("The authenticated Atlan CLI is unavailable") from exc
+    # Never echo transport stderr or a response body into a user-facing error.
+    if result.returncode == 4:
+        raise ValueError("The Atlan CLI sign-in has expired; run `atlanai auth login`")
     if result.returncode:
-        # Never echo transport stderr or a response body into a user-facing error. Keep only
-        # the gateway's error code: a not_found and an auth failure need different next steps.
+        # Keep only the gateway's error code: a not_found and an auth failure need different next steps.
         code = re.search(r"\(HTTP \d{3}, ([a-z_]+)\)", result.stderr or "")
         raise CliReadError(code.group(1) if code else "read_failed")
     try:
@@ -69,8 +71,9 @@ def _resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: 
     definition_link(gateway, "validated-later", kind, handle, workspace)
     status_args = ["auth", "status", "--json", "state,gateway,orgID"]
     status = _cli_json(status_args)
-    if (status.get("state") != "authenticated" or not status.get("orgID")
-            or status.get("gateway", "").rstrip("/") != gateway.rstrip("/")):
+    if status.get("state") != "authenticated" or not status.get("orgID"):
+        raise ValueError("The Atlan CLI is not signed in to an organization; run `atlanai auth login`")
+    if status.get("gateway", "").rstrip("/") != gateway.rstrip("/"):
         raise ValueError("The CLI connection does not match the MCP gateway")
     identity = _cli_json([
         "api", "get", "registry:/users/me", "--jq",

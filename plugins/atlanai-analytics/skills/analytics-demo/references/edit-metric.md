@@ -23,12 +23,18 @@ new rule needs.
 
 ## 2. Make the change
 
-Call `metrics-generation` `edit` on that metric with the chosen change. It changes the
-definition through the engine, re-runs the check and returns the old rule, the new rule and
-both check results. The metric keeps its identity; this is a revision, not a new metric.
+Call `metrics-generation` `edit` on that metric with the chosen change, following its three
+steps: `ENGINE edit` returns the authored card, `ENGINE edit --card` revises it through the
+engine's card, consistency and relationship gates, and `PROJECT revise-metric` checks the old
+and the new rule on the data and installs the new one. Together they return the old rule, the
+new rule and both check results. The metric keeps its identity; this is a revision, not a new
+metric. Never change `context/metrics.json` or the engine's files by hand. The revised card's
+description and notes say the new rule too: the gates check the rule, not the words around it.
 
-If the check on the new rule fails, say so in one line, keep the old rule, and offer one
-other change. Never show a failed check as a result.
+If either step refuses the new rule, say why in one line, keep the old rule, and offer one
+other change. A refused `ENGINE edit` has already restored it; after a refused
+`revise-metric`, restore the engine card as its message says. Never show a failed check as a
+result.
 
 ## 3. Show the difference
 

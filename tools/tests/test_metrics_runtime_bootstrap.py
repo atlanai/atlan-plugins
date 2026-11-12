@@ -2,6 +2,7 @@
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -58,7 +59,9 @@ class RuntimeBootstrap(unittest.TestCase):
                                                         output=private_values[1], stderr=private_values[2])
 
                 stdout, stderr = io.StringIO(), io.StringIO()
-                with mock.patch.object(driver, 'snapshot', return_value=({'commit': 'a' * 64}, 'a' * 64)), \
+                # This interpreter passed the throwaway venv probe; the real build still failed.
+                with mock.patch.object(driver, 'supported_python', return_value=sys.executable), \
+                        mock.patch.object(driver, 'snapshot', return_value=({'commit': 'a' * 64}, 'a' * 64)), \
                         mock.patch.object(driver, 'unpack', side_effect=lambda path: path.mkdir(parents=True)), \
                         mock.patch.object(driver.venv, 'EnvBuilder') as builder, \
                         mock.patch.object(driver.subprocess, 'run') as package_commands, \
@@ -131,3 +134,80 @@ class RuntimeMismatchFix(unittest.TestCase):
         result = json.loads(out.getvalue())
         self.assertIn('does not match this plugin', result['reason'])
         self.assertIn(str(root.parent / ('runtime-' + 'c' * 12)), result['fix'])
+
+
+def fake_python(folder, name, version, builds):
+    """A stand-in interpreter on PATH: it reports `version`, and a venv it makes either has a
+    working pip or fails to bootstrap one, as a standalone build behind symlinks can."""
+    folder.mkdir(parents=True, exist_ok=True)
+    python, log = folder / name, folder / (name + '.log')
+    venv = ('/bin/mkdir -p "$target/bin" && /bin/ln -s /usr/bin/true "$target/bin/python"' if builds
+            else '/bin/mkdir -p "$target"; exit 1')
+    python.write_text('#!/bin/sh\n'
+                      'case "$*" in\n'
+                      f'  *version_info*) echo "{version}" ;;\n'
+                      f'  *"-m venv"*) for target; do :; done; echo "venv $target" >> "{log}"; {venv} ;;\n'
+                      f'  *) echo "run $*" >> "{log}" ;;\n'
+                      'esac\n')
+    python.chmod(0o755)
+    return python
+
+
+@unittest.skipIf(sys.platform == 'win32', 'Runtime setup supports macOS/Linux.')
+class InterpreterChoice(unittest.TestCase):
+    """Setup builds with the first approved Python that just made a venv with pip in a throwaway
+    folder, falls through to the next one otherwise, and leaves no runtime folder when none can."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name).resolve()
+        self.runtime = self.root / 'project/.atlan-metrics/runtime'
+        # The interpreter running setup is a standalone 3.12 that cannot bootstrap pip in a venv.
+        self.standalone = fake_python(self.root / 'uv', 'python3.12', '(3, 12)', builds=False)
+
+    def interpreters(self, *pythons):
+        folders = os.pathsep.join(dict.fromkeys(str(p.parent) for p in (self.standalone, *pythons)))
+        return mock.patch.dict(os.environ, {'PATH': folders})
+
+    def log(self, python):
+        log = python.parent / (python.name + '.log')
+        return log.read_text().splitlines() if log.exists() else []
+
+    def probes(self, *pythons):
+        return [line.split(' ', 1)[1] for p in pythons for line in self.log(p) if line.startswith('venv ')]
+
+    def test_a_python_that_cannot_build_a_venv_with_pip_is_passed_over(self):
+        brew = fake_python(self.root / 'brew', 'python3.11', '(3, 11)', builds=True)
+        with self.interpreters(brew), mock.patch.object(driver.sys, 'executable', str(self.standalone)):
+            self.assertEqual(driver.supported_python(), str(brew))
+        tried = self.probes(self.standalone, brew)
+        self.assertEqual(len(tried), 2)
+        self.assertFalse(any(Path(folder).exists() for folder in tried))
+
+    def test_setup_reruns_with_the_python_that_works(self):
+        brew = fake_python(self.root / 'brew', 'python3.11', '(3, 11)', builds=True)
+        with self.interpreters(brew), mock.patch.object(driver.sys, 'executable', str(self.standalone)), \
+                mock.patch.object(driver, 'setup', return_value={'status': 'ready'}) as setup:
+            code = driver.main(['--runtime', str(self.runtime), 'setup', '--feature', 'tableau'])
+        self.assertEqual(code, 0)
+        setup.assert_not_called()
+        self.assertEqual(self.log(brew)[-1],
+                         f'run -I {driver.DISPATCHER} metrics --runtime {self.runtime} setup --feature tableau')
+        self.assertFalse(self.runtime.exists())
+
+    def test_without_a_working_approved_python_setup_stops_and_leaves_no_runtime_folder(self):
+        broken = fake_python(self.root / 'old', 'python3.11', '(3, 11)', builds=False)
+        newer = fake_python(self.root / 'new', 'python3.13', '(3, 13)', builds=True)
+        with self.interpreters(broken, newer), mock.patch.object(driver.sys, 'executable', str(self.standalone)), \
+                mock.patch.object(driver, 'setup', return_value={'status': 'ready'}) as setup, \
+                redirect_stdout(io.StringIO()) as out:
+            code = driver.main(['--runtime', str(self.runtime), 'setup'])
+        self.assertEqual(code, 2)
+        reply = json.loads(out.getvalue())
+        self.assertEqual(reply['status'], 'BLOCKED')
+        self.assertIn('python3.12 or python3.11 on PATH', reply['reason'])
+        setup.assert_not_called()
+        self.assertFalse(self.runtime.exists())
+        self.assertEqual(self.log(newer), [])
+        self.assertFalse(any(Path(folder).exists() for folder in self.probes(self.standalone, broken)))

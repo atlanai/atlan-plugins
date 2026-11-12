@@ -387,6 +387,62 @@ class Project(ContextState):
         progress.update_checks(self)
         return result
 
+    def revise_metric(self, request):
+        """Install one metric from an engine edit (`ENGINE edit`), with the local check run on the
+        old rule and on the new one. A new rule that fails its check leaves the old one in place."""
+        items = metric_preview.candidates(self)
+        keys = [i['key'] for i in items]
+        key = metric_preview.resolve_id(request.get('name', ''), keys, 'metric')
+        old = next((i['body'] for i in items if i['key'] == key), None)
+        if old is None:
+            raise ProjectError('Select an authored metric by name. Saved: ' + metric_preview.id_hint(keys, 'metric') + '.')
+        folder = safe_path(request.get('edit', ''))
+        record = self.read(folder / 'edit.json')
+        exported = folder / 'context'
+        new = next((b for b in self.read(exported / 'metrics.json') if b.get('name') == old['name']), None)
+        if record.get('status') != 'edited' or new is None or not old['source_id'] == record.get('source_id') == new.get('source_id'):
+            raise ProjectError("This edit does not keep the metric's identity in this context. Edit it through the engine again.")
+        if self._holds(exported) != self._holds(self.context):
+            raise ProjectError('This edit changes which definitions are held. Review its holds before installing it.')
+        check = {**request, 'name': key}
+        before = self._checked(check, key)
+        files = ('metrics.json', 'metrics-source.json', 'publication-holds.json', 'candidate-checks.json')
+        saved = {name: (self.context / name).read_text() for name in files if (self.context / name).is_file()}
+        self.write(self.context / 'metrics.json',
+                   [new if body.get('name') == old['name'] else body for body in self.read(self.context / 'metrics.json')])
+        for name in ('metrics-source.json', 'publication-holds.json'):
+            self.write(self.context / name, self.read(exported / name))
+        try:
+            mine.check_publication_holds(self.context)
+            after = self._checked(check, key, strict=True)
+        except (ValueError, mine.Blocked):
+            for name, text in saved.items():
+                self.write_text(self.context / name, text)
+            raise ProjectError('The new rule failed its check on the data, so the context keeps the old rule. '
+                               'Restore the engine card with ENGINE edit --card ' + str(folder / 'previous-card.json') + '.') from None
+        return {'status': 'revised', 'metric': old['name'], 'source_id': old['source_id'],
+                'before': {'rule': record['before']['rule'], 'check': before},
+                'after': {'rule': record['after']['rule'], 'check': after}, 'remote_writes': False}
+
+    def _holds(self, folder):
+        return {k: v for k, v in self.read(folder / 'publication-holds.json').items() if k != 'outputs'}
+
+    def _checked(self, request, key, strict=False):
+        """The local check of the metric saved under `key`. A failed check of the old rule is a
+        result to show; a failed check of the new rule raises."""
+        try:
+            result = self.check_metric(request)
+        except local_data.ParameterError:
+            raise
+        except (local_data.DataError, ProjectError):
+            if strict:
+                raise
+            check = self.read(self.context / 'candidate-checks.json').get(key, {})
+            return {'status': 'held', 'errors': check.get('errors') or ['The current rule could not be checked.']}
+        check = self.read(self.context / 'candidate-checks.json')[key]
+        return {'status': check['status'], 'example': result['rows'], 'calculation': check['composition']['rows'],
+                'empty_population': check['composition']['empty_population']['rows']}
+
     def history(self):
         state = self.current()
         # Outputs describe this call only: an earlier scope's bound or log never carries over.
@@ -542,6 +598,7 @@ class Project(ContextState):
         artifacts = self.releases(payload)
         receipt = {'workspace_id': payload['workspace_id'], 'artifacts': [
             {**{k: a[k] for k in ('id', 'kind', 'name', 'release_id', 'version_id', 'channel')},
+             **{k: a[k] for k in ('created_at', 'released_at', 'version', 'owner', 'visibility', 'version_label', 'workspace_kind') if k in a},
              'definition_hash': digest(a['definition'])} for a in artifacts]}
         state['publication'] = receipt
         state['context_changed'] = False
@@ -607,7 +664,8 @@ def main():
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'revise-metric',
+                 'acquisition', 'auth', 'engine-config'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:
@@ -690,7 +748,10 @@ def main():
         print(json.dumps({'status': 'canceled', 'next': 'Resume the same run; completed artifacts are retained.'}))
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
-        if 'project' in locals() and args.command not in ('experience', 'journey'):
+        # Only a command that advances a stage can fail it. A read, a query or a check that
+        # refused its parameters ran nothing, so the run's progress stays as it was.
+        if ('project' in locals() and args.command in ('survey', 'scope', 'check', 'check-query', 'check-metric', 'publication')
+                and not isinstance(exc, local_data.ParameterError)):
             try:
                 path = project.root / 'progress.json'
                 if path.exists():

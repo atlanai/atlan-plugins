@@ -57,6 +57,16 @@ class Checklist(unittest.TestCase):
         result = self.steps()
         self.assertEqual((result['state'], result['step'], result['of']), ('done', 6, 6))
 
+    def test_a_passing_recheck_after_keeping_local_does_not_rewind_the_steps(self):
+        # Changing a rule re-checks one metric; the save choice already made still stands.
+        import progress
+        fixture.seed_checked(self.run, 'checked')
+        self.run.journey('demo')
+        self.run.journey('keep-local')
+        self.run.journey('asked')
+        progress.update_checks(self.run)
+        self.assertEqual([r['status'] for r in self.steps()['steps']], ['completed'] * 5 + ['in_progress'])
+
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)
         result = self.steps()
