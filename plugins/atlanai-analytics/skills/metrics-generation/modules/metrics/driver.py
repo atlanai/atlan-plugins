@@ -302,7 +302,8 @@ def main(argv=None):
                     forwarded += ['--' + name.replace('_', '-'), str(getattr(args, name))]
             result, code = invoke(args.runtime, args.command, forwarded)
             if getattr(args, 'run', None) and isinstance(result, dict):
-                result = {**result, **_side_view(args.run)}
+                # The side view's line leads: a result cut short keeps it.
+                result = {**_side_view(args.run), **result}
     except (ValueError, OSError, KeyError) as exc:
         result, code = {'status': 'BLOCKED', 'reason': str(exc),
                         'fix': getattr(exc, 'fix', None)

@@ -128,6 +128,17 @@ class SideView(unittest.TestCase):
                       'each gate ticks on the page as it finishes')
         self.assertEqual(driver._side_view(run / 'engine'), {}, 'a gate that changed nothing names nothing')
         self.assertEqual(driver._side_view(self.root / 'elsewhere' / 'engine'), {}, 'an engine run outside a setup run is left alone')
+        import contextlib
+        import io
+        from unittest import mock
+        stages = json.loads(gates)['stages']
+        stages[0]['counts']['scanned'] = 99
+        manifest.write_text(json.dumps({'stages': stages[:1]}), encoding='utf-8')
+        printed = io.StringIO()
+        with mock.patch.object(driver, 'invoke', return_value=({'status': 'ok', 'gate': 'h0_corpus'}, 0)), \
+                contextlib.redirect_stdout(printed):
+            driver.main(['--runtime', str(self.root), 'status', '--run', str(run / 'engine')])
+        self.assertEqual(list(json.loads(printed.getvalue()))[0], 'side_view', 'a result cut short keeps the push')
 
     def test_metrics_tick_their_pieces_in_the_order_they_happen(self):
         run, manifest, gates = self.building()
