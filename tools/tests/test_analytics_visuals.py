@@ -85,6 +85,19 @@ class Moments(unittest.TestCase):
         (run / 'survey-cache.json').write_text(json.dumps({'sources': meta['sources']}), encoding='utf-8')
         self.assertEqual(self.show('found', run), '● **5** sources found · Power BI dashboard, 2 data files, 1 database, query history')
 
+    def test_found_names_every_kind_the_survey_records_as_a_person_would(self):
+        cases = (([('powerbi_project', 'model/a.tmdl')] * 6, '● **6** sources found · Power BI project (6 files)'),
+                 ([('tableau', 'a.twb'), ('powerbi', 'b.pbix')], '● **2** sources found · Power BI dashboard, Tableau dashboard'),
+                 ([('saved_sql', 'q.sql'), ('model_candidate', 'm.yml'), ('data_file', 'd.csv')],
+                  '● **3** sources found · 1 model file, 1 data file, 1 saved SQL file'))
+        for i, (sources, expected) in enumerate(cases):
+            run = make_run(self.root / str(i), dashboard=False, history=False)
+            meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
+            meta['sources'] = [{'kind': k, 'path': p, 'status': 'available'} for k, p in sources]
+            (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
+            (run / 'survey-cache.json').write_text(json.dumps({'sources': meta['sources']}), encoding='utf-8')
+            self.assertEqual(self.show('found', run), expected, 'the host task list counts every recorded source')
+
     def test_a_warehouse_run_has_its_own_chips(self):
         run = make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True})
         self.assertEqual(self.show('found', run), '● **2** sources found · Snowflake warehouse, Power BI dashboard')

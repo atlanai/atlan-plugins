@@ -17,6 +17,11 @@ CURRENCY = {'GBP': '£', 'USD': '$', 'EUR': '€'}
 USABLE = ('available', 'needs_model_review')
 # The dashboard kinds source_inventory.source_kind reports, and the tool each one is.
 BI_TOOLS = {'powerbi': 'Power BI', 'powerbi_project': 'Power BI', 'tableau': 'Tableau'}
+# Every kind of source the survey records, as a person names it, in the order the found chip lists them.
+FOUND = ((('powerbi',), 'Power BI dashboard'), (('powerbi_project',), 'Power BI project'), (('tableau',), 'Tableau dashboard'),
+         (('dashboard_html',), 'HTML dashboard'), (('model_candidate',), 'model file'), (('data_file',), 'data file'),
+         (('sqlite', 'duckdb'), 'database'), (('rowsets',), 'saved row set'), (('saved_sql',), 'saved SQL file'),
+         (('query_history',), 'query history'))
 # Warehouses as a person names them; any other kind reads as its own name.
 WAREHOUSES = {'snowflake': 'Snowflake', 'databricks': 'Databricks', 'bigquery': 'BigQuery', 'redshift': 'Redshift',
               'postgres': 'Postgres', 'postgresql': 'Postgres', 'duckdb': 'DuckDB'}
@@ -219,17 +224,14 @@ class RunFacts:
         """What the survey and the warehouse connection found, as (how many, the words for them): only what can be named
         is counted, so the count and the words always agree."""
         items = [(1, '%s warehouse' % self.warehouse)] if self.warehouse else []
-        dashboards = self.usable(*BI_TOOLS)
-        if dashboards:
-            tool = BI_TOOLS[dashboards[0]['kind']]
-            items.append((len(dashboards), '%s dashboard' % tool if len(dashboards) == 1 else count(len(dashboards), '%s dashboard' % tool)))
-        for kinds, word in ((('data_file',), 'data file'), (('sqlite', 'duckdb'), 'database')):
-            found = [s for s in self.sources if s.get('kind') in kinds]
-            if found:
-                items.append((len(found), count(len(found), word)))
-        history = self.usable('query_history')
-        if history:
-            items.append((len(history), 'query history'))
+        for kinds, word in FOUND:
+            n = sum(1 for s in self.sources if s.get('kind') in kinds)
+            if not n:
+                continue
+            # A Power BI project is one report kept as many files; a dashboard or a history reads alone when it is one.
+            label = ('%s (%s)' % (word, count(n, 'file')) if n > 1 else word) if kinds == ('powerbi_project',) else \
+                word if n == 1 and kinds[0] in ('powerbi', 'tableau', 'dashboard_html', 'query_history') else count(n, word)
+            items.append((n, label))
         return sum(n for n, _ in items), [label for _, label in items]
 
     @cached_property
