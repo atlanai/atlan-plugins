@@ -151,10 +151,12 @@ Metric Studio. Keep the score goes to step 5.
 Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the same eval folder, naming the
 approved `version_ordinal` in Trident.
 In Trident, release that version to `latest` with `registry__release_artifact` only when
-`EVAL compare` shows the missed question fixed and `flipped_down` empty, and say so; otherwise
-leave it unreleased and say which question changed. A workspace that releases new versions on
-its own has already put the approved version on `latest`: when the test then loses a question,
-withdraw that release with `registry__withdraw_release` and say so.
+`EVAL compare` shows the missed question fixed and no question that uses the changed metric in
+`flipped_down`, and say so; otherwise leave it unreleased and say which question changed. A
+workspace that releases new versions on its own has already put the approved version on
+`latest`: when a question that uses the changed metric gets worse, withdraw that release with
+`registry__withdraw_release` and say so. A question on another metric that gets worse is a miss
+for the next fix, never a reason to undo this one.
 
 With every question right after the test again, go to step 5. With a miss left, ask "Does the
 score look good?" again as step 3 describes, with the new score; Improve it finds the next fix.

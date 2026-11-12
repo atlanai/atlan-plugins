@@ -88,8 +88,10 @@ the count; name how many.
 
 Called again on an eval folder that already has a score, after the context changed: run the test
 on the same eval folder as the next variant (`v1`, then `v2`) on the same questions, with no new questions and no
-question first. When the caller names a metric version, tell each
-answering agent to read that metric with that `version_ordinal`. Show `EVAL compare --a baseline --b v1` as one line
+question first. When the caller names a metric version, add one line to
+each answering agent's prompt: "If you use <metric>, read it at version <N>; read every other
+metric at its released version." Never list only the changed metrics: an agent told to read
+those reads nothing else. Show `EVAL compare --a baseline --b v1` as one line
 per question that changed, with the new score line.
 
 ## Save to Atlan Trident
