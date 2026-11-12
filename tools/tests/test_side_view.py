@@ -326,6 +326,15 @@ class SideView(unittest.TestCase):
         pieces = self.nodes(side_view.model(run), 'Metrics')
         self.assertNotIn('Translate each tile and chart', pieces, 'the person chose past queries only; a stray dashboard file is not read')
 
+    def test_the_answer_moment_finishes_the_ask_step_before_the_journey_records_it(self):
+        run = make_run(self.root, demo=True, saved=False, local=True)
+        interaction = run / 'interaction.json'
+        interaction.write_text(json.dumps({**json.loads(interaction.read_text(encoding='utf-8')), 'asked': False}), encoding='utf-8')
+        self.record(run, 'connect', data=[facts()])
+        self.record(run, 'answer', data=[facts()])
+        self.assertEqual(self.step(self.doc(run), 'Ask')['status'], 'done',
+                         'a live run recorded the question after the answer, with its output thrown away; that update never reached the page')
+
     def test_every_moment_names_the_newest_update_once_the_page_exists(self):
         run = make_run(self.root, saved=False)
         self.record(run, 'connect')

@@ -395,6 +395,9 @@ def model(run, state=None, engine_dir=None):
         if at is not None and all(r['status'] != 'completed' for r in rows[at + 1:]):
             rows = [dict(r, status='in_progress', active='Running each metric and query on the data') if i == at
                     else dict(r, status='pending') if i > at else r for i, r in enumerate(rows)]
+    if 'answer' in kinds:
+        # The person has asked: the journey records it too, but can do so after the answer, in a result no one reads.
+        rows = [dict(r, status='completed') if r['id'] == 'ask' else r for r in rows]
     current = next((i for i, r in enumerate(rows) if r['status'] != 'completed'), len(rows))
     steps = []
     for i, row in enumerate(rows):
