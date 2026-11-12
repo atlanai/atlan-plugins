@@ -160,20 +160,25 @@ which asks where it should live. With the context on this machine, ask nothing: 
 the project.
 
 End with the demo's "What would you like to do next?" from
-[ready](../../analytics-build/references/setup/ready.md), whose text is the closing line as plain
-lines, with the score's range as its only caveat (plus the source line only when `CHECK load`
-returned `generated: true`; no significance test, no open questions). Nothing else comes after it: no offer to change a saved query, another metric or the set, and no note
-about saved queries or past queries that still follow the old rule.
+[ready](../../analytics-build/references/setup/ready.md). Its text is exactly these lines, as
+plain lines, and nothing else:
 
-- every question right: this banner, then the line:
+1. Every question right: this banner. Otherwise no banner.
 
-  ```
-   *   .  '   *    .   '  *   .    '   *  .
-     '   *   .   ALL <N> RIGHT   .   *   '
-   .   *    '   .    *   '    .   *    '  .
-  ```
+   ```
+    *   .  '   *    .   '  *   .    '   *  .
+      '   *   .   ALL <N> RIGHT   .   *   '
+    .   *    '   .    *   '    .   *    '  .
+   ```
 
-  after a fix, "Your <agent> now answers all <N> questions right: the score went from <k> to
-  <N> of <N>, and <what changed, plain words>."; first time, "Your <agent> answers all <N>
-  questions <firm>'s analysts ask most."
-- some missed: "<k> of <N> right, and <what the misses share>."
+2. The result line. After a fix: "Your <agent> now answers all <N> questions right: the score
+   went from <k> to <N> of <N>, and <what changed, plain words>." First time: "Your <agent>
+   answers all <N> questions <firm>'s analysts ask most." Some missed: "<k> of <N> right, and
+   <what the misses share>."
+3. The score line, word for word, which carries the range.
+4. Only when `CHECK load` returned `generated: true`: the source line.
+5. One line on where it lives: on this machine, or saved to `<workspace>`.
+
+No other line: not a significance test, an open question, a note on saved queries or past
+queries that still follow the old rule, or an offer to change a saved query, another metric
+or the set.
