@@ -342,6 +342,10 @@ def _shows(kind, run, engine_dir):
         rows, _ = _rows(run, 'build', seen(run), engine_dir)
         if next((r['id'] for r in rows if r['status'] != 'completed'), None) != 'scope':
             return False
+    if kind == 'sources' and not (_state(run).get('demo') or RunFacts(run).interaction.get('flow') == 'demo'):
+        # On own data the data read is the tables the person chose: it waits for that choice.
+        if RunFacts(run).inputs is None:
+            return False
     if kind == 'context':
         # Checks are recorded one by one; the moment waits for the last.
         c = RunFacts(run, engine_dir).context

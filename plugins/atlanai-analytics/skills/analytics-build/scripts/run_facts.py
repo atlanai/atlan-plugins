@@ -248,10 +248,14 @@ class RunFacts:
         existing database was bound with, whose rows were never counted (None)."""
         tables = self.file('context', 'data-preparation.json').get('tables') or []
         rows = [(str(t.get('table')).split('.')[-1], int(t.get('rows') or 0)) for t in tables if isinstance(t, dict) and t.get('table')]
-        if rows:
-            return sorted(rows, key=lambda t: -t[1])
-        bound = (self.meta.get('execution') or {}).get('tables') if isinstance(self.meta.get('execution'), dict) else None
-        return [(str(name).split('.')[-1], None) for name in bound or [] if name]
+        if not rows:
+            bound = (self.meta.get('execution') or {}).get('tables') if isinstance(self.meta.get('execution'), dict) else None
+            rows = [(str(name).split('.')[-1], None) for name in bound or [] if name]
+        # Once the person has chosen, only the tables they chose: a bound database can hold more.
+        chosen = {str(t).split('.')[-1].lower() for t in self.config.get('tables') or [] if t}
+        kept = [r for r in rows if r[0].lower() in chosen]
+        rows = kept if chosen and kept else rows
+        return sorted(rows, key=lambda t: -(t[1] or 0))
 
     @property
     def table_rows(self):

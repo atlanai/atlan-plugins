@@ -80,6 +80,20 @@ class Moments(unittest.TestCase):
         self.assertEqual(self.show('sources', run), '● **3** past queries read · Power BI dashboard, 2 tables',
                          'an existing database bound for the checks is the data read; its rows were never counted')
 
+    def test_the_tables_read_are_the_ones_the_person_chose(self):
+        run = make_run(self.root / 'chosen')
+        (run / 'context' / 'data-preparation.json').unlink()
+        config = run / 'engine-config.json'
+        config.write_text(json.dumps({**json.loads(config.read_text(encoding='utf-8')), 'tables': ['SITE.JOBS']}), encoding='utf-8')
+        self.assertEqual(self.show('sources', run), '● **3** past queries read · Power BI dashboard, 1 table',
+                         'a live run showed the 10 tables bound while its question said the 6 chosen')
+        import side_view
+        pieces = {n['t']: n for s in side_view.model(run)['steps'] for n in s['how']}
+        self.assertEqual(pieces['Open the database read-only']['n'], '1 table')
+        unchosen = make_run(self.root / 'early', saved=False, stage=('scope', 'running'))
+        (unchosen / 'engine-config.json').unlink()
+        self.assertNotIn('sources', side_view.due(unchosen), 'on own data the data read waits for what the person chose')
+
     def test_found_counts_only_what_it_names(self):
         run = make_run(self.root / 'db')
         meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
