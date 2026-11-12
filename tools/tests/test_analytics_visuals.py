@@ -386,6 +386,8 @@ class Helper(unittest.TestCase):
             self.project('visual', kind)
         built = self.project('visual', 'build')
         self.assertTrue(built.startswith('side view: '), 'mid-build a terminal reply reaches no one; the card waits for the question')
+        self.assertIn('If you have a `show_widget` tool, run this again with `--widget`', self.side(built)['next'],
+                      'a desktop agent that forgot the flag would otherwise never show the build card')
         self.assertIn('build', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
         checked = self.project('visual', 'context')
         shown = checked.split('\nside view: ')[0]

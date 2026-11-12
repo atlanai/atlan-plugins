@@ -710,6 +710,10 @@ def main():
                 steps.append("Show the text above, unchanged, as this moment's result: in your reply, on its own lines. If "
                              "you have a `show_widget` tool, run this again with `--widget`, pass the HTML to it instead, "
                              "and add `--widget` to every later `visual` call.")
+            elif held:
+                steps.append("In a terminal the card waits for the save question, with the checks. If you have a "
+                             "`show_widget` tool, run this again with `--widget` and draw it now, and add `--widget` to every "
+                             "later `visual` call.")
             if shown or held or args.kind == 'connect':
                 try:
                     update.update(side_view.record(run, args.kind, spec, args.engine_dir))
