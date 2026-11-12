@@ -3,7 +3,8 @@
 Read on starting or resuming setup. Claude and Codex own the interface: use their normal
 messages, task list, code disclosures and question controls. Progress is
 [the setup checklist](checklist.md) in chat and that task list when available. Open no side panel, browser view or
-other surface unless the person asks for [a visual view](render.md).
+other surface unless the person asks for [a visual view](render.md), apart from the run's own
+[side view](visuals.md).
 
 ## One useful result, one next action
 
