@@ -25,7 +25,7 @@ Open the chosen demo's file again for its facts
 Send these lines, filled from the facts and this run, as the text of the "What would you
 like to ask?" question, with their line breaks and leading spaces. The fence only marks the
 lines. Run the `saved` visual first ([visuals](visuals.md)): in a terminal its lines go first in
-this question's text; with `show_widget`, draw it right before the question.
+this question's text, unchanged; with `show_widget`, draw it right before the question.
 Omit the See the environment line when there is no tour; own-data setup never has one.
 Keep each filled line within 76 characters, wrapping a long value onto an indented line.
 

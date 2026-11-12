@@ -89,7 +89,7 @@ def _names(value):
     """A list of metric names; a sentence such as 'A, B and C' reads as its names."""
     if isinstance(value, str):
         return [n.strip() for n in value.replace(' and ', ',').split(',') if n.strip()]
-    return [v for v in value or [] if isinstance(v, (str, list))]
+    return [v for v in value or [] if isinstance(v, str) or isinstance(v, list) and v]
 
 
 def collect(kind, facts):
@@ -113,7 +113,7 @@ def collect(kind, facts):
     if kind == 'saved':
         if facts.local:
             c = facts.context
-            return {'local': True, **({'kept': c['passed']} if c else {})}
+            return {'local': True, **({'kept': c['passed'], 'total': c['total']} if c else {})}
         return dict(facts.publication)
     return {}
 
@@ -157,11 +157,9 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         # not. Other rules it lists can hold other units.
         first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)), None)
         own = (facts.unit_for(first) or '').lower() if first else ''
-        # Unless the rows are already in percent: the headline's number says which scale they hold.
-        rows = [r for r in spec.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
-        lead = next((r[1] for r in rows if r[0] == spec.get('highlight')), rows[0][1] if rows else None)
-        shown = str(spec.get('headline') or '').rpartition(': ')[2].replace(' ', '')
-        as_percent = lead is not None and number(lead, 'percent') == shown and number(lead, 'fraction') != shown
+        # Unless the rows are already in percent: a share runs from 0 to 1, so any row past 1 was written as a percent.
+        values = [r[1] for r in spec.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
+        as_percent = any(abs(v) > 1 for v in values)
         if ('fraction' in own or own in ('ratio', 'share')) and not as_percent:
             spec['unit'] = 'fraction'
     if kind == 'edit':
@@ -234,7 +232,10 @@ def _ticker(kind, s):
         return {'num': '{:,}'.format(read), 'what': 'past query read' if read == 1 else 'past queries read',
                 'tail': '%s, %s' % (s['warehouse'], count(s['scoped'], 'table'))}
     if kind == 'saved' and s.get('local') and s.get('kept'):
-        return {'num': str(s['kept']), 'what': 'checked metrics and queries kept on this machine', 'tail': 'nothing saved to Atlan'}
+        # Out of everything kept, as the ready block counts it.
+        total = s.get('total') or s['kept']
+        return {'ring': (s['kept'], total), 'num': '%d/%d' % (s['kept'], total), 'what': 'checked metrics and queries kept on this machine',
+                'tail': 'nothing saved to Atlan'}
     if kind == 'sources' and s.get('tables'):
         tables = s['tables']
         tool = (s.get('dashboard') or {}).get('tool')

@@ -703,7 +703,8 @@ def main():
                              "your next question or reply. Never put it in a question's text.")
             elif shown and asked:
                 steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
-                             "written just before it folds. Write nothing else before that question. If you have a "
+                             "written just before it folds. They are counted from the run's files, so never reword them or "
+                             "add a number to them. Write nothing else before that question. If you have a "
                              "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
                              "`--widget` to every later `visual` call." % asked)
             elif shown:

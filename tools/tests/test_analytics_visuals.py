@@ -134,8 +134,9 @@ class Moments(unittest.TestCase):
 
     def test_a_context_kept_local_is_a_chip(self):
         run = make_run(self.root / 'l', local=True)
-        self.assertEqual(self.show('saved', run), '● **4** checked metrics and queries kept on this machine · nothing saved to Atlan')
-        self.assertTrue(self.show('saved', make_run(self.root / 'lf', local=True, failing=1)).startswith('● **3** checked'), 'what can be used, not what needs a look')
+        self.assertEqual(self.show('saved', run), '● **4/4** checked metrics and queries kept on this machine · nothing saved to Atlan')
+        self.assertTrue(self.show('saved', make_run(self.root / 'lf', local=True, failing=1)).startswith('◕ **3/4** checked'),
+                        'what passed, out of everything kept, which is what the ready block counts')
 
     def test_a_dashboard_proposal_is_a_chip(self):
         self.assertEqual(self.show('layout'), '● **2** tiles · dashboard proposed, with 1 more metric below them')
@@ -244,6 +245,11 @@ class Moments(unittest.TestCase):
         card = self.show('answer')
         self.assertIn('57.1%', card, 'rows already in percent keep the scale the headline shows')
         self.assertNotIn('5710%', card)
+        answer.update(rows=[['build', 80.0], ['repair', 60.0]], highlight='build', headline='On-time rate: 71.4%')
+        (self.run / 'answer.json').write_text(json.dumps(answer), encoding='utf-8')
+        card = self.show('answer')
+        self.assertIn('80%', card, 'an overall headline over per-type rows: the rows say their own scale')
+        self.assertNotIn('8000%', card)
         answer.update(rows=[['Job 1', 0.25]], headline='Job 1: 25%')
         answer.pop('highlight')
         metrics.append({'name': 'Fee Take Rate', 'definition': {'output': {'unit': 'fraction of face value'}, 'formula': 'SUM(a) / SUM(b)'}})
@@ -282,6 +288,10 @@ class Moments(unittest.TestCase):
         self.assertIn('Why \\`\\`\\` and \\*this\\* here?', card, 'Markdown in the data cannot start code or emphasis')
         self.assertIn('order_processing', card, 'an underscore inside a word needs no escape')
         self.assertIn('\\_hidden', card)
+
+    def test_an_empty_name_below_the_tiles_is_left_out(self):
+        (self.run / 'layout.json').write_text(json.dumps({'tiles': ['Gross Margin'], 'more': [[], 'Rework Cost']}), encoding='utf-8')
+        self.assertEqual(self.show('layout'), '● **1** tile · dashboard proposed, with 1 more metric below them')
 
     def test_a_malformed_data_file_is_ignored_not_fatal(self):
         (self.run / 'answer.json').write_text('[1, 2]')
@@ -396,6 +406,8 @@ class Helper(unittest.TestCase):
         self.assertNotIn('**', shown, "a question's text shows no Markdown")
         line = self.side(checked)['next']
         self.assertIn("in the save question's text in place of its count line", line, "a question's own text is always shown")
+        self.assertIn('never reword them or add a number to them', line,
+                      'a live run added "7 need a look" from another step to a chip that said every check passed')
         self.assertIn('the banner, the two lines under it and the question stay', line,
                       'the celebration keeps its banner (a live run read "after its first two lines" as "replace the top")')
         widget = self.project('visual', 'build', '--widget')
@@ -498,7 +510,7 @@ class Helper(unittest.TestCase):
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         out = self.project('visual', 'saved')
-        self.assertTrue(out.startswith('● 4 checked metrics and queries kept on this machine'), "plain, for the ready question's text")
+        self.assertTrue(out.startswith('● 4/4 checked metrics and queries kept on this machine'), "plain, for the ready question's text")
         self.assertIn('saved', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
 
     def test_an_answer_without_its_file_shows_and_records_nothing(self):
