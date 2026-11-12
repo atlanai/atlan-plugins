@@ -34,6 +34,7 @@ import math
 import os
 import pathlib
 import random
+import shutil
 import re
 import statistics
 import sys
@@ -1444,7 +1445,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     # One create_artifacts call carries as many sessions' messages as fit, so a 40-case variant
     # takes a handful of steps rather than one step per session.
     items, names, size = [], [], 0
-    for r in rows:
+    # Transcripts hold the answering agents' commands and local paths; a save can leave them out.
+    for r in [] if getattr(a, "no_transcripts", False) else rows:
         tag = _tag(r)
         sent = set(pub.s["messages"].get(tag) or [])
         turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
@@ -1666,7 +1668,7 @@ def _selftest_generated_set(pr: pathlib.Path) -> tuple:
     return imported, steps == ["scorer", "dataset", "records"] and res.get("records") == 1
 
 
-def _selftest_publish(pr: pathlib.Path) -> bool:
+def _selftest_publish(pr: pathlib.Path, no_transcripts: bool = False) -> bool:
     """Drive `publish` and `publish-ack` to done against a fake registry, with one failed slot, one lost
     single create (resent) and one lost batch (reconciled from a listing)."""
     proj = Proj(str(pr))
@@ -1682,10 +1684,10 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
 
     def ns(**kw):
         base = dict(dir=str(pr), variant="cited", baseline=None, agent_id=None, workspace=None,
-                    sessions_only=False, resend=False, reconcile=False)
+                    sessions_only=False, resend=False, reconcile=False, no_transcripts=no_transcripts)
         return argparse.Namespace(**{**base, **kw})
 
-    calls_seen, failed_once, lost_once, reconciled = [], False, False, False
+    calls_seen, steps_seen, failed_once, lost_once, reconciled = [], [], False, False, False
     for _ in range(40):
         out = cmd_publish(ns())
         if out.get("step") == "done":
@@ -1693,6 +1695,7 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
         if out.get("status") == "BLOCKED":
             return False
         step, resps = out["step"], []
+        steps_seen.append(step)
         for call in out["calls"]:
             calls_seen.append(call["tool"])
             kind = call["arguments"].get("kind") or "experiment"
@@ -1725,7 +1728,9 @@ def _selftest_publish(pr: pathlib.Path) -> bool:
         cmd_publish_ack(ns(step=step, responses=str(resp_path)))
     pub = load_json(pr / "hillclimb" / "cited" / "publish.json")
     st = proj.state()["ids"]
-    return (out.get("step") == "done" and failed_once and lost_once and reconciled and pub.get("completed")
+    if no_transcripts and "messages" in steps_seen:
+        return False
+    return (out.get("step") == "done" and (failed_once or no_transcripts) and lost_once and reconciled and pub.get("completed")
             and st.get("scorer_id") and st.get("eval_dataset_id") and st["experiments"]["cited"]
             and len(pub["results"]) == 1 and len(pub["sessions"]) == 1
             and all(t.startswith("registry__") for t in calls_seen))
@@ -1880,7 +1885,11 @@ def selftest() -> dict:
         cited = read_jsonl(pr / "hillclimb" / "cited" / "results.jsonl")[0]
         ok("record retains exact published and query revision citations", cited["used_context_refs"] == refs
            and cited["used_context_ids"] == [r["artifact_id"] for r in refs])
+        bare = pathlib.Path(d) / "no-transcripts"
+        shutil.copytree(pr, bare)
         ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
+        ok("a publish without transcripts saves the sessions and scores, never the messages",
+           _selftest_publish(bare, no_transcripts=True))
         imported, dataset_only = _selftest_generated_set(pathlib.Path(d) / "generated")
         ok("import-spec keeps only approved records with SQL", imported)
         ok("a dataset-only publish needs no agent and stops after the records", dataset_only)
@@ -2337,6 +2346,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="sessions only (smoke runs): no dataset, experiment or results")
     c.add_argument("--resend", action="store_true",
                    help="repeat an unacknowledged step whose calls carry idempotency keys")
+    c.add_argument("--no-transcripts", action="store_true",
+                   help="sessions and scores without each session's messages, which hold local commands and paths")
     c.add_argument("--dataset-only", action="store_true",
                    help="the scorer, dataset and records only: no agent, experiment or sessions")
     c.set_defaults(func=cmd_publish)

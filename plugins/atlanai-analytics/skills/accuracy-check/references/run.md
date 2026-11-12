@@ -100,13 +100,15 @@ Called when the caller asks to save a check. The caller gives the workspace and 
 (`agent_...`); this skill registers nothing.
 
 1. `EVAL init --agent-id <id> --workspace-id <workspace>` records them on the eval folder.
-2. Publish each run in order, the first one first: `EVAL publish --variant baseline`, then for
-   each test again `EVAL publish --variant <vN> --baseline <the run before it>`, each with
+2. Publish each run in order, the first one first: `EVAL publish --variant baseline
+   --no-transcripts`, then for each test again `EVAL publish --variant <vN> --baseline <the run
+   before it> --no-transcripts`, each with
    `EVAL publish-ack` until `"step": "done"`, as
    [publish](../../eval-generation/references/publish.md) describes, saving the tool results in
    that run's own folder (`<evals-run>/hillclimb/<variant>/publish-<step>.json`).
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
-the run as an experiment, each answer with its SQL and score. Each later run is an experiment
+the run as an experiment, each answer with its SQL and score. Never the answering agents'
+transcripts: they hold this machine's commands and paths. Each later run is an experiment
 linked to the one before it, so the workspace shows the score move. Return each run's
 `experiment_id` and the workspace.
