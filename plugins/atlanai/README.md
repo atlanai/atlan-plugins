@@ -95,6 +95,8 @@ remain in the repository and plugin folder for inspection.
 
 ## Privacy
 
+See the [Atlan privacy notice](https://atlan.com/privacy-policy/).
+
 Atlan stores account identity, selected registry content and call/session records, which
 can contain personal data. The [trace privacy reference](https://platform.atlan.com/registry/traces/references/limits-and-privacy)
 states that traces have no automatic expiry. Organization settings can discard future
