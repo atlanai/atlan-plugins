@@ -567,7 +567,7 @@ def _due(run, engine_dir=None):
     try:
         kinds = side_view.due(run, engine_dir)
         line = side_view.push(side_view.progress(run, engine_dir))
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except Exception:  # noqa: BLE001 - the view never fails a command whose own work succeeded, as in the engine's driver
         return {}
     out = {'side_view': line} if line else {}
     if kinds:
@@ -711,7 +711,7 @@ def main():
             if shown or held or args.kind == 'connect':
                 try:
                     update.update(side_view.record(run, args.kind, spec, args.engine_dir))
-                except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                except Exception as exc:  # noqa: BLE001 - the moment's own result still shows
                     update['error'] = 'The side view was not updated: %s' % type(exc).__name__
             # Every duty this update carries, in order, so the agent never has to recall the reference mid-run. Opening
             # the page comes first: dropped, it costs the whole side view; a push comes after the moment's own result.

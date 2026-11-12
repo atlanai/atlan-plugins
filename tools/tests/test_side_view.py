@@ -246,6 +246,14 @@ class SideView(unittest.TestCase):
         values = dict((r[0], r[1]) for r in self.step(self.doc(run), 'Metrics')['result'][1]['list'])
         self.assertEqual(values['Gross margin'], '£1')
 
+    def test_a_fault_in_the_side_view_never_fails_the_command_that_carried_it(self):
+        import csv
+        from unittest import mock
+        import project
+        run = make_run(self.root, saved=False)
+        with mock.patch.object(side_view, 'due', side_effect=csv.Error('a malformed query log')):
+            self.assertEqual(project._due(run), {}, "the helper's own work already succeeded")
+
     def test_past_queries_read_are_one_number_and_the_page_says_where_some_went(self):
         run = make_run(self.root, saved=False)
         log = self.root / 'source' / 'history' / 'querylog.jsonl'
