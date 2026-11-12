@@ -139,6 +139,15 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         fill = lambda t: t if isinstance(t, list) else [t, values.get(sentence(t).lower(), 'blank')]
         spec['tiles'] = [fill(t) for t in _names(spec.get('tiles'))]
         spec['more'] = [fill(t) for t in _names(spec.get('more'))]
+        # The names below the tiles are metrics, as the data file asks, unless one is a query the context holds: the agent
+        # can list a breakdown or a chart there.
+        key = lambda t: re.sub(r'[\s_-]+', ' ', str(t)).strip().lower()
+        named = lambda file: {key(x.get(k)) for x in (facts.file('context', file, kind=list) if facts else [])
+                              if isinstance(x, dict) for k in ('name', 'display_name') if x.get(k)}
+        metrics, queries = named('metrics.json'), named('queries.json')
+        kinds = ['query' if key(t[0]) in queries and key(t[0]) not in metrics else 'metric' for t in spec['more']]
+        spec['below'] = [count(kinds.count(k), *words) for k, words in (('metric', ('more metric',)), ('query', ('query', 'queries')))
+                         if kinds.count(k)]
     if kind == 'answer' and facts and str(spec.get('unit') or '').lower() in ('percent', 'percentage', '%'):
         # The answer's own metric (its first rule) says whether a percent is a share from 0 to 1; the agent's file may
         # not. Other rules it lists can hold other units.
@@ -236,7 +245,7 @@ def _ticker(kind, s):
         return {'values': [r[1] for r in s.get('rows') or [] if isinstance(r, list) and len(r) > 1], 'num': value, 'what': '', 'tail': label}
     if kind == 'layout' and s.get('tiles'):
         return {'num': str(len(s['tiles'])), 'what': 'tiles' if len(s['tiles']) != 1 else 'tile', 'tail': 'dashboard proposed' + (
-            ', with %s below them' % count(len(s['more']), 'more metric') if s.get('more') else '')}
+            ', with %s below them' % ' and '.join(s['below']) if s.get('below') else '')}
     return None
 
 

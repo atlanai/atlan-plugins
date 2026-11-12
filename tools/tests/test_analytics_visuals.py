@@ -136,6 +136,10 @@ class Moments(unittest.TestCase):
 
     def test_a_dashboard_proposal_is_a_chip(self):
         self.assertEqual(self.show('layout'), '● **2** tiles · dashboard proposed, with 1 more metric below them')
+        (self.run / 'layout.json').write_text(json.dumps({'tiles': ['Gross Margin', 'Rework Cost'], 'more': ['Rework Cost', 'Q Margin']}),
+                                              encoding='utf-8')
+        self.assertEqual(self.show('layout'), '● **2** tiles · dashboard proposed, with 1 more metric and 1 query below them',
+                         'a live run listed two queries there, which the chip called metrics')
 
     def test_nothing_shows_before_the_run_has_it(self):
         empty = self.root / 'empty'
