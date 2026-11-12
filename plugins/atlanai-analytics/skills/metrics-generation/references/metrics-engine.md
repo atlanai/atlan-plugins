@@ -39,6 +39,9 @@ If the runtime is absent, announce its isolated, constrained initialization and 
 `ENGINE setup` as part of the requested workflow through the host permission controls, with one
 `--feature <name>` per required feature. It installs no Registry writer, glossary writer,
 observer or model SDK. Do not install everything to answer a local-file request.
+Setup picks its own Python: it tries each Python 3.11 and 3.12 it finds and builds with the
+first that makes a venv with pip. Run it with any `python3`; do not look for an interpreter or
+retry in a new folder yourself. Only its refusal naming no usable Python needs one installed.
 
 An MCP tool visible in chat is not an installed input plug. Capture evidence through that
 authorized tool into the core's common file formats and use `local-files`, preserving custody

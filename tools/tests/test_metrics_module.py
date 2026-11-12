@@ -185,6 +185,18 @@ class SnapshotTests(unittest.TestCase):
             with driver.operation_lock(root):
                 pass
 
+    def test_edit_forwards_the_metric_card_and_model_to_the_runtime(self):
+        with mock.patch.object(driver, 'invoke', return_value=({'status': 'edited'}, 0)) as invoke, \
+                mock.patch('builtins.print'):
+            code = driver.main(['--runtime', '/tmp/runtime', 'edit', '--run', '/tmp/run', '--metric', 'Gross Margin',
+                                '--card', '/tmp/card.json', '--model', 'synthetic-test'])
+        self.assertEqual(code, 0)
+        command, forwarded = invoke.call_args.args[1:]
+        self.assertEqual(command, 'edit')
+        self.assertEqual(dict(zip(forwarded[::2], forwarded[1::2])),
+                         {'--run': '/tmp/run', '--metric': 'Gross Margin', '--card': '/tmp/card.json',
+                          '--model': 'synthetic-test'})
+
     def test_incomplete_skill_only_install_reports_missing_plugin_module(self):
         with tempfile.TemporaryDirectory() as temp:
             script = Path(temp) / 'skills/metrics-generation/scripts/analytics_agent.py'
@@ -649,6 +661,74 @@ else:
         code, blocked = self.command('export', '--run', self.run, '--context', self.root / 'other-context')
         self.assertEqual(code, 2)
         self.assertIn('changed after completion', blocked['reason'])
+
+    def complete(self):
+        code, data = self.command('prepare', '--run', self.run, '--config', self.config)
+        self.assertEqual(code, 0, data)
+        for _ in range(8):
+            code, data = self.command('advance', '--run', self.run, '--model', 'synthetic-test')
+            if code == 0:
+                return
+            self.assertEqual(code, 3, data)
+            self.answer(data['gate'])
+        self.fail(data)
+
+    def revised(self, **changes):
+        code, current = self.command('edit', '--run', self.run, '--metric', 'Revenue')
+        self.assertEqual(code, 0, current)
+        path = self.root / 'revised-card.json'
+        path.write_text(json.dumps({**current['card'], **changes}))
+        return path
+
+    def edit(self, card):
+        return self.command('edit', '--run', self.run, '--metric', 'Revenue', '--card', card,
+                            '--model', 'synthetic-test')
+
+    def test_edit_changes_one_rule_through_its_gates_and_keeps_its_identity(self):
+        self.complete()
+        code, exported = self.command('export', '--run', self.run, '--context', self.context)
+        self.assertEqual(code, 0, exported)
+        original = json.loads((self.context / 'metrics.json').read_text())[0]
+        code, current = self.command('edit', '--run', self.run, '--metric', 'Revenue')
+        self.assertEqual((code, current['status'], current['card']['name']), (0, 'current', 'Revenue'), current)
+        self.assertEqual(current['rule']['population'], 'All orders')
+        code, edit = self.edit(self.revised(population='Orders over 10',
+                                            mandatory_filters=['demo.main.orders.amount > 10']))
+        self.assertEqual((code, edit['status']), (0, 'edited'), edit)
+        self.assertEqual(edit['source_id'], original['source_id'])
+        self.assertEqual(edit['changed'], ['mandatory_filters', 'population'])
+        self.assertEqual((edit['before']['rule']['population'], edit['after']['rule']['population']),
+                         ('All orders', 'Orders over 10'))
+        for side in ('before', 'after'):
+            self.assertEqual({gate: check['verdict'] for gate, check in edit[side]['checks'].items()},
+                             {'card': 'ok', 'consistency': 'ok', 'relationships': 'ok'}, edit)
+        body = json.loads((Path(edit['context']) / 'metrics.json').read_text())[0]
+        self.assertEqual(body['source_id'], original['source_id'])
+        self.assertEqual(body['definition']['mandatory_filters'], ['demo.main.orders.amount > 10'])
+        self.assertEqual(json.loads((Path(edit['edit']) / 'previous-card.json').read_text()), current['card'])
+        # A second revision keeps the identity the metric was first exported with.
+        code, again = self.edit(self.revised(population='Orders over 15',
+                                             mandatory_filters=['demo.main.orders.amount > 15']))
+        self.assertEqual((code, again['source_id']), (0, original['source_id']), again)
+        self.assertEqual(again['before']['rule']['population'], 'Orders over 10')
+        self.assertNotEqual(again['context'], edit['context'])
+
+    def test_a_refused_edit_keeps_the_previous_card_and_a_complete_run(self):
+        self.complete()
+        cards = json.loads((self.run / 'metric_cards.json').read_text())['metrics']
+        code, refused = self.edit(self.revised(formula='SUM(COUNT(demo.main.orders.id))'))
+        self.assertEqual((code, refused['status']), (2, 'refused'), refused)
+        self.assertIn('nested aggregates', refused['feedback'])
+        self.assertEqual(refused['rule']['formula'], 'SUM(demo.main.orders.amount)')
+        self.assertEqual(json.loads((self.run / 'metric_cards.json').read_text())['metrics'], cards)
+        code, exported = self.command('export', '--run', self.run, '--context', self.context)
+        self.assertEqual(code, 0, exported)
+        for changes, reason in (({'name': 'Sales'}, "Keep the metric's name"), ({}, 'changes nothing')):
+            with self.subTest(changes=changes):
+                code, refused = self.edit(self.revised(**changes))
+                self.assertEqual(code, 2, refused)
+                self.assertIn(reason, refused['reason'])
+        self.assertEqual(json.loads((self.run / 'metric_cards.json').read_text())['metrics'], cards)
 
 
     def test_no_engine_registry_destination_or_observer_and_no_early_export(self):

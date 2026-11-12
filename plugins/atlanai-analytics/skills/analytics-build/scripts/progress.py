@@ -12,6 +12,12 @@ def update_checks(run):
     completed = sum(item['status'] != 'draft' for item in items)
     status = ('running' if completed < len(items) else
               'complete-with-held-items' if any(item['status'] == 'held' for item in items) else 'complete')
+    path = run.root / 'progress.json'
+    previous = run.read(path) if path.exists() else {}
+    if (status == 'complete' and previous.get('stage') in STAGES
+            and STAGES.index(previous['stage']) > STAGES.index('check')):
+        # A passing re-check, such as after a changed rule, keeps the steps already taken.
+        return update(run, previous['stage'], previous.get('status', 'complete'), completed=completed, total=len(items))
     return update(run, 'check', status, completed=completed, total=len(items))
 
 
