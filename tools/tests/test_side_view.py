@@ -274,12 +274,26 @@ class SideView(unittest.TestCase):
         entries = json.loads(checks.read_text(encoding='utf-8'))
         del entries['sql_query:q-jobs']
         checks.write_text(json.dumps(entries), encoding='utf-8')
-        self.record(run, 'connect')
+        self.record(run, 'connect', 'context')
         self.assertEqual(self.step(self.doc(run), 'Metrics')['status'], 'done')
         self.assertEqual(self.nodes(self.doc(run), 'Metrics')['Hold what needs a look']['n'], '1 need a look',
                          "the save question's rule: whatever did not pass")
         self.assertEqual(visuals.render('context', visuals.build_spec('context', run)),
                          '◕ **3/4** metrics and queries checked · on your data, 1 need a look')
+
+    def test_the_metrics_step_stays_open_until_its_checks_have_run(self):
+        run = make_run(self.root, saved=False)
+        checks = run / 'context' / 'candidate-checks.json'
+        final = json.loads(checks.read_text(encoding='utf-8'))
+        checks.write_text(json.dumps({k: {'status': 'schema_checked', 'errors': []} for k in final}), encoding='utf-8')
+        self.record(run, 'connect')
+        doc = self.doc(run)
+        self.assertEqual([self.step(doc, n)['status'] for n in ('Metrics', 'Save')], ['now', 'next'],
+                         'the task list counts the first pass as the checks; a live run then showed "39 need a look"')
+        self.assertNotIn('n', self.nodes(doc, 'Metrics')['Hold what needs a look'])
+        checks.write_text(json.dumps(final), encoding='utf-8')
+        self.assertIn('doc', side_view.progress(run))
+        self.assertEqual(self.step(self.doc(run), 'Metrics')['status'], 'done')
 
     def test_the_structural_pass_is_not_a_check_run(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))

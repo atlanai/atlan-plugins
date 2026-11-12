@@ -386,6 +386,14 @@ def model(run, state=None, engine_dir=None):
     # moved keeps finding that engine inside it.
     named = engine_dir or facts.meta.get('engine_run')
     rows, run_state = _rows(run, flow, kinds, facts.engine if named and facts.engine.is_dir() else None)
+    c = facts.context
+    if c and 'context' not in kinds and (c['metrics_checked'] < len(c['metrics']) or c['queries_checked'] < c['queries']):
+        # The task list counts the first check pass, which only looks for missing parts, as the checks. The page keeps
+        # the step open until every item has run, or the checks moment has been shown.
+        at = next((i for i, r in enumerate(rows) if r['id'] == 'metrics' and r['status'] == 'completed'), None)
+        if at is not None:
+            rows = [dict(r, status='in_progress') if i == at else dict(r, status='pending') if i > at else r
+                    for i, r in enumerate(rows)]
     current = next((i for i, r in enumerate(rows) if r['status'] != 'completed'), len(rows))
     steps = []
     for i, row in enumerate(rows):
