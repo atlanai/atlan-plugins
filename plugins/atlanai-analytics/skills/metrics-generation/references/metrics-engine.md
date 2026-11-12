@@ -225,7 +225,9 @@ authorizes an unrelated write, changes Registry release policy or skips a valida
 
 ## 3. Let the assistant answer the original gates
 
-Run `ENGINE advance --run <engine-dir> --model <actual-model-id>`.
+Run `ENGINE advance --run <engine-dir> --model <actual-model-id>`. In a setup run each result
+leads with a `side_view` line: push the update it names before the next gate, so the side view
+ticks each gate as it finishes ([visuals](../../analytics-build/references/setup/visuals.md)).
 
 - Exit 0 with `complete`: export the bundle.
 - Exit 3 with `gate`: read its `instructions`, cited references and evidence `prompt`; write
