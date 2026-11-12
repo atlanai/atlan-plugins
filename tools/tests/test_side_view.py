@@ -69,6 +69,21 @@ class SideView(unittest.TestCase):
         titles = [n['t'] for s in self.doc(run)['steps'] for n in s['how']]
         self.assertNotIn('You pick a demo', titles, 'own data shows no demo work')
 
+    def test_a_step_finished_ahead_of_the_open_one_shows_done(self):
+        run = make_run(self.root, saved=False)
+        before_the_engine(run, 'inspect')
+        interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
+        (run / 'interaction.json').write_text(json.dumps({k: v for k, v in interaction.items() if k != 'intent'}), encoding='utf-8')
+        self.record(run, 'connect')
+        doc = self.doc(run)
+        self.assertEqual([s['status'] for s in doc['steps']][:3], ['now', 'done', 'next'],
+                         'own data surveys its sources before the use case is saved, and the page shows the survey done')
+        self.assertEqual(self.step(doc, 'Sources')['fact'], 'Power BI dashboard, 2 data files, query history')
+        self.assertTrue(all(n['s'] == 'done' for n in self.step(doc, 'Sources')['how']))
+        self.assertEqual(doc['current'], 0)
+        page = side_view.PAGE.read_text(encoding='utf-8')
+        self.assertIn("find(s => s.status !== 'done')", page, 'the Next box skips a step that is already done')
+
     def test_a_piece_of_work_ticks_as_soon_as_the_run_has_it(self):
         run, manifest, gates = self.building()
         side_view.link(run, 'https://claude.ai/artifact/abc')

@@ -329,7 +329,8 @@ def model(run, state=None, engine_dir=None):
     steps = []
     for i, row in enumerate(rows):
         name, build = BUILDERS[row['id']]
-        done, now = i < current, i == current
+        # A step can finish ahead of one still open: own data surveys its sources before the use case is saved.
+        done, now = row['status'] == 'completed', i == current
         keep = done and row['id'] not in REPEATS
         section = frozen.get(row['id']) if keep and row['id'] in frozen else build(facts, {'demo': flow == 'demo', 'open': not done})
         if keep:

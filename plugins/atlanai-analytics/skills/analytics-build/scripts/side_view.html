@@ -129,7 +129,7 @@ h1{font-weight:600;font-size:18px;line-height:24px;margin:2px 0 0;text-wrap:bala
   function draw() {
     if (!doc) return;
     const d = doc, all = d.steps.length, done = d.current >= all;
-    const after = !done && d.current + 1 < all ? d.steps[d.current + 1] : null;
+    const after = done ? null : d.steps.slice(d.current + 1).find(s => s.status !== 'done') || null;
     const ready = d.steps.some(s => s.id === 'save' && s.status === 'done');
     const time = d.updated ? new Date(d.updated).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
     const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.n : null;
