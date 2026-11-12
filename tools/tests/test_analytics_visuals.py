@@ -234,6 +234,20 @@ class Helper(unittest.TestCase):
         self.assertTrue(out.startswith('● **3** past queries read'))
         self.assertEqual(sorted(self.side(out)), ['next'], 'the finished run already shows it: no new document')
 
+    def test_the_next_line_names_every_duty_the_update_carries(self):
+        first = self.side(self.project('visual', 'connect', '--widget'))['next']
+        self.assertTrue(first.startswith('Draw it now'), 'the widget first, as the very next call')
+        self.assertIn('publish `page`', first, 'the first update opens the side view without the agent recalling the reference')
+        self.assertIn('doc_id `s01`', first)
+        self.assertIn('progress.html', first, 'and says what to do without the artifact tools')
+        meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
+        self.project('view', '--url', 'https://claude.ai/artifact/abc')
+        at(self.run, 'scope')
+        (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
+        later = self.side(self.project('visual', 'sources', '--widget'))['next']
+        self.assertIn('Then push it to the side view: `ArtifactData` set, url `https://claude.ai/artifact/abc`', later)
+        self.assertNotIn('publish `page`', later, 'the page is published once')
+
     def test_the_build_card_and_the_checks_chip_are_reply_text(self):
         for kind in ('connect', 'sources'):
             self.project('visual', kind)

@@ -683,20 +683,31 @@ def main():
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done;
             # connect opens the side view whatever it shows. The side view is a convenience: the chat already has
             # the moment, so a failure here never blocks the run.
-            update = {}
+            update, steps = {}, []
             if shown and args.widget:
-                update['next'] = ("Pass the HTML above to show_widget now, as this moment's result, before your next "
-                                  "question or reply. Never put it in a question's text.")
+                steps.append("Draw it now: pass the HTML above to `show_widget` as your next call (after its `read_me`, the "
+                             "first time), before any other work. Never put it in a question's text.")
             elif shown:
-                update['next'] = ("Show the text above, unchanged, as this moment's result: in your reply, on its own lines, "
-                                  "before your next tool call or question. Never put it in a question's text. If you have a "
-                                  "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
-                                  "`--widget` to every later `visual` call.")
+                steps.append("Show the text above, unchanged, as this moment's result: in your reply, on its own lines, "
+                             "before your next tool call or question. Never put it in a question's text. If you have a "
+                             "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
+                             "`--widget` to every later `visual` call.")
             if shown or args.kind == 'connect':
                 try:
                     update.update(side_view.record(run, args.kind, spec, args.engine_dir))
                 except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
                     update['error'] = 'The side view was not updated: %s' % type(exc).__name__
+            # Every duty this update carries, in order, so the agent never has to recall the reference mid-run.
+            if update.get('page'):
+                steps.append("Then open the side view, once: with the `Artifact` tool, publish `page` (read it in full first) "
+                             "with `capabilities` `{\"db\": {}}`, `icon` `chart` and a one-sentence `description`, run "
+                             "`PROJECT view --url \"<its address>\"`, and push `doc` to it with `ArtifactData` set, collection "
+                             "`steps`, doc_id `%s`. Without that tool, say once in your reply: \"Follow the build: open `%s` in "
+                             "a browser.\"" % (Path(update['doc']).stem, update['local']))
+            elif side_view.push(update):
+                steps.append('Then ' + side_view.push(update)[0].lower() + side_view.push(update)[1:])
+            if steps:
+                update['next'] = ' '.join(steps)
             if update:
                 print(('\n' if shown else '') + 'side view: ' + json.dumps(update, ensure_ascii=False))
             return 0

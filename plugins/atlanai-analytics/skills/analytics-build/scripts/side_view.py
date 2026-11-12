@@ -368,8 +368,8 @@ def link(run, url):
 def record(run, kind, spec=None, engine_dir=None):
     """Log a moment; when the page would show something new, write a new document and refresh the local page.
 
-    Returns the paths to publish or push: `page` and `local` on the first write, `doc` on every write,
-    and `url` once the page is published."""
+    Returns the paths to publish or push: `page` and `local` until the page is published, `doc` on every
+    write, and `url` once it is."""
     with _locked(run):
         return _record(Path(run), kind, spec or {}, engine_dir)
 
@@ -394,7 +394,8 @@ def _record(run, kind, spec, engine_dir):
     # A moment writes a document only when the page would show something new.
     if first or _ticks(model(run, state)) != state.get('ticks'):
         doc, path = _emit(run, state)
-        if first or not (run / 'view' / 'side.html').is_file():
+        # Until a page is published, every update offers it, so a skipped first moment is caught at the next.
+        if first or not state.get('url') or not (run / 'view' / 'side.html').is_file():
             out['page'] = str(page(run, doc['title']))
             out['local'] = str(run / 'view' / 'progress.html')
         out['doc'] = str(path)

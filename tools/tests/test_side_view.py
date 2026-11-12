@@ -84,6 +84,17 @@ class SideView(unittest.TestCase):
         page = side_view.PAGE.read_text(encoding='utf-8')
         self.assertIn("find(s => s.status !== 'done')", page, 'the Next box skips a step that is already done')
 
+    def test_the_page_is_offered_until_it_is_published(self):
+        run = make_run(self.root, saved=False)
+        meta = before_the_engine(run)
+        self.assertIn('page', self.record(run, 'connect')['connect'])
+        (run / 'run.json').write_text(json.dumps({**meta, 'engine_run': str(run / 'engine')}), encoding='utf-8')
+        at(run, 'check')
+        self.assertIn('page', self.record(run, 'build')['build'], 'a first moment whose page was never published is caught here')
+        side_view.link(run, 'https://claude.ai/artifact/abc')
+        at(run, 'preview')
+        self.assertNotIn('page', self.record(run, 'context')['context'], 'once published, only updates')
+
     def test_a_piece_of_work_ticks_as_soon_as_the_run_has_it(self):
         run, manifest, gates = self.building()
         side_view.link(run, 'https://claude.ai/artifact/abc')
