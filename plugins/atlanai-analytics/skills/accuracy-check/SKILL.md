@@ -22,7 +22,8 @@ command.
 | --- | --- |
 | Loading a set, its trusted answers, running it, the score, why each miss failed, testing again | this skill |
 | Answering each question | `analytics-ask`, in a fresh subagent per question |
-| Generating or saving a set | `eval-generation` |
+| Saving a check's set and runs to Atlan Trident, when asked | this skill |
+| Generating a set, or saving a set on its own | `eval-generation` |
 | Choosing a set, acting on a miss, changing a metric | whoever called it, never this skill |
 
 `CHECK`, `EVAL` and `PROJECT` are as [run and score a set](references/run.md) names them. Pass each
@@ -43,6 +44,12 @@ command as separate argv entries; zsh does not split a string holding one.
 
 After the context changed, [test again](references/run.md#test-again) on the same eval folder,
 pinned to a metric version when the caller names one.
+
+## Save to Atlan Trident
+
+When the caller asks, [save the check](references/run.md#save-to-atlan-trident): the set and
+every run of it on that eval folder, each linked to the run before it, to the workspace and agent
+the caller names.
 
 ## What comes back
 

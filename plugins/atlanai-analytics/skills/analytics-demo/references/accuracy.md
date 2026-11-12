@@ -25,6 +25,7 @@ Doing and Why lines first. Every step that leads to a choice ends on a native qu
 | Generate | Picking questions that test the metrics your `<agent>` needs, from `<firm>`'s dashboard and its analysts' queries. | The test should use questions people really ask, about what this agent is for. |
 | Test | Asking each question to a fresh agent that only sees your context. | It answers as anyone would, so the score is the context's, not mine. |
 | Fix | Changing the rule behind the miss. | One rule changed once changes every answer that uses it. |
+| Save | Asking whether to save this check to `<workspace>`. | Your team sees the same questions and the score move, and can rerun them. |
 
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
@@ -156,9 +157,21 @@ withdraw that release with `registry__withdraw_release` and say so. Then step 5.
 
 ## 5. The result
 
-With the context in Atlan Trident, save the set through `eval-generation` `save` on its set file,
-which asks where it should live. With the context on this machine, ask nothing: the set stays in
-the project.
+Everything stays on this machine until here. Only when the context is in Atlan Trident **and** a
+fix was applied and tested again, ask one native question, "Save this check to Atlan Trident?",
+whose text is its Doing and Why lines and the score move, as plain lines:
+
+| Option | Description |
+| --- | --- |
+| Save to `<workspace>` (Recommended) | The questions and both runs with their scores, so your team sees `<k>` to `<N>` of `<N>`. A digest of each trusted SQL, never the SQL. |
+| Keep on this machine | The set and its runs stay in this folder. |
+
+On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
+(`kind` `agent`; `metadata` holds only `name`, `workspace_id` and a one-line `description`). A
+refusal because that name exists means it is registered: find it with
+`registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
+[save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
+id and workspace. In every other case ask nothing: the set and its runs stay in the project.
 
 End with the demo's "What would you like to do next?" from
 [ready](../../analytics-build/references/setup/ready.md). Its text is exactly these lines, as
