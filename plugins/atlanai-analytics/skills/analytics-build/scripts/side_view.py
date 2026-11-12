@@ -487,6 +487,11 @@ def _record(run, kind, spec, engine_dir):
         out['doc'] = str(path)
     # Every moment offers the page until there is one, with or without a new document.
     _offer(run, state, out, True)
+    # Once it exists, every moment names the newest document too: a push line on a result between moments can be cut
+    # off with the rest of a long result, and pushing a whole document again changes nothing.
+    newest = run / 'view' / 'steps' / ('s%02d.json' % int(state.get('written') or 0))
+    if out.get('url') and not out.get('doc') and newest.is_file():
+        out['doc'] = str(newest)
     _write(run / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
     return out
 

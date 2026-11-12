@@ -317,6 +317,15 @@ class Helper(unittest.TestCase):
         self.assertIn('Then push it to the side view: `ArtifactData` (load it with ToolSearch first if it is deferred) set, url `https://claude.ai/artifact/abc`', later)
         self.assertNotIn('Open the side view', later, 'the page is published once')
 
+    def test_a_result_leads_with_its_side_view_lines(self):
+        self.project('visual', 'connect')
+        self.project('view', '--url', 'https://claude.ai/artifact/abc')
+        (self.run / 'authorization.json').write_text(json.dumps({'workspace_id': 'w1', 'approved_plans': []}), encoding='utf-8')
+        keys = list(json.loads(self.project('checklist')))
+        side = [k for k in keys if k in ('side_view', 'visual')]
+        self.assertTrue(side)
+        self.assertEqual(keys[:len(side)], side, 'live runs cut long results short (head -c 200), and the push went with them')
+
     def test_a_skipped_page_is_offered_again_at_the_next_moment(self):
         fresh = Path(self.tmp.name).resolve() / 'fresh'
 

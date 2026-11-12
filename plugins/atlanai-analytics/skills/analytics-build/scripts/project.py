@@ -763,7 +763,9 @@ def main():
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
         if isinstance(result, dict) and args.command != 'status':
-            result = {**result, **_due(project.root, getattr(args, 'engine_dir', None))}
+            # The side view's lines lead: a result cut short keeps them.
+            due = _due(project.root, getattr(args, 'engine_dir', None))
+            result = {**due, **{k: v for k, v in result.items() if k not in due}}
         if isinstance(result, str):
             print(result)
         else:
@@ -771,9 +773,9 @@ def main():
             if len(output.encode()) > 4096 and not args.full:
                 target = project.root / (args.command + '-result.json')
                 project.write(target, result)
-                compact = {'status': result.get('status', 'ok'), 'result_file': str(target),
-                           'next': 'Read the relevant fields from this private result artifact.',
-                           **{k: result[k] for k in ('visual', 'side_view') if k in result}}
+                compact = {**{k: result[k] for k in ('side_view', 'visual') if k in result},
+                           'status': result.get('status', 'ok'), 'result_file': str(target),
+                           'next': 'Read the relevant fields from this private result artifact.'}
                 if args.command == 'preview':
                     if result.get('snapshot'):
                         compact['snapshot'] = result['snapshot']

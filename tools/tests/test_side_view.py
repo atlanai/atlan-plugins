@@ -326,6 +326,19 @@ class SideView(unittest.TestCase):
         pieces = self.nodes(side_view.model(run), 'Metrics')
         self.assertNotIn('Translate each tile and chart', pieces, 'the person chose past queries only; a stray dashboard file is not read')
 
+    def test_every_moment_names_the_newest_update_once_the_page_exists(self):
+        run = make_run(self.root, saved=False)
+        self.record(run, 'connect')
+        side_view.link(run, 'https://claude.ai/artifact/page')
+        (run / 'authorization.json').write_text(json.dumps({'workspace_id': 'w1', 'approved_plans': []}), encoding='utf-8')
+        newest = side_view.progress(run)['doc']
+        out = self.record(run, 'sources')['sources']
+        self.assertEqual(out.get('doc'), newest, 'a push line between moments can be cut off; the next moment names it again')
+        self.assertIn('Push it to the side view', side_view.push(out))
+        unpublished = make_run(self.root / 'b', saved=False)
+        self.record(unpublished, 'connect')
+        self.assertNotIn('Push it', side_view.push(self.record(unpublished, 'sources')['sources']), 'no page, nothing to push')
+
     def test_a_malformed_breakdown_never_stops_the_page(self):
         run = make_run(self.root, demo=True)
         answer = run / 'answer.json'
