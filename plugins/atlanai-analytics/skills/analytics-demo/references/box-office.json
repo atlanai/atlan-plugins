@@ -1,0 +1,8 @@
+{
+ "firm": "Ticketfuddle",
+ "flow": "demo",
+ "connect": {
+  "title": "Ticket fees agent for Ticketfuddle",
+  "tagline": "Answers questions about its sales and fees in plain English, and shows the rule behind every number"
+ }
+}

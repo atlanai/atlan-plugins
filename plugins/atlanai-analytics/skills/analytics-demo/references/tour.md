@@ -30,7 +30,8 @@ throughout setup.
 requires. Read the chosen demo's file, then, before any other tool call or file search, ask
 one native question whose text is that file's welcome lines, whole and as written (they end
 with "Ready to build?"). Keep the tour link exactly as written; it is the person's way to see
-the firm while the build runs.
+the firm while the build runs. The side view opens with the `connect` moment once the run
+exists ([visuals](../../analytics-build/references/setup/visuals.md)), never before the question.
 
 | Option | Description |
 | --- | --- |
@@ -47,20 +48,26 @@ lists it.
 
 ## Say what and why at every moment
 
-The person should never wonder what is happening or why. Before each moment below, print
-two short lines as an ordinary reply, at most 35 words together, in this shape:
+The person should never wonder what is happening or why, and the chat stays short. Before
+each moment below, print one line as an ordinary reply, at most 30 words: what is happening,
+then why, joined in one sentence, in this shape:
 
 ```
-**Doing:** Reading Fixit's dashboard and 110 past queries.
-**Why:** They show how Fixit already measures a job, so the context matches the firm instead of my guess.
+**Read** · Reading Fixit's dashboard and 110 past queries, so the context matches how Fixit already measures a job.
 ```
 
-Fill in actual counts and names from the chosen demo. Use these, in order; the first of a
-step goes under its tracker. Skip a moment that does not happen in this run. A moment that
-opens with a native question (Sources question, Workspace question) puts its two lines at
-the top of that question's text instead of printing them before it, as plain `Doing:` and
-`Why:` with no `**`: question text is shown as written, so Markdown markers show as stars. The Ready moment has
-no pair: its ready block says it.
+The bold word is the step the moment belongs to, as the side view names it: Connect, Read,
+Build, Check, Publish or Answer. Take the what and the why from the table, with actual counts
+and names from the chosen demo.
+Skip a moment that does not happen in this run. A moment that opens with a native question
+(Sources question, Workspace question) puts its line in that question's text right after the
+moment's chip, if it has one, as plain text with no `**`: question text is shown as written, so
+Markdown markers show as stars. The Ready moment has no line: its ready block says it.
+
+Say nothing else between moments: no line about reading a file, opening a procedure or
+running a command, and nothing a chip, a mini card or the side view already shows. A
+question's text is the moment's chip, if it has one, its one line, at most three short lines
+of what the person needs to choose, then the question; never the same fact twice.
 
 | Moment | Doing | Why |
 | --- | --- | --- |
@@ -74,8 +81,11 @@ no pair: its ready block says it.
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
+| Answer | Answering from the context: finding the metric and running it on `<firm>`'s data. | The answer uses the rules just built, not a fresh guess at the tables. |
 
-After a moment ends, give its result in one line with counts, in the past tense. Print the
+After a moment ends, its chip or mini card is its result
+([visuals](../../analytics-build/references/setup/visuals.md)); a moment with neither gives its
+result in one line with counts, in the past tense. Print the
 first tracker right after "Start building", before reading setup's references or opening the demo.
 Never use file names, helper names or query-shape counts in these lines. After reading
 sources, add one sentence on what they revealed, such as which questions the analysts
@@ -100,15 +110,15 @@ The demo's focus is already chosen, so skip both [intent](../../analytics-build/
 questions and its source summary; step 1 recorded the preset. This replaces intent's rule
 against recording an unselected answer, for the demo only.
 
-After loading the data, ask one native question. Its visible prompt, with actual counts and
-the demo's facts:
+After loading the data, ask one native question. Its visible prompt, with the demo's facts:
 
-"I read `<firm>`'s sources: `<dashboard>`, `<N>` past queries and `<N>` data tables. Next I
-turn them into metrics. A metric is `<what a metric is, by example>`. Metrics are how the
-context is stored, so the agent uses the same rule every time. I build and check the
-context from your selected sources. What should I build it from?"
+"Next I turn `<firm>`'s sources into metrics. A metric is `<what a metric is, by example>`.
+Metrics are how the context is stored, so the agent uses the same rule every time. I build
+and check the context from your selected sources. What should I build it from?"
 
-This is the first time the person hears the word metric, so the prompt keeps all of it.
+The `sources` chip and the sentence on what the sources revealed come first in the prompt, and
+carry its counts. This is the first time the person hears the word metric, so the prompt keeps
+all of it.
 
 | Option | Description |
 | --- | --- |

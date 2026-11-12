@@ -34,6 +34,27 @@ STEPS = {
 }
 
 
+# The end-to-end lifecycle the tracker line draws, and where each step of either flow sits on it.
+LIFECYCLE = ('Connect', 'Read', 'Build', 'Check', 'Publish', 'Answer')
+PLACE = {'sources': 0, 'intent': 1, 'scope': 1, 'metrics': 2, 'save': 4, 'ask': 5, 'dashboard': 5}
+
+
+def lifecycle(rows, checking=False, local=False):
+    """The tracker line: `●` before the current step, the current one bold, `○` after; a context
+    kept on this machine shows `◌ Kept local` where Publish would be."""
+    current = next((r['id'] for r in rows if r['status'] != 'completed'), None)
+    at = len(LIFECYCLE) - 1 if current is None else PLACE[current] + (current == 'metrics' and checking)
+    marks = []
+    for i, name in enumerate(LIFECYCLE):
+        if i == at and current is not None:
+            marks.append(f'**◉ {name}**')
+        elif i < at or current is None:
+            marks.append('◌ Kept local' if local and name == 'Publish' else f'● {name}')
+        else:
+            marks.append(f'○ {name}')
+    return ' ─ '.join(marks)
+
+
 def _flow(flow):
     return flow if flow in FLOWS else 'build'
 
@@ -63,10 +84,11 @@ def build(model, flow=None):
     total = counts['metrics'] + counts['queries']
     saved = action in ('ask', 'explore-local') or (at == 6 and finished)
     done = {
-        'sources': at > 0 or finished,
+        # A demo's first step loads its data, so it ends when that data is bound, not at the survey.
+        'sources': (at > 0 or finished) and (flow != 'demo' or bool(model.get('bound_tables'))),
         # A run saved before intent was recorded has passed this step once authoring began.
         'intent': bool(intent.get('domain') and intent.get('purpose')) or at >= 2,
-        'scope': at >= 2,
+        'scope': at >= 2 or (at == 1 and finished),
         'metrics': at >= 4 or (at == 3 and finished),
         'save': saved,
         'ask': saved and bool(interaction.get('asked')),
@@ -88,8 +110,10 @@ def build(model, flow=None):
             current = key
             status = 'pending' if stopped else 'in_progress'
         if key == 'sources':
-            if done[key] and model.get('source_count'):
-                content = ('Load demo data: ' if flow == 'demo' else 'Survey ') + _plural(model['source_count'], 'source')
+            if done[key] and flow == 'demo':
+                content = 'Load demo data: ' + _plural(model['bound_tables'], 'table')
+            elif done[key] and model.get('source_count'):
+                content = 'Survey ' + _plural(model['source_count'], 'source')
             elif counted and at == 0:
                 waiting = next((s['name'] for s in model.get('scope', []) if s['status'] == 'pending_inspection'), '')
                 active = f"Reading source {progress['completed'] + 1} of {progress['total']}" + (': ' + waiting if waiting else '')
@@ -117,5 +141,5 @@ def build(model, flow=None):
                      'status': status})
     state = 'paused' if stopped and current else 'blocked' if phase['status'] in ('blocked', 'failed') else \
         'access_needed' if phase['status'] == 'access_needed' else 'done' if current is None else 'running'
-    return {'flow': flow, 'steps': rows, 'state': state,
+    return {'flow': flow, 'steps': rows, 'state': state, 'lifecycle': lifecycle(rows, at == 3, local),
             'step': next((i + 1 for i, r in enumerate(rows) if r['id'] == current), len(rows)), 'of': len(rows)}

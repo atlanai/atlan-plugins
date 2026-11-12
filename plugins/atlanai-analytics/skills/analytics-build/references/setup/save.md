@@ -19,7 +19,13 @@ the options' descriptions, and leaves it in the transcript after the answer.
 
 Do not put it in an option `preview`: a preview is cut to a few lines on a short terminal,
 hides the descriptions and is gone once the person answers. Do not also print the block
-as text before the question; one short line that the checks are done is enough there.
+as text before the question.
+
+The collection review is the `context` moment ([visuals](visuals.md)), run right before the
+question. It prints the build's mini card and a chip, written for the question: they go in the
+block below as they are. With `--widget`, the card and the chip go to the inline visual tool
+right before the question, and the block leaves their lines out. The side view's Check step lists every
+metric with its checked value and how each was checked.
 
 Open the chosen demo's file again for its facts ([Fixit](../../../analytics-demo/references/yard.md),
 [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
@@ -30,8 +36,8 @@ it and the one thing that fixes it, and do not offer a destination.
 
 When every check has run, before any save, sign-in or workspace step, ask one native question with
 the values below. Fill `<angle brackets>` from this run and the sources the person chose.
-Every count is true: when some did not pass their check, the count line says so ("17 of
-19 checked on `<firm>`'s data, 2 need a look"), and the celebration still stands.
+The chip carries every count, those that need a look included, and the celebration still
+stands.
 
 - **header:** `Step 5 of 7` for own data, `Step 4 of 6` for a demo
 - **question:** the lines in the block below, with their line breaks and leading spaces.
@@ -39,14 +45,12 @@ Every count is true: when some did not pass their check, the count line says so 
   question come last, so they stay on screen if a short terminal scrolls the top away.
 
 ```
- *   .  '   *    .   '  *   .    '   *  .
-   '   *   .  CONTEXT BUILT  .   *   '
- .   *    '   .    *   '    .   *    '  .
+✦  CONTEXT BUILT  ✦
 
 You turned <firm>'s <dashboard and past queries> into context.
 That was the hard part: each number now has one agreed rule.
 
-<N> metrics and <N> queries, <N> of <N> checked on <firm>'s data.
+<the context visual's lines>
 
 Where should this context live?
 ```
@@ -85,8 +89,9 @@ Never offer to create a workspace. With many shared workspaces, show the count a
 person name one; do not list them all.
 
 **Saving.** Saving goes in batches and can take a few minutes. Say so once, then give a
-count as it goes: "Saving to your personal workspace: 12 of 19 saved." Finish with one
-line: what was saved, where, and that it is now the context the agent reads.
+count as it goes: "Saving to your personal workspace: 12 of 19 saved." Finish with one line:
+that it is now the context the agent reads. The `saved` moment's mini card
+([visuals](visuals.md)), which says what was saved and where, opens the ready question.
 
 **The address for proof links, without asking.** Resolve the active organization's slug
 from the authenticated `GET /registry/v1/users/me` response, matching `org_id` to an

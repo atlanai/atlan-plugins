@@ -387,6 +387,62 @@ class Project(ContextState):
         progress.update_checks(self)
         return result
 
+    def revise_metric(self, request):
+        """Install one metric from an engine edit (`ENGINE edit`), with the local check run on the
+        old rule and on the new one. A new rule that fails its check leaves the old one in place."""
+        items = metric_preview.candidates(self)
+        keys = [i['key'] for i in items]
+        key = metric_preview.resolve_id(request.get('name', ''), keys, 'metric')
+        old = next((i['body'] for i in items if i['key'] == key), None)
+        if old is None:
+            raise ProjectError('Select an authored metric by name. Saved: ' + metric_preview.id_hint(keys, 'metric') + '.')
+        folder = safe_path(request.get('edit', ''))
+        record = self.read(folder / 'edit.json')
+        exported = folder / 'context'
+        new = next((b for b in self.read(exported / 'metrics.json') if b.get('name') == old['name']), None)
+        if record.get('status') != 'edited' or new is None or not old['source_id'] == record.get('source_id') == new.get('source_id'):
+            raise ProjectError("This edit does not keep the metric's identity in this context. Edit it through the engine again.")
+        if self._holds(exported) != self._holds(self.context):
+            raise ProjectError('This edit changes which definitions are held. Review its holds before installing it.')
+        check = {**request, 'name': key}
+        before = self._checked(check, key)
+        files = ('metrics.json', 'metrics-source.json', 'publication-holds.json', 'candidate-checks.json')
+        saved = {name: (self.context / name).read_text() for name in files if (self.context / name).is_file()}
+        self.write(self.context / 'metrics.json',
+                   [new if body.get('name') == old['name'] else body for body in self.read(self.context / 'metrics.json')])
+        for name in ('metrics-source.json', 'publication-holds.json'):
+            self.write(self.context / name, self.read(exported / name))
+        try:
+            mine.check_publication_holds(self.context)
+            after = self._checked(check, key, strict=True)
+        except (ValueError, mine.Blocked):
+            for name, text in saved.items():
+                self.write_text(self.context / name, text)
+            raise ProjectError('The new rule failed its check on the data, so the context keeps the old rule. '
+                               'Restore the engine card with ENGINE edit --card ' + str(folder / 'previous-card.json') + '.') from None
+        return {'status': 'revised', 'metric': old['name'], 'source_id': old['source_id'],
+                'before': {'rule': record['before']['rule'], 'check': before},
+                'after': {'rule': record['after']['rule'], 'check': after}, 'remote_writes': False}
+
+    def _holds(self, folder):
+        return {k: v for k, v in self.read(folder / 'publication-holds.json').items() if k != 'outputs'}
+
+    def _checked(self, request, key, strict=False):
+        """The local check of the metric saved under `key`. A failed check of the old rule is a
+        result to show; a failed check of the new rule raises."""
+        try:
+            result = self.check_metric(request)
+        except local_data.ParameterError:
+            raise
+        except (local_data.DataError, ProjectError):
+            if strict:
+                raise
+            check = self.read(self.context / 'candidate-checks.json').get(key, {})
+            return {'status': 'held', 'errors': check.get('errors') or ['The current rule could not be checked.']}
+        check = self.read(self.context / 'candidate-checks.json')[key]
+        return {'status': check['status'], 'example': result['rows'], 'calculation': check['composition']['rows'],
+                'empty_population': check['composition']['empty_population']['rows']}
+
     def history(self):
         state = self.current()
         # Outputs describe this call only: an earlier scope's bound or log never carries over.
@@ -542,6 +598,7 @@ class Project(ContextState):
         artifacts = self.releases(payload)
         receipt = {'workspace_id': payload['workspace_id'], 'artifacts': [
             {**{k: a[k] for k in ('id', 'kind', 'name', 'release_id', 'version_id', 'channel')},
+             **{k: a[k] for k in ('created_at', 'released_at', 'version', 'owner', 'visibility', 'version_label', 'workspace_kind') if k in a},
              'definition_hash': digest(a['definition'])} for a in artifacts]}
         state['publication'] = receipt
         state['context_changed'] = False
@@ -560,7 +617,25 @@ class Project(ContextState):
                 'next': 'Use these retrieved definitions to execute fresh SQL.'}
 
 
+def _due(run, engine_dir=None):
+    """What the side view needs, named on whatever helper result comes next: a mid-run moment the run has reached but not
+    shown, or else a newer document for the page, so each piece of work ticks as it finishes."""
+    import side_view
+    try:
+        kinds = side_view.due(run, engine_dir)
+        if kinds:
+            return {'visual': 'Due: run this helper\'s %s before going on.' % ', then '.join('`visual %s`' % k for k in kinds)}
+        line = side_view.push(side_view.progress(run, engine_dir))
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+    return {'side_view': line} if line else {}
+
+
 def main():
+    # Chips, cards and data files carry text such as '●', '£' and '−'; a console or pipe in another code page must not break them.
+    for stream in (sys.stdout, sys.stdin):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     p = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     p.add_argument('--run-dir')
     p.add_argument('--full', action='store_true', help='Return full structured results instead of a compact artifact reference.')
@@ -604,10 +679,23 @@ def main():
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
 
+    import visuals
+    visual = sub.add_parser('visual', help="A moment of the run: its chip or mini card for the chat, and the side view's update")
+    visual.add_argument('kind', choices=visuals.KINDS)
+    visual.add_argument('--widget', action='store_true', help='A mini card as HTML, for a host with an inline visual tool')
+    visual.add_argument('--data', type=Path, action='append', default=[],
+                        help="Facts the run's files cannot hold, such as a demo's firm and title; what the run's files prove always wins")
+    visual.add_argument('--engine-dir', type=Path)
+    visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
+
+    page = sub.add_parser('view', help="Remember the side view's published address, so a resumed run updates the same page")
+    page.add_argument('--url', required=True)
+
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'revise-metric',
+                 'acquisition', 'auth', 'engine-config'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:
@@ -618,13 +706,80 @@ def main():
         if args.command == 'discover':
             print(json.dumps(summarize(safe_path(args.workspace))))
             return 0
-        if not args.run_dir:
-            raise ProjectError('Select a run directory, or use location to choose a permitted one.')
-        if args.command == 'checklist' and not (safe_path(args.run_dir) / 'run.json').is_file():
+        if args.command == 'checklist' and not (args.run_dir and (safe_path(args.run_dir) / 'run.json').is_file()):
             import checklist
             # Nothing is saved yet: the list starts at its first step and claims no progress.
             print(json.dumps({'flow': args.flow or 'build', 'steps': checklist.initial(args.flow or 'build'), 'state': 'running',
+                              'lifecycle': checklist.lifecycle(checklist.initial(args.flow or 'build')),
                               'step': 1, 'of': len(checklist.initial(args.flow or 'build')), 'remote_writes': False}))
+            return 0
+        if not args.run_dir:
+            raise ProjectError('Select a run directory, or use location to choose a permitted one.')
+        if args.command == 'visual':
+            import side_view
+            run = safe_path(args.run_dir)
+            if not run.is_dir() or args.kind != 'connect' and not (run / 'run.json').is_file():
+                raise ProjectError('Run this once the survey has created the run directory PROJECT location printed.')
+            if args.input:
+                try:
+                    given = json.loads(sys.stdin.read(1_000_001), parse_constant=lambda name: float('nan'))
+                except ValueError:
+                    raise ProjectError("A moment's data is one JSON object.") from None
+                problem = visuals.check_data(args.kind, given)
+                if problem:
+                    raise ProjectError(problem)
+                side_view._write(run / (args.kind + '.json'), json.dumps(given, indent=1, ensure_ascii=False))
+            data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
+            try:
+                spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
+                asked = visuals.ASKED.get(args.kind)
+                shown = visuals.render(args.kind, spec, args.widget, 'answer' not in side_view.seen(run), plain=bool(asked))
+                # A card in the middle of the build goes unseen, so the build's card waits for the checks and leads
+                # the context moment, inside the save question.
+                built = args.kind == 'build' and bool(shown)
+                if built:
+                    shown = ''
+                card = visuals.render('build', visuals.build_spec('build', run, data, args.engine_dir), args.widget, plain=True) if args.kind == 'context' and shown else ''
+            except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
+                # A file the run wrote in a shape this cannot read leaves the moment unshown, never the run stopped.
+                print('side view: ' + json.dumps({'error': 'This moment could not be read: %s' % type(exc).__name__}))
+                return 0
+            if card:
+                print(card + '\n')
+            if shown:
+                print(shown)
+            # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
+            # Three show nothing yet still finish a step: connect, a finished build, and a context kept on this machine.
+            # The side view is a convenience: the chat already has the moment, so a failure here never blocks the run.
+            update = {}
+            # In a host that draws widgets, text in a question or between tool calls never reaches the person: every chip
+            # and card is drawn as a widget there, and the first moment says so.
+            if args.kind == 'connect' and not args.widget:
+                update['next'] = 'If you have a `show_widget` tool, add `--widget` to every later `visual` call.'
+            elif shown and args.widget:
+                update['next'] = ('Pass the HTML above to show_widget as this moment\'s result, before your next question or '
+                                  'reply; not in the question\'s text.')
+            elif asked and shown:
+                update['next'] = 'Put the lines above, as they are, in %s; not in your reply.' % asked
+            elif shown:
+                update['next'] = ('Show the text above once, unchanged, as this moment\'s result: in your reply, '
+                                  'or first in the text of a question you ask next.')
+            if shown and not args.widget:
+                update['next'] += ' If you have a `show_widget` tool, run this again with `--widget` and pass the HTML to it instead.'
+            if shown or built or args.kind == 'connect' or args.kind == 'saved' and spec.get('local'):
+                try:
+                    update.update(side_view.record(run, args.kind, spec, args.engine_dir))
+                except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                    update['error'] = 'The side view was not updated: %s' % type(exc).__name__
+            if update:
+                print(('\n' if shown else '') + 'side view: ' + json.dumps(update, ensure_ascii=False))
+            return 0
+        if args.command == 'view':
+            import side_view
+            try:
+                side_view.link(safe_path(args.run_dir), args.url)
+            except ValueError as exc:
+                raise ProjectError(str(exc)) from None
             return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
@@ -654,6 +809,8 @@ def main():
                 result = project.publication(project.read(safe_path(args.request)))
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
+        if isinstance(result, dict) and args.command != 'status':
+            result = {**result, **_due(project.root, getattr(args, 'engine_dir', None))}
         if isinstance(result, str):
             print(result)
         else:
@@ -662,7 +819,8 @@ def main():
                 target = project.root / (args.command + '-result.json')
                 project.write(target, result)
                 compact = {'status': result.get('status', 'ok'), 'result_file': str(target),
-                           'next': 'Read the relevant fields from this private result artifact.'}
+                           'next': 'Read the relevant fields from this private result artifact.',
+                           **{k: result[k] for k in ('visual', 'side_view') if k in result}}
                 if args.command == 'preview':
                     if result.get('snapshot'):
                         compact['snapshot'] = result['snapshot']
@@ -690,7 +848,10 @@ def main():
         print(json.dumps({'status': 'canceled', 'next': 'Resume the same run; completed artifacts are retained.'}))
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
-        if 'project' in locals() and args.command not in ('experience', 'journey'):
+        # Only a command that advances a stage can fail it. A read, a query or a check that
+        # refused its parameters ran nothing, so the run's progress stays as it was.
+        if ('project' in locals() and args.command in ('survey', 'scope', 'check', 'check-query', 'check-metric', 'publication')
+                and not isinstance(exc, local_data.ParameterError)):
             try:
                 path = project.root / 'progress.json'
                 if path.exists():

@@ -130,10 +130,11 @@ Its counts are the "before" side of the count check in **5. Verify**.
 
 **When the host refuses a rewritten call.** Some hosts review a tool call before a hook
 expands it and refuse what they cannot review (Claude Code's auto mode refuses a call a hook
-rewrote). That refusal sends nothing. Do not resend the descriptor. Either ask the person to
-approve these calls themselves (leave the auto mode) and send the same descriptors, or prepare
-again with `--max-bytes 60000` and send each smaller batch inline, as the native procedure
-below says.
+rewrote). That refusal sends nothing. Do not resend the descriptor, and do not ask the person
+to leave auto mode: prepare again with `--max-bytes 60000`, send each smaller batch inline, as
+the native procedure below says, and record receipts without `receipt_dir`, as on an
+unsupported route. Keep to that route for the rest of the run. When the session is already in
+auto mode, take that route from the start rather than waiting for a refusal.
 
 Read every returned slot by index against the descriptor's `source_ids`. Record successes
 before addressing failures. A result can be cut to its first rows; its `created` and `failed`

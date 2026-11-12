@@ -34,6 +34,6 @@ Report schema checks, executed examples and parity separately; diagnostics stay 
 Use native chat, its choice controls and [the setup checklist](checklist.md) in chat and
 the host's task list when available. Show the full tracker when a step starts; refresh
 `PROJECT checklist` with real counts during long work and report useful changes. Save phase changes and intent answers to the run, so the checklist stays
-true. Open no panel or view unless the person asks for [a visual view](render.md). Do not
+true. Open no panel or view other than [the side view](visuals.md) unless the person asks for [a visual view](render.md). Do not
 invent a pause or publish button. If the task tool fails, keep the full tracker in chat.
 Missing task UI does not block work; required visible moments still precede their choices.

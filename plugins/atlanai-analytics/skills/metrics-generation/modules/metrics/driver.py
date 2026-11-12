@@ -134,18 +134,44 @@ SUPPORTED_PYTHON = ((3, 12), (3, 11))
 DISPATCHER = Path(__file__).resolve().parents[2] / 'scripts' / 'analytics_agent.py'
 
 
+def builds_venv(python):
+    """Whether `python` makes a venv with a working pip, tried in a throwaway folder. Some
+    standalone builds cannot bootstrap pip through the symlinked venv the runtime uses."""
+    with tempfile.TemporaryDirectory() as temp:
+        target = os.path.join(temp, 'venv')
+        try:
+            for command in ([python, '-I', '-m', 'venv', '--symlinks', target],
+                            [os.path.join(target, 'bin', 'python'), '-I', '-m', 'pip', '--version']):
+                if subprocess.run(command, capture_output=True, timeout=120).returncode:
+                    return False
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+    return True
+
+
 def supported_python():
-    """A Python on PATH the pinned runtime is built with (its wheels are pinned per version),
-    or None. A machine's default `python3` may be newer than any of them."""
+    """The first Python the pinned runtime is built with (its wheels are pinned per version) that
+    also builds a venv with pip, or None: this one if it is 3.11 or 3.12, then each python3.12
+    and python3.11 on PATH. A machine's default `python3` may be newer than any of them."""
     import shutil  # noqa: PLC0415
+    seen = set()
+    if sys.version_info[:2] in SUPPORTED_PYTHON:
+        seen.add(os.path.realpath(sys.executable))
+        if builds_venv(sys.executable):
+            return sys.executable
     for major, minor in SUPPORTED_PYTHON:
-        found = shutil.which(f'python{major}.{minor}')
-        if not found:
-            continue
-        probe = subprocess.run([found, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
-                               capture_output=True, text=True, timeout=30)
-        if probe.returncode == 0 and probe.stdout.strip() == str((major, minor)):
-            return found
+        for folder in os.environ.get('PATH', '').split(os.pathsep):
+            found = shutil.which(f'python{major}.{minor}', path=folder)
+            if not found or os.path.realpath(found) in seen:
+                continue
+            seen.add(os.path.realpath(found))
+            try:
+                probe = subprocess.run([found, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
+                                       capture_output=True, text=True, timeout=30)
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+            if probe.returncode == 0 and probe.stdout.strip() == str((major, minor)) and builds_venv(found):
+                return found
     return None
 
 
@@ -245,6 +271,23 @@ def _invoke(root, command, args):
                 'fix': 'Check the pinned runtime installation.'}, 2
 
 
+def _side_view(run):
+    """When the engine runs inside a setup run whose side view is open, the update that ticks the gate that just
+    finished, for the agent to push. The view is the setup helper's; any fault leaves the result as it was."""
+    setup = Path(run).resolve().parent
+    if not (setup / 'view' / 'state.json').is_file():
+        return {}
+    try:
+        scripts = HERE.parents[2] / 'analytics-build' / 'scripts'
+        if str(scripts) not in sys.path:
+            sys.path.append(str(scripts))
+        import side_view
+        line = side_view.push(side_view.progress(setup, Path(run).resolve()))
+    except Exception:  # noqa: BLE001 - the view never blocks the engine
+        return {}
+    return {'side_view': line} if line else {}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime', type=Path, required=True)
@@ -268,22 +311,35 @@ def main(argv=None):
         if name == 'export':
             sub.add_argument('--context', required=True)
             sub.add_argument('--parity')
+    edit = commands.add_parser('edit', help='Show one metric\'s authored card, or revise its rule with --card.')
+    edit.add_argument('--run', required=True)
+    edit.add_argument('--metric', required=True)
+    edit.add_argument('--card', help='The revised card, a JSON file; without it, edit shows the current card.')
+    edit.add_argument('--model', help='The model that wrote the revised card.')
     args = parser.parse_args(argv)
     try:
-        if args.command == 'setup' and sys.version_info[:2] not in SUPPORTED_PYTHON \
-                and (other := supported_python()):
-            # Built with this Python the runtime would be refused: run setup with one it takes.
-            rest = sys.argv[1:] if argv is None else list(argv)
-            return subprocess.run([other, '-I', str(DISPATCHER), 'metrics', *rest]).returncode
+        if args.command == 'setup' and (sys.version_info[:2] not in SUPPORTED_PYTHON
+                                        or not (ordinary(args.runtime) / 'runtime.json').exists()):
+            # Build only with a Python that just made a venv with pip; run setup with that one.
+            other = supported_python()
+            if other is None:
+                raise ValueError('No Python 3.11 or 3.12 here can build the isolated runtime with pip: '
+                                 'install one (python3.12 or python3.11 on PATH) and run setup again.')
+            if other != sys.executable:
+                rest = sys.argv[1:] if argv is None else list(argv)
+                return subprocess.run([other, '-I', str(DISPATCHER), 'metrics', *rest]).returncode
         if args.command == 'setup':
             result = setup(args.runtime, args.feature)
             code = 2 if result['status'] == 'BLOCKED' else 0
         else:
             forwarded = []
-            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id'):
+            for name in ('run', 'config', 'model', 'context', 'approval_mode', 'parity', 'source', 'destination', 'source_id',
+                         'metric', 'card'):
                 if hasattr(args, name) and getattr(args, name) is not None:
                     forwarded += ['--' + name.replace('_', '-'), str(getattr(args, name))]
             result, code = invoke(args.runtime, args.command, forwarded)
+            if getattr(args, 'run', None) and isinstance(result, dict):
+                result = {**result, **_side_view(args.run)}
     except (ValueError, OSError, KeyError) as exc:
         result, code = {'status': 'BLOCKED', 'reason': str(exc),
                         'fix': getattr(exc, 'fix', None)

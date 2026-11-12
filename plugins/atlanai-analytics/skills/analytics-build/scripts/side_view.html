@@ -1,0 +1,183 @@
+<title>Analytics progress</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+@import url(https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap);
+/*TOKENS*/
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/20px Geist,system-ui,-apple-system,sans-serif}
+.v{max-width:640px;margin:0 auto;padding-block:16px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:16px}
+svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.eb,.up,.mt{font-size:12px;line-height:16px;color:var(--ts)}
+h1{font-weight:600;font-size:18px;line-height:24px;margin:2px 0 0;text-wrap:balance}
+.hr{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.bd{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:18px;font-weight:500;padding:1px 8px;border-radius:999px;background:var(--bm);color:var(--bt)}
+.bd.ok{background:var(--sm);color:var(--sx)}.bd i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.hero{border-radius:14px;padding:16px;outline:1px solid var(--bc);box-shadow:var(--e2);display:grid;gap:10px}
+.hero .k{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--ts)}
+.hero h2{font-weight:600;font-size:17px;line-height:22px;margin:0;text-wrap:balance}
+.dots{display:flex;gap:6px;align-items:center}.dots i{width:8px;height:8px;border-radius:50%;background:var(--mu)}
+.dots i.d{background:var(--pf)}.dots i.n{background:var(--bf);box-shadow:0 0 0 3px var(--bm)}
+.pb{height:6px;border-radius:3px;background:var(--mu);overflow:hidden}.pb i{display:block;height:100%;width:32%;background:var(--bf);border-radius:3px;animation:go 1.6s ease-in-out infinite}
+@keyframes go{0%{transform:translateX(-110%)}100%{transform:translateX(330%)}}
+@media (prefers-reduced-motion:reduce){.pb i{animation:none;width:100%;opacity:.35}}
+.big{font-weight:600;font-size:28px;line-height:34px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.big.neg{color:var(--cx)}
+.nx{display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--sb);outline:1px dashed var(--bh);font-size:13px}
+.nx b{font-weight:500}.nx span{color:var(--ts)}
+.sh{font-weight:600;font-size:13px;line-height:18px;color:var(--ts);margin:0}
+.lst{border-radius:12px;outline:1px solid var(--bd);overflow:hidden}
+.row{border-bottom:1px solid var(--bd)}.row:last-child{border-bottom:0}.row.now{background:var(--sb)}
+.tg{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px}
+.tg:focus-visible{outline:2px solid var(--bf);outline-offset:-2px}
+.si{width:18px;height:18px;flex:none;display:grid;place-items:center}.done .si,.local .si{color:var(--sx)}
+.sp{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--bm);border-top-color:var(--bf);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.o{width:10px;height:10px;border-radius:50%;border:1.5px dashed var(--bh)}
+.tg .n{font-weight:500;width:64px;flex:none}.next .tg .n{color:var(--ts)}
+.tg .f{flex:1;min-width:0;font-size:13px;color:var(--ts);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cv{width:16px;height:16px;color:var(--ts);transition:transform .2s}[aria-expanded=true] .cv{transform:rotate(180deg)}
+.dt{display:grid;gap:12px;padding:0 12px 14px 40px;font-size:13px;line-height:18px}
+.lb{font-size:11px;line-height:14px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--ts)}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0}.kv dt{color:var(--ts)}.kv dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.li{display:grid;gap:4px}.li div{display:flex;gap:8px;align-items:center}.li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li b{font-weight:500;font-variant-numeric:tabular-nums}.li .ok{color:var(--sx)}.li .warn{color:var(--wx)}
+.how{display:grid}
+.hw{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:10px;position:relative;padding-bottom:12px}.hw:last-child{padding-bottom:0}
+.hw:not(:last-child):before{content:"";position:absolute;left:9.25px;top:22px;bottom:2px;width:1.5px;background:var(--bd)}
+.nb{width:20px;height:20px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:500;background:var(--bg);border:1px solid var(--bd);color:var(--ts)}
+.hw.done .nb{background:var(--pf);border-color:var(--pf);color:var(--po)}
+.ht{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.ht b{font-weight:500}.ht em{font-style:normal;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hw p{margin:2px 0 0;color:var(--ts)}
+.by{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:11px;line-height:16px;font-weight:500;padding:0 6px;border-radius:6px;background:var(--mu);color:var(--ts)}
+.by.ai{background:var(--am);color:var(--ax)}.by svg{width:12px;height:12px}
+.note{display:flex;gap:6px;font-size:12px;line-height:16px;color:var(--wx);background:var(--wm);border-radius:8px;padding:6px 8px}
+.ans{display:grid;gap:4px}.ans .q{color:var(--ts)}
+.msg{color:var(--ts);font-size:13px}
+.bs{list-style:none;margin:0;padding:0;display:grid;gap:6px}.bs li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
+.bs .by{margin-top:0;flex:none}
+</style>
+<div class="v" id="v"><p class="msg" id="msg">Loading the run's progress…</p></div>
+<p class="sr" aria-live="polite" id="said"></p>
+<script>
+(() => {
+  const STEPS = 6;
+  const ICON = {
+    tick: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', chev: '<path d="M6 9l6 6 6-6"/>', next: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    ai: '<path d="M15 2l.5 2.4a4.4 4.4 0 0 0 4.1 4.1L22 9l-2.4.5a4.4 4.4 0 0 0-4.1 4.1L15 16l-.5-2.4a4.4 4.4 0 0 0-4.1-4.1L8 9l2.4-.5a4.4 4.4 0 0 0 4.1-4.1z"/>',
+    warn: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'};
+  const svg = (n, c) => '<svg viewBox="0 0 24 24" aria-hidden="true"' + (c ? ' class="' + c + '"' : '') + '>' + ICON[n] + '</svg>';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+  const WORD = {done: 'done', local: 'kept on this machine', unconfirmed: 'not confirmed', now: 'in progress', next: 'not started'};
+  const root = document.getElementById('v');
+  const open = new Set();
+  let doc = null;
+
+  const mark = s => s === 'done' || s === 'local' ? svg('tick') : s === 'now' ? '<span class="sp"></span>' : '<span class="o"></span>';
+  const dots = d => '<span class="dots">' + d.steps.map((s, i) => '<i class="' + (s.status === 'done' || s.status === 'local' ? 'd' : i === d.current ? 'n' : '') + '"></i>').join('') + '</span>';
+
+  function blocks(list) {
+    return (list || []).map(b => {
+      const head = b.title ? '<div class="lb">' + esc(b.title) + '</div>' : '';
+      if (b.kv) return head + '<dl class="kv">' + b.kv.map(r => '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>').join('') + '</dl>';
+      if (b.list) return head + '<div class="li">' + b.list.map(r =>
+        '<div>' + (r[2] ? '<span class="' + esc(r[2]) + '" style="flex:none">' + svg(r[2] === 'ok' ? 'tick' : 'warn') + '</span>' : '') +
+        '<span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></div>').join('') + '</div>';
+      if (b.answer) return head + '<div class="ans"><span class="q">' + esc(b.answer.question) + '</span><b>' + esc(b.answer.headline) + '</b>' +
+        (b.answer.summary ? '<span>' + esc(b.answer.summary) + '</span>' : '') + (b.answer.rule ? '<span class="q">Rule: ' + esc(b.answer.rule) + '</span>' : '') + '</div>';
+      return '';
+    }).join('');
+  }
+
+  function how(step) {
+    if (!step.how || !step.how.length) return '';
+    const label = step.status === 'done' || step.status === 'local' ? 'How we got there' : 'How it works';
+    return '<div class="lb">' + label + '</div><div class="how">' + step.how.map((n, i) =>
+      '<div class="hw ' + esc(n.s) + '"><span class="nb">' + (n.s === 'done' ? svg('tick') : i + 1) + '</span><div>' +
+      '<div class="ht"><b>' + esc(n.t) + '</b>' + (n.n ? '<em>' + esc(n.n) + '</em>' : '') + '</div><p>' + esc(n.d) + '</p>' +
+      '<span class="by' + (n.ai ? ' ai' : '') + '">' + (n.ai ? svg('ai') : '') + esc(n.by) + '</span></div></div>').join('') + '</div>';
+  }
+
+  function row(step, i) {
+    const isOpen = open.has(step.name);
+    const what = step.status === 'done' || step.status === 'local' || step.status === 'unconfirmed' ? step.fact || step.purpose : step.status === 'now' ? 'In progress' : step.purpose;
+    const body = isOpen ? '<div class="dt">' + blocks(step.result) + how(step) +
+      (step.note ? '<div class="note">' + svg('warn') + '<span>' + esc(step.note) + '</span></div>' : '') + '</div>' : '';
+    return '<div class="row ' + esc(step.status) + '"><button type="button" class="tg" data-n="' + esc(step.name) + '" aria-expanded="' + isOpen + '">' +
+      '<span class="si">' + mark(step.status) + '</span><span class="n">' + esc(step.name) + '<span class="sr">, ' + WORD[step.status] + '</span></span><span class="f">' + esc(what) + '</span>' +
+      svg('chev', 'cv') + '</button>' + body + '</div>';
+  }
+
+  function hero(d) {
+    if (d.current >= STEPS && d.answer) {
+      const [name, value] = String(d.answer.headline || '').includes(': ') ? [d.answer.headline.slice(0, d.answer.headline.lastIndexOf(': ')), d.answer.headline.slice(d.answer.headline.lastIndexOf(': ') + 2)] : ['', d.answer.headline];
+      const change = d.change && d.change.values && d.change.values[0];
+      return '<section class="hero"><div class="k"><span>All 6 steps done</span>' + dots(d) + '</div><h2>' + esc(d.answer.question) + '</h2>' +
+        '<div class="big' + (String(value).startsWith('-') ? ' neg' : '') + '">' + esc(value) + '</div>' + (name ? '<div>' + esc(name) + '</div>' : '') +
+        (change ? '<div class="up">' + esc(change[0]) + ' changed from ' + esc(change[1]) + ' to ' + esc(change[2]) + ' after its rule changed</div>' : '') + '</section>';
+    }
+    const step = d.steps[Math.min(d.current, STEPS - 1)];
+    const waiting = d.current >= STEPS - 1;
+    return '<section class="hero"><div class="k"><span>Step ' + (d.current + 1) + ' of 6 · ' + esc(step.name) + '</span>' + dots(d) + '</div>' +
+      '<h2>' + esc(step.doing) + '</h2>' + (waiting ? '' : '<div class="pb"><i></i></div>') +
+      (step.how && step.how.length ? '<div class="lb">Behind the scenes</div><ul class="bs">' + step.how.slice(0, 4).map(n =>
+        '<li><span>' + esc(n.t) + '</span><span class="by' + (n.ai ? ' ai' : '') + '">' + (n.ai ? svg('ai') : '') + esc(n.by) + '</span></li>').join('') + '</ul>' +
+        (step.how.length > 4 ? '<div class="up">and ' + (step.how.length - 4) + ' more, under ' + esc(step.name) + ' below</div>' : '') : '') + '</section>';
+  }
+
+  function draw() {
+    if (!doc) return;
+    const d = doc, done = d.current >= STEPS;
+    const after = !done && d.current + 1 < STEPS ? d.steps[d.current + 1] : null;
+    const time = d.updated ? new Date(d.updated).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
+    const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.n : null;
+    root.innerHTML =
+      '<header><div class="eb">Atlan Analytics · ' + (d.demo ? 'demo on made-up data' : 'your data') + '</div><h1>' + esc(d.title) + '</h1>' +
+      (d.tagline ? '<div class="up" style="margin-top:2px">' + esc(d.tagline) + '</div>' : '') +
+      '<div class="hr" style="margin-top:8px"><span class="bd' + (d.current >= STEPS - 1 ? ' ok' : '') + '"><i></i>' + (d.current >= STEPS - 1 ? 'Ready to ask' : 'Building') + '</span>' +
+      '<span class="up">' + (done ? 'All 6 steps done' : 'Step ' + (d.current + 1) + ' of 6') + (time ? ' · updated ' + esc(time) : '') + '</span></div></header>' +
+      hero(d) + (after ? '<div class="nx">' + svg('next') + '<span><b>Next · ' + esc(after.name) + '</b> &nbsp;' + esc(after.purpose) + '</span></div>' : '') +
+      '<h2 class="sh">Every step</h2><div class="lst">' + d.steps.map(row).join('') + '</div>' +
+      '<p class="up">' + svg('ai') + ' Claude made the judgements marked like this; every other part follows fixed rules.</p>';
+    // Redrawing replaces the buttons; keep the keyboard where it was.
+    if (focused) { const b = root.querySelector('[data-n="' + CSS.escape(focused) + '"]'); if (b) b.focus(); }
+  }
+
+  root.addEventListener('click', e => {
+    const b = e.target.closest('[data-n]');
+    if (!b) return;
+    open.has(b.dataset.n) ? open.delete(b.dataset.n) : open.add(b.dataset.n);
+    draw();
+  });
+  const show = d => {
+    if (!d || !d.steps || (doc && d.n === doc.n && d.updated === doc.updated)) return;
+    const last = d.steps.filter(s => s.status === 'done' || s.status === 'local').pop();
+    if (doc && last) document.getElementById('said').textContent = last.name + ' finished: ' + (last.fact || last.purpose);
+    doc = d;
+    draw();
+  };
+  const say = text => { if (!doc) document.getElementById('msg').textContent = text; };
+
+  // A local copy of the page reloads its data file by itself; a file:// page cannot fetch, but it can load a script.
+  if (window.SIDE_VIEW_FILE) {
+    const load = () => {
+      const s = document.createElement('script');
+      s.src = window.SIDE_VIEW_FILE + '?t=' + Date.now();
+      s.onload = () => { show(window.SIDE_VIEW); s.remove(); };
+      s.onerror = () => s.remove();
+      document.head.appendChild(s);
+    };
+    load();
+    setInterval(load, 3000);
+    return;
+  }
+  (async () => {
+    const db = window.claude ? await window.claude.use('db') : null;
+    if (!db) { say('This page fills in as the run finishes each step, for a signed-in viewer on claude.ai.'); return; }
+    say('Waiting for the first step to finish…');
+    const slow = setTimeout(() => say("The run's updates can't be reached yet. They appear here when they arrive."), 10000);
+    db.collection('steps').orderBy('n', 'desc').limit(1).onSnapshot(q => {
+      if (!q.metadata.fromCache) clearTimeout(slow);
+      if (!q.empty) show(q.docs[0].data());
+    }, e => { clearTimeout(slow); say('Live updates stopped (' + ((e && e.code) || 'error') + '). Reopen the page to reconnect.'); });
+  })();
+})();
+</script>
