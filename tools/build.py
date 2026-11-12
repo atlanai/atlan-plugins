@@ -182,8 +182,9 @@ def codex_interface(source: dict) -> dict:
         "composerIcon": plugin["logo"],
         "logo": plugin["logo"],
     }
-    # Codex's directory asks for both; terms_url stays optional until Atlan names the page.
-    for key, field in (("privacy_policy_url", "privacyPolicyURL"), ("terms_url", "termsOfServiceURL")):
+    # Public MCP review needs support and legal URLs; leave unconfirmed pages out of drafts.
+    for key, field in (("privacy_policy_url", "privacyPolicyURL"),
+                       ("support_url", "supportURL"), ("terms_url", "termsOfServiceURL")):
         if key in plugin:
             interface[field] = plugin[key]
     if codex.get("screenshots"):
@@ -558,7 +559,12 @@ def directory_files(source: dict) -> dict[str, bytes]:
     documents = outputs(source)
     manifest = copy.deepcopy(documents[f"{base}/plugin.json"])
     manifest["extensions"]["com.openai"].pop("hooks", None)
-    files = {"plugin.json": render(manifest).encode(), "mcp.json": render(documents[f"{base}/mcp.json"]).encode()}
+    mcp = copy.deepcopy(documents[f"{base}/mcp.json"])
+    server = mcp["mcpServers"][source["mcp"]["server"]]
+    server.pop("headers", None)
+    server["extensions"] = {"com.openai": {
+        "auth": copy.deepcopy(source["submission"]["openai"]["auth"])}}
+    files = {"plugin.json": render(manifest).encode(), "mcp.json": render(mcp).encode()}
     folder = ROOT / base
     for tree in DIRECTORY_TREES:
         for path in sorted((folder / tree).rglob("*")):
@@ -575,6 +581,8 @@ def directory_files(source: dict) -> dict[str, bytes]:
 def directory_gaps(source: dict) -> list[str]:
     """What the directory's listing asks for that plugin.toml does not set yet."""
     gaps = []
+    if not source["plugin"].get("support_url"):
+        gaps.append("plugin.support_url (supportURL)")
     if "terms_url" not in source["plugin"]:
         gaps.append("plugin.terms_url (termsOfServiceURL)")
     if not source.get("codex", {}).get("screenshots"):

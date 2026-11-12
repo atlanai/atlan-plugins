@@ -1075,7 +1075,11 @@ class CodexDirectoryTest(unittest.TestCase):
         self.assertEqual(manifest["extensions"]["com.openai"]["onboardingSkill"], "./skills/atlan-get-started/SKILL.md")
         self.assertIn("skills/atlan-get-started/SKILL.md", files)
         self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
-        self.assertEqual(json.loads(files["mcp.json"]), build.outputs(source)["plugins/atlanai/mcp.json"])
+        server = json.loads(files["mcp.json"])["mcpServers"][source["mcp"]["server"]]
+        self.assertNotIn("headers", server)
+        self.assertEqual(server["extensions"]["com.openai"]["auth"], {
+            "type": "oauth", "client": {"mode": "cimd"}})
+        self.assertIn("headers", build.outputs(source)["plugins/atlanai/mcp.json"]["mcpServers"][source["mcp"]["server"]])
         tops = {path.split("/")[0] for path in files}
         self.assertEqual(tops, {"plugin.json", "mcp.json", "skills", "assets", "LICENSE", "NOTICE"})
         self.assertFalse([path for path in files if "hooks" in path.split("/")[0] or path.endswith(".pyc")])
@@ -1095,8 +1099,10 @@ class CodexDirectoryTest(unittest.TestCase):
     def test_the_build_names_what_the_listing_still_needs(self) -> None:
         source = copy.deepcopy(build.load())
         source["plugin"].pop("terms_url", None)
+        source["plugin"].pop("support_url", None)
         source["codex"].pop("screenshots", None)
-        self.assertEqual(len(build.directory_gaps(source)), 2)
+        self.assertEqual(len(build.directory_gaps(source)), 3)
+        source["plugin"]["support_url"] = "https://example.com/support"
         source["plugin"]["terms_url"] = "https://example.com/terms"
         source["codex"]["screenshots"] = ["./assets/missing.png"]
         self.assertEqual(build.directory_gaps(source), [])

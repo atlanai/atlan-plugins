@@ -12,11 +12,11 @@
 # silently replaces the other. `atlanai` is also the name of the registry's own plugin, which
 # serves the same `atlan` server, so installing both collapses to one server instead of two.
 name = "atlanai"
-display_name = "AI Registry"
+display_name = "Atlan Trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.54"
+version = "0.5.55"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
-short_description = "Atlan AI Registry"
+short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
 license = "Apache-2.0"
 homepage = "https://github.com/atlanai/atlan-plugins"
@@ -42,7 +42,8 @@ claude_hooks = "./claude-hooks/hooks.json"
 # harness's hooks/hooks.json discovery. A variant leaves them out too.
 codex_hooks = "./command-hooks/codex.json"
 cursor_hooks = "./command-hooks/cursor.json"
-# terms_url = ""  # Codex's directory listing asks for one; add it once Atlan names the page.
+# support_url = ""  # Awaiting the approved public support page for MCP review.
+# terms_url = ""  # Awaiting the approved public terms page for MCP review.
 
 [author]
 name = "Atlan"
@@ -82,6 +83,12 @@ default_prompts = [
 # The directory listing's screenshots: images placed by hand in the core's own assets/ folder
 # (plugins/atlanai/assets/), plugin-relative. `make codex-directory` says when none are set.
 # screenshots = ["./assets/screenshot-search.png"]
+
+[submission.openai.auth]
+type = "oauth"
+
+[submission.openai.auth.client]
+mode = "cimd"
 
 # Add-ons: a workload built on the registry, as its own plugin under plugins/<name>/ in this
 # marketplace. It depends on this plugin and declares no MCP server, so it reaches Atlan through

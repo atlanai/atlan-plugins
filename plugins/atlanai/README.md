@@ -1,4 +1,4 @@
-# AI Registry
+# Atlan Trident
 
 Connects your coding agent to the Atlan registry: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and
@@ -132,6 +132,7 @@ changes how this plugin's calls behave: registry reads run without a prompt, wri
 approvals and moves ask first and name what they touch, a `session_id` or `rationale` put inside
 `arguments` is moved beside them, temporary gateway errors tell Claude how to retry, and a
 fitting registry skill is named beside your request. This plugin works the same without it.
-Requests to Atlan carry your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
+The OpenAI directory package omits the local hooks and the client-identification header.
+Repository installs send your sign-in and one header, `X-Atlan-Client: atlan-plugin/<version>`,
 which tells Atlan the session came from this plugin. See Atlan's
 [privacy notice](https://atlan.com/privacy-policy/).
