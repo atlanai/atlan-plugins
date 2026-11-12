@@ -1975,6 +1975,29 @@ def _param_count(raw: str | None, params: dict | None) -> tuple[int | None, str 
     return None, None
 
 
+def _date_member(value: str, part: str | None) -> str:
+    """A member of a truncated date pill as the date it names, which the truncation equals.
+
+    Tableau saves a Month / Year member (`my:`) as `YYYYMM` and a Month / Day / Year member
+    (`mdy:`) as `YYYYMMDD` (seen live: `member='202611'`). Compared as written, the number
+    meets a date and Snowflake refuses the statement at compile time. A continuous truncation
+    (`tmn:`) saves `#2026-11-01 00:00:00#`, a date literal whose marks are not SQL. Anything
+    else is returned unchanged."""
+    text = (value or "").strip()
+    lit = re.fullmatch(r"#(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}:\d{2}))?#", text)
+    if lit:
+        day, clock = lit.groups()
+        return day if clock in (None, "00:00:00") else f"{day} {clock}"
+    ym = re.fullmatch(r"(\d{4})(\d{2})", text)
+    if part == "month" and ym and 1 <= int(ym.group(2)) <= 12:
+        return f"{ym.group(1)}-{ym.group(2)}-01"
+    ymd = re.fullmatch(r"(\d{4})(\d{2})(\d{2})", text)
+    if part == "day" and ymd and 1 <= int(ymd.group(2)) <= 12 \
+            and 1 <= int(ymd.group(3)) <= 31:
+        return f"{ymd.group(1)}-{ymd.group(2)}-{ymd.group(3)}"
+    return value
+
+
 def _filters(ws: ET.Element, col_index: dict[str, dict], *,
              scope: str | None = None, date_cols: list | None = None,
              display=None, stage: str | None = None,
@@ -2030,6 +2053,8 @@ def _filters(ws: ET.Element, col_index: dict[str, dict], *,
             # running sum over the view; only its row is left out of what the view shows.
             this_stage = "display"
         vals = _filter_values(f)
+        if kind == "date_trunc":
+            vals = [_date_member(v, part) for v in vals]
         rng = f.find(".//min")
         # An EXCLUDE filter: `<groupfilter function="except">` over (all members, the excluded
         # ones). Reading its members as an inclusion list inverts it — "hide NULL" became
@@ -2114,7 +2139,9 @@ def _filters(ws: ET.Element, col_index: dict[str, dict], *,
             # A RELATIVE DATE filter ("last 3 months", "this year"): whole periods counted
             # from today, or from the anchor the author fixed.
             first, last = f.get("first-period"), f.get("last-period")
-            period = (f.get("period-type") or "").lower()
+            # Tableau 2025.1 writes the period as `period-type-v2` (seen in a customer's
+            # workbook, version 18.1); earlier files write `period-type`.
+            period = (f.get("period-type") or f.get("period-type-v2") or "").lower()
             ok = all(re.fullmatch(r"-?\d+", x or "") for x in (first, last)) and period
             # Attributes this reader does not know may move the window (an anchor spelled
             # another way): the filter is then refused by name, never read from today.
@@ -2158,7 +2185,8 @@ def _filters(ws: ET.Element, col_index: dict[str, dict], *,
 # `anchor-date` attribute is ignored); any attribute outside this set refuses the filter by
 # name, never read from today.
 _RELATIVE_ATTRS = {"class", "column", "context", "filter-group", "first-period", "last-period",
-                   "period-type", "include-future", "include-null", "period-anchor"}
+                   "period-type", "period-type-v2", "include-future", "include-null",
+                   "period-anchor"}
 # The first day of a week when a data source states none (no `<date-options start-of-week>`):
 # seen live, a relative "this week" on such a file ran Sunday to Saturday.
 _DEFAULT_WEEK_START = "sunday"

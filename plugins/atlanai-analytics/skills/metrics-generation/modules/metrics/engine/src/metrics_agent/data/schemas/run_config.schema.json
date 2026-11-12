@@ -132,6 +132,24 @@
         "pattern": "^[^.]+\\.[^.]+\\.[^.]+$"
       },
       "description": "Optional bounded table set, DB.SCHEMA.TABLE."
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Privacy review for this run.",
+      "properties": {
+        "reviewed_values": {
+          "type": "array",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": "Literals a person reviewed as business values, not names (a line of business such as 'Variable Spend'). Exact text; each clears the person's-name check for that literal only."
+        }
+      }
     }
   }
 }

@@ -42,7 +42,7 @@ import hashlib
 import json
 import pathlib
 
-from metrics_agent.lib.literal_privacy import pii_reason
+from metrics_agent.lib.literal_privacy import pii_reason, set_reviewed
 
 
 from metrics_agent import plug_runtime as _runtime  # noqa: E402
@@ -79,6 +79,9 @@ def _ids_block(ids, cap: int, first_seen=None, last_seen=None) -> dict:
 def body(ctx: stage.Ctx) -> None:
     ri = ctx.read("run_inputs.json", "run_inputs.schema.json")
     dialect = ri["dialect"]
+    # The business values a person reviewed for this run are admitted by the name check.
+    from metrics_agent import run_config as _run_config  # noqa: PLC0415
+    set_reviewed((_run_config.load(ri["config"]["path"]).get("privacy") or {}).get("reviewed_values"))
     # NOT GATED ON `witness_mode`, deliberately. That flag governs whether a STATEMENT is
     # execution-verified, and refusing here would have made mining the history conditional on
     # intending to witness it — two different permissions, and a run that only wants a
