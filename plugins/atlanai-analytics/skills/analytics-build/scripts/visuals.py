@@ -22,7 +22,8 @@ CARDS = ('build', 'saved', 'answer', 'edit')
 # In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
 # text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
 ASKED = {'found': "the next native question's text, first",
-         'context': "the save question's text, after the celebration's first two lines, in place of its count line",
+         'context': "the save question's text in place of its count line (the banner, the two lines under it and the "
+                    "question stay as they are)",
          'saved': "the ready question's text, first"}
 # A demo reads its sources right before choosing what to build from; own data reads them mid-build.
 ASKED_DEMO = {'sources': "the next native question's text, first"}

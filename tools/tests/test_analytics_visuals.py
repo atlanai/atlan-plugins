@@ -319,8 +319,10 @@ class Helper(unittest.TestCase):
         self.assertTrue(shown.startswith('2 metrics · Built from your sources\n  4 queries: 2 from the dashboard'), 'the card leads')
         self.assertIn('\n\n● 4/4 metrics and queries checked · on your data', shown, 'then the chip, as the count line')
         self.assertNotIn('**', shown, "a question's text shows no Markdown")
-        self.assertIn("in the save question's text, after the celebration's first two lines, in place of its count line",
-                      self.side(checked)['next'], "a question's own text is always shown")
+        line = self.side(checked)['next']
+        self.assertIn("in the save question's text in place of its count line", line, "a question's own text is always shown")
+        self.assertIn('the banner, the two lines under it and the question stay', line,
+                      'the celebration keeps its banner (a live run read "after its first two lines" as "replace the top")')
         widget = self.project('visual', 'build', '--widget')
         self.assertTrue(widget.startswith('<style>'), 'a widget host draws the card as it happens')
 

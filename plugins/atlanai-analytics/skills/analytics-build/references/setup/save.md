@@ -21,8 +21,9 @@ Do not put it in an option `preview`: a preview is cut to a few lines on a short
 hides the descriptions and is gone once the person answers. Do not also print the block
 as text before the question; one short line that the checks are done is enough there.
 Run the `context` visual first ([visuals](visuals.md)): in a terminal its lines (the build's
-card, then the checks chip) go in this question's text after the celebration's first two
-lines, in place of its count line; with `show_widget`, draw it right before the question.
+card, then the checks chip) take the place of the count line in the block below, and the
+banner, the two lines under it and the question stay; with `show_widget`, draw it right
+before the question.
 
 Open the chosen demo's file again for its facts ([Fixit](../../../analytics-demo/references/yard.md),
 [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
