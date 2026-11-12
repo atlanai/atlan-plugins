@@ -632,7 +632,9 @@ def main():
     visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
 
     page = sub.add_parser('view', help="Remember the side view's published address, so a resumed run updates the same page")
-    page.add_argument('--url', required=True)
+    shown_at = page.add_mutually_exclusive_group(required=True)
+    shown_at.add_argument('--url')
+    shown_at.add_argument('--local', action='store_true', help='The run follows its local page, which refreshes itself')
 
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
@@ -698,14 +700,9 @@ def main():
                 except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
                     update['error'] = 'The side view was not updated: %s' % type(exc).__name__
             # Every duty this update carries, in order, so the agent never has to recall the reference mid-run.
-            if update.get('page'):
-                steps.append("Then open the side view, once: with the `Artifact` tool, publish `page` (read it in full first) "
-                             "with `capabilities` `{\"db\": {}}`, `icon` `chart` and a one-sentence `description`, run "
-                             "`PROJECT view --url \"<its address>\"`, and push `doc` to it with `ArtifactData` set, collection "
-                             "`steps`, doc_id `%s`. Without that tool, say once in your reply: \"Follow the build: open `%s` in "
-                             "a browser.\"" % (Path(update['doc']).stem, update['local']))
-            elif side_view.push(update):
-                steps.append('Then ' + side_view.push(update)[0].lower() + side_view.push(update)[1:])
+            line = side_view.push(update)
+            if line:
+                steps.append('Then ' + line[0].lower() + line[1:])
             if steps:
                 update['next'] = ' '.join(steps)
             if update:

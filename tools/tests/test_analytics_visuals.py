@@ -237,7 +237,9 @@ class Helper(unittest.TestCase):
     def test_the_next_line_names_every_duty_the_update_carries(self):
         first = self.side(self.project('visual', 'connect', '--widget'))['next']
         self.assertTrue(first.startswith('Draw it now'), 'the widget first, as the very next call')
-        self.assertIn('publish `page`', first, 'the first update opens the side view without the agent recalling the reference')
+        self.assertIn('Then open the side view, once: with the `Artifact` tool, publish `', first,
+                      'the first update opens the side view without the agent recalling the reference')
+        self.assertIn('side.html', first)
         self.assertIn('doc_id `s01`', first)
         self.assertIn('progress.html', first, 'and says what to do without the artifact tools')
         meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
@@ -246,7 +248,24 @@ class Helper(unittest.TestCase):
         (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
         later = self.side(self.project('visual', 'sources', '--widget'))['next']
         self.assertIn('Then push it to the side view: `ArtifactData` set, url `https://claude.ai/artifact/abc`', later)
-        self.assertNotIn('publish `page`', later, 'the page is published once')
+        self.assertNotIn('Open the side view', later, 'the page is published once')
+
+    def test_every_result_offers_the_side_view_until_the_run_has_one(self):
+        fresh = Path(self.tmp.name).resolve() / 'fresh'
+
+        def helper(*args):
+            return subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(fresh), *args],
+                                  capture_output=True, text=True, encoding='utf-8', timeout=60).stdout
+        helper('survey', str(self.run.parent / 'source'))
+        helper('visual', 'connect')
+        (fresh / 'engine').mkdir()
+        (fresh / 'engine' / 'manifest.json').write_bytes((self.run / 'engine' / 'manifest.json').read_bytes())
+        line = json.loads(helper('survey', str(self.run.parent / 'source')))['side_view']
+        self.assertTrue(line.startswith('Open the side view, once'), 'a run whose first moment skipped the page is reminded mid-build')
+        self.assertIn('PROJECT view --local', line)
+        self.assertEqual(helper('view', '--local'), '')
+        (fresh / 'engine' / 'manifest.json').write_text(json.dumps({'stages': []}), encoding='utf-8')
+        self.assertNotIn('side_view', json.loads(helper('survey', str(self.run.parent / 'source'))), 'following the local page: no line')
 
     def test_the_build_card_and_the_checks_chip_are_reply_text(self):
         for kind in ('connect', 'sources'):

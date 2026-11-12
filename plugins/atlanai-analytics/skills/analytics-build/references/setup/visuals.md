@@ -51,7 +51,7 @@ add no other line that repeats its numbers.
 A private claude.ai page that shows every step, what came out of it and how. It needs the
 `Artifact` and `ArtifactData` tools: Claude Code and the Claude apps, signed in with claude.ai.
 
-- `page=<path>`, on the first update only: publish the page once with the `Artifact` tool,
+- `page=<path>`, on every update until the run has a page: publish it once with the `Artifact` tool,
   `file_path` the path, `capabilities` `{"db": {}}`, `icon` `chart` and a one-sentence
   `description`, reading the file in full first as that tool asks. Then run
   `PROJECT view --url "<its address>"`, and say in one clause that the run's progress is in the
@@ -60,12 +60,14 @@ A private claude.ai page that shows every step, what came out of it and how. It 
   `steps`, `doc_id` the file's name without `.json` (such as `s02`) and `file_path` the path.
   Never read or retype it.
 - `url=<address>`: the page this run already published. Use it; never publish another.
-- A `side_view` field on any `PROJECT` or engine result names a newer document as one line: push
-  it as the line says before going on. These updates tick each piece of work while its step runs.
+- A `side_view` field on any `PROJECT` or engine result is one line: open the side view, while the
+  run has no page yet, or push a newer document. Do as it says before going on. These updates tick
+  each piece of work while its step runs.
 
 Without those tools (Codex, Cursor, or Claude Code signed in with an API key, Bedrock or
 Vertex), `local=<path>` is the same page as a file that refreshes itself. Say once, in your
-reply: "Follow the build: open `<path>` in a browser." Then ignore `doc` paths. A failed publish or push leaves the run unchanged: carry on without the side
+reply: "Follow the build: open `<path>` in a browser.", and run `PROJECT view --local`. Then ignore
+`doc` paths. A failed publish or push leaves the run unchanged: carry on without the side
 view, and try a failed step once more at most.
 
 ## Data files

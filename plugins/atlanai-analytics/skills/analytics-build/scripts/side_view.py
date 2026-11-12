@@ -355,21 +355,32 @@ def model(run, state=None, engine_dir=None):
 
 # Recording ------------------------------------------------------------------------------------
 
-def link(run, url):
-    """Remember where the side view was published, so every later update names it."""
-    if not re.match(r'https://claude\.ai/', str(url)):
+def link(run, url=None):
+    """Remember where the side view was published, so every later update names it; with no address, that the run
+    follows its local page instead, which refreshes itself and needs no push."""
+    if url is not None and not re.match(r'https://claude\.ai/', str(url)):
         raise ValueError('A side view is a claude.ai artifact address.')
     with _locked(run):
         state = _state(run)
-        state['url'] = url
+        state.update({'url': url} if url else {'local': True})
         _write(Path(run) / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
+
+
+def _offer(run, state, out):
+    """Until the run has a page, every update offers one, so a moment that skipped it is caught at the next."""
+    if state.get('url'):
+        out['url'] = state['url']
+    elif not state.get('local'):
+        side = run / 'view' / 'side.html'
+        out['page'] = str(side if side.is_file() else page(run, state.get('title') or 'Analytics setup'))
+        out['local'] = str(run / 'view' / 'progress.html')
 
 
 def record(run, kind, spec=None, engine_dir=None):
     """Log a moment; when the page would show something new, write a new document and refresh the local page.
 
-    Returns the paths to publish or push: `page` and `local` until the page is published, `doc` on every
-    write, and `url` once it is."""
+    Returns the paths to publish or push: `doc` on every write, then `url` once the page is published, or
+    `page` and `local` until it is (or until the run follows its local page instead)."""
     with _locked(run):
         return _record(Path(run), kind, spec or {}, engine_dir)
 
@@ -394,13 +405,10 @@ def _record(run, kind, spec, engine_dir):
     # A moment writes a document only when the page would show something new.
     if first or _ticks(model(run, state)) != state.get('ticks'):
         doc, path = _emit(run, state)
-        # Until a page is published, every update offers it, so a skipped first moment is caught at the next.
-        if first or not state.get('url') or not (run / 'view' / 'side.html').is_file():
-            out['page'] = str(page(run, doc['title']))
-            out['local'] = str(run / 'view' / 'progress.html')
+        if first or not (run / 'view' / 'side.html').is_file():
+            page(run, doc['title'])
         out['doc'] = str(path)
-        if state.get('url'):
-            out['url'] = state['url']
+        _offer(run, state, out)
     _write(run / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
     return out
 
@@ -438,15 +446,25 @@ def progress(run, engine_dir=None):
             return {}
         _, path = _emit(run, state)
         _write(run / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
-        return {'doc': str(path), **({'url': state['url']} if state.get('url') else {})}
+        out = {'doc': str(path)}
+        _offer(run, state, out)
+        return out
 
 
 def push(update):
-    """The one line a helper result carries, so the agent pushes a newer document without looking anything up."""
-    if not update.get('url') or not update.get('doc'):
+    """The one line a helper result carries, so the agent opens or updates the side view without looking anything up."""
+    if not update.get('doc'):
         return None
-    return ('Push it to the side view: `ArtifactData` set, url `%s`, collection `steps`, doc_id `%s`, file_path `%s`.'
-            % (update['url'], Path(update['doc']).stem, update['doc']))
+    if update.get('url'):
+        return ('Push it to the side view: `ArtifactData` set, url `%s`, collection `steps`, doc_id `%s`, file_path `%s`.'
+                % (update['url'], Path(update['doc']).stem, update['doc']))
+    if update.get('page'):
+        return ('Open the side view, once: with the `Artifact` tool, publish `%s` (read it in full first) with `capabilities` '
+                '`{"db": {}}`, `icon` `chart` and a one-sentence `description`, run `PROJECT view --url "<its address>"`, then '
+                'push `%s` to it with `ArtifactData` set, collection `steps`, doc_id `%s`. Without that tool, say once in '
+                'your reply: "Follow the build: open `%s` in a browser.", and run `PROJECT view --local`.'
+                % (update['page'], update['doc'], Path(update['doc']).stem, update['local']))
+    return None
 
 
 def page(run, title):
