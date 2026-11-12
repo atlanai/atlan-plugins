@@ -44,12 +44,14 @@ def number(value, unit=None):
         return 'blank'
     unit = (unit or '').strip()
     low = unit.lower()
-    if 'fraction' in low or low in ('ratio', 'share', 'percent', 'percentage', '%'):
+    # A plain ratio past 1 is a multiple, such as a markup; within 1 it reads as a share.
+    if 'fraction' in low or low in ('share', 'percent', 'percentage', '%') or low == 'ratio' and abs(value) <= 1:
         pct = value if low in ('percent', 'percentage', '%') else value * 100
         return ('%.1f' % _half_up(pct, 1)).rstrip('0').rstrip('.') + '%'
-    if low.startswith('ratio of'):
+    if low.startswith('ratio'):
         return '%.1f×' % _half_up(value, 1)
-    symbol = CURRENCY.get(unit.upper(), '')
+    # A currency per unit, such as "USD per ticket", keeps its sign.
+    symbol = CURRENCY.get(unit.upper(), '') or CURRENCY.get(unit.split(' ')[0].upper(), '') if unit else ''
     # Large amounts read in whole units; small ones keep their pence or cents.
     places = 0 if abs(value) >= 100 else 2 if symbol and not float(value).is_integer() else 0 if float(value).is_integer() else 1
     rounded = _half_up(value, places)

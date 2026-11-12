@@ -24,6 +24,9 @@ class Numbers(unittest.TestCase):
         self.assertEqual(visuals.number(0.0438946, 'fraction (0 to 1)'), '4.4%')
         self.assertEqual(visuals.number(1234567.4, 'USD'), '$1,234,567')
         self.assertEqual(visuals.number(2, 'jobs'), '2')
+        self.assertEqual(visuals.number(2.21, 'ratio'), '2.2×', 'a markup of 2.21 is not 221%')
+        self.assertEqual(visuals.number(0.271, 'ratio'), '27.1%')
+        self.assertEqual(visuals.number(86.09, 'USD per ticket'), '$86.09', 'a currency per unit keeps its sign')
         self.assertEqual(visuals.number(None, 'GBP'), 'blank')
 
     def test_names_read_as_words(self):
