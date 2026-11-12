@@ -21,7 +21,8 @@ Doing and Why lines first. Every step that leads to a choice ends on a native qu
 
 | Moment | Doing | Why |
 | --- | --- | --- |
-| Choose | Picking questions that test the metrics your `<agent>` needs, from `<firm>`'s dashboard and its analysts' queries. | The test should use questions people really ask, about what this agent is for. |
+| Choose | Asking which questions to test your `<agent>` with. | The score is only as fair as the questions: ones your team trusts, or ones `<firm>`'s analysts already ask. |
+| Generate | Picking questions that test the metrics your `<agent>` needs, from `<firm>`'s dashboard and its analysts' queries. | The test should use questions people really ask, about what this agent is for. |
 | Test | Asking each question to a fresh agent that only sees your context. | It answers as anyone would, so the score is the context's, not mine. |
 | Fix | Changing the rule behind the miss. | One rule changed once changes every answer that uses it. |
 
