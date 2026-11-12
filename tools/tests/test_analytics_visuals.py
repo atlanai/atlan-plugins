@@ -236,6 +236,13 @@ class Moments(unittest.TestCase):
         answer = {'question': 'Q', 'headline': 'Job 1: 25%', 'unit': 'percent', 'rows': [['Job 1', 0.25]], 'proof': [{'name': 'On-Time Rate'}]}
         (self.run / 'answer.json').write_text(json.dumps(answer), encoding='utf-8')
         self.assertIn('25%', self.show('answer'), "the answer's own metric reads its share as a percent")
+        answer.update(rows=[['Job 1', 57.1], ['Job 2', 42.9]], highlight='Job 1', headline='Job 1: 57.1%')
+        (self.run / 'answer.json').write_text(json.dumps(answer), encoding='utf-8')
+        card = self.show('answer')
+        self.assertIn('57.1%', card, 'rows already in percent keep the scale the headline shows')
+        self.assertNotIn('5710%', card)
+        answer.update(rows=[['Job 1', 0.25]], headline='Job 1: 25%')
+        answer.pop('highlight')
         metrics.append({'name': 'Fee Take Rate', 'definition': {'output': {'unit': 'fraction of face value'}, 'formula': 'SUM(a) / SUM(b)'}})
         (self.run / 'context' / 'metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
         answer.update(rows=[['Venue 1', 0.271]], headline='Venue 1: 27.1%', proof=[{'name': 'Fee Take Rate'}])

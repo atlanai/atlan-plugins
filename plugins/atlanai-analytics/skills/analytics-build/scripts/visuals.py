@@ -153,7 +153,12 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         # not. Other rules it lists can hold other units.
         first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)), None)
         own = (facts.unit_for(first) or '').lower() if first else ''
-        if 'fraction' in own or own in ('ratio', 'share'):
+        # Unless the rows are already in percent: the headline's number says which scale they hold.
+        rows = [r for r in spec.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
+        lead = next((r[1] for r in rows if r[0] == spec.get('highlight')), rows[0][1] if rows else None)
+        shown = str(spec.get('headline') or '').rpartition(': ')[2].replace(' ', '')
+        as_percent = lead is not None and number(lead, 'percent') == shown and number(lead, 'fraction') != shown
+        if ('fraction' in own or own in ('ratio', 'share')) and not as_percent:
             spec['unit'] = 'fraction'
     if kind == 'edit':
         unit = facts.unit_for(spec.get('metric')) if facts else None
