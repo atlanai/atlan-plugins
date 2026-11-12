@@ -219,6 +219,13 @@ def export_context(run, context, receipt, parity=None):
     # Use the existing publisher's checks; never relax them to accommodate the new engine.
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'analytics-build/scripts'))
     import context_contracts
+    import analytics_eval
+    # The business values a person reviewed in this run's run.yml (`privacy.reviewed_values`)
+    # pass the name check here as they did when the history was admitted.
+    from metrics_agent import run_config
+    described = Path((ri.get('config') or {}).get('path') or run / 'run.yml')
+    config = run_config.load(described) if described.is_file() else {}
+    analytics_eval.set_reviewed_values((config.get('privacy') or {}).get('reviewed_values'))
     # A saved query that only fails the privacy check is held and left out, as any other held
     # query is: it never ships, and it no longer stops the metrics and queries that passed.
     saved, private = privacy_holds(saved, context_contracts.check_query)

@@ -33,7 +33,7 @@ from local_data import safe_path, file_hash
 import journey
 import local_prepare
 import context_contracts as mine
-from analytics_eval import filter_querylog
+from analytics_eval import filter_querylog, set_reviewed_values
 
 # Local engines the helper executes itself; SQLite needs only the standard library.
 _card_path = Path(__file__).resolve().parents[2] / 'metrics-generation/modules/metrics/engine/src/metrics_agent/lib/card_sql.py'
@@ -80,7 +80,23 @@ class Project(ContextState):
         state = self.manifest()
         if state.get('entrypoint') != 'project':
             raise ProjectError('Select the project setup run, not a dashboard or agent run.')
+        # The values a person reviewed as business values apply to every privacy check of this run.
+        set_reviewed_values(state.get('reviewed_values'))
         return state
+
+    def reviewed_values(self, request):
+        """Record the literals a person reviewed as business values, not names (a line of business
+        such as 'Variable Spend'). Exact text; an empty list clears them."""
+        values = request.get('values')
+        if not isinstance(values, list) or len(values) > 200 or not all(
+                isinstance(v, str) and v.strip() and len(v) <= 200 for v in values):
+            raise ProjectError('Send {"values": [...]}: up to 200 exact values, as the privacy check quoted them.')
+        state = self.current()
+        state['reviewed_values'] = sorted(set(values))
+        self.store.write(self.path, state)
+        set_reviewed_values(state['reviewed_values'])
+        return {'status': 'ok', 'reviewed_values': state['reviewed_values'],
+                'next': 'Run PROJECT history again, then write a new engine configuration.'}
 
     def auth(self, request):
         return auth_recovery.advance(self, request)
@@ -451,6 +467,8 @@ class Project(ContextState):
                   'dialect': binding['kind'], 'mode': 'standalone', 'inputs': inputs,
                   'settings': {'local-files': settings}, 'witness_mode': 'execute',
                   'publish': ['files'], 'observers': []}
+        if state.get('reviewed_values'):
+            config['privacy'] = {'reviewed_values': state['reviewed_values']}
         if sources == 'all':
             cleaned = self.context / 'querylog.clean.jsonl'
             if not cleaned.is_file():
@@ -607,7 +625,8 @@ def main():
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config',
+                 'reviewed-values'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:

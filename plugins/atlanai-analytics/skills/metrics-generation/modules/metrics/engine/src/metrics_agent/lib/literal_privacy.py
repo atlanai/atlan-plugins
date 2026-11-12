@@ -41,16 +41,87 @@ _LABEL_WORDS = frozenset(("no", "not", "non", "very", "on", "off", "in", "out", 
 #    "Coverage Tier" = 'Actively Worked'. The column's own name is the evidence, so a column
 #    of people (owner, rep, manager) keeps its literals refused.
 _CATEGORY = (r"(?:status|state|stage|tier|type|category|class|classification|bucket|band|level|segment|"
-             r"priority|severity|reason|outcome|result|phase|grade|rating|channel|motion|plan|label|flag)")
+             r"priority|severity|reason|outcome|result|phase|grade|rating|channel|motion|plan|label|flag|"
+             # Organisational groupings: LINE_OF_BUSINESS = 'Variable Spend', LOB, BUSINESS_UNIT.
+             r"business|lob|division|department|unit|vertical|sector|industry|region|territory|"
+             r"portfolio|program|programme)")
+# The category word may be followed by what the column holds of it: CATEGORY_NAME, REGION_CODE.
+_CATEGORY_TAIL = _CATEGORY + r"(?:_?(?:name|desc|description|code|label))?"
 _CATEGORY_COLUMN = re.compile(
-    _CATEGORY + r"[\"`\])]*\s*(?:=|<>|!=|\bnot\s+in\s*\(|\bin\s*\(|\bi?like\b)\s*(?:'[^']*'\s*,\s*)*$", re.I)
+    _CATEGORY_TAIL + r"[\"`\])]*\s*(?:=|<>|!=|\bnot\s+in\s*\(|\bin\s*\(|\bi?like\b)\s*(?:'[^']*'\s*,\s*)*$", re.I)
 # 3. It is the label a CASE writes into a column named as a category:
 #    CASE WHEN score >= 2.5 THEN 'Actively Worked' ... END AS coverage_tier.
 _CASE_BRANCH = re.compile(r"\b(?:then|else)\s*$", re.I)
 _CASE_ALIAS = re.compile(r"\bend\b\s*(?:as\s+)?[\"`\[]?([\w ]+?)[\"`\]]?\s*(?:,|\bfrom\b|\)|$)", re.I)
+# 4. It is a label a CASE writes from tests on category columns only, or a value compared with
+#    that CASE's result. A BI calculated field compiles this way:
+#    CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Variable Spend' ELSE 'Fixed Spend' END IN ('Variable Spend').
+#    A test on anything else (an ID, a person, a score) leaves its labels to the other rules.
+_LITERAL = re.compile(r"'[^']*'")
+_KEYWORD = re.compile(r"\b(case|end|when|then|else)\b", re.I)
+_TESTED = re.compile(r"([A-Za-z_][\w$]*)[\"`\])]*\s*(?:=|<>|!=|>=|<=|>|<|\bnot\s+in\b|\bin\b|\bi?like\b|\bis\b)",
+                     re.I)
+_ALIAS = re.compile(r"\s*(?:as\s+)?[\"`\[]?([A-Za-z_][\w ]*?)[\"`\]]?\s*(?:,|\bfrom\b|\)|$)", re.I)
+_COMPARED = re.compile(r"\s*\)*\s*(?:=|<>|!=|\bnot\s+in\s*\(|\bin\s*\()\s*((?:'[^']*'\s*,\s*)*'[^']*')", re.I)
+
+# Values a person has reviewed as business values for this run (`privacy.reviewed_values` in
+# run.yml). Exact text only: a reviewed 'Variable Spend' clears that literal and nothing else.
+_REVIEWED: frozenset = frozenset()
 
 
-def _is_label(text: str, m) -> bool:
+def set_reviewed(values) -> None:
+    """The run's reviewed business values; an empty list clears them."""
+    global _REVIEWED
+    _REVIEWED = frozenset(str(v) for v in (values or []) if isinstance(v, str) and v.strip())
+
+
+def _case_labels(text: str) -> set:
+    """Start offsets of the literals rule 4 reads as labels."""
+    masked = _LITERAL.sub(lambda m: "'" + "x" * (len(m.group(0)) - 2) + "'", text)
+    words = [(m.start(), m.end(), m.group(1).lower()) for m in _KEYWORD.finditer(masked)]
+    out: set = set()
+    for i, (start, _end, word) in enumerate(words):
+        if word != "case":
+            continue
+        depth, close, tests, branches, keyword, mark = 0, None, [], [], None, None
+        for s, e, w in words[i + 1:]:
+            if w == "case":
+                depth += 1
+            elif w == "end" and depth:
+                depth -= 1
+            elif depth == 0:
+                if keyword == "when" and w == "then":
+                    tests.append(masked[mark:s])
+                elif keyword in ("then", "else") and w in ("when", "else", "end"):
+                    branches.append((mark, s))
+                if w == "end":
+                    close = e
+                    break
+                keyword, mark = w, e
+        if close is None or not tests:
+            continue
+        alias = _ALIAS.match(text, close)
+        if alias and (re.search(_PERSON, alias.group(1), re.I)
+                      or (re.search(r"name$", alias.group(1), re.I)
+                          and not re.search(_CATEGORY_TAIL + r"$", alias.group(1), re.I))):
+            continue        # the CASE writes a person's column: its labels are names
+        columns = [c for t in tests for c in _TESTED.findall(t)]
+        if not columns or not all(re.search(_CATEGORY_TAIL + r"$", c, re.I) for c in columns):
+            continue
+        values = set()
+        for lo, hi in branches:
+            for lit in _LITERAL.finditer(text, lo, hi):
+                out.add(lit.start())
+                values.add(lit.group(0))
+        compared = _COMPARED.match(text, close)
+        if compared:
+            for lit in _LITERAL.finditer(text, compared.start(1), compared.end(1)):
+                if lit.group(0) in values:
+                    out.add(lit.start())
+    return out
+
+
+def _is_label(text: str, m, case_labels: set | None = None) -> bool:
     words = m.group(0).strip("'%").split()
     if any(w.lower() in _LABEL_WORDS for w in words):
         return True
@@ -60,17 +131,23 @@ def _is_label(text: str, m) -> bool:
     if _CASE_BRANCH.search(before):
         alias = _CASE_ALIAS.search(text, m.end())
         # The nearest END closes this CASE unless another CASE opens first.
-        if alias and "case" not in text[m.end():alias.start()].lower():
-            return bool(re.search(_CATEGORY + r"$", alias.group(1).strip(), re.I))
-    return False
+        if alias and "case" not in text[m.end():alias.start()].lower() \
+                and re.search(_CATEGORY_TAIL + r"$", alias.group(1).strip(), re.I):
+            return True
+    return m.start() in (_case_labels(text) if case_labels is None else case_labels)
 
 
 def full_name_hit(text: str):
     """The first quoted two-word capitalised literal that is not a known business value, or None.
     Every match is tried: an allowed value earlier in the text does not hide a name after it."""
     text = text or ""
+    labels = None
     for m in PII["full_name"].finditer(text):
-        if not _FULL_NAME_OK.search(m.group(0)) and not _is_label(text, m):
+        if _FULL_NAME_OK.search(m.group(0)) or m.group(0).strip("'%") in _REVIEWED:
+            continue
+        if labels is None:
+            labels = _case_labels(text)
+        if not _is_label(text, m, labels):
             return m.group(0)
     return None
 

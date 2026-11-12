@@ -84,6 +84,7 @@ _policy = _importlib_util.module_from_spec(_policy_spec)
 _policy_spec.loader.exec_module(_policy)
 PII_RULES, PII = _policy.PII_RULES, _policy.PII
 full_name_hit, pii_reason = _policy.full_name_hit, _policy.pii_reason
+set_reviewed_values = _policy.set_reviewed
 
 
 def filter_querylog(src: str, dst: str) -> dict:

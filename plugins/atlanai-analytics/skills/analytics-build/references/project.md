@@ -128,7 +128,10 @@ require separately reviewed support. Host sandboxing is still required for hosti
 ## 3. Combine evidence and author both context types
 
 Run `PROJECT history` when selected history was found. It captures and privacy-filters
-history under `context/`; it does not mine shapes or author candidates. Pass the returned
+history under `context/`; it does not mine shapes or author candidates. When the privacy check
+reads a business value as a person's name and the person confirms it is not one, record the
+exact text with `PROJECT reviewed-values` (`{"values": ["Variable Spend"]}`) and run
+`PROJECT history` again; the next engine configuration carries the values. Pass the returned
 clean history path to the main engine's `local-files` history input. For live history, use
 [query history](../../source-survey/references/warehouses/query-history.md) or the configured native plug.
 
