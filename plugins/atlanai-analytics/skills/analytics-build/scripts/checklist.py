@@ -70,7 +70,8 @@ def build(model, flow=None):
         # A run saved before intent was recorded has passed this step once authoring began.
         'intent': bool(intent.get('domain') and intent.get('purpose')) or at >= 2,
         'scope': at >= 2 or (at == 1 and finished),
-        'metrics': at >= 4 or (at == 3 and finished),
+        # A saved or kept context was built and checked, even while a changed rule re-runs its check.
+        'metrics': at >= 4 or (at == 3 and finished) or saved,
         'save': saved,
         'ask': saved and bool(interaction.get('asked')),
     }

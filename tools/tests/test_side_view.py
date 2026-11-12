@@ -308,13 +308,13 @@ class SideView(unittest.TestCase):
 
     def test_a_context_kept_here_finishes_the_save_whatever_the_journey_still_waits_on(self):
         # A changed rule re-runs its check, which leaves the run's progress at the checks again.
-        for demo, stage in ((True, None), (False, None), (True, ('check', 'complete'))):
+        for demo, stage in ((True, None), (False, None), (True, ('check', 'complete')), (True, ('check', 'running'))):
             run = make_run(self.root / ('%s-%s' % (demo, stage)), saved=False, local=True, demo=demo, stage=stage)
             interaction = run / 'interaction.json'
             interaction.write_text(json.dumps({**json.loads(interaction.read_text(encoding='utf-8')), 'intent_focus_required': True}),
                                    encoding='utf-8')
             doc = side_view.model(run)
-            self.assertEqual([self.step(doc, n)['status'] for n in ('Save', 'Ask')], ['done', 'done'],
+            self.assertEqual([self.step(doc, n)['status'] for n in ('Metrics', 'Save', 'Ask')], ['done', 'done', 'done'],
                              'a live run stayed at "Save · Waiting for you" after the person kept, asked and edited')
 
     def test_the_choice_is_read_from_the_engine_when_the_config_lives_elsewhere(self):
