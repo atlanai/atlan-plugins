@@ -15,17 +15,9 @@ are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score
 When the person picks Improve it, add **Find what to fix**, **Apply the fix** and **Test again**
 to the list before diagnosing, and mark each done as it finishes.
 
-Every moment follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
-a block to read before choosing is the question's own text, as plain lines with no Markdown, its
-Doing and Why lines first. Every step that leads to a choice ends on a native question.
-
-| Moment | Doing | Why |
-| --- | --- | --- |
-| Choose | Asking which questions to test your `<agent>` with. | The score is only as fair as the questions: ones your team trusts, or ones `<firm>`'s analysts already ask. |
-| Generate | Picking questions that test the metrics your `<agent>` needs, from `<firm>`'s dashboard and its analysts' queries. | The test should use questions people really ask, about what this agent is for. |
-| Test | Asking each question to a fresh agent that only sees your context. | It answers as anyone would, so the score is the context's, not mine. |
-| Fix | Changing the rule behind the miss. | One rule changed once changes every answer that uses it. |
-| Save | Asking whether to save this check to `<workspace>`. | Your team sees the same questions and the score move, and can rerun them. |
+Every step follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
+a block to read before choosing is the question's own text, as plain lines with no Markdown, with
+no Doing or Why lines. Every step that leads to a choice ends on a native question.
 
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
@@ -37,7 +29,13 @@ this machine only.
 
 `CHECK start --project <project>` returns the built run, `context_saved_to` and the project's
 `sets`. With no sets, or the person asking for new questions, generate. Otherwise, unless the
-request named a set, ask one native question, "Which questions should I test with?":
+request named a set, ask one native question whose text is this state line, as plain lines:
+
+```
+This folder has <N> eval set(s): <set name>, <N> questions with their trusted answers.
+Next I ask each question to a fresh agent that sees only your context, and compare
+its answer with the trusted one. Which questions should I test with?
+```
 
 | Option | Description |
 | --- | --- |
@@ -121,7 +119,7 @@ in `<evals-run>/work/spec.json`, name the fix:
 
   | Option | Description |
   | --- | --- |
-  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, then test the same questions again. |
+  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. |
   | Keep the score | Keep this score as the bar to beat. |
 
 **Apply it** is the yes through the next score, so ask nothing more until the person must act in
@@ -162,7 +160,7 @@ score look good?" again as step 3 describes, with the new score; Improve it find
 
 Everything stays on this machine until here. Only when the context is in Atlan Trident **and** a
 fix was applied and tested again, ask one native question, "Save this check to Atlan Trident?",
-whose text is its Doing and Why lines and the score move, as plain lines:
+whose text is the score move, as plain lines:
 
 | Option | Description |
 | --- | --- |
