@@ -569,8 +569,12 @@ def _due(run, engine_dir=None):
         if kinds:
             return {'visual': 'Due: run this helper\'s %s before going on.' % ', then '.join('`visual %s`' % k for k in kinds)}
         line = side_view.push(side_view.progress(run, engine_dir))
+        pending = side_view.unpublished(run)
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return {}
+    if pending:
+        # A page that was never published gets no updates: name it until it is.
+        line = side_view.publish(pending)
     return {'side_view': line} if line else {}
 
 
@@ -632,7 +636,9 @@ def main():
     visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
 
     page = sub.add_parser('view', help="Remember the side view's published address, so a resumed run updates the same page")
-    page.add_argument('--url', required=True)
+    where = page.add_mutually_exclusive_group(required=True)
+    where.add_argument('--url')
+    where.add_argument('--local', action='store_true', help='This host has no Artifact tool: the person opens the local page')
 
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
@@ -697,13 +703,23 @@ def main():
                     update.update(side_view.record(run, args.kind, spec, args.engine_dir))
                 except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
                     update['error'] = 'The side view was not updated: %s' % type(exc).__name__
+            # Until the page has an address, every result names it and says to publish it first: the first result
+            # alone can be folded away, cut, or followed by a rerun that does not print it again.
+            try:
+                pending = side_view.unpublished(run)
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                pending = {}
+            # A moment with nothing to show yet still prints nothing at all.
+            if pending and update:
+                update.update(pending)
+                update['next'] = side_view.publish(pending) + (' Then: ' + update['next'] if update.get('next') else '')
             if update:
                 print(('\n' if shown else '') + 'side view: ' + json.dumps(update, ensure_ascii=False))
             return 0
         if args.command == 'view':
             import side_view
             try:
-                side_view.link(safe_path(args.run_dir), args.url)
+                side_view.link(safe_path(args.run_dir), args.url, local=args.local)
             except ValueError as exc:
                 raise ProjectError(str(exc)) from None
             return 0

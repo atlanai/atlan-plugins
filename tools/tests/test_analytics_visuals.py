@@ -230,9 +230,42 @@ class Helper(unittest.TestCase):
         self.assertTrue(first['page'].endswith('side.html') and first['doc'].endswith('s01.json'))
         self.assertIn("Never put it in a question's text", first['next'], 'a terminal draws question text in a colour light themes hide')
         self.assertIn('--widget', first['next'], 'a host that draws widgets learns it at the first moment')
+        self.assertTrue(first['next'].startswith('Publish the side view now'), 'publishing comes before the chip')
+        self.assertIn(first['page'], first['next'])
         out = self.project('visual', 'sources')
         self.assertTrue(out.startswith('● **3** past queries read'))
-        self.assertEqual(sorted(self.side(out)), ['next'], 'the finished run already shows it: no new document')
+        self.assertEqual(sorted(self.side(out)), ['local', 'next', 'page'], 'no new document, but the page is still to publish')
+        self.project('view', '--url', 'https://claude.ai/artifact/abc')
+        out = self.project('visual', 'sources')
+        self.assertEqual(sorted(self.side(out)), ['next'], 'the finished run already shows it, on a published page')
+        self.assertNotIn('Publish', self.side(out)['next'])
+
+    def test_a_repeated_first_moment_still_names_the_page(self):
+        self.project('visual', 'connect')
+        again = self.side(self.project('visual', 'connect', '--widget'))
+        self.assertTrue(again['page'].endswith('side.html'), 'a rerun with --widget never loses the page to publish')
+        self.assertTrue(again['next'].startswith('Publish the side view now'))
+        self.assertIn('show_widget', again['next'])
+
+    def test_a_host_without_artifacts_keeps_the_page_local(self):
+        self.project('visual', 'connect')
+        self.project('view', '--local')
+        self.assertNotIn('page', self.side(self.project('visual', 'sources')), 'kept local: never asked to publish again')
+
+    def test_other_helper_results_name_an_unpublished_page(self):
+        fresh = Path(self.tmp.name).resolve() / 'fresh'
+
+        def helper(*args):
+            return subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(fresh), *args],
+                                  capture_output=True, text=True, encoding='utf-8', timeout=60).stdout
+        helper('survey', str(self.run.parent / 'source'))
+        helper('visual', 'connect')
+        line = json.loads(helper('survey', str(self.run.parent / 'source')))['side_view']
+        self.assertTrue(line.startswith('Publish the side view now'), 'any helper result names it until it is published')
+        self.assertIn(str(fresh / 'view' / 'side.html'), line)
+        helper('view', '--url', 'https://claude.ai/artifact/abc')
+        later = json.loads(helper('survey', str(self.run.parent / 'source')))
+        self.assertFalse(str(later.get('side_view') or '').startswith('Publish'), 'published: never asked again')
 
     def test_the_build_card_and_the_checks_chip_are_reply_text(self):
         for kind in ('connect', 'sources'):

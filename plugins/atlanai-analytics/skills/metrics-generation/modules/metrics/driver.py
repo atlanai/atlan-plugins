@@ -257,6 +257,10 @@ def _side_view(run):
             sys.path.append(str(scripts))
         import side_view
         line = side_view.push(side_view.progress(setup, Path(run).resolve()))
+        pending = side_view.unpublished(setup)
+        if pending:
+            # A page that was never published gets no updates: name it until it is.
+            line = side_view.publish(pending)
     except Exception:  # noqa: BLE001 - the view never blocks the engine
         return {}
     return {'side_view': line} if line else {}

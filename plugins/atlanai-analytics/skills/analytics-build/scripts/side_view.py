@@ -354,14 +354,40 @@ def model(run, state=None, engine_dir=None):
 
 # Recording ------------------------------------------------------------------------------------
 
-def link(run, url):
-    """Remember where the side view was published, so every later update names it."""
-    if not re.match(r'https://claude\.ai/', str(url)):
+def link(run, url=None, local=False):
+    """Remember where the side view was published, so every later update names it, or that this host keeps it
+    as the local file, so no later result asks to publish it."""
+    if not local and not re.match(r'https://claude\.ai/', str(url)):
         raise ValueError('A side view is a claude.ai artifact address.')
     with _locked(run):
         state = _state(run)
-        state['url'] = url
+        if local:
+            state['local'] = True
+        else:
+            state['url'] = url
+            state.pop('local', None)
         _write(Path(run) / 'view' / 'state.json', json.dumps(state, ensure_ascii=False, indent=1))
+
+
+def unpublished(run):
+    """The page still to publish: its paths, from the first moment until the run names its address or keeps it local.
+    Every result repeats them, so a folded, cut or repeated result never loses the page."""
+    run = Path(run)
+    side = run / 'view' / 'side.html'
+    if not (run / 'view' / 'state.json').is_file() or not side.is_file():
+        return {}
+    state = _state(run)
+    if not state['moments'] or state.get('url') or state.get('local'):
+        return {}
+    return {'page': str(side), 'local': str(run / 'view' / 'progress.html')}
+
+
+def publish(pending):
+    """The one instruction that publishes the page, with its paths, for a result's `next` or `side_view` field."""
+    return ('Publish the side view now, before anything else: the `Artifact` tool (load it first if it is deferred) with '
+            'file_path `%s`, capabilities {"db": {}}, icon `chart` and a one-sentence description, then run '
+            '`PROJECT view --url "<its address>"`. Without an `Artifact` tool, run `PROJECT view --local` and tell the person '
+            'to open `%s` in a browser.' % (pending['page'], pending['local']))
 
 
 def record(run, kind, spec=None, engine_dir=None):

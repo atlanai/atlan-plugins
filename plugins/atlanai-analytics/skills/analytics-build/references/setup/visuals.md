@@ -50,23 +50,27 @@ add no other line that repeats its numbers.
 
 A private claude.ai page that shows every step, what came out of it and how. It needs the
 `Artifact` and `ArtifactData` tools: Claude Code and the Claude apps, signed in with claude.ai.
+Where a host lists them as deferred tools, load both before the first `visual` call.
 
-- `page=<path>`, on the first update only: publish the page once with the `Artifact` tool,
-  `file_path` the path, `capabilities` `{"db": {}}`, `icon` `chart` and a one-sentence
-  `description`, reading the file in full first as that tool asks. Then run
-  `PROJECT view --url "<its address>"`, and say in one clause that the run's progress is in the
-  page beside the chat, with its address.
+- `page=<path>`, on every result until the page has an address: publish it before anything
+  else, even before showing a chip, with the `Artifact` tool, `file_path` the path,
+  `capabilities` `{"db": {}}`, `icon` `chart` and a one-sentence `description`, reading the
+  file in full first as that tool asks. Then run `PROJECT view --url "<its address>"`, and say
+  in one clause that the run's progress is in the page beside the chat, with its address. Never
+  filter the `side view:` line out of a result: it is where `page` arrives.
 - `doc=<path>`: push it with `ArtifactData`: `action` `set`, the page's `url`, `collection`
   `steps`, `doc_id` the file's name without `.json` (such as `s02`) and `file_path` the path.
   Never read or retype it.
 - `url=<address>`: the page this run already published. Use it; never publish another.
-- A `side_view` field on any `PROJECT` or engine result names a newer document as one line: push
-  it as the line says before going on. These updates tick each piece of work while its step runs.
+- A `side_view` field on any `PROJECT` or engine result is one line: publish the page or push a
+  newer document, as the line says, before going on. These updates tick each piece of work
+  while its step runs.
 
 Without those tools (Codex, Cursor, or Claude Code signed in with an API key, Bedrock or
-Vertex), `local=<path>` is the same page as a file that refreshes itself. Say once, in your
-reply: "Follow the build: open `<path>` in a browser." Then ignore `doc` paths. A failed publish or push leaves the run unchanged: carry on without the side
-view, and try a failed step once more at most.
+Vertex), `local=<path>` is the same page as a file that refreshes itself. Run
+`PROJECT view --local`, then say once, in your reply: "Follow the build: open `<path>` in a
+browser." Then ignore `doc` paths. A failed publish or push leaves the run unchanged: try a
+failed step once more at most, then run `PROJECT view --local` and carry on with the local page.
 
 ## Data files
 
