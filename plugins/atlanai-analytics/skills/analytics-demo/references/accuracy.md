@@ -181,7 +181,7 @@ plain lines, and nothing else:
 
    ```
     *   .  '   *    .   '  *   .    '   *  .
-   '   *   .   <N> OUT OF <N> RIGHT   .   *   '
+    '   *   .   <N> OUT OF <N> RIGHT   .   *   '
     .   *    '   .    *   '    .   *    '  .
    ```
 
