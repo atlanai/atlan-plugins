@@ -61,7 +61,9 @@ def build(model, flow=None):
     stopped = phase['status'] in STOPPED or interaction.get('mode') == 'paused'
     action = (model.get('continuation') or {}).get('action')
     total = counts['metrics'] + counts['queries']
-    saved = action in ('ask', 'explore-local') or (at == 6 and finished)
+    # Keeping the context on this machine finishes the save, whatever the journey still waits on (such as a focus the
+    # agent never recorded). A changed rule re-runs its check, which leaves progress at the checks again.
+    saved = action in ('ask', 'explore-local') or (at == 6 and finished) or (local and at >= 3)
     done = {
         # A demo's first step loads its data, so it ends when that data is bound, not at the survey.
         'sources': (at > 0 or finished) and (flow != 'demo' or bool(model.get('bound_tables'))),
