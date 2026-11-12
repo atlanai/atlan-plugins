@@ -59,6 +59,19 @@ class CardExecution(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})
 
+    def test_a_refused_query_or_edit_leaves_the_run_progress_as_it_was(self):
+        import json, subprocess, progress
+        self.save(self.card())
+        progress.update(self.run, 'check', 'complete')
+        request = self.run.root / 'bad.json'
+        for command, body in (('execute', {'sql': 'SELECT nope FROM nowhere'}),
+                              ('edit-metric', {'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})):
+            request.write_text(json.dumps(body))
+            out = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
+                                  command, str(request)], capture_output=True, text=True)
+            self.assertEqual(json.loads(out.stdout)['status'], 'blocked', command)
+            self.assertEqual(self.run.read(self.run.root / 'progress.json')['status'], 'complete', command)
+
     def test_edit_metric_reaches_the_embedded_card_notes(self):
         card = self.card()
         card['definition']['extensions']['metrics_agent'] = {'card': {'gotchas': ['rework is not billable'], 'formula': 'x'}}
