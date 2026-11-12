@@ -44,8 +44,11 @@ Trident draft was saved. The candidate scan passes with zero blocking errors, tw
 and thirteen policy holds. The exact findings and explanations are in
 `claude-review-notes.md`; the remaining form inputs are in `submission-inputs.md`.
 
-The candidate displays Atlan trident and includes the core publish-helper module. The
-remaining holds concern declared capabilities, synthetic tests and fuzzy name matches.
+The 13 November branding candidate displays Atlan trident with the Registry PNG icon.
+Its live scan passes with zero blocking errors, six warnings and fifteen policy holds.
+The added findings concern non-executable image references and compressed image bytes;
+all fifteen holds have explanations in the review notes. The core publish-helper module
+is included. The remaining holds concern declared capabilities, synthetic tests and fuzzy name matches.
 They require human review; package validation alone does not approve them.
 
 Submit the MCP endpoint `https://api.atlan.com/mcp` as a connector too, under the same

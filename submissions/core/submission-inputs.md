@@ -50,7 +50,7 @@ functional cases against that account before claiming they pass.
 The repository requires a maintainer security review before the helper changes merge.
 This is separate from accepting the directory terms. No merge has been performed.
 
-Support, documentation and terms-of-service URLs are missing from the listing preview,
+Support and terms-of-service URLs are missing from the listing preview,
 but the current Claude bundle form does not mark them as blocking requirements. Supply
 approved pages for listing quality. Support and terms URLs are required by the OpenAI MCP
 submission path, so that submission remains a separate pending step.

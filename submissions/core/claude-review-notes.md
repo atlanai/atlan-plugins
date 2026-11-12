@@ -23,7 +23,7 @@ The count remains thirteen: the unknown-destination hold cleared, and the explic
 changed set of thirteen findings, not thirteen cleared findings. No checks were removed,
 no tests were hidden and no helper capability was removed to suppress a finding.
 
-## Each remaining hold
+## Holds in the current branding candidate
 
 | # | Portal finding | Disposition and reviewer explanation |
 |---|---|---|
@@ -41,9 +41,21 @@ no tests were hidden and no helper capability was removed to suppress a finding.
 | 12 | GitHub publisher atlanai resembles Atlar | Publisher explanation. The repository is the Atlan-owned source for this product; the submitting Atlan organization already owns its catalog listings. A reviewer must resolve the fuzzy publisher comparison. |
 | 13 | GitHub publisher atlanai resembles Atlas | Publisher explanation. Same ownership evidence; no claimed relationship with Atlas. Renaming or transferring the repository would change established distribution for a fuzzy match. |
 
-The two warnings concern tool-input rewriting and a download-and-run install procedure.
-Both are documented. Input expansion retains the original tool permission checks, and
-installation is a user-requested skill workflow. Neither warning is a blocking error.
+The 13 November scan of the 0.5.57 branding candidate passed with zero blocking errors,
+six warnings and fifteen holds. The PNG added two image-reference holds to the thirteen
+above. Its exact bytes are retained rather than altered to suppress the scan.
+
+| # | Portal finding | Disposition and reviewer explanation |
+|---|---|---|
+| 14 | Image could run, referenced in tests/fixtures.ts | False-positive explanation. The fixture names assets/logo.png as a synthetic binary upload that must be refused. The fixture does not execute the listing image. |
+| 15 | Image could run, referenced through plugin.json | False-positive explanation. The command-hook update check parses plugin.json as JSON to read version and repository. Its icon fields are display metadata, not executable paths or process arguments. |
+
+The six warnings are tool-input rewriting, the documented CLI installer, a shell-pattern
+match in compressed PNG bytes, two directory-only URL fields and the directory-only icon.
+The PNG is a well-formed image, not a downloaded script or runtime entry point. The portal
+itself says the icon and URL metadata need no action: the directory reads them and Claude
+Code ignores them at load time. Input expansion retains original tool permission checks;
+CLI installation is a user-requested workflow. No warning is a blocking error.
 
 These are proposed reviewer responses supported by source inspection and local tests,
 not an attestation that Anthropic has accepted them. Runtime security claims still need
@@ -60,4 +72,4 @@ All reviewer-tenant functional scenarios remain pending.
 
 The 0.5.57 branding candidate uses the requested display-name casing and current Registry
 PNG. Local checks passed 619 tests (98 skipped), the analytics selftests and make validate.
-Its portal scan must be refreshed after the candidate reaches the tracked source branch.
+The branding source was pushed and scanned in the portal on 13 November 2026.
