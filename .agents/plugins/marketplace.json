@@ -1,7 +1,7 @@
 {
   "name": "atlan",
   "interface": {
-    "displayName": "Atlan Trident"
+    "displayName": "Atlan trident"
   },
   "plugins": [
     {

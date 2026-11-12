@@ -78,6 +78,21 @@ class BuildTest(unittest.TestCase):
             for relative in ("assets/logo.svg", "LICENSE", "README.md"):
                 self.assertTrue((ROOT / "plugins" / name / relative).is_file(), f"{name}/{relative}")
 
+    def test_binary_logo_is_preserved_and_drift_is_detected(self) -> None:
+        logo = self.source["plugin"]["logo"].removeprefix("./")
+        relative = f"plugins/{self.source['plugin']['name']}/{logo}"
+        data = (ROOT / logo).read_bytes()
+        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertEqual(build.plugin_assets(self.source)[relative], data)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with contextlib.redirect_stdout(io.StringIO()):
+                build.sync({relative: data}, root, check=False)
+            self.assertEqual((root / relative).read_bytes(), data)
+            self.assertEqual(build.sync({relative: data}, root, check=True), [])
+            (root / relative).write_bytes(data + b"corruption")
+            self.assertEqual(build.sync({relative: data}, root, check=True), [relative])
+
     def test_render_is_deterministic(self) -> None:
         first = {k: build.render(v) for k, v in build.outputs(self.source).items()}
         second = {k: build.render(v) for k, v in build.outputs(build.load()).items()}
@@ -219,7 +234,7 @@ class ModTest(unittest.TestCase):
         self.assertEqual(len(errors), 2)
 
 
-    def test_a_claude_manifest_holds_only_keys_every_claude_host_reads(self) -> None:
+    def test_a_claude_manifest_holds_only_portable_runtime_or_directory_keys(self) -> None:
         for path, document in self.documents.items():
             if path.endswith(".claude-plugin/plugin.json"):
                 self.assertLessEqual(set(document), lint.CLAUDE_MANIFEST_KEYS, path)

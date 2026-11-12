@@ -1,4 +1,6 @@
-# Atlan Trident
+# Atlan trident
+
+<img src="assets/logo.png" alt="Atlan trident" width="96" height="96">
 
 Connects your coding agent to the Atlan registry: your organization's skills, agents,
 knowledge, MCP servers and agent runs. It adds Atlan's MCP server, with one OAuth sign-in, and

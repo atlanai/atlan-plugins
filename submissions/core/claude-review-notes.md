@@ -1,6 +1,6 @@
 # Claude policy-hold audit
 
-The v0.5.56 candidate passed the live Claude portal validation on 12 November 2026:
+The v0.5.57 candidate passed the live Claude portal validation on 12 November 2026:
 zero blocking errors, two warnings and thirteen policy holds. GitHub reconnection is
 complete and the draft is saved under Atlan. No review submission or legal acceptance
 has been made.
@@ -16,7 +16,7 @@ has been made.
   finding. Capability calls remain in their original module, as the directory requires.
 - The core README now explains the exact local program, receipt writes, network request
   and synthetic tests. The installed identifier stays `atlanai` and the display name
-  stays Atlan Trident.
+  stays Atlan trident.
 
 The count remains thirteen: the unknown-destination hold cleared, and the explicit
 `python3` executable received an interpreter/inline-script classification. This is a
@@ -36,7 +36,7 @@ no tests were hidden and no helper capability was removed to suppress a finding.
 | 7 | Credential forwarding in tests/fixtures.ts | False-positive explanation. The DB_PASSWORD text and registry URL are strings in synthetic test cases. They do not read an installer's environment, and this module is not a runtime entry point. Keep the refusal tests for inspection. |
 | 8 | Credential forwarding in tests/publish.test.ts | False-positive explanation. FAKE_AWS_KEY is constructed as test data; assertions check that credential-shaped output is refused and not echoed. Tests are not registered as installation hooks. |
 | 9 | Aggregate pass $$ credential finding | False-positive explanation. The scanner attributes this to the atlan-find-artifacts skill. Its source contains no dollar-sign credential expression or environment read. It describes passing search/session arguments. Ask the reviewer to check the match. |
-| 10 | Installed name atlanai resembles Atlar | Ownership/distinct-product explanation. Atlan Trident is an Atlan product, with no claimed affiliation with Atlar. Existing installs depend on the atlanai identifier. The public label is Atlan Trident. |
+| 10 | Installed name atlanai resembles Atlar | Ownership/distinct-product explanation. Atlan trident is an Atlan product, with no claimed affiliation with Atlar. Existing installs depend on the atlanai identifier. The public label is Atlan trident. |
 | 11 | Installed name atlanai resembles Atlas | Ownership/distinct-product explanation. The plugin makes no claim to represent Atlas. Its Atlan publisher, Trident display name and production MCP endpoint identify its own product. |
 | 12 | GitHub publisher atlanai resembles Atlar | Publisher explanation. The repository is the Atlan-owned source for this product; the submitting Atlan organization already owns its catalog listings. A reviewer must resolve the fuzzy publisher comparison. |
 | 13 | GitHub publisher atlanai resembles Atlas | Publisher explanation. Same ownership evidence; no claimed relationship with Atlas. Renaming or transferring the repository would change established distribution for a fuzzy match. |

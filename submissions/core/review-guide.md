@@ -1,4 +1,4 @@
-# Review Atlan Trident with sample data
+# Review Atlan trident with sample data
 
 All live scenarios are unexecuted drafts. Use only the dedicated review tenant and
 sample records below. No real customer data or personal production account is needed.
@@ -57,7 +57,7 @@ well as the conversational prompt; a model refusal alone does not prove server i
 
 ## Video walkthrough script
 
-Record the actual plugin under Atlan Trident. Hide credentials and account settings.
+Record the actual plugin under Atlan trident. Hide credentials and account settings.
 Show prompts, tool calls and results rather than a slide-only demo. Keep an accessible
 recording URL available for the review team.
 

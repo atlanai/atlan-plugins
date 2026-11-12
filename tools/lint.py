@@ -219,12 +219,13 @@ def plugin_roots() -> list[Path]:
     return [core, *sorted(p for p in PLUGINS.iterdir() if p.is_dir() and p != core)]
 
 
-# The top-level keys a Claude plugin.json may hold: those every Claude host reads. The CLI reads
-# more (`types`, `experimental`), but the desktop app strips a key it does not know and shows the
-# person a warning on install, so a key joins this list only once the desktop app reads it too.
+# Runtime keys shared by the Claude hosts, plus the directory listing metadata accepted
+# since Claude Code 2.1.281. The directory reads listing fields; runtime hosts may ignore them.
+# https://code.claude.com/docs/en/plugins/manifest-reference#directory-listing-fields
 CLAUDE_MANIFEST_KEYS = frozenset({
     "name", "version", "description", "author", "homepage", "repository", "license", "keywords",
     "displayName", "dependencies", "mcpServers", "userConfig", "hooks",
+    "icon", "documentationUrl", "supportUrl", "privacyPolicyUrl", "termsOfServiceUrl",
 })
 # The core's hooks module, named only from its Claude manifest: Codex and Cursor read hooks/ by
 # default, and only Claude Code runs a module (AGENTS.md, "Portable, except one hooks module").
@@ -243,7 +244,7 @@ CURSOR_COMMAND = '[ -n "$CURSOR_PLUGIN_ROOT" ] && python3 "$CURSOR_PLUGIN_ROOT/c
 
 
 def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
-    """Every Claude manifest holds only keys every Claude host reads, and only the core's names
+    """Allow portable runtime keys and supported directory metadata; only the core names
     a hooks module, its own claude-hooks/."""
     manifest = root / ".claude-plugin" / "plugin.json"
     if not manifest.is_file():
@@ -251,7 +252,7 @@ def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
     document = json.loads(manifest.read_text(encoding="utf-8"))
     extra = sorted(set(document) - CLAUDE_MANIFEST_KEYS)
     errors = [
-        f"{manifest.relative_to(ROOT)}: `{key}` is not a key every Claude host reads; the desktop app strips it and warns on install"
+        f"{manifest.relative_to(ROOT)}: `{key}` is not supported runtime or directory metadata; older hosts may strip it"
         for key in extra
     ]
     if "hooks" in document and not (is_core and document["hooks"] == CORE_HOOKS):

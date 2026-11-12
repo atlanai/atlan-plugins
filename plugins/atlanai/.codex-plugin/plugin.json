@@ -1,6 +1,6 @@
 {
   "name": "atlanai",
-  "version": "0.5.56",
+  "version": "0.5.57",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -22,7 +22,7 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Atlan Trident",
+    "displayName": "Atlan trident",
     "shortDescription": "Skills, agents and tools",
     "longDescription": "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes.",
     "developerName": "Atlan",
@@ -38,8 +38,8 @@
       "Publish the skill in this folder to Atlan"
     ],
     "brandColor": "#2026D2",
-    "composerIcon": "./assets/logo.svg",
-    "logo": "./assets/logo.svg",
+    "composerIcon": "./assets/logo.png",
+    "logo": "./assets/logo.png",
     "privacyPolicyURL": "https://atlan.com/privacy-policy/"
   },
   "hooks": "./command-hooks/codex.json",

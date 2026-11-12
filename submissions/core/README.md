@@ -1,13 +1,13 @@
-# Prepare the Atlan Trident submissions
+# Prepare the Atlan trident submissions
 
-The core submission changes target version `0.5.56`, displayed as **Atlan Trident**,
+The core submission changes target version `0.5.57`, displayed as **Atlan trident**,
 on top of current main at `0.5.54`. The earlier local `0.3.21` preparation is superseded.
 No legal attestation or review submission has been made.
 
 ## Build and review
 
 Run `make build`, `make check`, `make validate` and `make codex-directory`.
-The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.56.zip`.
+The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.57.zip`.
 It contains the portable manifest, OAuth MCP configuration, skills, assets and licenses.
 It omits lifecycle hooks and custom MCP headers. Repository installs keep their hooks and
 client-identification header. Do not edit generated files.
@@ -44,7 +44,7 @@ Trident draft was saved. The candidate scan passes with zero blocking errors, tw
 and thirteen policy holds. The exact findings and explanations are in
 `claude-review-notes.md`; the remaining form inputs are in `submission-inputs.md`.
 
-The candidate displays Atlan Trident and includes the core publish-helper module. The
+The candidate displays Atlan trident and includes the core publish-helper module. The
 remaining holds concern declared capabilities, synthetic tests and fuzzy name matches.
 They require human review; package validation alone does not approve them.
 
@@ -75,3 +75,10 @@ Neither portal validation nor publication has completed for the new candidate.
 - [Anthropic connector review](https://claude.com/docs/connectors/building/review-criteria)
 - [OpenAI submission](https://developers.openai.com/plugins/deploy/submission)
 - [OpenAI packaging and OAuth](https://developers.openai.com/plugins/build/plugins)
+
+## Final branding review
+
+The display name is Atlan trident. The package includes the latest matching Trident logo
+found in the Registry Library on 13 November 2026, the 600 by 600 PNG updated on
+10 November. Claude declares it with the directory icon field, alongside explicit privacy
+and Trident documentation links. The installed identifier remains `atlanai`.
