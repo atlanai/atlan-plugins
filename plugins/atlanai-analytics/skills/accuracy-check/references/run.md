@@ -31,8 +31,10 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
 
       Answer this question about <firm or project>'s data with the analytics-ask skill, from
       <where the context lives>. That is the only context you need; do not search other
-      folders. Run SQL only through the run's query runner, as analytics-ask does, never by
-      opening a database file. End with one JSON object and nothing after it:
+      folders. Run SQL only through the run's query runner, never by opening a database file:
+      write {"sql": "<sql>", "limit": 1000} to a file and run
+      python3 "<build-dir>/scripts/project.py" --run-dir "<run>" execute <that file>
+      End with one JSON object and nothing after it:
       {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>",
        "used_context_ids": ["<each metric or query you relied on>"]}
       ```
