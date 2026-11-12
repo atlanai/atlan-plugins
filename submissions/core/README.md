@@ -22,6 +22,7 @@ The separate Analytics and Registry Mods plugins are outside this submission.
 | `listing-and-disclosures.md` | Draft listing, release notes and data-handling answers |
 | `review-cases.json` | Exactly five positive and three negative scenarios, unexecuted |
 | `review-guide.md` | Sample fixtures, reviewer access, recording script and test record |
+| `claude-review-notes.md` | Candidate scan findings and draft reviewer explanations |
 
 ## Needed from the publishing owner
 
