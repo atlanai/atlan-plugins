@@ -243,6 +243,16 @@ class Moments(unittest.TestCase):
         self.assertIn('£3,804', card, 'pounds stay pounds when a listed rule is a share')
         self.assertNotIn('380400%', card)
 
+    def test_each_changed_rule_reads_in_its_own_unit(self):
+        metrics = json.loads((self.run / 'context' / 'metrics.json').read_text(encoding='utf-8'))
+        metrics += [{'name': 'On-Time Rate', 'definition': {'output': {'unit': 'percent'}, 'formula': 'SUM(a) / SUM(b)'}},
+                    {'name': 'Late Jobs', 'definition': {'output': {'unit': 'jobs'}, 'formula': 'COUNT(*)'}}]
+        (self.run / 'context' / 'metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
+        (self.run / 'edit.json').write_text(json.dumps({'metric': 'On-Time Rate', 'values': [
+            ['Late Jobs', 2, 3], ['On-Time Rate', 0.714, 0.571]]}), encoding='utf-8')
+        self.assertTrue(self.show('edit').startswith('**Late Jobs 2 → 3**'), 'a live-run shape read "Late Jobs 200% → 300%"')
+        self.assertEqual(visuals.build_spec('edit', self.run)['values'][1], ['On-Time Rate', '71.4%', '57.1%'])
+
     def test_a_check_entry_that_is_not_an_object_counts_as_not_run(self):
         checks = self.run / 'context' / 'candidate-checks.json'
         entries = json.loads(checks.read_text(encoding='utf-8'))

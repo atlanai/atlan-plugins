@@ -148,8 +148,10 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
             spec['unit'] = 'fraction'
     if kind == 'edit':
         unit = facts.unit_for(spec.get('metric')) if facts else None
-        words = lambda v, given=None: number(v, unit or given) if isinstance(v, (int, float)) else str(v)
-        values = [[words(x, row[3] if len(row) > 3 else None) for x in row[:3]] for row in spec.get('values', []) if isinstance(row, list)]
+        words = lambda v, given=None: number(v, given or unit) if isinstance(v, (int, float)) else str(v)
+        # A row that names a metric reads in that metric's unit: one edit can change several rules.
+        own = lambda row: (facts.unit_for(row[0]) if facts and row and isinstance(row[0], str) else None) or (row[3] if len(row) > 3 else None)
+        values = [[words(x, own(row)) for x in row[:3]] for row in spec.get('values', []) if isinstance(row, list)]
         spec['values'] = [v for v in values if len(v) < 3 or v[1] != v[2]] or values
         for key in ('added', 'removed'):
             spec[key] = [', '.join(words(x) for x in i) if isinstance(i, list) else words(i) for i in _names(spec.get(key))]
