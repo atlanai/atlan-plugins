@@ -1,7 +1,7 @@
 # Atlan Trident listing and disclosures
 
-Use the listing copy below for the core plugin. Data-handling answers are drafts that
-need the service owner's confirmation before any compliance attestation.
+Use the listing copy below for the core plugin. Data-handling answers are prepared from published sources and package behavior.
+The owner reviews the privacy and security attestations before submission.
 
 ## Listing copy
 
@@ -16,7 +16,7 @@ need the service owner's confirmation before any compliance attestation.
 | Privacy notice | https://atlan.com/privacy-policy/ |
 | Support | Awaiting approved public URL |
 | Terms | Awaiting approved public URL |
-| Submission contact | Awaiting Atlan contact email |
+| Submission contact | rohan@atlan.com (private review contact) |
 
 Description:
 
@@ -42,15 +42,15 @@ and Registry Mods. Do not promise those features in the listing.
 
 | Portal topic | Proposed answer | Still needed |
 |---|---|---|
-| Personal data | The service may process account identity and user-supplied registry content, which can contain personal data. | Confirm all categories and how the privacy notice covers them |
-| Storage | Registry artifacts and audited session records are stored by Atlan. User requests can create versioned skills, agents, knowledge, files and outputs. | Confirm retention, deletion, backups and trace/session content |
-| Other services | Authorized requests can reach downstream MCP servers registered by the organization. Data sent depends on the selected tool and request. | Confirm subprocessors, disclosures and whether the portal treats these as declared connectors |
+| Personal data | Reads and stores account identity and user-supplied registry content, which can contain personal data. | Owner reviews privacy-notice coverage |
+| Storage | Registry artifacts and session records are stored by Atlan. Trident documents no automatic trace expiry and separate content deletion. | No universal purge or backup deletion deadline claimed |
+| Other services | Yes, listed in README. Authorized requests can reach registered downstream services; repository and installer workflows can contact GitHub, npm and Atlan downloads. | README lists the destination, trigger and data |
 | Permissions | Access is controlled by the connected account and organization permissions. Write workflows ask for confirmation where the skill specifies it. | Live tests of role boundaries, tenant isolation and destructive-tool annotations |
 | Local execution | Repository installs include the publish helper and its local receipts. The OpenAI directory package omits hooks. Skills can use project files and CLIs where the host supports them. | Confirm host-specific limitations in live tests |
 | Credentials | OAuth credentials are managed by the authentication flow; the public package contains no account credentials. | Verify refresh, revocation, host callbacks and UserInfo verified-email claims |
-| Retention period | Not yet confirmed. | Exact periods for artifacts, sessions, traces and deleted data |
+| Retention period | Longer. Trident documents no automatic trace expiry. | Review privacy coverage; no universal deletion deadline is claimed |
 | Regions and countries | Not yet confirmed. | Approved hosting/distribution regions and launch countries |
-| Under-18 eligibility | Not yet confirmed. | Service owner's answer under Atlan's applicable terms |
+| Under-18 eligibility | No, based on the business audience and children section of the privacy notice. | Owner reviews this intended-audience inference |
 
 Do not answer that the service stores no data. The package itself supplies instructions
 and a connection, while the remote service stores registry content and audit records.

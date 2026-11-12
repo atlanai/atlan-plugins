@@ -95,6 +95,28 @@ remain in the repository and plugin folder for inspection.
 
 ## Privacy
 
+Atlan stores account identity, selected registry content and call/session records, which
+can contain personal data. The [trace privacy reference](https://platform.atlan.com/registry/traces/references/limits-and-privacy)
+states that traces have no automatic expiry. Organization settings can discard future
+trace content; changing them does not erase existing content. Trace-content deletion
+preserves structure and usage counts. Retention is longer than 30 days, not a promise
+that all content expires after 30 days.
+
+### Services and data sent
+
+| Destination | Data and trigger |
+| --- | --- |
+| Atlan, `api.atlan.com` | OAuth identity, requested tool arguments and explicitly selected files or outputs. Registry records and session activity are stored. |
+| Organization-registered MCP services, for example Slack and Linear | Arguments and selected content for the downstream tool the user requests. Atlan routes these calls with the caller's permissions. |
+| GitHub, `github.com` and `raw.githubusercontent.com` | Approved repository changes and CI configuration when setting up repository publishing; the update check sends only an ordinary public-manifest request. |
+| npm package registry | Package requests and connection metadata when the user runs the documented `npx plugins` installer. |
+| Atlan downloads, `app.atlan.com` | Installer requests and connection metadata when the user chooses to download the `aireg` CLI. |
+
+Third-party services depend on the organization's integrations and the requested task.
+Installing the plugin does not send the conversation to every destination above. The
+local receipt writer does not upload receipts. Review downloaded scripts before running
+them; downloaded skill scripts are not run merely to install a skill.
+
 The plugin has no binaries. In Claude Code, Codex, Cursor and GitHub Copilot CLI
 it runs one hook, the publish helper (outside Claude Code, a Python script, once you trust the
 plugin's hooks): when the agent publishes a skill with `files_from`, it reads that one folder in
