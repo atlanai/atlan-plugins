@@ -325,7 +325,9 @@ class RunFacts:
         tiles = len(self.engine_file('verified_queries.bi.json').get('objects') or [])
         asked = len(self.engine_file('verified_queries.history.json').get('objects') or [])
         metrics = merged.get('n_metrics_out') if isinstance(merged.get('n_metrics_out'), int) else len(self.merged)
-        return {k: v for k, v in (('queries', self.query_log), ('tiles', tiles), ('questions', tiles + asked), ('metrics', metrics)) if v}
+        # Past queries read, the number the sources chip shows; the side page shows how many of them ran.
+        read = (self.history or {}).get('statements') or self.query_log
+        return {k: v for k, v in (('queries', read), ('tiles', tiles), ('questions', tiles + asked), ('metrics', metrics)) if v}
 
     @cached_property
     def context(self):

@@ -131,6 +131,10 @@ def metrics(f, s):
             how.append(node('Read the past queries from %s' % f.warehouse, 'Successful read statements on the chosen tables, '
                             'through the read-only connection.', SETUP, count(history['statements'], 'query', 'queries') if history else None))
         raw, scanned, kept, shapes = f.query_log, st('h0_corpus', 'scanned'), st('h0_corpus', 'kept'), st('h1_shapes', 'canonical_shapes')
+        read = (f.history or {}).get('statements')
+        if read and raw and read > raw:
+            how.append(node('Keep the queries that ran', 'Statements that failed, or that do not read data, cannot show '
+                            'what analysts measure.', SETUP, ratio(read, raw, '%d → %d')))
         if raw and scanned is not None and raw > scanned:
             how.append(node('Set aside queries with names in them', 'A privacy filter holds back any query that looks like it '
                             'names a person or a business.', SETUP, ratio(raw, scanned, '%d → %d')))

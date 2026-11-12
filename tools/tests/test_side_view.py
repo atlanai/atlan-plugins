@@ -246,6 +246,20 @@ class SideView(unittest.TestCase):
         values = dict((r[0], r[1]) for r in self.step(self.doc(run), 'Metrics')['result'][1]['list'])
         self.assertEqual(values['Gross margin'], '£1')
 
+    def test_past_queries_read_are_one_number_and_the_page_says_where_some_went(self):
+        run = make_run(self.root, saved=False)
+        log = self.root / 'source' / 'history' / 'querylog.jsonl'
+        log.write_text(log.read_text(encoding='utf-8') + json.dumps({'sql': 'SELECT broken FROM site.jobs', 'exec': 1}) + '\n',
+                       encoding='utf-8')
+        chip = visuals.render('sources', visuals.build_spec('sources', run), plain=True)
+        card = visuals.render('build', visuals.build_spec('build', run), plain=True)
+        self.assertTrue(chip.startswith('● 4 past queries read'), chip)
+        self.assertRegex(card, r'Past queries +█+ +4\n', 'the card counts what was read, as the chip does')
+        self.assertEqual(self.nodes(side_view.model(run), 'Metrics')['Keep the queries that ran']['n'], '4 → 3',
+                         'the engine took in the 3 that ran; the page says so')
+        clean = make_run(self.root / 'clean', saved=False)
+        self.assertNotIn('Keep the queries that ran', self.nodes(side_view.model(clean), 'Metrics'), 'nothing left out, no piece')
+
     def test_the_structural_pass_is_not_a_check_run(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))
         checks = run / 'context' / 'candidate-checks.json'
