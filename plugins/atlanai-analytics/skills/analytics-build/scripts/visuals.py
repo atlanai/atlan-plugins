@@ -279,7 +279,9 @@ def _parts(kind, s):
                 'bars': [{'label': str(r[0]), 'value': r[1], 'shown': number(r[1], s.get('unit')), 'mark': r[0] == s.get('highlight')}
                          for r in shown],
                 'rule': [s['rule']] if s.get('rule') else [],
-                'chips': ['Based on ' + ', '.join(sentence(x['name']) for x in s['proof'][:2])] if s.get('proof') else []}
+                'chips': ['Based on ' + ', '.join([sentence(x['name']) for x in s['proof'][:2]]
+                                                  + (['+%d more' % (len(s['proof']) - 2)] if len(s['proof']) > 2 else []))]
+                if s.get('proof') else []}
     if kind == 'edit' and s.get('values'):
         name, before, after = (s['values'][0] + ['', '', ''])[:3]
         return {'icon': 'edit', 'title': 'Rule changed', 'pre': name, 'value': '%s → %s' % (before, after),

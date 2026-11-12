@@ -170,6 +170,11 @@ class Moments(unittest.TestCase):
         card = self.show('answer')
         self.assertTrue(all(label in card for label, _ in rows), 'a card that hides rows makes the agent explain the gap')
 
+    def test_an_answer_card_says_how_many_rules_it_does_not_name(self):
+        spec = visuals.build_spec('answer', self.run)
+        spec['proof'] = [{'name': n} for n in ('Gross margin', 'Rework cost', 'Labour cost', 'Materials cost', 'Waste')]
+        self.assertIn('Based on Gross margin, Rework cost, +3 more', visuals.render('answer', spec))
+
     def test_a_long_line_in_a_card_wraps_and_keeps_every_word(self):
         spec = visuals.build_spec('answer', self.run)
         spec['proof'] = [{'name': 'Gross margin'}, {'name': 'Gross margin by job (Site performance page, dashboard tile)'}]
