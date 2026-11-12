@@ -36,24 +36,28 @@ that applies:
    BI API, used as is and never stored. Its claims (never its signature) are read first: a
    token that has expired, or was issued for another API (its audience) or another tenant than
    `PBI_TENANT_ID`, is refused by name before any call.
-3. **Your own sign-in**, when the run is at a terminal: the run prints a device code, you sign
-   in in a browser with your usual account (single sign-on included), and the token is cached
+3. **Your own sign-in**, when the run is at a terminal. Where a browser can open on this
+   machine (not over SSH, not on a Linux host with no display), you sign in in your own browser,
+   as route 4 says: the default. Elsewhere the run prints a device code, you sign in in a
+   browser on any device with your usual account (single sign-on included). The token is cached
    owner-only (mode 0600, under `~/.cache/pbi_definition_extract/`) so the next run within
    the hour does not ask again. `PBI_TENANT_ID`, when set, picks the tenant. You need a role
    on the workspace. Where the tenant blocks the default sign-in app (a first-party public
    client), set `PBI_PUBLIC_CLIENT_ID` to a public-client app registration of your own; the
-   cached sign-in is kept per app.
-4. **Your own sign-in in your browser**, with `sign_in: browser` in the settings, when the run
-   is at a terminal: the OAuth 2.0 authorization code flow with PKCE (S256). The run prints the
+   cached sign-in is kept per app, and the device code stays the default with it unless
+   `sign_in: browser` says its registration allows the `http://localhost` redirect.
+4. **Your own sign-in in your browser**, the default at a terminal where a browser can open
+   (`sign_in: browser` to ask for it, `sign_in: device` to refuse it): the OAuth 2.0
+   authorization code flow with PKCE (S256). The run prints the
    sign-in address and opens it in your browser; after you sign in, the answer comes back to a
    one-request listener on `127.0.0.1` (redirect `http://localhost:<port>/`), its `state` is
    checked, and the code is exchanged with the PKCE verifier. Nothing from the answer is
-   echoed, printed or written; the token is cached like the device code's. Use it where the
-   tenant's Conditional Access blocks the device code flow. The public client (the default
+   echoed, printed or written; the token is cached like the device code's. It also works where
+   the tenant's Conditional Access blocks the device code flow. The public client (the default
    one, or `PBI_PUBLIC_CLIENT_ID`) must allow the redirect `http://localhost`. It waits
    `fetch.max_sign_in_wait_seconds` (300) for you, then fails by name. Tested offline against
-   a stand-in identity provider (state, error answer, timeout, a refused exchange); a live
-   sign-in needs you at the keyboard.
+   a stand-in identity provider (state, error answer, timeout, a refused exchange), and live:
+   a workspace Admin's sign-in fetched the same files as the device code and a token.
 
 Certificate-only service principals are supported through Azure Identity; see the certificate
 and managed-identity section below for the environment variables and explicit route selection.
@@ -109,7 +113,7 @@ with a manifest that says why, never a traceback.
 | `with_model` | also fetch the semantic model each report binds to, and the models a composite model reads by DirectQuery, up its chain (default `true`) |
 | `model` | optional: read only this one of the fetched semantic models; by default a run reads every model the fetch brought, one model each |
 | `bi` | an extract already on disk; nothing is fetched. An extract that holds one model a run could read is read as that model |
-| `sign_in` | a person's sign-in: `device` (the default) or `browser` (authorization code with PKCE, in your own browser) |
+| `sign_in` | a person's sign-in: `browser` (authorization code with PKCE, in your own browser; the default where a browser can open) or `device` (a code to enter on any device; the default over SSH, with no display, or with `PBI_PUBLIC_CLIENT_ID`) |
 
 A **composite model** can read tables from other semantic models by DirectQuery, and those can
 be composite too. With `with_model` the fetch follows that chain to its end, and the reader

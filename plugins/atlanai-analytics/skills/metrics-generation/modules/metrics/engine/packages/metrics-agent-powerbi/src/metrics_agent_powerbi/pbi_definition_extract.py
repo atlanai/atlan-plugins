@@ -555,6 +555,34 @@ def token_problem(token: str, tenant: Optional[str] = None,
     return None
 
 
+def local_browser() -> bool:
+    """Whether a person's sign-in can open in a browser on this machine and come back to its
+    loopback address: not over SSH, not on a Linux host with no display, and only when Python
+    knows a browser to open. Opens nothing."""
+    if any(os.environ.get(n) for n in ("SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY")):
+        return False
+    if sys.platform.startswith("linux") and not (os.environ.get("DISPLAY")
+                                                 or os.environ.get("WAYLAND_DISPLAY")):
+        return False
+    import webbrowser  # noqa: PLC0415 - only a person's sign-in needs one
+
+    try:
+        webbrowser.get()
+    except webbrowser.Error:
+        return False
+    return True
+
+
+def person_sign_in() -> str:
+    """A person's sign-in when none is chosen: in their own browser (authorization code with
+    PKCE: single sign-on, nothing to copy) where a browser can open here, else the device code.
+    A public client of the customer's own (PBI_PUBLIC_CLIENT_ID) keeps the device code: its
+    registration may not allow the `http://localhost` redirect the browser route answers on."""
+    if os.environ.get(PUBLIC_CLIENT_VAR, "").strip():
+        return "device"
+    return "browser" if local_browser() else "device"
+
+
 def public_client_id(default: str = DEFAULT_PUBLIC_CLIENT_ID) -> str:
     """The device-code sign-in's client: PBI_PUBLIC_CLIENT_ID when set (the customer's own
     app registration, for a tenant that blocks the default one), else `default`. A value
@@ -761,6 +789,17 @@ class FabricClient:
     def _attempts(self) -> int:
         return self.max_attempts or MAX_ATTEMPTS
 
+    def _renew_after_401(self, status: int, raw: str) -> None:
+        """Renew the token once after a 401. A token that cannot be renewed (a supplied
+        PBI_ACCESS_TOKEN) leaves the 401 as the API's own answer: an admin endpoint refuses a
+        non-admin with 401, and the probe reads that as "not an admin", never as an expired
+        token. A token that is really expired is refused by its claims before any call."""
+        try:
+            self._token = self._token_provider(force=True)
+        except AuthError:
+            code, message = _error_fields(raw)
+            raise ApiError(status, code, message) from None
+
     def _request(
         self, method: str, url: str, body: Optional[dict] = None, *, _refreshed=False
     ) -> Tuple[int, Dict[str, str], Any]:
@@ -785,7 +824,7 @@ class FabricClient:
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode(errors="replace")
                 if exc.code == 401 and self._token_provider and not _refreshed:
-                    self._token = self._token_provider(force=True)
+                    self._renew_after_401(exc.code, raw)
                     return self._request(method, url, body, _refreshed=True)
                 if exc.code == 429 and self.limiter is not None:
                     self.limiter.note_throttle()
@@ -829,7 +868,7 @@ class FabricClient:
             except urllib.error.HTTPError as exc:
                 raw = exc.read().decode(errors="replace")
                 if exc.code == 401 and self._token_provider and not _refreshed:
-                    self._token = self._token_provider(force=True)
+                    self._renew_after_401(exc.code, raw)
                     return self.download(url, target, _refreshed=True)
                 if exc.code in (429, 500, 502, 503, 504) and attempt < self._attempts():
                     time.sleep(_retry_after(dict(exc.headers), attempt, self.max_retry_after,
@@ -1242,6 +1281,16 @@ def upstream_refs(model_dir: str) -> List[Tuple[Optional[str], str]]:
     return refs
 
 
+def item_name(client: FabricClient, workspace: str, item_id: str) -> Optional[str]:
+    """An item's display name, for one a report names only by id (its bound semantic model).
+    A refused or failed lookup leaves the name unknown; it never fails the fetch."""
+    try:
+        _, _, body = client._request("GET", f"{FABRIC_API}/workspaces/{workspace}/items/{item_id}")
+    except ApiError:
+        return None
+    return (body or {}).get("displayName") or None
+
+
 def find_upstream(client: FabricClient, workspace: Optional[str], model: str,
                   cache: Dict[str, Any]) -> Optional[dict]:
     """The work entry for the semantic model a chain link names, or None when this identity
@@ -1617,9 +1666,10 @@ def main() -> int:
                         help="sign in and print, as JSON, what this identity can reach "
                              "(workspaces, the admin API); fetch no content")
     parser.add_argument("--auth", choices=["device", "browser", "spn", "token", "certificate", "managed-identity"],
-                        default="device",
-                        help="device: a person, with a device code; browser: a person, in "
-                             "their browser (authorization code with PKCE); spn; token")
+                        default=None,
+                        help="browser: a person, in their browser (authorization code with "
+                             "PKCE), the default where a browser can open here; device: a "
+                             "person, with a device code, the default otherwise; spn; token")
     parser.add_argument("--sign-in-timeout", type=int, default=SIGN_IN_WAIT_SECONDS,
                         metavar="SECONDS",
                         help=f"how long a browser sign-in waits (default "
@@ -1644,6 +1694,8 @@ def main() -> int:
         raise SystemExit("--operation-timeout and --max-retry-after must be at least 1 second")
 
     load_env_file()
+    if args.auth is None:
+        args.auth = person_sign_in()
     if not args.client_id:
         args.client_id = public_client_id()
 
@@ -1785,7 +1837,7 @@ def main() -> int:
                         "workspace": entry["workspace"],
                         "kind": KIND_MODEL,
                         "id": model_id,
-                        "displayName": None,
+                        "displayName": item_name(client, entry["workspace"], model_id),
                     }
             if extra:
                 log(f"--with-model: {len(extra)} bound semantic model(s)")

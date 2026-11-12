@@ -15,6 +15,28 @@ from modules.metrics.publication import publication_identity
 from modules.metrics.holds import enforce_context
 
 
+def _inventory_mismatch(context, workspace):
+    """Why the reconciled inventory cannot back a plan for `workspace`, or None.
+
+    The checked plan is only as good as the live inventory it was reconciled against. Two Atlan
+    connections in one host can reach different organizations, each with its own personal
+    workspace; an inventory read through one says nothing about a workspace written through the
+    other. Every live row, and the optional `inventory.json` record, must name the target."""
+    rows = json.loads((context / 'existing.json').read_text()) if (context / 'existing.json').exists() else []
+    other = sorted({r.get('workspace_id') for r in rows if isinstance(r, dict)
+                    and r.get('workspace_id') and r.get('workspace_id') != workspace})
+    if other:
+        return ('The live inventory was read from another workspace (' + ', '.join(other) + '). '
+                'Read the target workspace through the connection that will write, then check again.')
+    record = context / 'inventory.json'
+    if record.exists():
+        seen = json.loads(record.read_text()).get('workspace_id')
+        if seen and seen != workspace:
+            return ('The inventory record names workspace ' + str(seen) + ', not the target. '
+                    'Read the target workspace through the connection that will write, then check again.')
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--authorization', type=Path, required=True)
@@ -29,6 +51,10 @@ def main():
         holds = enforce_context(args.context, documents['metrics'], documents['queries'], documents['links'])
         if holds is not None:
             documents['publication_holds'] = holds
+        inventory_mismatch = _inventory_mismatch(args.context, args.workspace)
+        if inventory_mismatch:
+            print(json.dumps({'decision': 'needs_context', 'reason': inventory_mismatch}))
+            return 2
         plan_id, revisions = publication_identity(workspace_id=args.workspace,
                                                   sources=args.source, documents=documents)
         result = policy.publication(workspace_id=args.workspace, plan_id=plan_id,

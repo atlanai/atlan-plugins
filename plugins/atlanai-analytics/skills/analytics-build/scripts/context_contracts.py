@@ -91,6 +91,12 @@ def _records(value) -> list:
     result = value.get("result") if isinstance(value.get("result"), dict) else {}
     cols = value.get("columns") or ((value.get("manifest") or {}).get("schema") or {}).get("columns")
     rows = value.get("rows") if isinstance(value.get("rows"), list) else (value.get("data_array") or result.get("data_array"))
+    # Snowflake's SQL API, as its MCP connector returns it: column names under
+    # resultSetMetaData.rowType and rows as arrays under data, inside result_set or at the top.
+    sf = value.get("result_set") if isinstance(value.get("result_set"), dict) else value
+    row_type = (sf.get("resultSetMetaData") or {}).get("rowType") if isinstance(sf.get("resultSetMetaData"), dict) else None
+    if isinstance(row_type, list) and isinstance(sf.get("data"), list):
+        cols, rows = row_type, sf["data"]
     if isinstance(cols, list) and isinstance(rows, list) and all(isinstance(r, list) for r in rows):
         names = [c.get("name") if isinstance(c, dict) else c for c in cols]
         return [dict(zip(names, r)) for r in rows]
@@ -127,6 +133,15 @@ def cmd_querylog(a) -> dict:
         for r in read_jsonl(dst):
             groups[r["sql"]] = {"exec": int(r.get("exec") or 0), "users": int(r.get("users") or 0), "seen": set()}
     read = skipped = 0
+    # STATEMENTS LEFT OUT FOR SIZE ARE COUNTED, NEVER SILENTLY DROPPED. Generated SQL (a BI
+    # tool's compiled query, a dbt model) can run to megabytes; a size bound keeps the pull
+    # readable, and the coverage file says how much of the history it left out.
+    limit_chars = int(getattr(a, "max_statement_chars", 0) or 0)
+    cov_path = dst.with_name(dst.name + ".coverage.json")
+    coverage = (json.loads(cov_path.read_text()) if a.append and cov_path.exists() else
+                {"max_statement_chars": limit_chars, "over_size_statements": 0,
+                 "over_size_runs": 0})
+    over_size: set = set()
     for src in a.src:
         rows = read_querylog_source(pathlib.Path(src))
         if not rows:
@@ -139,6 +154,12 @@ def cmd_querylog(a) -> dict:
             kind = str(_pick(row, _TYPE_COLS) or "select").lower()
             if not isinstance(sql, str) or status not in _OK_STATUS or kind != "select":
                 skipped += 1
+                continue
+            if limit_chars and len(sql) > limit_chars:
+                if sql not in over_size:
+                    over_size.add(sql)
+                    coverage["over_size_statements"] += 1
+                coverage["over_size_runs"] += int(_pick(row, _EXEC_COLS) or 1)
                 continue
             g = groups.setdefault(sql, {"exec": 0, "users": 0, "seen": set()})
             g["exec"] += int(_pick(row, _EXEC_COLS) or 1)
@@ -154,8 +175,18 @@ def cmd_querylog(a) -> dict:
     with dst.open("w") as f:
         for sql, g in ranked:
             f.write(json.dumps({"sql": sql, "exec": g["exec"], "users": g["users"]}) + "\n")
+    left_out = getattr(a, "left_out_at_source", None)
+    if left_out:
+        # Statements a bounded pull never fetched (a `length()` bound in its WHERE) are
+        # coverage too: record them once, beside those this intake left out itself.
+        coverage["over_size_statements"] += int(left_out[0])
+        coverage["over_size_runs"] += int(left_out[1])
+    coverage["max_statement_chars"] = limit_chars or coverage.get("max_statement_chars")
+    cov_path.write_text(json.dumps(coverage, indent=1))
     return {"status": "ok", "rows_read": read, "skipped": skipped, "statements": len(ranked),
-            "dropped_over_limit": max(0, len(groups) - len(ranked)), "out": str(dst)}
+            "dropped_over_limit": max(0, len(groups) - len(ranked)),
+            "over_size": {k: coverage[k] for k in ("over_size_statements", "over_size_runs")},
+            "coverage": str(cov_path), "out": str(dst)}
 
 
 # ====================================================================== SQL scanning
@@ -338,10 +369,10 @@ _NOT_PERSON = re.compile(r"(?:product|item|sku|table|column|metric|region|countr
                          r"domain|display|field|feature|model|schema|database|source)_?(?:full_)?name$", re.I)
 
 
-def _pii(text: str):
+def _pii(text: str, names: bool = True):
     if _EMAIL.search(text or ""):
         return "an email address"
-    name = full_name_hit(text)
+    name = full_name_hit(text) if names else None
     if name:
         return f"a person's name ({name})"
     if _ENTITY_ID.search(text or "") or _UUID.search(text or "") or _PREFIXED_ID.search(text or ""):
@@ -416,10 +447,27 @@ def _privacy_fields(body: dict) -> list:
     return out
 
 
+def _from_report(body: dict) -> bool:
+    """A saved query the engine compiled from a report or model, not mined from query history."""
+    d = body.get("definition") if isinstance(body.get("definition"), dict) else {}
+    ext = d.get("extensions") if isinstance(d.get("extensions"), dict) else {}
+    agent = ext.get("metrics_agent") if isinstance(ext.get("metrics_agent"), dict) else {}
+    evidence = agent.get("evidence") if isinstance(agent.get("evidence"), dict) else {}
+    if (evidence.get("provenance") or {}).get("lane") == "bi":
+        return True
+    # A metric names the statements it came from; those the engine compiled from a report are `bi-`.
+    derived = agent.get("derived_from")
+    return bool(derived) and isinstance(derived, list) and all(str(v).startswith("bi-") for v in derived)
+
+
 def _privacy_errors(body: dict) -> list:
     errs, seen = [], set()
+    # A report's own SQL ships as its author wrote it, names included: the owner decided a name a
+    # report hardcodes (an exclusion list, say) is part of its rule. Query history keeps the name
+    # check, and emails and identifiers are refused wherever they come from.
+    names = not _from_report(body)
     for where, how, text in _privacy_fields(body):
-        why = _pii(text) if how == "sql" else _pii_value(*text) if how == "value" else _pii_prose(text)
+        why = _pii(text, names) if how == "sql" else _pii_value(*text) if how == "value" else _pii_prose(text)
         if why and (where, why) not in seen:
             seen.add((where, why))
             errs.append(f"{where} holds {why}")
@@ -549,7 +597,7 @@ def check_metric(body: dict) -> tuple:
         used |= set(_PARAM.findall(text))
         if _DATE.search(text):
             errs.append(f"{where} holds a fixed date: make it a parameter with that date as its default")
-        why = _pii(text)
+        why = _pii(text, not _from_report(body))
         if why:
             errs.append(f"{where} holds {why}")
         if _writes(text):
@@ -598,7 +646,7 @@ def check_query(body: dict) -> tuple:
         errs.append("definition.sql holds more than one statement")
     if sql and _writes(sql):
         errs.append(f"definition.sql holds {_writes(sql)}: a saved query only reads")
-    why = _pii(d.get("sql") or "")
+    why = _pii(d.get("sql") or "", not _from_report(body))
     if why:
         errs.append(f"definition.sql holds {why}")
     for k in ("question", "description"):
@@ -1055,6 +1103,12 @@ def selftest() -> dict:
     ok("a good card passes", not e)
     ok("a business value of two capitalised words is not a person's name",
        _pii("where stage = 'Closed Won'") is None and _pii("where rep = 'Jane Smith'"))
+    ok("a label compared with a category column, or written by a CASE into one, is not a person's name",
+       _pii("UPPER(RTRIM(\"Engagement Status\")) = 'Actively Worked'") is None
+       and _pii("CASE WHEN s >= 4 THEN 'Well Covered' ELSE 'No Coverage' END AS coverage_tier") is None
+       and _pii("CASE WHEN on_track THEN 'On Pace' END") is None)
+    ok("a name beside a people column, or written by a CASE into one, is still refused",
+       _pii("status = 'Open' and owner_name = 'Jane Smith'") and _pii("CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name"))
     bad = json.loads(json.dumps(good))
     bad["display_name"] = "Paid Revenue by Region"
     bad["definition"].update({"aggregation": {"type": "count"}, "owner": "x", "filters": ["DB.S.ORDERS.DT >= '2026-01-01'"]})
@@ -1204,6 +1258,13 @@ def selftest() -> dict:
            and log["select 1 from t"]["exec"] == 5 and log["select 3 from t"] == {"sql": "select 3 from t", "exec": 2, "users": 2})
         ok("querylog keeps only successful SELECTs", res["skipped"] == 2 and "delete from t" not in log)
         ok("querylog never writes a user name", "example.com" not in out.read_text() and "eve" not in out.read_text())
+        (t / "snow.json").write_text(json.dumps([{"type": "text", "text": json.dumps({"query_id": "q", "result_set": {
+            "data": [["select 9 from t", "4", "2"]],
+            "resultSetMetaData": {"rowType": [{"name": "SQL"}, {"name": "EXEC"}, {"name": "USERS"}]}}})}]))
+        snow = t / "snow.jsonl"
+        cmd_querylog(argparse.Namespace(src=[str(t / "snow.json")], dst=str(snow), append=False, limit=5000))
+        ok("querylog reads a Snowflake connector result saved by the host",
+           read_jsonl(snow) == [{"sql": "select 9 from t", "exec": 4, "users": 2}])
         cmd_querylog(argparse.Namespace(src=[str(t / "export.csv")], dst=str(out), append=True, limit=5000))
         ok("querylog --append merges the next page", len(read_jsonl(out)) == 4 and read_jsonl(out)[0]["exec"] == 7)
         (t / "err.json").write_text(json.dumps({"isError": True, "content": [{"type": "text", "text": "permission denied"}]}))
@@ -1225,6 +1286,12 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("dst", help="querylog.jsonl: {sql, exec, users} per line")
     c.add_argument("--append", action="store_true", help="merge into dst's existing lines, for the next page")
     c.add_argument("--limit", type=int, default=5000)
+    c.add_argument("--max-statement-chars", type=int, default=0,
+                   help="leave out statements longer than this and count them in <dst>.coverage.json "
+                        "(0 keeps every statement)")
+    c.add_argument("--left-out-at-source", nargs=2, type=int, metavar=("STATEMENTS", "RUNS"),
+                   help="statements and runs the pull itself left out (a length bound in its SQL), "
+                        "recorded in the same coverage file")
     c.set_defaults(func=cmd_querylog)
 
     c = s.add_parser("check", help="check authored bodies against the registry's contracts and the workspace")

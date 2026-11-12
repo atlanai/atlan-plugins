@@ -48,7 +48,7 @@ class TokenProvider:
                     self.x.token_client_credentials(self.args.scope, on_token=self._remember)
                 elif mode == 'token':
                     if force:
-                        raise self.x.AuthError('The supplied Power BI token expired; replace PBI_ACCESS_TOKEN')
+                        raise self.x.AuthError('Power BI refused the supplied token and it cannot be renewed; replace PBI_ACCESS_TOKEN')
                     self.token = self.x.acquire_token(self.args)
                     self.expires_at = float(self.x.token_claims(self.token).get('exp') or time.time() + 300)
                 elif self.refresh_token:

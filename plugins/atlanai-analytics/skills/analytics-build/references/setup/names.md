@@ -1,53 +1,96 @@
-# Commit on names before building
+# Offer the use cases, each with its tables
 
-Read after [business focus and purpose](intent.md) on a fresh build of the person's own
-data, before runtime setup or generation. Demos skip this file: their source choice selects
-what to build, so they continue directly through generation and checks.
-A resume with a saved selection skips it too.
+Read in the "Let discovery decide" branch, after discovery. The other two branches do not
+use this file: the person already named the dashboard or the tables, so they go from the
+access check straight to the confirmation in [the interview](intent.md). Demos skip it too,
+and so does a resume with a saved selection.
 
-The point is relevance before accuracy. The person commits to metric names, so a wrong
-focus costs one question and not a generation run.
+Discovery ends in a short menu of use cases, never a single suggestion, with one more
+option to share a dashboard. The person picks which to build.
 
-## Two ways in
+## 1. Get the use cases
 
-| Entry | The person gave | Focus question |
-| --- | --- | --- |
-| Cold start | A source, no stated problem | Ask it, as [intent](intent.md) describes |
-| Problem-first | A problem, such as "churn by plan", with or without a source | Skip it: the problem is the focus. Ask for a source only if none is known |
+`source-survey` `discover` returns two to four use cases, each with the tables that power
+it. The card shows the top three and the dashboard option. With a BI source, `source-survey` `candidates` adds the metric names the report holds.
+Neither generates SQL or runs a check on a metric.
 
-Both then reach this step with a focus and a survey of every supplied source.
+- With no subject named: the use cases are the most used subjects in the warehouse, most
+  used first.
+- With a subject typed in card 1: the distinct things that subject's tables can answer (for
+  sales: pipeline and win rate, rep activity, account coverage).
+- A dashboard discovery found in the working folder, or a set of metrics already in Atlan,
+  is named on the use case it belongs to: "Tables: … Dashboard: pipeline-review.pbix".
 
-## 1. Get the candidates
+## 2. One card, kept short
 
-Call `source-survey` `candidates` with the focus or problem. It returns at most ten
-names from the sources, ranked by relevance, each with one line of meaning and where it
-came from. It generates no SQL and runs no check.
+The question's own text is one line of what was found and where the usage came from:
 
-## 2. Ask once
+"Found: Snowflake. Most used across your account in the last 7 days."
 
-Ask one native question whose visible prompt says, in one sentence, that these are names
-found in the sources and that nothing is built yet. List the candidates as choices, most
-relevant first, with multiple selection where the host allows it:
+Then "Which should I build?", one option per use case, with multiple selection where the
+host allows it:
 
-| Option | Description |
+| Part | What goes there |
 | --- | --- |
-| Each candidate name | Its one line of meaning and its source, such as "dashboard tile" or "41 past queries" |
-| All of these | Build every listed candidate |
-| Something else | The person names a measure; check it against the survey before accepting |
+| Label | The use case, two to four words: "Sales pipeline" |
+| Description | One line of what it answers, then its tables: "Pipeline by stage, win rate and slipped deals. Tables: FCT_OPPORTUNITY, DIM_ACCOUNTS, DIM_REPS_CURRENT" |
 
-A measure the survey does not show is not refused: say that no source defines it, and that
-it would be authored from the tables alone and marked for review.
+**The last option is always a dashboard.** After the use cases, add:
 
-For an understanding-only purpose, the selected names set what to explain; no build follows
-unless asked. A person who already named the exact metrics they want has answered this
-question: record the selection and continue.
+| Label | Description |
+| --- | --- |
+| I have a dashboard | "Share its link or file and I'll build from it, on its own or with the use cases you pick." |
 
-## 3. Build from the selection
+A question card holds four options, so show at most three use cases beside it, the most used
+first; name a fourth in the found line only if it matters. Never mark the dashboard option
+recommended.
 
-Record the selection in the run, then select tables and dashboards (step 3) and enter
-[Build](build-check.md). Call
-`metrics-generation` `generate` with the selection and the whole survey: it reads every
-source before authoring, and authors the selected names and what they depend on. The collection review's representative metric is the top selected name.
+When the person picks it, alone or with use cases, ask for the dashboard next, exactly as
+[the interview](intent.md)'s dashboard branch does: its card for the link, path or a file in
+the folder, then opening it (signing the person in when a link needs it) and the access
+check on the tables it reads. Then:
 
-If the survey's readiness is `none`, do not ask this question. Say the one thing that is
-missing and offer `analytics-demo`.
+- picked alone: the dashboard is what gets built, as in the dashboard branch;
+- picked with use cases: the dashboard is added to them. Its report is built whole, and its
+  tables join the chosen use cases' tables. Say so in the confirmation.
+
+If the dashboard cannot be read, say why once and carry on with the use cases they picked;
+with none picked, show the menu again without asking for the dashboard a second time.
+
+Rules for the card:
+
+- The use case line is at most twelve words and says what the person could ask, not what
+  the tables are.
+- Two to five tables per use case, by table name only. Say the schema once in the found line
+  when every table shares it; otherwise prefix only the tables that differ.
+- Mark the most used use case recommended. Order the rest by use.
+- Nothing else in the card: no row counts, query counts, column names, join keys,
+  exclusions, snapshot notes or sample questions. Those are details.
+
+Where the host has no question tool, print the same thing as a short list, one line per use
+case with its tables under it, and end the turn.
+
+The person can pick one, several, or type a change ("add the snapshot table", "only
+pipeline"). A table they add is checked against the warehouse before it is accepted. A table
+or measure the sources do not show is never invented, and nothing is described as built or
+checked.
+
+**Details on request.** What discovery worked out about the chosen tables (how they link,
+what will be left out, how much each is used) is kept in the run and shown only when the
+person asks, or in one sentence after they choose: "Building sales pipeline from 3 tables.
+I'll leave out the test accounts on the exclusion list."
+
+For an understanding-only request, the menu is the result; no build follows unless asked.
+
+## 3. Then clarify and confirm
+
+With the choice made, ask [the interview's clarification](intent.md) only for what discovery
+could not settle about the chosen use cases, then its confirmation. Record the selection in
+the run. After the yes, enter [Build](build-check.md): call `metrics-generation` `generate`
+with the tables of every chosen use case and the whole of any dashboard named on them. A
+report is built whole, every page and measure, and query history is scoped to the chosen
+tables. The collection review's representative metric is the one closest to the first chosen
+use case.
+
+When discovery finds nothing to build from, do not ask this question. Say the one thing that
+is missing and offer `analytics-demo`.

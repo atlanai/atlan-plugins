@@ -83,6 +83,7 @@
         "value_service_off",
         "source_credentials_missing",
         "fetch_incomplete",
+        "model_not_included",
         "capture_gap",
         "warehouse_sign_in_failed",
         "warehouse_unavailable",

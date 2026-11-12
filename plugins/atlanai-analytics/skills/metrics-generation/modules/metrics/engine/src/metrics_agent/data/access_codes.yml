@@ -110,6 +110,13 @@ fetch_incomplete:
   who: operator
   did_instead: left the item out and read every other item
 
+model_not_included:
+  layer: bi
+  scope: item
+  effect: not_read
+  who: operator
+  did_instead: left the BI input out and read the run's other inputs
+
 capture_gap:
   layer: capture
   scope: run

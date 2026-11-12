@@ -40,6 +40,7 @@ import pathlib
 import sys
 
 
+from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
@@ -117,16 +118,14 @@ def _emit(ctx: stage.Ctx) -> None:
                     "grain": c.get("grain"),
                 } for c in cs],
                 "filters": [
-                    f"{f.get('column')} {f.get('op')}"
-                    + (f" {f.get('value')}" if f.get("value") is not None else "")
+                    _filter_text.restriction(f, mark_stage=False)
                     for f in (o.get("filters") or [])][:30],
                 # THE ROWS THE TABLE ITSELF KEEPS. A predicate inside the derived table the
                 # statement reads from (a BI tool's own query steps, compiled as the table)
                 # is not a choice of the question: every metric over this statement keeps it,
                 # so it belongs in `mandatory_filters`.
                 **({"mandatory_source_filters": [
-                    f"{f.get('column')} {f.get('op')}"
-                    + (f" {f.get('value')}" if f.get("value") is not None else "")
+                    _filter_text.restriction(f, mark_stage=False)
                     for f in (o.get("filters") or []) if f.get("in_source")]}
                    if any(f.get("in_source") for f in (o.get("filters") or [])) else {}),
                 "adoption": (o.get("provenance") or {}).get("history") or {},
@@ -329,6 +328,18 @@ def _ingest(ctx: stage.Ctx) -> None:
     if problems:
         raise SystemExit("x1: the authored answer failed validation:\n  "
                          + "\n  ".join(problems[:40]))
+    if missing:
+        # A HOLE STOPS THE RUN. X1 is often answered in several files (one per sitting or per
+        # author), and the run resumes as soon as ANY file matches the glob. Carrying on with
+        # part of the layer read would build every later gate on a partial set of metrics and
+        # say nothing until the end. Refuse, name the statements, and resume when they are in.
+        shown = sorted(missing)
+        more = f" (+{len(shown) - 40} more)" if len(shown) > 40 else ""
+        raise SystemExit(
+            f"x1: {len(missing)} of {len(known)} statement(s) have no verdict in the answer "
+            f"files read ({len(paths)} file(s)). A statement nobody read is not a statement "
+            f"with no metric. Add a verdict for each (`none` is a verdict), or wait for the "
+            f"remaining answer files, then re-run: {', '.join(shown[:40])}{more}.")
 
     none_ct = sum(1 for v in verdicts.values() if v == "none")
     ctx.write(OUT, {"contract_version": "1.0",

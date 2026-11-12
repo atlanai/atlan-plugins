@@ -5,12 +5,37 @@ metrics module. Existing saved dashboard jobs stay readable as source evidence; 
 or revisions use a new main-engine run. Keep identification, evidence and progress in
 native chat. No additional MCP server is installed.
 
-1. **Identify and capture.** Reuse the supplied original file or fetch once through the
-   existing authorized browser/BI connector. Keep its source URL, title and identity. The
-   existing dashboard helper may identify or inventory a Power BI download, and retain capture evidence. Its retired translator and card exporter are unavailable. Read
-   [Power BI capture](dashboard/powerbi-capture.md) when fetching Power BI. For Tableau,
-   obtain the original workbook and its referenced datasource definitions. A missing file
-   is a named gap, not a reason to infer definitions from chart values.
+1. **Identify and capture.** Reuse the supplied original file when there is one. Keep the
+   source URL, title and identity.
+   - **Power BI link: the `powerbi-fabric` plug first.** It is the only route that brings
+     the report and its semantic model together, so metrics stay tied to the visuals.
+     Set the report URL in `targets` with `with_model: true`, and sign in as the person.
+     The plug signs in through their own browser (authorization code with PKCE: single
+     sign-on, nothing to copy) where one can open on this machine, and by device code where
+     none can, such as an SSH or cloud session; `sign_in` overrides it. A token or service principal already set in the environment is
+     used without either.
+     Setting up the runtime's `powerbi` feature for this is part of the procedure, not an
+     extra install. See [the metrics module](metrics-engine.md) for the run.
+   - **Browser capture: the fallback** when the plug cannot run (no terminal for the
+     sign-in, both sign-ins refused by the tenant) or is refused (a Viewer role, which only
+     downloads). Follow [Power BI capture](dashboard/powerbi-capture.md). A browser route
+     brings the report or the model, rarely both; name what is missing.
+   - **Tableau link: the browser first.** The person needs no token. Through their signed-in
+     browser, download the workbook (**Download > Tableau Workbook**) and every published data
+     source it uses (**Download** on each), with the steps in the customer-access guide's
+     browser route (`modules/metrics/engine/docs/guides/customer-access.md`). It needs an
+     Explorer or Creator seat with download rights.
+     Second, the `tableau-cloud` plug with a Personal Access Token: when the browser cannot
+     be used, or a data source download is refused. The person creates the token in Tableau
+     (My Account Settings) and keeps its secret out of chat and files, for example in the
+     system keychain. Third, the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`: Tableau
+     Server, or a Tableau Cloud user without single sign-on or multi-factor authentication.
+     A connected app or a supplied JWT already set in the environment is used as it is.
+     Either way, take the workbook and every published data source it reads.
+
+   The existing dashboard helper may identify or inventory a Power BI download, and retain
+   capture evidence. Its retired translator and card exporter are unavailable. A missing
+   file is a named gap, not a reason to infer definitions from chart values.
 2. **Reuse the interview.** Use the already selected workspace, purpose, table scope,
    warehouse connection and approval mode. Propose missing physical mappings from actual
    lineage. Ask only for unresolved business choices. Inherit auto approval as the project

@@ -28,6 +28,18 @@ schema reads throughout the session. Hold affected writes on a mismatch and repo
 never send an unsupported shape or bypass validation. Run `CONTEXT check` again on the exact
 bodies after any repair. Keep the existing publication authorization and transport.
 
+## One connection, from inventory to readback
+
+A host can hold more than one Atlan connection (a plugin's own server, a claude.ai connector,
+a second environment), each signed in to its own organization with its own personal
+workspace. Read the live inventory, approve the plan and send every write through the same
+connection. Before reconciling, read `registry__list_workspaces` with `limit: 1` on that
+connection and confirm the target workspace is its own; record
+`{"workspace_id": "<target>", "personal_workspace_id": "<from that read>"}` in the context's
+`inventory.json`. `analytics_flow.py` refuses a plan whose inventory rows or record name
+another workspace. If the connection that can write is a different one, read the inventory
+again through it and get the plan approved again: an approval covers one workspace.
+
 ## 1. Preview
 
 Before previewing the plan, follow [existing-work reconciliation](reconciliation.md). Read
@@ -112,8 +124,26 @@ failure is not this refusal: reconcile it before any further write. Do not repea
 an unavailable helper. A changed file requires preparation and review
 again, not editing its digest by hand. Keep the reviewed context fixed while sending batches.
 
+Send the returned `preflight` read first, through the connection that will write. A refused
+or empty answer means that connection cannot reach the reviewed workspace: send nothing.
+Its counts are the "before" side of the count check in **5. Verify**.
+
+**When the host refuses a rewritten call.** Some hosts review a tool call before a hook
+expands it and refuse what they cannot review (Claude Code's auto mode refuses a call a hook
+rewrote). That refusal sends nothing. Do not resend the descriptor. Either ask the person to
+approve these calls themselves (leave the auto mode) and send the same descriptors, or prepare
+again with `--max-bytes 60000` and send each smaller batch inline, as the native procedure
+below says.
+
 Read every returned slot by index against the descriptor's `source_ids`. Record successes
-before addressing failures. Never resend a complete partially successful batch. If the reply
+before addressing failures. A result can be cut to its first rows; its `created` and `failed`
+totals still count every slot. Save each result, then run
+`python3 "<build-dir>/scripts/publication_followup.py" --context "<context-dir>" --workspace
+"<workspace-id>" --batches <saved batch descriptors> --result <saved result>…` (one
+`--result` per call, in order). It settles every item as created, failed or unreported, and
+prints the name lookups that resolve the rest, the approved links whose two ends both exist,
+and the failed items worth a retry. A `conflict` is never resent: report it, hold the item
+and the links that touch it, and name the existing artifact when a read finds it. Never resend a complete partially successful batch. If the reply
 is lost, reconcile each source identity and exact definition/version before retrying anything;
 a repeated create can append a version. A confirmed failed subset needs its own checked,
 authorized plan and batch, excluding successful and uncertain items. Stop on an unexpected
@@ -249,6 +279,7 @@ Never derive links from other workspace artifacts, and never write workspace-wid
 
 Count by kind in one call: `registry__get_artifact_counts` with the `workspace_id` and
 `group_by` `kind` (on a gateway without it, `registry__list_artifacts` with `limit` 1 per kind
-and read `page.total`). Then `registry__search_artifacts` for one sample
+and read `page.total`). Each kind's count must equal the preflight count plus the creates the results
+report; a difference is an item to find by name before anything is resent. Then `registry__search_artifacts` for one sample
 question with kind `sql_query`. It should come back near the top. Report the counts at the
 workflow's STOP gate.

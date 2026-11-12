@@ -30,6 +30,14 @@ def definition_link(origin: str, org: str, kind: str, handle: str, workspace: st
     return origin.rstrip("/") + "/" + quote(org, safe="") + "/apps/metric?" + outer
 
 
+class CliReadError(ValueError):
+    """A failed CLI read. Its message stays generic; `code` is the gateway's error code only."""
+
+    def __init__(self, code: str):
+        super().__init__("The authenticated Atlan metadata read failed")
+        self.code = code
+
+
 def _cli_json(arguments):
     """Let the approved CLI own authentication; retain only selected public metadata."""
     try:
@@ -38,8 +46,10 @@ def _cli_json(arguments):
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ValueError("The authenticated Atlan CLI is unavailable") from exc
     if result.returncode:
-        # Never echo transport stderr or a response body into a user-facing error.
-        raise ValueError("The authenticated Atlan metadata read failed")
+        # Never echo transport stderr or a response body into a user-facing error. Keep only
+        # the gateway's error code: a not_found and an auth failure need different next steps.
+        code = re.search(r"\(HTTP \d{3}, ([a-z_]+)\)", result.stderr or "")
+        raise CliReadError(code.group(1) if code else "read_failed")
     try:
         value = json.loads(result.stdout)
     except (TypeError, json.JSONDecodeError) as exc:
@@ -50,6 +60,10 @@ def _cli_json(arguments):
 
 
 def resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: str) -> str:
+    return _resolve_link(gateway, origin, kind, handle, workspace)
+
+
+def _resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: str) -> str:
     # Validate all URL/path components before invoking the CLI.
     definition_link(origin, "validated-later", kind, handle, workspace)
     definition_link(gateway, "validated-later", kind, handle, workspace)
@@ -70,10 +84,24 @@ def resolve_link(gateway: str, origin: str, kind: str, handle: str, workspace: s
     if len(matches) != 1 or not isinstance(matches[0].get("slug"), str):
         raise ValueError("The active organization has no unambiguous slug")
     link = definition_link(origin, matches[0]["slug"], kind, handle, workspace)
-    artifact = _cli_json([
-        "api", "get", "registry:/artifacts/" + kind + "/" + handle,
-        "--jq", "{id, workspace_id}",
-    ])
+    try:
+        artifact = _cli_json([
+            "api", "get", "registry:/artifacts/" + kind + "/" + handle,
+            "--jq", "{id, workspace_id}",
+        ])
+    except CliReadError as exc:
+        # A PERSON CAN BELONG TO SEVERAL ORGANIZATIONS, and the CLI and the MCP connection can
+        # be signed in to different ones. Name the organization the CLI reads and the others,
+        # so the fix (sign the CLI in to the artifact's organization) is one step.
+        others = sorted(o["slug"] for o in orgs if isinstance(o, dict) and o.get("id") != org_id
+                        and isinstance(o.get("slug"), str))
+        if exc.code == "not_found" and others:
+            raise ValueError(
+                "The Atlan CLI is signed in to organization '" + matches[0]["slug"] + "', which "
+                "cannot see this artifact; it is likely in another of your organizations ("
+                + ", ".join(others) + "). Sign the CLI in to that organization with "
+                "`atlanai auth login`, then run this again.") from None
+        raise
     if artifact.get("id") != handle or artifact.get("workspace_id") != workspace:
         raise ValueError("The CLI cannot verify the artifact in the MCP workspace")
     # A concurrent login switch must not compose a link from two different accounts.
