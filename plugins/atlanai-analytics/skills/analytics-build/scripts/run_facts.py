@@ -123,6 +123,12 @@ def from_dashboard(source_id):
     return str(source_id).startswith('bi-')
 
 
+def _verdict(entry):
+    """Whether an item's check has given its verdict. The structural pass marks every item `schema_checked` before
+    anything runs."""
+    return isinstance(entry, dict) and entry.get('status') != 'schema_checked'
+
+
 def _passed(entry):
     if not isinstance(entry, dict):
         return False
@@ -348,13 +354,14 @@ class RunFacts:
         rows.sort(key=lambda r: r['origin'] != 'tile')
         metrics_ran = sum(r['ok'] for r in rows)
         queries_ran = sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries)
-        # One check fact for every place that counts: what passed, and what needs a look (did not pass, for any reason),
-        # the save question's own rule.
+        metrics_checked = sum(_verdict(checks.get('metric:' + m['name'])) for m in metrics)
+        queries_checked = sum(_verdict(checks.get('sql_query:' + q['name'])) for q in queries)
+        # One check fact for every place that counts: what passed, and what needs a look (checked and did not pass, for
+        # any reason). Once every item has run, that is the save question's own rule.
         total = len(rows) + len(queries)
         return {'metrics': rows, 'queries': len(queries), 'metrics_ran': metrics_ran, 'queries_ran': queries_ran,
-                'metrics_checked': sum(isinstance(checks.get('metric:' + m['name']), dict) for m in metrics),
-                'queries_checked': sum(isinstance(checks.get('sql_query:' + q['name']), dict) for q in queries),
-                'total': total, 'passed': metrics_ran + queries_ran, 'need_look': total - metrics_ran - queries_ran}
+                'metrics_checked': metrics_checked, 'queries_checked': queries_checked, 'total': total,
+                'passed': metrics_ran + queries_ran, 'need_look': metrics_checked + queries_checked - metrics_ran - queries_ran}
 
     @staticmethod
     def unit_of(metric):

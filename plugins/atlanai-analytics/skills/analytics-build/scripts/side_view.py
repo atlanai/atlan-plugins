@@ -11,6 +11,7 @@ only; names and values stay in the chat.
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from html import escape
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -169,15 +170,16 @@ def metrics(f, s):
     how += [node('Check each item is complete', 'Every metric and query needs all its parts before it runs.', SETUP,
                  '%s + %s' % (count(n_metrics, 'metric'), count(n_queries, 'query', 'queries')) if checked else None),
             node('Run each metric ' + where, 'Its examples, its full calculation, and a test that its filter leaves '
-                 'nothing in when nothing should count.', SETUP, ratio(c['metrics_ran'], n_metrics) if checked and n_metrics else None,
+                 'nothing in when nothing should count.', SETUP,
+                 ratio(c['metrics_ran'], n_metrics) if checked and n_metrics and c['metrics_checked'] else None,
                  done=all_metrics, warn=all_metrics and c['metrics_ran'] < n_metrics),
             node('Run each query ' + where, 'Each one runs as written.', SETUP,
-                 ratio(c['queries_ran'], n_queries) if checked and n_queries else None, done=all_queries,
-                 warn=all_queries and c['queries_ran'] < n_queries)]
-    if not checked or c['need_look']:
+                 ratio(c['queries_ran'], n_queries) if checked and n_queries and c['queries_checked'] else None,
+                 done=all_queries, warn=all_queries and c['queries_ran'] < n_queries)]
+    if not (all_metrics and all_queries) or c['need_look']:
         how.append(node('Hold what needs a look', 'Anything that did not pass its check is kept back and listed for a '
-                        'person, never shown as a result.', SETUP, '%d need a look' % c['need_look'] if checked else None,
-                        done=all_metrics and all_queries, warn=checked and bool(c['need_look'])))
+                        'person, never shown as a result.', SETUP, '%d need a look' % c['need_look'] if checked and
+                        c['need_look'] else None, done=all_metrics and all_queries, warn=checked and bool(c['need_look'])))
 
     def came_from(m):
         return ', '.join(x for x in ('%d from the dashboard' % m['tiles'] if m['tiles'] else '',
@@ -463,7 +465,7 @@ def _record(run, kind, spec, engine_dir):
     state['moments'].append({'kind': kind, 'at': _now(), **({'key': _answer_key(spec)} if kind == 'answer' else {})})
     out = {}
     # A moment writes a document only when the page would show something new.
-    if first or _ticks(model(run, state, engine_dir)) != state.get('ticks'):
+    if first or _content(model(run, state, engine_dir)) != state.get('content'):
         doc, path = _emit(run, state, engine_dir)
         if first or not (run / 'view' / 'side.html').is_file():
             page(run, doc['title'])
@@ -475,16 +477,22 @@ def _record(run, kind, spec, engine_dir):
 
 
 def _ticks(doc):
-    """What makes a new document worth pushing: a step's status or a piece of work's tick. Counts that move
-    without either ride along in the next one."""
-    return [[s['status'], [n.get('s') for n in s['how']]] for s in doc['steps']]
+    """What makes a new document worth pushing between moments: a step's status, a piece of work's tick, or a piece
+    that now needs a look. Counts that move without any of them ride along in the next one."""
+    return [[s['status'], [[n.get('s'), bool(n.get('w'))] for n in s['how']]] for s in doc['steps']]
+
+
+def _content(doc):
+    """Everything the page shows, for a moment to write only what is new: an edit can change a value and no tick."""
+    shown = json.dumps({k: v for k, v in doc.items() if k not in ('updated', 'n')}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(shown.encode('utf-8')).hexdigest()
 
 
 def _emit(run, state, engine_dir=None):
     """The view as a new numbered document for the page, and the same data for the local copy."""
     state['written'] = int(state.get('written') or 0) + 1
     doc = dict(model(run, state, engine_dir), n=state['written'])
-    state['ticks'] = _ticks(doc)
+    state['ticks'], state['content'] = _ticks(doc), _content(doc)
     path = run / 'view' / 'steps' / ('s%02d.json' % state['written'])
     _write(path, json.dumps(doc, ensure_ascii=False, indent=1))
     _write(run / 'view' / 'progress-data.js', 'window.SIDE_VIEW = %s;\n' % json.dumps(doc, ensure_ascii=False))

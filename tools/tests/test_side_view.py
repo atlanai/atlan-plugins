@@ -242,6 +242,38 @@ class SideView(unittest.TestCase):
         checks.write_text(json.dumps(changed))
         values = dict((r[0], r[1]) for r in self.step(side_view.model(run), 'Metrics')['result'][1]['list'])
         self.assertEqual(values['Gross margin'], '£1', 'a rule changed after the checks shows its new value, as the edit card does')
+        self.assertIn('doc', side_view.record(run, 'edit', {}), 'the edit moment writes the new value for the page')
+        values = dict((r[0], r[1]) for r in self.step(self.doc(run), 'Metrics')['result'][1]['list'])
+        self.assertEqual(values['Gross margin'], '£1')
+
+    def test_the_structural_pass_is_not_a_check_run(self):
+        run = make_run(self.root, saved=False, stage=('check', 'running'))
+        checks = run / 'context' / 'candidate-checks.json'
+        names = list(json.loads(checks.read_text(encoding='utf-8')))
+        checks.write_text(json.dumps({k: {'status': 'schema_checked', 'errors': []} for k in names}), encoding='utf-8')
+        self.record(run, 'connect')
+        self.assertNotIn('context', side_view.due(run), 'nothing has run yet (live runs showed "0/39 checked, 39 need a look")')
+        metrics = self.nodes(self.doc(run), 'Metrics')
+        self.assertEqual(metrics['Check each item is complete'].get('s'), 'done')
+        for piece in ('Run each metric on the data', 'Run each query on the data', 'Hold what needs a look'):
+            self.assertNotEqual(metrics[piece].get('s'), 'done', piece)
+            self.assertNotIn('w', metrics[piece], piece)
+        self.assertNotIn('n', metrics['Hold what needs a look'], 'no count of what needs a look before anything ran')
+        entries = {k: {'status': 'schema_checked', 'errors': []} for k in names}
+        entries['metric:Gross Margin'] = {'status': 'failed', 'errors': ['The table no longer holds that period.']}
+        checks.write_text(json.dumps(entries), encoding='utf-8')
+        hold = self.nodes(side_view.model(run), 'Metrics')['Hold what needs a look']
+        self.assertEqual(hold['n'], '1 need a look', 'only what ran and did not pass')
+        entries['metric:Rework Cost'] = {'status': 'example_executed', 'errors': [], 'composition': {'status': 'executed', 'rows': [[1.0]]}}
+        entries.update({k: {'status': 'executed'} for k in names if k.startswith('sql_query:')})
+        checks.write_text(json.dumps(entries), encoding='utf-8')
+        self.assertIn('doc', side_view.progress(run), 'every verdict is in: the page now agrees with the save question')
+        metrics = self.nodes(self.doc(run), 'Metrics')
+        self.assertEqual([(metrics[p]['n'], metrics[p].get('w')) for p in ('Run each metric on the data', 'Hold what needs a look')],
+                         [('1 of 2', True), ('1 need a look', True)])
+        self.assertEqual(side_view.due(run), ['sources', 'build', 'context'])
+        self.assertEqual(visuals.render('context', visuals.build_spec('context', run)),
+                         '◕ **3/4** metrics and queries checked · on your data, 1 need a look')
 
     def test_a_warehouse_run_reads_as_a_warehouse(self):
         run = make_run(self.root, warehouse='snowflake', chosen={'bi': False, 'history': True}, saved=False)
