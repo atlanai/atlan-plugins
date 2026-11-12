@@ -365,6 +365,13 @@ class SideView(unittest.TestCase):
         self.assertEqual(self.step(self.doc(run), 'Sources')['fact'], '2 data files')
         self.assertEqual(self.nodes(self.doc(run), 'Metrics')['Load the tables on this machine']['n'], '2 tables · 129 rows')
 
+    def test_a_bound_database_ticks_its_piece(self):
+        run = make_run(self.root, saved=False)
+        (run / 'context' / 'data-preparation.json').unlink()
+        self.record(run, 'connect')
+        piece = self.nodes(self.doc(run), 'Metrics')['Open the database read-only']
+        self.assertEqual((piece['s'], piece['n']), ('done', '2 tables'), 'bound as it is, with nothing prepared, still ticks')
+
     def test_a_demo_loads_its_tables_with_its_sources(self):
         run = make_run(self.root, demo=True)
         self.record(run, 'connect', data=[facts()])

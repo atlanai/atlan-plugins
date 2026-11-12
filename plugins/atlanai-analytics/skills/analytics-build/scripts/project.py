@@ -675,7 +675,17 @@ def main():
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
-                shown = visuals.render(args.kind, spec, args.widget, side_view.first_answer(run, spec))
+                demo = spec.get('flow') == 'demo' or visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
+                asked = None if args.widget else visuals.asked(args.kind, demo)
+                shown = visuals.render(args.kind, spec, args.widget, side_view.first_answer(run, spec), plain=bool(asked))
+                # In a terminal, the build's card in the middle of a build reaches no one: it leads the save question with
+                # the checks chip instead. A widget host draws it as it happens.
+                held = args.kind == 'build' and not args.widget and bool(shown)
+                if held:
+                    shown = ''
+                if args.kind == 'context' and asked and shown:
+                    card = visuals.render('build', visuals.build_spec('build', run, data, args.engine_dir), plain=True)
+                    shown = (card + '\n\n' + shown) if card else shown
             except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
                 # A file the run wrote in a shape this cannot read leaves the moment unshown, never the run stopped.
                 print('side view: ' + json.dumps({'error': 'This moment could not be read: %s' % type(exc).__name__}))
@@ -689,12 +699,16 @@ def main():
             if shown and args.widget:
                 steps.append("Draw it now: pass the HTML above to `show_widget` (after its `read_me`, the first time), before "
                              "your next question or reply. Never put it in a question's text.")
-            elif shown:
-                steps.append("Show the text above, unchanged, as this moment's result: in your reply, on its own lines, "
-                             "before your next question. Never put it in a question's text. If you have a "
+            elif shown and asked:
+                steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
+                             "written just before it folds. Write nothing else before that question. If you have a "
                              "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
-                             "`--widget` to every later `visual` call.")
-            if shown or args.kind == 'connect':
+                             "`--widget` to every later `visual` call." % asked)
+            elif shown:
+                steps.append("Show the text above, unchanged, as this moment's result: in your reply, on its own lines. If "
+                             "you have a `show_widget` tool, run this again with `--widget`, pass the HTML to it instead, "
+                             "and add `--widget` to every later `visual` call.")
+            if shown or held or args.kind == 'connect':
                 try:
                     update.update(side_view.record(run, args.kind, spec, args.engine_dir))
                 except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:

@@ -24,7 +24,8 @@ Open the chosen demo's file again for its facts
 ([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
 Send these lines, filled from the facts and this run, as the text of the "What would you
 like to ask?" question, with their line breaks and leading spaces. The fence only marks the
-lines. Show the `saved` visual right before the question, as [visuals](visuals.md) says for this host.
+lines. Run the `saved` visual first ([visuals](visuals.md)): in a terminal its lines go first in
+this question's text; with `show_widget`, draw it right before the question.
 Omit the See the environment line when there is no tour; own-data setup never has one.
 Keep each filled line within 76 characters, wrapping a long value onto an indented line.
 
@@ -88,7 +89,8 @@ over asking again. Never start a flow until chosen.
 Answer only the question the person picks or types, through the ask route, with real
 numbers. Every answer has three parts, in this order:
 
-1. **The answer**, led by the number or the name, then what explains it.
+1. **The answer**, led by the number or the name, then what explains it. In a setup or demo run,
+   the `answer` visual's card or chip ([visuals](visuals.md)) is that lead, shown unchanged.
 2. **Proof in Atlan Trident**: one line per metric and query the answer used, each a link
    to its page, as [definition links](../../../analytics-ask/references/definition-links.md) says. Read that file before
    the first answer. Never print metric or release ids, and never ask for a Trident address

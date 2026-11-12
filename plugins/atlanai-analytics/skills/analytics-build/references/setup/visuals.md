@@ -20,12 +20,13 @@ run has reached but not shown yet: run it before going on. A demo adds `--data` 
    - **With a `show_widget` tool** (the Claude desktop app): add `--widget` to every `visual`
      call and pass the HTML it prints to that tool, chips and cards alike. There, text between
      tool calls or inside a question never reaches the person.
-   - **Otherwise** (a terminal): copy the lines unchanged into your reply, on their own lines.
-     Never put them in a native question's text: a terminal draws question text in one fixed
-     colour that a light background hides, and these lines take the reply's own colours. A
-     terminal shows six lines or fewer before a question whole, and every card that can come
-     right before one keeps to that, so when a question follows, these lines are the text
-     before it.
+   - **Otherwise** (a terminal): the helper prints plain lines and says where they go. A moment
+     that comes right before a native question goes in that question's own text, which is always
+     shown: text written just before a question folds into one summary line, and reply text in
+     the middle of a run is often left out. Other moments are reply text, unchanged, on their own
+     lines; an answer's card leads the answer. On a light terminal, Claude Code's dark theme draws
+     every question's text in white, the flow's own included: the person switches Claude Code to
+     its light theme (`/theme`).
    When the helper prints nothing here, the chat shows nothing for this moment. When it prints
    nothing at all, the run has nothing true to show yet: carry on; the helper names the moment
    again when it is due.
@@ -37,9 +38,9 @@ run has reached but not shown yet: run it before going on. A demo adds `--data` 
 | --- | --- | --- | --- |
 | The run folder exists, right after the first survey | `connect` | Nothing: it opens the side view | |
 | Own data, right before choosing what to build from | `found` | Chip: the sources and the warehouse found | |
-| Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip | |
-| Metrics generated: the engine run is complete, before the checks | `build` | Mini card | |
-| Every check has run | `context` | Chip: how many checked, and how many need a look | |
+| Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip (a demo's opens the next question in a terminal) | |
+| Metrics generated: the engine run is complete, before the checks | `build` | Mini card (in a terminal, it waits for the save question) | |
+| Every check has run | `context` | Chip: how many checked, and how many need a look; in a terminal, with the build card, in the save question | |
 | Saved to Atlan Trident, or kept on this machine | `saved` | Mini card, or a chip when kept, before the ready question | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
 | Dashboard layout proposed | `layout` | Chip | `layout.json` |

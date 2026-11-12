@@ -19,6 +19,18 @@ from run_facts import RunFacts, count, number, read_json, sentence, table_name, 
 KINDS = ('connect', 'found', 'sources', 'build', 'context', 'saved', 'answer', 'layout', 'edit')
 # The moments big enough for a mini card. A later answer, and a context kept on this machine, get a chip.
 CARDS = ('build', 'saved', 'answer', 'edit')
+# In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
+# text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
+ASKED = {'found': "the next native question's text, first",
+         'context': "the save question's text, after the celebration's first two lines, in place of its count line",
+         'saved': "the ready question's text, first"}
+# A demo reads its sources right before choosing what to build from; own data reads them mid-build.
+ASKED_DEMO = {'sources': "the next native question's text, first"}
+
+
+def asked(kind, demo):
+    """Where a terminal moment's lines go when a native question follows it, or None for reply text."""
+    return ASKED.get(kind) or (ASKED_DEMO.get(kind) if demo else None)
 # The moments whose data the agent writes, the fields each needs, and the shape of every field.
 DATA = {
     'saved': {'workspace': str},
@@ -200,7 +212,7 @@ def _ticker(kind, s):
     if kind == 'sources' and s.get('tables'):
         tables = s['tables']
         tool = (s.get('dashboard') or {}).get('tool')
-        rows = '{:,} rows'.format(sum(t[1] for t in tables))
+        rows = '{:,} rows'.format(sum(t[1] for t in tables)) if all(t[1] is not None for t in tables) else ''
         if s.get('history'):
             where = ', '.join(x for x in ('%s dashboard' % tool if tool else '', count(len(tables), 'table'), rows) if x)
             read = s['history']['statements']
@@ -373,10 +385,11 @@ def _plain(text):
     return re.sub(r'(?<![A-Za-z0-9])_|_(?![A-Za-z0-9])', r'\\_', re.sub(r'([\\`*])', r'\\\1', str(text)))
 
 
-def card_head(p):
-    """The card's headline, in bold: the number first, then what it is."""
+def card_head(p, plain=False):
+    """The card's headline: the number first, then what it is. In bold for a reply; as written for a question's text,
+    which shows no Markdown."""
     lead = ' '.join(x for x in (p.get('pre') if p['icon'] == 'edit' else '', _minus(p['value'])) if x)
-    return '**%s** · %s' % (_plain(lead), _plain(p['title']))
+    return '%s · %s' % (lead, p['title']) if plain else '**%s** · %s' % (_plain(lead), _plain(p['title']))
 
 
 def _one_line(names, width=WIDTH, sep=' · '):
@@ -388,9 +401,9 @@ def _one_line(names, width=WIDTH, sep=' · '):
     return '%d metrics' % len(names)
 
 
-def card_text(p):
-    """The rest of the card as plain lines under the headline, indented. A terminal prints them as written, so a
-    card of six lines or fewer shows whole, even right before a question. The build card keeps to that."""
+def card_text(p, plain=False):
+    """The rest of the card as lines under the headline, indented. A card that can go in a question keeps to six lines,
+    headline included; `plain` writes it for a question's text, with nothing escaped."""
     lines = _wrap(p['pre']) if p.get('pre') and p['icon'] != 'edit' else []
     lines += _wrap(p['line']) if p.get('line') else []
     lines += _wrap(p['why']) if p.get('why') else []
@@ -401,20 +414,24 @@ def card_text(p):
     elif p.get('chips'):
         lines += _wrap_items(p['chips'])
     lines += _wrap('! ' + p['warn']) if p.get('warn') else []
-    return '\n'.join(('  ' + _plain(_fit(line))).rstrip() for line in lines)
+    return '\n'.join(('  ' + (_fit(line) if plain else _plain(_fit(line)))).rstrip() for line in lines)
 
 
-def render(kind, spec, widget=False, first=True):
-    """What the chat shows for a moment: a mini card at a big moment, else a chip; empty when nothing is true yet."""
+def render(kind, spec, widget=False, first=True, plain=False):
+    """What the chat shows for a moment: a mini card at a big moment, else a chip; empty when nothing is true yet.
+    `plain` writes it for a native question's text: no Markdown."""
     if kind not in KINDS:
         raise ValueError('Unknown moment: %s' % kind)
     parts = _parts(kind, spec) if kind in CARDS and (first or kind != 'answer') else None
     if parts:
         if widget:
             return card_html(parts)
-        body = card_text(parts)
-        return card_head(parts) + ('\n' + body if body else '')
-    return chip_html(kind, spec) if widget else chip(kind, spec)
+        body = card_text(parts, plain)
+        return card_head(parts, plain) + ('\n' + body if body else '')
+    if widget:
+        return chip_html(kind, spec)
+    shown = chip(kind, spec)
+    return shown.replace('**', '') if plain else shown
 
 
 def main(argv=None):

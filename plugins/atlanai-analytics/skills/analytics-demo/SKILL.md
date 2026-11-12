@@ -87,7 +87,7 @@ sources revealed.
 ## 2. Choose what to build from
 
 Ask the sources question from [the tour rules](references/tour.md): dashboard and past
-queries (recommended), or dashboard only. Scope the run to the answer through
+queries (recommended), or dashboard only. In a terminal its text opens with the `sources` chip. Scope the run to the answer through
 [inspect and scope](../source-survey/references/inspect-scope.md) section 2, with
 `PROJECT scope "<scope>"` for the whole dashboard when `requests` wrote one. The data
 tables are used either way, to check the context.

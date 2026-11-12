@@ -60,10 +60,14 @@ def _tables_node(f):
     if f.warehouse:
         return node("Read the chosen tables' columns", 'Their names and types, through the read-only connection; no data '
                     'is copied.', SETUP, count(f.scoped_tables, 'table') if f.scoped_tables else None)
-    tables = f.tables
+    tables, rows = f.tables, f.table_rows
+    if tables and rows is None:
+        # An existing database, bound as it is: the checks read it without changing it.
+        return node('Open the database read-only', 'The checks run on its tables without changing anything.', SETUP,
+                    count(len(tables), 'table'))
     return node('Load the tables on this machine', 'Into a small read-only database, so every number can be tested '
                 'without touching anything real.', SETUP,
-                '%s · %s rows' % (count(len(tables), 'table'), '{:,}'.format(sum(t[1] for t in tables))) if tables else None)
+                '%s · %s rows' % (count(len(tables), 'table'), '{:,}'.format(rows)) if tables else None)
 
 
 def sources(f, s):
@@ -92,7 +96,8 @@ def sources(f, s):
     tables = f.tables
     return {'how': how, 'fact': ', '.join(kinds),
             'result': ([{'title': 'Found', 'list': [[k, ''] for k in kinds]}] if kinds else [])
-            + ([{'title': 'Tables loaded', 'list': [[table_name(t[0]), count(t[1], 'row')] for t in tables]}] if s['demo'] and tables else [])}
+            + ([{'title': 'Tables loaded', 'list': [[table_name(t[0]), count(t[1], 'row') if t[1] is not None else ''] for t in tables]}]
+               if s['demo'] and tables else [])}
 
 
 def _chosen(f):

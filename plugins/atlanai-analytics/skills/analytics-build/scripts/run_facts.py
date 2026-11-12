@@ -233,10 +233,19 @@ class RunFacts:
 
     @cached_property
     def tables(self):
-        """The loaded tables, largest first, as (name, rows)."""
+        """The tables the checks run on, largest first, as (name, rows): the ones prepared from files, or else the ones an
+        existing database was bound with, whose rows were never counted (None)."""
         tables = self.file('context', 'data-preparation.json').get('tables') or []
         rows = [(str(t.get('table')).split('.')[-1], int(t.get('rows') or 0)) for t in tables if isinstance(t, dict) and t.get('table')]
-        return sorted(rows, key=lambda t: -t[1])
+        if rows:
+            return sorted(rows, key=lambda t: -t[1])
+        bound = (self.meta.get('execution') or {}).get('tables') if isinstance(self.meta.get('execution'), dict) else None
+        return [(str(name).split('.')[-1], None) for name in bound or [] if name]
+
+    @property
+    def table_rows(self):
+        """All the tables' rows, when every one was counted."""
+        return sum(t[1] for t in self.tables) if self.tables and all(t[1] is not None for t in self.tables) else None
 
     @cached_property
     def history(self):

@@ -73,7 +73,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    side view.
 3. **Select tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md) and any clarification. In every branch, the
-   interview's confirmation, "Build it?". A report is built whole.
+   interview's confirmation, "Build it?", whose text opens with the `found` visual's line in a
+   terminal. A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
    and the whole survey, through [build and check](references/setup/build-check.md). Then
    review the completed collection with actual counts and one representative metric.

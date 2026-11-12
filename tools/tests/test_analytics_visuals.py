@@ -71,6 +71,12 @@ class Moments(unittest.TestCase):
         history_only = make_run(self.root / 'h', chosen={'bi': False, 'history': True})
         self.assertNotIn('dashboard', self.show('sources', history_only))
 
+    def test_a_database_bound_as_it_is_reads_as_its_tables(self):
+        run = make_run(self.root / 'bound')
+        (run / 'context' / 'data-preparation.json').unlink()
+        self.assertEqual(self.show('sources', run), '● **3** past queries read · Power BI dashboard, 2 tables',
+                         'an existing database bound for the checks is the data read; its rows were never counted')
+
     def test_found_counts_only_what_it_names(self):
         run = make_run(self.root / 'db')
         meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
@@ -264,7 +270,7 @@ class Helper(unittest.TestCase):
         self.assertTrue(first['page'].endswith('side.html') and first['doc'].endswith('s01.json'))
         self.assertTrue(first['next'].startswith('Open the side view now'), 'one duty, so it is not dropped for another')
         out = self.project('visual', 'sources')
-        self.assertIn("Never put it in a question's text", self.side(out)['next'], 'a terminal draws question text in a colour light themes hide')
+        self.assertIn('show the text above', self.side(out)['next'], 'own data reads its data mid-build, so the chip is reply text')
         self.assertIn('--widget', self.side(out)['next'], 'a host that draws widgets learns it at the first chip')
         self.assertTrue(out.startswith('● **3** past queries read'))
         self.assertNotIn('doc', self.side(out), 'the finished run already shows it: no new document')
@@ -302,23 +308,39 @@ class Helper(unittest.TestCase):
         self.assertIn('Then show the text above', line, 'then the chip, in the same reply')
         self.assertNotIn('view --local', line)
 
-    def test_the_build_card_and_the_checks_chip_are_reply_text(self):
+    def test_in_a_terminal_the_build_card_and_checks_chip_lead_the_save_question(self):
         for kind in ('connect', 'sources'):
             self.project('visual', kind)
-        built = self.project('visual', 'build').split('\nside view: ')[0]
-        self.assertTrue(built.startswith('**2 metrics** · Built from your sources\n  4 queries: 2 from the dashboard'), 'shown when it happens')
-        self.assertLessEqual(len(built.splitlines()), 6)
+        built = self.project('visual', 'build')
+        self.assertTrue(built.startswith('side view: '), 'mid-build a terminal reply reaches no one; the card waits for the question')
+        self.assertIn('build', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
         checked = self.project('visual', 'context')
-        self.assertTrue(checked.startswith('● **4/4** metrics and queries checked'), 'one line before the save question')
-        self.assertNotIn('Built from your sources', checked, 'the card is not shown twice')
-        self.assertIn("Never put it in a question's text", self.side(checked)['next'])
+        shown = checked.split('\nside view: ')[0]
+        self.assertTrue(shown.startswith('2 metrics · Built from your sources\n  4 queries: 2 from the dashboard'), 'the card leads')
+        self.assertIn('\n\n● 4/4 metrics and queries checked · on your data', shown, 'then the chip, as the count line')
+        self.assertNotIn('**', shown, "a question's text shows no Markdown")
+        self.assertIn("in the save question's text, after the celebration's first two lines, in place of its count line",
+                      self.side(checked)['next'], "a question's own text is always shown")
+        widget = self.project('visual', 'build', '--widget')
+        self.assertTrue(widget.startswith('<style>'), 'a widget host draws the card as it happens')
 
-    def test_the_saved_card_is_reply_text_before_the_ready_question(self):
+    def test_the_saved_card_goes_in_the_ready_question(self):
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         out = self.project('visual', 'saved', '--input', '-', stdin=json.dumps({'workspace': 'Personal'}))
-        self.assertTrue(out.startswith('**2 metrics, 2 queries** · Saved to Atlan Trident\n  Live in Personal'))
+        self.assertTrue(out.startswith('2 metrics, 2 queries · Saved to Atlan Trident\n  Live in Personal'))
         self.assertLessEqual(len(out.split('\nside view: ')[0].splitlines()), 6)
+        self.assertIn("in the ready question's text, first", self.side(out)['next'])
+
+    def test_a_chip_right_before_a_question_goes_in_it(self):
+        self.assertEqual(visuals.render('found', visuals.build_spec('found', self.run), plain=True),
+                         '● 4 sources found · Power BI dashboard, 2 data files, query history')
+        self.assertEqual(visuals.asked('found', False), "the next native question's text, first")
+        self.assertEqual(visuals.asked('sources', True), "the next native question's text, first", "a demo's sources come right before its choice")
+        self.assertIsNone(visuals.asked('sources', False), 'own data reads its data mid-build')
+        self.assertIsNone(visuals.asked('answer', False), 'an answer ends its turn, which a terminal never folds')
+        card = visuals.render('answer', visuals.build_spec('answer', self.run), plain=True)
+        self.assertNotIn('\\', card, "nothing escaped in a question's text")
 
     def test_a_widget_goes_to_the_inline_tool(self):
         for kind in ('connect', 'sources', 'build'):
@@ -383,8 +405,11 @@ class Helper(unittest.TestCase):
 
     def test_a_moment_too_early_records_nothing(self):
         self.project('visual', 'connect')
+        meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
+        (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'execution'}), encoding='utf-8')
         (self.run / 'context' / 'data-preparation.json').rename(self.run / 'context' / 'later.json')
-        self.assertEqual(self.project('visual', 'sources'), '', 'no tables loaded yet: nothing to show, nothing recorded')
+        self.assertEqual(self.project('visual', 'sources'), '', 'no tables loaded or bound yet: nothing to show, nothing recorded')
+        (self.run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         (self.run / 'context' / 'later.json').rename(self.run / 'context' / 'data-preparation.json')
         self.assertTrue(self.project('visual', 'sources').startswith('● **3** past queries read'))
         moments = json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']
@@ -395,7 +420,7 @@ class Helper(unittest.TestCase):
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
         out = self.project('visual', 'saved')
-        self.assertTrue(out.startswith('● **4** checked metrics and queries kept on this machine'))
+        self.assertTrue(out.startswith('● 4 checked metrics and queries kept on this machine'), "plain, for the ready question's text")
         self.assertIn('saved', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
 
     def test_an_answer_without_its_file_shows_and_records_nothing(self):
