@@ -211,6 +211,14 @@ class Moments(unittest.TestCase):
         (self.run / 'context' / 'metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
         (self.run / 'edit.json').write_text(json.dumps({'metric': 'On-Time Rate', 'values': [['On-time rate', 0.25, 0.5, 'percent']]}), encoding='utf-8')
         self.assertTrue(self.show('edit').startswith('**On-time rate 25% → 50%**'), 'a share from 0 to 1, as the check shows it')
+        answer = {'question': 'Q', 'headline': 'Job 1: 25%', 'unit': 'percent', 'rows': [['Job 1', 0.25]], 'proof': [{'name': 'On-Time Rate'}]}
+        (self.run / 'answer.json').write_text(json.dumps(answer), encoding='utf-8')
+        self.assertIn('25%', self.show('answer'), "the answer's own metric reads its share as a percent")
+        answer.update(unit='GBP', rows=[['Job 1', 3804]], headline='Job 1: £3,804', proof=[{'name': 'On-Time Rate'}, {'name': 'Gross Margin'}])
+        (self.run / 'answer.json').write_text(json.dumps(answer), encoding='utf-8')
+        card = self.show('answer')
+        self.assertIn('£3,804', card, 'pounds stay pounds when a listed rule is a share')
+        self.assertNotIn('380400%', card)
 
     def test_a_check_entry_that_is_not_an_object_counts_as_not_run(self):
         checks = self.run / 'context' / 'candidate-checks.json'

@@ -137,10 +137,12 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         fill = lambda t: t if isinstance(t, list) else [t, values.get(sentence(t).lower(), 'blank')]
         spec['tiles'] = [fill(t) for t in _names(spec.get('tiles'))]
         spec['more'] = [fill(t) for t in _names(spec.get('more'))]
-    if kind == 'answer' and facts and spec.get('unit'):
-        # A metric's own definition says whether a percent is a share from 0 to 1; the agent's file may not.
-        named = [p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)]
-        spec['unit'] = next((u for u in map(facts.unit_for, named) if u), spec['unit'])
+    if kind == 'answer' and facts and str(spec.get('unit') or '').lower() in ('percent', 'percentage', '%'):
+        # The answer's own metric (its first rule) says whether a percent is a share from 0 to 1; the agent's file may
+        # not. Other rules it lists can hold other units.
+        first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)), None)
+        if first and facts.unit_for(first) == 'fraction':
+            spec['unit'] = 'fraction'
     if kind == 'edit':
         unit = facts.unit_for(spec.get('metric')) if facts else None
         words = lambda v, given=None: number(v, unit or given) if isinstance(v, (int, float)) else str(v)
