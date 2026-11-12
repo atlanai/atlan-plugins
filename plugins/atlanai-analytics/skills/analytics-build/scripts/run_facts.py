@@ -192,6 +192,9 @@ class RunFacts:
         """What the person chose to build from, once the build is configured: {'bi': bool, 'history': bool}; None before."""
         given = self.config.get('inputs')
         if not isinstance(given, dict):
+            # A host can keep the agreed configuration elsewhere; the engine writes its own copy as JSON.
+            given = read_json(self.engine / 'run.yml', dict, {}).get('inputs')
+        if not isinstance(given, dict):
             return None
         return {k: bool(given.get(k)) for k in ('bi', 'history')}
 

@@ -306,6 +306,36 @@ class SideView(unittest.TestCase):
         self.assertEqual([self.step(doc, n)['status'] for n in ('Metrics', 'Save')], ['done', 'done'],
                          'the person has kept the context; the page never walks back a finished step')
 
+    def test_a_context_kept_here_finishes_the_save_whatever_the_journey_still_waits_on(self):
+        # A changed rule re-runs its check, which leaves the run's progress at the checks again.
+        for demo, stage in ((True, None), (False, None), (True, ('check', 'complete'))):
+            run = make_run(self.root / ('%s-%s' % (demo, stage)), saved=False, local=True, demo=demo, stage=stage)
+            interaction = run / 'interaction.json'
+            interaction.write_text(json.dumps({**json.loads(interaction.read_text(encoding='utf-8')), 'intent_focus_required': True}),
+                                   encoding='utf-8')
+            doc = side_view.model(run)
+            self.assertEqual([self.step(doc, n)['status'] for n in ('Save', 'Ask')], ['done', 'done'],
+                             'a live run stayed at "Save · Waiting for you" after the person kept, asked and edited')
+
+    def test_the_choice_is_read_from_the_engine_when_the_config_lives_elsewhere(self):
+        run = make_run(self.root, warehouse='snowflake', chosen={'bi': False, 'history': True}, saved=False)
+        config = run / 'engine-config.json'
+        engine = side_view.RunFacts(run).engine
+        (engine / 'run.yml').write_text(json.dumps({'inputs': json.loads(config.read_text(encoding='utf-8'))['inputs']}), encoding='utf-8')
+        config.unlink()
+        pieces = self.nodes(side_view.model(run), 'Metrics')
+        self.assertNotIn('Translate each tile and chart', pieces, 'the person chose past queries only; a stray dashboard file is not read')
+
+    def test_a_malformed_breakdown_never_stops_the_page(self):
+        run = make_run(self.root, demo=True)
+        answer = run / 'answer.json'
+        answer.write_text(json.dumps({**json.loads(answer.read_text(encoding='utf-8')), 'breakdown': {'steps': 5}}), encoding='utf-8')
+        self.assertNotIn('Break the answer down', self.nodes(side_view.model(run), 'Ask'))
+
+    def test_a_warehouse_built_from_its_dashboard_alone_reads_no_past_queries(self):
+        run = make_run(self.root, warehouse='snowflake', chosen={'bi': True, 'history': False}, saved=False)
+        self.assertEqual(visuals.render('sources', visuals.build_spec('sources', run)), '')
+
     def test_a_dashboard_only_build_shows_no_past_queries(self):
         run = make_run(self.root, saved=False, chosen={'bi': True, 'history': False})
         card = visuals.render('build', visuals.build_spec('build', run), plain=True)

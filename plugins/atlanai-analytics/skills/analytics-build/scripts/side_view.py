@@ -240,7 +240,7 @@ def ask(f, s):
                 done=answered),
            node('Run them on the data', 'The query runs fresh, so the number is today\'s.', ASK,
                 count(len(rows), 'row') if answered and rows else None, done=answered)]
-    if breakdown.get('steps'):
+    if isinstance(breakdown.get('steps'), list) and breakdown['steps']:
         how.append(node('Break the answer down', 'Into the parts that add up to it.', ASK, count(len(breakdown['steps']), 'part')))
     how.append(node('Write the answer', 'In plain words, with the rule behind it.', ASK, '1 answer' if answered else None))
     if s['private']:

@@ -102,7 +102,7 @@ def collect(kind, facts):
         chosen = facts.inputs or {'bi': True, 'history': True}
         return {'tables': [list(t) for t in facts.tables], **({'history': facts.history} if facts.history and chosen['history'] else {}),
                 **({'dashboard': facts.dashboard} if facts.dashboard and chosen['bi'] else {})}
-    if kind == 'sources' and facts.warehouse and facts.history and facts.scoped_tables:
+    if kind == 'sources' and facts.warehouse and facts.history and facts.scoped_tables and (facts.inputs or {'history': True})['history']:
         # A warehouse is read in place: its past queries and the chosen tables, nothing loaded here.
         return {'warehouse': facts.warehouse, 'history': facts.history, 'scoped': facts.scoped_tables}
     if kind == 'build' and facts.funnel.get('metrics'):
