@@ -42,20 +42,18 @@ class Checklist(unittest.TestCase):
         rows = checklist.initial('demo')
         self.assertEqual([r['content'] for r in rows], [
             'Choose and load demo data', 'Choose what to build from', 'Build and check metrics',
-            'Keep local or save to Atlan Trident', 'Ask a question', 'Build a dashboard'])
+            'Keep local or save to Atlan Trident', 'Ask a question'])
 
-    def test_demo_flow_is_recorded_and_question_and_dashboard_are_ticked_only_when_done(self):
+    def test_demo_flow_is_recorded_and_ends_when_the_question_is_answered(self):
         fixture.seed_checked(self.run, 'checked')
         self.run.journey('demo')
         self.run.journey('keep-local')
         result = self.steps()
         self.assertEqual(result['flow'], 'demo')
-        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 4 + ['in_progress', 'pending'])
+        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 4 + ['in_progress'])
         self.run.journey('asked')
-        self.assertEqual([r['status'] for r in self.steps()['steps']][4:], ['completed', 'in_progress'])
-        self.run.journey('dashboard')
         result = self.steps()
-        self.assertEqual((result['state'], result['step'], result['of']), ('done', 6, 6))
+        self.assertEqual((result['state'], result['step'], result['of']), ('done', 5, 5))
 
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)

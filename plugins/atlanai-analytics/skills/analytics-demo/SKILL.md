@@ -20,7 +20,7 @@ step below. The technical stages are the shared setup procedure in
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
 `python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
 
-## The six steps
+## The five steps
 
 Show this tracker in chat and in the host's task list when available, following
 [the checklist](../analytics-build/references/setup/checklist.md) with `--flow demo`. Once
@@ -32,7 +32,6 @@ these steps.
 3. Build and check metrics
 4. Keep local or save to Atlan Trident
 5. Ask a question
-6. Build a dashboard
 
 ## 1. Choose and load demo data
 
@@ -114,7 +113,7 @@ The celebration is the save question's own text. Saving reads the person's works
 in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
 describes.
 
-## 5 and 6. Ask a question, build a dashboard
+## 5. Ask a question, then choose what's next
 
 When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
@@ -127,7 +126,7 @@ answer as the question's text, as ready describes, offering these options:
 | --- | --- |
 | Ask more questions | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
 | Check how accurate it is | Test the context on questions the firm's analysts already ask, and fix the rule behind a miss, as [accuracy](references/accuracy.md) describes |
-| Design a dashboard, until one is built; then Change a rule and see what happens | Step 6: [the dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
+| Design a dashboard, until one is built; then Change a rule and see what happens | [The dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
 | Continue building on real data | Load `analytics-build` in this chat. A separate run; the demo's intent, sources and approvals do not carry over |
 | I'm done | Finish with where the context and any dashboard live |
 

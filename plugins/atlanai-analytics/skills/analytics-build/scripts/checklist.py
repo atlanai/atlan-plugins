@@ -29,7 +29,6 @@ STEPS = {
         ('metrics', 'Build and check metrics', 'Building metrics and queries', False),
         ('save', 'Keep local or save to Atlan Trident', 'Waiting for where to save', True),
         ('ask', 'Ask a question', 'Waiting for your question', True),
-        ('dashboard', 'Build a dashboard', 'Waiting for your dashboard choice', True),
     ),
 }
 
