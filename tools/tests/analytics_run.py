@@ -97,11 +97,16 @@ def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=F
     if saved and not local:
         _write(run / 'context' / 'plan.json', {'counts': {'metrics': {'create': 2}, 'queries': {'create': 2}, 'links': 3}, 'links': [{}] * 3})
         meta = json.loads((run / 'run.json').read_text())
-        meta['publication'] = {'artifacts': [
-            {'kind': 'metric', 'name': 'Gross Margin', 'version': 1, 'version_label': '0.1.0'},
-            {'kind': 'metric', 'name': 'Rework Cost', 'version': 1, 'version_label': '0.1.0'},
-            {'kind': 'sql_query', 'name': 'q-margin', 'version': 1, 'version_label': '0.1.0'},
-            {'kind': 'sql_query', 'name': 'q-jobs', 'version': 1, 'version_label': '0.1.0'}]}
+        # The receipt `PROJECT publication` writes: each item read back by its exact definition, in a workspace.
+        import sys
+        sys.path.insert(0, str(SCRIPTS))
+        from context_state import digest
+        bodies = [('metric', m) for m in json.loads((run / 'context' / 'metrics.json').read_text())] + \
+                 [('sql_query', q) for q in json.loads((run / 'context' / 'queries.json').read_text())]
+        meta['publication'] = {'workspace_id': 'w1', 'artifacts': [
+            {'id': 'a%d' % i, 'kind': kind, 'name': body['name'], 'release_id': 'r%d' % i, 'version_id': 'v%d' % i,
+             'channel': 'latest', 'definition_hash': digest(body['definition']), 'version': 1, 'version_label': '0.1.0'}
+            for i, (kind, body) in enumerate(bodies)]}
         _write(run / 'run.json', meta)
         _write(run / 'saved.json', {'workspace': 'Test workspace'})
     if not answered:

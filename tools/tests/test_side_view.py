@@ -337,6 +337,28 @@ class SideView(unittest.TestCase):
         pieces = self.nodes(side_view.model(run), 'Metrics')
         self.assertNotIn('Translate each tile and chart', pieces, 'the person chose past queries only; a stray dashboard file is not read')
 
+    def test_a_save_to_atlan_finishes_the_save_step_whatever_was_held(self):
+        # A save that held an item leaves progress at publish; a rule changed after it puts progress back at the checks.
+        from context_state import digest
+        for shape, stage in (('held', ('publish', 'complete')), ('edited', ('check', 'complete'))):
+            run = make_run(self.root / shape, stage=stage)
+            meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
+            if shape == 'held':
+                queries = json.loads((run / 'context' / 'queries.json').read_text(encoding='utf-8'))
+                checks = run / 'context' / 'candidate-checks.json'
+                entries = json.loads(checks.read_text(encoding='utf-8'))
+                entries['sql_query:q-jobs'] = {'status': 'held', 'definition_hash': digest(queries[1]['definition']), 'errors': ['x']}
+                checks.write_text(json.dumps(entries), encoding='utf-8')
+                meta['publication']['artifacts'] = [a for a in meta['publication']['artifacts'] if a['name'] != 'q-jobs']
+                (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
+            else:
+                metrics = json.loads((run / 'context' / 'metrics.json').read_text(encoding='utf-8'))
+                metrics[0]['definition']['formula'] = 'SUM(y)'
+                (run / 'context' / 'metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
+            doc = side_view.model(run)
+            self.assertEqual([self.step(doc, n)['status'] for n in ('Metrics', 'Save')], ['done', 'done'],
+                             'a page stuck on "Saving to Atlan Trident", or walked back, after the receipt landed (%s)' % shape)
+
     def test_finishing_without_a_dashboard_claims_no_page_built(self):
         run = make_run(self.root, demo=True, saved=False, local=True)
         interaction = run / 'interaction.json'
