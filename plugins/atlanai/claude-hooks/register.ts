@@ -33,7 +33,7 @@ import {
   updateNotice,
   versionOf,
 } from './notices'
-import { fetchLatest, VERSION } from './release'
+import { VERSION } from './release'
 
 /**
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
@@ -449,7 +449,7 @@ async function checkLatest($: Dollar): Promise<string | undefined> {
   const check = await $.env.get('ATLAN_PLUGIN_UPDATE_CHECK')
   if (check === '0' || /^false$/i.test(check ?? '')) return undefined
   if (isFlagOn(await $.env.get('CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'))) return undefined
-  const response = await fetchLatest($)
+  const response = await $.http.fetch('https://raw.githubusercontent.com/atlanai/atlan-plugins/main/plugins/atlanai/plugin.json')
   const latest = response.ok ? versionOf(response.text) : undefined
   if (!latest || !isNewer(latest, VERSION)) return undefined
   return updateNotice($.plugin.name, VERSION, latest, marketplaceOf($.plugin.root, $.plugin.name))
