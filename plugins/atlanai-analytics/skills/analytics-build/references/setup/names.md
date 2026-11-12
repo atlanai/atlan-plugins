@@ -5,13 +5,13 @@ use this file: the person already named the dashboard or the tables, so they go 
 access check straight to the confirmation in [the interview](intent.md). Demos skip it too,
 and so does a resume with a saved selection.
 
-Discovery ends in a short menu of use cases, never a single suggestion. The person picks
-which to build.
+Discovery ends in a short menu of use cases, never a single suggestion, with one more
+option to share a dashboard. The person picks which to build.
 
 ## 1. Get the use cases
 
 `source-survey` `discover` returns two to four use cases, each with the tables that power
-it. With a BI source, `source-survey` `candidates` adds the metric names the report holds.
+it. The card shows the top three and the dashboard option. With a BI source, `source-survey` `candidates` adds the metric names the report holds.
 Neither generates SQL or runs a check on a metric.
 
 - With no subject named: the use cases are the most used subjects in the warehouse, most
@@ -34,6 +34,27 @@ host allows it:
 | --- | --- |
 | Label | The use case, two to four words: "Sales pipeline" |
 | Description | One line of what it answers, then its tables: "Pipeline by stage, win rate and slipped deals. Tables: FCT_OPPORTUNITY, DIM_ACCOUNTS, DIM_REPS_CURRENT" |
+
+**The last option is always a dashboard.** After the use cases, add:
+
+| Label | Description |
+| --- | --- |
+| I have a dashboard | "Share its link or file and I'll build from it, on its own or with the use cases you pick." |
+
+A question card holds four options, so show at most three use cases beside it, the most used
+first; name a fourth in the found line only if it matters. Never mark the dashboard option
+recommended.
+
+When the person picks it, alone or with use cases, ask for the dashboard next, exactly as
+[the interview](intent.md)'s dashboard branch does: one short message asking for the link or
+the file path, then the access check on it and the tables it reads. Then:
+
+- picked alone: the dashboard is what gets built, as in the dashboard branch;
+- picked with use cases: the dashboard is added to them. Its report is built whole, and its
+  tables join the chosen use cases' tables. Say so in the confirmation.
+
+If the dashboard cannot be read, say why once and carry on with the use cases they picked;
+with none picked, show the menu again without asking for the dashboard a second time.
 
 Rules for the card:
 

@@ -33,7 +33,7 @@ concrete plan. Respect explicit draft or review requests.
 
    | They chose | Then |
    | --- | --- |
-   | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over two to four use cases with their tables, then at most two clarifying questions if something is unsettled |
+   | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over up to three use cases with their tables plus "I have a dashboard", then at most two clarifying questions if something is unsettled. After the build, one offer to add a dashboard |
    | Make my dashboard agentic | One chat message asking for the dashboard's link or file, then `source-survey` `access` on it and its tables |
    | I have a use case and know my tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 

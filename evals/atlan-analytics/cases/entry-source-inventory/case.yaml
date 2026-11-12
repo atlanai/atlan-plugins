@@ -38,8 +38,9 @@ graders:
     criteria: |
       PASS if the reply offers at least two use cases to choose from (sales pipeline and
       support tickets), each with one short line of what it answers and the tables that power
-      it, with the sales tables named for the sales use case, asks which to build, and stops.
-      FAIL if it offers only one suggestion, starts building without asking, invents a table
-      that discovery did not report, lists row counts, query counts, join keys or exclusions
-      in the menu, asks which warehouse or domain again, asks the person to pick a task, shows
-      SQL, or claims a metric was built or checked.
+      it, with the sales tables named for the sales use case, also offers a choice to share a
+      dashboard (such as "I have a dashboard"), asks which to build, and stops.
+      FAIL if it offers only one suggestion, leaves out the dashboard choice, starts building
+      without asking, invents a table that discovery did not report, lists row counts, query
+      counts, join keys or exclusions in the menu, asks which warehouse or domain again, asks
+      the person to pick a task, shows SQL, or claims a metric was built or checked.

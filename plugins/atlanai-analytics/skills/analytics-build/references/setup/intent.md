@@ -87,8 +87,9 @@ file; say so if they chose A or C, and mention `analytics-demo`.
 
 1. **Discover.** No question. `source-survey` `discover` on the chosen warehouse, with the
    discovery Doing and Why lines.
-2. **Which should I build?** [The use cases](names.md): two to four, each one line with its
-   tables. More than one can be picked.
+2. **Which should I build?** [The use cases](names.md): up to three, each one line with its
+   tables, then "I have a dashboard". More than one can be picked. Picking the dashboard
+   option asks for its link or file next.
 3. **Clarify, only if needed.** One card of at most two questions, asked only where
    discovery could not settle something that changes the numbers, with what was found as the
    options:
@@ -103,6 +104,35 @@ file; say so if they chose A or C, and mention `analytics-demo`.
    Ask nothing that discovery settled: state those as assumptions in the confirmation. Never
    ask about audience, layout or which metrics.
 4. **Confirm and trigger**, below.
+5. **After the build, offer a dashboard**, next.
+
+### After the build, in this branch only: offer a dashboard
+
+Discovery builds from query history and table definitions. A dashboard holds rules the team
+already agreed, so adding one can improve what was built. When generation and its checks
+have finished, and no dashboard was part of this build, ask once, before the save question:
+
+"Built from your warehouse: `<N>` metrics and `<N>` queries, from query history and table
+definitions. The quality can improve if you add more sources: a dashboard brings the rules
+your team already agreed for these numbers.
+
+Would you like to add a dashboard?"
+
+| Option | Description |
+| --- | --- |
+| Add a dashboard | "Share its link or file. I'll read it and update the metrics it covers." |
+| Not now | "Keep what's built and carry on to saving." |
+
+- **Add a dashboard**: ask for it as branch B does (one short message for the link or file
+  path), run the access check, then confirm and build with the dashboard added. Metrics the
+  dashboard also defines are reconciled with it and any change is shown as news; the rest
+  stay as built. Then continue to the save question.
+- **Not now**, or the dashboard cannot be read: continue to the save question. Do not ask
+  again in this run.
+
+Say "can improve", never that the current metrics are wrong or incomplete, and never offer
+this in the dashboard branch, the known-tables branch or a demo. Skip it when the person
+already picked "I have a dashboard" in the menu, and on a resume that is past this point.
 
 ## Branch B: Make my dashboard agentic
 
