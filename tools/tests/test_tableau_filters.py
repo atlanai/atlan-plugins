@@ -1,13 +1,23 @@
 """The Tableau reader's date filters: a pinned month compares as a date, and a relative date
 filter written by Tableau 2025.1 keeps its period."""
+import importlib.util
 import sys
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/src'))
-from metrics_agent.plugs.readers import tableau  # noqa: E402
+ENGINE = ROOT / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine/src'
+# The reader imports the engine's compiler, which needs the runtime's packages (PyYAML).
+HAVE_ENGINE = importlib.util.find_spec('yaml') is not None
+if HAVE_ENGINE:
+    sys.path.insert(0, str(ENGINE))
+    from metrics_agent.plugs.readers import tableau  # noqa: E402
+
+
+def setUpModule():
+    if not HAVE_ENGINE:
+        raise unittest.SkipTest('the metrics engine needs PyYAML; run with the metrics runtime')
 
 
 def read(filters: str) -> list[dict]:
