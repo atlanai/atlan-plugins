@@ -33,7 +33,7 @@ import {
   updateNotice,
   versionOf,
 } from './notices'
-import { LATEST_URL, VERSION } from './release'
+import { fetchLatest, VERSION } from './release'
 
 /**
  * The gateway's `call_tool` or `call_write_tool` (a search answer can name either as `run_with`),
@@ -92,16 +92,15 @@ type Dollar = EngineInterface
 type Folder = { label: string; entries: Entry[]; problems: Problem[] }
 
 /** The same bounded, atomic no-follow writer used by Codex and Cursor command hooks. */
-async function receiptProcess($: Dollar, runtime: { python: string }, mode: 'check' | 'capture', directory: unknown, request: Record<string, unknown>, response?: { text: string; isError?: boolean }) {
+async function receiptProcess($: Dollar, mode: 'check' | 'capture', directory: unknown, request: Record<string, unknown>, response?: { text: string; isError?: boolean }) {
   const payload = { cwd: await $.session.cwd(), roots: await roots($), receipt_dir: directory, request,
     ...(response ? { response_text: response.text, is_error: response.isError === true } : {}) }
-  const ran = await $.process.run([runtime.python, `${$.plugin.root}/command-hooks/receipt_store.py`, mode], {
+  const ran = await $.process.run(['python3', `${$.plugin.root}/command-hooks/receipt_store.py`, mode], {
     stdin: JSON.stringify(payload), timeoutMs: 5000,
   })
   if (ran.exitCode !== 0) throw new Error('Receipt recording is pending.')
-  const { python_executable: python, ...result } = JSON.parse(ran.stdout) as Record<string, unknown>
-  // Avoid repeatedly running an environment manager's launcher; every validation still runs.
-  if (typeof python === 'string' && python.startsWith('/') && !python.includes('\0')) runtime.python = python
+  // Helper output is data, never the executable for the next invocation.
+  const { python_executable: _python, ...result } = JSON.parse(ran.stdout) as Record<string, unknown>
   return result
 }
 
@@ -450,14 +449,13 @@ async function checkLatest($: Dollar): Promise<string | undefined> {
   const check = await $.env.get('ATLAN_PLUGIN_UPDATE_CHECK')
   if (check === '0' || /^false$/i.test(check ?? '')) return undefined
   if (isFlagOn(await $.env.get('CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'))) return undefined
-  const response = await $.http.fetch(LATEST_URL)
+  const response = await fetchLatest($)
   const latest = response.ok ? versionOf(response.text) : undefined
   if (!latest || !isNewer(latest, VERSION)) return undefined
   return updateNotice($.plugin.name, VERSION, latest, marketplaceOf($.plugin.root, $.plugin.name))
 }
 
 export const register: Register = on => {
-  const receiptRuntime = { python: 'python3' }
   // The conversations already told, by session id: a /clear goes on under a new id, and is told again.
   const told = new Set<string>()
   const capabilitiesTold = new Map<string, Set<string>>()
@@ -548,7 +546,7 @@ export const register: Register = on => {
     const request = { name: call.name, arguments: expanded.args }
     if (receiptDir !== undefined) {
       try {
-        await receiptProcess($, receiptRuntime, 'check', receiptDir, request)
+        await receiptProcess($, 'check', receiptDir, request)
       } catch {
         return { deny: 'The receipt destination could not be prepared. Nothing was sent.' }
       }
@@ -560,7 +558,7 @@ export const register: Register = on => {
     try {
       if (receiptDir !== undefined) {
         try {
-          const saved = await receiptProcess($, receiptRuntime, 'capture', receiptDir, request, { text: resultText(ran), isError: ran.isError })
+          const saved = await receiptProcess($, 'capture', receiptDir, request, { text: resultText(ran), isError: ran.isError })
           return { ...ran, context: [...(ran.context ?? []), `Atlan receipt saved: ${JSON.stringify(saved)}. Assemble receipts with the Analytics receipt helper; do not copy response bodies.`] }
         } catch {
           return { ...ran, context: [...(ran.context ?? []), 'Receipt recording is pending. The tool already ran. Reconcile its result; never repeat a write to repair a local receipt.'] }

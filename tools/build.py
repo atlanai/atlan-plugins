@@ -353,7 +353,12 @@ def hook_fixtures(source: dict) -> dict[str, str]:
         f"{core_dir(source)}/claude-hooks/release.ts": "// Written by tools/build.py from plugin.toml: edit that file.\n\n"
         "/** This build's version, and where main's manifest says the latest released one. */\n"
         f"export const VERSION = {json.dumps(plugin['version'])}\n"
-        f"export const LATEST_URL = {json.dumps(latest_manifest_url(source))}\n",
+        f"export const LATEST_URL = {json.dumps(latest_manifest_url(source))}\n\n"
+        "import type { EngineInterface } from 'claude-code'\n\n"
+        "/** A fixed public GET, with no session data, request body or authorization header. */\n"
+        "export function fetchLatest($: Pick<EngineInterface, 'http'>) {\n"
+        f"  return $.http.fetch({json.dumps(latest_manifest_url(source))})\n"
+        "}\n",
         f"{core_dir(source)}/claude-hooks/tests/fixtures.ts": f"// Written by tools/build.py from {FIXTURES}: edit that file.\n\n"
         "import type { Case } from './case'\n\n"
         f"export const CASES: readonly Case[] = {body}\n"

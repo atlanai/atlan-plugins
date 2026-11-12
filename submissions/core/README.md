@@ -1,13 +1,13 @@
 # Prepare the Atlan Trident submissions
 
-The core submission changes target version `0.5.55`, displayed as **Atlan Trident**,
+The core submission changes target version `0.5.56`, displayed as **Atlan Trident**,
 on top of current main at `0.5.54`. The earlier local `0.3.21` preparation is superseded.
 No legal attestation or review submission has been made.
 
 ## Build and review
 
 Run `make build`, `make check`, `make validate` and `make codex-directory`.
-The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.55.zip`.
+The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.56.zip`.
 It contains the portable manifest, OAuth MCP configuration, skills, assets and licenses.
 It omits lifecycle hooks and custom MCP headers. Repository installs keep their hooks and
 client-identification header. Do not edit generated files.

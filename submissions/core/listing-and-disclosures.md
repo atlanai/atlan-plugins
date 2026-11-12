@@ -58,9 +58,9 @@ Do not claim read-only access: the core includes authoring and publication workf
 
 ## Release notes
 
-Atlan Trident 0.5.55 changes the core display name to Atlan Trident while keeping the
+Atlan Trident 0.5.56 changes the core display name to Atlan Trident while keeping the
 installed identifier atlanai. The OpenAI directory package omits lifecycle hooks and
 custom MCP headers and declares OAuth with CIMD preference. The build accepts an approved
-support URL. Current core skills and repository-install helper behavior are preserved.
+support URL. Core skills are unchanged. The Claude helper always launches python3 and the bundled receipt writer, rather than a path returned by that writer. Its update request now exposes the fixed public URL at the call site. Receipt guards and write-confirmation behavior are preserved.
 Analytics and Registry Mods remain separate. Review cases, data disclosures and a recording
 script are supplied as drafts; live review execution is still pending.

@@ -193,7 +193,7 @@ describe('deterministic receipt capture', () => {
     expect(JSON.stringify(ran)).toContain('Atlan receipt saved')
   })
 
-  test('reuses the resolved interpreter while retaining every preflight and capture', async ($, on) => {
+  test('never executes the interpreter named by helper output, retaining every check and capture', async ($, on) => {
     const disk = new Disk()
     disk.add(CWD, { kind: 'dir' })
     const sent = engine(on, disk)
@@ -206,8 +206,11 @@ describe('deterministic receipt capture', () => {
       arguments: { artifact_id: id, channel: 'latest', receipt_dir: '/work/run/receipts' } } as never)
     expect(sent.length).toBe(2)
     expect(processes.length).toBe(4)
-    expect(processes[0]).not.toContain('/runtime/bin/python3')
-    for (const process of processes.slice(1)) expect(process).toContain('/runtime/bin/python3')
+    for (const process of processes) {
+      expect(process).not.toContain('/runtime/bin/python3')
+      expect(process).toContain('python3')
+      expect(process).toContain('command-hooks/receipt_store.py')
+    }
     expect(processes.filter(p => p.includes('response_text')).length).toBe(2)
   })
 

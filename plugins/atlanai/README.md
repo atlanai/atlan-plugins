@@ -73,6 +73,26 @@ conversation with `atlan-troubleshoot`, shows it, and leaves sending it to you. 
 - The `atlan` plugin in Anthropic's directory (atlanhq/agent-toolkit) is Atlan's data catalog,
   on a different server. It can stay installed beside this one.
 
+## Directory review: local helper and network access
+
+The Claude Code helper starts only `python3` with the bundled
+`command-hooks/receipt_store.py`, in `check` or `capture` mode, to validate a selected
+receipt directory and save the native result. JSON returned by that script never selects
+the next executable. Each call has a five-second timeout. Repeated calls may start the
+machine's Python launcher again; no resolved interpreter path is cached.
+
+The update check makes one GET to
+`https://raw.githubusercontent.com/atlanai/atlan-plugins/main/plugins/atlanai/plugin.json`.
+It sends no conversation text, local files, cookies, tokens or authorization headers.
+The response supplies version metadata, never executable code. Local receipt data is
+written inside the checked working tree and is not uploaded by the receipt writer.
+Publishing sends the explicitly selected content in the existing authorized Atlan MCP call.
+
+`claude-hooks/tests/` contains synthetic test fixtures and assertions. The hooks manifest
+loads `claude-hooks/register.ts`, not the test modules. Credential-shaped strings in those
+tests exercise refusal behavior; they do not read an installer's environment. The tests
+remain in the repository and plugin folder for inspection.
+
 ## Privacy
 
 The plugin has no binaries. In Claude Code, Codex, Cursor and GitHub Copilot CLI
