@@ -264,6 +264,13 @@ class Moments(unittest.TestCase):
         card = self.show('answer')
         self.assertIn('80%', card, 'an overall headline over per-type rows: the rows say their own scale')
         self.assertNotIn('8000%', card)
+        # The scale under which the rows sit nearest the headline's own number.
+        for rows, headline, shown in (([['a', 0.35], ['b', 0.2], ['c', -1.2]], 'c: -120%', '−120%'),
+                                      ([['a', 1.04], ['b', 0.7]], 'Overall: 87%', '104%'),
+                                      ([['a', 0.4], ['b', 0.8]], 'b: 0.8%', '0.4%')):
+            answer.update(rows=rows, highlight=rows[0][0], headline=headline)
+            (self.run / 'answer.json').write_text(json.dumps(answer), encoding='utf-8')
+            self.assertIn(shown, self.show('answer'), headline)
         answer.update(rows=[['Job 1', 0.25]], headline='Job 1: 25%')
         answer.pop('highlight')
         metrics.append({'name': 'Fee Take Rate', 'definition': {'output': {'unit': 'fraction of face value'}, 'formula': 'SUM(a) / SUM(b)'}})

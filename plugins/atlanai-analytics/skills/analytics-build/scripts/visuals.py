@@ -157,9 +157,12 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         # not. Other rules it lists can hold other units.
         first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)), None)
         own = (facts.unit_for(first) or '').lower() if first else ''
-        # Unless the rows are already in percent: a share runs from 0 to 1, so any row past 1 was written as a percent.
+        # Unless the rows are already in percent: they hold the scale under which they sit nearest the headline's number.
         values = [r[1] for r in spec.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
-        as_percent = any(abs(v) > 1 for v in values)
+        found = re.search(r'-?\d[\d,]*(\.\d+)?', str(spec.get('headline') or '').rpartition(': ')[2].replace('\u2212', '-'))
+        head = float(found.group(0).replace(',', '')) if found else None
+        near = lambda scale: min(abs(v * scale - head) for v in values)
+        as_percent = (near(1) < near(100)) if values and head is not None else any(abs(v) > 1 for v in values)
         if ('fraction' in own or own in ('ratio', 'share')) and not as_percent:
             spec['unit'] = 'fraction'
     if kind == 'edit':
