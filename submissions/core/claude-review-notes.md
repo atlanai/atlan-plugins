@@ -1,6 +1,6 @@
 # Claude policy-hold audit
 
-The v0.5.57 candidate passed the live Claude portal validation on 12 November 2026:
+The v0.5.56 candidate passed the live Claude portal validation on 12 November 2026:
 zero blocking errors, two warnings and thirteen policy holds. GitHub reconnection is
 complete and the draft is saved under Atlan. No review submission or legal acceptance
 has been made.
@@ -57,3 +57,7 @@ helper tests passed 88 cases, and make validate passed. After the portal-specifi
 layout correction, the 88 helper tests, 97 tool/build tests, generated-file drift and lint
 checks passed again. Live portal validation of the corrected code had zero blockers.
 All reviewer-tenant functional scenarios remain pending.
+
+The 0.5.57 branding candidate uses the requested display-name casing and current Registry
+PNG. Local checks passed 619 tests (98 skipped), the analytics selftests and make validate.
+Its portal scan must be refreshed after the candidate reaches the tracked source branch.
