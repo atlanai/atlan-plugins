@@ -325,8 +325,10 @@ class RunFacts:
         tiles = len(self.engine_file('verified_queries.bi.json').get('objects') or [])
         asked = len(self.engine_file('verified_queries.history.json').get('objects') or [])
         metrics = merged.get('n_metrics_out') if isinstance(merged.get('n_metrics_out'), int) else len(self.merged)
-        # Past queries read, the number the sources chip shows; the side page shows how many of them ran.
-        read = (self.history or {}).get('statements') or self.query_log
+        # Past queries read, the number the sources chip shows; the side page shows how many of them ran. None when the
+        # person built from the dashboard alone.
+        chose = self.inputs is None or self.inputs['history']
+        read = ((self.history or {}).get('statements') or self.query_log) if chose else None
         return {k: v for k, v in (('queries', read), ('tiles', tiles), ('questions', tiles + asked), ('metrics', metrics)) if v}
 
     @cached_property

@@ -263,10 +263,10 @@ class SideView(unittest.TestCase):
         card = visuals.render('build', visuals.build_spec('build', run), plain=True)
         self.assertTrue(chip.startswith('● 4 past queries read'), chip)
         self.assertRegex(card, r'Past queries +█+ +4\n', 'the card counts what was read, as the chip does')
-        self.assertEqual(self.nodes(side_view.model(run), 'Metrics')['Keep the queries that ran']['n'], '4 → 3',
+        self.assertEqual(self.nodes(side_view.model(run), 'Metrics')['Keep the queries the build can use']['n'], '4 → 3',
                          'the engine took in the 3 that ran; the page says so')
         clean = make_run(self.root / 'clean', saved=False)
-        self.assertNotIn('Keep the queries that ran', self.nodes(side_view.model(clean), 'Metrics'), 'nothing left out, no piece')
+        self.assertNotIn('Keep the queries the build can use', self.nodes(side_view.model(clean), 'Metrics'), 'nothing left out, no piece')
 
     def test_once_the_checks_are_over_an_item_never_run_needs_a_look_too(self):
         run = make_run(self.root, saved=False)
@@ -294,6 +294,22 @@ class SideView(unittest.TestCase):
         checks.write_text(json.dumps(final), encoding='utf-8')
         self.assertIn('doc', side_view.progress(run))
         self.assertEqual(self.step(self.doc(run), 'Metrics')['status'], 'done')
+
+    def test_a_finished_save_closes_the_metrics_step_even_with_an_item_never_run(self):
+        run = make_run(self.root, saved=False, local=True)
+        checks = run / 'context' / 'candidate-checks.json'
+        entries = json.loads(checks.read_text(encoding='utf-8'))
+        entries['sql_query:q-jobs'] = {'status': 'schema_checked', 'errors': []}
+        checks.write_text(json.dumps(entries), encoding='utf-8')
+        self.record(run, 'connect')
+        doc = self.doc(run)
+        self.assertEqual([self.step(doc, n)['status'] for n in ('Metrics', 'Save')], ['done', 'done'],
+                         'the person has kept the context; the page never walks back a finished step')
+
+    def test_a_dashboard_only_build_shows_no_past_queries(self):
+        run = make_run(self.root, saved=False, chosen={'bi': True, 'history': False})
+        card = visuals.render('build', visuals.build_spec('build', run), plain=True)
+        self.assertNotIn('Past queries', card, 'the person left the past queries out')
 
     def test_the_structural_pass_is_not_a_check_run(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))

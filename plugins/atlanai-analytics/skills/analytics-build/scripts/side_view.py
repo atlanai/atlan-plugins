@@ -133,8 +133,8 @@ def metrics(f, s):
         raw, scanned, kept, shapes = f.query_log, st('h0_corpus', 'scanned'), st('h0_corpus', 'kept'), st('h1_shapes', 'canonical_shapes')
         read = (f.history or {}).get('statements')
         if read and raw and read > raw:
-            how.append(node('Keep the queries that ran', 'Statements that failed, or that do not read data, cannot show '
-                            'what analysts measure.', SETUP, ratio(read, raw, '%d → %d')))
+            how.append(node('Keep the queries the build can use', 'Statements that failed or do not read data are left '
+                            "out, and so are any past the build's size and count limits.", SETUP, ratio(read, raw, '%d → %d')))
         if raw and scanned is not None and raw > scanned:
             how.append(node('Set aside queries with names in them', 'A privacy filter holds back any query that looks like it '
                             'names a person or a business.', SETUP, ratio(raw, scanned, '%d → %d')))
@@ -390,10 +390,11 @@ def model(run, state=None, engine_dir=None):
     if c and 'context' not in kinds and (c['metrics_checked'] < len(c['metrics']) or c['queries_checked'] < c['queries']):
         # The task list counts the first check pass, which only looks for missing parts, as the checks. The page keeps
         # the step open until every item has run, or the checks moment has been shown.
+        # A later step the task list finished means the checks are over; the page never walks one back.
         at = next((i for i, r in enumerate(rows) if r['id'] == 'metrics' and r['status'] == 'completed'), None)
-        if at is not None:
-            rows = [dict(r, status='in_progress') if i == at else dict(r, status='pending') if i > at else r
-                    for i, r in enumerate(rows)]
+        if at is not None and all(r['status'] != 'completed' for r in rows[at + 1:]):
+            rows = [dict(r, status='in_progress', active='Running each metric and query on the data') if i == at
+                    else dict(r, status='pending') if i > at else r for i, r in enumerate(rows)]
     current = next((i for i, r in enumerate(rows) if r['status'] != 'completed'), len(rows))
     steps = []
     for i, row in enumerate(rows):

@@ -143,7 +143,8 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         # The answer's own metric (its first rule) says whether a percent is a share from 0 to 1; the agent's file may
         # not. Other rules it lists can hold other units.
         first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)), None)
-        if first and facts.unit_for(first) == 'fraction':
+        own = (facts.unit_for(first) or '').lower() if first else ''
+        if 'fraction' in own or own in ('ratio', 'share'):
             spec['unit'] = 'fraction'
     if kind == 'edit':
         unit = facts.unit_for(spec.get('metric')) if facts else None
