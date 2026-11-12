@@ -24,6 +24,25 @@ runs and total characters, grouped by statement length (under 2,000, 2,000 to 10
 - Say what was left out with its counts ("300 of 2,000 texts, 900 runs, over 10,000
   characters"), and keep that line in the survey and the collection review.
 
+## Through a chat SQL tool
+
+When the query tool is an MCP connector in this chat, pull history with one bounded statement
+per page and let the host save the result:
+
+- Size it once, with the one counting statement above, and no more: `ACCOUNT_USAGE` scans
+  are slow, and each costs minutes. Never count per table, and never count again after
+  narrowing. The pull's own `limit` and length bound do the rest.
+- Scope it to the tables the report's measures are computed on, not every table it joins.
+  Shared tables such as accounts or opportunities match tens of thousands of statements.
+- Group by the warehouse's parameterised hash where it has one, so one pattern is one row:
+  on Snowflake, `any_value(query_text) as sql, count(*) as exec, count(distinct user_name) as
+  users ... group by query_parameterized_hash order by exec desc limit 500`. Start with 30
+  days; widen to 90 only when fewer than 20 rows come back.
+- A large result is saved by the host to a file, and the tool reply names it. Pass that file
+  to `CONTEXT querylog`; it reads Snowflake and Databricks connector results as saved. When
+  the reply holds the rows inline, write the reply's JSON to a file unchanged and pass that.
+  Never retype statements into a file.
+
 ## Snowflake
 
 When using the metrics module with its `snowflake` feature and a configured direct connection,

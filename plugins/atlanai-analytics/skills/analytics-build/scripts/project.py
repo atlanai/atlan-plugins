@@ -25,7 +25,7 @@ import metric_preview
 import progress
 import acquisition
 import auth_recovery
-from source_inventory import discover, source_kind, SENSITIVE
+from source_inventory import discover, source_kind, summarize, SENSITIVE
 from trident.core import digest
 from trident.powerbi_file import inspect_file, measure_type
 import local_data
@@ -569,6 +569,8 @@ def main():
     sub.add_parser('history')
     sub.add_parser('status')
     sub.add_parser('check')
+    found = sub.add_parser('discover', help='Supported sources in a folder, by name and size only. Needs no run and creates nothing.')
+    found.add_argument('--workspace', default='.')
     location = sub.add_parser('location')
     location.add_argument('--workspace', default='.')
     location.add_argument('--permitted-cache')
@@ -612,6 +614,9 @@ def main():
         if args.command == 'location':
             print(json.dumps({'run_dir': str(resolve_run(args.workspace, args.run_dir, args.permitted_cache, args.home_permitted)),
                               'created': False}))
+            return 0
+        if args.command == 'discover':
+            print(json.dumps(summarize(safe_path(args.workspace))))
             return 0
         if not args.run_dir:
             raise ProjectError('Select a run directory, or use location to choose a permitted one.')

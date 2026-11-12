@@ -36,6 +36,13 @@ Preserve existing run locations; do not change host permissions or read credenti
      "report and data" `.pbix` holds both, copies the rows to disk (ask first) and needs the
      runtime's `pbix` feature.
 
+  A **Tableau workbook link** takes another order, because Tableau has no sign-in a tool can
+  start for the person: (1) the person's signed-in browser downloads the workbook and every
+  published data source it uses; (2) the `tableau-cloud` plug with a Personal Access Token
+  the person created; (3) the plug with `TABLEAU_USERNAME` and `TABLEAU_PASSWORD`. A route
+  that brings the workbook without its published data sources leaves those sheets without
+  SQL: name the missing data sources.
+
   Never carry a definition through chat or page text: page readers cap output and collapse
   whitespace, so a copied model differs from the original. Check any staged file against the
   service's copy (size or hash) before surveying it.
@@ -55,6 +62,11 @@ credentials. Without a trustworthy revision/access scope, do not claim cross-ses
 validity. Local files are never copied merely to use this cache. Keep run files private and
 clean up only explicitly selected owned outputs, never source files.
 
+Settle whether each source can be built from before returning, as the skill's `readiness`
+section defines it: the tables a report reads must resolve in a reachable warehouse or a bound
+local database. Return that with the inventory, so no use-case question is asked about a
+source that cannot be built.
+
 Before authoring, give a short business summary: observed source types and subject, what
 the project appears to be about, and two or three analyses those sources could support.
 Explain how the sources complement each other; counts alone do not show understanding.
@@ -65,10 +77,10 @@ history adds actual query patterns, dimensions, joins and missing measures. A da
 an executor/schema source, not a replacement for available history. Reuse already released
 workspace context early when the destination is known.
 
-Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so step 1 shows its source count before asking the first question.
-After the source summary, follow [the intent checkpoint](../../analytics-build/references/setup/intent.md), even when file/page
-scope is unambiguous. Establish the business focus first and the purpose second before
-authoring the selected collection. Use the answers to select relevant source coverage.
+Refresh [the checklist](../../analytics-build/references/setup/checklist.md) so the survey step shows its source count before the confirmation.
+The caller owns the conversation: `analytics-build` asks its opening questions before any
+data is read, and asks which use cases to build before authoring. Use the domain the caller
+passed to select relevant source coverage.
 
 When the survey exposes a declared measure relevant to that focus, show it after the intent
 checkpoint and before runtime installation or generation: its actual name, calculation, source and known population. Label it a discovered
@@ -77,6 +89,21 @@ an explicit limit, not a guessed table mapping. This first look does not certify
 replace the engine's authored gates or satisfy the later checked publication preview.
 
 ## 2. Scope the report and evidence
+
+**Order the sources first (`plan`).** Return the sources to build from as one short list, in
+this order, each with what it adds and its scope:
+
+| Order | Source | What it adds |
+| --- | --- | --- |
+| 1 | BI reports and models | The rules the team already agreed: measures, filters, joins |
+| 2 | Query history | What people actually ask: the cuts, dimensions and measures the reports miss |
+| 3 | Table definitions | Columns and types, so every rule can run and be checked |
+
+Leave out a level that has no buildable source, and say so in one clause. The caller shows
+this list and decides whether to ask about it. A report is scoped whole, with
+`pages: ["all"]`, unless the person narrowed it in their own words. Query history is scoped
+to the tables the report's measures are computed on, never the whole warehouse; leave out a
+shared lookup table (accounts, users, dates) when it alone would match most of the history.
 
 For parsed Power BI inventories, run `PROJECT scope "<selection.json>"` with `source_id` and
 optional `pages` (exact IDs or unique labels). `pages: ["all"]` selects ordinary visible pages;

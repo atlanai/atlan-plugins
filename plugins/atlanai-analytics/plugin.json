@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "atlanai-analytics",
-  "version": "0.8.10",
+  "version": "0.9.0",
   "description": "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard.",
   "author": {
     "name": "Atlan",
@@ -25,7 +25,7 @@
       "interface": {
         "displayName": "Analytics",
         "shortDescription": "Publish analytics context and ask your data with Atlan",
-        "longDescription": "The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own dashboards, BI exports and query history, in seven steps. source-survey says what a source holds and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.",
+        "longDescription": "The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.",
         "developerName": "Atlan",
         "category": "Data & Analytics",
         "capabilities": [

@@ -15,9 +15,10 @@ one next step as the answer's last line, not a menu and not a native question, a
 the person's reply as the choice
 ([text before a native question](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)):
 
-- The person can build context here: offer to build the metric. On yes, load
-  `analytics-build` with the question as the problem, so its focus question is already
-  answered.
+- The person can build context here: offer to build the metric, in those words, as the
+  answer's last line. On yes, load `analytics-build` with the question as its subject: its
+  domain entry looks for what already exists before building. Offer this before a proposal
+  whenever a warehouse query tool is in reach.
 - The metric belongs to another team: offer a proposal for its owners, through
   `metrics-generation` `edit`.
 

@@ -7,12 +7,10 @@ other surface unless the person asks for [a visual view](render.md).
 
 ## One useful result, one next action
 
-Orient before tools. Survey the supplied source and reuse existing acquisitions. Explain
-what was found, its business meaning and plausible analyses in the first question's visible
-prompt, not only in commentary. Use preset demo intent, or establish missing [business focus
-and purpose](intent.md) for own data. Render native questions sequentially, waiting for each
-missing answer; use ordinary chat if the host exposes no question control. Adapt the second
-question to the first answer. Free text is always valid. Do not invent a tool or display a
+Orient before tools. Use preset demo intent, or [the interview](intent.md) for own data:
+card 1 and the chosen branch's ask, before any data is read, through the host's question
+control or ordinary chat. Put what the person must read to decide (the use cases and their
+tables, or what will be built) in the question's visible prompt, not only in commentary. Free text is always valid. Do not invent a tool or display a
 menu of internal commands. A suggested or preselected choice is not an answer.
 
 Use [the presentation flow](presentation.md) for the completed-collection review after the run's

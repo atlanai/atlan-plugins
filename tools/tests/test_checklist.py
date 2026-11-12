@@ -33,7 +33,7 @@ class Checklist(unittest.TestCase):
     def test_initial_list_names_seven_build_steps(self):
         rows = checklist.initial()
         self.assertEqual([r['content'] for r in rows], [
-            'Survey your sources', 'Clarify your use case', 'Select tables and dashboards',
+            'Clarify your use case', 'Survey your sources', 'Select tables and dashboards',
             'Generate and check metrics', 'Keep local or save to Atlan Trident', 'Ask a question', 'Build a dashboard'])
         self.assertEqual([r['status'] for r in rows], ['in_progress'] + ['pending'] * 6)
         self.assertEqual([r['id'] for r in rows if r['needs_you']], ['intent', 'scope', 'save', 'ask', 'dashboard'])
@@ -60,18 +60,20 @@ class Checklist(unittest.TestCase):
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)
         result = self.steps()
-        self.assertEqual([r['status'] for r in result['steps']], ['in_progress'] + ['pending'] * 6)
-        self.assertEqual(result['steps'][0]['active'], 'Reading source 2 of 3')
-        self.assertEqual((result['step'], result['of'], result['state']), (1, 7, 'running'))
+        # The use case was asked in chat before this run existed; the survey is what is under way.
+        self.assertEqual([r['status'] for r in result['steps']], ['pending', 'in_progress'] + ['pending'] * 5)
+        self.assertEqual(result['steps'][1]['active'], 'Reading source 2 of 3')
+        self.assertFalse(result['steps'][0]['needs_you'])
+        self.assertEqual((result['step'], result['of'], result['state']), (2, 7, 'running'))
         self.progress(stage='inspect', status='complete', completed_items=3, total_items=3)
         result = self.steps()
-        self.assertEqual(result['steps'][0], {'id': 'sources', 'content': 'Survey 3 sources', 'active': 'Surveying your sources',
+        self.assertEqual(result['steps'][1], {'id': 'sources', 'content': 'Survey 3 sources', 'active': 'Surveying your sources',
                                               'needs_you': False, 'status': 'completed'})
-        # The run now waits on the person: that step is the one in progress, and says so.
-        self.assertEqual((result['steps'][1]['status'], result['steps'][1]['needs_you'], result['steps'][1]['active']),
+        # The survey is done and no use case is saved yet: that step is the one in progress, and says so.
+        self.assertEqual((result['steps'][0]['status'], result['steps'][0]['needs_you'], result['steps'][0]['active']),
                          ('in_progress', True, 'Waiting for your use case'))
         self.run.journey('domain', answer='Shipping   cost')
-        step = self.steps()['steps'][1]
+        step = self.steps()['steps'][0]
         self.assertEqual((step['content'], step['active'], step['status']), ('Use case: Shipping cost', 'Waiting for your goal', 'in_progress'))
         self.run.journey('purpose', answer='Prepare team metrics')
         self.assertEqual([r['status'] for r in self.steps()['steps']][:3], ['completed', 'completed', 'in_progress'])

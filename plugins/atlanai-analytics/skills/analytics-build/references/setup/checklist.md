@@ -11,8 +11,8 @@ host's task list when available and show them in chat, the first one in progress
 
 | Step | Own data (`analytics-build`) | Demo (`analytics-demo`) |
 | --- | --- | --- |
-| 1 | Survey your sources | Choose and load demo data |
-| 2 | Clarify your use case | Choose what to build from |
+| 1 | Clarify your use case | Choose and load demo data |
+| 2 | Survey your sources | Choose what to build from |
 | 3 | Select tables and dashboards | Build and check metrics |
 | 4 | Generate and check metrics | Keep local or save to Atlan Trident |
 | 5 | Keep local or save to Atlan Trident | Ask a question |
