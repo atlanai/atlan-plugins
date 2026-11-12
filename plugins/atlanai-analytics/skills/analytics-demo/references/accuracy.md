@@ -163,7 +163,7 @@ whose text is its Doing and Why lines and the score move, as plain lines:
 
 | Option | Description |
 | --- | --- |
-| Save to `<workspace>` (Recommended) | The questions and both runs with their scores, so your team sees `<k>` to `<N>` of `<N>`. A digest of each trusted SQL, never the SQL. |
+| Save to `<workspace>` (Recommended) | The questions and both runs with their scores, so your team sees accuracy go from `<p>`% to 100%. A digest of each trusted SQL, never the SQL. |
 | Keep on this machine | The set and its runs stay in this folder. |
 
 On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
@@ -181,13 +181,13 @@ plain lines, and nothing else:
 
    ```
     *   .  '   *    .   '  *   .    '   *  .
-      '   *   .   ALL <N> RIGHT   .   *   '
+   '   *   .   <N> OUT OF <N> RIGHT   .   *   '
     .   *    '   .    *   '    .   *    '  .
    ```
 
-2. The result line. After a fix: "Your <agent> now answers all <N> questions right: the score
-   went from <k> to <N> of <N>, and <what changed, plain words>." First time: "Your <agent>
-   answers all <N> questions <firm>'s analysts ask most." Some missed: "<k> of <N> right, and
+2. The result line, in percentages. After a fix: "Your <agent> has reached 100% accuracy, up
+   from <p>%, now that <what changed, plain words>." First time: "Your <agent> is at 100%
+   accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "<p>% accuracy, and
    <what the misses share>."
 3. The score line, word for word, which carries the range.
 4. Only when `CHECK load` returned `generated: true`: the source line.

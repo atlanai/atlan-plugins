@@ -60,8 +60,8 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
 
 ## Show the score
 
-Lead with the summary's `score_line`, word for word ("2 of 3 answered correctly (likely between
-21% and 94%; a small sample)"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
+Lead with the summary's `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly
+(likely between 21% and 94%; a small sample)"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
 line: the questions came from the past queries and tiles the context was built from, so the score
 shows the context reproduces what the analysts asked, not how it handles a new question. With
 `generated: false` (a set the person brought) there is no such line, and never say where its
