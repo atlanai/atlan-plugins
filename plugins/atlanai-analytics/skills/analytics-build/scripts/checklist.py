@@ -60,13 +60,15 @@ def build(model, flow=None):
     stopped = phase['status'] in STOPPED or interaction.get('mode') == 'paused'
     action = (model.get('continuation') or {}).get('action')
     total = counts['metrics'] + counts['queries']
-    saved = action in ('ask', 'explore-local') or (at == 6 and finished)
+    checked = at >= 4 or (at == 3 and finished)
+    # Kept on this machine once checked: a demo goes straight to its question, with no preview stage.
+    saved = action in ('ask', 'explore-local') or (at == 6 and finished) or (local and checked)
     done = {
         'sources': at > 0 or finished,
         # A run saved before intent was recorded has passed this step once authoring began.
         'intent': bool(intent.get('domain') and intent.get('purpose')) or at >= 2,
         'scope': at >= 2,
-        'metrics': at >= 4 or (at == 3 and finished),
+        'metrics': checked,
         'save': saved,
         'ask': saved and bool(interaction.get('asked')),
     }

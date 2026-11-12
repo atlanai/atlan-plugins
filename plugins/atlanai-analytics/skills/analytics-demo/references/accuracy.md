@@ -153,7 +153,10 @@ In Trident, release that version to `latest` with `registry__release_artifact` o
 `EVAL compare` shows the missed question fixed and `flipped_down` empty, and say so; otherwise
 leave it unreleased and say which question changed. A workspace that releases new versions on
 its own has already put the approved version on `latest`: when the test then loses a question,
-withdraw that release with `registry__withdraw_release` and say so. Then step 5.
+withdraw that release with `registry__withdraw_release` and say so.
+
+With every question right after the test again, go to step 5. With a miss left, ask "Does the
+score look good?" again as step 3 describes, with the new score; Improve it finds the next fix.
 
 ## 5. The result
 

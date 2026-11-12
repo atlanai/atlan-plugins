@@ -55,6 +55,15 @@ class Checklist(unittest.TestCase):
         result = self.steps()
         self.assertEqual((result['state'], result['step'], result['of']), ('done', 5, 5))
 
+    def test_a_demo_kept_local_after_its_check_moves_on_to_the_question(self):
+        self.run.journey('demo')
+        self.progress(stage='check', status='complete', completed_items=3, total_items=3)
+        self.run.journey('keep-local')
+        self.assertEqual([r['status'] for r in self.steps()['steps']], ['completed'] * 4 + ['in_progress'])
+        self.run.journey('asked')
+        result = self.steps()
+        self.assertEqual((result['state'], result['step'], result['of']), ('done', 5, 5))
+
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)
         result = self.steps()
