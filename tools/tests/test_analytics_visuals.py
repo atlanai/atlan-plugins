@@ -337,7 +337,8 @@ class Helper(unittest.TestCase):
     def test_a_chip_right_before_a_question_goes_in_it(self):
         self.assertEqual(visuals.render('found', visuals.build_spec('found', self.run), plain=True),
                          '● 4 sources found · Power BI dashboard, 2 data files, query history')
-        self.assertEqual(visuals.asked('found', False), "the next native question's text, first")
+        self.assertEqual(visuals.asked('found', False), "the \"Build it?\" question's text, first",
+                         'one place, the one the skill names: a live run also put it in the use-case question before it')
         self.assertEqual(visuals.asked('sources', True), "the next native question's text, first", "a demo's sources come right before its choice")
         self.assertIsNone(visuals.asked('sources', False), 'own data reads its data mid-build')
         self.assertIsNone(visuals.asked('answer', False), 'an answer ends its turn, which a terminal never folds')

@@ -21,7 +21,7 @@ KINDS = ('connect', 'found', 'sources', 'build', 'context', 'saved', 'answer', '
 CARDS = ('build', 'saved', 'answer', 'edit')
 # In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
 # text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
-ASKED = {'found': "the next native question's text, first",
+ASKED = {'found': "the \"Build it?\" question's text, first",
          'context': "the save question's text in place of its count line (the banner, the two lines under it and the "
                     "question stay as they are)",
          'saved': "the ready question's text, first"}
