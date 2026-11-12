@@ -676,7 +676,9 @@ def main():
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
                 demo = spec.get('flow') == 'demo' or visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
-                asked = None if args.widget else visuals.asked(args.kind, demo)
+                facts = visuals.RunFacts(run)
+                saved = bool(facts.publication) and facts.interaction.get('mode') != 'local'
+                asked = None if args.widget else visuals.asked(args.kind, demo, saved)
                 shown = visuals.render(args.kind, spec, args.widget, side_view.first_answer(run, spec), plain=bool(asked))
                 # In a terminal, the build's card in the middle of a build reaches no one: it leads the save question with
                 # the checks chip instead. A widget host draws it as it happens.

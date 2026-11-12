@@ -275,6 +275,15 @@ class Helper(unittest.TestCase):
         line = [l for l in out.splitlines() if l.startswith('side view: ')]
         return json.loads(line[0][len('side view: '):]) if line else None
 
+    def test_a_rule_changed_leads_its_block_wherever_the_block_goes(self):
+        self.project('visual', 'connect')
+        line = self.side(self.project('visual', 'edit'))['next']
+        self.assertIn("in the text of the question that asks to save the change, first, before the block", line,
+                      'saved to Atlan Trident, a question follows: reply text before it never reached a terminal')
+        self.run = make_run(Path(self.tmp.name).resolve() / 'kept', local=True)
+        self.project('visual', 'connect')
+        self.assertIn('Then show the text above', self.side(self.project('visual', 'edit'))['next'], 'kept here, the block is reply text')
+
     def test_each_moment_prints_its_chip_and_the_side_view_update(self):
         out = self.project('visual', 'connect')
         self.assertTrue(out.startswith('side view: '), 'nothing in the chat: the first moment only opens the side view')

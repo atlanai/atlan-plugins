@@ -45,9 +45,8 @@ text of the save question, never reply text followed by a native question:
 > | Check | `<old check status>` | `<new check status>` |
 
 Record the `edit` moment ([visuals](../../analytics-build/references/setup/visuals.md)) with the same
-values and show its card first, as that file says for this host: kept on this machine, it stands in
-for the block; saved to Atlan Trident, it comes right before the save question, whose text still
-holds the block.
+values. In a terminal its card leads the block, wherever the block goes; with `show_widget`, draw it
+right before the block's reply or question.
 
 Before showing it, re-ask, through `analytics-ask`, one question the person already asked
 that uses this metric. With no earlier question, use the first question offered in this run. Write one

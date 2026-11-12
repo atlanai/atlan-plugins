@@ -27,11 +27,13 @@ ASKED = {'found': "the \"Build it?\" question's text, first",
          'saved': "the ready question's text, first"}
 # A demo reads its sources right before choosing what to build from; own data reads them mid-build.
 ASKED_DEMO = {'sources': "the next native question's text, first"}
+# A rule changed on a context saved to Atlan Trident is followed by the question that saves the change.
+ASKED_SAVED = {'edit': "the text of the question that asks to save the change, first, before the block"}
 
 
-def asked(kind, demo):
+def asked(kind, demo, saved=False):
     """Where a terminal moment's lines go when a native question follows it, or None for reply text."""
-    return ASKED.get(kind) or (ASKED_DEMO.get(kind) if demo else None)
+    return ASKED.get(kind) or (ASKED_DEMO.get(kind) if demo else None) or (ASKED_SAVED.get(kind) if saved else None)
 # The moments whose data the agent writes, the fields each needs, and the shape of every field.
 DATA = {
     'saved': {'workspace': str},
