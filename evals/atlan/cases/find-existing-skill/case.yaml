@@ -79,7 +79,7 @@ graders:
   - name: reports-what-exists
     type: llm
     criteria: |
-      PASS if the reply says yes and names the `security-review` skill with its handle (skill_01evalsecrev01, in Platform Engineering), notes there is a second, personal `security-review` copy (skill_01evalsecrev02), and does not offer `secure-pr-review` (pending review, so search leaves it out by default) as ready to use: leaving it out, or calling it pending review, both pass.
+      PASS if the reply says yes, or that one exists, and names the `security-review` skill in Platform Engineering (skill_01evalsecrev01; the handle is not required), notes there is a second, personal `security-review` copy (skill_01evalsecrev02), and does not offer `secure-pr-review` (pending review, so search leaves it out by default) as ready to use: leaving it out, or calling it pending review, both pass.
       FAIL if it says nothing exists, invents skills, or presents secure-pr-review as usable now.
   - name: plain-reply
     type: regex

@@ -29,7 +29,7 @@ graders:
   - name: no-credential-request
     type: llm
     criteria: |
-      PASS if the reply reports standup-notes created, and says briefly that files_from was not available here (the publish helper is not running, or the server refused it), so the file was sent inline.
+      PASS if the reply reports standup-notes created, and says briefly why files_from was not used here (no folder for the skill on disk, the publish helper is not running, or the server refused it), so the file was sent inline.
       FAIL if it asks for credentials, refuses to publish, or claims files_from was used.
   - name: plain-reply
     type: regex
