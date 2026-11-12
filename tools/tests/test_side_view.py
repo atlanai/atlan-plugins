@@ -268,6 +268,19 @@ class SideView(unittest.TestCase):
         clean = make_run(self.root / 'clean', saved=False)
         self.assertNotIn('Keep the queries that ran', self.nodes(side_view.model(clean), 'Metrics'), 'nothing left out, no piece')
 
+    def test_once_the_checks_are_over_an_item_never_run_needs_a_look_too(self):
+        run = make_run(self.root, saved=False)
+        checks = run / 'context' / 'candidate-checks.json'
+        entries = json.loads(checks.read_text(encoding='utf-8'))
+        del entries['sql_query:q-jobs']
+        checks.write_text(json.dumps(entries), encoding='utf-8')
+        self.record(run, 'connect')
+        self.assertEqual(self.step(self.doc(run), 'Metrics')['status'], 'done')
+        self.assertEqual(self.nodes(self.doc(run), 'Metrics')['Hold what needs a look']['n'], '1 need a look',
+                         "the save question's rule: whatever did not pass")
+        self.assertEqual(visuals.render('context', visuals.build_spec('context', run)),
+                         '◕ **3/4** metrics and queries checked · on your data, 1 need a look')
+
     def test_the_structural_pass_is_not_a_check_run(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))
         checks = run / 'context' / 'candidate-checks.json'

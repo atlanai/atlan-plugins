@@ -180,10 +180,12 @@ def metrics(f, s):
             node('Run each query ' + where, 'Each one runs as written.', SETUP,
                  ratio(c['queries_ran'], n_queries) if checked and n_queries and c['queries_checked'] else None,
                  done=all_queries, warn=all_queries and c['queries_ran'] < n_queries)]
-    if not (all_metrics and all_queries) or c['need_look']:
+    # While the checks run, what ran and failed; once the step is over, whatever did not pass, as the save question counts.
+    held = (c['failed'] if s['open'] else c['need_look']) if checked else 0
+    if not (all_metrics and all_queries) or held:
         how.append(node('Hold what needs a look', 'Anything that did not pass its check is kept back and listed for a '
-                        'person, never shown as a result.', SETUP, '%d need a look' % c['need_look'] if checked and
-                        c['need_look'] else None, done=all_metrics and all_queries, warn=checked and bool(c['need_look'])))
+                        'person, never shown as a result.', SETUP, '%d need a look' % held if held else None,
+                        done=all_metrics and all_queries or not s['open'], warn=bool(held)))
 
     def came_from(m):
         return ', '.join(x for x in ('%d from the dashboard' % m['tiles'] if m['tiles'] else '',

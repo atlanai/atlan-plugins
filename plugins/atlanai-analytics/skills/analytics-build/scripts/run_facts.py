@@ -358,12 +358,12 @@ class RunFacts:
         queries_ran = sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries)
         metrics_checked = sum(_verdict(checks.get('metric:' + m['name'])) for m in metrics)
         queries_checked = sum(_verdict(checks.get('sql_query:' + q['name'])) for q in queries)
-        # One check fact for every place that counts: what passed, and what needs a look (checked and did not pass, for
-        # any reason). Once every item has run, that is the save question's own rule.
-        total = len(rows) + len(queries)
+        # One check fact for every place that counts: what passed, and what needs a look (did not pass, for any reason),
+        # the save question's own rule. While checks still run, `failed` is what ran and did not pass.
+        total, passed = len(rows) + len(queries), metrics_ran + queries_ran
         return {'metrics': rows, 'queries': len(queries), 'metrics_ran': metrics_ran, 'queries_ran': queries_ran,
-                'metrics_checked': metrics_checked, 'queries_checked': queries_checked, 'total': total,
-                'passed': metrics_ran + queries_ran, 'need_look': metrics_checked + queries_checked - metrics_ran - queries_ran}
+                'metrics_checked': metrics_checked, 'queries_checked': queries_checked, 'total': total, 'passed': passed,
+                'need_look': total - passed, 'failed': metrics_checked + queries_checked - passed}
 
     @staticmethod
     def unit_of(metric):
