@@ -116,7 +116,9 @@ in `<evals-run>/work/spec.json`, name the fix:
   words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>", "value":
   <new value>}]}]`. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has
   no `changes`.
-- **Ask "Apply this fix?"**, one native question whose text is the fixes as plain lines: one per
+- **Ask "Apply this fix?"**, one native question whose text is the fixes as plain lines, and
+  nothing after the options: not saved queries that follow the old rule, nor what else the fix
+  might touch. One per
   miss, the question, why it failed, and the fix (rule now, rule proposed), the recommended one
   first.
 
