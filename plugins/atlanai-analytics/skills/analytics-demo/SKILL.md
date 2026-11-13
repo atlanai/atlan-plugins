@@ -119,10 +119,11 @@ When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
 to ask?" with the ready block as its text, offering two or three questions supported by the
 checked context. Do not put an Ask AI menu before the question list. Answer the question or
-questions the person selects or supplies, then ask the native "What would you like to do
-next?" in place of ready's `Next:` line, its text the answer and proof links as plain lines
+questions the person selects or supplies, then, in the same turn, ask the native "What would
+you like to do next?", its text the answer and proof links as plain lines
 ([text before a native question is lost](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)).
-The same question follows a dashboard or an edit, with that result as its text:
+This overrides ready's `Next:` line: a demo turn that answers always ends on this question,
+as does a dashboard or an edit:
 
 | Option | Runs |
 | --- | --- |
