@@ -139,6 +139,8 @@ class ScopeTest(unittest.TestCase):
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")
+        (self.run / "context" / "published.json").write_text(json.dumps({"metrics": {"Cost": "metric_01x"}}))
+        self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")
         (self.run / "context" / "published.json").unlink()
         (self.run / "context" / "published-manual.json").write_text(json.dumps({"workspace_id": "workspace_01abc"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01abc")

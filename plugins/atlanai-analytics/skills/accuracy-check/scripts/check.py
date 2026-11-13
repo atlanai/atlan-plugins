@@ -54,6 +54,18 @@ def find_run(project: pathlib.Path) -> pathlib.Path:
     return ready[0]
 
 
+def _values(node):
+    """Every leaf value of a save's id map, flat or grouped by kind."""
+    if isinstance(node, dict):
+        for v in node.values():
+            yield from _values(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _values(v)
+    else:
+        yield node
+
+
 def saved_to(run: pathlib.Path):
     """The Atlan Trident workspace the run's context was saved to, or None for this machine only:
     the run's publication receipt, else what a save recorded beside the context."""
@@ -65,7 +77,7 @@ def saved_to(run: pathlib.Path):
                 return r["workspace_id"]
     # A save's id map names no workspace; the approved plan beside it does.
     ids = load(run / "context" / "published.json", {}) if not ws else {}
-    if isinstance(ids, dict) and any(str(v).startswith(("metric_", "sql_query_")) for v in ids.values()):
+    if any(str(v).startswith(("metric_", "sql_query_")) for v in _values(ids)):
         ws = (load(run / "authorization.json", {}) or {}).get("workspace_id")
     return ws
 
