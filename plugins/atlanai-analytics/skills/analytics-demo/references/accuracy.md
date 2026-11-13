@@ -167,25 +167,7 @@ score look good?" again as step 3 describes, with the new score; Improve it find
 
 ## 5. The result
 
-Everything stays on this machine until here. Only when the context is in Atlan Trident **and** a
-fix was applied and tested again, ask one native question, "Save this check to Atlan Trident?",
-whose text is the score move, as plain lines:
-
-| Option | Description |
-| --- | --- |
-| Save to `<workspace>` (Recommended) | The questions and both runs with their scores, so your team sees accuracy go from `<p>`% to `<q>`%. A digest of each trusted SQL, never the SQL. |
-| Keep on this machine | The set and its runs stay in this folder. |
-
-On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
-(`kind` `agent`; `metadata` holds only `name`, `workspace_id` and a one-line `description`). A
-refusal because that name exists means it is registered: find it with
-`registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
-[save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
-id and workspace. In every other case ask nothing: the set and its runs stay in the project.
-
-End with the demo's "What would you like to do next?" from
-[ready](../../analytics-build/references/setup/ready.md). Its text is exactly these lines, as
-plain lines, and nothing else:
+The result block is these lines, as plain lines, and nothing else:
 
 1. Every question right: this banner. Otherwise no banner.
 
@@ -201,9 +183,38 @@ plain lines, and nothing else:
    <what the misses share>."
 3. The score line, word for word, which carries the range.
 4. Only when `CHECK load` returned `generated: true`: the source line.
-5. One line on where it lives: on this machine, or saved to `<workspace>` with the `runs` link
-   from saving the check, as Markdown: "Saved to <workspace>: [see the runs in Atlan](<runs>)".
 
 No other line: not a significance test, an open question, a note on saved queries or past
 queries that still follow the old rule, or an offer to change a saved query, another metric
 or the set.
+
+**Context in Atlan Trident, after a fix.** The result is the moment to save, so ask one native
+question, "Save this check to Atlan Trident?", whose text is the result block, then the
+question:
+
+| Option | Description |
+| --- | --- |
+| Save to `<workspace>` (Recommended) | The questions and every run with its score, so your team sees accuracy go from `<p>`% to `<q>`%. A digest of each trusted SQL, never the SQL. |
+| Keep on this machine | The set and its runs stay in this folder. |
+
+On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
+(`kind` `agent`; `metadata` holds only `name`, `workspace_id` and a one-line `description`). A
+refusal because that name exists means it is registered: find it with
+`registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
+[save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
+id and workspace. End with the demo's "What would you like to do next?" from
+[ready](../../analytics-build/references/setup/ready.md), whose text is what was saved and where,
+as plain lines and no banner (the result was just shown):
+
+```
+Saved to <workspace>:
+  <agent>, with <N> questions and <runs> runs scored from <p>% to <q>%
+  <metric> version <v>, released            (one line per metric the fix released)
+See the runs in Atlan: <runs link>
+```
+
+On Keep: the same question, whose text is one line: "The check stays on this machine."
+
+**Every other case** (the context on this machine, or no fix applied): ask nothing about saving;
+the set and its runs stay in the project. End with "What would you like to do next?", whose
+text is the result block.
