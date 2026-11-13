@@ -185,8 +185,9 @@ or the set.
 
 **Context in Atlan Trident, after a fix was applied** (released, or approved by its owner; a
 proposal still waiting is not applied). The result is the moment to save, so ask one native
-question, "Save this check to Atlan Trident?", whose text is the result block, then the
-question:
+question, "Save this check to Atlan Trident?", whose text is the result block, one line per
+version the fix released ("<metric> version <v> is released in <workspace>."), then the
+question. Nothing else: no notes on proposals, files or cleanup.
 
 | Option | Description |
 | --- | --- |
