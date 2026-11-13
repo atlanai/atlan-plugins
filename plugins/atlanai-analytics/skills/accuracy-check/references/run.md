@@ -104,8 +104,8 @@ Called when the caller asks to save a check. The caller gives the workspace and 
    --no-transcripts`, then for each test again `EVAL publish --variant <vN> --baseline <the run
    before it> --no-transcripts`, each with
    `EVAL publish-ack` until `"step": "done"`, as
-   [publish](../../eval-generation/references/publish.md) describes, saving the tool results in
-   that run's own folder (`<evals-run>/hillclimb/<variant>/publish-<step>.json`). Send each
+   [publish](../../eval-generation/references/publish.md) describes: `--ids` for every step but
+   `results`, whose tool result goes in `<evals-run>/hillclimb/<variant>/publish-results.json`. Send each
    call's arguments exactly as `publish` printed them. When `publish-ack` returns `MISMATCH`, a
    saved score differs from the run's: stop and follow its `fix` before publishing anything else.
 

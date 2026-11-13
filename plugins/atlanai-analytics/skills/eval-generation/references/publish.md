@@ -4,10 +4,11 @@ Read when saving a set to Atlan Trident.
 
 Each `EVAL publish` prints the next `step` and its `calls`, each a `{tool, arguments}` pair.
 Send every call in order with that exact name and arguments (in search mode, through
-`mcp__call_write_tool` with the session id beside them). Save the tool results, in call
-order, as one JSON list in `<dir>/hillclimb/baseline/publish-<step>.json` with the Write
-tool (never under a temporary folder outside the project), and run
-`EVAL publish-ack --variant baseline --step <step> --responses <that file>`.
+`mcp__call_write_tool` with the session id beside them). Then run `EVAL publish-ack
+--variant baseline --step <step> --ids <id,id,...>` with the ids the calls returned, in item
+order: do not retype the responses into a file. The `results` step is the exception: save its
+tool result as one JSON list in `<dir>/hillclimb/<variant>/publish-results.json` with the Write
+tool and pass it with `--responses`, so the saved scores are checked.
 Repeat until `publish` prints `"step": "done"`.
 
 - A failed item comes back under `failed` with the registry's message; the next `publish`

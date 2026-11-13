@@ -1554,11 +1554,21 @@ def cmd_publish_ack(a) -> dict:
     pending = pub.s.get("pending")
     if not pending or pending["step"] != a.step:
         raise Blocked(f"No `{a.step}` step is waiting for results.", "Run `publish` to see the next step.")
-    raw = load_json(Proj(a.dir).f(a.responses))
-    if raw is None:
-        raise Blocked("The responses file is missing or not JSON.", "Save the tool results as one JSON list.")
     kind, names = STEP_KIND[a.step], pending["names"]
-    if a.reconcile:
+    ids = [i.strip() for i in (getattr(a, "ids", None) or "").split(",") if i.strip()]
+    if ids and (a.step == "results" or a.reconcile or a.responses):
+        raise Blocked("--ids stands in for --responses on every step but results.",
+                      "Pass the results step's tool result with --responses, so its saved scores are checked.")
+    raw = None if ids else load_json(Proj(a.dir).f(a.responses)) if a.responses else None
+    if raw is None and not ids:
+        raise Blocked("The responses file is missing or not JSON.", "Save the tool results as one JSON list.")
+    if ids:
+        # The model passes the ids it read instead of retyping whole registry responses into a file.
+        if len(ids) != len(names) or not all(i.startswith(kind + "_") for i in ids):
+            raise Blocked(f"Expected {len(names)} {kind} ids in call order, got {len(ids)}.",
+                          f"Pass each returned id, in the order of the step's items.")
+        got, failed = dict(zip(names, ids)), {}
+    elif a.reconcile:
         listed = {}
         for page in (raw if isinstance(raw, list) else [raw]):
             listed.update(_listed(page, kind))
@@ -1908,6 +1918,8 @@ def selftest() -> dict:
            and cited["used_context_ids"] == [r["artifact_id"] for r in refs])
         bare = pathlib.Path(d) / "no-transcripts"
         shutil.copytree(pr, bare)
+        by_ids = pathlib.Path(d) / "by-ids"
+        shutil.copytree(pr, by_ids)
         ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
         row = read_results(pr / "hillclimb" / "cited" / "results.jsonl")[0]
         sc, cid = float((row.get("grade") or {}).get("pass", 0)), _case_id(row)
@@ -1917,6 +1929,23 @@ def selftest() -> dict:
            and not _score_drift(Proj(str(pr)), "cited", [cid], slot(sc)))
         ok("a publish without transcripts saves the sessions and scores, never the messages",
            _selftest_publish(bare, no_transcripts=True))
+        proj_ids = Proj(str(by_ids))
+        proj_ids.set_id("workspace_id", "workspace_t")
+        proj_ids.set_id("agent_id", "agent_t")
+        ns = lambda **kw: argparse.Namespace(**{**dict(dir=str(by_ids), variant="cited", baseline=None, agent_id=None,
+                                                       workspace=None, sessions_only=False, resend=False,
+                                                       reconcile=False, no_transcripts=True, responses=None,
+                                                       ids=None), **kw})
+        first = cmd_publish(ns())
+        acked = cmd_publish_ack(ns(step=first["step"], ids="scorer_by_ids"))
+        try:
+            cmd_publish_ack(ns(step="results", ids="experiment_result_x"))
+            refused = False
+        except Blocked:
+            refused = True
+        ok("publish-ack takes the returned ids in place of whole responses, but never for results",
+           first["step"] == "scorer" and acked["landed"] == 1
+           and proj_ids.state()["ids"].get("scorer_id") == "scorer_by_ids" and refused)
         imported, dataset_only = _selftest_generated_set(pathlib.Path(d) / "generated")
         ok("import-spec keeps only approved records with SQL", imported)
         ok("a dataset-only publish needs no agent and stops after the records", dataset_only)
@@ -2388,7 +2417,9 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.add_argument("--variant", required=True)
     c.add_argument("--step", required=True, choices=sorted(STEP_KIND))
-    c.add_argument("--responses", required=True, help="a JSON list of the step's tool results, in call order")
+    c.add_argument("--responses", help="a JSON list of the step's tool results, in call order")
+    c.add_argument("--ids", help="instead of --responses: the ids the step's calls returned, comma-separated "
+                                 "in order (not for results, whose saved scores are checked)")
     c.add_argument("--reconcile", action="store_true",
                    help="the responses are registry__list_artifacts results for a step whose results were lost")
     c.set_defaults(func=cmd_publish_ack)
