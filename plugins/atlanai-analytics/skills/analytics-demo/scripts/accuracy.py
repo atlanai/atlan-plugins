@@ -2,6 +2,7 @@
 """accuracy.py: check the fixes the demo diagnoses from an accuracy check's misses.
 
     python3 accuracy.py fixes --evals <evals-run> --file <fixes.json>
+    python3 accuracy.py version --evals <evals-run> --run <run> --metric <name> --head-version <N>
 
 A fix is applied from <evals-run>/fixes.json, so its shape is checked here rather than trusted.
 The set is the source of truth: only a question that asks the opposite is redrafted. Prints one
@@ -64,6 +65,45 @@ def cmd_fixes(a) -> dict:
             "file": str(ev / "fixes.json")}
 
 
+def _flat(o):
+    """The same value with no line breaks inside strings, so it travels as one tool argument."""
+    if isinstance(o, dict):
+        return {k: _flat(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_flat(v) for v in o]
+    return " ".join(o.split("\n")) if isinstance(o, str) else o
+
+
+def cmd_version(a) -> dict:
+    """The next version of a saved metric with its fix applied: the `metadata` for
+    registry__append_artifact_version, built from the definition the save sent, never retyped."""
+    ev, run = pathlib.Path(a.evals), pathlib.Path(a.run)
+    fix = next((f for f in load(ev / "fixes.json", []) or [] if f.get("metric") == a.metric and f.get("changes")), None)
+    if not fix:
+        raise Blocked(f"No fix with changes for {a.metric} in {ev / 'fixes.json'}.")
+    body = next((b for b in load(run / "context" / "metrics.json", []) or []
+                 if a.metric in (b.get("name"), b.get("display_name"))), None)
+    if not body:
+        raise Blocked(f"{a.metric} is not in this run's context.")
+    d = json.loads(json.dumps(body["definition"]))
+    if int(d.get("version") or 1) != a.head_version:
+        raise Blocked(f"Atlan holds version {a.head_version} of {a.metric}, but the saved definition here is version "
+                      f"{d.get('version') or 1}: someone changed it since. Propose the fix for its owner instead.")
+    meta = {"display_name": body.get("display_name") or a.metric, "description": body.get("description")}
+    for c in fix["changes"]:
+        keys = c["path"].split(".")
+        if keys[0] in ("description", "display_name") and len(keys) == 1:
+            meta[keys[0]] = c["value"]
+            continue
+        node = d
+        for k in keys[:-1]:
+            node = node.setdefault(k, {})
+        node[keys[-1]] = c["value"]
+    d["version"] = a.head_version + 1
+    meta["definition"] = d
+    return {"status": "ok", "metric": a.metric, "version": d["version"], "metadata": _flat(meta)}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     s = p.add_subparsers(dest="cmd", required=True)
@@ -71,6 +111,12 @@ def main(argv=None) -> int:
     c.add_argument("--evals", required=True)
     c.add_argument("--file", required=True, help="a JSON list of fixes")
     c.set_defaults(func=cmd_fixes)
+    c = s.add_parser("version", help="the next version of a saved metric with its fix applied")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--run", required=True)
+    c.add_argument("--metric", required=True)
+    c.add_argument("--head-version", type=int, required=True, help="the version_ordinal Atlan holds now")
+    c.set_defaults(func=cmd_version)
     a = p.parse_args(argv)
     try:
         print(json.dumps(a.func(a), indent=1))

@@ -153,6 +153,21 @@ class ScopeTest(unittest.TestCase):
         (first / "hillclimb").mkdir(parents=True)
         self.assertTrue(str(check.evals_dir(self.tmp, self.run)).endswith(self.run.name + "-2"))
 
+    def test_version_applies_the_fix_to_the_saved_definition_and_refuses_a_moved_head(self) -> None:
+        ev, run = self.tmp / "ev", self.tmp / "run"
+        (run / "context").mkdir(parents=True)
+        (run / "context" / "metrics.json").write_text(json.dumps([{"name": "Cost", "display_name": "Cost",
+            "description": "Old.", "definition": {"version": 1, "formula": "SUM(a)", "examples": [{"sql": "SELECT\n1"}]}}]))
+        ev.mkdir()
+        (ev / "fixes.json").write_text(json.dumps([{"metric": "Cost", "misses": ["q1"], "changes": [
+            {"path": "formula", "value": "SUM(b)"}, {"path": "description", "value": "New."}]}]))
+        out = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Cost", "--head-version", "1")
+        meta = out["metadata"]
+        self.assertEqual((out["version"], meta["description"], meta["definition"]["formula"],
+                          meta["definition"]["examples"][0]["sql"]), (2, "New.", "SUM(b)", "SELECT 1"))
+        moved = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Cost", "--head-version", "3")
+        self.assertEqual(moved["status"], "BLOCKED")
+
     def test_link_names_the_agents_runs_and_the_last_run(self) -> None:
         ev = self.tmp / ".atlan-evals" / "saved"
         ev.mkdir(parents=True)

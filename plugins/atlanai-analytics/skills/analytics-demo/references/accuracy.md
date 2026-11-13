@@ -126,11 +126,11 @@ in `<evals-run>/work/spec.json`, name the fix:
 
   | Option | Description |
   | --- | --- |
-  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. |
+  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. In Atlan Trident this releases the new version. |
   | Keep the score | Keep this score as the bar to beat. |
 
-**Apply it** is the yes through the next score, so ask nothing more until the person must act in
-Metric Studio. Keep the score goes to step 5.
+**Apply it** is the yes through the next score, so ask nothing more until the score, unless a
+Trident write is refused and the owner must act in Metric Studio. Keep the score goes to step 5.
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
@@ -138,30 +138,29 @@ Metric Studio. Keep the score goes to step 5.
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
   keeps the old rule, so say so and ask "Apply this fix?" again with the next fix. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
-- **Context in Atlan Trident:** read the metric's head with `registry__get_artifact` and write one
-  proposal with `registry__create_artifact` as
-  [the proposal record](../../metrics-generation/references/propose-record.md) describes: the
-  fix's definition changes and the missed questions as `evidence.runs`. Metric Studio refuses a
-  proposed change to a metric's top-level `description`; when the fix rewrites one, the owner
-  edits it in Studio while approving, so the question's text gives the new description to paste.
+- **Context in Atlan Trident:** Apply it is the approval, so apply and release the fix here, with
+  no second approval in Metric Studio. For each metric the fix changes:
+  1. Write the proposal with `registry__create_artifact` as
+     [the proposal record](../../metrics-generation/references/propose-record.md) describes (the
+     fix's definition changes and the missed questions as `evidence.runs`), so the change and its
+     evidence are on record in Metric Studio.
+  2. Read the metric's head (`registry__get_artifact`, `properties: []`) for its `etag` and
+     `version_ordinal`, then `ACC version --evals <evals-run> --run <run> --metric <name>
+     --head-version <version_ordinal>` gives the new version, the fix applied to the definition
+     the save sent, description included.
+  3. Send `registry__append_artifact_version` with that `metadata` exactly as printed, `if_match`
+     the head's `etag`, and release the new version to `latest` with `registry__release_artifact`
+     unless the workspace already released it.
+  A refusal at step 2 or 3 (someone changed the metric since, or the person may not write to
+  it) leaves the proposal for its owner: give its Metric Studio link (`suggestion=<file id>`) and
+  ask "Approved it in Metric Studio?" (Approved, test again / Not now, which goes to the result).
   As on this machine, do not raise saved queries with the person.
-  Ask one native question whose text is the Metric Studio link that opens the proposal
-  (`suggestion=<file id>`), then "Approved it in Metric Studio?":
 
-  | Option | Description |
-  | --- | --- |
-  | Approved, test again | I test the approved version on the same questions before anyone reads it. |
-  | Not now | The proposal waits in Metric Studio; the context stays as it is, and I go to the result. |
-
-Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the same eval folder, naming the
-approved `version_ordinal` in Trident.
-In Trident, release that version to `latest` with `registry__release_artifact` only when
-`EVAL compare` shows the missed question fixed and no question that uses the changed metric in
-`flipped_down`, and say so; otherwise leave it unreleased and say which question changed. A
-workspace that releases new versions on its own has already put the approved version on
-`latest`: when a question that uses the changed metric gets worse, withdraw that release with
-`registry__withdraw_release` and say so. A question on another metric that gets worse is a miss
-for the next fix, never a reason to undo this one.
+Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the
+same eval folder, naming the new `version_ordinal`. When a question that uses the changed metric
+gets worse, withdraw that release with `registry__withdraw_release`, which puts `latest` back on the
+previous version, and say so. A question on another metric that gets worse is a miss for the next
+fix, never a reason to undo this one.
 
 With every question right after the test again, go to step 5. With a miss left, ask "Does the
 score look good?" again as step 3 describes, with the new score; Improve it finds the next fix.
