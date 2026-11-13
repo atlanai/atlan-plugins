@@ -72,6 +72,10 @@ def saved_to(run: pathlib.Path):
     """The Atlan Trident workspace the run's context was saved to, or None for this machine only:
     the run's publication receipt, else what a save recorded beside the context."""
     ws = ((load(run / "run.json", {}) or {}).get("publication") or {}).get("workspace_id")
+    # The save's approved plan is written by code, whatever shape the save's own records take.
+    auth = load(run / "authorization.json", {}) or {}
+    if not ws and auth.get("approved_plans") and str(auth.get("workspace_id") or "").startswith("workspace_"):
+        return auth["workspace_id"]
     for f in [] if ws else sorted((run / "context").glob("published*.json")):
         rec = load(f)
         for r in rec if isinstance(rec, list) else [rec]:
