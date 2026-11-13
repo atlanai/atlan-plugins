@@ -822,6 +822,27 @@ def _read_answer(path) -> dict:
     return obj if isinstance(obj, dict) else {"answer": str(obj), "sql": ""}
 
 
+def _ids_from_transcript(tr: dict) -> list:
+    """The context ids in the agent's own final JSON, from its transcript: the caller's copy of the
+    answer can drop them, and the score's context engagement is read from them."""
+    for t in reversed(tr.get("turns") or []):
+        texts = [t.get("content") or ""]
+        if t.get("role") == "tool_call":
+            try:
+                texts = [v for v in json.loads(texts[0]).values() if isinstance(v, str)]
+            except (json.JSONDecodeError, AttributeError):
+                pass
+        for text in texts:
+            for m in reversed(list(re.finditer(r'\{[^{}]*"used_context_ids"[^{}]*\}', text))):
+                try:
+                    ids = json.loads(m.group(0)).get("used_context_ids")
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(ids, list) and ids:
+                    return [str(i) for i in ids]
+    return []
+
+
 def cmd_record(a) -> dict:
     pr = Proj(a.dir)
     check_harness(pr)
@@ -881,6 +902,8 @@ def cmd_record(a) -> dict:
     ans = _read_answer(a.answer_file) if a.answer_file and pathlib.Path(a.answer_file).exists() else {}
     if not ans and not harness_error:
         raise Blocked(f"No answer file at {a.answer_file}.", "Write the agent's answer there, or record --class harness_error.")
+    if ans and not ans.get("used_context_ids"):
+        ans["used_context_ids"] = _ids_from_transcript(tr)
     gold_res = load_json(a.gold_result) if a.gold_result else None
     agent_res = load_json(a.agent_result) if a.agent_result and pathlib.Path(a.agent_result).exists() else None
     if isinstance(agent_res, dict) and agent_res.get("status") == "blocked" and not harness_error:
@@ -1943,6 +1966,12 @@ def selftest() -> dict:
             refused = False
         except Blocked:
             refused = True
+        ans_json = json.dumps({"answer": "4.4%", "sql": "select 1", "used_context_ids": ["metric_m1"]})
+        ok("the agent's context ids are read back from its own final answer, in text or a handback",
+           _ids_from_transcript({"turns": [{"role": "assistant", "content": "Done.\\n" + ans_json}]}) == ["metric_m1"]
+           and _ids_from_transcript({"turns": [{"role": "tool_call", "name": "SubagentHandback",
+                                                 "content": json.dumps({"message": "Here: " + ans_json})}]}) == ["metric_m1"]
+           and _ids_from_transcript({"turns": [{"role": "assistant", "content": "no json"}]}) == [])
         ok("publish-ack takes the returned ids in place of whole responses, but never for results",
            first["step"] == "scorer" and acked["landed"] == 1
            and proj_ids.state()["ids"].get("scorer_id") == "scorer_by_ids" and refused)
