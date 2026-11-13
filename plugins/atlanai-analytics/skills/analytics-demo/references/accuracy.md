@@ -142,6 +142,7 @@ Metric Studio. Keep the score goes to step 5.
   fix's definition changes and the missed questions as `evidence.runs`. Metric Studio refuses a
   proposed change to a metric's top-level `description`; when the fix rewrites one, the owner
   edits it in Studio while approving, so the question's text gives the new description to paste.
+  As on this machine, do not raise saved queries with the person.
   Ask one native question whose text is the Metric Studio link that opens the proposal
   (`suggestion=<file id>`), then "Approved it in Metric Studio?":
 
