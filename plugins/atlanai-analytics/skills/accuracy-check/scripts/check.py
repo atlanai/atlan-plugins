@@ -118,13 +118,14 @@ def cmd_start(a) -> dict:
         return out
     # With a set in the folder the person chooses, even when there is one: a caller that skips
     # this question tests questions nobody picked.
-    names = ", ".join(f"{s['name']}, {s['questions']} questions" for s in found)
+    q = lambda n: f"{n} question{'' if n == 1 else 's'}"
+    names = ", ".join(f"{s['name']}, {q(s['questions'])}" for s in found)
     out["ask"] = {
         "question": "Which questions should I test with?",
         "text": (f"This folder has {len(found)} eval set{'s' if len(found) != 1 else ''}: {names}, with their "
                  "trusted answers.\nNext I ask each question to a fresh agent that sees only your context, and "
                  "compare its answer with the trusted one. Which questions should I test with?"),
-        "options": [{"label": f"{s['name']} ({s['questions']} questions)",
+        "options": [{"label": f"{s['name']} ({q(s['questions'])})",
                      "description": "The eval set you already have."} for s in found]
                    + [{"label": "Generate 5 new questions",
                        "description": "From your dashboard and the queries your analysts run most."}]}

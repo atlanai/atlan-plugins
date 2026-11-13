@@ -65,18 +65,10 @@ def cmd_fixes(a) -> dict:
             "file": str(ev / "fixes.json")}
 
 
-def _flat(o):
-    """The same value with no line breaks inside strings, so it travels as one tool argument."""
-    if isinstance(o, dict):
-        return {k: _flat(v) for k, v in o.items()}
-    if isinstance(o, list):
-        return [_flat(v) for v in o]
-    return " ".join(o.split("\n")) if isinstance(o, str) else o
-
-
 def cmd_version(a) -> dict:
     """The next version of a saved metric with its fix applied: the `metadata` for
-    registry__append_artifact_version, built from the definition the save sent, never retyped."""
+    registry__append_artifact_version, built from this run's definition, never retyped. The demo makes
+    the same edit on this machine right after, so this run stays at the version Atlan holds."""
     ev, run = pathlib.Path(a.evals), pathlib.Path(a.run)
     fix = next((f for f in load(ev / "fixes.json", []) or [] if f.get("metric") == a.metric and f.get("changes")), None)
     if not fix:
@@ -101,7 +93,7 @@ def cmd_version(a) -> dict:
         node[keys[-1]] = c["value"]
     d["version"] = a.head_version + 1
     meta["definition"] = d
-    return {"status": "ok", "metric": a.metric, "version": d["version"], "metadata": _flat(meta)}
+    return {"status": "ok", "metric": a.metric, "version": d["version"], "metadata": meta}
 
 
 def main(argv=None) -> int:

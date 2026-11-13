@@ -136,7 +136,7 @@ class ScopeTest(unittest.TestCase):
         res = self.check("start", "--project", str(self.tmp))
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
-        self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 questions)", "Generate 5 new questions"])
+        self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Generate 5 new questions"])
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")
@@ -164,7 +164,7 @@ class ScopeTest(unittest.TestCase):
         out = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Cost", "--head-version", "1")
         meta = out["metadata"]
         self.assertEqual((out["version"], meta["description"], meta["definition"]["formula"],
-                          meta["definition"]["examples"][0]["sql"]), (2, "New.", "SUM(b)", "SELECT 1"))
+                          meta["definition"]["examples"][0]["sql"]), (2, "New.", "SUM(b)", "SELECT\n1"))
         moved = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Cost", "--head-version", "3")
         self.assertEqual(moved["status"], "BLOCKED")
 

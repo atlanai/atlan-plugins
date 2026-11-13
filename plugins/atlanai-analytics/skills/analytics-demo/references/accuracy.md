@@ -29,23 +29,13 @@ this machine only.
 
 `CHECK start --project <project>` returns the built run, `context_saved_to`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
-`text` and `options`). With no sets, or the person asking for new questions, generate. Otherwise, unless the
-request named a set, ask one native question, even when the folder holds only one set, whose text is this state line, as plain lines:
-
-```
-This folder has <N> eval set(s): <set name>, <N> questions with their trusted answers.
-Next I ask each question to a fresh agent that sees only your context, and compare
-its answer with the trusted one. Which questions should I test with?
-```
+`text` and `options`). With no sets, or the person asking for new questions, generate. Otherwise,
+unless the request named a set, put `ask` as one native question, as it is, even when the folder
+holds only one set.
 
 Nothing else goes in it or before it: not a set's notes or expected answers, where its questions
 came from, or what the test is likely to find. A brought set runs as it is; only generated
 questions are shown with their expected answers, in step 2, because the person has not seen them.
-
-| Option | Description |
-| --- | --- |
-| `<set name>` (`<N>` questions) | The eval set you already have, one option per set. |
-| Generate 5 new questions | From your dashboard and the queries your analysts run most. |
 
 - **A set:** picking it is the approval to run it. `CHECK load --project <project> --file <set>`,
   then step 3, with no list to confirm.
@@ -126,7 +116,7 @@ in `<evals-run>/work/spec.json`, name the fix:
 
   | Option | Description |
   | --- | --- |
-  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. In Atlan Trident this releases the new version. |
+  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
   | Keep the score | Keep this score as the bar to beat. |
 
 **Apply it** is the yes through the next score, so ask nothing more until the score, unless a
@@ -151,9 +141,13 @@ Trident write is refused and the owner must act in Metric Studio. Keep the score
   3. Send `registry__append_artifact_version` with that `metadata` exactly as printed, `if_match`
      the head's `etag`, and release the new version to `latest` with `registry__release_artifact`
      unless the workspace already released it.
-  A refusal at step 2 or 3 (someone changed the metric since, or the person may not write to
-  it) leaves the proposal for its owner: give its Metric Studio link (`suggestion=<file id>`) and
-  ask "Approved it in Metric Studio?" (Approved, test again / Not now, which goes to the result).
+  4. Make the same change on this machine, as for a local context (`PROJECT edit-metric`), so the
+     run holds the version Atlan holds and a later fix builds on this one.
+  A refusal at any step (the person may not write proposals or this metric, or someone changed it
+  since) leaves the change for its owner: give the proposal's Metric Studio link
+  (`suggestion=<file id>`) and ask "Approved it in Metric Studio?" (Approved, test again / Not now,
+  which goes to the result). After the owner's approval, release that version as in step 3 and
+  make the step 4 change.
   As on this machine, do not raise saved queries with the person.
 
 Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the
@@ -188,7 +182,8 @@ No other line: not a significance test, an open question, a note on saved querie
 queries that still follow the old rule, or an offer to change a saved query, another metric
 or the set.
 
-**Context in Atlan Trident, after a fix.** The result is the moment to save, so ask one native
+**Context in Atlan Trident, after a fix was applied** (released, or approved by its owner; a
+proposal still waiting is not applied). The result is the moment to save, so ask one native
 question, "Save this check to Atlan Trident?", whose text is the result block, then the
 question:
 
@@ -209,7 +204,8 @@ as plain lines and no banner (the result was just shown):
 ```
 Saved to <workspace>:
   <agent>, with <N> questions and <runs> runs scored from <p>% to <q>%
-  <metric> version <v>, released            (one line per metric the fix released)
+  <metric> version <v>, released            (one line per metric the fix changed; "withdrawn"
+                                             when the test again withdrew it)
 See the runs in Atlan: <runs link>
 ```
 
