@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Atlan Analytics build</title>
+<style>
+/* Design tokens from atlanai/design-system cba0d58 packages/tokens/generated/tokens.json (kit/tokens.css), only those this page uses. */
+:root { --bg-ai-subtle: #f6f5fe; --bg-brand-fill: #0968f6; --bg-brand-fill-hover: #0049b8; --bg-brand-hover: rgb(9 104 246 / 0.08); --bg-brand-muted: #d4e5fe; --bg-brand-subtle: #f5f9ff; --bg-canvas: #f7f7f7; --bg-muted: rgb(0 0 0 / 0.08); --bg-neutral-subtle: rgb(0 0 0 / 0.06); --bg-subtle: rgb(0 0 0 / 0.02); --bg-success-fill: #288034; --bg-success-muted: #e0fae0; --bg-success-subtle: #f6fef6; --bg-surface: #ffffff; --bg-surface-hover: rgb(0 0 0 / 0.06); --bg-surface-selected: rgb(0 0 0 / 0.08); --bg-warning-fill: #ffbd14; --bg-warning-subtle: #fffff5; --border-ai: #ad9efa; --border-card: rgb(0 0 0 / 0.09); --border-control: #e5e5e5; --border-default: #e5e5e5; --border-focus: #0968f6; --border-hover: #cccccc; --border-strong: #8f8f8f; --border-subtle: rgb(0 0 0 / 0.06); --border-warning: #ffe58a; --chart-muted: #adadad; --elevation-1: 0px 1px 2px 0px rgb(0 0 0 / 0.05), inset 0px -1px 0px 0px rgb(0 0 0 / 0.1); --icon-brand: #0968f6; --icon-default: #707070; --icon-disabled: #adadad; --icon-placeholder: #cccccc; --icon-success: #288034; --icon-warning: #855f00; --motion-ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1); --motion-ease-move: cubic-bezier(0.4, 0, 0.2, 1); --ring-brand: rgb(9 104 246 / 0.3); --text-ai: #3b1fc6; --text-brand: #0049b8; --text-brand-hover: #002a69; --text-default: #191919; --text-on-fill: #ffffff; --text-placeholder: #8f8f8f; --text-subtle: #636363; --text-success: #1f6c2a; --text-warning: #855f00; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg-ai-subtle: rgb(88 58 238 / 0.18); --bg-brand-hover: rgb(9 104 246 / 0.16); --bg-brand-muted: rgb(9 104 246 / 0.22); --bg-brand-subtle: rgb(9 104 246 / 0.12); --bg-canvas: #111111; --bg-muted: rgb(255 255 255 / 0.08); --bg-neutral-subtle: rgb(255 255 255 / 0.08); --bg-subtle: rgb(255 255 255 / 0.06); --bg-success-muted: rgb(60 193 78 / 0.2); --bg-success-subtle: rgb(60 193 78 / 0.12); --bg-surface: #202020; --bg-surface-hover: rgb(255 255 255 / 0.06); --bg-surface-selected: rgb(255 255 255 / 0.08); --bg-warning-subtle: rgb(238 187 4 / 0.1); --border-ai: rgb(131 107 255 / 0.4); --border-card: rgb(255 255 255 / 0.1); --border-control: #363636; --border-default: #363636; --border-focus: #4d93fc; --border-hover: #707070; --border-subtle: rgb(255 255 255 / 0.06); --border-warning: rgb(238 187 4 / 0.35); --chart-muted: #707070; --elevation-1: inset 0px 1px 0px 0px rgb(255 255 255 / 0.06), 0px 1px 2px 0px rgb(0 0 0 / 0.55); --icon-brand: #4d93fc; --icon-default: #8f8f8f; --icon-disabled: #636363; --icon-placeholder: #707070; --icon-success: #3cc14e; --icon-warning: #d5a300; --ring-brand: rgb(9 104 246 / 0.35); --text-ai: #ad9efa; --text-brand: #84b4fb; --text-brand-hover: #d4e5fe; --text-default: #f7f7f7; --text-placeholder: #707070; --text-subtle: #adadad; --text-success: #4ce160; --text-warning: #ffbd14; color-scheme: dark; } }
+:root[data-theme="dark"] { --bg-ai-subtle: rgb(88 58 238 / 0.18); --bg-brand-hover: rgb(9 104 246 / 0.16); --bg-brand-muted: rgb(9 104 246 / 0.22); --bg-brand-subtle: rgb(9 104 246 / 0.12); --bg-canvas: #111111; --bg-muted: rgb(255 255 255 / 0.08); --bg-neutral-subtle: rgb(255 255 255 / 0.08); --bg-subtle: rgb(255 255 255 / 0.06); --bg-success-muted: rgb(60 193 78 / 0.2); --bg-success-subtle: rgb(60 193 78 / 0.12); --bg-surface: #202020; --bg-surface-hover: rgb(255 255 255 / 0.06); --bg-surface-selected: rgb(255 255 255 / 0.08); --bg-warning-subtle: rgb(238 187 4 / 0.1); --border-ai: rgb(131 107 255 / 0.4); --border-card: rgb(255 255 255 / 0.1); --border-control: #363636; --border-default: #363636; --border-focus: #4d93fc; --border-hover: #707070; --border-subtle: rgb(255 255 255 / 0.06); --border-warning: rgb(238 187 4 / 0.35); --chart-muted: #707070; --elevation-1: inset 0px 1px 0px 0px rgb(255 255 255 / 0.06), 0px 1px 2px 0px rgb(0 0 0 / 0.55); --icon-brand: #4d93fc; --icon-default: #8f8f8f; --icon-disabled: #636363; --icon-placeholder: #707070; --icon-success: #3cc14e; --icon-warning: #d5a300; --ring-brand: rgb(9 104 246 / 0.35); --text-ai: #ad9efa; --text-brand: #84b4fb; --text-brand-hover: #d4e5fe; --text-default: #f7f7f7; --text-placeholder: #707070; --text-subtle: #adadad; --text-success: #4ce160; --text-warning: #ffbd14; color-scheme: dark; }
+</style>
+<style>
+:root { --gutter: max(16px, env(safe-area-inset-left, 0px)); --gutter-r: max(16px, env(safe-area-inset-right, 0px)); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg-canvas); color: var(--text-default);
+  font: 400 14px/20px "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-wrap: pretty; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; font-weight: 500; text-wrap: balance; }
+p { margin: 0; }
+dl { margin: 0; }
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.mono, code, pre { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+.num { font-variant-numeric: tabular-nums; }
+.sub { color: var(--text-subtle); }
+.xs { font-size: 12px; line-height: 16px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; display: block; }
+.ic.s { width: 14px; height: 14px; }
+.ic.xs { width: 12px; height: 12px; }
+
+/* Surfaces */
+.card { background: var(--bg-surface); border: 0.5px solid var(--border-card); border-radius: 16px; box-shadow: var(--elevation-1); }
+.badge { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 6px; font-size: 12px; line-height: 16px;
+  background: var(--bg-neutral-subtle); color: var(--text-subtle); white-space: nowrap; }
+.badge.ok { background: var(--bg-success-subtle); color: var(--text-success); }
+.badge.warn { background: var(--bg-warning-subtle); color: var(--text-warning); }
+.badge.brand { background: var(--bg-brand-subtle); color: var(--text-brand); }
+.badge .ic { width: 12px; height: 12px; }
+.badge.brand .sd { background: var(--bg-brand-fill); }
+.kind { width: 24px; height: 24px; border-radius: 7px; display: inline-grid; place-items: center; flex: none; }
+.kind.metric { background: var(--bg-brand-subtle); color: var(--text-brand); }
+.kind.source { background: var(--bg-subtle); color: var(--text-subtle); }
+.kind.lg { width: 32px; height: 32px; border-radius: 9px; }
+.kind.lg .ic { width: 16px; height: 16px; }
+.sd { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; flex: none; }
+.btn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 8px;
+  font-size: 12px; line-height: 16px; white-space: nowrap; cursor: pointer; flex: none; border: 0.5px solid var(--border-control);
+  background: var(--bg-surface); color: var(--text-default); }
+.btn.pri { background: var(--bg-brand-fill); border-color: transparent; color: var(--text-on-fill); }
+.btn.pri:hover { background: var(--bg-brand-fill-hover); }
+.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.empty { display: flex; gap: 10px; align-items: flex-start; padding: 14px; color: var(--text-subtle); font-size: 13px; line-height: 18px; }
+.empty b { color: var(--text-default); font-weight: 500; }
+.empty .ic, .empty .spin { margin-top: 1px; }
+.pad { padding: 12px 14px; }
+.u { font-size: 12px; line-height: 16px; color: var(--text-subtle); overflow-wrap: anywhere; }
+.mm { display: grid; gap: 2px; min-width: 0; }
+.sh { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--text-subtle); margin: 0 2px 8px; }
+.sl { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--text-subtle); }
+.dsec { display: grid; gap: 8px; min-width: 0; }
+
+/* Page */
+.sp { max-width: 1200px; margin: 0 auto; padding: 12px var(--gutter-r) 40px var(--gutter); display: grid; gap: 16px; align-content: start; min-width: 0; }
+.sp > *, .wl > *, .wr > * { min-width: 0; }
+.sp.wd { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.wl, .wr { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.wr { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; padding: 2px; margin: -2px; overscroll-behavior: contain; }
+.top { display: grid; gap: 12px; }
+
+/* Toolbar: live state, last update, theme */
+.tb { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; font-size: 12px; line-height: 16px; }
+.lv { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-subtle); white-space: nowrap; overflow: hidden; }
+.lv .st { color: var(--text-default); font-weight: 500; }
+.lv .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--icon-disabled); }
+.lv.live .dot { background: var(--bg-success-fill); animation: lvp 2.4s infinite; }
+.lv.retry .dot { background: var(--bg-warning-fill); }
+.lv.wait .dot { background: var(--bg-brand-fill); }
+.lv .when { overflow: hidden; text-overflow: ellipsis; }
+.tgl { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--bg-muted); flex: none; }
+.tgl button { all: unset; display: grid; place-items: center; width: 24px; height: 20px; border-radius: 6px; color: var(--icon-default); cursor: pointer; }
+.tgl button:hover { color: var(--text-default); }
+.tgl button[aria-pressed="true"] { background: var(--bg-surface); color: var(--text-default); box-shadow: var(--elevation-1); }
+.tgl button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.off { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; font-size: 13px; line-height: 18px; color: var(--text-subtle); }
+.off b { font-weight: 500; color: var(--text-default); }
+.off .ic { margin-top: 2px; color: var(--icon-default); }
+
+/* Title */
+.tp { display: grid; gap: 2px; }
+.eb { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.tt { font-size: 17px; line-height: 22px; font-weight: 500; overflow-wrap: anywhere; }
+.ts { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+
+/* Step rail: the layout B dots, labelled and clickable */
+.rail { display: flex; align-items: flex-start; min-width: 0; margin: 0 -4px; }
+.rst { all: unset; box-sizing: border-box; flex: 0 1 auto; min-width: 0; display: grid; justify-items: center; gap: 5px; padding: 6px 3px 5px;
+  border-radius: 8px; cursor: pointer; color: var(--text-subtle); }
+.rst:hover { background: var(--bg-surface-hover); }
+.rst:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.rst[aria-pressed="true"] { background: var(--bg-surface-selected); }
+.rd { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-surface); box-shadow: inset 0 0 0 1.5px var(--border-hover); }
+.rst.d .rd { background: var(--bg-success-fill); box-shadow: none; }
+.rst.n .rd { background: var(--bg-brand-fill); box-shadow: 0 0 0 3px var(--bg-brand-muted); }
+.rst.n.wt .rd { background: var(--bg-surface); box-shadow: inset 0 0 0 2.5px var(--bg-brand-fill), 0 0 0 3px var(--bg-brand-muted); }
+.rst.n.busy .rd { animation: pl 1.6s infinite; }
+.rl { display: block; max-width: 100%; font-size: 11px; line-height: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rst.d .rl { color: var(--text-default); }
+.rst.n .rl { color: var(--text-brand); font-weight: 500; }
+.rst[aria-pressed="true"] .rl { color: var(--text-default); font-weight: 500; }
+.rln { flex: 1 1 4px; min-width: 2px; height: 1px; margin-top: 11px; background: var(--border-default); }
+.rln.d { background: var(--bg-success-fill); }
+
+/* Header, layout B */
+.hblk { display: grid; gap: 10px; }
+.hb { padding: 14px 16px 16px; display: grid; gap: 10px; }
+.hk { font-size: 12px; line-height: 16px; color: var(--text-subtle); min-width: 0; }
+.hh { display: flex; gap: 8px; align-items: center; font-size: 15px; line-height: 20px; font-weight: 500; min-width: 0; }
+.hh > span { min-width: 0; overflow-wrap: anywhere; text-wrap: balance; }
+.hc { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.hc > span { color: var(--text-subtle); min-width: 0; overflow-wrap: anywhere; }
+.big { font-size: 28px; line-height: 32px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hn { font-size: 12px; line-height: 16px; color: var(--text-subtle); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.hw { display: flex; gap: 8px; align-items: center; font-size: 13px; line-height: 18px; min-width: 0; }
+.hw > span { min-width: 0; }
+.hw .sd { background: var(--bg-brand-fill); box-shadow: 0 0 0 3px var(--bg-brand-subtle); }
+.hw.stop { color: var(--text-warning); }
+.nx { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 0.5px dashed var(--border-hover); font-size: 13px; line-height: 18px; color: var(--text-subtle); min-width: 0; }
+.nx b { color: var(--text-default); font-weight: 500; }
+.nx > span { min-width: 0; }
+
+/* Progress: the fill is real progress; motion rides over it while work is under way */
+.bar { position: relative; height: 6px; border-radius: 3px; background: var(--bg-muted); overflow: hidden; }
+.bar > i { position: relative; display: block; height: 100%; width: 0; background: var(--bg-brand-fill); border-radius: 3px; overflow: hidden;
+  transition: width .5s var(--motion-ease-emphasized); }
+.bar.ok > i { background: var(--bg-success-fill); }
+.bar.thin { height: 3px; border-radius: 0; }
+.bar.busy::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg-brand-fill) 28%, transparent), transparent); animation: sweep 2.2s var(--motion-ease-move) infinite; }
+.bar.busy > i::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 20%, color-mix(in srgb, var(--text-on-fill) 60%, transparent) 50%, transparent 80%); animation: shim 1.6s ease-in-out infinite; }
+.bar.ind > i { position: absolute; top: 0; left: 0; width: 30%; animation: ind 1.4s var(--motion-ease-move) infinite; }
+.bar.ind::before { display: none; }
+.spin { width: 14px; height: 14px; flex: none; animation: rot .9s linear infinite; }
+.spin circle { fill: none; stroke: var(--bg-brand-muted); stroke-width: 2; }
+.spin path { fill: none; stroke: var(--icon-brand); stroke-width: 2; stroke-linecap: round; }
+.pl { animation: pl 1.6s infinite; }
+.fl { animation: fl 1.6s ease; }
+@keyframes pl { 0% { box-shadow: 0 0 0 0 var(--ring-brand); } 70% { box-shadow: 0 0 0 5px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes lvp { 0% { box-shadow: 0 0 0 0 var(--bg-success-muted); } 70% { box-shadow: 0 0 0 5px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes fl { from { background: var(--bg-brand-hover); } to { background: transparent; } }
+@keyframes shim { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@keyframes ind { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* Compact now strip, shown while another step is open */
+.cp { padding: 10px 12px 0; display: grid; gap: 2px; overflow: hidden; }
+.cpr { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; line-height: 18px; }
+.cpr > .sd { background: var(--bg-brand-fill); }
+.cpr > .sd.okd { background: var(--bg-success-fill); }
+.cpm { flex: 1; min-width: 0; }
+.cpm b { font-weight: 500; }
+.cpm span { color: var(--text-subtle); }
+.cps { font-size: 12px; line-height: 16px; color: var(--text-subtle); padding-bottom: 10px; }
+.cp .bar { margin: 0 -12px; }
+
+/* Status and source badges */
+.stb .sd { width: 6px; height: 6px; }
+.sb { height: 20px; }
+
+/* Metric list */
+.ml { container-type: inline-size; min-width: 0; }
+.mlh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 2px 8px; min-width: 0; }
+.mlh h2 { font-size: 14px; line-height: 20px; font-weight: 500; flex: none; }
+.mlh > span { min-width: 0; text-align: right; }
+.cnt { color: var(--text-subtle); font-weight: 400; margin-left: 4px; }
+.mt { overflow: hidden; }
+.mt .th { display: none; }
+.mr { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 10px 12px;
+  border-top: 0.5px solid var(--border-subtle); cursor: pointer; width: 100%; align-items: start; }
+.mt .mr:first-of-type { border-top: 0; }
+.mr:hover { background: var(--bg-surface-hover); }
+.mr[aria-pressed="true"] { background: var(--bg-surface-selected); }
+.mr:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.mr .nm { font-weight: 500; overflow-wrap: anywhere; }
+.ds { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.wt { font-style: normal; color: var(--text-placeholder); }
+.src { display: flex; flex-wrap: wrap; gap: 4px; }
+.mr .src.n { margin-top: 4px; }
+.mr .w { display: none; }
+.vs { display: grid; justify-items: end; gap: 4px; text-align: right; }
+.v { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@container (min-width: 620px) {
+  .mt .th { display: grid; grid-template-columns: 24px minmax(0, 2.2fr) minmax(0, 1.4fr) 112px 120px; gap: 10px; padding: 8px 12px; font-size: 12px; line-height: 16px;
+    color: var(--text-subtle); border-bottom: 0.5px solid var(--border-subtle); }
+  .mt .th span:last-child { text-align: right; }
+  .mr { grid-template-columns: 24px minmax(0, 2.2fr) minmax(0, 1.4fr) 112px 120px; align-items: center; }
+  .mr .w { display: flex; }
+  .mr .n { display: none; }
+}
+.lk { margin-bottom: 16px; overflow: hidden; }
+.lk .lh { display: flex; gap: 8px; align-items: center; padding: 10px 12px; color: var(--text-warning); font-weight: 500; font-size: 13px; line-height: 18px; }
+.lk .li { padding: 9px 12px; border-top: 0.5px solid var(--border-subtle); display: grid; gap: 4px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+.lk .li .e { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.qb { margin: 8px 2px 0; display: grid; gap: 8px; }
+.ql { overflow: hidden; }
+.qr { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 9px 12px; border-top: 0.5px solid var(--border-subtle); align-items: start;
+  font-size: 13px; line-height: 18px; }
+.qr:first-child { border-top: 0; }
+.qr .q { overflow-wrap: anywhere; }
+
+/* Folds */
+.fold { all: unset; cursor: pointer; font-size: 12px; line-height: 16px; color: var(--text-subtle); display: inline-flex; gap: 4px; align-items: center;
+  border-radius: 4px; justify-self: start; margin-top: 4px; }
+.fold:hover { color: var(--text-default); }
+.fold:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.fold .ic { transition: transform .2s; }
+.fold[aria-expanded="true"] .ic { transform: rotate(180deg); }
+.qb > .fold { margin-top: 0; }
+
+/* How we got here */
+.dt { display: grid; gap: 16px; min-width: 0; }
+.dth { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.dn { font-size: 17px; line-height: 22px; font-weight: 500; overflow-wrap: anywhere; }
+.dv { font-size: 17px; line-height: 22px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dd { overflow-wrap: anywhere; }
+.ev { overflow: hidden; }
+.ei { padding: 12px; border-top: 0.5px solid var(--border-subtle); display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; }
+.ei:first-child { border-top: 0; }
+.ei .q { font-weight: 500; overflow-wrap: anywhere; }
+.ei .mm { gap: 3px; }
+.sql { font-size: 12px; line-height: 18px; background: var(--bg-subtle); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word;
+  margin: 6px 0 0; border: 0.5px solid var(--border-subtle); }
+.rs { padding: 12px 14px; border-radius: 12px; background: var(--bg-ai-subtle); border: 0.5px solid var(--border-ai); font-size: 13px; line-height: 18px;
+  color: var(--text-ai); overflow-wrap: anywhere; }
+.sl.ai { color: var(--text-ai); }
+.kv { display: grid; grid-template-columns: minmax(84px, max-content) minmax(0, 1fr); gap: 8px 12px; font-size: 13px; line-height: 18px; }
+.kv dt { color: var(--text-subtle); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.fx { margin: 0 0 10px; }
+.ck { display: grid; gap: 4px; }
+.ckv { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ckrun { display: flex; gap: 8px; align-items: center; color: var(--text-brand); font-size: 13px; line-height: 18px; }
+.ckrun .sd { background: var(--bg-brand-fill); }
+.warnline { display: flex; gap: 6px; align-items: center; color: var(--text-warning); font-weight: 500; }
+.back { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; font-size: 13px; line-height: 18px; color: var(--text-subtle);
+  justify-self: start; border-radius: 6px; }
+.back:hover { color: var(--text-default); }
+.back:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* Sources overview */
+.ov { display: grid; overflow: hidden; }
+.ovs { padding: 12px 14px; display: grid; gap: 8px; border-top: 0.5px solid var(--border-subtle); }
+.ovs:first-child { border-top: 0; }
+.ovh { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 18px; }
+.ovh span { color: var(--text-subtle); }
+.ovh b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.ovl { display: grid; gap: 6px; }
+.ovr { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: start; font-size: 13px; line-height: 18px; }
+.ovr .ic { color: var(--icon-default); margin-top: 1px; }
+.ovr code { font-size: 12px; overflow-wrap: anywhere; }
+.ovr > span { overflow-wrap: anywhere; }
+.ovr b { font-weight: 400; color: var(--text-subtle); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ovr .q { display: block; font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.ovn { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.intro { padding: 14px; display: grid; gap: 6px; font-size: 13px; line-height: 18px; }
+.intro b { font-weight: 500; }
+
+/* Done so far */
+.lst { overflow: hidden; }
+.dr { border-top: 0.5px solid var(--border-subtle); }
+.dr:first-child { border-top: 0; }
+.drb { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 12px; font-size: 13px; line-height: 18px; }
+.drb:hover { background: var(--bg-surface-hover); }
+.drb:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.drb .tick { color: var(--icon-success); }
+.drb .n { font-weight: 500; flex: none; max-width: 52%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drb .f { color: var(--text-subtle); flex: 1; min-width: 0; text-align: right; }
+.chev { color: var(--icon-default); transition: transform .2s; }
+[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.drc { padding: 4px 12px 12px; display: grid; gap: 12px; font-size: 13px; line-height: 18px; }
+.lnk { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; justify-self: start; font-size: 12px; line-height: 16px;
+  color: var(--text-brand); border-radius: 4px; }
+.lnk:hover { color: var(--text-brand-hover); }
+.lnk:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+
+/* A step, opened from the rail */
+.stv { display: grid; gap: 16px; min-width: 0; }
+.sph { padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.spt { font-size: 15px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
+.sfact { display: flex; gap: 6px; align-items: flex-start; margin-top: 6px; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+.sfact .ic { color: var(--icon-success); margin-top: 2px; }
+.sfact > span { min-width: 0; }
+.rsl { overflow: hidden; }
+.rsr { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 0.5px solid var(--border-subtle); font-size: 13px; line-height: 18px; min-width: 0; }
+.rsr:first-child { border-top: 0; }
+.rsr > span { min-width: 0; overflow-wrap: anywhere; }
+.rsr > b { font-weight: 500; text-align: right; max-width: 55%; overflow-wrap: anywhere; }
+.drc .rsl { border-radius: 10px; box-shadow: none; }
+.pcs { overflow: hidden; }
+.pc { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; padding: 10px 14px; border-top: 0.5px solid var(--border-subtle); align-items: start; }
+.pc:first-child { border-top: 0; }
+.pci { display: grid; place-items: center; height: 18px; }
+.pc.done .pci { color: var(--icon-success); }
+.pc.warn .pci { color: var(--icon-warning); }
+.pc.next .pci { color: var(--icon-placeholder); }
+.pct { font-size: 13px; line-height: 18px; font-weight: 500; overflow-wrap: anywhere; }
+.pc.next .pct { font-weight: 400; color: var(--text-subtle); }
+.pcb { justify-self: start; margin-top: 3px; font-size: 11px; line-height: 14px; padding: 1px 6px; border-radius: 5px; background: var(--bg-neutral-subtle); color: var(--text-subtle); }
+.pcn { font-size: 12px; line-height: 18px; font-weight: 500; text-align: right; max-width: 132px; overflow-wrap: anywhere; }
+.pc.warn .pcn { color: var(--text-warning); }
+.pcs.flat { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.pcs.flat .pc { padding: 8px 0; }
+
+/* End states */
+.ans { padding: 14px; display: grid; gap: 10px; }
+.aq { font-size: 13px; line-height: 18px; color: var(--text-subtle); overflow-wrap: anywhere; }
+.av { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.av .sub { overflow-wrap: anywhere; min-width: 0; }
+.as { font-size: 13px; line-height: 18px; }
+.ab { display: grid; gap: 6px; }
+.abr { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12px; line-height: 16px; }
+.abr .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-subtle); }
+.abr.hl .n { color: var(--text-default); font-weight: 500; }
+.trk { position: relative; height: 8px; }
+.trk i { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--chart-muted); }
+.abr.hl .trk i { background: var(--bg-brand-fill); }
+.trk .z { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--border-strong); }
+.abr .v { text-align: right; font-weight: 400; }
+.abr.hl .v { font-weight: 500; }
+.arl { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 16px; padding-top: 10px; border-top: 0.5px solid var(--border-subtle); overflow-wrap: anywhere; }
+.arl .ic { color: var(--icon-default); margin-top: 1px; }
+.arl > span { min-width: 0; }
+.ap { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pch { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; height: 22px; padding: 0 8px 0 4px; border-radius: 6px;
+  border: 0.5px solid var(--border-default); font-size: 12px; line-height: 16px; background: var(--bg-surface); max-width: 100%; }
+.pch:hover { border-color: var(--border-hover); }
+.pch:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.pch .kind { width: 16px; height: 16px; border-radius: 4px; }
+.pch .kind .ic { width: 10px; height: 10px; }
+.pch.plain { cursor: default; padding-left: 8px; }
+.rd2 { overflow: hidden; }
+.rdr { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; padding: 12px 14px; align-items: start; border-top: 0.5px solid var(--border-subtle);
+  font-size: 13px; line-height: 18px; }
+.rdr:first-child { border-top: 0; }
+.rdr b { font-weight: 500; }
+.rdr .ico { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; background: var(--bg-subtle); color: var(--icon-default); }
+.rdr .ico.wait { color: var(--icon-brand); background: var(--bg-brand-subtle); }
+.db { padding: 12px 14px; display: grid; gap: 10px; }
+.dbh { display: flex; gap: 8px; align-items: center; }
+.dbh b { font-weight: 500; flex: 1; }
+.dbh .ic { color: var(--icon-default); }
+.dbg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.dbt { border: 0.5px solid var(--border-default); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; min-width: 0; }
+.dbt b { font-size: 17px; line-height: 22px; font-weight: 500; }
+.ed { padding: 14px; display: grid; gap: 12px; }
+.edh { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: center; }
+.edh b { font-weight: 500; }
+.edv { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.edv > .ic { margin-bottom: 6px; color: var(--icon-default); }
+.edv > .sub { padding-bottom: 4px; }
+.edv > div { display: grid; }
+.edv .was { font-size: 20px; line-height: 24px; color: var(--text-subtle); text-decoration: line-through; text-decoration-thickness: 1px; }
+.edl { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.edl .xs { margin-right: 4px; }
+.edl .badge { white-space: normal; height: auto; min-height: 20px; }
+.nte { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 16px; color: var(--text-warning); background: var(--bg-warning-subtle);
+  border: 0.5px solid var(--border-warning); border-radius: 10px; padding: 8px 10px; }
+.nte .ic { margin-top: 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .bar.busy::before, .bar.busy > i::after { display: none; }
+  .bar.ind > i { width: 100%; opacity: .35; }
+}
+</style>
+</head>
+<body>
+<div id="app" aria-busy="true"></div>
+<div class="sr" id="say" aria-live="polite"></div>
+<script>
+(() => {
+'use strict';
+
+/* Formatting. Every string from the snapshot goes through esc() before it reaches the page. */
+const MINUS = '−';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+const txt = v => typeof v === 'string' ? v : isNum(v) ? String(v) : '';
+const arr = v => Array.isArray(v) ? v : [];
+const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+const grp = n => isNum(n) ? Math.round(n).toLocaleString('en-GB') : txt(n);
+const pl = (n, one, many) => grp(n) + ' ' + (n === 1 ? one : (many || one + 's'));
+const fixMinus = s => txt(s).replace(/(^|[\s(])-(?=[£$€\d])/g, '$1' + MINUS);
+const lc = s => txt(s).toLowerCase();
+function splitHeadline(h) { h = txt(h); const i = h.lastIndexOf(': '); return i < 0 ? ['', h] : [h.slice(0, i), h.slice(i + 2)]; }
+function clock(iso) {
+  const t = Date.parse(txt(iso));
+  return Number.isNaN(t) ? '' : new Date(t).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+}
+const prettySql = q => txt(q).replace(/\s+(FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION ALL|LEFT JOIN|INNER JOIN|JOIN|LIMIT)\b/g, '\n$1');
+
+/* Icons: 24 px grid, 1.6 stroke */
+const PATH = {
+  metric: '<path d="M4 19.5h16"/><path d="M6 15.5l4-5 3.5 3 4.5-6.5"/>',
+  tile: '<rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M8.5 15.5v-3M12 15.5v-6M15.5 15.5v-4.5"/>',
+  query: '<path d="M9 7.5L4.5 12 9 16.5M15 7.5l4.5 4.5-4.5 4.5"/>',
+  table: '<rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M10 10v9"/>',
+  check: '<path d="M5.5 12.5l4 4 9-9"/>',
+  alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5M12 15.8v.2"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  chev: '<path d="M6 9l6 6 6-6"/>',
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  folder: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  laptop: '<rect x="5" y="5.5" width="14" height="10" rx="1.5"/><path d="M3 18.5h18"/>',
+  cloud: '<path d="M7.5 18.5h9a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 6.6 11.1a3.75 3.75 0 0 0 .9 7.4z"/>',
+  pen: '<path d="M14.5 5.5l4 4L9 19H5v-4z"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  chat: '<path d="M5 6.5h14v9H10l-4 3v-3H5z"/>',
+  circle: '<circle cx="12" cy="12" r="6.5"/>',
+  auto: '<rect x="3.5" y="5" width="17" height="11" rx="2"/><path d="M9 19.5h6M12 16v3.5"/>',
+  sun: '<circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v1.5M12 19v1.5M3.5 12H5M19 12h1.5M6 6l1.1 1.1M16.9 16.9L18 18M6 18l1.1-1.1M16.9 7.1L18 6"/>',
+  moon: '<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/>',
+};
+const ic = (n, cls) => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${PATH[n]}</svg>`;
+const spin = () => '<svg class="spin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 6 6"/></svg>';
+const kindM = () => `<span class="kind metric">${ic('metric', 's')}</span>`;
+const kindS = k => `<span class="kind source">${ic(k === 'tile' ? 'tile' : 'query', 's')}</span>`;
+
+/* Reading the snapshot */
+const stepsOf = S => arr(S.steps).filter(s => obj(s) && txt(s.id));
+const metricsOf = S => arr(S.metrics).filter(m => obj(m) && txt(m.name));
+const queriesOf = S => arr(S.queries).filter(obj);
+const nowOf = S => obj(S.now) || {};
+const findMetric = (S, name) => metricsOf(S).find(m => lc(m.name) === lc(name)) || null;
+const sourcesOf = m => arr(m.sources).filter(obj);
+function srcCounts(m) { const s = sourcesOf(m), t = s.filter(x => x.kind === 'tile').length; return {t, q: s.length - t}; }
+function editFor(S, m) { const e = obj(S.edit); return e && lc(e.metric) === lc(m.name) ? e : null; }
+const moving = UI => UI.link !== 'off';
+const busyNow = (S, UI) => !!nowOf(S).busy && moving(UI) && !S.state;
+function stepLabel(S) {
+  const n = nowOf(S), M = isNum(n.steps) ? n.steps : stepsOf(S).length;
+  if (n.id === 'done' || !isNum(n.at) || n.at >= M) return txt(n.step);
+  return `Step ${n.at + 1} of ${M} · ${txt(n.step)}`;
+}
+
+const STATUS = {drafted: ['Drafted', ''], checking: ['Checking', 'brand'], tool: ['Warehouse check', ''], checked: ['Checked', 'ok'], look: ['Needs a look', 'warn']};
+const statusOf = s => STATUS[s] ? s : 'drafted';
+function statusBadge(s, UI) {
+  s = statusOf(s);
+  return `<span class="badge ${STATUS[s][1]} stb"><i class="sd${s === 'checking' && moving(UI) ? ' pl' : ''}"></i>${STATUS[s][0]}</span>`;
+}
+const STOPPED = {paused: 'The build is paused', blocked: 'The build has stopped: see the chat', access_needed: 'The build is waiting for access: see the chat'};
+
+/* Top of the page */
+function toolbar(S, UI) {
+  const word = {live: 'Live', retry: 'Reconnecting', off: 'Not live', wait: 'Connecting'}[UI.link] || 'Connecting';
+  const t = S ? clock(S.updated) : '';
+  const themes = [['system', 'auto', 'Match the system theme'], ['light', 'sun', 'Light theme'], ['dark', 'moon', 'Dark theme']];
+  return `<div class="tb"><span class="lv ${esc(UI.link)}"><i class="dot" aria-hidden="true"></i><span class="st">${word}</span>`
+    + (t ? `<span class="when num">· Updated ${esc(t)}</span>` : '') + '</span>'
+    + `<span class="tgl" role="group" aria-label="Theme">${themes.map(([k, i, label]) => `<button type="button" data-theme-set="${k}" data-k="theme:${k}" aria-pressed="${UI.theme === k}" aria-label="${label}" title="${label}">${ic(i, 's')}</button>`).join('')}</span></div>`;
+}
+function offNote(S) {
+  const t = clock(S.updated);
+  return `<div class="card off">${ic('alert', 's')}<span><b>This build page is no longer live.</b> It shows the last update${t ? ', from ' + esc(t) : ''}, and picks up again if the build answers.</span></div>`;
+}
+function topBlock(S) {
+  const eb = 'Atlan Analytics · ' + (S.flow === 'demo' ? 'demo on made-up data' : 'your data') + (txt(S.firm) ? ' · ' + txt(S.firm) : '');
+  return `<div class="tp"><div class="eb">${esc(eb)}</div><h1 class="tt">${esc(txt(S.title) || 'Analytics setup')}</h1>${txt(S.subtitle) ? `<div class="ts">${esc(S.subtitle)}</div>` : ''}</div>`;
+}
+function rail(S, UI, view) {
+  const st = stepsOf(S), n = nowOf(S), busy = busyNow(S, UI);
+  if (!st.length) return '';
+  return `<nav class="rail" aria-label="Steps">${st.map((s, i) => {
+    const cls = s.status === 'done' ? 'd' : s.status === 'now' ? 'n' : 'x';
+    const waiting = s.status === 'now' && !!(s.needs_you || txt(n.wait));
+    const word = cls === 'd' ? 'done' : cls === 'n' ? (waiting ? 'waiting for you' : 'under way') : 'not started';
+    const line = i ? `<span class="rln${st[i - 1].status === 'done' && cls !== 'x' ? ' d' : ''}" aria-hidden="true"></span>` : '';
+    return line + `<button type="button" class="rst ${cls}${cls === 'n' && busy ? ' busy' : ''}${waiting ? ' wt' : ''}" data-act="step" data-id="${esc(s.id)}" data-k="step:${esc(s.id)}"`
+      + ` aria-pressed="${view === s.id}"${cls === 'n' ? ' aria-current="step"' : ''} title="${esc(txt(s.purpose) || txt(s.name))}">`
+      + `<span class="rd" aria-hidden="true"></span><span class="rl">${esc(txt(s.name) || txt(s.purpose))}</span><span class="sr">, ${word}</span></button>`;
+  }).join('')}</nav>`;
+}
+
+/* Layout B header, and its compact form while another step is open */
+function barHtml(key, n, busy) {
+  const has = isNum(n.bar);
+  if (!has && !busy) return '';
+  const w = has ? Math.max(0, Math.min(100, Math.round(n.bar * 1000) / 10)) : null;
+  const cls = ['bar', key === 'strip' ? 'thin' : '', n.ok ? 'ok' : '', busy ? 'busy' : '', busy && !has ? 'ind' : ''].filter(Boolean).join(' ');
+  const aria = has ? ` aria-valuemin="0" aria-valuemax="100" aria-valuenow="${w}"` : '';
+  return `<div class="${cls}" role="progressbar" aria-label="Progress"${aria}><i${has ? ` data-k="${key}" data-w="${w}"` : ''}></i></div>`;
+}
+function header(S, UI) {
+  const n = nowOf(S), busy = busyNow(S, UI), c = obj(n.count);
+  let h = `<div class="card hb"><div class="hk">${esc(stepLabel(S))}</div>`
+    + `<div class="hh"><span>${esc(n.title)}</span>${busy ? spin() + '<span class="sr">Working</span>' : ''}</div>`;
+  if (txt(n.value)) h += `<div class="hc"><b class="big num">${esc(fixMinus(n.value))}</b>${txt(n.value_label) ? `<span>${esc(n.value_label)}</span>` : ''}</div>`;
+  if (c && isNum(c.n)) h += `<div class="hc"><b class="big num">${esc(grp(c.n))}</b><span>${isNum(c.of) ? 'of ' + esc(grp(c.of)) + ' ' : ''}${esc(c.unit)}</span></div>`;
+  h += barHtml('hero', n, busy);
+  if (STOPPED[S.state]) h += `<div class="hw stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>`;
+  if (txt(n.wait)) h += `<div class="hw"><i class="sd" aria-hidden="true"></i><span>${esc(n.wait)}</span></div>`;
+  if (txt(n.note)) h += `<div class="hn" title="${esc(n.note)}">${esc(n.note)}</div>`;
+  h += '</div>';
+  if (txt(n.next)) h += `<div class="nx">${ic('arrow', 's')}<span><b>Next</b> · ${esc(n.next)}</span></div>`;
+  return `<div class="hblk">${h}</div>`;
+}
+function strip(S, UI) {
+  const n = nowOf(S), busy = busyNow(S, UI), c = obj(n.count);
+  const main = c && isNum(c.n) ? `<b class="num">${esc(grp(c.n))}${isNum(c.of) ? ' of ' + esc(grp(c.of)) : ''}</b> <span>${esc(c.unit)}</span>`
+    : txt(n.value) ? `<b class="num">${esc(fixMinus(n.value))}</b> <span>${esc(n.value_label)}</span>`
+    : `<b>${esc(txt(n.wait) || txt(n.title))}</b>`;
+  const sub = [stepLabel(S), (c && isNum(c.n)) || txt(n.value) || txt(n.wait) ? txt(n.title) : ''].filter(Boolean).join(' · ');
+  const mark = busy ? spin() : `<i class="sd${n.ok ? ' okd' : ''}" aria-hidden="true"></i>`;
+  return `<div class="card cp"><div class="cpr">${mark}<span class="cpm ell">${main}</span>`
+    + `<button type="button" class="btn pri" data-act="now" data-k="now">${ic('back', 'xs')}Back to now</button></div>`
+    + `<div class="cps ell">${esc(sub)}</div>${n.wait ? '' : barHtml('strip', n, busy)}</div>`;
+}
+
+/* Before the build: what it reads */
+const intro = () => '<div class="card intro"><b>This page follows the build beside the chat.</b><span class="sub">As it runs you see where it is, each metric as it is made, and how each one was reached: the dashboard tiles and past queries behind it, why they became one metric, its rule and its check on the data. Pick a step above to see what it did.</span></div>';
+function overview(S) {
+  const r = obj(S.read) || {};
+  const sec = (label, count, body) => `<div class="ovs"><div class="ovh"><span>${label}</span><b>${count}</b></div>${body || ''}</div>`;
+  let out = '';
+  if (isNum(r.found)) out += sec('Sources found', esc(grp(r.found)), arr(r.kinds).length ? `<div class="chips">${arr(r.kinds).map(k => `<span class="badge">${esc(k)}</span>`).join('')}</div>` : '');
+  const T = arr(r.tables).filter(t => Array.isArray(t) && txt(t[0]));
+  if (T.length) out += sec('Tables', esc(grp(T.length)), `<div class="ovl">${T.map(t => `<div class="ovr">${ic('table', 's')}<code class="mono">${esc(t[0])}</code><b>${isNum(t[1]) ? esc(pl(t[1], 'row')) : ''}</b></div>`).join('')}</div>`);
+  const tiles = arr(S.tiles).filter(obj);
+  if (tiles.length) {
+    const pages = [...new Set(tiles.map(t => txt(t.page)).filter(Boolean))];
+    out += sec(esc(txt(r.dashboard) ? r.dashboard + ' dashboard' : 'Dashboard'), esc(pl(tiles.length, 'tile')),
+      `<div class="ovl">${tiles.map(t => `<div class="ovr">${ic('tile', 's')}<span>${esc(txt(t.visual) || txt(t.question))}${txt(t.visual) && txt(t.question) ? `<span class="q">${esc(t.question)}</span>` : ''}</span><b></b></div>`).join('')}</div>${pages.length ? `<div class="ovn">On ${esc(pages.join(', '))}</div>` : ''}`);
+  }
+  const H = obj(r.history);
+  if (H && isNum(H.statements)) out += sec('Past queries', esc(grp(H.statements)), isNum(H.runs) ? `<div class="ovn">Run ${esc(grp(H.runs))} times in all</div>` : '');
+  if (!out) return `<div class="card empty">${ic('folder')}<span>${S.flow === 'demo' ? "The demo's dashboard, past queries and data appear here once they are found." : 'Your sources appear here once they are surveyed.'}</span></div>`;
+  return `<div><h2 class="sh">Sources</h2><div class="card ov">${out}</div></div>`;
+}
+
+/* The metric list */
+function srcBadges(m) {
+  const {t, q} = srcCounts(m);
+  return (t ? `<span class="badge sb">${ic('tile')}${esc(pl(t, 'tile'))}</span>` : '') + (q ? `<span class="badge sb">${ic('query')}${esc(pl(q, 'past query', 'past queries'))}</span>` : '');
+}
+function row(S, UI, m, sel) {
+  const s = statusOf(m.status), v = s === 'checked' ? fixMinus(m.value) : '';
+  const desc = m.rule ? esc(m.description) : '<span class="wt">Rule not written yet</span>';
+  return `<button type="button" class="mr" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(lc(m.name))}" data-f="${esc(lc(m.name))}" data-s="${s}${m.rule ? 'r' : ''}"${UI.wide ? ` aria-pressed="${sel}"` : ''}>`
+    + kindM() + `<span class="mm"><span class="nm">${esc(m.name)}</span>${desc ? `<span class="ds ell">${desc}</span>` : ''}<span class="src n">${srcBadges(m)}</span></span>`
+    + `<span class="src w">${srcBadges(m)}</span><span class="w">${statusBadge(s, UI)}</span>`
+    + `<span class="vs"><span class="v num">${esc(v)}</span><span class="n">${statusBadge(s, UI)}</span></span></button>`;
+}
+function listHead(ms) {
+  let right = '';
+  if (ms.length) {
+    const c = k => ms.filter(m => m.status === k).length, ruled = ms.filter(m => m.rule).length;
+    if (c('tool')) right = 'Checks run with the warehouse\'s own tool' + (c('look') ? ` · ${c('look')} need a look` : '');
+    else if (ms.some(m => ['checking', 'checked', 'look'].includes(m.status))) right = `${c('checked')} of ${ms.length} checked` + (c('look') ? ` · ${c('look')} need a look` : '');
+    else if (ruled < ms.length) right = ruled ? `${ruled} of ${ms.length} rules written` : 'Rules not written yet';
+    else right = 'Not checked yet';
+  }
+  return `<div class="mlh"><h2>Metrics<span class="cnt num">${ms.length}</span></h2><span class="xs sub">${esc(right)}</span></div>`;
+}
+function lookBlock(S) {
+  const qs = queriesOf(S).filter(q => q.status === 'look');
+  if (!qs.length) return '';
+  return `<div class="card lk"><div class="lh">${ic('alert', 's')}<span>${qs.length === 1 ? '1 query needs a look' : qs.length + ' queries need a look'}</span></div>`
+    + qs.map(q => `<div class="li"><span>${esc(txt(q.question) || txt(q.name))}</span>${txt(q.why) ? `<span class="e">${esc(q.why)}</span>` : ''}</div>`).join('') + '</div>';
+}
+function queriesBlock(S, UI) {
+  const qs = queriesOf(S);
+  if (!qs.length) return '';
+  const c = k => qs.filter(q => q.status === k).length;
+  const line = c('tool') ? 'checks run with the warehouse\'s own tool' + (c('look') ? ` · ${c('look')} need a look` : '')
+    : c('checked') + c('checking') + c('look') ? `${c('checked')} of ${qs.length} checked` + (c('look') ? ` · ${c('look')} need a look` : '') : 'checked after the metrics';
+  const open = UI.tog.has('queries');
+  return `<div class="qb"><button type="button" class="fold" data-tog="queries" data-k="t:queries" aria-expanded="${open}">Plus ${esc(pl(qs.length, 'query', 'queries'))}: ${esc(line)}${ic('chev', 'xs')}</button>`
+    + (open ? `<div class="card ql">${qs.map(q => `<div class="qr">${kindS('query')}<span class="mm"><span class="q">${esc(txt(q.question) || txt(q.name))}</span>${q.status === 'look' && txt(q.why) ? `<span class="u">${esc(q.why)}</span>` : ''}</span>${statusBadge(q.status, UI)}</div>`).join('')}</div>` : '')
+    + '</div>';
+}
+function listBlock(S, UI) {
+  const ms = metricsOf(S), sel = lc(selectedName(S, UI));
+  let body;
+  if (!ms.length) {
+    const st = stepsOf(S).find(s => s.id === 'metrics');
+    body = `<div class="card empty">${ic('metric')}<span>${!st || st.status === 'next' ? 'Metrics appear here as they are made, once the build starts.' : 'Metrics appear here as they are made. First, each query is described and read for the number it measures.'}</span></div>`;
+  } else {
+    body = '<div class="card mt"><div class="th"><span></span><span>Metric</span><span>Sources</span><span>Status</span><span>Checked value</span></div>'
+      + ms.map(m => row(S, UI, m, lc(m.name) === sel)).join('') + '</div>';
+  }
+  return `<div class="ml">${lookBlock(S)}${listHead(ms)}${body}${queriesBlock(S, UI)}</div>`;
+}
+function selectedName(S, UI) {
+  if (UI.metric) return UI.metric;
+  return UI.wide ? txt((metricsOf(S)[0] || {}).name) : '';
+}
+
+/* How we got here */
+function runsLine(s) {
+  if (!isNum(s.runs)) return 'Past query';
+  return `Ran ${pl(s.runs, 'time')}` + (isNum(s.analysts) ? ' by ' + pl(s.analysts, 'analyst') : '');
+}
+function sqlFold(UI, sql, key) {
+  const k = 'sql:' + key, open = UI.tog.has(k);
+  return `<button type="button" class="fold" data-tog="${esc(k)}" data-k="t:${esc(k)}" aria-expanded="${open}">${open ? 'Hide SQL' : 'Show SQL'}${ic('chev', 'xs')}</button>`
+    + (open ? `<pre class="sql mono">${esc(prettySql(sql))}</pre>` : '');
+}
+function srcItem(UI, s, key) {
+  const tile = s.kind === 'tile';
+  const where = tile
+    ? 'Dashboard tile' + (txt(s.visual) ? ` “${txt(s.visual)}”` : '') + (txt(s.page) ? ' on ' + txt(s.page) : '') + (txt(s.report) && s.report !== s.page ? ', in ' + txt(s.report) : '')
+    : runsLine(s);
+  const part = arr(s.part).map(txt).filter(Boolean);
+  return `<div class="ei">${kindS(s.kind)}<div class="mm">${txt(s.question) ? `<span class="q">${esc(s.question)}</span>` : ''}`
+    + (txt(s.description) ? `<span class="u">${esc(s.description)}</span>` : '')
+    + `<span class="u">${esc(where)}</span>` + (part.length ? `<span class="u">Its part: ${esc(part.join('; '))}</span>` : '')
+    + (txt(s.sql) ? sqlFold(UI, s.sql, key) : '') + '</div></div>';
+}
+function reasonBlock(m, n) {
+  if (!txt(m.reasoning)) return '';
+  return `<div class="dsec"><h3 class="sl ai">${n > 1 ? `Why these ${n} became one metric` : 'Why it is a metric of its own'}</h3><div class="rs">${esc(m.reasoning)}</div></div>`;
+}
+function ruleBlock(S, m) {
+  if (!m.rule) return `<div class="dsec"><h3 class="sl">The rule</h3><div class="card pad u">Not written yet. Each metric's rule is written once the metrics are merged.</div></div>`;
+  const e = editFor(S, m), rows = [];
+  if (e && txt(e.before)) rows.push(['Rule before', esc(e.before)]);
+  if (e && txt(e.after)) rows.push(['Rule now', esc(e.after)]);
+  if (txt(m.population)) rows.push(['What it counts', esc(m.population)]);
+  const lo = arr(m.leaves_out).map(txt).filter(Boolean);
+  if (lo.length) rows.push(['Leaves out', lo.map(esc).join('<br>')]);
+  const f = txt(m.formula) ? `<pre class="sql mono${rows.length ? ' fx' : ''}">${esc(m.formula)}</pre>` : '';
+  if (!f && !rows.length) return '';
+  return `<div class="dsec"><h3 class="sl">The rule</h3><div class="card pad">${f}${rows.length ? `<dl class="kv">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}</div></div>`;
+}
+function checkBody(S, UI, m) {
+  const s = statusOf(m.status), e = editFor(S, m);
+  if (s === 'checked') {
+    const was = e && txt(e.before_value) ? `Was ${fixMinus(e.before_value)} before the rule change` : '';
+    return (txt(m.value) ? `<div class="ckv"><b class="big num">${esc(fixMinus(m.value))}</b></div>` : '<div>Ran on the data and passed its check</div>')
+      + (was ? `<div class="u">${esc(was)}</div>` : '');
+  }
+  if (s === 'look') return `<div class="warnline">${ic('alert', 's')}<span>Needs a look</span></div>${txt(m.why) ? `<div class="u">${esc(m.why)}</div>` : ''}`;
+  if (s === 'checking') return `<div class="ckrun"><i class="sd${moving(UI) ? ' pl' : ''}"></i>Running on the data now</div>`;
+  if (s === 'tool') return '<div class="u">Its check runs on your warehouse with its own read-only tool. The result is in the chat, not on this page.</div>';
+  return '<div class="u">Not checked yet. Every metric runs on the data once the build finishes.</div>';
+}
+function detail(S, UI, name) {
+  const m = findMetric(S, name);
+  if (!m) return `<div class="card empty">${ic('metric')}<span><b>${esc(name)}</b> is not made yet. It opens here once the build makes it.</span></div>`;
+  const s = statusOf(m.status), {t, q} = srcCounts(m), srcs = sourcesOf(m);
+  const from = [t ? pl(t, 'dashboard tile') : '', q ? pl(q, 'past query', 'past queries') : ''].filter(Boolean);
+  const head = `<div class="dth"><span class="kind metric lg">${ic('metric')}</span><div class="mm"><h2 class="dn">${esc(m.name)}</h2>${from.length ? `<span class="u">From ${esc(from.join(' and '))}</span>` : ''}</div>`
+    + `<div class="vs">${s === 'checked' && txt(m.value) ? `<span class="dv">${esc(fixMinus(m.value))}</span>` : ''}${statusBadge(s, UI)}</div></div>`;
+  const desc = m.rule && txt(m.description) ? `<p class="dd">${esc(m.description)}</p>` : '';
+  const ev = srcs.length ? `<div class="dsec"><h3 class="sl">Where it came from</h3><div class="card ev">${srcs.map((x, j) => srcItem(UI, x, lc(m.name) + ':' + j)).join('')}</div></div>` : '';
+  return `<div class="dt">${head}${desc}${ev}${reasonBlock(m, srcs.length)}${ruleBlock(S, m)}<div class="dsec"><h3 class="sl">Checked on the data</h3><div class="card pad ck">${checkBody(S, UI, m)}</div></div></div>`;
+}
+
+/* End states */
+function proofChip(S, name) {
+  const m = findMetric(S, name);
+  return m ? `<button type="button" class="pch" data-act="m" data-m="${esc(m.name)}" data-k="p:${esc(lc(m.name))}">${kindM()}<span class="ell">${esc(name)}</span></button>` : `<span class="pch plain">${esc(name)}</span>`;
+}
+function answerCard(S, UI, lean) {
+  const a = obj(S.answer);
+  if (!a) return '';
+  const [nm, val] = splitHeadline(a.headline);
+  const rows = arr(a.rows).filter(r => Array.isArray(r) && r.length >= 2);
+  const nums = rows.map(r => r[2]).filter(isNum);
+  const lo = Math.min(0, ...nums), hi = Math.max(0, ...nums), span = (hi - lo) || 1, z = -lo / span * 100, neg = lo < 0;
+  const bars = rows.map(r => {
+    const v = r[2], has = isNum(v), left = has && v < 0 ? (v - lo) / span * 100 : z, w = has ? Math.abs(v) / span * 100 : 0;
+    return `<div class="abr${txt(a.highlight) && txt(r[0]) === txt(a.highlight) ? ' hl' : ''}"><span class="n" title="${esc(r[0])}">${esc(r[0])}</span>`
+      + `<span class="trk">${has ? `<i style="left:${left.toFixed(2)}%;width:${Math.max(w, 0.6).toFixed(2)}%"></i>` : ''}${neg ? `<b class="z" style="left:${z.toFixed(2)}%"></b>` : ''}</span>`
+      + `<span class="v num">${esc(fixMinus(r[1]))}</span></div>`;
+  }).join('');
+  const head = lean ? '' : `<div class="sl">First answer</div>${txt(a.question) ? `<div class="aq">${esc(a.question)}</div>` : ''}`
+    + `<div class="av"><b class="big num">${esc(fixMinus(val))}</b>${nm ? `<span class="sub">${esc(nm)}</span>` : ''}</div>${txt(a.summary) ? `<p class="as">${esc(a.summary)}</p>` : ''}`;
+  const proof = arr(a.proof).map(txt).filter(Boolean);
+  return `<div class="card ans">${head}${rows.length ? `<div class="sl">${lean ? 'Behind the answer' : 'By row'}</div><div class="ab">${bars}</div>` : ''}`
+    + (txt(a.rule) ? `<div class="arl">${ic('pen', 's')}<span><span class="sub">Rule:</span> ${esc(a.rule)}</span></div>` : '')
+    + (proof.length ? `<div class="ap"><span class="xs sub">Based on</span>${proof.map(p => proofChip(S, p)).join('')}</div>` : '') + '</div>';
+}
+function readyCard(S) {
+  const ms = metricsOf(S), qs = queriesOf(S), c = obj(S.checks), r = obj(S.read) || {}, ch = obj(r.chosen) || {}, H = obj(r.history);
+  const parts = [];
+  if (c && isNum(c.total)) parts.push(`${grp(c.passed)} of ${grp(c.total)} checked on the data`);
+  if (c && isNum(c.need_look) && c.need_look) parts.push(`${grp(c.need_look)} need a look`);
+  const built = [ch.bi && arr(S.tiles).length ? pl(arr(S.tiles).length, 'dashboard tile') : '', ch.history && H && isNum(H.statements) ? pl(H.statements, 'past query', 'past queries') : ''].filter(Boolean);
+  if (built.length) parts.push('built from ' + built.join(' and '));
+  const sv = obj(S.saved);
+  const where = sv ? ['cloud', 'Saved to Atlan Trident', txt(sv.workspace) ? 'Workspace: ' + sv.workspace : '', '']
+    : S.local ? ['laptop', 'Kept on this machine', 'Not saved to Atlan', '']
+    : ['chat', 'Waiting for where to save', 'Keep local or save to Atlan Trident, in the chat', ' wait'];
+  return `<div class="card rd2"><div class="rdr">${kindM()}<div class="mm"><b>${esc(pl(ms.length, 'metric'))} and ${esc(pl(qs.length, 'query', 'queries'))} ready</b>${parts.length ? `<span class="u">${esc(parts.join(' · '))}</span>` : ''}</div></div>`
+    + `<div class="rdr"><span class="ico${where[3]}">${ic(where[0], 's')}</span><div class="mm"><b>${esc(where[1])}</b>${where[2] ? `<span class="u">${esc(where[2])}</span>` : ''}</div></div></div>`;
+}
+function dashCard(S) {
+  const L = obj(S.layout);
+  if (!L) return '';
+  const tiles = arr(L.tiles).map(txt).filter(Boolean), more = arr(L.more).map(txt).filter(Boolean);
+  const val = name => { const m = findMetric(S, name); return m && m.status === 'checked' && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : ''; };
+  return `<div class="card db"><div class="dbh">${ic('grid', 's')}<b>Dashboard</b><span class="xs sub">${esc(pl(tiles.length, 'tile'))}</span></div>`
+    + `<div class="dbg">${tiles.map(t => `<div class="dbt"><span class="u">${esc(t)}</span>${val(t)}</div>`).join('')}</div>`
+    + (more.length ? `<div class="u">More on offer: ${esc(more.join(', '))}</div>` : '') + '</div>';
+}
+function editCard(S, lean) {
+  const e = obj(S.edit);
+  if (!e) return '';
+  const lists = [['Now counted', e.added], ['No longer counted', e.removed]].map(([l, x]) => [l, arr(x).map(txt).filter(Boolean)]).filter(([, x]) => x.length);
+  const dl = (txt(e.before) ? `<dt>Rule before</dt><dd class="sub">${esc(e.before)}</dd>` : '') + (txt(e.after) ? `<dt>Rule now</dt><dd>${esc(e.after)}</dd>` : '');
+  return `<div class="card ed"><div class="edh">${kindM()}<div class="mm"><span class="xs sub">Rule changed</span><b>${esc(e.metric)}</b></div></div>`
+    + (lean || !txt(e.after_value) ? '' : `<div class="edv"><div><span class="xs sub">Before</span><span class="was num">${esc(fixMinus(e.before_value))}</span></div>${ic('arrow')}<div><span class="xs sub">Now</span><b class="big num">${esc(fixMinus(e.after_value))}</b></div>${txt(e.name) ? `<span class="sub">${esc(e.name)}</span>` : ''}</div>`)
+    + (dl ? `<dl class="kv">${dl}</dl>` : '')
+    + lists.map(([l, xs]) => `<div class="edl"><span class="xs sub">${l}</span>${xs.map(x => `<span class="badge">${esc(x)}</span>`).join('')}</div>`).join('')
+    + (txt(e.note) ? `<div class="nte">${ic('alert', 's')}<span>${esc(e.note)}</span></div>` : '') + '</div>';
+}
+
+/* A step: what came out of it and how it works */
+function resultBlock(r) {
+  const a = obj(r.answer);
+  if (a) {
+    const [nm, val] = splitHeadline(a.headline);
+    return `<div class="dsec">${txt(r.title) ? `<h3 class="sl">${esc(r.title)}</h3>` : ''}<div class="card ans">${txt(a.question) ? `<div class="aq">${esc(a.question)}</div>` : ''}`
+      + `<div class="av"><b class="big num">${esc(fixMinus(val))}</b>${nm ? `<span class="sub">${esc(nm)}</span>` : ''}</div>${txt(a.summary) ? `<p class="as">${esc(a.summary)}</p>` : ''}`
+      + (txt(a.rule) ? `<div class="arl">${ic('pen', 's')}<span><span class="sub">Rule:</span> ${esc(a.rule)}</span></div>` : '') + '</div></div>';
+  }
+  const list = arr(r.list).filter(x => Array.isArray(x) && txt(x[0]));
+  if (!list.length) return '';
+  return `<div class="dsec">${txt(r.title) ? `<h3 class="sl">${esc(r.title)}</h3>` : ''}<div class="card rsl">${list.map(x => `<div class="rsr"><span>${esc(x[0])}</span>${txt(x[1]) ? `<b class="num">${esc(fixMinus(x[1]))}</b>` : ''}</div>`).join('')}</div></div>`;
+}
+function pieces(S, UI, s, flat) {
+  const hw = arr(s.how).filter(p => obj(p) && txt(p.t));
+  if (!hw.length) return '';
+  const busy = s.status === 'now' && busyNow(S, UI), first = s.status === 'now' ? hw.findIndex(p => p.s !== 'done') : -1;
+  const list = hw.map((p, j) => {
+    const cls = p.w ? 'warn' : p.s === 'done' ? 'done' : j === first && busy ? 'run' : 'next';
+    const mark = cls === 'warn' ? ic('alert', 's') : cls === 'done' ? ic('check', 's') : cls === 'run' ? spin() : ic('circle', 's');
+    const word = cls === 'warn' ? 'Done, with something to look at' : cls === 'done' ? 'Done' : cls === 'run' ? 'Under way' : 'Not done yet';
+    return `<div class="pc ${cls}"><span class="pci" title="${word}">${mark}<span class="sr">${word}</span></span><div class="mm"><span class="pct">${esc(p.t)}</span>`
+      + (txt(p.d) ? `<span class="u">${esc(p.d)}</span>` : '') + (txt(p.by) ? `<span class="pcb">${esc(p.by)}</span>` : '') + '</div>'
+      + (txt(p.n) ? `<span class="pcn num">${esc(fixMinus(p.n))}</span>` : '<span></span>') + '</div>';
+  }).join('');
+  if (flat) return `<div class="pcs flat">${list}</div>`;
+  return `<div class="dsec"><h3 class="sl">${s.status === 'next' ? 'How this step will work' : 'How this step works'}</h3><div class="card pcs">${list}</div></div>`;
+}
+function outcome(S, UI, s) {
+  if (s.id === 'metrics') return listBlock(S, UI);
+  let out = '';
+  const res = arr(s.result).filter(obj);
+  if (s.id === 'ask' && obj(S.answer)) out += answerCard(S, UI, false);
+  else out += res.map(resultBlock).join('');
+  if (s.id === 'sources' && !res.length) out += overview(S);
+  if (s.id === 'save' && (S.local || obj(S.saved) || s.status === 'now')) out += readyCard(S);
+  if (s.id === 'dashboard' && obj(S.layout)) out += dashCard(S);
+  return out;
+}
+function stepPanel(S, UI, id) {
+  const st = stepsOf(S), i = st.findIndex(s => s.id === id), s = st[i], n = nowOf(S);
+  const isNow = s.status === 'now', waiting = isNow && !!(s.needs_you || txt(n.wait)), busy = isNow && busyNow(S, UI);
+  const badge = s.status === 'done' ? `<span class="badge ok">${ic('check', 'xs')}Done</span>`
+    : isNow ? (waiting ? '<span class="badge brand"><i class="sd"></i>Waiting for you</span>' : `<span class="badge brand"><i class="sd${busy ? ' pl' : ''}"></i>Under way</span>`)
+    : '<span class="badge">Not started yet</span>';
+  const head = `<div class="card sph"><div class="mm"><span class="xs sub">Step ${i + 1} of ${st.length}</span><h2 class="spt">${esc(txt(s.purpose) || txt(s.name))}</h2>`
+    + (isNow && txt(s.doing) && s.doing !== s.purpose ? `<span class="u">${esc(s.doing)}</span>` : '')
+    + (txt(s.fact) ? `<span class="sfact">${ic('check', 's')}<span>${esc(fixMinus(s.fact))}</span></span>` : '') + `</div>${badge}</div>`;
+  return `<div class="stv">${head}${outcome(S, UI, s)}${pieces(S, UI, s, false)}</div>`;
+}
+
+/* Following the build: the page as picked */
+function doneSoFar(S, UI) {
+  const done = stepsOf(S).filter(s => s.status === 'done').reverse();
+  if (!done.length) return '';
+  return `<div><h2 class="sh">Done so far</h2><div class="card lst">${done.map(s => {
+    const k = 'done:' + s.id, open = UI.tog.has(k);
+    const body = open ? `<div class="drc">${s.id === 'metrics' ? '' : arr(s.result).filter(obj).map(resultBlock).join('')}${pieces(S, UI, s, true)}`
+      + `<button type="button" class="lnk" data-act="step" data-id="${esc(s.id)}" data-k="open:${esc(s.id)}">Open this step${ic('arrow', 'xs')}</button></div>` : '';
+    return `<div class="dr"><button type="button" class="drb" data-tog="${esc(k)}" data-k="t:${esc(k)}" aria-expanded="${open}"><span class="tick">${ic('check', 's')}</span>`
+      + `<span class="n">${esc(txt(s.purpose) || txt(s.name))}</span><span class="f ell">${esc(fixMinus(s.fact))}</span>${ic('chev', 's chev')}</button>${body}</div>`;
+  }).join('')}</div></div>`;
+}
+function followBody(S, UI) {
+  const n = nowOf(S);
+  let main = '';
+  if (['intent', 'sources', 'scope'].includes(n.id)) {
+    if (!stepsOf(S).some(s => s.status === 'done')) main += intro();
+    main += overview(S);
+  } else {
+    const a = obj(S.answer), headAnswer = !!(a && txt(n.value) && txt(n.title) === txt(a.question));
+    main += editCard(S, !!(obj(S.edit) && txt(n.value) && !headAnswer));
+    main += answerCard(S, UI, headAnswer);
+    if (S.local || obj(S.saved)) main += readyCard(S);
+    main += dashCard(S);
+    main += listBlock(S, UI);
+  }
+  return main + doneSoFar(S, UI);
+}
+function rightColumn(S, UI) {
+  if (metricsOf(S).length || UI.metric) return `<h2 class="sh" style="margin-bottom:0">How we got here</h2>${detail(S, UI, selectedName(S, UI))}`;
+  const now = stepsOf(S).find(s => s.status === 'now');
+  if (now && !UI.view) return pieces(S, UI, now, false);
+  return `<div class="card empty">${ic('metric')}<span>How each metric was reached shows here once metrics are made: the dashboard tiles and past queries behind it, why they became one metric, its rule and its check on the data.</span></div>`;
+}
+
+/* The whole page: a pure function of the snapshot and the UI state */
+function view(S, UI) {
+  if (!obj(S)) {
+    const msg = UI.link === 'off' ? `${ic('alert')}<span>No update has arrived from the build. This page picks up when it answers.</span>` : `${spin()}<span>Connecting to the build</span>`;
+    return `<div class="sp"><div class="top">${toolbar(null, UI)}</div><div class="card empty">${msg}</div></div>`;
+  }
+  const at = UI.view && stepsOf(S).some(s => s.id === UI.view) ? UI.view : null;
+  const top = `<div class="top">${toolbar(S, UI)}${UI.link === 'off' ? offNote(S) : ''}${topBlock(S)}${rail(S, UI, at)}</div>`;
+  const status = at ? strip(S, UI) : header(S, UI);
+  let main;
+  if (!UI.wide && UI.metric) {
+    main = `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${at && at !== 'metrics' ? 'Back' : 'All metrics'}</button>`
+      + `<h2 class="sh" style="margin-bottom:-8px">How we got here</h2>${detail(S, UI, UI.metric)}`;
+  } else {
+    main = at ? stepPanel(S, UI, at) : followBody(S, UI);
+  }
+  if (!UI.wide) return `<div class="sp">${top}${status}${main}</div>`;
+  return `<div class="sp wd"><div class="wl">${top}${status}${main}</div><div class="wr">${rightColumn(S, UI)}</div></div>`;
+}
+
+/* State, painting and the live feed */
+const THEME_KEY = 'atlan-analytics-side-page-theme';
+const UI = {view: null, metric: null, tog: new Set(), wide: false, link: 'wait', theme: 'system'};
+const app = document.getElementById('app');
+const WID = {}, STA = {};
+let S = null, raw = '', said = '';
+
+function readHash() {
+  let p;
+  try { p = new URLSearchParams(location.hash.replace(/^#/, '')); } catch (e) { return; }
+  UI.view = p.get('step') || null;
+  UI.metric = p.get('m') || null;
+}
+function writeHash() {
+  const p = new URLSearchParams();
+  if (UI.view) p.set('step', UI.view);
+  if (UI.metric) p.set('m', UI.metric);
+  const want = p.toString() ? '#' + p.toString() : '';
+  if (location.hash === want) return;
+  try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
+}
+function paint() {
+  const y = window.scrollY, wr = app.querySelector('.wr'), wy = wr ? wr.scrollTop : 0;
+  const ae = document.activeElement, fk = ae && app.contains(ae) && ae.dataset ? ae.dataset.k : null;
+  app.innerHTML = view(S, UI);
+  app.removeAttribute('aria-busy');
+  app.querySelectorAll('.bar > i[data-k]').forEach(b => {
+    const k = b.dataset.k, w = b.dataset.w, prev = WID[k];
+    b.style.width = (prev ?? w) + '%';
+    if (prev != null && prev !== w) { b.getBoundingClientRect(); b.style.width = w + '%'; }
+    WID[k] = w;
+  });
+  app.querySelectorAll('[data-f]').forEach(n => {
+    const k = n.dataset.f, s = n.dataset.s;
+    if (STA[k] != null && STA[k] !== s) n.classList.add('fl');
+    STA[k] = s;
+  });
+  window.scrollTo(0, y);
+  const wr2 = app.querySelector('.wr');
+  if (wr2) wr2.scrollTop = wy;
+  if (fk) { const el = [...app.querySelectorAll('[data-k]')].find(x => x.dataset.k === fk); if (el) el.focus({preventScroll: true}); }
+  const line = S ? [stepLabel(S), txt(nowOf(S).title)].filter(Boolean).join('. ') : '';
+  if (line !== said) { said = line; document.getElementById('say').textContent = line; }
+  writeHash();
+}
+function setTheme(t) {
+  UI.theme = t === 'light' || t === 'dark' ? t : 'system';
+  if (UI.theme === 'system') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = UI.theme;
+  try { localStorage.setItem(THEME_KEY, UI.theme); } catch (e) { /* storage is optional */ }
+}
+
+const started = Date.now();
+let es = null, pollTimer = null, retryTimer = null, lastOk = 0, polledAt = 0;
+function accept(data, fromPoll) {
+  let s = data, r = data;
+  try { if (typeof data === 'string') s = JSON.parse(data); else r = JSON.stringify(data); } catch (e) { return; }
+  if (!obj(s) || !obj(s.now)) return;
+  lastOk = Date.now();
+  if (fromPoll) polledAt = lastOk;
+  if (r === raw) return;
+  raw = r;
+  S = s;
+  paint();
+}
+async function poll() {
+  try {
+    const res = await fetch('state', {cache: 'no-store'});
+    if (res.ok) accept(await res.json(), true);
+  } catch (e) { /* not answering; the next try is 3 s away */ }
+}
+function startPolling() { if (!pollTimer) { poll(); pollTimer = setInterval(poll, 3000); } }
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+function connect() {
+  if (typeof EventSource === 'undefined') { startPolling(); return; }
+  try { es = new EventSource('events'); } catch (e) { es = null; startPolling(); retryLater(); return; }
+  es.onopen = () => { lastOk = Date.now(); stopPolling(); health(); };
+  es.onmessage = e => { accept(e.data, false); stopPolling(); health(); };
+  es.onerror = () => {
+    startPolling();
+    if (es && es.readyState === EventSource.CLOSED) { es.close(); es = null; retryLater(); }
+    health();
+  };
+}
+function retryLater() { if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; if (!es) connect(); }, 5000); }
+function health() {
+  const t = Date.now(), open = !!es && es.readyState === EventSource.OPEN;
+  if (open) lastOk = t;
+  const link = open || (polledAt && t - polledAt < 10000) ? 'live'
+    : lastOk && t - lastOk <= 30000 ? 'retry'
+    : lastOk || t - started > 30000 ? 'off' : 'wait';
+  if (link !== UI.link) { UI.link = link; paint(); }
+}
+
+document.addEventListener('click', e => {
+  const th = e.target.closest('[data-theme-set]');
+  if (th) { setTheme(th.dataset.themeSet); paint(); return; }
+  const tg = e.target.closest('[data-tog]');
+  if (tg) { const k = tg.dataset.tog; if (UI.tog.has(k)) UI.tog.delete(k); else UI.tog.add(k); paint(); return; }
+  const a = e.target.closest('[data-act]');
+  if (!a || !app.contains(a)) return;
+  const act = a.dataset.act;
+  if (act === 'step' || act === 'now') {
+    UI.view = act === 'step' ? a.dataset.id : null;
+    if (!UI.wide) UI.metric = null;
+    paint();
+    window.scrollTo(0, 0);
+  } else if (act === 'm') {
+    UI.metric = a.dataset.m;
+    paint();
+    if (!UI.wide) { const b = app.querySelector('.back'); if (b) { const y = b.getBoundingClientRect().top + window.scrollY - 12; if (window.scrollY > y) window.scrollTo(0, y); } }
+    else { const wr = app.querySelector('.wr'); if (wr) wr.scrollTop = 0; }
+  } else if (act === 'back') {
+    const was = lc(UI.metric);
+    UI.metric = null;
+    paint();
+    const r = [...app.querySelectorAll('.mr')].find(x => lc(x.dataset.m) === was);
+    if (r) { r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (UI.metric && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
+  else if (UI.view) { UI.view = null; paint(); }
+});
+window.addEventListener('hashchange', () => { readHash(); paint(); window.scrollTo(0, 0); });
+const wideQuery = window.matchMedia('(min-width: 920px)');
+const onWide = () => { UI.wide = wideQuery.matches; paint(); };
+if (wideQuery.addEventListener) wideQuery.addEventListener('change', onWide); else if (wideQuery.addListener) wideQuery.addListener(onWide);
+
+let savedTheme = 'system';
+try { savedTheme = localStorage.getItem(THEME_KEY) || 'system'; } catch (e) { /* storage is optional */ }
+setTheme(savedTheme);
+UI.wide = wideQuery.matches;
+readHash();
+paint();
+poll();
+connect();
+setInterval(health, 1000);
+
+window.SidePage = Object.freeze({
+  view: (snapshot, ui) => view(snapshot, Object.assign({view: null, metric: null, tog: new Set(), wide: false, link: 'live', theme: 'system'}, ui || {})),
+});
+})();
+</script>
+</body>
+</html>

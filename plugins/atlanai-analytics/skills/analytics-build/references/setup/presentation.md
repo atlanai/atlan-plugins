@@ -9,7 +9,7 @@ the person sees and how it reaches the host's visible surface.
 | --- | --- |
 | Start | Open with [the interview](intent.md), its opening as the card's own text, then the Doing and Why lines below through every moment. Explain the outcome, sources, steps and controls before work. A chosen demo uses its full welcome from [the demo skill](../../../analytics-demo/SKILL.md). Own-data setup uses the same structure with inspected facts; never borrow a demo's people, numbers or tour. |
 | Each step starts | Show the flow's full tracker in chat and update the host task list when available, following [the checklist](checklist.md). |
-| The selected collection has been checked | Review the completed collection with actual counts, check limitations and one representative definition from the accepted output. Read [context built and where to keep it](save.md) for the celebration and local-versus-shared choice through its native question delivery. |
+| The selected collection has been checked | Read [context built and where to keep it](save.md) and ask its question now: `PROJECT question save` composes the celebration, the review (actual counts, checks, one representative definition) and the local-versus-shared choice as one native question. Never end the turn before it. |
 | The context is saved or kept local | Read [ready for questions](ready.md). Ask the ready question, with the ready block, material limitations and supported questions as its text, for both demo and own-data setup. Answer only a question the person has supplied or selected. |
 | The selected questions are answered | End the turn on the answer with the `Next:` line from [ready for questions](ready.md): Ask more questions, Design a dashboard and the demo's real-data continuation. |
 

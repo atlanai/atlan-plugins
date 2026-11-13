@@ -32,9 +32,13 @@ other change. Never show a failed check as a result.
 
 ## 3. Show the difference
 
-Fill this block with the values from the edit's result. How it reaches the person depends
-on where the context lives (step 4): it is either the last reply text of the turn or the
-text of the save question, never reply text followed by a native question:
+Record the `edit` moment ([visuals](../../analytics-build/references/setup/visuals.md)) with the
+values from the edit's result. Its card is the difference: before and after, each with its
+rule, and what joined or left the count. In a terminal its lines take the block's place,
+unchanged; with `show_widget`, draw it right before the reply or question. Only when the
+helper prints nothing, fill this block instead. How either reaches the person depends on
+where the context lives (step 4): it is either the last reply text of the turn or the text
+of the save question, never reply text followed by a native question:
 
 > **`<metric name>`, changed**
 >
@@ -46,16 +50,16 @@ text of the save question, never reply text followed by a native question:
 
 Before showing it, re-ask, through `analytics-ask`, one question the person already asked
 that uses this metric. With no earlier question, use the first question offered in this run. Write one
-sentence with the new answer beside the old one; it goes right after the block, wherever
-the block goes.
+sentence with the new answer beside the old one; it goes right after the card (or the block),
+wherever it goes.
 
 ## 4. Where the change lives
 
-- Context kept on this machine: the change is saved in the run. Print the block and the
-  comparison sentence as reply text, say so in one line, close with the plain `Next:` line
+- Context kept on this machine: the change is saved in the run. Print the card (or the block)
+  and the comparison sentence as reply text, say so in one line, close with the plain `Next:` line
   from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
-- Context saved to Atlan Trident: ask one native question whose text is the block as plain
-  lines, then the comparison sentence, then "Save this change for everyone who uses the
+- Context saved to Atlan Trident: ask one native question whose text is the card (or the
+  block) as plain lines, then the comparison sentence, then "Save this change for everyone who uses the
   metric?" On yes, call
   `metrics-generation` `save`, which publishes a revision of the same metric after the
   person approves the plan. On no, the change stays on this machine and the published

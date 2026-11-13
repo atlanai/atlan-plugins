@@ -130,8 +130,9 @@ preview nor permission to execute. During sign-in keep the task active until rec
 
 Show setup progress as [the checklist](setup/checklist.md) in chat and the host's task list
 when available, read from the saved run.
-Open no panel, browser view or snapshot unless the person asks for one. Never imply a
-snapshot is live or show controls that cannot act. Publish decisions stay in chat.
+Open no panel, browser view or snapshot unless the person asks for one, apart from the run's
+own [side page](setup/visuals.md), which `visual connect` opens. Never imply a snapshot is
+live or show controls that cannot act. Publish decisions stay in chat.
 
 ### Text before a native question is lost
 

@@ -1,0 +1,13 @@
+{
+ "firm": "Fixit",
+ "flow": "demo",
+ "connect": {
+  "title": "Job profit agent for Fixit & Co.",
+  "tagline": "Answers questions about Fixit's jobs in plain English, and shows the rule behind every number"
+ },
+ "ready": {
+  "agent": "job profit agent",
+  "answers": "Questions about job margin, rework, material waste and late jobs",
+  "tour": "https://atlanai.github.io/analytics-agent-accelerator/yard-tour/"
+ }
+}
