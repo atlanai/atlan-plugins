@@ -1,13 +1,13 @@
 # Prepare the Atlan trident submissions
 
-The core submission changes target version `0.5.58`, displayed as **Atlan trident**,
+The core submission changes target version `0.5.59`, displayed as **Atlan trident**,
 on top of current main at `0.5.54`. The earlier local `0.3.21` preparation is superseded.
 The owner submitted Claude separately. OpenAI remains an unpublished draft.
 
 ## Build and review
 
 Run `make build`, `make check`, `make validate` and `make codex-directory`.
-The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.58.zip`.
+The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.59.zip`.
 It contains the portable manifest, OAuth MCP configuration, skills, assets and licenses.
 It omits lifecycle hooks and custom MCP headers. Repository installs keep their hooks and
 client-identification header. Do not edit generated files.
@@ -68,6 +68,12 @@ challenge at `https://api.atlan.com/.well-known/openai-apps-challenge`. Keep the
 value and reviewer credentials out of this public repository. The initial upload reported
 missing support and terms URLs; version 0.5.58 supplies Atlan's published pages. Portal
 rechecks, domain verification, reviewer access and live cases remain necessary.
+
+Version 0.5.59 pins both Atlan action references in the repository-sync workflow template
+to a verified full commit, preserving the action's signed runtime update channel. A behavior
+regression covers immutable references and no writes while drafting a workflow. Its first
+execution could not start because Claude Code was signed out; it remains pending and must
+pass before release. Static package checks and validation passed.
 
 At [the plugin portal](https://platform.openai.com/plugins), use Atlan's verified business
 identity and an eligible project. Upload the hookless ZIP with MCP, verify the domain,

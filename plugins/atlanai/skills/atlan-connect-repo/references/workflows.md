@@ -117,7 +117,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: atlanai/ai-registry-action@v1
+      - uses: atlanai/ai-registry-action@eebac58ce28049b59fabba2dc1647f35af193efe # v1
         env:
           AIREG_TOKEN_ATLAN: ${{ secrets.AIREG_TOKEN_ATLAN }}
 
@@ -133,7 +133,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: atlanai/ai-registry-action@v1
+      - uses: atlanai/ai-registry-action@eebac58ce28049b59fabba2dc1647f35af193efe # v1
         env:
           AIREG_TOKEN_ATLAN: ${{ secrets.AIREG_TOKEN_ATLAN }}
 ```
@@ -156,9 +156,11 @@ What each part does, so you can keep it when adapting an existing workflow:
   preview runs without a key.
 - **No path filters.** The action compares every export with the workspace, so
   a filter only risks skipping a manifest edit.
-- **Pins.** Keep `actions/checkout` on a full commit SHA. `@v1` follows the
-  action's 1.x releases; pin a full commit SHA instead if the repository's
-  policy requires it.
+- **Pins.** Keep both actions on full commit SHAs, including the preview and
+  publish uses of Atlan's action. Review a release before updating its pin;
+  do not substitute a moving tag or branch. The action installs signed stable
+  aireg releases with pinned-key signature and binary digest checks; the action
+  pin does not freeze that signed runtime update channel.
 
 ## Migrate from the older setup
 
