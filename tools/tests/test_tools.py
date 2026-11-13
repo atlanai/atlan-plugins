@@ -1092,6 +1092,9 @@ class CodexDirectoryTest(unittest.TestCase):
         self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
         server = json.loads(files["mcp.json"])["mcpServers"][source["mcp"]["server"]]
         self.assertNotIn("headers", server)
+        self.assertEqual(server["url"], "https://api.atlan.com/mcp?tools=full")
+        portable = build.outputs(source)["plugins/atlanai/mcp.json"]["mcpServers"][source["mcp"]["server"]]
+        self.assertEqual(portable["url"], "https://api.atlan.com/mcp")
         self.assertEqual(server["extensions"]["com.openai"]["auth"], {
             "type": "oauth", "client": {"mode": "cimd"}})
         self.assertIn("headers", build.outputs(source)["plugins/atlanai/mcp.json"]["mcpServers"][source["mcp"]["server"]])

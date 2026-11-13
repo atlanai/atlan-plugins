@@ -565,6 +565,7 @@ def directory_files(source: dict) -> dict[str, bytes]:
     mcp = copy.deepcopy(documents[f"{base}/mcp.json"])
     server = mcp["mcpServers"][source["mcp"]["server"]]
     server.pop("headers", None)
+    server["url"] = source["submission"]["openai"].get("mcp_url", server["url"])
     server["extensions"] = {"com.openai": {
         "auth": copy.deepcopy(source["submission"]["openai"]["auth"])}}
     files = {"plugin.json": render(manifest).encode(), "mcp.json": render(mcp).encode()}
