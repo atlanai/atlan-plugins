@@ -36,7 +36,7 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
       python3 "<build-dir>/scripts/project.py" --run-dir "<run>" execute <that file>
       End with one JSON object and nothing after it:
       {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>",
-       "used_context_ids": ["<each metric or query you relied on>"]}
+       "used_context_ids": ["<the id of each metric or query you read, like metric_... or sql_query_...; never empty when you read one>"]}
       ```
       `<where the context lives>` follows `context_saved_to`. In Atlan Trident: "the context
       saved in the Atlan Trident workspace <name>: read its metrics and queries there, at their
