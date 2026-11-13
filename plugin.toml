@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "Atlan trident"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.60"
+version = "0.5.61"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Skills, agents and tools"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -90,6 +90,9 @@ default_prompts = [
 [submission.openai.publication]
 release_notes = "Initial directory release with 13 skills for finding, reading, authoring and sharing Atlan registry artifacts through OAuth. Tool availability follows the connected organization and its permissions."
 
+[submission.openai.review]
+demo_recording_url = "https://drive.google.com/file/d/1XA6ZmmOudTDO1BZLurcFi3lX8fGsWFVp/view"
+
 [[submission.openai.review.test_cases.positive]]
 description = "Connect and discover the sample workspace."
 prompt = "Connect me to Atlan and find the OpenAI Review workspace in Atlan Demo."
@@ -105,7 +108,7 @@ expected_behavior = "Return the sample skill and its stored description. It prep
 [[submission.openai.review.test_cases.positive]]
 description = "Read the actual sample skill content."
 prompt = "Read review-release-checklist in OpenAI Review. Which day do sample deployments happen, and who owns them?"
-tools_triggered = "registry__search_artifacts, registry__get_artifact, registry__get_file_content"
+tools_triggered = "registry__search_artifacts; registry__get_artifact(channel=latest, include_file=SKILL.md) or registry__get_file_content"
 expected_behavior = "Read the released SKILL.md bytes. Answer Tuesdays and Demo Release Team, citing the sample skill. Do not infer the answer from its description."
 
 [[submission.openai.review.test_cases.positive]]
@@ -116,9 +119,9 @@ expected_behavior = "Report the returned release/version metadata and only actua
 
 [[submission.openai.review.test_cases.positive]]
 description = "Preview, confirm and verify one new sample text file."
-prompt = "Prepare a new file named Review submission note in OpenAI Review containing exactly: This is sample data for the Atlan trident review. Show the destination and text, then ask before saving."
+prompt = "Prepare a new file named Review submission note in OpenAI Review containing exactly: This is sample data for the Atlan trident review. If that name already exists, propose the next unused numbered suffix. Show the exact destination, filename and text, then ask before saving."
 tools_triggered = "registry__list_workspaces, registry__get_kind_schema; after confirmation registry__create_artifact, registry__get_artifact, registry__get_file_content"
-expected_behavior = "Show the proposed new file and wait. Reviewer follow-up: Yes, save that new file in OpenAI Review. Create only that file, then read back its content. Do not overwrite an existing artifact or write elsewhere. On a repeated run, ask for a new sample filename rather than overwriting."
+expected_behavior = "Show the proposed new file and wait. Reviewer follow-up: Yes, save that new file in OpenAI Review. Create only that file, then read back its content. Do not overwrite an existing artifact or write elsewhere. On a repeated run, preview an unused numbered filename and wait for confirmation rather than overwriting."
 
 [[submission.openai.review.test_cases.negative]]
 description = "Missing authentication, in a separate signed-out profile."
