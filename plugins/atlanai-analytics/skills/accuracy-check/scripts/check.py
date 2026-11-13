@@ -7,10 +7,12 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
 
     python3 check.py start --project <project>
     python3 check.py load --project <project> --file <set.jsonl>
+    python3 check.py link --evals <eval folder> --org <organization slug>
 
 `start` finds the built run, where its context lives and the sets the project holds. `load` puts a
 set in a fresh eval folder in .atlan-evals/, runs each trusted SQL on the run's data and sets the
-questions up for scoring. Every command prints one JSON object; exit 2 means something the person
+questions up for scoring. `link` gives the Atlan pages of a saved check: the agent's runs and the
+last run. Every command prints one JSON object; exit 2 means something the person
 must supply. Standard library only.
 """
 from __future__ import annotations
@@ -183,6 +185,22 @@ def cmd_load(a) -> dict:
             "questions": len(records), "dropped": ran["failed"], "selection": str(ev / "work" / "selection.json")}
 
 
+def cmd_link(a) -> dict:
+    """The Atlan pages of a check saved to Trident: the agent's runs, and the last run against its baseline."""
+    from urllib.parse import quote
+    if not re.fullmatch(r"https://[A-Za-z0-9.-]+", a.origin):
+        raise Blocked("Use the HTTPS app origin, without a path, e.g. https://app.atlan.com.")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", a.org):
+        raise Blocked("Use the organization's URL slug, the one the context's proof links use.")
+    ids = (load(pathlib.Path(a.evals) / "state.json", {}) or {}).get("ids") or {}
+    agent, runs = ids.get("agent_id"), ids.get("experiments") or {}
+    if not str(agent).startswith("agent_") or not runs:
+        raise Blocked("This check is not saved to Atlan Trident yet: no agent or run is recorded.")
+    base = f"{a.origin}/{quote(a.org, safe='')}/registry/evals/experiments/agent/{agent}"
+    last = list(runs.values())[-1]
+    return {"status": "ok", "runs": f"{base}?ws=all", "last_run": f"{base}/{last}?ws=all"}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     s = p.add_subparsers(dest="cmd", required=True)
@@ -193,6 +211,11 @@ def main(argv=None) -> int:
     c.add_argument("--project", required=True)
     c.add_argument("--file", required=True)
     c.set_defaults(func=cmd_load)
+    c = s.add_parser("link", help="the Atlan pages of a check saved to Trident")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--org", required=True)
+    c.add_argument("--origin", default="https://app.atlan.com")
+    c.set_defaults(func=cmd_link)
     a = p.parse_args(argv)
     try:
         print(json.dumps(a.func(a), indent=1))

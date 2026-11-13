@@ -112,5 +112,8 @@ Called when the caller asks to save a check. The caller gives the workspace and 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
 the run as an experiment, each answer with its SQL and score. Never the answering agents'
 transcripts: they hold this machine's commands and paths. Each later run is an experiment
-linked to the one before it, so the workspace shows the score move. Return each run's
-`experiment_id` and the workspace.
+linked to the one before it, so the workspace shows the score move. Then `CHECK link --evals
+<evals-run> --org <organization slug>` gives the Atlan pages: `runs` (every run of the check) and
+`last_run` (the last one against its baseline). The slug is the one the context's proof links use
+([definition links](../../analytics-ask/references/definition-links.md)). Return each run's
+`experiment_id`, the workspace and both links.

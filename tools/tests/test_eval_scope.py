@@ -148,6 +148,15 @@ class ScopeTest(unittest.TestCase):
         (first / "hillclimb").mkdir(parents=True)
         self.assertTrue(str(check.evals_dir(self.tmp, self.run)).endswith(self.run.name + "-2"))
 
+    def test_link_names_the_agents_runs_and_the_last_run(self) -> None:
+        ev = self.tmp / ".atlan-evals" / "saved"
+        ev.mkdir(parents=True)
+        (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a", "experiments": {
+            "baseline": "experiment_01b", "v1": "experiment_01c"}}}))
+        res = self.check("link", "--evals", str(ev), "--org", "acme")
+        base = "https://app.atlan.com/acme/registry/evals/experiments/agent/agent_01a"
+        self.assertEqual((res["runs"], res["last_run"]), (base + "?ws=all", base + "/experiment_01c?ws=all"))
+
     def test_a_set_loads_as_approved_and_drops_a_question_whose_sql_does_not_run(self) -> None:
         sets = self.tmp / ".atlan-evals" / "sets"
         sets.mkdir(parents=True)

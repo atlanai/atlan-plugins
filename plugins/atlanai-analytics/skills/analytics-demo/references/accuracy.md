@@ -199,7 +199,8 @@ plain lines, and nothing else:
    <what the misses share>."
 3. The score line, word for word, which carries the range.
 4. Only when `CHECK load` returned `generated: true`: the source line.
-5. One line on where it lives: on this machine, or saved to `<workspace>`.
+5. One line on where it lives: on this machine, or saved to `<workspace>` with the `runs` link
+   from saving the check, as Markdown: "Saved to <workspace>: [see the runs in Atlan](<runs>)".
 
 No other line: not a significance test, an open question, a note on saved queries or past
 queries that still follow the old rule, or an offer to change a saved query, another metric
