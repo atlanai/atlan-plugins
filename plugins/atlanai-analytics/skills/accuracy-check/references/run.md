@@ -105,7 +105,9 @@ Called when the caller asks to save a check. The caller gives the workspace and 
    before it> --no-transcripts`, each with
    `EVAL publish-ack` until `"step": "done"`, as
    [publish](../../eval-generation/references/publish.md) describes, saving the tool results in
-   that run's own folder (`<evals-run>/hillclimb/<variant>/publish-<step>.json`).
+   that run's own folder (`<evals-run>/hillclimb/<variant>/publish-<step>.json`). Send each
+   call's arguments exactly as `publish` printed them. When `publish-ack` returns `MISMATCH`, a
+   saved score differs from the run's: stop and follow its `fix` before publishing anything else.
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
 the run as an experiment, each answer with its SQL and score. Never the answering agents'

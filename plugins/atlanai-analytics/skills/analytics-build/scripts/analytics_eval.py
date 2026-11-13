@@ -1574,6 +1574,8 @@ def cmd_publish_ack(a) -> dict:
                               "Pass the create_artifacts result unchanged, or reconcile with --reconcile.")
             got = {n: _find_id(sl, kind) for n, sl in zip(names, slots)}
             failed = {n: _failed(sl) or "no id returned" for n, sl in zip(names, slots) if not got[n]}
+            if a.step == "results":
+                drift = _score_drift(pr, a.variant, names, slots)
         else:
             if len(resps) != len(names):
                 raise Blocked(f"Expected {len(names)} results, got {len(resps)}.", "Pass one result per call, in order.")
@@ -1586,10 +1588,29 @@ def cmd_publish_ack(a) -> dict:
     landed = sum(1 for v in got.values() if v)
     out = {"status": "ok" if not failed else "DONE_WITH_CONCERNS", "step": a.step, "landed": landed,
            "next": "Run `publish` again for the next step."}
+    if locals().get("drift"):
+        # A connector without file uploads has the model retype each call; a slip saves a wrong score
+        # that the registry will not let anyone edit.
+        out.update(status="MISMATCH", mismatched=drift,
+                   fix="The registry holds a score this run did not give. Results cannot be edited: archive "
+                       "this experiment and publish the run again, sending each call exactly as `publish` printed it.")
     if failed:
         out["failed"] = dict(list(failed.items())[:10])
         out["fix"] = "The next `publish` resends only the items that failed. Fix the named field first if one is named."
     return out
+
+
+def _score_drift(pr: Proj, variant: str, names: list, slots: list) -> dict:
+    """Cases whose saved result_match differs from the score this run recorded."""
+    want = {_case_id(r): float((r.get("grade") or {}).get("pass", 0))
+            for r in read_results(pr.vdir(variant) / "results.jsonl")}
+    drift = {}
+    for n, sl in zip(names, slots):
+        art = (sl.get("artifact") if isinstance(sl, dict) else None) or {}
+        saved = ((art.get("metadata") or {}).get("scores") or {}).get("result_match")
+        if saved is not None and n in want and float(saved) != want[n]:
+            drift[n] = {"saved": saved, "scored": want[n]}
+    return drift
 
 
 def _reconcile_name(pr: Proj, a, step: str, n: str) -> str:
@@ -1888,6 +1909,12 @@ def selftest() -> dict:
         bare = pathlib.Path(d) / "no-transcripts"
         shutil.copytree(pr, bare)
         ok("publishing plans every write as MCP calls and reaches done", _selftest_publish(pr))
+        row = read_results(pr / "hillclimb" / "cited" / "results.jsonl")[0]
+        sc, cid = float((row.get("grade") or {}).get("pass", 0)), _case_id(row)
+        slot = lambda v: [{"artifact": {"metadata": {"scores": {"result_match": v}}}}]
+        ok("a saved score that differs from the run's is named, a matching one is not",
+           _score_drift(Proj(str(pr)), "cited", [cid], slot(1 - sc)) == {cid: {"saved": 1 - sc, "scored": sc}}
+           and not _score_drift(Proj(str(pr)), "cited", [cid], slot(sc)))
         ok("a publish without transcripts saves the sessions and scores, never the messages",
            _selftest_publish(bare, no_transcripts=True))
         imported, dataset_only = _selftest_generated_set(pathlib.Path(d) / "generated")

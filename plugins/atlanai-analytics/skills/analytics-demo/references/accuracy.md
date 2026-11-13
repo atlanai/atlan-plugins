@@ -29,7 +29,7 @@ this machine only.
 
 `CHECK start --project <project>` returns the built run, `context_saved_to` and the project's
 `sets`. With no sets, or the person asking for new questions, generate. Otherwise, unless the
-request named a set, ask one native question whose text is this state line, as plain lines:
+request named a set, ask one native question, even when the folder holds only one set, whose text is this state line, as plain lines:
 
 ```
 This folder has <N> eval set(s): <set name>, <N> questions with their trusted answers.
