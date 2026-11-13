@@ -1,6 +1,6 @@
 {
   "name": "atlanai",
-  "version": "0.5.57",
+  "version": "0.5.58",
   "description": "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key.",
   "author": {
     "name": "Atlan",
@@ -40,7 +40,9 @@
     "brandColor": "#2026D2",
     "composerIcon": "./assets/logo.png",
     "logo": "./assets/logo.png",
-    "privacyPolicyURL": "https://atlan.com/privacy-policy/"
+    "privacyPolicyURL": "https://atlan.com/privacy-policy/",
+    "supportURL": "https://docs.atlan.com/support/submit-request",
+    "termsOfServiceURL": "https://atlan.com/docs/atlan-saas-agreement.pdf"
   },
   "hooks": "./command-hooks/codex.json",
   "extensions": {

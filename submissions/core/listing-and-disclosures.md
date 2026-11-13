@@ -14,8 +14,8 @@ The owner reviews the privacy and security attestations before submission.
 | Category | Developer Tools in OpenAI; development in the Claude marketplace manifest |
 | Website | https://atlan.com |
 | Privacy notice | https://atlan.com/privacy-policy/ |
-| Support | Awaiting approved public URL |
-| Terms | Awaiting approved public URL |
+| Support | https://docs.atlan.com/support/submit-request |
+| Terms | https://atlan.com/docs/atlan-saas-agreement.pdf |
 | Submission contact | rohan@atlan.com (private review contact) |
 
 Description:
@@ -58,9 +58,10 @@ Do not claim read-only access: the core includes authoring and publication workf
 
 ## Release notes
 
-Atlan trident 0.5.57 changes the core display name to Atlan trident while keeping the
+Atlan trident 0.5.58 changes the core display name to Atlan trident while keeping the
 installed identifier atlanai. The OpenAI directory package omits lifecycle hooks and
-custom MCP headers and declares OAuth with CIMD preference. The build accepts an approved
-support URL. Core skills are unchanged. The Claude helper always launches python3 and the bundled receipt writer, rather than a path returned by that writer. Its update request now exposes the fixed public URL at the call site. Receipt guards and write-confirmation behavior are preserved.
+custom MCP headers and declares OAuth with CIMD preference. Support and terms links use
+the published pages linked from Atlan's footer, subject to the owner's final applicability
+review. Core skills are unchanged. The Claude helper always launches python3 and the bundled receipt writer, rather than a path returned by that writer. Its update request now exposes the fixed public URL at the call site. Receipt guards and write-confirmation behavior are preserved.
 Analytics and Registry Mods remain separate. Review cases, data disclosures and a recording
 script are supplied as drafts; live review execution is still pending.

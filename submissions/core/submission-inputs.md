@@ -50,7 +50,7 @@ functional cases against that account before claiming they pass.
 The repository requires a maintainer security review before the helper changes merge.
 This is separate from accepting the directory terms. No merge has been performed.
 
-Support and terms-of-service URLs are missing from the listing preview,
-but the current Claude bundle form does not mark them as blocking requirements. Supply
-approved pages for listing quality. Support and terms URLs are required by the OpenAI MCP
-submission path, so that submission remains a separate pending step.
+Version 0.5.58 supplies Atlan's published Support Center and SaaS Agreement links for the
+OpenAI metadata requirements. The publishing owner reviews their applicability to Trident
+before accepting attestations. OpenAI remains a separate draft requiring MCP domain
+verification, dedicated reviewer access, live test results and a walkthrough recording.

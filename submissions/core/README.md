@@ -1,13 +1,13 @@
 # Prepare the Atlan trident submissions
 
-The core submission changes target version `0.5.57`, displayed as **Atlan trident**,
+The core submission changes target version `0.5.58`, displayed as **Atlan trident**,
 on top of current main at `0.5.54`. The earlier local `0.3.21` preparation is superseded.
-No legal attestation or review submission has been made.
+The owner submitted Claude separately. OpenAI remains an unpublished draft.
 
 ## Build and review
 
 Run `make build`, `make check`, `make validate` and `make codex-directory`.
-The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.57.zip`.
+The OpenAI upload draft is `dist/codex-directory/atlanai-0.5.58.zip`.
 It contains the portable manifest, OAuth MCP configuration, skills, assets and licenses.
 It omits lifecycle hooks and custom MCP headers. Repository installs keep their hooks and
 client-identification header. Do not edit generated files.
@@ -26,14 +26,15 @@ The separate Analytics and Registry Mods plugins are outside this submission.
 
 ## Needed from the publishing owner
 
-- Approved support URL, terms URL and submission contact email. Set `plugin.support_url`
-  and `plugin.terms_url` in `plugin.toml`, then rebuild; do not guess legal pages.
+- Review the Support Center and SaaS Agreement linked from Atlan's public footer,
+  now set in `plugin.toml`. Confirm their applicability to Trident before accepting
+  attestations. The review contact is rohan@atlan.com.
 - Dedicated populated review tenant and account, with sign-in instructions entered privately
   in the portals. No real customer data. OpenAI reviewers must not need MFA or email codes.
 - Confirmed retention, deletion, downstream data flows, hosting regions, age eligibility and
   launch-country availability.
 - Atlan-owned publishing identities and portal permissions. Claude Owner access is verified;
-  OpenAI business verification and submission access remain unchecked.
+  OpenAI submission access under Atlan Enterprise was verified on 13 November.
 - An owner who can serve OpenAI's domain challenge at the exact URL the portal provides.
 
 ## Claude portal findings, 12 November 2026
@@ -61,6 +62,12 @@ Legal attestations and Submit for review require the owner's final review. None 
 unknown data-handling answers should be filled just to advance the form.
 
 ## OpenAI handoff
+
+The Atlan Enterprise draft is saved as Atlan trident. Its MCP setup requests a plain-text
+challenge at `https://api.atlan.com/.well-known/openai-apps-challenge`. Keep the challenge
+value and reviewer credentials out of this public repository. The initial upload reported
+missing support and terms URLs; version 0.5.58 supplies Atlan's published pages. Portal
+rechecks, domain verification, reviewer access and live cases remain necessary.
 
 At [the plugin portal](https://platform.openai.com/plugins), use Atlan's verified business
 identity and an eligible project. Upload the hookless ZIP with MCP, verify the domain,
