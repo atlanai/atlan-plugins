@@ -290,6 +290,14 @@ report. Never search descriptions for words such as "held" to decide eligibility
 warehouse access and parse-only evidence remain limitations rather than failed semantics.
 A stale review on replaced SQL is resolved by C4, not by editing export metadata.
 
+A query or metric held because a literal reads as a person's name (`a person's name ('…')`,
+hold reason `privacy_review`) is cleared only by the person. Show them the quoted value. When
+they confirm it is a business value, such as a line of business, add the exact text to
+`privacy.reviewed_values` in a new run's configuration (`{"privacy": {"reviewed_values":
+["Variable Spend"]}}`; a setup run records it with `PROJECT reviewed-values`), then run again.
+The value is admitted in the history, the cards and the export, and nothing else is. Never
+rewrite the SQL or its case to pass the check.
+
 The publication checker enforces the manifest and rejects reintroduced held bodies or links.
 The resumable publisher checks it before returning a call. Keep the manifest and source
 receipt intact; repairs go through engine gates and a fresh context export. If an older run

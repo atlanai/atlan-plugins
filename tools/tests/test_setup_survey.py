@@ -83,10 +83,35 @@ class LabelOrNameTest(unittest.TestCase):
               "coverage_tier in ('Well Covered', 'Light Coverage')",
               "CASE WHEN s >= 4 THEN 'Well Covered' ELSE 'No Coverage' END AS coverage_tier",
               "CASE WHEN on_track THEN 'On Pace' END", "call_class <> 'No Transcript'", "x in ('Very Low')",
-              "where stage = 'Closed Won'")
+              "where stage = 'Closed Won'",
+              "LINE_OF_BUSINESS NOT IN ('Variable Spend')",
+              "NOT (t.LINE_OF_BUSINESS IN ('Fixed Cost', 'Variable Spend'))",
+              "\"Line of Business\" <> 'Variable Spend'", "t.LOB = 'Variable Spend'",
+              "SALES_FINANCE_CATEGORY NOT IN ('Variable Spend')", "ACTIVITY_CLASS IN ('New Business')",
+              "c.CATEGORY_NAME NOT IN ('Gift Cards')", "REGION_DESC = 'North East'",
+              # A Tableau calculated field, compiled: labels written from a category test.
+              "WHERE ((CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Variable Spend' ELSE 'Fixed Spend' END)) "
+              "IN ('Variable Spend')",
+              "CASE WHEN UPPER(t.LOB) IN ('VS', 'VAR') THEN 'Variable Spend' END AS lob_group")
     NAMES = ("where rep = 'Jane Smith'", "status = 'Open' and owner_name = 'Jane Smith'",
              "CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name", "CASE WHEN id = 4 THEN 'Jane Smith' END",
-             "tier in ('Gold Plus') and manager like 'Mary Jones%'")
+             "tier in ('Gold Plus') and manager like 'Mary Jones%'",
+             "line_of_business = 'Fleet' and business_owner = 'Jane Smith'", "region_manager = 'Jane Smith'",
+             "CASE WHEN t.OWNER_ID = 4 THEN 'Jane Smith' ELSE 'Other Rep' END IN ('Jane Smith')",
+             "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Jane Smith' END AS owner_name",
+             "CASE WHEN t.CHANNEL = 'ONLINE' AND t.REP_ID = 7 THEN 'Jane Smith' END",
+             "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Fixed Spend' END = 'X' and rep = 'Jane Smith'")
+
+    def test_reviewed_values_pass_and_nothing_else(self):
+        from analytics_eval import set_reviewed_values
+        sql = "t.SPEND_BUCKET_OWNER = 'Variable Spend' and rep = 'Jane Smith'"
+        try:
+            set_reviewed_values(['Variable Spend'])
+            self.assertEqual(full_name_hit(sql), "'Jane Smith'")
+            self.assertIsNone(full_name_hit("t.SPEND_OWNER = 'Variable Spend'"))
+        finally:
+            set_reviewed_values([])
+        self.assertEqual(full_name_hit("t.SPEND_OWNER = 'Variable Spend'"), "'Variable Spend'")
 
     def test_business_labels_pass(self):
         for sql in self.LABELS:
