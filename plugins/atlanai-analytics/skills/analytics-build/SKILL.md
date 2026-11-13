@@ -73,8 +73,10 @@ reached and never replace a moment with a status line.
    [the use cases](references/setup/names.md) and any clarification. In every branch, the
    interview's confirmation, "Build it?". A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
-   and the whole survey, through [build and check](references/setup/build-check.md). Then
-   review the completed collection with actual counts and one representative metric.
+   and the whole survey, through [build and check](references/setup/build-check.md). One
+   subagent writes the metric gates while this session posts each saved batch's
+   [drafts line](references/setup/progress.md#drafts-as-they-land) as its own chat message.
+   Then review the completed collection with actual counts and one representative metric.
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.

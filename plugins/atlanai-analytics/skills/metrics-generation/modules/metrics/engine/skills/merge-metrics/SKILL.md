@@ -64,6 +64,18 @@ publish, and it fails silently : the validator refuses it.
 
 A metric with one source is normal and correct. Most metrics are measured once.
 
+## Decide every group, then save one merge at a time
+
+Decide all the groups before saving anything: a merge needs every proposal in view. Then save
+in the gate's answers folder, in numbered files (`01.json`, `02.json`, …), each with the same
+`{"metrics": [...]}` shape:
+
+1. Each metric with two or more sources as its own file, one after another.
+2. Every single-source metric together in one last file.
+
+A person watches each merge land as its own step. If a later file would move a proposal, rewrite
+the file that claimed it; never claim it twice.
+
 ---
 
 # Deciding whether two proposals are one metric
