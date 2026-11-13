@@ -303,102 +303,6 @@ class Project(ContextState):
     def check_metric(self, request):
         return self.check_execution(request, 'metric')
 
-    def edit_metric(self, request):
-        """Change one metric in this run by definition field, as a proposal's changes name them. The
-        old definition is kept beside the run and the new one must pass its check, or nothing changes."""
-        name, changes = request.get('name', ''), request.get('changes') or []
-        path = self.context / 'metrics.json'
-        bodies = self.read(path) if path.exists() else []
-        body = next((b for b in bodies if name in (b.get('name'), b.get('display_name'))), None)
-        if not body:
-            raise ProjectError('Select a metric in this run by name: ' + ', '.join(b.get('name', '') for b in bodies) + '.')
-        if not changes:
-            raise ProjectError('Name at least one change: {"path": "<definition field, dotted>", "value": ...}.')
-        old = json.loads(json.dumps(body['definition']))
-        new = json.loads(json.dumps(old))
-        old_text = {k: body.get(k) for k in ('description', 'display_name')}
-        for change in changes:
-            keys = str(change.get('path') or '').split('.')
-            if keys[0] in old_text and len(keys) == 1:
-                # The metric's own words: agents read them beside the rule, so they change with it.
-                body[keys[0]] = change.get('value')
-                continue
-            if not keys[0] or keys[0] in ('version', 'spec_version'):
-                raise ProjectError('A change names a definition field, description or display_name, never version or spec_version.')
-            node = new
-            for key in keys[:-1]:
-                node = node.setdefault(key, {})
-            node[keys[-1]] = change.get('value')
-        self._apply_card(((new.get('extensions') or {}).get('metrics_agent') or {}).get('card'), changes)
-        version = int(old.get('version') or 1)
-        new['version'] = version + 1
-        # Old versions live beside the run, never in it: an agent answering from the run must not
-        # find the old rule there.
-        root = self.context.parent
-        kept = root.parent / 'metric-versions' / root.name / f"{re.sub(r'[^a-z0-9]+', '-', body['name'].lower()).strip('-')}-v{version}.json"
-        self._keep(kept, {**old_text, 'definition': old})
-        body['definition'] = new
-        self.write(path, bodies)
-        try:
-            self.check_metric({'name': body['name']})
-        except ValueError as error:
-            body['definition'] = old
-            body.update(old_text)
-            self.write(path, bodies)
-            raise ProjectError(f'The new rule fails its check, so the old rule is kept: {error}')
-        self._mirror_metric_edit(body['name'], changes, kept, version)
-        return {'status': 'ok', 'name': body['name'], 'version': version + 1, 'previous': str(kept),
-                'changed': [c['path'] for c in changes]}
-
-    # Where the engine keeps its own copy of a definition field (its card names a few differently).
-    _CARD_FIELD = {'source.sql': 'sql', 'source.entity': 'entity', 'source.alias': 'alias'}
-
-    @staticmethod
-    def _keep(path, value):
-        # Beside the run under .atlan-metrics/, outside the run's guarded store on purpose.
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(value, indent=1))
-
-    def _apply_card(self, card, changes):
-        """Carry definition-field changes onto an engine card, which names a few fields differently."""
-        if not isinstance(card, dict):
-            return
-        for change in changes:
-            path = change['path'].removeprefix('extensions.metrics_agent.card.')
-            field = self._CARD_FIELD.get(path, path)
-            if '.' not in field and field in card:
-                card[field] = change['value']
-
-    def _mirror_metric_edit(self, name, changes, kept, version):
-        """The engine keeps two more copies of each metric beside the context: its export and its
-        card. An agent that searches the run can read either, so an edit reaches them too, with
-        their old text kept beside the old definition."""
-        root = self.context.parent
-        export, cards = root / 'engine-export' / 'metrics.json', root / 'engine' / 'metric_cards.json'
-        before = {}
-        if export.is_file():
-            bodies = self.read(export)
-            for b in bodies:
-                if b.get('name') == name:
-                    before['export'] = json.loads(json.dumps(b))
-                    for change in changes:
-                        keys = change['path'].split('.')
-                        node = b if keys[0] in ('description', 'display_name') and len(keys) == 1 else b.setdefault('definition', {})
-                        for key in keys[:-1]:
-                            node = node.setdefault(key, {})
-                        node[keys[-1]] = change['value']
-                    b.setdefault('definition', {})['version'] = version + 1
-                    self._apply_card((((b.get('definition') or {}).get('extensions') or {}).get('metrics_agent') or {}).get('card'), changes)
-            self.write(export, bodies)
-        if cards.is_file():
-            doc = self.read(cards)
-            for card in doc.get('metrics') or []:
-                if name in (card.get('name'), card.get('display_name')):
-                    before['card'] = json.loads(json.dumps(card))
-                    self._apply_card(card, changes)
-            self.write(cards, doc)
-        if before:
-            self._keep(kept.with_name(kept.stem + '-engine.json'), before)
 
 
     def check_execution(self, request, kind):
@@ -705,7 +609,7 @@ def main():
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
-    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'edit-metric', 'acquisition', 'auth', 'engine-config'):
+    for name in ('prepare', 'execute', 'retrieved', 'answer', 'scope', 'check-query', 'check-metric', 'acquisition', 'auth', 'engine-config'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
     try:
@@ -788,8 +692,8 @@ def main():
         print(json.dumps({'status': 'canceled', 'next': 'Resume the same run; completed artifacts are retained.'}))
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
-        # A refused query or metric edit leaves the run as it was, so its progress stays too.
-        if 'project' in locals() and args.command not in ('experience', 'journey', 'execute', 'edit-metric'):
+        # A refused query leaves the run as it was, so its progress stays too.
+        if 'project' in locals() and args.command not in ('experience', 'journey', 'execute'):
             try:
                 path = project.root / 'progress.json'
                 if path.exists():

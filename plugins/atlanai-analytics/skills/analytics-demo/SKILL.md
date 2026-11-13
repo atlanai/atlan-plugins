@@ -111,7 +111,7 @@ When every check has run, read [context built and where to keep it](../analytics
 The celebration is the save question's own text. Saving reads the person's workspaces with
 `registry__list_workspaces` (`user_default` for the personal destination) and writes
 in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
-describes.
+describes. Keeping it local, run `PROJECT journey keep-local` first.
 
 ## 5. Ask a question, then choose what's next
 
@@ -119,8 +119,10 @@ When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
 to ask?" with the ready block as its text, offering two or three questions supported by the
 checked context. Do not put an Ask AI menu before the question list. Answer the question or
-questions the person selects or supplies, then ask "What would you like to do next?" with the
-answer as the question's text, as ready describes, offering these options:
+questions the person selects or supplies, then ask the native "What would you like to do
+next?" in place of ready's `Next:` line, its text the answer and proof links as plain lines
+([text before a native question is lost](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)).
+The same question follows a dashboard or an edit, with that result as its text:
 
 | Option | Runs |
 | --- | --- |

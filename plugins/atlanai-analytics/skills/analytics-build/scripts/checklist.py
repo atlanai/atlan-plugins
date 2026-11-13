@@ -62,7 +62,7 @@ def build(model, flow=None):
     total = counts['metrics'] + counts['queries']
     checked = at >= 4 or (at == 3 and finished)
     # Kept on this machine once checked: a demo goes straight to its question, with no preview stage.
-    saved = action in ('ask', 'explore-local') or (at == 6 and finished) or (local and checked)
+    saved = action in ('ask', 'explore-local') or (at == 6 and finished) or (flow == 'demo' and local and checked)
     done = {
         'sources': at > 0 or finished,
         # A run saved before intent was recorded has passed this step once authoring began.

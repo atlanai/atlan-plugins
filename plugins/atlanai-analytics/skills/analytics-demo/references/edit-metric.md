@@ -16,17 +16,16 @@ tool, print them last as plain lines, as
 | --- | --- |
 | The proposed change | One line: what the rule would count instead. |
 | My own change | The person types it. |
-| Leave it as it is | Ask "What would you like to do next?" from [ready](../../analytics-build/references/setup/ready.md). |
+| Leave it as it is | End the turn with the `Next:` line from [ready](../../analytics-build/references/setup/ready.md). |
 
 Never propose a change the demo's data cannot show: the tables must hold the column the
 new rule needs.
 
 ## 2. Make the change
 
-Write `{"name": "<metric>", "changes": [{"path": "<definition field, description or
-display_name>", "value"}]}` to a file in the run and run `PROJECT edit-metric <file>`. It keeps
-the old version, raises the version, re-runs the check and keeps the old rule when the new one
-fails. The metric keeps its identity; this is a revision, not a new metric.
+Call `metrics-generation` `edit` on that metric with the chosen change. It changes the
+definition through the engine, re-runs the check and returns the old rule, the new rule and
+both check results. The metric keeps its identity; this is a revision, not a new metric.
 
 If the check on the new rule fails, say so in one line, keep the old rule, and offer one
 other change. Never show a failed check as a result.
@@ -52,9 +51,9 @@ the block goes.
 
 ## 4. Where the change lives
 
-- Context kept on this machine: the change is saved in the run. Ask "What would you like to do next?" from
-  [ready](../../analytics-build/references/setup/ready.md), whose text is the block and the
-  comparison sentence as plain lines and one line saying the change is kept on this machine.
+- Context kept on this machine: the change is saved in the run. Print the block and the
+  comparison sentence as reply text, say so in one line, close with the plain `Next:` line
+  from [ready](../../analytics-build/references/setup/ready.md) and end the turn.
 - Context saved to Atlan Trident: ask one native question whose text is the block as plain
   lines, then the comparison sentence, then "Save this change for everyone who uses the
   metric?" On yes, call

@@ -7,6 +7,8 @@ SCRIPTS = Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skill
 sys.path.insert(0, str(SCRIPTS))
 import context_contracts as mine
 import test_local_project as fixtures
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'plugins/atlanai-analytics/skills/analytics-demo/scripts'))
+import edit_metric as demo_edit
 
 
 class CardExecution(unittest.TestCase):
@@ -43,7 +45,7 @@ class CardExecution(unittest.TestCase):
 
     def test_edit_metric_keeps_the_old_version_and_refuses_a_failing_rule(self):
         self.save(self.card())
-        out = self.run.edit_metric({'name': 'cost', 'changes': [
+        out = demo_edit.edit_metric(self.run, {'name': 'cost', 'changes': [
             {'path': 'source.sql', 'value': "(SELECT cost FROM site.work WHERE kind <> 'rework')"},
             {'path': 'examples', 'value': [{'source': 'declared:example',
                                             'sql': "SELECT SUM(cost) FROM site.work WHERE kind <> 'rework'"}]}]})
@@ -51,32 +53,34 @@ class CardExecution(unittest.TestCase):
         self.assertEqual((out['version'], card['definition']['version']), (2, 2))
         self.assertIn("<> 'rework'", card['definition']['source']['sql'])
         self.assertIn("= 'rework'", self.run.read(Path(out['previous']))['definition']['source']['sql'])
-        self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'description', 'value': 'Cost of non-rework work.'}]})
+        demo_edit.edit_metric(self.run, {'name': 'cost', 'changes': [{'path': 'description', 'value': 'Cost of non-rework work.'}]})
         self.assertEqual(self.run.read(self.run.context / 'metrics.json')[0]['description'], 'Cost of non-rework work.')
         with self.assertRaises(ValueError):
-            self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'source.sql', 'value': '(SELECT nope FROM nowhere)'}]})
+            demo_edit.edit_metric(self.run, {'name': 'cost', 'changes': [{'path': 'source.sql', 'value': '(SELECT nope FROM nowhere)'}]})
         self.assertEqual(self.run.read(self.run.context / 'metrics.json')[0]['definition']['version'], 3)
         with self.assertRaises(ValueError):
-            self.run.edit_metric({'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})
+            demo_edit.edit_metric(self.run, {'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})
 
     def test_a_refused_query_or_edit_leaves_the_run_progress_as_it_was(self):
         import json, subprocess, progress
         self.save(self.card())
         progress.update(self.run, 'check', 'complete')
         request = self.run.root / 'bad.json'
-        for command, body in (('execute', {'sql': 'SELECT nope FROM nowhere'}),
-                              ('edit-metric', {'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})):
+        demo = Path(demo_edit.__file__)
+        for argv, body in (([str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root), 'execute'],
+                            {'sql': 'SELECT nope FROM nowhere'}),
+                           ([str(demo), '--run-dir', str(self.run.root)],
+                            {'name': 'cost', 'changes': [{'path': 'version', 'value': 9}]})):
             request.write_text(json.dumps(body))
-            out = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run.root),
-                                  command, str(request)], capture_output=True, text=True)
-            self.assertEqual(json.loads(out.stdout)['status'], 'blocked', command)
-            self.assertEqual(self.run.read(self.run.root / 'progress.json')['status'], 'complete', command)
+            out = subprocess.run([sys.executable, *argv, str(request)], capture_output=True, text=True)
+            self.assertEqual(json.loads(out.stdout)['status'], 'blocked', argv[0])
+            self.assertEqual(self.run.read(self.run.root / 'progress.json')['status'], 'complete', argv[0])
 
     def test_edit_metric_reaches_the_embedded_card_notes(self):
         card = self.card()
         card['definition']['extensions']['metrics_agent'] = {'card': {'gotchas': ['rework is not billable'], 'formula': 'x'}}
         self.save(card)
-        self.run.edit_metric({'name': 'cost', 'changes': [
+        demo_edit.edit_metric(self.run, {'name': 'cost', 'changes': [
             {'path': 'extensions.metrics_agent.card.gotchas', 'value': ['rework is billable']}]})
         saved = self.run.read(self.run.context / 'metrics.json')[0]['definition']['extensions']['metrics_agent']['card']
         self.assertEqual(saved['gotchas'], ['rework is billable'])

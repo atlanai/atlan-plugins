@@ -7,7 +7,8 @@ the check and owns acting on its result. It calls [eval-generation](../../eval-g
 to generate or save a set and [accuracy-check](../../accuracy-check/SKILL.md) to find the run, load
 a set, run it, score it and test again. `<agent>` and `<firm>` come from the demo's facts file;
 `CHECK`, `EVAL` and `PROJECT` are as accuracy-check's [run and score a set](../../accuracy-check/references/run.md)
-names them, and `ACC` is `python3 "<demo-dir>/scripts/accuracy.py"`, with `<demo-dir>` this skill's
+names them, `ACC` is `python3 "<demo-dir>/scripts/accuracy.py"` and `EDIT` is
+`python3 "<demo-dir>/scripts/edit_metric.py" --run-dir "<run>"`, with `<demo-dir>` this skill's
 directory.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
@@ -124,7 +125,7 @@ Trident write is refused and the owner must act in Metric Studio. Keep the score
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
-  rule there no longer tests the context), and run `PROJECT edit-metric <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
+  rule there no longer tests the context), and run `EDIT <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
   keeps the old rule, so say so and ask "Apply this fix?" again with the next fix. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
@@ -141,7 +142,7 @@ Trident write is refused and the owner must act in Metric Studio. Keep the score
   3. Send `registry__append_artifact_version` with that `metadata` exactly as printed, `if_match`
      the head's `etag`, and release the new version to `latest` with `registry__release_artifact`
      unless the workspace already released it.
-  4. Make the same change on this machine, as for a local context (`PROJECT edit-metric`), so the
+  4. Make the same change on this machine, as for a local context (`EDIT`), so the
      run holds the version Atlan holds and a later fix builds on this one.
   A refusal at any step (the person may not write proposals or this metric, or someone changed it
   since) leaves the change for its owner: give the proposal's Metric Studio link
@@ -197,8 +198,7 @@ On Save: register `<agent>` in the context's workspace once, with `registry__cre
 refusal because that name exists means it is registered: find it with
 `registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
-id and workspace. End with the demo's "What would you like to do next?" from
-[ready](../../analytics-build/references/setup/ready.md), whose text is what was saved and where,
+id and workspace. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,
 as plain lines and no banner (the result was just shown):
 
 ```

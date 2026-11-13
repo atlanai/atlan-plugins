@@ -63,7 +63,7 @@ Effective compiler-review failures become structured publication holds; never by
 
 | The definition is | Do |
 | --- | --- |
-| In this run, not yet published | `PROJECT edit-metric` with `{"name", "changes": [{"path": "<definition field, dotted>", "value"}]}`: it keeps the old definition beside the run in `.atlan-metrics/metric-versions/<run>/`, outside what answering agents read, raises the version and re-runs the check, keeping the old rule when the new one fails. Return the old rule, the new rule and both check results |
+| In this run, not yet published | Change it through the engine, run `check`, and return the old rule, the new rule and both check results |
 | Published, and the person owns the run that made it | The same, then `save` as a revision of the same metric, never a new one |
 | Published by someone else, or the request came from an answer | `propose`: a proposal for its owners. It never saves |
 
