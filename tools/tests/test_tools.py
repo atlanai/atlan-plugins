@@ -1087,12 +1087,16 @@ class CodexDirectoryTest(unittest.TestCase):
         files = build.directory_files(source)
         manifest = json.loads(files["plugin.json"])
         self.assertNotIn("hooks", manifest["extensions"]["com.openai"])
+        review = manifest["extensions"]["com.openai"]["review"]
+        self.assertEqual(len(review["test_cases"]["positive"]), 5)
+        self.assertEqual(len(review["test_cases"]["negative"]), 3)
+        self.assertNotIn("review", build.outputs(source)["plugins/atlanai/plugin.json"]["extensions"]["com.openai"])
         self.assertEqual(manifest["extensions"]["com.openai"]["onboardingSkill"], "./skills/atlan-get-started/SKILL.md")
         self.assertIn("skills/atlan-get-started/SKILL.md", files)
         self.assertIn(manifest["extensions"]["com.openai"]["interface"]["logo"].removeprefix("./"), files)
         server = json.loads(files["mcp.json"])["mcpServers"][source["mcp"]["server"]]
         self.assertNotIn("headers", server)
-        self.assertEqual(server["url"], "https://api.atlan.com/mcp?tools=full")
+        self.assertEqual(server["url"], "https://api.atlan.com/mcp")
         portable = build.outputs(source)["plugins/atlanai/mcp.json"]["mcpServers"][source["mcp"]["server"]]
         self.assertEqual(portable["url"], "https://api.atlan.com/mcp")
         self.assertEqual(server["extensions"]["com.openai"]["auth"], {
