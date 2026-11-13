@@ -650,7 +650,7 @@ def main():
     visual.add_argument('--data', type=Path, action='append', default=[],
                         help="Facts the run's files cannot hold, such as a demo's firm and title; what the run's files prove always wins")
     visual.add_argument('--engine-dir', type=Path)
-    visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, built, edit), written to the run first")
+    visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
 
     asking = sub.add_parser('question', help="The save or ready question's text and options, composed from the run's files")
     asking.add_argument('kind', choices=('save', 'ready'))

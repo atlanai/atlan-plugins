@@ -23,8 +23,9 @@ before going on. While the engine builds, its result after each gate says so too
    Show it at once, as the moment's result; a command's own output is folded away, so the person
    never sees it there.
    - **With a `show_widget` tool** (the Claude desktop app): add `--widget` to every `visual`
-     call and pass the HTML it prints to that tool, chips and cards alike. There, text between
-     tool calls or inside a question never reaches the person.
+     call and pass the HTML it prints to that tool, chips and cards alike, never in a
+     question's text. Your own words reach the person there too, so the widget is the moment's
+     result.
    - **Otherwise** (a terminal): the helper prints plain lines and says where they go. A moment
      that comes right before a native question goes in that question's own text, which is always
      shown: text written just before a question folds into one summary line, and reply text in
@@ -54,15 +55,20 @@ before going on. While the engine builds, its result after each gate says so too
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
 | Metrics generated: the engine run is complete, before the checks | `build` | Mini card (in a terminal, it waits for the save question) | |
 | Every check has run | `context` | Chip: what ran, and what needs a look; in a terminal, with the build card, in the save question | |
-| Saved to Atlan Trident, or kept on this machine | `saved` | Mini card, or a chip when kept, before the ready question | `saved.json` |
+| Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
-| Dashboard layout proposed | `layout` | Chip | `layout.json` |
-| Dashboard built | `built` | Chip: the file | `built.json` |
+| Dashboard layout proposed | `layout` | Nothing: the layout question proposes it; the side page shows its tiles | `layout.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |
 
 The helper names the first eleven when they are due. A chip or card is the moment's result line:
 add no other line that repeats its numbers. After an answer's card, the reply leads with what
 answers (the name) and what explains it.
+
+**Keep the drawing out of your words.** The person sees the chip or card, never how it got
+there: never write that you are drawing, recording or checking for a visual, and never name a
+moment, chip, card or the helper. A moment that shows nothing gets no words either. While the
+engine builds, the chip after each gate is the update: add no line of your own about the
+engine's steps unless one is blocked or needs the person.
 
 ## The side page
 
@@ -98,7 +104,6 @@ from the result that produced them; leave out a field you do not have, never fil
   with `steps` as `[label, signed value]` from the query that splits the answering row.
 - `layout.json`: `tiles` and `more` as lists of metric names, exactly as the context names
   them.
-- `built.json`: `file`, the dashboard's file name as written in the working folder.
 - `edit.json`: from the edit result: `metric`, `before` and `after` rules in plain words,
   `values` as `[name, before, after, unit]`, and `added` and `removed` as lists of short labels
   for the re-asked question. Add `note` when a dashboard was built before the change: it still

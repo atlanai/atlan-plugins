@@ -412,13 +412,13 @@ class Questions(unittest.TestCase):
         self.assertIn('△ 4 need a look · on your data', questions.save(run)['question'])
 
     def test_the_ready_question_waits_for_where_the_context_lives(self):
-        # A live run kept its context on this machine without recording it: the ready question lost its kept chip.
+        # A live run kept its context on this machine without recording it: the ready question could not say where it lives.
         run = make_run(self.root, saved=False)
         with self.assertRaises(ValueError) as refused:
             questions.ready(run)
         self.assertIn('PROJECT journey keep-local', str(refused.exception))
         kept = make_run(self.root / 'kept', saved=False, local=True)
-        self.assertTrue(questions.ready(kept)['question'].startswith('⌂ Kept on this machine'))
+        self.assertIn('on this machine', questions.ready(kept)['question'])
 
     def test_the_review_never_cuts_a_left_out_item(self):
         # A composed save question read "Leaves out: Facility fees are excluded (they belong to the venue); The te…".

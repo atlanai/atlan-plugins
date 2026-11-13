@@ -21,7 +21,8 @@ chosen. When the question step starts, show what they made, then let them pick a
 Run `PROJECT question ready`, adding `--data` with the demo's facts file for a demo
 ([Fixit](../../../analytics-demo/references/yard.json),
 [Ticketfuddle](../../../analytics-demo/references/box-office.json)), and nothing for own data.
-With `show_widget`, first draw `PROJECT visual saved --widget` and add `--widget` here. Ask one
+With `show_widget`, add `--widget` here, after a save to Atlan Trident first drawing
+`PROJECT visual saved --widget`. Ask one
 native question with the `header`, the `question` text and the `options` it prints, exactly as
 given, and the host's free-text entry. Its text is the ready block: what was built, where it
 lives, what it can answer, and on own data what needs a look. Its options are questions the

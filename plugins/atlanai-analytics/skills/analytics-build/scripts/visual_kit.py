@@ -114,11 +114,10 @@ OUTCOME = (
     '.oc .t{flex:0 100 auto;color:var(--ts);overflow:hidden;text-overflow:ellipsis;min-width:0}'
     '.oc .t::before{content:"\\00b7  "}.oc .m{display:inline-flex;align-items:center;flex:none;font-style:normal;color:var(--c1)}'
     '.oc .m svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}'
-    '.oc .m.found svg{width:15px;height:15px;margin-right:-3px}.oc .m.sources,.oc .m.saved{color:var(--ts)}.oc .m.ok{color:var(--sk)}.oc .m.look{color:var(--wx)}'
+    '.oc .m.found svg{width:15px;height:15px;margin-right:-3px}.oc .m.sources{color:var(--ts)}.oc .m.ok{color:var(--sk)}.oc .m.look{color:var(--wx)}'
     '.oc .m.described,.oc .m.links{color:var(--ax)}.oc .m.described svg{fill:currentColor;stroke:none;width:15px}'
     '.oc .m.rules{font-weight:700;font-size:15px;line-height:1;width:17px;justify-content:center}'
-    '.oc .m.tiles,.oc .m.layout{display:inline-grid;gap:2px}.oc .m.tiles b{width:5px;height:5px;border-radius:1px;background:var(--kx)}'
-    '.oc .m.layout b{width:7px;height:9px;border-radius:2px;background:var(--c1);opacity:.6}'
+    '.oc .m.tiles{display:inline-grid;gap:2px}.oc .m.tiles b{width:5px;height:5px;border-radius:1px;background:var(--kx)}'
 )
 MARKS = {
     'sources': '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 10h17M3.5 14.5h17M9.5 10v9"/>',
@@ -128,8 +127,6 @@ MARKS = {
     'links': '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.3 11 15.7 7M8.3 13l7.4 4"/>',
     'ok': '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/>',
     'look': '<path d="M12 4 21 19.5H3Z"/><path d="M12 10v4.5M12 17.2v.1"/>',
-    'saved': '<rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 19h18"/>',
-    'built': '<path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20V3.5Z"/><path d="M14 3.5V8h4"/>',
     'dashboard': '<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M8 16v-4M12 16V9M16 16v-6"/>',
     'file': '<path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20V3.5Z"/>',
     'database': '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/>',
@@ -139,9 +136,8 @@ MARKS = {
 
 def mark(name, cells=0, columns=0):
     """A step's own mark: a small drawing, a grid of tiles, or the sign of a rule."""
-    if name in ('tiles', 'layout'):
-        return '<i class="m %s" style="grid-template-columns:repeat(%d,%s)">%s</i>' % (
-            name, max(1, columns), '5px' if name == 'tiles' else '7px', '<b></b>' * cells)
+    if name == 'tiles':
+        return '<i class="m tiles" style="grid-template-columns:repeat(%d,5px)">%s</i>' % (max(1, columns), '<b></b>' * cells)
     if name == 'rules':
         return '<i class="m rules">=</i>'
     return '<i class="m %s"><svg viewBox="0 0 24 24" aria-hidden="true">%s</svg></i>' % (name, MARKS[name])

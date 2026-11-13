@@ -81,7 +81,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
-   With `show_widget`, then draw the `saved` visual; in a terminal the ready question holds it.
+   After a save to Atlan Trident with `show_widget`, draw the `saved` visual; in a terminal the
+   ready question holds it.
 6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
    question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
 7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).

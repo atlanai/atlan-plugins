@@ -113,8 +113,8 @@ When every check has run, read [context built and where to keep it](../analytics
 The celebration is the save question's own text. Saving reads the person's workspaces with
 `registry__list_workspaces` (`user_default` for the personal destination) and writes
 in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
-describes. After the save, or once the context is kept here, draw the `saved` visual with
-`show_widget`; in a terminal the ready question holds it.
+describes. After the save, draw the `saved` visual with `show_widget`; in a terminal the ready
+question holds it. Kept here, it shows nothing.
 
 ## 5 and 6. Ask a question, build a dashboard
 

@@ -152,19 +152,6 @@ class Moments(unittest.TestCase):
     def test_a_later_answer_is_a_chip(self):
         self.assertEqual(self.show('answer', first=False), '▁▃█ **-£6,360** · Turbine base')
 
-    def test_a_context_kept_local_is_a_chip(self):
-        run = make_run(self.root / 'l', local=True)
-        self.assertEqual(self.show('saved', run), '⌂ **Kept on this machine** · nothing sent to Atlan')
-        self.assertEqual(self.show('saved', make_run(self.root / 'lf', local=True, failing=1)), self.show('saved', run),
-                         'where it lives, never a count: the ready block says what is kept')
-
-    def test_a_dashboard_proposal_is_a_chip(self):
-        self.assertEqual(self.show('layout'), '▭ **2 tiles** laid out · 1 more metric below · Gross margin, Rework cost')
-        (self.run / 'layout.json').write_text(json.dumps({'tiles': ['Gross Margin', 'Rework Cost'], 'more': ['Rework Cost', 'Q Margin']}),
-                                              encoding='utf-8')
-        self.assertEqual(self.show('layout'), '▭ **2 tiles** laid out · 1 more metric and 1 query below · Gross margin…',
-                         'a live run listed two queries there, which the chip called metrics')
-
     def test_nothing_shows_before_the_run_has_it(self):
         empty = self.root / 'empty'
         empty.mkdir()
@@ -182,8 +169,8 @@ class Moments(unittest.TestCase):
             self.assertLess(len(html), 6000, kind + ': every character is an output token')
 
     def test_a_chip_is_a_small_widget_where_the_host_draws_one(self):
-        for kind in ('found', 'sources', 'context', 'saved', 'layout'):
-            html = visuals.render(kind, visuals.build_spec(kind, make_run(self.root / 'l', local=True) if kind == 'saved' else self.run), widget=True)
+        for kind in ('found', 'sources', 'context'):
+            html = visuals.render(kind, visuals.build_spec(kind, self.run), widget=True)
             self.assertTrue(html.startswith('<style>') and 'class="a oc"' in html, kind)
             self.assertNotRegex(html, r'https?://', kind)
             self.assertLess(len(html), 2500, kind + ': a chip costs a few seconds of writing, not a card\'s')
@@ -331,10 +318,6 @@ class Moments(unittest.TestCase):
         self.assertIn('Why \\`\\`\\` and \\*this\\* here?', card, 'Markdown in the data cannot start code or emphasis')
         self.assertIn('order_processing', card, 'an underscore inside a word needs no escape')
         self.assertIn('\\_hidden', card)
-
-    def test_an_empty_name_below_the_tiles_is_left_out(self):
-        (self.run / 'layout.json').write_text(json.dumps({'tiles': ['Gross Margin'], 'more': [[], 'Rework Cost']}), encoding='utf-8')
-        self.assertEqual(self.show('layout'), '▭ **1 tile** laid out · 1 more metric below · Gross margin')
 
     def test_a_malformed_data_file_is_ignored_not_fatal(self):
         (self.run / 'answer.json').write_text('[1, 2]')
@@ -623,15 +606,20 @@ class Helper(unittest.TestCase):
         moments = json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']
         self.assertEqual([m['kind'] for m in moments], ['connect', 'sources'])
 
-    def test_a_context_kept_local_shows_its_chip(self):
+    def test_a_context_kept_local_draws_nothing(self):
+        # The person has just chosen to keep it here: the ready question says where it lives, once.
         self.run = make_run(Path(self.tmp.name).resolve() / 'local', local=True)
         for kind in ('connect', 'sources', 'build', 'context'):
             self.project('visual', kind)
-        self.assertTrue(self.project('visual', 'saved').startswith('side view: '), 'the ready question prints it')
+        self.assertNotIn('⌂', self.project('visual', 'saved'))
         asked = json.loads(self.project('question', 'ready'))['question']
-        self.assertTrue(asked.startswith('⌂ Kept on this machine · nothing sent to Atlan'), "plain, first in the ready question's text")
-        self.assertIn('saved', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']],
-                      'recorded once the question that shows it is composed')
+        self.assertNotIn('⌂', asked)
+        self.assertEqual(asked.count('on this machine'), 1, asked)
+
+    def test_a_layout_is_recorded_for_the_side_page_and_draws_nothing(self):
+        out = self.project('visual', 'layout', '--input', '-', stdin=json.dumps({'tiles': ['Gross Margin'], 'more': ['Rework Cost']}))
+        self.assertNotIn('▭', out, 'the layout question proposes it')
+        self.assertEqual(json.loads((self.run / 'layout.json').read_text(encoding='utf-8'))['tiles'], ['Gross Margin'])
 
     def test_an_answer_without_its_file_shows_and_records_nothing(self):
         for kind in ('connect', 'sources', 'build', 'context', 'saved'):

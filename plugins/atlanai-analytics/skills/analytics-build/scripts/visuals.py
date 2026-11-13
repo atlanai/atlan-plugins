@@ -17,17 +17,16 @@ import visual_kit as k
 from run_facts import RunFacts, count, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'build', 'context', 'saved',
-         'answer', 'layout', 'built', 'edit')
-# The moments big enough for a mini card. A later answer, and a context kept on this machine, get a chip.
+         'answer', 'layout', 'edit')
+# The moments big enough for a mini card. A later answer gets a chip. A context kept on this machine and a dashboard layout
+# show nothing: the person has just chosen the one, and the layout's own question proposes the other.
 CARDS = ('build', 'saved', 'answer', 'edit')
 # In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
 # text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
 ASKED = {'found': "the \"Build it?\" question's text, first",
          'context': "the save question's text in place of its count line (the banner, the two lines under it and the "
                     "question stay as they are)",
-         'saved': "the ready question's text, first",
-         'layout': "the text of the question that confirms the layout, first (when this turn also answers a question, the plain "
-                   "lines after the answer)"}
+         'saved': "the ready question's text, first"}
 # A demo reads its sources right before choosing what to build from; own data reads them mid-build.
 ASKED_DEMO = {'sources': "the next native question's text, first"}
 # A rule changed on a context saved to Atlan Trident is followed by the question that saves the change.
@@ -44,10 +43,8 @@ DATA = {
                'rows': 'rows', 'proof': 'names', 'breakdown': dict},
     'layout': {'tiles': 'labels', 'more': 'labels'},
     'edit': {'metric': str, 'before': str, 'after': str, 'note': str, 'values': 'values', 'added': 'labels', 'removed': 'labels'},
-    'built': {'file': str},
 }
-REQUIRED = {'saved': ('workspace',), 'answer': ('question', 'headline'), 'layout': ('tiles',), 'edit': ('metric', 'values'),
-            'built': ('file',)}
+REQUIRED = {'saved': ('workspace',), 'answer': ('question', 'headline'), 'layout': ('tiles',), 'edit': ('metric', 'values')}
 SHAPES = {'rows': '[label, number] pairs', 'names': 'a list of {"name": ...}', 'labels': 'a list of names',
           'values': 'a list of [name, before, after]', str: 'text', dict: 'an object'}
 # A text card's inside width: it fits an 80-column window with room to spare, and a split pane.
@@ -153,8 +150,6 @@ def collect(kind, facts):
         edges = [x for x in facts.engine_file('metric_relationships.json').get('edges') or []
                  if isinstance(x, dict) and x.get('from') and x.get('to')]
         return {'links': len(edges), 'example': _link(edges)} if edges else {}
-    if kind == 'built':
-        return {'tiles': len(_names(facts.file('layout.json').get('tiles')))}
     return {}
 
 
@@ -263,20 +258,6 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         spec['page'] = page
     if kind == 'saved' and facts and not spec.get('local'):
         spec['workspace'] = spec.get('workspace') or own.get('workspace')
-    if kind == 'layout':
-        values = {m['name'].lower(): m['value'] for m in (facts.context.get('metrics', []) if facts else [])}
-        fill = lambda t: t if isinstance(t, list) else [t, values.get(sentence(t).lower(), 'blank')]
-        spec['tiles'] = [fill(t) for t in _names(spec.get('tiles'))]
-        spec['more'] = [fill(t) for t in _names(spec.get('more'))]
-        # The names below the tiles are metrics, as the data file asks, unless one is a query the context holds: the agent
-        # can list a breakdown or a chart there.
-        key = lambda t: re.sub(r'[\s_-]+', ' ', str(t)).strip().lower()
-        named = lambda file: {key(x.get(k)) for x in (facts.file('context', file, kind=list) if facts else [])
-                              if isinstance(x, dict) for k in ('name', 'display_name') if x.get(k)}
-        metrics, queries = named('metrics.json'), named('queries.json')
-        kinds = ['query' if key(t[0]) in queries and key(t[0]) not in metrics else 'metric' for t in spec['more']]
-        spec['below'] = [count(kinds.count(k), *words) for k, words in (('metric', ('more metric',)), ('query', ('query', 'queries')))
-                         if kinds.count(k)]
     if kind == 'answer' and facts and not spec.get('unit'):
         # An answer that names no unit reads in the unit of the rule it used first.
         first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict) and p.get('name')), None)
@@ -373,7 +354,7 @@ def _ticker(kind, s):
 
 # Each step's own mark in a terminal, and the name of its drawing in a widget.
 MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'described': '❝', 'metrics': '◆', 'rules': '=', 'links': '⋈',
-         'ok': '✓', 'look': '△', 'saved': '⌂', 'layout': '▭', 'built': '▣'}
+         'ok': '✓', 'look': '△'}
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
 
 
@@ -426,17 +407,6 @@ def _outcome(kind, s):
             shown = s.get('featured')
             o = {'mark': 'ok', 'bold': 'Every metric and query ran',
                  'tail': where + (' · %s %s' % (shown[0], _minus(shown[1])) if shown and shown[1] not in (None, 'not run') else '')}
-    elif kind == 'saved' and s.get('local'):
-        o = {'mark': 'saved', 'bold': 'Kept on this machine', 'tail': 'nothing sent to Atlan'}
-    elif kind == 'layout' and s.get('tiles'):
-        names = [sentence(t[0] if isinstance(t, list) else t) for t in s['tiles']]
-        o = {'mark': k.mark('layout', min(len(names), 6), min(len(names), 6)), 'bold': count(len(names), 'tile'), 'rest': ' laid out',
-             # What sits below the tiles first: a fitted line gives up the names, never that.
-             'tail': ('%s below · ' % ' and '.join(s['below']) if s.get('below') else '') + ', '.join(names[:2]) + (
-                 ' +%d' % (len(names) - 2) if len(names) > 2 else '')}
-    elif kind == 'built' and s.get('file'):
-        o = {'mark': 'built', 'bold': s['file'], 'tail': '%s · opens in your browser' % (
-            count(s['tiles'], 'tile') if s.get('tiles') else 'dashboard')}
     if not o:
         return None
     name = o['mark'] if o['mark'] in MARKS else None

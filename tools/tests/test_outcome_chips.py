@@ -98,21 +98,20 @@ class Chips(unittest.TestCase):
         self.assertEqual(self.show('context'), '✓ **Every metric and query ran** · on your data · Gross margin £118,681')
         failing = make_run(self.root / 'f', failing=1)
         self.assertEqual(self.show('context', failing), '△ **3 ran cleanly** · 1 need a look · on your data')
-        local = make_run(self.root / 'l', saved=False, local=True)
-        self.assertEqual(self.show('saved', local), '⌂ **Kept on this machine** · nothing sent to Atlan')
-        self.assertEqual(self.show('layout'), '▭ **2 tiles** laid out · 1 more metric below · Gross margin, Rework cost')
         demo = make_run(self.root / 'demo', demo=True)
         self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric and query ran** · on Fixit's data · Gross margin £118,681")
 
-    def test_the_dashboard_built_names_its_file(self):
-        # The agent writes the file's name with `visual built --input -`; own data takes nothing from outside the run.
-        write(self.run / 'built.json', {'file': 'job-margin-dashboard.html'})
-        self.assertEqual(self.show('built'),
-                         '▣ **job-margin-dashboard.html** · 2 tiles · opens in your browser')
-        self.assertEqual(visuals.check_data('built', {}), 'built.json needs `file`.')
+    def test_no_chip_repeats_what_the_person_already_sees(self):
+        # A live desktop run drew "Kept on this machine" right after the person chose it, the layout its question then
+        # proposed, and the dashboard's file name its reply gave: none said what a step produced.
+        local = make_run(self.root / 'l', saved=False, local=True)
+        for widget in (False, True):
+            self.assertEqual(self.show('saved', local, widget=widget), '', 'the person just chose it')
+            self.assertEqual(self.show('layout', widget=widget), '', 'the layout question says it')
+        self.assertNotIn('built', visuals.KINDS, "the reply names the dashboard's file")
 
     def test_no_chip_shows_progress(self):
-        kinds = BUILD_STEPS + ('found', 'sources', 'context', 'layout')
+        kinds = BUILD_STEPS + ('found', 'sources', 'context')
         for kind in kinds:
             text = self.show(kind)
             self.assertFalse(re.search(r'\d+/\d+', text), (kind, text))
@@ -120,7 +119,7 @@ class Chips(unittest.TestCase):
             self.assertNotIn('class="rg"', self.show(kind, widget=True), kind)
 
     def test_each_chip_has_its_own_mark(self):
-        kinds = BUILD_STEPS + ('sources', 'context', 'layout')
+        kinds = BUILD_STEPS + ('sources', 'context')
         marks = {self.show(kind).split(' ', 1)[0] for kind in kinds}
         self.assertEqual(len(marks), len(kinds), 'no two steps share a mark')
         widgets = [self.show(kind, widget=True) for kind in kinds]
@@ -150,8 +149,7 @@ class Chips(unittest.TestCase):
         long = 'What share of the delivered material value ended up wasted on the jobs that finished late this year?'
         write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {'h-1': {'question': long}}})
         write(self.run / 'engine' / 'metric_cards.json', {'cards': [{'name': 'Gross Margin', 'description': 'Contract value ' + 'less a cost ' * 12 + '.'}]})
-        write(self.run / 'built.json', {'file': 'a-very-long-name-for-the-dashboard-of-job-margins-and-rework-costs-2026.html'})
-        for kind in ('described', 'rules', 'built', 'metrics', 'sources', 'layout'):
+        for kind in ('described', 'rules', 'metrics', 'sources'):
             line = self.show(kind).replace('**', '')
             self.assertLessEqual(len(line), 76, (kind, line))
         self.assertIn('“What share of the delivered material value ended up wasted', self.show('described'))
@@ -162,11 +160,6 @@ class Chips(unittest.TestCase):
             'h-1': {'question': 'What share of completed jobs were handed over on time, within a week of the planned end date?'},
             'h-2': {'question': 'How much did rework cost?'}}})
         self.assertEqual(self.show('described'), '❝ “How much did rework cost?” · +1 more in plain words')
-
-    def test_a_layout_in_its_question_has_no_markdown(self):
-        # A live terminal run put the layout chip in its question as "▭ **4 tiles**": a question's text shows the stars.
-        self.assertIsNotNone(visuals.asked('layout', True))
-        self.assertIsNotNone(visuals.asked('layout', False))
 
     def test_a_fitted_line_breaks_at_a_word(self):
         # A live run's rule chip ended "... at each crew member's or machine's hourly rate" cut as "at ea…".
