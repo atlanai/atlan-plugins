@@ -122,8 +122,8 @@ checked context. Do not put an Ask AI menu before the question list. Answer the 
 questions the person selects or supplies, then, in the same turn, ask the native "What would
 you like to do next?", its text the answer and proof links as plain lines
 ([text before a native question is lost](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)).
-This overrides ready's `Next:` line: a demo turn that answers always ends on this question,
-as does a dashboard or an edit:
+This overrides ready's `Next:` line: a demo answer always ends on this question, as does a
+dashboard or an edit:
 
 | Option | Runs |
 | --- | --- |
