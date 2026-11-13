@@ -38,7 +38,8 @@ its answer with the trusted one. Which questions should I test with?
 ```
 
 Nothing else goes in it or before it: not a set's notes or expected answers, where its questions
-came from, or what the test is likely to find. Those would answer the test before it runs.
+came from, or what the test is likely to find. A brought set runs as it is; only generated
+questions are shown with their expected answers, in step 2, because the person has not seen them.
 
 | Option | Description |
 | --- | --- |
@@ -106,7 +107,7 @@ in `<evals-run>/work/spec.json`, name the fix:
   population and exclusions, each example whose SQL holds the old rule, its `description`, **and**
   the engine card's own notes when they state it (`extensions.metrics_agent.card.gotchas` and
   `.description`). Another metric whose description or card states
-  the old rule (the cost of rework saying rework is never billed, say) gets its own fix entry: an
+  the old rule (a related metric's description repeating the rule the fix replaces) gets its own fix entry: an
   agent that reads the old rule in any metric still answers with it. A miss on wording is fixed by adding that
   question to `examples`, with the SQL that answers it. A question that asks the opposite is a
   redraft; a miss with no definition is a new metric.
@@ -149,7 +150,7 @@ Metric Studio. Keep the score goes to step 5.
   | Option | Description |
   | --- | --- |
   | Approved, test again | I test the approved version on the same questions before anyone reads it. |
-  | Not now | The proposal waits in Metric Studio; the context stays as it is. |
+  | Not now | The proposal waits in Metric Studio; the context stays as it is, and I go to the result. |
 
 Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the same eval folder, naming the
 approved `version_ordinal` in Trident.
@@ -172,7 +173,7 @@ whose text is the score move, as plain lines:
 
 | Option | Description |
 | --- | --- |
-| Save to `<workspace>` (Recommended) | The questions and both runs with their scores, so your team sees accuracy go from `<p>`% to 100%. A digest of each trusted SQL, never the SQL. |
+| Save to `<workspace>` (Recommended) | The questions and both runs with their scores, so your team sees accuracy go from `<p>`% to `<q>`%. A digest of each trusted SQL, never the SQL. |
 | Keep on this machine | The set and its runs stay in this folder. |
 
 On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
@@ -196,7 +197,7 @@ plain lines, and nothing else:
 
 2. The result line, in percentages. After a fix: "Your <agent> has reached 100% accuracy, up
    from <p>%, now that <what changed, plain words>." First time: "Your <agent> is at 100%
-   accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "<p>% accuracy, and
+   accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
    <what the misses share>."
 3. The score line, word for word, which carries the range.
 4. Only when `CHECK load` returned `generated: true`: the source line.
