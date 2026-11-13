@@ -229,6 +229,25 @@ def answer_contract(run, gate):
     return contract
 
 
+BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
+
+
+def batch_progress(run, gate):
+    """What the person sees while a batched gate is answered: after each saved file, the setup
+    helper prints the metrics in it, and the assistant posts that text in chat."""
+    project = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts' / 'project.py'
+    if gate not in BATCHED_GATES or not project.is_file() or not (run.parent / 'run.json').is_file():
+        return None
+    command = f'python3 "{project}" --run-dir "{run.parent}" drafts --engine-dir "{run.name}"'
+    return {'command': command,
+            'follow': command + ' --follow',
+            'say': ('One subagent writes this gate in numbered batch files and runs no drafts command. '
+                    'The session that talks to the person runs `follow` as a background watch and sends '
+                    'each line it prints as its own chat message, exactly as printed: the person does not '
+                    'see command output. With no background subagent or watch, write the gate in that '
+                    'session and run `command` after each file instead.')}
+
+
 def last_stage_output(text):
     """The engine's output from the last stage it ran: the one that paused or failed.
     The whole run's output stays in engine.log."""
@@ -284,6 +303,9 @@ def advance(run, runtime, model):
             result['gate'].update(answer_contract(run, gate))
             if gate == 'x3' and (run / 'x3_repair.json').is_file():
                 result['gate']['repair'] = str(run / 'x3_repair.json')
+            progress = batch_progress(run, gate)
+            if progress:
+                result['gate']['after_each_batch'] = progress
         result['feedback'] = last_stage_output(proc.stderr)
     else:
         result['reason'] = (blocked_reason(run)
