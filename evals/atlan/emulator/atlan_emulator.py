@@ -61,6 +61,14 @@ another state through its environment (`emulator.json` beside the case, read by 
   until `registry__retrigger_artifact_action` starts a new run.
 - `ATLAN_EMULATOR_NO_MEMBERS_READ=1`: the sign-in lacks `members:read`, so `registry__list_users`
   is refused with `insufficient_scope`, as a connector consented without that scope is.
+- `ATLAN_EMULATOR_UNFENCED_PATCH=1`: the gateway predates owner transfer over MCP, so
+  `registry__patch_artifact` declares no `if_match` and refuses one as an unknown argument, and an
+  owner change goes through without it. Pair it with `ATLAN_EMULATOR_HIDE_TOOLS=registry__list_users`.
+  By default an owner change without `if_match` is refused with `invalid_arguments`, as the
+  gateway that serves `registry__list_users` refuses it;
+- `ATLAN_EMULATOR_NOT_ADMIN=workspace_01evalplatform,…`: the user is a member of those workspaces,
+  not an admin, so `registry__list_workspaces` answers `can_manage: false` for them and an owner
+  change there is refused unless the user owns the artifact.
 
 The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
 `mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
@@ -113,6 +121,11 @@ PUBLISH_VERSION_CONFLICT = os.environ.get("ATLAN_EMULATOR_PUBLISH_VERSION_CONFLI
 SERVE_WITHDRAW = os.environ.get("ATLAN_EMULATOR_SERVE_WITHDRAW") == "1"
 NOT_SCANNED = {h for h in os.environ.get("ATLAN_EMULATOR_NOT_SCANNED", "").split(",") if h}
 NO_MEMBERS_READ = os.environ.get("ATLAN_EMULATOR_NO_MEMBERS_READ") == "1"
+UNFENCED_PATCH = os.environ.get("ATLAN_EMULATOR_UNFENCED_PATCH") == "1"
+NOT_ADMIN = {w for w in os.environ.get("ATLAN_EMULATOR_NOT_ADMIN", "").split(",") if w}
+for _workspace in WORLD["workspaces"]:
+    if _workspace["id"] in NOT_ADMIN:
+        _workspace.update(role="member", can_manage=False)
 # The live tool surface: `mcp__call_read_tools` and the `registry__` tools listed by name. Off by
 # default, because the suite's graders count reads on `mcp__call_read_tool`; a case that tests the
 # batch or direct path sets it in its emulator.json.
@@ -300,7 +313,17 @@ def served_tools() -> list[dict]:
     """The tools this connection serves: the world's, less the hidden and disabled servers' and the
     tools gateway 2.21.0 does not serve."""
     gone = HIDE_TOOLS | (set() if SERVE_WITHDRAW else {"registry__withdraw_release"})
-    return [t for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE | DISABLED and t["name"] not in gone]
+    return [unfenced(t) if UNFENCED_PATCH and t["name"] == "registry__patch_artifact" else t
+            for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE | DISABLED and t["name"] not in gone]
+
+
+def unfenced(tool: dict) -> dict:
+    """`registry__patch_artifact` as a gateway older than owner transfer over MCP lists it: no `if_match`
+    among its arguments, and nothing in its description about moving `owner_id`."""
+    schema = tool["input_schema"]
+    return tool | {"description": tool["description"].split(" \n\n**`owner_id`", 1)[0],
+                   "input_schema": schema | {"properties": {k: v for k, v in schema["properties"].items()
+                                                            if k != "if_match"}}}
 
 
 def listed_tools() -> list[dict]:
@@ -965,6 +988,11 @@ def dispatch(name: str, a: dict) -> dict:
     if name == "registry__patch_artifact":
         fenced(a)
         if "owner_id" in (a.get("patch") or {}):
+            # Two unfenced owner changes would both succeed, so the gateway that can find people
+            # refuses one without a tag. An older gateway has no tag to take.
+            if a.get("if_match") is None and not UNFENCED_PATCH:
+                raise Refusal(400, "invalid_arguments", "Changing `owner_id` needs `if_match`: pass the `etag` "
+                              "you read, so a concurrent change is refused rather than overwritten.")
             return transfer_owner(a)
     if name == "registry__search_artifacts":
         return search_artifacts(a)

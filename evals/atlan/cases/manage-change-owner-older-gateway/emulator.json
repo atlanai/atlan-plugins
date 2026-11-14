@@ -1,5 +1,6 @@
 {
   "env": {
-    "ATLAN_EMULATOR_HIDE_TOOLS": "registry__list_users"
+    "ATLAN_EMULATOR_HIDE_TOOLS": "registry__list_users",
+    "ATLAN_EMULATOR_UNFENCED_PATCH": "1"
   }
 }

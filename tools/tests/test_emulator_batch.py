@@ -560,5 +560,46 @@ class OwnerTransferTest(unittest.TestCase):
 
     def test_the_new_owner_must_be_a_person_in_the_directory(self) -> None:
         result, body = self.run_tool("mcp__call_write_tool", "registry__patch_artifact",
-                                     {"artifact_id": "skill_01evaltfplan01", "patch": {"owner_id": "user_ghost"}})
+                                     {"artifact_id": "skill_01evaltfplan01", "patch": {"owner_id": "user_ghost"},
+                                      "if_match": self.head("skill_01evaltfplan01")["etag"]})
         self.assertEqual((result["isError"], body["code"]), (True, "unprocessable"))
+
+    def test_an_owner_change_without_a_tag_is_refused_by_a_gateway_that_finds_people(self) -> None:
+        result, body = self.run_tool("mcp__call_write_tool", "registry__patch_artifact",
+                                     {"artifact_id": "skill_01evaltfplan01", "patch": {"owner_id": "user_stefan"}})
+        self.assertEqual((result["isError"], body["code"]), (True, "invalid_arguments"))
+        self.assertIn("if_match", body["detail"])
+        self.assertEqual(self.head("skill_01evaltfplan01")["owner_id"], "user_priya")
+
+    def test_an_older_gateway_takes_no_tag_and_moves_the_owner_without_one(self) -> None:
+        self.m = load(ATLAN_EMULATOR_UNFENCED_PATCH="1", ATLAN_EMULATOR_HIDE_TOOLS="registry__list_users")
+        self.rails = {"session_id": self.m.SESSION, "rationale": "Testing the emulator."}
+        _, described = call(self.m, "mcp__describe_tools",
+                            {"names": ["registry__patch_artifact", "registry__list_users"]})
+        (patch,) = described["tools"]
+        self.assertNotIn("if_match", json.dumps(patch))
+        self.assertNotIn("owner_id", patch["description"])
+        self.assertEqual([u["name"] for u in described["unknown"]], ["registry__list_users"])
+        before = self.head("skill_01evaltfplan01")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__patch_artifact",
+                                     {"artifact_id": "skill_01evaltfplan01", "patch": {"owner_id": "user_stefan"},
+                                      "if_match": before["etag"]})
+        self.assertEqual((result["isError"], body["code"]), (True, "invalid_arguments"))
+        self.assertIn("if_match", body["detail"])
+        result, body = self.run_tool("mcp__call_write_tool", "registry__patch_artifact",
+                                     {"artifact_id": "skill_01evaltfplan01", "patch": {"owner_id": "user_stefan"}})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual(self.head("skill_01evaltfplan01")["owner_id"], "user_stefan")
+
+    def test_a_member_who_does_not_own_it_cannot_move_its_owner(self) -> None:
+        self.m = load(ATLAN_EMULATOR_NOT_ADMIN="workspace_01evalplatform")
+        self.rails = {"session_id": self.m.SESSION, "rationale": "Testing the emulator."}
+        _, rows = self.run_tool("mcp__call_read_tool", "registry__list_workspaces", {})
+        platform = next(w for w in rows["items"] if w["id"] == "workspace_01evalplatform")
+        self.assertEqual((platform["can_manage"], platform["role"]), (False, "member"))
+        before = self.head("skill_01evaltfplan01")
+        result, body = self.run_tool("mcp__call_write_tool", "registry__patch_artifact",
+                                     {"artifact_id": "skill_01evaltfplan01", "patch": {"owner_id": "user_stefan"},
+                                      "if_match": before["etag"]})
+        self.assertEqual((result["isError"], body["code"]), (True, "forbidden"))
+        self.assertEqual(self.head("skill_01evaltfplan01")["owner_id"], "user_priya")
