@@ -187,10 +187,13 @@ class ScopeTest(unittest.TestCase):
             self.assertTrue(text.endswith("100% accuracy: 7 of 7"))
             with self.assertRaises(acc.Blocked):
                 acc.cmd_result(ns())
+            (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a"}}))
             saved = acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
-                                                                     runs_link="https://r", released=["Cost:2"]))["text"]
+                                                                     org="acme", origin="https://app.atlan.com",
+                                                                     released=["Cost:2"]))["text"]
             self.assertEqual(saved.splitlines(), ["Saved to WS:", "  job agent, with 7 questions and 2 runs scored from 71% to 100%",
-                                                  "  Cost version 2, released", "See the runs in Atlan: https://r"])
+                                                  "  Cost version 2, released",
+                                                  "See the runs in Atlan: https://app.atlan.com/acme/registry/evals/experiments/agent/agent_01a?ws=all"])
 
     def test_link_names_the_agents_runs_and_the_last_run(self) -> None:
         ev = self.tmp / ".atlan-evals" / "saved"

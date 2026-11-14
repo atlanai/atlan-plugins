@@ -1635,15 +1635,22 @@ def cmd_publish_ack(a) -> dict:
 
 
 def _score_drift(pr: Proj, variant: str, names: list, slots: list) -> dict:
-    """Cases whose saved result_match differs from the score this run recorded."""
-    want = {_case_id(r): float((r.get("grade") or {}).get("pass", 0))
-            for r in read_results(pr.vdir(variant) / "results.jsonl")}
+    """Cases whose saved score, SQL or context ids differ from what this run recorded."""
+    rows = {_case_id(r): r for r in read_results(pr.vdir(variant) / "results.jsonl")}
     drift = {}
     for n, sl in zip(names, slots):
         art = (sl.get("artifact") if isinstance(sl, dict) else None) or {}
-        saved = ((art.get("metadata") or {}).get("scores") or {}).get("result_match")
-        if saved is not None and n in want and float(saved) != want[n]:
-            drift[n] = {"saved": saved, "scored": want[n]}
+        meta, row = art.get("metadata") or {}, rows.get(n)
+        if not meta or row is None:
+            continue
+        saved = (meta.get("scores") or {}).get("result_match")
+        want = float((row.get("grade") or {}).get("pass", 0))
+        if saved is not None and float(saved) != want:
+            drift[n] = {"saved": saved, "scored": want}
+        out = meta.get("output") or {}
+        for key in ("sql", "used_context_ids"):
+            if key in out and out[key] != (row.get(key) or ([] if key == "used_context_ids" else "")):
+                drift.setdefault(n, {})[key] = "differs from the run"
     return drift
 
 
@@ -1951,6 +1958,10 @@ def selftest() -> dict:
         ok("a saved score that differs from the run's is named, a matching one is not",
            _score_drift(Proj(str(pr)), "cited", [cid], slot(1 - sc)) == {cid: {"saved": 1 - sc, "scored": sc}}
            and not _score_drift(Proj(str(pr)), "cited", [cid], slot(sc)))
+        typo = [{"artifact": {"metadata": {"scores": {"result_match": sc},
+                                           "output": {"sql": row.get("sql") or "", "used_context_ids": ["sql_query_typo"]}}}}]
+        ok("a saved answer whose context ids were retyped wrong is named",
+           _score_drift(Proj(str(pr)), "cited", [cid], typo) == {cid: {"used_context_ids": "differs from the run"}})
         ok("a publish without transcripts saves the sessions and scores, never the messages",
            _selftest_publish(bare, no_transcripts=True))
         proj_ids = Proj(str(by_ids))

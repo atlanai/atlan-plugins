@@ -4,7 +4,7 @@
     python3 accuracy.py fixes --evals <evals-run> --file <fixes.json>
     python3 accuracy.py version --evals <evals-run> --run <run> --metric <name> --head-version <N>
     python3 accuracy.py result --evals <evals-run> --agent <agent> --firm <firm> [--changed <words>] [--misses <words>] [--generated]
-    python3 accuracy.py saved --evals <evals-run> --agent <agent> --workspace <name> --runs-link <url> [--released <metric>:<version> ...]
+    python3 accuracy.py saved --evals <evals-run> --agent <agent> --workspace <name> --org <slug> [--released <metric>:<version> ...]
 
 A fix is applied from <evals-run>/fixes.json, so its shape is checked here rather than trusted.
 The set is the source of truth: only a question that asks the opposite is redrafted. Prints one
@@ -164,7 +164,10 @@ def cmd_saved(a) -> dict:
         if not name or not version.isdigit():
             raise Blocked(f"--released takes <metric>:<version>, not {r!r}.")
         lines.append(f"  {name} version {version}, released")
-    lines.append(f"See the runs in Atlan: {a.runs_link}")
+    agent = ((load(ev / "state.json", {}) or {}).get("ids") or {}).get("agent_id")
+    if not str(agent).startswith("agent_") or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", a.org):
+        raise Blocked("Save the check first, and pass the organization's URL slug (--org).")
+    lines.append(f"See the runs in Atlan: {a.origin}/{a.org}/registry/evals/experiments/agent/{agent}?ws=all")
     return {"status": "ok", "text": "\n".join(lines)}
 
 
@@ -193,7 +196,8 @@ def main(argv=None) -> int:
     c.add_argument("--evals", required=True)
     c.add_argument("--agent", required=True)
     c.add_argument("--workspace", required=True)
-    c.add_argument("--runs-link", required=True)
+    c.add_argument("--org", required=True, help="the organization's URL slug, as the proof links use")
+    c.add_argument("--origin", default="https://app.atlan.com")
     c.add_argument("--released", action="append", help="<metric>:<version>, once per released version")
     c.set_defaults(func=cmd_saved)
     a = p.parse_args(argv)

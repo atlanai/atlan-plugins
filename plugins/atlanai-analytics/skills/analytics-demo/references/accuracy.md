@@ -203,7 +203,7 @@ refusal because that name exists means it is registered: find it with
 `registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
 id and workspace. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
---runs-link <runs> --released "<metric>:<version>"` (once per released version) prints the summary
+--org <organization slug> --released "<metric>:<version>"` (once per released version) prints the summary
 below. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,
 as that `text`, put as it is, and no banner (the result was just shown):
 
