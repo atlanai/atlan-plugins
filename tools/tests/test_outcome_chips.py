@@ -118,6 +118,13 @@ class Chips(unittest.TestCase):
             self.assertFalse(set(visuals.RINGS) & set(text), (kind, text))
             self.assertNotIn('class="rg"', self.show(kind, widget=True), kind)
 
+    def test_a_narrow_chip_cuts_its_tail_before_its_outcome(self):
+        # Scaled down in a live run, the rule chip read "Rework co… · rework hours logged by crew members, at each o…": the
+        # bold part shrank a fraction of a pixel, and any shrink ellipsizes. It never shrinks; it is only capped.
+        import visual_kit
+        self.assertIn('.oc .h{flex:0 0 auto;max-width:calc(100% - 26px)', visual_kit.OUTCOME)
+        self.assertRegex(visual_kit.OUTCOME, r'\.oc\{[^}]*overflow:hidden', 'a wider mark than the cap assumes is clipped, never spills')
+
     def test_each_chip_has_its_own_mark(self):
         kinds = BUILD_STEPS + ('sources', 'context')
         marks = {self.show(kind).split(' ', 1)[0] for kind in kinds}
@@ -160,6 +167,11 @@ class Chips(unittest.TestCase):
             'h-1': {'question': 'What share of completed jobs were handed over on time, within a week of the planned end date?'},
             'h-2': {'question': 'How much did rework cost?'}}})
         self.assertEqual(self.show('described'), '❝ “How much did rework cost?” · +1 more in plain words')
+
+    def test_a_description_holding_several_questions_shows_its_first(self):
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {
+            'h-1': {'question': 'How much did rework cost? What share of it was billed?'}}})
+        self.assertEqual(self.show('described'), '❝ “How much did rework cost?” · in plain words')
 
     def test_a_fitted_line_breaks_at_a_word(self):
         # A live run's rule chip ended "... at each crew member's or machine's hourly rate" cut as "at ea…".
@@ -266,6 +278,7 @@ class Engine(unittest.TestCase):
     def test_each_gate_reminds_the_agent_to_show_what_the_step_produced(self):
         run = make_run(self.root)
         self.assertIn('visual next', self.advance(run / 'engine')['visual'])
+        self.assertIn('no words of your own', self.advance(run / 'engine')['visual'], 'the chip is the update')
 
     def test_an_engine_run_outside_a_setup_run_carries_no_reminder(self):
         self.assertNotIn('visual', self.advance(self.root / 'standalone' / 'engine'))

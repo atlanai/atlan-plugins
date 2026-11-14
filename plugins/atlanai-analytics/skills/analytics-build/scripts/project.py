@@ -585,7 +585,7 @@ def _due(run, engine_dir=None):
     import side_view
     try:
         kinds = side_view.due(run, engine_dir)
-        page = side_page.reminder(run)
+        page = side_page.reminder(run, start=False)
     except Exception:  # noqa: BLE001 - the view never fails a command whose own work succeeded
         return {}
     out = {'side_page': page} if page else {}
@@ -691,8 +691,11 @@ def main():
             if not run.is_dir() or args.kind != 'connect' and not (run / 'run.json').is_file():
                 raise ProjectError('Run this once the survey has created the run directory PROJECT location printed.')
             if args.input:
+                raw = sys.stdin.read(1_000_001)
+                if len(raw) > 1_000_000:
+                    raise ProjectError("A moment's data is over 1 MB: keep it to what the moment shows.")
                 try:
-                    given = json.loads(sys.stdin.read(1_000_001), parse_constant=lambda name: float('nan'))
+                    given = json.loads(raw, parse_constant=lambda name: float('nan'))
                 except ValueError:
                     raise ProjectError("A moment's data is one JSON object.") from None
                 problem = visuals.check_data(args.kind, given)
@@ -706,7 +709,9 @@ def main():
                 # The next moment the run has reached and not shown: during a build, what its last step produced.
                 ahead = side_view.due(run, args.engine_dir)
                 if not ahead:
-                    print('side view: ' + json.dumps({'next': 'Nothing new to show yet: carry on.'}))
+                    reminder = side_page.reminder(run)
+                    print('side view: ' + json.dumps({'next': 'Nothing new to show yet: carry on.' + (
+                        ' Then ' + reminder[0].lower() + reminder[1:] if reminder else '')}))
                     return 0
                 args.kind = ahead[0]
             if args.kind == 'connect':
@@ -752,7 +757,8 @@ def main():
             steps = []
             if shown and args.widget:
                 steps.append("Draw it now: pass the HTML above to `show_widget` (after its `read_me`, the first time), before "
-                             "your next question or reply. Never put it in a question's text.")
+                             "your next question or reply. Never put it in a question's text. It says what the step produced: "
+                             "add no line of your own about it.")
             elif shown and asked:
                 steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
                              "written just before it folds. They are counted from the run's files, so never reword them or "

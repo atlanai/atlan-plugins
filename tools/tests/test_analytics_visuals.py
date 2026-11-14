@@ -29,6 +29,21 @@ class Numbers(unittest.TestCase):
         self.assertEqual(visuals.number(86.09, 'USD per ticket'), '$86.09', 'a currency per unit keeps its sign')
         self.assertEqual(visuals.number(None, 'GBP'), 'blank')
 
+    def test_a_small_value_keeps_its_figures(self):
+        # 0.04 hours read as "0.0": a value under 1 lost the only figures it had.
+        self.assertEqual(visuals.number(0.04), '0.04')
+        self.assertEqual(visuals.number(0.004, 'hours'), '0.004')
+        self.assertEqual(visuals.number(-0.04), '-0.04')
+        self.assertEqual(visuals.number(0.123), '0.12')
+        self.assertEqual(visuals.number(0.5), '0.5')
+        self.assertEqual(visuals.number(12.345), '12.3')
+
+    def test_rounding_noise_reads_as_zero(self):
+        # A metric that sums to zero in floating point printed every digit of 5.55e-17; a subnormal value raised.
+        self.assertEqual(visuals.number(5.55e-17), '0')
+        self.assertEqual(visuals.number(-5.55e-17), '0')
+        self.assertEqual(visuals.number(1e-310), '0')
+
     def test_names_read_as_words(self):
         self.assertEqual(visuals.sentence('On-Time Rate'), 'On-time rate')
         self.assertEqual(visuals.table_name('site.work_logs'), 'work logs')
@@ -422,8 +437,26 @@ class Helper(unittest.TestCase):
                 break
             time.sleep(0.1)
         self.assertIsNone(side_page.running(self.run))
-        self.assertNotIn('side_page', json.loads(self.project('checklist')), 'the same address: an open tab reconnects by itself')
-        self.assertEqual(side_page.running(self.run), url)
+        self.assertNotIn('side_page', json.loads(self.project('checklist')))
+        self.assertIsNone(side_page.running(self.run), 'any other helper call leaves it stopped: no wait, no restart')
+        self.project('visual', 'sources')
+        self.assertEqual(side_page.running(self.run), url, 'the next moment brings it back at its address: an open tab reconnects')
+
+    def test_a_page_that_stopped_comes_back_even_when_nothing_new_is_due(self):
+        import side_page
+        self.project('visual', 'connect')
+        for _ in range(15):
+            if 'Nothing new to show yet' in self.project('visual', 'next', '--widget'):
+                break
+        record = json.loads((self.run / 'view' / 'server.json').read_text(encoding='utf-8'))
+        os.kill(record['pid'], 15)
+        import time
+        for _ in range(50):
+            if side_page.running(self.run) is None:
+                break
+            time.sleep(0.1)
+        self.assertIn('Nothing new to show yet', self.project('visual', 'next', '--widget'))
+        self.assertEqual(side_page.running(self.run), record['url'], 'a build calls `visual next` after every step')
 
     def test_in_a_terminal_the_first_chip_in_a_question_names_the_page(self):
         self.project('visual', 'connect')
@@ -620,6 +653,34 @@ class Helper(unittest.TestCase):
         out = self.project('visual', 'layout', '--input', '-', stdin=json.dumps({'tiles': ['Gross Margin'], 'more': ['Rework Cost']}))
         self.assertNotIn('▭', out, 'the layout question proposes it')
         self.assertEqual(json.loads((self.run / 'layout.json').read_text(encoding='utf-8'))['tiles'], ['Gross Margin'])
+
+    def test_a_data_file_over_1_mb_says_so(self):
+        out = json.loads(self.project('visual', 'answer', '--input', '-', stdin=json.dumps({'question': 'Q' * 1_000_100, 'headline': 'H: 1'})))
+        self.assertIn('over 1 MB', json.dumps(out), 'not "one JSON object": it was cut short')
+
+    def test_an_answer_card_states_only_numbers_its_rows_show(self):
+        # A live card said "7 of its 9 jobs" where the firm has 10; the agent corrected it a message later.
+        rows = [['Turbine base', 30084], ['Barn', 1200], ['Cat flap', 405]]
+        answer = {'question': 'How much did rework cost?', 'headline': 'Rework cost: £31,689', 'rows': rows}
+        problem = visuals.check_data('answer', dict(answer, summary='Rework hit 3 of its 9 jobs.'))
+        self.assertIn('9', problem or '')
+        self.assertIn('summary', problem or '')
+        for fine in ('Rework hit 3 jobs; the turbine base ran up 95% of it.', 'The turbine base ran up £30,084.',
+                     'Most of it came from one job.'):
+            self.assertIsNone(visuals.check_data('answer', dict(answer, summary=fine)), fine)
+
+    def test_an_answer_summary_may_say_what_its_data_shows_in_other_words(self):
+        loss = {'question': 'Which job lost the most?', 'headline': 'Turbine base: -£6,360', 'highlight': 'Turbine base',
+                'rows': [['Turbine base', -6360], ['Barn', -1200], ['Cat flap', -440]], 'rule': 'Margin over the last 12 months',
+                'breakdown': {'steps': [['Labour overrun', -4000], ['Materials', -2360]]}}
+        for fine in ('The turbine base is 80% of the loss.', 'It lost £6,360, the most of any job.', 'Labour overran by £4,000.',
+                     'All three jobs together lost about £8k.', 'Since March 2024 it came 2nd only to nothing, 24/7.',
+                     'Over 12 months it lost the most.'):
+            self.assertIsNone(visuals.check_data('answer', dict(loss, summary=fine)), fine)
+        share = {'question': 'What share of material was wasted?', 'headline': 'Material waste share: 2.1%', 'rows': [['All jobs', 0.021]]}
+        self.assertIsNotNone(visuals.check_data('answer', dict(share, summary='About 2.5% of material was wasted.')),
+                             'a figure written to one decimal is held to it')
+        self.assertIsNone(visuals.check_data('answer', dict(share, summary='About 2.1% of material was wasted.')))
 
     def test_an_answer_without_its_file_shows_and_records_nothing(self):
         for kind in ('connect', 'sources', 'build', 'context', 'saved'):

@@ -73,6 +73,77 @@ class Page(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_a_page_whose_run_cannot_be_read_still_hears_from_its_server(self):
+        # A snapshot that kept failing skipped the keepalive too: a closed tab was never noticed, and the open one
+        # stayed on Connecting.
+        import threading
+        server = side_page._Server(make_run(self.root), 0, None)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            with mock.patch.object(side_page, 'snapshot', side_effect=ValueError('half written')), \
+                    mock.patch.object(side_page, 'KEEPALIVE', 0.5):
+                conn = http.client.HTTPConnection('127.0.0.1', server.port, timeout=10)
+                conn.request('GET', '/%s/events' % server.key)
+                line = conn.getresponse().readline()
+                conn.close()
+            self.assertEqual(line, b': still here\n')
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_a_file_that_vanishes_mid_scan_never_ends_the_feed(self):
+        run = make_run(self.root)
+        gone = mock.Mock(is_file=lambda: True, stat=mock.Mock(side_effect=FileNotFoundError))
+        gone.name = 'server.json'
+        with mock.patch.object(side_page.os, 'scandir', return_value=[gone]):
+            self.assertTrue(side_page._fingerprint(run))
+
+    def test_an_engine_folder_that_vanishes_mid_scan_never_ends_the_feed(self):
+        from run_facts import engine_folder
+        run = make_run(self.root)
+        (run / 'engine-edit1').mkdir()
+        (run / 'engine-edit1' / 'manifest.json').write_text('{}', encoding='utf-8')
+        real = Path.glob
+        ghost = run / 'engine-gone' / 'manifest.json'
+        with mock.patch.object(Path, 'glob', lambda self, pattern: [*real(self, pattern), ghost]):
+            self.assertIn(engine_folder(run), ('engine', 'engine-edit1'))
+        with mock.patch.object(side_page.os, 'scandir', side_effect=FileNotFoundError), \
+                mock.patch.object(side_page.RunFacts, 'engine', run / 'engine-edit1'):
+            self.assertTrue(side_page._fingerprint(run))
+
+    def test_a_page_slow_to_start_is_started_once(self):
+        # A page that took longer than its wait to answer was started again by the next call, on every platform.
+        import subprocess
+        run = make_run(self.root)
+        slow = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+        try:
+            with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}), \
+                    mock.patch.object(side_page, '_spawn', return_value=slow.pid) as spawn, mock.patch.object(side_page.time, 'sleep'):
+                self.assertIn('error', side_page.open_page(run))
+                side_page.open_page(run)
+            self.assertEqual(spawn.call_count, 1, 'the page still starting is waited for')
+        finally:
+            slow.kill()
+            slow.wait()
+
+    def test_without_a_process_list_a_page_still_starting_is_waited_for(self):
+        # Without `ps` (Windows) a page slower than its wait to answer was started a second time.
+        import subprocess
+        run = make_run(self.root)
+        starting = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+        try:
+            (run / 'view').mkdir(exist_ok=True)
+            (run / 'view' / 'server.json').write_text(json.dumps({'url': 'http://127.0.0.1:9/k0000000000000000000/',
+                                                                  'pid': starting.pid, 'started': side_page._now()}), encoding='utf-8')
+            with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}), \
+                    mock.patch.object(side_page.subprocess, 'run', side_effect=FileNotFoundError), \
+                    mock.patch.object(side_page, '_spawn', return_value=0) as spawn, mock.patch.object(side_page.time, 'sleep'):
+                side_page.open_page(run)
+            self.assertEqual(spawn.call_count, 0)
+        finally:
+            starting.kill()
+            starting.wait()
+
     def test_a_proxy_setting_never_hides_a_running_page(self):
         # A proxy in the environment sent the helper's probe of 127.0.0.1 elsewhere: every call then waited and
         # started another server.
@@ -89,7 +160,7 @@ class Page(unittest.TestCase):
     def test_a_page_that_cannot_start_is_not_retried_on_every_call(self):
         run = make_run(self.root)
         with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}), \
-                mock.patch.object(side_page, '_spawn') as spawn, mock.patch.object(side_page.time, 'sleep'):
+                mock.patch.object(side_page, '_spawn', return_value=0) as spawn, mock.patch.object(side_page.time, 'sleep'):
             self.assertIn('error', side_page.open_page(run))
             self.assertIn('error', side_page.open_page(run, explicit=False))
         self.assertEqual(spawn.call_count, 1, 'a failed start waits a while before a helper call tries again')
@@ -220,7 +291,7 @@ class Page(unittest.TestCase):
     def test_asking_for_the_page_tries_again_after_a_failed_start(self):
         run = make_run(self.root)
         with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}), \
-                mock.patch.object(side_page, '_spawn') as spawn, mock.patch.object(side_page.time, 'sleep'):
+                mock.patch.object(side_page, '_spawn', return_value=0) as spawn, mock.patch.object(side_page.time, 'sleep'):
             side_page.open_page(run)
             side_page.open_page(run, explicit=False)
             self.assertEqual(spawn.call_count, 1, 'a helper call between moments waits')
@@ -280,7 +351,9 @@ class Page(unittest.TestCase):
                           encoding='utf-8')
         now = side_page.snapshot(run)['now']
         self.assertEqual(now['title'], 'Checking each metric and query on the data')
-        self.assertEqual(now['count'], {'n': 2, 'of': 4, 'unit': 'metrics and queries checked'})
+        # "Checked" means passed everywhere else on the page (its badges, its lists, the save step): a check that
+        # failed has run, not passed.
+        self.assertEqual(now['count'], {'n': 2, 'of': 4, 'unit': 'metrics and queries run'})
         self.assertEqual(now['bar'], 0.5, 'the bar fills with the checks that have their verdict')
         self.assertTrue(now['busy'], 'something is under way: the page moves')
 
@@ -381,7 +454,7 @@ class Questions(unittest.TestCase):
             made = side_page.snapshot(run)
             text = json.dumps(made) + json.dumps(side_view.model(run))
             self.assertIsNone(made['checks'], stage)
-            for count in ('metrics and queries checked', 'of 4 checked', '4 need a look', '3 need a look'):
+            for count in ('metrics and queries run', 'of 4 checked', '4 need a look', '3 need a look'):
                 self.assertNotIn(count, text, 'no count this helper cannot see, at %s' % stage)
 
     def test_a_saved_warehouse_run_claims_no_check_count(self):
@@ -419,6 +492,45 @@ class Questions(unittest.TestCase):
         self.assertIn('PROJECT journey keep-local', str(refused.exception))
         kept = make_run(self.root / 'kept', saved=False, local=True)
         self.assertIn('on this machine', questions.ready(kept)['question'])
+
+    def test_a_demo_ready_question_lists_no_held_items_without_its_facts(self):
+        run = make_run(self.root / 'demo-held', saved=False, local=True, demo=True, failing=1)
+        with mock.patch.object(questions, '_demo', return_value={}):
+            self.assertNotIn('Needs a look', questions.ready(run)['question'])
+
+    def test_a_ready_option_is_one_question(self):
+        run = make_run(self.root / 'one-q', saved=False, local=True)
+        said = run / 'engine' / 'sql_descriptions.json'
+        said.write_text(json.dumps({'descriptions': {'h-1': {'question': 'How much did the jobs make? What share was billed?'}}}),
+                        encoding='utf-8')
+        labels = [o['label'] for o in questions.ready(run)['options']]
+        self.assertFalse(any(label.count('?') > 1 for label in labels), labels)
+
+    def test_a_saved_query_named_by_several_questions_reads_as_its_first(self):
+        run = make_run(self.root / 'named', saved=False, local=True)
+        queries = run / 'context' / 'queries.json'
+        listed = json.loads(queries.read_text(encoding='utf-8'))
+        for q in listed:
+            q['display_name'] = 'How many jobs ran late? What share of them were billed?'
+        queries.write_text(json.dumps(listed), encoding='utf-8')
+        made = side_page.details(__import__('run_facts').RunFacts(run))
+        self.assertTrue(all(q['name'].count('?') <= 1 for q in made['queries']), [q['name'] for q in made['queries']])
+
+    def test_descriptions_in_a_list_never_break_the_page(self):
+        run = make_run(self.root / 'listed')
+        (run / 'engine' / 'sql_descriptions.json').write_text(json.dumps({'descriptions': [{'vq_id': 'h-1', 'question': 'Q?', 'x': 1}]}),
+                                                              encoding='utf-8')
+        self.assertIn('metrics', side_page.snapshot(run))
+
+    def test_a_metric_named_nothing_has_no_unit(self):
+        from run_facts import RunFacts
+        run = make_run(self.root / 'unnamed')
+        metrics = run / 'context' / 'metrics.json'
+        listed = json.loads(metrics.read_text(encoding='utf-8'))
+        listed.append({'name': '', 'definition': {'output': {'unit': 'GBP'}}})
+        metrics.write_text(json.dumps(listed), encoding='utf-8')
+        self.assertIsNone(RunFacts(run).unit_for(''))
+        self.assertIsNone(RunFacts(run).unit_for(None))
 
     def test_the_review_never_cuts_a_left_out_item(self):
         # A composed save question read "Leaves out: Facility fees are excluded (they belong to the venue); The te…".

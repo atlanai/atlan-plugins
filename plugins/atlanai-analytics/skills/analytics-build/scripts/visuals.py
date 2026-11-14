@@ -14,7 +14,7 @@ import re
 import sys
 
 import visual_kit as k
-from run_facts import RunFacts, count, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
+from run_facts import RunFacts, count, first_question, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
 KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'build', 'context', 'saved',
          'answer', 'layout', 'edit')
@@ -84,6 +84,52 @@ def check_data(kind, data):
     for field, shape in DATA[kind].items():
         if field in data and not _shaped(data[field], shape):
             return '%s.json: `%s` must be %s.' % (kind, field, SHAPES[shape])
+    unproven = _unproven(data) if kind == 'answer' else None
+    if unproven:
+        return ('answer.json: the summary says %s, which its rows, headline and question do not show. Leave that number '
+                'out of the summary (your reply can carry it), or take it from the rows.' % unproven)
+    return None
+
+
+# A number as written: not part of a word, a date such as 24/7 or an ordinal such as 2nd; 31.7k is thousands.
+FIGURE = re.compile(r'(?<![\w./])-?\d[\d,]*(?:\.\d+)?(?:bn|k|m)?(?![\w/])', re.I)
+SCALE = {'k': 1e3, 'm': 1e6, 'bn': 1e9}
+
+
+def _figures(text):
+    """Each number written in a text, with how far it may be from what it rounds: 31.7k is 31,700 give or take 50."""
+    out = []
+    for m in FIGURE.finditer(re.sub(r'[£$€]', '', str(text or '').replace('\u2212', '-'))):
+        written = m.group(0).lower()
+        suffix = next((s for s in ('bn', 'k', 'm') if written.endswith(s)), '')
+        digits = written[:len(written) - len(suffix)].replace(',', '')
+        if not suffix and re.fullmatch(r'(19|20)\d\d', digits):
+            continue  # a year
+        scale = SCALE.get(suffix, 1)
+        out.append((m.group(0), float(digits) * scale, 0.5 * 10 ** -len(digits.partition('.')[2]) * scale))
+    return out
+
+
+def _unproven(data):
+    """The first number in an answer's summary that the card's own data does not show: a row's or a breakdown step's
+    value, its share of the total, how many there are, their total, or a number in the question, the headline, the rule
+    or a name. Each is held to the precision it is written to, and a loss may be written without its sign. The agent
+    writes the summary; a count it made up reached a card once."""
+    real = lambda x: isinstance(x, (int, float)) and not isinstance(x, bool)
+    rows = [r for r in data.get('rows') or [] if isinstance(r, list) and len(r) > 1]
+    breakdown = data.get('breakdown') if isinstance(data.get('breakdown'), dict) else {}
+    steps = [s for s in breakdown.get('steps') or [] if isinstance(s, list) and len(s) > 1]
+    row_values = [r[1] for r in rows if real(r[1])]
+    values = row_values + [s[1] for s in steps if real(s[1])]
+    names = [data.get('question'), data.get('headline'), data.get('rule')] + [x[0] for x in rows + steps] + [
+        p.get('name') for p in data.get('proof') or [] if isinstance(p, dict)]
+    head = [n for _, n, _ in _figures(str(data.get('headline') or '').rpartition(': ')[2])][:1]
+    totals = [t for t in {sum(row_values), *head} if t]
+    known = [n for name in names for _, n, _ in _figures(name)] + values + head + [len(rows), len(steps), sum(row_values)]
+    known += [v / t * 100 for v in values for t in totals] + [v * 100 for v in values if abs(v) <= 1]
+    for text, n, give in _figures(data.get('summary')):
+        if not any(abs(abs(n) - abs(k)) <= give + 1e-9 for k in known):
+            return text
     return None
 
 
@@ -155,12 +201,7 @@ def collect(kind, facts):
 
 def _described(facts):
     """The question past queries asked most, in the build's own plain words, and how many it wrote."""
-    said = facts.engine_file('sql_descriptions.json').get('descriptions') or {}
-    if isinstance(said, list):
-        said = {str(x.get('vq_id')): x for x in said if isinstance(x, dict)}
-    if not isinstance(said, dict):
-        return {}
-    words = [(vid, str(v.get('question') or '').strip()) for vid, v in said.items() if isinstance(v, dict)]
+    words = [(vid, first_question(v.get('question'))) for vid, v in facts.descriptions.items()]
     asked = [(vid, q) for vid, q in words if q.endswith('?')]
     if not asked:
         return {}
@@ -273,21 +314,21 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
         # The answer's own metric (its first rule) says whether a percent is a share from 0 to 1; the agent's file may
         # not. Other rules it lists can hold other units.
         first = next((p.get('name') for p in spec.get('proof') or [] if isinstance(p, dict)), None)
-        own = (facts.unit_for(first) or '').lower() if first else ''
+        rule_unit = (facts.unit_for(first) or '').lower() if first else ''
         # Unless the rows are already in percent: they hold the scale under which they sit nearest the headline's number.
         values = [r[1] for r in spec.get('rows') or [] if isinstance(r, list) and len(r) > 1 and isinstance(r[1], (int, float))]
         found = re.search(r'-?\d[\d,]*(\.\d+)?', str(spec.get('headline') or '').rpartition(': ')[2].replace('\u2212', '-'))
         head = float(found.group(0).replace(',', '')) if found else None
         near = lambda scale: min(abs(v * scale - head) for v in values)
         as_percent = (near(1) < near(100)) if values and head is not None else any(abs(v) > 1 for v in values)
-        if ('fraction' in own or own in ('ratio', 'share')) and not as_percent:
+        if ('fraction' in rule_unit or rule_unit in ('ratio', 'share')) and not as_percent:
             spec['unit'] = 'fraction'
     if kind == 'edit':
         unit = facts.unit_for(spec.get('metric')) if facts else None
         words = lambda v, given=None: number(v, given or unit) if isinstance(v, (int, float)) else str(v)
         # A row that names a metric reads in that metric's unit: one edit can change several rules.
-        own = lambda row: (facts.unit_for(row[0]) if facts and row and isinstance(row[0], str) else None) or (row[3] if len(row) > 3 else None)
-        values = [[words(x, own(row)) for x in row[:3]] for row in spec.get('values', []) if isinstance(row, list)]
+        row_unit = lambda row: (facts.unit_for(row[0]) if facts and row and isinstance(row[0], str) else None) or (row[3] if len(row) > 3 else None)
+        values = [[words(x, row_unit(row)) for x in row[:3]] for row in spec.get('values', []) if isinstance(row, list)]
         spec['values'] = [v for v in values if len(v) < 3 or v[1] != v[2]] or values
         for key in ('added', 'removed'):
             spec[key] = [', '.join(words(x) for x in i) if isinstance(i, list) else words(i) for i in _names(spec.get(key))]

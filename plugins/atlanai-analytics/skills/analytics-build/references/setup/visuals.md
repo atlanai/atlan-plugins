@@ -68,7 +68,8 @@ answers (the name) and what explains it.
 there: never write that you are drawing, recording or checking for a visual, and never name a
 moment, chip, card or the helper. A moment that shows nothing gets no words either. While the
 engine builds, the chip after each gate is the update: add no line of your own about the
-engine's steps unless one is blocked or needs the person.
+engine's steps, its files or its terms (cards, gates, the export and its install, assembled
+rules) unless one is blocked or needs the person.
 
 ## The side page
 
@@ -76,7 +77,7 @@ engine's steps unless one is blocked or needs the person.
 machine can open (`http://127.0.0.1:<port>/<key>/`), and its `next` says what to do with it:
 
 - **The Claude desktop app:** open the address in the app's browser pane with your browser tool
-  (its preview or navigate call, with the `url`). Do it right away; any helper result names it
+  (its preview or navigate call, with the `url`). Do it right away; helper results name it
   again (`side_page`) until the page has been opened.
 - **A terminal:** the helper opens the address in the person's browser, and the next chip that
   goes in a question names it, so the person can open it again.
@@ -85,8 +86,9 @@ machine can open (`http://127.0.0.1:<port>/<key>/`), and its `next` says what to
 The page reads the run's files itself: never reload, rebuild or push to it, and never describe
 what it shows. Nothing on it leaves this machine, so it shows the metrics, their sources, values
 and the answer on own data as on a demo. A card's last line points to it for the detail. If
-the page stops while nobody looks at it, the next helper result starts it again at the same
-address. `PROJECT view` prints the address again; `PROJECT view --stop` stops it.
+the page stops while nobody looks at it, the next `visual` call, `visual next` included,
+starts it again at the same address. `PROJECT view` prints the address again;
+`PROJECT view --stop` stops it.
 
 ## Data files
 
@@ -97,7 +99,8 @@ from the result that produced them; leave out a field you do not have, never fil
 - `saved.json`: `workspace`, its display name. Write no counts: the helper reads what is live
   from the publish receipt `PROJECT publication` recorded. Kept on this machine, skip the file.
 - `answer.json`: `question`; `headline`, what answers and its number, such as
-  `Turbine base: -£6,360`; `summary`, the answer's first sentence, without the headline's number; `unit` from the metric;
+  `Turbine base: -£6,360`; `summary`, the answer's first sentence, without the headline's number
+  and with no number the rows, headline or question do not show (the helper refuses one); `unit` from the metric;
   `rows`, `[label, value]` pairs from the query result in its order (at most 12); `highlight`,
   the label of the row that answers; `rule`, the metric's rule in one line; `proof`, `[{name}]`
   of the metrics and queries the answer used. For a question that asks why, add `breakdown`

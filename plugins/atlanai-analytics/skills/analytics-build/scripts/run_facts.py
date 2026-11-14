@@ -48,8 +48,13 @@ def engine_folder(run):
     newest with a manifest. A rebuild started in its own folder (a changed rule) does not hide the last build's
     metrics until it has its own."""
     def newest(pattern):
-        found = sorted(Path(run).glob(pattern), key=lambda m: m.stat().st_mtime)
-        return found[-1].parent.name if found else None
+        found = []
+        for m in Path(run).glob(pattern):
+            try:
+                found.append((m.stat().st_mtime, m))
+            except OSError:  # removed while the run was read
+                continue
+        return max(found)[1].parent.name if found else None
     return newest('engine*/merged_metrics.json') or newest('engine*/manifest.json')
 
 
@@ -78,11 +83,24 @@ def number(value, unit=None):
         return '%.1f×' % _half_up(value, 1)
     # A currency per unit, such as "USD per ticket", keeps its sign.
     symbol = CURRENCY.get(unit.upper(), '') or CURRENCY.get(unit.split(' ')[0].upper(), '') if unit else ''
-    # Large amounts read in whole units; small ones keep their pence or cents.
+    # Large amounts read in whole units; small ones keep their pence or cents, and a value under 1 its first two figures.
     places = 0 if abs(value) >= 100 else 2 if symbol and not float(value).is_integer() else 0 if float(value).is_integer() else 1
+    tiny = not symbol and 0 < abs(value) < 1
+    if tiny:
+        # At most six places: past that it is a float's rounding noise, such as a total that is zero.
+        places = min(1 - math.floor(math.log10(abs(value))), 6)
     rounded = _half_up(value, places)
     text = '{:,.{p}f}'.format(abs(rounded), p=places)
+    if tiny:
+        text = text.rstrip('0').rstrip('.')
     return ('-' if rounded < 0 else '') + symbol + text
+
+
+def first_question(text):
+    """A description's first question: the engine's words can hold several in one string."""
+    text = str(text or '').strip()
+    found = re.match(r'(.+?\?)(?=\s|$)', text)
+    return found.group(1) if found else text
 
 
 def sentence(name):
@@ -185,7 +203,13 @@ class RunFacts:
         self.engine_dir = engine_dir
 
     def file(self, *parts, kind=dict):
-        return read_json(self.dir.joinpath(*parts), kind, kind())
+        return self._read(self.dir.joinpath(*parts), kind)
+
+    def _read(self, path, kind):
+        cache = self.__dict__.setdefault('_files', {})
+        if (path, kind) not in cache:
+            cache[(path, kind)] = read_json(path, kind, kind())
+        return cache[(path, kind)]
 
     @cached_property
     def meta(self):
@@ -325,7 +349,13 @@ class RunFacts:
         return given if given.is_dir() or not (self.dir / given.name).is_dir() else self.dir / given.name
 
     def engine_file(self, name, kind=dict):
-        return read_json(self.engine / name, kind, kind())
+        return self._read(self.engine / name, kind)
+
+    @cached_property
+    def descriptions(self):
+        """The engine's plain words for each verified query, by id: an object, as its schema has it."""
+        said = self.engine_file('sql_descriptions.json').get('descriptions')
+        return {str(k): v for k, v in said.items() if isinstance(v, dict)} if isinstance(said, dict) else {}
 
     @cached_property
     def stages(self):
@@ -443,6 +473,8 @@ class RunFacts:
     def unit_for(self, name):
         """The unit of the context's metric with this name, or None when the context has no such metric."""
         wanted = sentence(name or '').lower()
+        if not wanted:
+            return None
         for m in self.file('context', 'metrics.json', kind=list):
             if isinstance(m, dict) and wanted in (sentence(m.get('display_name') or '').lower(), sentence(m.get('name') or '').lower()):
                 return self.unit_of(m) or None

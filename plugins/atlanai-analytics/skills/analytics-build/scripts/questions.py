@@ -128,11 +128,10 @@ def _one_metric(run, f, demo):
     return lines
 
 
-def _supported(run, f, limit=3):
+def _supported(made, limit=3):
     """Questions the checked context answers, in the words the build wrote for each: the dashboard's tiles first,
     then the past queries asked most, each only when its metric passed its check."""
-    import side_page
-    passed = [m for m in side_page.details(f)['metrics'] if m.get('status') == 'checked']
+    passed = [m for m in made['metrics'] if m.get('status') == 'checked']
     picked, seen = [], set()
     for m in passed:
         # Its dashboard tile's wording first, else the shortest a past query has: an option reads at a glance.
@@ -150,7 +149,7 @@ def _supported(run, f, limit=3):
         if len(picked) == limit:
             break
     # Then the saved queries that passed their check, in their own words.
-    for q in side_page.details(f)['queries']:
+    for q in made['queries']:
         text = str(q.get('question') or '').strip()
         if len(picked) < limit and q.get('status') == 'checked' and text.endswith('?') and len(text) <= 90 and text.lower() not in seen:
             seen.add(text.lower())
@@ -186,7 +185,7 @@ def ready(run, widget=False, data=None, engine_dir=None):
         lines += _label('See the environment', demo['tour'])
     import side_page
     made = side_page.details(f)
-    held = [] if demo else [x for x in made['metrics'] + made['queries'] if x.get('status') == 'look']
+    held = [] if f.interaction.get('flow') == 'demo' else [x for x in made['metrics'] + made['queries'] if x.get('status') == 'look']
     if held:
         n_metrics = sum(1 for x in held if x in made['metrics'])
         what = ' and '.join(w for w in (count(n_metrics, 'metric') if n_metrics else '',
@@ -197,7 +196,7 @@ def ready(run, widget=False, data=None, engine_dir=None):
                         '%s did not pass %s check. Each, with its reason, is on the side page.' % (what, 'its' if len(held) == 1 else 'their'))
     lines += ['', 'What would you like to ask?']
     flow_demo = f.interaction.get('flow') == 'demo'
-    options = _supported(run, f)
+    options = _supported(made)
     # The question tool needs two options; the person can always type their own question too.
     for label, description in (('Show what was built', 'Each metric and query with its checked value, and how each was reached'),
                                ("I'm done for now", 'Stop here; the context stays where it was kept')):

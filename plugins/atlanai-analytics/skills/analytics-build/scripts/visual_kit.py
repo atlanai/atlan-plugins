@@ -109,8 +109,8 @@ TICKER = (
 # The outcome chip: what a step produced, on one line as tall as the ticker. Each step leads with its own mark.
 OUTCOME = (
     '.oc{display:inline-flex;align-items:center;gap:9px;padding:6px 12px;border-radius:12px;background:var(--sb);outline:.5px solid var(--bd);'
-    'color:var(--tx);font:13px/18px Geist,system-ui,-apple-system,sans-serif;max-width:100%;box-sizing:border-box;white-space:nowrap;min-width:0}'
-    '.oc .h{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}.oc .h b{font-weight:600;font-size:14px}.oc .h em{font-style:italic}'
+    'color:var(--tx);font:13px/18px Geist,system-ui,-apple-system,sans-serif;max-width:100%;box-sizing:border-box;white-space:nowrap;min-width:0;overflow:hidden}'
+    '.oc .h{flex:0 0 auto;max-width:calc(100% - 26px);min-width:0;overflow:hidden;text-overflow:ellipsis}.oc .h b{font-weight:600;font-size:14px}.oc .h em{font-style:italic}'
     '.oc .t{flex:0 100 auto;color:var(--ts);overflow:hidden;text-overflow:ellipsis;min-width:0}'
     '.oc .t::before{content:"\\00b7  "}.oc .m{display:inline-flex;align-items:center;flex:none;font-style:normal;color:var(--c1)}'
     '.oc .m svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}'

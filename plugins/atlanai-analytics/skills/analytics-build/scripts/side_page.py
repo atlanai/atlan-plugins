@@ -28,12 +28,14 @@ except ImportError:
 from urllib.parse import urlsplit
 import http.client
 
-from run_facts import BI_TOOLS, RunFacts, count, number, read_json, read_lines, sentence
+from run_facts import BI_TOOLS, RunFacts, count, first_question, number, read_json, read_lines, sentence
 
 PAGE = Path(__file__).with_name('side_page.html')
 NEVER_RAN = 'Its check never ran.'
 IDLE_SECONDS = 20 * 60
 RETRY_SECONDS = 10 * 60
+# A quiet feed says it is still there this often, so a tab that closed is noticed.
+KEEPALIVE = 15
 LONGEST_SECONDS = 12 * 60 * 60
 
 # The engine's stages in the order a build passes them, grouped as the page names the work.
@@ -87,9 +89,7 @@ def _objects(f, name):
 
 def _sources(f):
     """Every past query and dashboard tile the engine verified, by id, with its question in plain words."""
-    said = f.engine_file('sql_descriptions.json').get('descriptions') or {}
-    if isinstance(said, list):
-        said = {k: v for k, v in said if isinstance(v, dict)}
+    said = f.descriptions
     out = {}
     for name in ('verified_queries.bi.json', 'verified_queries.history.json', 'verified_queries.json'):
         for o in _objects(f, name):
@@ -107,7 +107,7 @@ def _source(src, known, said):
     tile = prov.get('lane') == 'bi' or str(vid or '').startswith('bi-')
     return {k: v for k, v in (
         ('kind', 'tile' if tile else 'query'),
-        ('question', _cut(words.get('question') or vq.get('question') or src.get('name_as_proposed'), 200)),
+        ('question', _cut(first_question(words.get('question') or vq.get('question') or src.get('name_as_proposed')), 200)),
         ('description', _cut(words.get('description'), 320)),
         ('part', [_cut(_plain(str(c)), 160) for c in src.get('contributed') or []]),
         ('sql', _cut(vq.get('sql'), 1600)),
@@ -183,14 +183,14 @@ def details(f):
             d = q.get('definition') if isinstance(q.get('definition'), dict) else {}
             v = verdicts.get('sql_query:' + q['name'])
             queries.append({k: x for k, x in (
-                ('name', sentence(q.get('display_name') or q['name'])),
-                ('question', _cut(d.get('question') or q.get('display_name'), 200)),
+                ('name', sentence(first_question(q.get('display_name') or q['name']))),
+                ('question', _cut(first_question(d.get('question') or q.get('display_name')), 200)),
                 ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over else waiting if checking else 'drafted'),
                 ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and not v else None)) if x})
     def bi_of(o):
         prov = o.get('provenance') if isinstance(o.get('provenance'), dict) else {}
         return prov.get('bi') if isinstance(prov.get('bi'), dict) else {}
-    tiles = [{k: x for k, x in (('question', _cut((said.get(o.get('vq_id')) or {}).get('question') or o.get('question'), 200)),
+    tiles = [{k: x for k, x in (('question', _cut(first_question((said.get(o.get('vq_id')) or {}).get('question') or o.get('question')), 200)),
                                 ('visual', bi_of(o).get('visual')), ('page', bi_of(o).get('page'))) if x}
              for o in _objects(f, 'verified_queries.bi.json')]
     return {'metrics': metrics, 'queries': queries, 'tiles': tiles}
@@ -336,12 +336,13 @@ def header(f, steps, d, demo):
             # The warehouse's own tool runs these checks: the bar moves with no count, since no verdict reaches the run.
             h.update(title='Checking each metric and query on the data', note="With your warehouse's own read-only tool")
         else:
-            # The count and the bar are the same fact: how many items have their check's verdict.
+            # The count and the bar are the same fact: how many items have their check's verdict. A check that failed has
+            # run, not passed: "checked" on the page means passed.
             c = f.context
-            checked = c['metrics_checked'] + c['queries_checked']
-            look = c['failed'] if checked < c['total'] else c['need_look']
-            h.update(title='Checking each metric and query on the data', n=checked, of=c['total'],
-                     unit='metrics and queries checked', bar=checked / c['total'] if c['total'] else 0, ok=checked == c['total'] and not look,
+            ran = c['metrics_checked'] + c['queries_checked']
+            look = c['failed'] if ran < c['total'] else c['need_look']
+            h.update(title='Checking each metric and query on the data', n=ran, of=c['total'],
+                     unit='metrics and queries run', bar=ran / c['total'] if c['total'] else 0, ok=ran == c['total'] and not look,
                      note='%d need a look' % look if look else None)
         if work is not None and work != 'check':
             chosen = f.inputs or {'bi': bool(d['tiles'] or f.dashboard), 'history': bool(f.history)}
@@ -464,15 +465,25 @@ def _fingerprint(run):
         except OSError:
             continue
         for e in entries:
-            if e.is_file() and not e.name.startswith('.') and e.name != 'seen.json':
-                st = e.stat()
-                h.update(('%s/%s %d %d\n' % (folder.name, e.name, st.st_size, st.st_mtime_ns)).encode())
+            try:
+                if e.is_file() and not e.name.startswith('.') and e.name != 'seen.json':
+                    st = e.stat()
+                    h.update(('%s/%s %d %d\n' % (folder.name, e.name, st.st_size, st.st_mtime_ns)).encode())
+            except OSError:  # removed while the folder was read, such as a record rewritten
+                continue
     engine = RunFacts(run).engine
-    if engine != run / 'engine' and engine.is_dir():
-        for e in sorted(os.scandir(engine), key=lambda e: e.name):
-            if e.is_file():
-                st = e.stat()
-                h.update(('%s %d %d\n' % (e.name, st.st_size, st.st_mtime_ns)).encode())
+    try:
+        listed = sorted(os.scandir(engine), key=lambda e: e.name) if engine != run / 'engine' and engine.is_dir() else []
+    except OSError:  # removed while the run was read
+        listed = []
+    if listed:
+        for e in listed:
+            try:
+                if e.is_file():
+                    st = e.stat()
+                    h.update(('%s %d %d\n' % (e.name, st.st_size, st.st_mtime_ns)).encode())
+            except OSError:
+                continue
     return h.hexdigest()
 
 
@@ -564,13 +575,14 @@ class _Handler(BaseHTTPRequestHandler):
                     try:
                         data = json.dumps(snapshot(srv.run), ensure_ascii=False)
                     except Exception:  # noqa: BLE001 - a file caught half written is read again on the next beat
-                        time.sleep(1)
-                        continue
-                    last = mark
-                    self.wfile.write(('data: %s\n\n' % data).encode('utf-8'))
-                    self.wfile.flush()
-                    quiet = time.time()
-                elif time.time() - quiet > 15:
+                        data = None
+                    if data is not None:
+                        last = mark
+                        self.wfile.write(('data: %s\n\n' % data).encode('utf-8'))
+                        self.wfile.flush()
+                        quiet = time.time()
+                # Also while the run cannot be read: a write is how a closed tab is noticed.
+                if time.time() - quiet > KEEPALIVE:
                     self.wfile.write(b': still here\n\n')
                     self.wfile.flush()
                     quiet = time.time()
@@ -656,18 +668,19 @@ def _spawn(args, key):
         read, write = os.pipe()
         quiet = os.open(os.devnull, os.O_RDWR)
         try:
-            os.posix_spawn(args[0], args, dict(os.environ), setsid=True, file_actions=[
+            pid = os.posix_spawn(args[0], args, dict(os.environ), setsid=True, file_actions=[
                 (os.POSIX_SPAWN_DUP2, read, 0), (os.POSIX_SPAWN_DUP2, quiet, 1), (os.POSIX_SPAWN_DUP2, quiet, 2),
                 (os.POSIX_SPAWN_CLOSE, write)])
             os.write(write, (key + '\n').encode('ascii'))
         finally:
             for fd in (read, write, quiet):
                 os.close(fd)
-        return
+        return pid
     spawn = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
     spawn.stdin.write((key + '\n').encode('ascii'))
     spawn.stdin.close()
+    return spawn.pid
 
 
 def serve(run, port=0, key=None):
@@ -676,6 +689,8 @@ def serve(run, port=0, key=None):
     record = srv.run / 'view' / 'server.json'
     url = 'http://127.0.0.1:%d/%s/' % (srv.port, srv.key)
     _write(record, json.dumps({'url': url, 'pid': os.getpid(), 'started': _now()}))
+    # Up: no later call waits for it to start.
+    (srv.run / 'view' / 'starting.json').unlink(missing_ok=True)
     # The address outlives the server, so a page that stops when idle comes back where an open tab looks for it.
     _write(srv.run / 'view' / 'address.json', json.dumps({**read_json(srv.run / 'view' / 'address.json', dict, {}), 'url': url}))
 
@@ -714,15 +729,49 @@ def _answers(url):
 
 
 def _ours(pid, run):
-    """Whether this process is the run's page server, so nothing else is ever signalled or waited on."""
+    """Whether this process is the run's page server, so nothing else is ever signalled or waited on. None where the
+    machine has no process list to tell (Windows)."""
     if not isinstance(pid, int) or pid <= 0:
         return False
     try:
         line = subprocess.run(['ps', '-p', str(pid), '-o', 'command='], capture_output=True, text=True, timeout=5).stdout
     except (OSError, subprocess.SubprocessError):
-        return False
+        return None
     # The run's own server: its exact folder, then its port, so run_1 never matches run_10's server.
     return 'side_page.py serve %s ' % Path(run).resolve() in line
+
+
+def _starting(record):
+    """Whether a record names a page still starting: written in the last minute by a process that still runs. Only ever
+    used to wait, never to signal."""
+    try:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(record['started'])).total_seconds()
+    except (KeyError, TypeError, ValueError):
+        return False
+    return 0 <= age < 60 and _alive(record.get('pid'))
+
+
+def _alive(pid):
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    if os.name == 'nt':
+        # Never os.kill here: on Windows any signal but Ctrl+C ends the process.
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        handle = kernel.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        kernel.GetExitCodeProcess(handle, ctypes.byref(code))
+        kernel.CloseHandle(handle)
+        return code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
 
 
 def running(run):
@@ -751,11 +800,14 @@ def open_page(run, host=None, explicit=True):
             record = read_json(run / 'view' / 'server.json', dict, {})
             before = record.get('url') or read_json(run / 'view' / 'address.json', dict, {}).get('url') or ''
             last = re.fullmatch(r'http://127\.0\.0\.1:(\d+)/([A-Za-z0-9_-]+)/', before)
-            if not _ours(record.get('pid'), run):
+            ours = _ours(record.get('pid'), run)
+            starting = read_json(run / 'view' / 'starting.json', dict, {})
+            if (ours is False or ours is None and not _starting(record)) and not _starting(starting):
                 # One server per run: a page still starting is waited for, never started again.
                 (run / 'view' / 'server.json').unlink(missing_ok=True)
-                _spawn([sys.executable, str(Path(__file__).resolve()), 'serve', str(run.resolve()), last.group(1) if last else '0'],
-                       last.group(2) if last else secrets.token_urlsafe(18))
+                pid = _spawn([sys.executable, str(Path(__file__).resolve()), 'serve', str(run.resolve()), last.group(1) if last else '0'],
+                             last.group(2) if last else secrets.token_urlsafe(18))
+                _write(run / 'view' / 'starting.json', json.dumps({'pid': pid, 'started': _now()}))
             for _ in range(60):
                 time.sleep(0.1)
                 url = running(run)
@@ -800,15 +852,18 @@ def instruction(opened, widget=False):
     return ('Say nothing about the side page now: the next chip in a question names its address, %s. %s' % (url, follows))
 
 
-def reminder(run):
+def reminder(run, start=True):
     """One line for the next helper result when the page needs the agent: it stopped and came back at a new address,
-    or, in the desktop app, nobody has opened it yet. None once all is well, or before the run first opened it."""
+    or, in the desktop app, nobody has opened it yet. None once all is well, or before the run first opened it. Only a
+    moment starts a page that stopped (start): any other helper call would wait for it and undo its idle stop."""
     run = Path(run)
     moments = read_json(run / 'view' / 'state.json', dict, {}).get('moments') or []
     if not any(isinstance(m, dict) and m.get('kind') == 'connect' for m in moments) or (run / 'view' / 'stopped.json').is_file():
         return None
     opened = {'url': running(run)}
     if not opened['url']:
+        if not start:
+            return None
         opened = open_page(run, explicit=False)
         if not opened.get('url'):
             return None
@@ -840,6 +895,7 @@ def stop(run):
         except OSError:
             pass
     Path(run, 'view', 'server.json').unlink(missing_ok=True)
+    Path(run, 'view', 'starting.json').unlink(missing_ok=True)
     # Stopped on purpose: no helper call starts it again until the page is asked for.
     _write(Path(run) / 'view' / 'stopped.json', json.dumps({'at': _now()}))
 
