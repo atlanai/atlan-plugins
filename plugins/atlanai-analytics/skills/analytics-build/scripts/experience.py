@@ -376,6 +376,10 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     engine_missing = False
     if engine_dir is None and isinstance(state.get('engine_run'), str):
         engine_dir = state['engine_run']
+    elif engine_dir is None:
+        # A flow that never named its engine run still has one once the engine has written its manifest in the run.
+        from run_facts import engine_folder
+        engine_dir = engine_folder(reader.root)
     if engine_dir is not None:
         requested = Path(engine_dir)
         absolute = ordinary(requested if requested.is_absolute() else reader.root / requested, reader.root)
@@ -477,8 +481,10 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         phase['label'] = 'Your work is saved'
         next_text = 'This run is paused at a saved checkpoint. Resume here when ready.'
         prompt = 'Resume this saved analytics run from its current checkpoint.'
+    bound = _dict(state.get('execution')).get('tables')
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
             'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
+            'bound_tables': len(bound) if isinstance(bound, list) else 0,
             'selected_pages': selection, 'selection_kind': selection_kind, 'counts': counts,
             'progress': {'completed': saved.get('completed_items'), 'total': saved.get('total_items')},
             'sample': sample, 'items': items, 'items_truncated': len(items) > 100,

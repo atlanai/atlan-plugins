@@ -1,7 +1,8 @@
 # A visual view, on request
 
 Read only when the person asks to see the definitions in a browsable view. Setup itself
-shows progress as [the checklist](checklist.md) and opens nothing.
+shows progress as [the checklist](checklist.md) and the run's own [side page](visuals.md),
+and opens nothing else.
 
 `PROJECT experience --format html` writes a system-styled local snapshot, `experience.html`,
 inside the run and returns its path with the chat summary. During engine work add

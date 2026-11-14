@@ -4,8 +4,12 @@
 
 ## 5. Show the metrics before asking where to publish
 
-Read `PROJECT experience --format json` and use [the presentation flow](presentation.md)
-for the completed-collection review before the next question. Show actual counts and a
+The completed-collection review is the save question's own text: `PROJECT question save`
+composes it from the run (the counts, the checks and one metric in full), as
+[context built](save.md) says. Never write the review as a reply and never end the turn
+before that question: in a terminal, text before a question folds to one line, and a turn
+that ends on a reply leaves the choice unasked. Read `PROJECT experience --format json` for
+anything the person asks to see beyond it. Show actual counts and a
 representative metric's business definition, population, source and check status. Examples, SQL and further checks remain
 available with `--detail`. With only queries, show a saved query as such. Never invent a
 metric or an executed result. Retain the rule and check status in the final handoff with

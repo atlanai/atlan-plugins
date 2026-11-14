@@ -1,0 +1,13 @@
+{
+ "firm": "Ticketfuddle",
+ "flow": "demo",
+ "connect": {
+  "title": "Ticket fees agent for Ticketfuddle",
+  "tagline": "Answers questions about its sales and fees in plain English, and shows the rule behind every number"
+ },
+ "ready": {
+  "agent": "ticket fees agent",
+  "answers": "Questions about gross sales, fees, net fee revenue and sell-through",
+  "tour": "https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/"
+ }
+}

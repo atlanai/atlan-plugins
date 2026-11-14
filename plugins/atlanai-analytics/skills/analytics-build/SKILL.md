@@ -62,22 +62,27 @@ Detail-only requests get only the requested evidence.
 Show [the checklist](references/setup/checklist.md) in the host's task list from the first
 action, and in chat with each step's result line, never inside a question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
-reached and never replace a moment with a status line.
+reached and never replace a moment with a status line. Show each moment's chip or card, from
+the first survey on, as [visuals](references/setup/visuals.md) says.
 
 1. **Clarify your use case.** [The interview](references/setup/intent.md)'s card 1, and the
    branch's own ask. Skip what the request already said.
 2. **Survey your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named.
+   tables the person named. Once the survey creates the run, `PROJECT visual connect` opens the
+   side page.
 3. **Select tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md) and any clarification. In every branch, the
-   interview's confirmation, "Build it?". A report is built whole.
+   interview's confirmation, "Build it?", whose text opens with the `found` visual's line in a
+   terminal. A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
-   and the whole survey, through [build and check](references/setup/build-check.md). Then
-   review the completed collection with actual counts and one representative metric.
+   and the whole survey, through [build and check](references/setup/build-check.md). The
+   review of the completed collection is the save question's own text (step 5).
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
+   After a save to Atlan Trident with `show_widget`, draw the `saved` visual; in a terminal the
+   ready question holds it.
 6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
    question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
 7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).

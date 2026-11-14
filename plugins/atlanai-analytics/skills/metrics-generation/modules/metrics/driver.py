@@ -288,5 +288,18 @@ def main(argv=None):
         result, code = {'status': 'BLOCKED', 'reason': str(exc),
                         'fix': getattr(exc, 'fix', None)
                         or 'Resolve this requirement before advancing the metrics module.'}, 2
+    if args.command in ('prepare', 'advance', 'export') and code in (0, 3) and _in_setup_run(args.run):
+        # A setup run shows what each step produced as it finishes; the gate the agent answers next is the moment to.
+        result['visual'] = ("Show what the engine's last step produced: run the setup helper's `PROJECT visual next` (with "
+                            "`--widget` where you have `show_widget`), and again while it says more is due. The chip is the "
+                            "update: add no words of your own about the step, the engine or its files.")
     print(json.dumps(result, ensure_ascii=False))
     return code
+
+
+def _in_setup_run(run):
+    """Whether an engine run sits inside a setup run, whose helper draws each step's result."""
+    try:
+        return (Path(run).resolve().parent / 'run.json').is_file()
+    except (OSError, RuntimeError):
+        return False

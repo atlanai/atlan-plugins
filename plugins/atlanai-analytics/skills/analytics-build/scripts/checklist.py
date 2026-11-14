@@ -61,13 +61,19 @@ def build(model, flow=None):
     stopped = phase['status'] in STOPPED or interaction.get('mode') == 'paused'
     action = (model.get('continuation') or {}).get('action')
     total = counts['metrics'] + counts['queries']
-    saved = action in ('ask', 'explore-local') or (at == 6 and finished)
+    # Keeping the context on this machine finishes the save, whatever the journey still waits on (such as a focus the
+    # agent never recorded), and so does a save receipt with anything released: a save that held items leaves progress
+    # at publish. A changed rule re-runs its check, which leaves progress at the checks again.
+    saved = (action in ('ask', 'explore-local') or (at == 6 and finished) or (local and at >= 3)
+             or bool(counts.get('released')))
     done = {
-        'sources': at > 0 or finished,
+        # A demo's first step loads its data, so it ends when that data is bound, not at the survey.
+        'sources': (at > 0 or finished) and (flow != 'demo' or bool(model.get('bound_tables'))),
         # A run saved before intent was recorded has passed this step once authoring began.
         'intent': bool(intent.get('domain') and intent.get('purpose')) or at >= 2,
-        'scope': at >= 2,
-        'metrics': at >= 4 or (at == 3 and finished),
+        'scope': at >= 2 or (at == 1 and finished),
+        # A saved or kept context was built and checked, even while a changed rule re-runs its check.
+        'metrics': at >= 4 or (at == 3 and finished) or saved,
         'save': saved,
         'ask': saved and bool(interaction.get('asked')),
     }
@@ -88,8 +94,10 @@ def build(model, flow=None):
             current = key
             status = 'pending' if stopped else 'in_progress'
         if key == 'sources':
-            if done[key] and model.get('source_count'):
-                content = ('Load demo data: ' if flow == 'demo' else 'Survey ') + _plural(model['source_count'], 'source')
+            if done[key] and flow == 'demo':
+                content = 'Load demo data: ' + _plural(model['bound_tables'], 'table')
+            elif done[key] and model.get('source_count'):
+                content = 'Survey ' + _plural(model['source_count'], 'source')
             elif counted and at == 0:
                 waiting = next((s['name'] for s in model.get('scope', []) if s['status'] == 'pending_inspection'), '')
                 active = f"Reading source {progress['completed'] + 1} of {progress['total']}" + (': ' + waiting if waiting else '')

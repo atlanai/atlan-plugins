@@ -40,8 +40,8 @@ run under this setup run. Advance through its maintained gates for the complete 
 collection. At X3, continue without an extra user decision: a demo selected its sources,
 and own data chose its use cases in step 3. Author all scoped
 cards using the returned instructions and continue through the remaining gates. Gate answers
-are the assistant's work, not customer choices. Keep factual progress visible while
-generation and checks run. Do not stop for a single-card preview or request permission to
+are the assistant's work, not customer choices. After each gate, show what that step
+produced with `PROJECT visual next`; the side page shows the progress. Do not stop for a single-card preview or request permission to
 generate the remaining already-selected context.
 
 After completion, export into a fresh `engine-export/` and install the unchanged metric,
@@ -51,8 +51,9 @@ held. No by-hand, legacy-shape or demo-only fallback is available.
 After export, select a relevant completed candidate with `PROJECT journey select
 --focus <exact-identity>` so review and ready moments reflect the business focus.
 
-After a gate or phase transition, run `PROJECT experience --format chat --engine-dir
-<within-run-engine>` and show factual progress. Review the collection after its checks, using
+After each gate, run `PROJECT visual next` (the engine's result names it) and show what it
+prints, again while it says more is due: each chip is what that step produced. The side page
+shows the progress. Review the collection after its checks, using
 [the presentation flow](presentation.md). Keep Build as the stage while work remains.
 
 ## 4. Check the actual revisions

@@ -578,7 +578,28 @@ class Project(ContextState):
                 'next': 'Use these retrieved definitions to execute fresh SQL.'}
 
 
+def _due(run, engine_dir=None):
+    """What the chat and the side page still need, named on whatever helper result comes next: the moments the run has
+    reached but not shown, and a side page nobody has opened yet."""
+    import side_page
+    import side_view
+    try:
+        kinds = side_view.due(run, engine_dir)
+        page = side_page.reminder(run, start=False)
+    except Exception:  # noqa: BLE001 - the view never fails a command whose own work succeeded
+        return {}
+    out = {'side_page': page} if page else {}
+    if kinds:
+        out['visual'] = ('Due: run this helper\'s %s before going on, with the flags of every `visual` call (`--data` for a '
+                         'demo, `--widget` where you have `show_widget`).' % ', then '.join('`visual %s`' % k for k in kinds))
+    return out
+
+
 def main():
+    # Chips, cards and data files carry text such as '●', '£' and '−'; a console or pipe in another code page must not break them.
+    for stream in (sys.stdout, sys.stdin):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     p = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     p.add_argument('--run-dir')
     p.add_argument('--full', action='store_true', help='Return full structured results instead of a compact artifact reference.')
@@ -622,6 +643,24 @@ def main():
     step.add_argument('--status', choices=progress.STATES, default='running')
     step.add_argument('--action')
 
+    import visuals
+    visual = sub.add_parser('visual', help="A moment of the run: its chip or mini card for the chat; connect opens the side page")
+    visual.add_argument('kind', choices=visuals.KINDS + ('next',), help='A moment, or `next` for the next one the run has reached')
+    visual.add_argument('--widget', action='store_true', help='A mini card as HTML, for a host with an inline visual tool')
+    visual.add_argument('--data', type=Path, action='append', default=[],
+                        help="Facts the run's files cannot hold, such as a demo's firm and title; what the run's files prove always wins")
+    visual.add_argument('--engine-dir', type=Path)
+    visual.add_argument('--input', choices=('-',), help="The moment's data file as JSON on stdin (saved, answer, layout, edit), written to the run first")
+
+    asking = sub.add_parser('question', help="The save or ready question's text and options, composed from the run's files")
+    asking.add_argument('kind', choices=('save', 'ready'))
+    asking.add_argument('--widget', action='store_true', help='Where the chips and cards are drawn as widgets: the text keeps its count line')
+    asking.add_argument('--data', type=Path, action='append', default=[], help="A demo's facts file")
+    asking.add_argument('--engine-dir', type=Path)
+
+    page = sub.add_parser('view', help="The run's side page: start it, or find the one already open, and print its address")
+    page.add_argument('--stop', action='store_true', help='Stop serving the page')
+
     b = sub.add_parser('bind'); b.add_argument('database'); b.add_argument('--tables', nargs='+'); b.add_argument('--schema')
     publication = sub.add_parser('publication')
     publication.add_argument('request', type=Path, help='Readback JSON file, or - for complete inline MCP responses on stdin')
@@ -637,13 +676,162 @@ def main():
         if args.command == 'discover':
             print(json.dumps(summarize(safe_path(args.workspace))))
             return 0
-        if not args.run_dir:
-            raise ProjectError('Select a run directory, or use location to choose a permitted one.')
-        if args.command == 'checklist' and not (safe_path(args.run_dir) / 'run.json').is_file():
+        if args.command == 'checklist' and not (args.run_dir and (safe_path(args.run_dir) / 'run.json').is_file()):
             import checklist
             # Nothing is saved yet: the list starts at its first step and claims no progress.
             print(json.dumps({'flow': args.flow or 'build', 'steps': checklist.initial(args.flow or 'build'), 'state': 'running',
                               'step': 1, 'of': len(checklist.initial(args.flow or 'build')), 'remote_writes': False}))
+            return 0
+        if not args.run_dir:
+            raise ProjectError('Select a run directory, or use location to choose a permitted one.')
+        if args.command == 'visual':
+            import side_page
+            import side_view
+            run = safe_path(args.run_dir)
+            if not run.is_dir() or args.kind != 'connect' and not (run / 'run.json').is_file():
+                raise ProjectError('Run this once the survey has created the run directory PROJECT location printed.')
+            if args.input:
+                raw = sys.stdin.read(1_000_001)
+                if len(raw) > 1_000_000:
+                    raise ProjectError("A moment's data is over 1 MB: keep it to what the moment shows.")
+                try:
+                    given = json.loads(raw, parse_constant=lambda name: float('nan'))
+                except ValueError:
+                    raise ProjectError("A moment's data is one JSON object.") from None
+                problem = visuals.check_data(args.kind, given)
+                if problem:
+                    raise ProjectError(problem)
+                side_view._write(run / (args.kind + '.json'), json.dumps(given, indent=1, ensure_ascii=False))
+            data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
+            demo = visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
+            following = args.kind == 'next'
+            if following:
+                # The next moment the run has reached and not shown: during a build, what its last step produced.
+                ahead = side_view.due(run, args.engine_dir)
+                if not ahead:
+                    reminder = side_page.reminder(run)
+                    print('side view: ' + json.dumps({'next': 'Nothing new to show yet: carry on.' + (
+                        ' Then ' + reminder[0].lower() + reminder[1:] if reminder else '')}))
+                    return 0
+                args.kind = ahead[0]
+            if args.kind == 'connect':
+                # A demo's title and firm name the page; only a run the journey records as a demo takes them.
+                if demo:
+                    facts = {k: v for item in data if isinstance(item, dict) for k, v in
+                             [*((x, item[x]) for x in ('firm',) if item.get(x)), *(item.get('connect') or {}).items()] if v}
+                    if facts:
+                        side_view._write(run / 'view' / 'facts.json', json.dumps(facts, ensure_ascii=False, indent=1))
+                opened = side_page.open_page(run)
+                side_view.note(run, 'connect')
+                more = ' Then run `visual next` again: more is due.' if following and side_view.due(run, args.engine_dir) else ''
+                print('side view: ' + json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
+                                                  'next': side_page.instruction(opened, args.widget) + more}, ensure_ascii=False))
+                return 0
+            try:
+                spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
+                facts = visuals.RunFacts(run)
+                saved = bool(facts.publication) and facts.interaction.get('mode') != 'local'
+                asked = None if args.widget else visuals.asked(args.kind, demo, saved)
+                shown = visuals.render(args.kind, spec, args.widget, side_view.first_answer(run, spec), plain=bool(asked))
+                # In a terminal, the build's card in the middle of a build reaches no one: it leads the save question with
+                # the checks chip instead. A widget host draws it as it happens.
+                held = args.kind == 'build' and not args.widget and bool(shown)
+                if held:
+                    shown = ''
+                # In a terminal the checks and the save are part of the question the helper composes, which prints
+                # them once: printed here too, they would reach that question twice.
+                deferred = {'context': 'save', 'saved': 'ready'}.get(args.kind) if asked and shown else None
+                if deferred:
+                    shown = ''
+                # In a terminal the first chip in a question names the side page, so its address reaches the person
+                # in text that is always shown, and the agent composes nothing.
+                page = side_page.running(run) if asked and shown and args.kind in ('found', 'sources') else None
+                if page:
+                    shown += '\n↗ Follow the build, and how each metric is reached: ' + page
+            except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
+                # A file the run wrote in a shape this cannot read leaves the moment unshown, never the run stopped.
+                print('side view: ' + json.dumps({'error': 'This moment could not be read: %s' % type(exc).__name__}))
+                return 0
+            if shown:
+                print(shown)
+            steps = []
+            if shown and args.widget:
+                steps.append("Draw it now: pass the HTML above to `show_widget` (after its `read_me`, the first time), before "
+                             "your next question or reply. Never put it in a question's text. It says what the step produced: "
+                             "add no line of your own about it.")
+            elif shown and asked:
+                steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
+                             "written just before it folds. They are counted from the run's files, so never reword them or "
+                             "add a number to them. Write nothing else before that question. If you have a "
+                             "`show_widget` tool, run this again with `--widget`, pass the HTML to it instead, and add "
+                             "`--widget` to every later `visual` call." % asked)
+            elif shown:
+                steps.append("Show the text above, unchanged, as this moment's result: start your very next message with it, "
+                             "on its own lines, before any other words or tool call (this command's output is folded away, so "
+                             "only your message shows it), as plain text with no code fence or quote around it. If "
+                             "you have a `show_widget` tool, run this again with `--widget`, pass the HTML to it instead, "
+                             "and add `--widget` to every later `visual` call.")
+            elif held:
+                steps.append("In a terminal the card waits for the save question, with the checks: once every check has "
+                             "run, `PROJECT question save` prints both in it. If you have a `show_widget` tool, run this "
+                             "again with `--widget` and draw it now, and add `--widget` to every later `visual` call.")
+            elif deferred:
+                steps.append("In a terminal these lines are part of the next question: run `PROJECT question %s` now and "
+                             "ask exactly what it prints. Print nothing before it. If you have a `show_widget` tool, run "
+                             "this again with `--widget` and draw it instead." % deferred)
+            # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
+            # A moment deferred to its question is recorded when that question is composed, so a skipped question
+            # is named again by the next helper result.
+            if shown or held:
+                try:
+                    side_view.note(run, args.kind, spec)
+                except Exception:  # noqa: BLE001 - the moment's own result still shows
+                    pass
+            if following and (shown or held) and side_view.due(run, args.engine_dir):
+                steps.append('More is due: run `visual next` again, with the same flags.')
+            reminder = side_page.reminder(run)
+            if reminder:
+                steps.append(reminder)
+            if steps:
+                print(('\n' if shown else '') + 'side view: ' + json.dumps(
+                    {'next': ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]])}, ensure_ascii=False))
+            return 0
+        if args.command == 'question':
+            import questions
+            import side_view
+            run = safe_path(args.run_dir)
+            data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
+            try:
+                asked = getattr(questions, args.kind)(run, args.widget, data, args.engine_dir)
+            except ValueError as exc:
+                raise ProjectError(str(exc)) from None
+            except Exception as exc:  # noqa: BLE001 - a run file in a shape this cannot read: say so, never a traceback
+                raise ProjectError('The %s question could not be composed from this run (%s): ask it from the flow\'s own '
+                                   'reference instead.' % (args.kind, type(exc).__name__)) from None
+            for kind in asked.pop('shown'):
+                side_view.note(run, kind)
+            results = asked.pop('results', False)
+            asked['next'] = ('Ask one native question now: this `header`, this `question` as its text exactly as given, with its '
+                             'line breaks and leading spaces, and these `options` in order%s. Write nothing before it, and never '
+                             'reword or shorten it: every count is the run\'s own.%s'
+                             % (', with the host\'s free-text entry' if args.kind == 'ready' else '',
+                                ' On own data, add only the `Worth knowing` rows ready.md names, before its last line.'
+                                if args.kind == 'ready' else
+                                ' This run\'s sample checks ran with the warehouse\'s own tool and none of their results is in '
+                                'the run\'s files: add one line before its last, how many passed and how many need a look from '
+                                'those results, and nothing else.' if results else ' Add nothing to it.'))
+            print(json.dumps(asked, ensure_ascii=False))
+            return 0
+        if args.command == 'view':
+            import side_page
+            run = safe_path(args.run_dir)
+            if args.stop:
+                side_page.stop(run)
+                print(json.dumps({'stopped': True}))
+                return 0
+            opened = side_page.open_page(run)
+            print(json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
+                              'next': side_page.instruction(opened, False)}, ensure_ascii=False))
             return 0
         if args.command in ('experience', 'journey') and not safe_path(args.run_dir).is_dir():
             raise ProjectError('The saved run is unavailable. Supply its existing directory to resume.')
@@ -673,6 +861,10 @@ def main():
                 result = project.publication(project.read(safe_path(args.request)))
         elif args.command == 'acquisition': result = acquisition.cached(project, project.read(safe_path(args.request)))
         else: result = getattr(project, args.command.replace('-', '_'))(project.read(safe_path(args.request)))
+        if isinstance(result, dict) and args.command != 'status':
+            # The side view's lines lead: a result cut short keeps them.
+            due = _due(project.root, getattr(args, 'engine_dir', None))
+            result = {**due, **{k: v for k, v in result.items() if k not in due}}
         if isinstance(result, str):
             print(result)
         else:
@@ -680,7 +872,8 @@ def main():
             if len(output.encode()) > 4096 and not args.full:
                 target = project.root / (args.command + '-result.json')
                 project.write(target, result)
-                compact = {'status': result.get('status', 'ok'), 'result_file': str(target),
+                compact = {**{k: result[k] for k in ('side_page', 'visual') if k in result},
+                           'status': result.get('status', 'ok'), 'result_file': str(target),
                            'next': 'Read the relevant fields from this private result artifact.'}
                 if args.command == 'preview':
                     if result.get('snapshot'):

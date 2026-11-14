@@ -1,10 +1,8 @@
 # Ready for questions
 
-This moment is shared by all setup through [the presentation flow](presentation.md).
-For a demo, use its facts file. For own data, use the actual source, selected business
-focus, metric definition and checks in the saved run. Preserve the block's structure;
-adapt source-specific prose to the evidence, and omit unsupported tours or example rows.
-Never claim model/history agreement or disagreement without source evidence.
+This moment is shared by all setup through [the presentation flow](presentation.md). The
+helper composes the question from the run's own files, for a demo or for own data. Never
+claim model/history agreement or disagreement without source evidence.
 
 **Why this moment matters.** It is where the person learns what they made and what it can
 do, and takes over. The ready block and supported questions hand them the agent; answering
@@ -20,41 +18,32 @@ The agent is this chat with the saved context; do not register, deploy or evalua
 separate agent, and say so only if asked. Do not answer any question the person has not
 chosen. When the question step starts, show what they made, then let them pick a supported question.
 
-Open the chosen demo's file again for its facts
-([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
-Send these lines, filled from the facts and this run, as the text of the "What would you
-like to ask?" question, with their line breaks and leading spaces. The fence only marks the
-lines. Omit the See the environment line when there is no tour; own-data setup never has one.
-Keep each filled line within 76 characters, wrapping a long value onto an indented line.
+Run `PROJECT question ready`, adding `--data` with the demo's facts file for a demo
+([Fixit](../../../analytics-demo/references/yard.json),
+[Ticketfuddle](../../../analytics-demo/references/box-office.json)), and nothing for own data.
+With `show_widget`, add `--widget` here, after a save to Atlan Trident first drawing
+`PROJECT visual saved --widget`. Ask one
+native question with the `header`, the `question` text and the `options` it prints, exactly as
+given, and the host's free-text entry. Its text is the ready block: what was built, where it
+lives, what it can answer, and on own data what needs a look. Its options are questions the
+checked context answers, in the words the build wrote for them.
 
-```
-Your <agent> is ready.
-
-  What you built        <N> metrics and <N> queries,
-                        from <1 dashboard and N past queries>,
-                        checked on <firm>'s data
-  Where it lives        <workspace name> in Atlan Trident,
-                        or: on this machine
-  What it can answer    <what the agent can answer>
-  See the environment   <tour>
-
-What would you like to ask?
-```
-
-Own-data setup adds, before the last line, what [the presentation flow](presentation.md) and
-[preview and publish](preview-publish.md) require in the handoff, as more plain lines in the
-same text: the representative metric's rule in one sentence, each held item with its reason,
-review warnings and material limitations. Nothing in the handoff goes before the question.
+Own-data setup adds, before the last line of that text, only what the helper cannot read from
+the run and [preview and publish](preview-publish.md) requires in the handoff: review warnings
+and material limitations, as more rows labelled `Worth knowing`. Never label them "Needs a
+look": that names checks that did not pass, and the helper already lists those. Nothing in
+the handoff goes before the question.
 
 Where the host has no question tool, print the same lines as the last thing in the message,
 then the supported questions as plain numbered lines, and call no tool after it.
 
-**First show questions, for both demo and own-data setup.** The question whose text is the
-ready block offers two or three questions supported by the
-checked context (fewer if needed) and the host's free-text entry. For a demo and for own
-data alike, write them from this run's saved context; no demo ships a question list. Omit any question
-that depends on an unchecked or unavailable metric. Do not show an Ask AI menu, dashboard
-choice or real-data transition before this first question list.
+**First show questions, for both demo and own-data setup.** The helper's options are two or
+three questions the checked context answers, each the question the build wrote for a metric
+or saved query that passed its check. When it has fewer than two, it adds "Show what was
+built" (run `PROJECT preview --all --format markdown`, show its text as the reply and end the
+turn with the `Next:` line below) and "I'm done for now" (one line, then end the turn). No
+demo ships a question list. Do not show an Ask AI menu, dashboard choice or real-data
+transition before this first question list.
 
 A question already supplied goes directly to the ask route. Answer only the question or
 questions the person selects or types; listing suggestions never authorizes answering
@@ -87,7 +76,9 @@ over asking again. Never start a flow until chosen.
 Answer only the question the person picks or types, through the ask route, with real
 numbers. Every answer has three parts, in this order:
 
-1. **The answer**, led by the number or the name, then what explains it.
+1. **The answer**, led by the number or the name, then what explains it. In a setup or demo run,
+   the `answer` visual's card or chip ([visuals](visuals.md)) is that lead, shown unchanged, as
+   plain lines with no code fence around them.
 2. **Proof in Atlan Trident**: one line per metric and query the answer used, each a link
    to its page, as [definition links](../../../analytics-ask/references/definition-links.md) says. Read that file before
    the first answer. Never print metric or release ids, and never ask for a Trident address
@@ -100,8 +91,8 @@ numbers. Every answer has three parts, in this order:
    Design a dashboard, Ask another question and I'm done. Design a dashboard follows
    [the dashboard](../../../analytics-ask/references/dashboard.md).
 
-Say once per conversation that answers come from the context built from `<firm>`'s dashboard
-and queries, not from a guess at the tables. Names in the data, such as a crew member,
+Say once per conversation that answers come from the context built from the dashboard and
+queries (the demo firm's on a demo, the person's own on their data), not from a guess at the tables. Names in the data, such as a crew member,
 appear only when the question asks who. Never answer a question the person has not asked.
 
 **Continue building on real data.** Load the `analytics-build` skill in the same chat; do

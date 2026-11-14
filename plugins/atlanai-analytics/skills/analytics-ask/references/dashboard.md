@@ -17,7 +17,8 @@ Record `PROJECT journey dashboard` once a dashboard is built, or when the person
 Keep it real and small:
 
 - Propose the layout in at most six lines: a tile for each of the context's metrics, one
-  breakdown, and one chart. In a turn with no answer, the layout is the text of one native
+  breakdown, and one chart. In a setup or demo run, record it as the `layout` moment
+  ([visuals](../../analytics-build/references/setup/visuals.md)) first. In a turn with no answer, the layout is the text of one native
   question to confirm it or change it. When the same message also asked a question, answer
   it, put the layout as plain lines after the answer, end the turn with a `Next:` line
   asking to build it or change it, and ask no native question.

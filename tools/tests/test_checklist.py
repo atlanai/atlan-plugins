@@ -30,6 +30,11 @@ class Checklist(unittest.TestCase):
     def progress(self, **state):
         self.run.write(self.run.root / 'progress.json', state)
 
+    def bind(self, run, tables=5):
+        state = run.read(run.path)
+        state['execution'] = {'kind': 'sqlite', 'read_only': True, 'tables': [f'site.t{i}' for i in range(tables)]}
+        run.write(run.path, state)
+
     def test_initial_list_names_seven_build_steps(self):
         rows = checklist.initial()
         self.assertEqual([r['content'] for r in rows], [
@@ -46,6 +51,7 @@ class Checklist(unittest.TestCase):
 
     def test_demo_flow_is_recorded_and_question_and_dashboard_are_ticked_only_when_done(self):
         fixture.seed_checked(self.run, 'checked')
+        self.bind(self.run)
         self.run.journey('demo')
         self.run.journey('keep-local')
         result = self.steps()
@@ -56,6 +62,33 @@ class Checklist(unittest.TestCase):
         self.run.journey('dashboard')
         result = self.steps()
         self.assertEqual((result['state'], result['step'], result['of']), ('done', 6, 6))
+
+    def test_demo_data_step_waits_for_bound_data_and_the_demo_never_asks_for_a_focus(self):
+        self.progress(stage='inspect', status='complete', completed_items=3, total_items=3)
+        result = self.run.journey('demo')
+        self.assertNotIn('business area', result['chat'])
+        self.assertNotIn(result['continuation']['action'], ('choose-domain', 'choose-purpose'))
+        step = result['checklist']['steps'][0]
+        self.assertEqual((step['content'], step['status']), ('Choose and load demo data', 'in_progress'))
+        self.bind(self.run)
+        step = self.steps()['steps'][0]
+        self.assertEqual((step['content'], step['status']), ('Load demo data: 5 tables', 'completed'))
+
+    def test_keep_local_after_the_checks_leaves_the_question_next(self):
+        # Keeping the work here answers the save question, which follows the checked sample.
+        for flow, saved in (('build', 5), ('demo', 4)):
+            with self.subTest(flow=flow):
+                run = fixture.seed_run(self.output, 'kept-' + flow)
+                fixture.seed_checked(run, 'checked')
+                run.write(run.root / 'progress.json', {'stage': 'check', 'status': 'complete'})
+                self.bind(run)
+                if flow == 'demo':
+                    run.journey('demo')
+                result = run.journey('keep-local')
+                self.assertEqual(result['continuation']['action'], 'explore-local')
+                self.assertEqual([r['status'] for r in result['checklist']['steps']],
+                                 ['completed'] * saved + ['in_progress', 'pending'])
+                self.assertEqual(result['checklist']['steps'][saved - 1]['content'], 'Kept on this machine')
 
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)
@@ -103,6 +136,14 @@ class Checklist(unittest.TestCase):
         self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 5 + ['in_progress', 'pending'])
         self.assertEqual(({r['id']: r for r in result['steps']}['save']['content'], result['state']), ('Kept on this machine', 'running'))
         self.assertEqual(self.run.journey('status')['checklist'], result)
+
+    def test_a_recorded_source_choice_moves_the_tracker_to_the_build(self):
+        fixture.seed_checked(self.run, 'checked')
+        self.bind(self.run)
+        self.run.journey('demo')
+        self.progress(stage='scope', status='complete')
+        result = self.steps()
+        self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'])
 
     def test_command_reads_only_and_starts_before_a_run_exists(self):
         fresh = Path(self.tmp.name).resolve() / 'not-started'

@@ -66,8 +66,10 @@ def continuation(model):
     mode = model['interaction']['mode']
     intent = model['interaction']['intent']
     # Ask after inspection, before authoring. Later-stage legacy runs retain their
-    # checkpoint; an explicitly changed domain reopens the purpose question.
-    intent_due = bool(intent) or model.get('intent_checkpoint', False)
+    # checkpoint; an explicitly changed domain reopens the purpose question. A demo's focus is
+    # preset, so it never asks either question.
+    intent_due = ((bool(intent) or model.get('intent_checkpoint', False))
+                  and model['interaction'].get('flow') != 'demo')
     if mode == 'paused':
         code, label, needs_input = 'resume', 'Resume', True
     elif model['warnings']:
@@ -168,6 +170,13 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             if checkpoint.get('status') in ('canceled', 'waiting-for-user'):
                 import progress
                 progress.update(run, checkpoint['stage'], 'running', 'resume')
+        if action == 'keep-local':
+            # Keeping the work here answers the save question, asked once the checked sample was shown.
+            progress_path = run.root / 'progress.json'
+            checkpoint = run.read(progress_path) if progress_path.exists() else {}
+            if checkpoint.get('stage') == 'check' and checkpoint.get('status') in ('complete', 'complete-with-held-items'):
+                import progress
+                progress.update(run, 'preview', checkpoint['status'])
     if action not in ('status', 'details'):
         run.write(path, saved)
     model = experience.snapshot(run, host=host, server=server)

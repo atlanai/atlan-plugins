@@ -15,7 +15,7 @@ Read plugin files with the Read tool, one file per call. In a shell, never print
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
-step below. The technical stages are the shared setup procedure in
+step below. Show each moment's chip or card as [visuals](../analytics-build/references/setup/visuals.md) says. The technical stages are the shared setup procedure in
 [setup](../analytics-build/references/setup.md), run on the demo's working folder. `PROJECT`
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
 `python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
@@ -69,8 +69,8 @@ After "Start building", show the tracker, then do all of step 1's work:
 2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
    so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only `working_folder`, with
    [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
-   the person had asked to set up that folder from scratch. Then run
-   `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
+   the person had asked to set up that folder from scratch; then `PROJECT visual connect` opens
+   the side page. Then run `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
    `database` and `schema`. Use these as given; do not work them out again.
 3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
@@ -87,7 +87,7 @@ sources revealed.
 ## 2. Choose what to build from
 
 Ask the sources question from [the tour rules](references/tour.md): dashboard and past
-queries (recommended), or dashboard only. Scope the run to the answer through
+queries (recommended), or dashboard only. In a terminal its text opens with the `sources` chip. Scope the run to the answer through
 [inspect and scope](../source-survey/references/inspect-scope.md) section 2, with
 `PROJECT scope "<scope>"` for the whole dashboard when `requests` wrote one. The data
 tables are used either way, to check the context.
@@ -102,7 +102,8 @@ written by hand. Run the metrics engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every
 card without a metric-list checkpoint or another build confirmation. Keep proposal and
-deduplication details internal; show brief progress about building and checking context.
+deduplication details internal; after each gate, show what that step produced with
+`PROJECT visual next`.
 Advance the same run through all its gates, export and run every check on the loaded
 data, through [build and check](../analytics-build/references/setup/build-check.md).
 
@@ -112,7 +113,8 @@ When every check has run, read [context built and where to keep it](../analytics
 The celebration is the save question's own text. Saving reads the person's workspaces with
 `registry__list_workspaces` (`user_default` for the personal destination) and writes
 in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
-describes.
+describes. After the save, draw the `saved` visual with `show_widget`; in a terminal the ready
+question holds it. Kept here, it shows nothing.
 
 ## 5 and 6. Ask a question, build a dashboard
 

@@ -118,6 +118,6 @@ This is the first time the person hears the word metric, so the prompt keeps all
 Scope the run to the answer through [inspect and scope](../../source-survey/references/inspect-scope.md). With "Dashboard
 only", author from the dashboard's measures alone and leave the past queries out. The data
 tables are used either way, to check the context. Continue through the complete build and
-checks after this choice, with factual progress updates and no intermediate metric-list
+checks after this choice, showing what each step produced (`PROJECT visual next`) and no intermediate metric-list
 celebration or build confirmation. The next decision is where to keep the completed
 context. Ask during the build only for a genuine missing input or blocker.

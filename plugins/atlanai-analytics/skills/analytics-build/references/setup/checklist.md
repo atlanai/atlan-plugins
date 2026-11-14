@@ -2,7 +2,7 @@
 
 Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
 when available, kept true to the saved run. Open no side panel, browser view or preview page
-unless the person asks for a visual view.
+unless the person asks for a visual view, apart from the run's own [side page](visuals.md).
 
 ## Start with the list
 
