@@ -319,8 +319,6 @@ class Project(ContextState):
     def check_metric(self, request):
         return self.check_execution(request, 'metric')
 
-
-
     def check_execution(self, request, kind):
         items = metric_preview.candidates(self)
         keys = [i['key'] for i in items]

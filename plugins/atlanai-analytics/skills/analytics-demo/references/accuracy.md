@@ -68,9 +68,10 @@ The expected answer is one value or one short phrase, never a table, and never S
 | Option | Description |
 | --- | --- |
 | Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
-| Not now | Keep the questions on this machine and stop here. |
+| Not now | Keep the questions on this machine. |
 
-There is no edit option.
+There is no edit option. On Not now, end with "What would you like to do next?", whose text is one
+line: "The questions stay on this machine."
 
 ## 3. Run and score
 
@@ -186,15 +187,14 @@ No other line: not a significance test, an open question, a note on saved querie
 queries that still follow the old rule, or an offer to change a saved query, another metric
 or the set.
 
-**Context in Atlan Trident, after a fix was applied** (released, or approved by its owner; a
-proposal still waiting is not applied). The result is the moment to save, so ask one native
-question, "Save this check to Atlan Trident?", whose text is the result block, one line per
-version the fix released ("<metric> version <v> is released in <workspace>."), then the
+**Context in Atlan Trident** (`context_saved_to`). The result is the moment to save, so ask one
+native question, "Save this check to Atlan Trident?", whose text is the result block, one line
+per version a fix released ("<metric> version <v> is released in <workspace>."), then the
 question. Nothing else: no notes on proposals, files or cleanup.
 
 | Option | Description |
 | --- | --- |
-| Save to `<workspace>` (Recommended) | The questions and every run with its score, so your team sees accuracy go from `<p>`% to `<q>`%. A digest of each trusted SQL, never the SQL. |
+| Save to `<workspace>` (Recommended) | The questions and every run with its score, so your team sees accuracy go from `<p>`% to `<q>`% (one run: sees it at `<q>`%). A digest of each trusted SQL, never the SQL. |
 | Keep on this machine | The set and its runs stay in this folder. |
 
 On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
@@ -203,20 +203,20 @@ refusal because that name exists means it is registered: find it with
 `registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
 id and workspace. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
---org <organization slug> --released "<metric>:<version>"` (once per released version) prints the summary
+--org <organization slug> --released "<metric>:<version>"` (once per released version; `--withdrawn`
+for one the test again withdrew) prints the summary
 below. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,
 as that `text`, put as it is, and no banner (the result was just shown):
 
 ```
 Saved to <workspace>:
   <agent>, with <N> questions and <runs> runs scored from <p>% to <q>%
-  <metric> version <v>, released            (one line per metric the fix changed; "withdrawn"
-                                             when the test again withdrew it)
+  <metric> version <v>, released            (one line per released or withdrawn version)
 See the runs in Atlan: <runs link>
 ```
 
 On Keep: the same question, whose text is one line: "The check stays on this machine."
 
-**Every other case** (the context on this machine, or no fix applied): ask nothing about saving;
+**Context on this machine:** ask nothing about saving;
 the set and its runs stay in the project. End with "What would you like to do next?", whose
 text is the result block.

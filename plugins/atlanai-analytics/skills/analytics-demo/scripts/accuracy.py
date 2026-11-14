@@ -157,13 +157,15 @@ def cmd_saved(a) -> dict:
     ev = pathlib.Path(a.evals)
     runs = _runs(ev)
     first, last = _score(ev, runs[0]), _score(ev, runs[-1])
-    lines = [f"Saved to {a.workspace}:",
-             f"  {a.agent}, with {last['n']} questions and {len(runs)} runs scored from {first['pct']}% to {last['pct']}%"]
-    for r in a.released or []:
-        name, _, version = r.rpartition(":")
-        if not name or not version.isdigit():
-            raise Blocked(f"--released takes <metric>:<version>, not {r!r}.")
-        lines.append(f"  {name} version {version}, released")
+    scored = (f"1 run scored {last['pct']}%" if len(runs) == 1
+              else f"{len(runs)} runs scored from {first['pct']}% to {last['pct']}%")
+    lines = [f"Saved to {a.workspace}:", f"  {a.agent}, with {last['n']} questions and {scored}"]
+    for state, given in (("released", a.released), ("withdrawn", a.withdrawn)):
+        for r in given or []:
+            name, _, version = r.rpartition(":")
+            if not name or not version.isdigit():
+                raise Blocked(f"--{state} takes <metric>:<version>, not {r!r}.")
+            lines.append(f"  {name} version {version}, {state}")
     agent = ((load(ev / "state.json", {}) or {}).get("ids") or {}).get("agent_id")
     if not str(agent).startswith("agent_") or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", a.org):
         raise Blocked("Save the check first, and pass the organization's URL slug (--org).")
@@ -199,6 +201,7 @@ def main(argv=None) -> int:
     c.add_argument("--org", required=True, help="the organization's URL slug, as the proof links use")
     c.add_argument("--origin", default="https://app.atlan.com")
     c.add_argument("--released", action="append", help="<metric>:<version>, once per released version")
+    c.add_argument("--withdrawn", action="append", help="<metric>:<version>, once per withdrawn release")
     c.set_defaults(func=cmd_saved)
     a = p.parse_args(argv)
     try:
