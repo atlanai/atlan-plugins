@@ -991,8 +991,9 @@ def dispatch(name: str, a: dict) -> dict:
             # Two unfenced owner changes would both succeed, so the gateway that can find people
             # refuses one without a tag. An older gateway has no tag to take.
             if a.get("if_match") is None and not UNFENCED_PATCH:
-                raise Refusal(400, "invalid_arguments", "Changing `owner_id` needs `if_match`: pass the `etag` "
-                              "you read, so a concurrent change is refused rather than overwritten.")
+                # The gateway's own words (`registry_mcp::validate`).
+                raise Refusal(400, "invalid_arguments",
+                              "changing owner_id needs if_match: read the artifact and pass its etag")
             return transfer_owner(a)
     if name == "registry__search_artifacts":
         return search_artifacts(a)

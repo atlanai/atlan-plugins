@@ -335,7 +335,7 @@
     "openWorldHint": false,
     "readOnlyHint": true
    },
-   "description": "Find people in this account by name or email, to name one as an artifact's owner. Each row has `user_id` (the value `owner_id` takes), `name` and `email`, in name order. \n\n`query` matches words of the name, email or id; omit it to page through everyone. A person who has never signed in to Atlan is not listed and cannot own anything yet. If two rows share a name, ask which one the person means. \n\nNeeds a sign-in allowed to read the account's people (`members:read`). Without it the call is refused with `insufficient_scope`: ask the person for the user id instead of guessing one.",
+   "description": "Find people in this account by name or email, to name one as an artifact's owner. Each row has `user_id` (the value `owner_id` takes), `name` and `email`, in name order. \n\n`query` matches words of the name, email or id; omit it to page through everyone. A person who has never signed in to Atlan, or who has left the account, is not listed and cannot be named owner. If two rows share a name, ask which one the person means. \n\nNeeds a sign-in allowed to read the account's people (`members:read`). Without it the call is refused with `insufficient_scope`: ask the person for the user id instead of guessing one.",
    "input_schema": {
     "additionalProperties": false,
     "properties": {
@@ -640,7 +640,7 @@
     "openWorldHint": false,
     "readOnlyHint": false
    },
-   "description": "Change some of an artifact's fields, leaving the rest alone. This is the only update verb — there is no whole-document replace. \n\n**A key you omit is preserved; a key you send as `null` is cleared.** So send only what you are changing. A nested object merges key by key rather than replacing. \n\nContent is immutable per version. Definition edits on kinds with versioned updates append a successor and run its declared checks, including when the old head is blocked. Use append_artifact_version to replace bundle bytes. `workspace_id` cannot be patched — it is what authorization is resolved against; use `move_artifact` to file an artifact in another workspace. \n\n**`owner_id` hands it to another person**, on every version, with no new one. Its owner or a workspace admin may change it; only an admin can give an owner to an artifact with none. Find the `user_id` with `list_users`, and pass the `etag` you read as `if_match`.",
+   "description": "Change some of an artifact's fields, leaving the rest alone. This is the only update verb — there is no whole-document replace. \n\n**A key you omit is preserved; a key you send as `null` is cleared.** So send only what you are changing. A nested object merges key by key rather than replacing. \n\nContent is immutable per version. Definition edits on kinds with versioned updates append a successor and run its declared checks, including when the old head is blocked. Use append_artifact_version to replace bundle bytes. `workspace_id` cannot be patched — it is what authorization is resolved against; use `move_artifact` to file an artifact in another workspace. \n\n**`owner_id` hands it to another person**, on every version, with no new one. Its owner or a workspace admin may change it; only an admin can give an owner to an artifact with none. Find the `user_id` with `list_users`. A patch that changes `owner_id` must pass the `etag` you read as `if_match`, so two people handing it on at once cannot both win.",
    "input_schema": {
     "additionalProperties": false,
     "properties": {
@@ -649,7 +649,7 @@
       "type": "string"
      },
      "if_match": {
-      "description": "The `etag` of the read this change is based on. When given, the patch is refused with `precondition_failed` if the artifact changed since; read it again and retry.",
+      "description": "The `etag` of the read this change is based on; required when `patch` changes `owner_id`. When given, the patch is refused with `precondition_failed` if the artifact changed since; read it again and retry.",
       "minLength": 1,
       "type": "string"
      },
