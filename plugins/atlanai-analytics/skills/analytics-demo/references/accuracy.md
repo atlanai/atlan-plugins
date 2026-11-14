@@ -28,7 +28,8 @@ this machine only.
 
 ## 1. Choose the questions
 
-`CHECK start --project <project>` returns the built run, `context_saved_to`, the project's
+Run `CHECK start` at the start of every check, even a later one in the same session: where the
+context lives can change, so never reuse an earlier answer. `CHECK start --project <project>` returns the built run, `context_saved_to`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
 `text` and `options`). With no sets, or the person asking for new questions, generate. Otherwise,
 unless the request named a set, put `ask` as one native question, as it is, even when the folder
@@ -130,25 +131,24 @@ Trident write is refused and the owner must act in Metric Studio. Keep the score
   keeps the old rule, so say so and ask "Apply this fix?" again with the next fix. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
 - **Context in Atlan Trident:** Apply it is the approval, so apply and release the fix here, with
-  no second approval in Metric Studio. For each metric the fix changes:
-  1. Write the proposal with `registry__create_artifact` as
-     [the proposal record](../../metrics-generation/references/propose-record.md) describes (the
-     fix's definition changes and the missed questions as `evidence.runs`), so the change and its
-     evidence are on record in Metric Studio.
-  2. Read the metric's head (`registry__get_artifact`, `properties: []`) for its `etag` and
+  no second approval in Metric Studio and no proposal record: the new version is the record. For
+  each metric the fix changes:
+  1. Read the metric's head (`registry__get_artifact`, `properties: []`) for its `etag` and
      `version_ordinal`, then `ACC version --evals <evals-run> --run <run> --metric <name>
      --head-version <version_ordinal>` gives the new version, the fix applied to the definition
      the save sent, description included.
-  3. Send `registry__append_artifact_version` with that `metadata` exactly as printed, `if_match`
+  2. Send `registry__append_artifact_version` with that `metadata` exactly as printed, `if_match`
      the head's `etag`, and release the new version to `latest` with `registry__release_artifact`
      unless the workspace already released it.
-  4. Make the same change on this machine, as for a local context (`EDIT`), so the
+  3. Make the same change on this machine, as for a local context (`EDIT`), so the
      run holds the version Atlan holds and a later fix builds on this one.
-  A refusal at any step (the person may not write proposals or this metric, or someone changed it
-  since) leaves the change for its owner: give the proposal's Metric Studio link
+  A refusal (the person may not write this metric, or someone changed it since) leaves the change
+  for its owner: write the proposal with `registry__create_artifact` as
+  [the proposal record](../../metrics-generation/references/propose-record.md) describes (the fix's
+  changes and the missed questions as `evidence.runs`), give its Metric Studio link
   (`suggestion=<file id>`) and ask "Approved it in Metric Studio?" (Approved, test again / Not now,
-  which goes to the result). After the owner's approval, release that version as in step 3 and
-  make the step 4 change.
+  which goes to the result). After the owner's approval, release that version as in step 2 and
+  make the step 3 change.
   As on this machine, do not raise saved queries with the person.
 
 Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the
@@ -162,7 +162,10 @@ score look good?" again as step 3 describes, with the new score; Improve it find
 
 ## 5. The result
 
-The result block is these lines, as plain lines, and nothing else:
+The result block is the `text` that `ACC result --evals <evals-run> --agent <agent> --firm <firm>`
+prints, put as it is: add `--changed "<what changed, plain words>"` after a fix, `--misses "<what
+the misses share>"` with misses left, and `--generated` when `CHECK load` returned
+`generated: true`. It holds these lines and nothing else:
 
 1. Every question right: this banner. Otherwise no banner.
 
@@ -199,8 +202,10 @@ On Save: register `<agent>` in the context's workspace once, with `registry__cre
 refusal because that name exists means it is registered: find it with
 `registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
-id and workspace. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,
-as plain lines and no banner (the result was just shown):
+id and workspace. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
+--runs-link <runs> --released "<metric>:<version>"` (once per released version) prints the summary
+below. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,
+as that `text`, put as it is, and no banner (the result was just shown):
 
 ```
 Saved to <workspace>:

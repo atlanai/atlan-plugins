@@ -3,6 +3,8 @@
 
     python3 accuracy.py fixes --evals <evals-run> --file <fixes.json>
     python3 accuracy.py version --evals <evals-run> --run <run> --metric <name> --head-version <N>
+    python3 accuracy.py result --evals <evals-run> --agent <agent> --firm <firm> [--changed <words>] [--misses <words>] [--generated]
+    python3 accuracy.py saved --evals <evals-run> --agent <agent> --workspace <name> --runs-link <url> [--released <metric>:<version> ...]
 
 A fix is applied from <evals-run>/fixes.json, so its shape is checked here rather than trusted.
 The set is the source of truth: only a question that asks the opposite is redrafted. Prints one
@@ -13,7 +15,16 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
+import subprocess
 import sys
+
+HARNESS = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts" / "analytics_eval.py"
+BANNER = (" *   .  '   *    .   '  *   .    '   *  .",
+          " '   *   .   {n} OUT OF {n} RIGHT   .   *   '",
+          " .   *    '   .    *   '    .   *    '  .")
+SOURCE = ("The questions came from the past queries and tiles the context was built from, so the score shows "
+          "the context reproduces what the analysts asked, not how it handles a new question.")
 
 FIX_KINDS = ("metric", "redraft", "new_metric")
 
@@ -96,6 +107,67 @@ def cmd_version(a) -> dict:
     return {"status": "ok", "metric": a.metric, "version": d["version"], "metadata": meta}
 
 
+def _runs(ev: pathlib.Path) -> list:
+    """The scored runs of the check, first to last: baseline, then each test again."""
+    found = [d.name for d in (ev / "hillclimb").glob("*") if (d / "results.jsonl").is_file()]
+    later = sorted((v for v in found if re.fullmatch(r"v\d+", v)), key=lambda v: int(v[1:]))
+    return (["baseline"] if "baseline" in found else []) + later
+
+
+def _score(ev: pathlib.Path, variant: str) -> dict:
+    out = subprocess.run([sys.executable, str(HARNESS), "summary", "--dir", str(ev), "--variant", variant],
+                         capture_output=True, text=True)
+    try:
+        s = json.loads(out.stdout)
+    except json.JSONDecodeError:
+        raise Blocked(f"No score for {variant}: {(out.stdout or out.stderr)[-200:]}")
+    v = s.get("validation") or {}
+    return {"line": s.get("score_line") or "", "n": int(v.get("n") or 0),
+            "pct": round(100 * float(v.get("pass_rate") or 0))}
+
+
+def cmd_result(a) -> dict:
+    """The demo's result block, word for word: banner when every question is right, result line, score line."""
+    ev = pathlib.Path(a.evals)
+    runs = _runs(ev)
+    if not runs:
+        raise Blocked("This eval folder has no scored run yet.")
+    first, last = _score(ev, runs[0]), _score(ev, runs[-1])
+    right = last["pct"] == 100
+    lines = [b.format(n=last["n"]) for b in BANNER] + [""] if right else []
+    if right and len(runs) > 1:
+        if not a.changed:
+            raise Blocked("After a fix, say what changed (--changed), in plain words.")
+        lines.append(f"Your {a.agent} has reached 100% accuracy, up from {first['pct']}%, now that {a.changed}.")
+    elif right:
+        lines.append(f"Your {a.agent} is at 100% accuracy on the {last['n']} questions {a.firm}'s analysts ask most.")
+    else:
+        if not a.misses:
+            raise Blocked("With misses left, say what they share (--misses), in plain words.")
+        lines.append(f"Your {a.agent} misses {a.misses}.")
+    lines.append(last["line"])
+    if a.generated:
+        lines.append(SOURCE)
+    return {"status": "ok", "text": "\n".join(lines), "all_right": right, "from": first["pct"], "to": last["pct"],
+            "fixed": len(runs) > 1}
+
+
+def cmd_saved(a) -> dict:
+    """What saving the check put in Atlan Trident, word for word, for the next question's text."""
+    ev = pathlib.Path(a.evals)
+    runs = _runs(ev)
+    first, last = _score(ev, runs[0]), _score(ev, runs[-1])
+    lines = [f"Saved to {a.workspace}:",
+             f"  {a.agent}, with {last['n']} questions and {len(runs)} runs scored from {first['pct']}% to {last['pct']}%"]
+    for r in a.released or []:
+        name, _, version = r.rpartition(":")
+        if not name or not version.isdigit():
+            raise Blocked(f"--released takes <metric>:<version>, not {r!r}.")
+        lines.append(f"  {name} version {version}, released")
+    lines.append(f"See the runs in Atlan: {a.runs_link}")
+    return {"status": "ok", "text": "\n".join(lines)}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     s = p.add_subparsers(dest="cmd", required=True)
@@ -109,6 +181,21 @@ def main(argv=None) -> int:
     c.add_argument("--metric", required=True)
     c.add_argument("--head-version", type=int, required=True, help="the version_ordinal Atlan holds now")
     c.set_defaults(func=cmd_version)
+    c = s.add_parser("result", help="the result block, word for word")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--agent", required=True)
+    c.add_argument("--firm", required=True)
+    c.add_argument("--changed", help="after a fix: what changed, plain words")
+    c.add_argument("--misses", help="with misses left: what they share, plain words")
+    c.add_argument("--generated", action="store_true", help="CHECK load returned generated: true")
+    c.set_defaults(func=cmd_result)
+    c = s.add_parser("saved", help="what saving the check put in Atlan Trident, word for word")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--agent", required=True)
+    c.add_argument("--workspace", required=True)
+    c.add_argument("--runs-link", required=True)
+    c.add_argument("--released", action="append", help="<metric>:<version>, once per released version")
+    c.set_defaults(func=cmd_saved)
     a = p.parse_args(argv)
     try:
         print(json.dumps(a.func(a), indent=1))

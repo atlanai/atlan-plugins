@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCOPE = ROOT / "plugins/atlanai-analytics/skills/eval-generation/scripts/scope.py"
 CHECK = ROOT / "plugins/atlanai-analytics/skills/accuracy-check/scripts/check.py"
 ACC = ROOT / "plugins/atlanai-analytics/skills/analytics-demo/scripts/accuracy.py"
+sys.path.insert(0, str(ACC.parent))
 sys.path.insert(0, str(CHECK.parent))
 import check  # noqa: E402
 
@@ -167,6 +168,29 @@ class ScopeTest(unittest.TestCase):
                           meta["definition"]["examples"][0]["sql"]), (2, "New.", "SUM(b)", "SELECT\n1"))
         moved = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Cost", "--head-version", "3")
         self.assertEqual(moved["status"], "BLOCKED")
+
+    def test_result_and_saved_texts_come_from_the_scores(self) -> None:
+        from unittest import mock
+        acc = __import__("accuracy")
+        ev = self.tmp / "ev"
+        for v in ("baseline", "v1"):
+            (ev / "hillclimb" / v).mkdir(parents=True)
+            (ev / "hillclimb" / v / "results.jsonl").write_text("{}\n")
+        scores = {"baseline": {"line": "71% accuracy: 5 of 7", "n": 7, "pct": 71},
+                  "v1": {"line": "100% accuracy: 7 of 7", "n": 7, "pct": 100}}
+        with mock.patch.object(acc, "_score", lambda e, v: scores[v]):
+            ns = lambda **kw: __import__("argparse").Namespace(**{**dict(evals=str(ev), agent="job agent", firm="Acme",
+                                                                         changed=None, misses=None, generated=False), **kw})
+            text = acc.cmd_result(ns(changed="the rule changed"))["text"]
+            self.assertIn("7 OUT OF 7 RIGHT", text)
+            self.assertIn("Your job agent has reached 100% accuracy, up from 71%, now that the rule changed.", text)
+            self.assertTrue(text.endswith("100% accuracy: 7 of 7"))
+            with self.assertRaises(acc.Blocked):
+                acc.cmd_result(ns())
+            saved = acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
+                                                                     runs_link="https://r", released=["Cost:2"]))["text"]
+            self.assertEqual(saved.splitlines(), ["Saved to WS:", "  job agent, with 7 questions and 2 runs scored from 71% to 100%",
+                                                  "  Cost version 2, released", "See the runs in Atlan: https://r"])
 
     def test_link_names_the_agents_runs_and_the_last_run(self) -> None:
         ev = self.tmp / ".atlan-evals" / "saved"
