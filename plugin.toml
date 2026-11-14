@@ -90,10 +90,10 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.9.3"
+version = "0.9.4"
 description = "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard."
 short_description = "Publish analytics context and ask your data with Atlan"
-long_description = "The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
+long_description = "The analytics workload on the Atlan registry, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, kept locally or saved to Atlan. accuracy-check runs a set against the context and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
 keywords = ["atlan", "analytics", "metrics", "text-to-sql", "talk-to-data", "snowflake", "databricks", "dashboards"]
 category = "Data & Analytics"
 claude_category = "data"
@@ -218,6 +218,16 @@ prompt = "Use $source-survey to tell me what this folder's dashboards and querie
 display_name = "Metrics Generation"
 short_description = "Turn dashboards and query history into checked metrics"
 prompt = "Use $metrics-generation to build metrics from our warehouse's query history."
+
+[skills.eval-generation]
+display_name = "Eval Generation"
+short_description = "Build an eval set from the questions analysts already ask"
+prompt = "Use $eval-generation to build an eval set from the questions our analysts ask."
+
+[skills.accuracy-check]
+display_name = "Accuracy Check"
+short_description = "Run an eval set against the context and score it"
+prompt = "Use $accuracy-check to score our analytics context on the eval set in this project."
 
 [skills.analytics-ask]
 display_name = "Ask Your Data"

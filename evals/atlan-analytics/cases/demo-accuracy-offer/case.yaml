@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: demo-accuracy-offer
+tags: [analytics, demo, evals, regression]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue the Ticketfuddle demo from this saved checkpoint.
+    The context is built and saved to my personal workspace in Atlan Trident: 6 metrics and
+    9 queries, all checked on the demo data. I picked "Which venue is hardest to fill?" and you
+    already answered it with its proof links. Nothing else is pending.
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    Don't mention this test's limits in your reply.
+    Show me what I can do next.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: offers-accuracy
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply asks what to do next with a short set of choices that includes checking
+      how accurate the context is on questions the firm's analysts already asked, alongside
+      asking more questions and designing a dashboard.
+      FAIL if the accuracy check is missing, if it starts generating questions or testing before
+      the person chooses, or if it answers another question unasked.
+  - name: no-shell-calls
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the concrete next step in plain language,
+      without a greeting, apology, em dash, machine status footer or generic offer.
+      The demo's native next-action choice has no word limit.

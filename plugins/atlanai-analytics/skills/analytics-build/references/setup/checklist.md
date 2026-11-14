@@ -16,13 +16,14 @@ host's task list when available and show them in chat, the first one in progress
 | 3 | Select tables and dashboards | Build and check metrics |
 | 4 | Generate and check metrics | Keep local or save to Atlan Trident |
 | 5 | Keep local or save to Atlan Trident | Ask a question |
-| 6 | Ask a question | Build a dashboard |
+| 6 | Ask a question | |
 | 7 | Build a dashboard | |
 
 Before a run exists, `PROJECT checklist --flow demo` returns the demo's list. A demo records
 its flow with `PROJECT journey demo` once the run exists. Record `PROJECT journey asked` after
-the first chosen question is answered, and `PROJECT journey dashboard` once a dashboard is
-built or declined; nothing else ticks those two steps.
+the first chosen question is answered, and, for own data, `PROJECT journey dashboard` once a
+dashboard is built or declined; nothing else ticks those two steps. A demo's list ends at the
+question: a dashboard is one of the options after it, not a step.
 
 Use the host's task tool, loading it first when it is listed but not loaded: `TaskCreate`
 and `TaskUpdate` in Claude Code (`TodoWrite` where those are absent), the app's plan tool

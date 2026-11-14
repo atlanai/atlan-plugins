@@ -709,7 +709,8 @@ def main():
         print(json.dumps({'status': 'canceled', 'next': 'Resume the same run; completed artifacts are retained.'}))
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
-        if 'project' in locals() and args.command not in ('experience', 'journey'):
+        # A refused query leaves the run as it was, so its progress stays too.
+        if 'project' in locals() and args.command not in ('experience', 'journey', 'execute'):
             try:
                 path = project.root / 'progress.json'
                 if path.exists():

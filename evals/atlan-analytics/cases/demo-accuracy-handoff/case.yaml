@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: demo-accuracy-handoff
+tags: [analytics, demo, evals]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue the Ticketfuddle demo from this saved checkpoint.
+    The context is built and saved to my personal workspace in Atlan Trident: 6 metrics and
+    9 queries, checked on the demo data loaded from the box-office folder. One question has been
+    answered. From the next-action choice I picked "Check how accurate it is".
+    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
+    Don't mention this test's limits in your reply.
+    Since nothing can run here, say in one short reply what happens next and what I will decide.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: reads-accuracy-moments
+    type: tool_used
+    tool: Read
+    input_match: 'analytics-demo/references/accuracy\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: handoff
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply says it will pick 5 questions from Ticketfuddle's dashboard and past
+      queries, show each with where it came from and its expected answer, and ask once whether to
+      run them; and that where the questions live is asked after the score.
+      FAIL if it offers to edit the questions, asks the person to write questions or SQL, starts
+      testing before the person chooses to run, asks where to save before the test, registers an
+      agent, or splits the set into train, validation and holdout.
+  - name: plain-reply
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply gives the concrete next step in plain language,
+      without a greeting, apology, em dash, machine status footer or generic offer.
