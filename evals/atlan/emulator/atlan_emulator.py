@@ -59,6 +59,16 @@ another state through its environment (`emulator.json` beside the case, read by 
 - `ATLAN_EMULATOR_NOT_SCANNED=skill_01evalpending,…`: the scan of those artifacts never ran to
   its end, so `registry__get_security_findings` answers `not_scanned` however often it is read,
   until `registry__retrigger_artifact_action` starts a new run.
+- `ATLAN_EMULATOR_NO_MEMBERS_READ=1`: the sign-in lacks `members:read`, so `registry__list_users`
+  is refused with `insufficient_scope`, as a connector consented without that scope is.
+- `ATLAN_EMULATOR_UNFENCED_PATCH=1`: the gateway predates owner transfer over MCP, so
+  `registry__patch_artifact` declares no `if_match` and refuses one as an unknown argument, and an
+  owner change goes through without it. Pair it with `ATLAN_EMULATOR_HIDE_TOOLS=registry__list_users`.
+  By default an owner change without `if_match` is refused with `invalid_arguments`, as the
+  gateway that serves `registry__list_users` refuses it;
+- `ATLAN_EMULATOR_NOT_ADMIN=workspace_01evalplatform,…`: the user is a member of those workspaces,
+  not an admin, so `registry__list_workspaces` answers `can_manage: false` for them and an owner
+  change there is refused unless the user owns the artifact.
 
 The runners keep the gateway's tiers: `mcp__call_read_tool` runs read-only tools,
 `mcp__call_write_tool` anything not destructive, and `mcp__call_tool` any tool; a runner below a
@@ -110,6 +120,12 @@ DISABLED = {s for s in os.environ.get("ATLAN_EMULATOR_DISABLED_SERVERS", "").spl
 PUBLISH_VERSION_CONFLICT = os.environ.get("ATLAN_EMULATOR_PUBLISH_VERSION_CONFLICT") == "1"
 SERVE_WITHDRAW = os.environ.get("ATLAN_EMULATOR_SERVE_WITHDRAW") == "1"
 NOT_SCANNED = {h for h in os.environ.get("ATLAN_EMULATOR_NOT_SCANNED", "").split(",") if h}
+NO_MEMBERS_READ = os.environ.get("ATLAN_EMULATOR_NO_MEMBERS_READ") == "1"
+UNFENCED_PATCH = os.environ.get("ATLAN_EMULATOR_UNFENCED_PATCH") == "1"
+NOT_ADMIN = {w for w in os.environ.get("ATLAN_EMULATOR_NOT_ADMIN", "").split(",") if w}
+for _workspace in WORLD["workspaces"]:
+    if _workspace["id"] in NOT_ADMIN:
+        _workspace.update(role="member", can_manage=False)
 # The live tool surface: `mcp__call_read_tools` and the `registry__` tools listed by name. Off by
 # default, because the suite's graders count reads on `mcp__call_read_tool`; a case that tests the
 # batch or direct path sets it in its emulator.json.
@@ -279,7 +295,10 @@ class Refusal(Exception):
 
 
 state = {"session": False, "rate_limited": False, "heads": {}, "moved": set(), "versions": {}, "created": {}, "approved": {},
-         "edges": {}, "reruns": {}}
+         "edges": {}, "reruns": {}, "owners": {}, "owner_moves": {}}
+
+# The signed-in person every call acts as: Dana, an admin of Platform Engineering only.
+CALLER = "user_dana"
 
 
 def words(text: str) -> set[str]:
@@ -294,7 +313,17 @@ def served_tools() -> list[dict]:
     """The tools this connection serves: the world's, less the hidden and disabled servers' and the
     tools gateway 2.21.0 does not serve."""
     gone = HIDE_TOOLS | (set() if SERVE_WITHDRAW else {"registry__withdraw_release"})
-    return [t for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE | DISABLED and t["name"] not in gone]
+    return [unfenced(t) if UNFENCED_PATCH and t["name"] == "registry__patch_artifact" else t
+            for t in WORLD["tools"] if tool_server(t["name"]) not in HIDE | DISABLED and t["name"] not in gone]
+
+
+def unfenced(tool: dict) -> dict:
+    """`registry__patch_artifact` as a gateway older than owner transfer over MCP lists it: no `if_match`
+    among its arguments, and nothing in its description about moving `owner_id`."""
+    schema = tool["input_schema"]
+    return tool | {"description": tool["description"].split(" \n\n**`owner_id`", 1)[0],
+                   "input_schema": schema | {"properties": {k: v for k, v in schema["properties"].items()
+                                                            if k != "if_match"}}}
 
 
 def listed_tools() -> list[dict]:
@@ -462,11 +491,16 @@ def head(item: dict) -> dict:
             line = ("name", "workspace_id", "source_type", "source_id")
             item = item | {"version_ordinal": newer["version_ordinal"],
                            "metadata": item.get("metadata", {}) | {k: v for k, v in newer["metadata"].items() if k not in line}}
-        # The head's version handle and etag, which `approve_artifact` takes back as preconditions.
+        # The head's version handle and etag, which `approve_artifact` and a fenced patch take back as
+        # preconditions. Strong, as the registry's is, and moved by an owner change as well as a
+        # version, because the registry's etag covers `owner_id`.
         ordinal = item.get("version_ordinal", 1)
         status = state["approved"].get(item["id"], item.get("artifact_status"))
-        return {"version_id": f"ver_01eval{item['id'].split('_', 1)[1][-12:]}v{ordinal}", "etag": f'W/"v{ordinal}"'} | item | (
-            {"artifact_status": status} if status else {})
+        moves = state["owner_moves"].get(item["id"], 0)
+        etag = f'"eval-{item["id"].split("_", 1)[1][-12:]}-v{ordinal}' + (f"-o{moves}" if moves else "") + '"'
+        owner = {"owner_id": state["owners"][item["id"]]} if item["id"] in state["owners"] else {}
+        return {"version_id": f"ver_01eval{item['id'].split('_', 1)[1][-12:]}v{ordinal}", "etag": etag} | item | (
+            {"artifact_status": status} if status else {}) | owner
     state["heads"].setdefault(item["id"], {"etag": item["etag"], "version_ordinal": item["version_ordinal"],
                                            "content": WORLD["files"][item["id"]]["content"]})
     current = state["heads"][item["id"]]
@@ -949,6 +983,18 @@ def dispatch(name: str, a: dict) -> dict:
         limit, offset = a.get("limit", 50), a.get("offset", 0)
         return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(rows)},
                 "personal_workspace_id": personal}
+    if name == "registry__list_users":
+        return list_users(a)
+    if name == "registry__patch_artifact":
+        fenced(a)
+        if "owner_id" in (a.get("patch") or {}):
+            # Two unfenced owner changes would both succeed, so the gateway that can find people
+            # refuses one without a tag. An older gateway has no tag to take.
+            if a.get("if_match") is None and not UNFENCED_PATCH:
+                # The gateway's own words (`registry_mcp::validate`).
+                raise Refusal(400, "invalid_arguments",
+                              "changing owner_id needs if_match: read the artifact and pass its etag")
+            return transfer_owner(a)
     if name == "registry__search_artifacts":
         return search_artifacts(a)
     if name == "registry__list_artifacts":
@@ -1050,6 +1096,54 @@ def dispatch(name: str, a: dict) -> dict:
     if tool["annotations"].get("readOnlyHint"):
         return tool.get("result", {"items": []})
     return write(tool.get("writes", name), a)
+
+
+def list_users(a: dict) -> dict:
+    """`registry__list_users`: the account's people by name, narrowed by words of a name, email or id,
+    as the gateway pages `GET /users`. A world switched to a token without `members:read` is
+    refused the way the gateway refuses it."""
+    if NO_MEMBERS_READ:
+        raise Refusal(403, "insufficient_scope", "This sign-in may not read the account's people: it needs the "
+                      "`members:read` scope. Ask the person for the user id instead of guessing one.")
+    rows = sorted(WORLD["users"], key=lambda u: u["name"])
+    if a.get("query"):
+        needle = a["query"].strip().lower()
+        rows = [u for u in rows if any(needle in u.get(k, "").lower() for k in ("name", "email", "user_id"))]
+    limit, offset = a.get("limit", 50), a.get("offset", 0)
+    return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(rows)}}
+
+
+def fenced(a: dict) -> None:
+    """A patch's optional `if_match`, held as the gateway holds it: a wildcard, weak or listed tag is
+    refused before the call, and a tag that is not the head's is the registry's 412."""
+    if "if_match" not in a or a["if_match"] is None:
+        return
+    tag = str(a["if_match"]).strip().strip('"')
+    if not tag or tag == "*" or tag.startswith("W/") or "," in tag:
+        raise Refusal(400, "invalid_arguments", "if_match must name the etag you read; wildcard or weak tags "
+                      "are not supported by this tool")
+    if tag != head(artifact(a["artifact_id"]))["etag"].strip('"'):
+        raise Refusal(412, "precondition_failed", "the artifact's etag is not the one supplied; re-read and retry")
+
+
+def transfer_owner(a: dict) -> dict:
+    """A patch that moves `owner_id`, under the registry's rule: its current owner or an admin of its
+    workspace may, an artifact with no owner takes one only from an admin, and the new owner must be
+    a person in the directory. It moves on every version and makes no new one."""
+    found = artifact(a["artifact_id"])
+    current = head(found)
+    owner = a["patch"]["owner_id"]
+    if owner == current.get("owner_id"):
+        return labelled(current)
+    workspace = next((w for w in WORLD["workspaces"] if w["id"] == current["workspace_id"]), {})
+    if not workspace.get("can_manage") and current.get("owner_id") != CALLER:
+        raise Refusal(403, "forbidden", "Changing the owner needs the artifact's current owner or `manage` on its "
+                      "workspace.")
+    if owner is not None and owner not in {u["user_id"] for u in WORLD["users"]}:
+        raise Refusal(422, "unprocessable", "`owner_id` names no user in this organisation.")
+    state["owners"][found["id"]] = owner
+    state["owner_moves"][found["id"]] = state["owner_moves"].get(found["id"], 0) + 1
+    return labelled(head(found))
 
 
 COMPACT_OMITS = ("examples", "provenance", "extensions")
