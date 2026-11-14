@@ -1634,8 +1634,12 @@ def cmd_publish_ack(a) -> dict:
     return out
 
 
+RESULT_OUTPUT_KEYS = {"answer", "sql", "class", "used_context_ids", "used_context_refs"}
+
+
 def _score_drift(pr: Proj, variant: str, names: list, slots: list) -> dict:
-    """Cases whose saved score, SQL or context ids differ from what this run recorded."""
+    """Cases whose saved score, SQL or context ids differ from what this run recorded, or whose
+    saved output has a field the publish never sent (a retyped key)."""
     rows = {_case_id(r): r for r in read_results(pr.vdir(variant) / "results.jsonl")}
     drift = {}
     for n, sl in zip(names, slots):
@@ -1651,6 +1655,8 @@ def _score_drift(pr: Proj, variant: str, names: list, slots: list) -> dict:
         for key in ("sql", "used_context_ids"):
             if key in out and out[key] != (row.get(key) or ([] if key == "used_context_ids" else "")):
                 drift.setdefault(n, {})[key] = "differs from the run"
+        for key in sorted(set(out) - RESULT_OUTPUT_KEYS):
+            drift.setdefault(n, {})[key] = "not a field the publish sent"
     return drift
 
 
@@ -1960,6 +1966,10 @@ def selftest() -> dict:
            and not _score_drift(Proj(str(pr)), "cited", [cid], slot(sc)))
         typo = [{"artifact": {"metadata": {"scores": {"result_match": sc},
                                            "output": {"sql": row.get("sql") or "", "used_context_ids": ["sql_query_typo"]}}}}]
+        stray = [{"artifact": {"metadata": {"scores": {"result_match": sc},
+                                            "output": {"sql": row.get("sql") or "", "used_context_ids_x": []}}}}]
+        ok("a saved answer with a retyped field name is named",
+           _score_drift(Proj(str(pr)), "cited", [cid], stray) == {cid: {"used_context_ids_x": "not a field the publish sent"}})
         ok("a saved answer whose context ids were retyped wrong is named",
            _score_drift(Proj(str(pr)), "cited", [cid], typo) == {cid: {"used_context_ids": "differs from the run"}})
         ok("a publish without transcripts saves the sessions and scores, never the messages",
