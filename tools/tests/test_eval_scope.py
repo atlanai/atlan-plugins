@@ -158,7 +158,9 @@ class ScopeTest(unittest.TestCase):
         ev, run = self.tmp / "ev", self.tmp / "run"
         (run / "context").mkdir(parents=True)
         (run / "context" / "metrics.json").write_text(json.dumps([{"name": "Cost", "display_name": "Cost",
-            "description": "Old.", "definition": {"version": 1, "formula": "SUM(a)", "examples": [{"sql": "SELECT\n1"}]}}]))
+            "description": "Old.", "definition": {"version": 1, "formula": "SUM(a)", "examples": [{"sql": "SELECT\n1"}],
+            "extensions": {"metrics_agent": {"commit": "c1", "card": {"source_id": "m:1", "gotchas": ["Note."],
+                                                                         "formula": "SUM(a)", "bi_definitions": [{"formula": "X = \"y\""}]}}}}}]))
         ev.mkdir()
         (ev / "fixes.json").write_text(json.dumps([{"metric": "Cost", "misses": ["q1"], "changes": [
             {"path": "formula", "value": "SUM(b)"}, {"path": "description", "value": "New."}]}]))
@@ -166,6 +168,8 @@ class ScopeTest(unittest.TestCase):
         meta = out["metadata"]
         self.assertEqual((out["version"], meta["description"], meta["definition"]["formula"],
                           meta["definition"]["examples"][0]["sql"]), (2, "New.", "SUM(b)", "SELECT\n1"))
+        self.assertEqual(meta["definition"]["extensions"]["metrics_agent"],
+                         {"commit": "c1", "card": {"source_id": "m:1", "gotchas": ["Note."]}})
         moved = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Cost", "--head-version", "3")
         self.assertEqual(moved["status"], "BLOCKED")
 

@@ -76,6 +76,9 @@ def cmd_fixes(a) -> dict:
             "file": str(ev / "fixes.json")}
 
 
+CARD_KEPT = ("metric_ref", "measure_id", "source_id", "gotchas", "tier", "tier_basis")
+
+
 def cmd_version(a) -> dict:
     """The next version of a saved metric with its fix applied: the `metadata` for
     registry__append_artifact_version, built from this run's definition, never retyped. The demo makes
@@ -103,6 +106,11 @@ def cmd_version(a) -> dict:
             node = node.setdefault(k, {})
         node[keys[-1]] = c["value"]
     d["version"] = a.head_version + 1
+    # The engine card restates the whole first proposal (its SQL, joins and BI formulas), which is
+    # stale once a rule changes and doubles what has to be sent. Atlan keeps its notes and identity.
+    engine = (d.get("extensions") or {}).get("metrics_agent")
+    if isinstance(engine, dict) and isinstance(engine.get("card"), dict):
+        engine["card"] = {k: v for k, v in engine["card"].items() if k in CARD_KEPT}
     meta["definition"] = d
     return {"status": "ok", "metric": a.metric, "version": d["version"], "metadata": meta}
 
