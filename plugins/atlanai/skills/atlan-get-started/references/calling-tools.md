@@ -121,6 +121,9 @@ create without an `idempotency_key`: those are writes a lost response does not u
   slot. Read the slots, retry only the failed ones. Keep one call's items under about 256 KB of
   JSON as well: small items fill 100, but large bodies, such as full metric definitions of up to
   16 KiB each, go about 25 to a call.
+- **Cortex Code.** No publish hook runs there, so `items_from` and `files_from` are never
+  expanded: send items and files inline. Build each batch with a script from the checked local
+  files, keep it to about 35 KB, and pass its items exactly as the script wrote them.
 
 ## Source keys
 

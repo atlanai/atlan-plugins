@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "atlan": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@0.16.6",
+        "https://api.atlan.com/mcp",
+        "--header",
+        "X-Atlan-Client:atlan-plugin/0.5.55",
+        "--static-oauth-client-metadata",
+        "{\"client_name\":\"Cortex Code (Atlan plugin)\",\"scope\":\"contextplane:read contextplane:write\"}"
+      ]
+    }
+  }
+}

@@ -45,8 +45,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PLUGINS = ROOT / "plugins"
 # What a plugin folder holds and the repository root must not: the root is the marketplace.
-PLUGIN_CONTENT = ("skills", "commands", "agents", "plugin.json", "mcp.json", ".mcp.json",
-                  ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json")
+PLUGIN_CONTENT = ("skills", "commands", "agents", "plugin.json", "mcp.json", ".mcp.json", "cortex-mcp.json",
+                  ".claude-plugin/plugin.json", ".codex-plugin/plugin.json", ".cursor-plugin/plugin.json",
+                  ".cortex-plugin/plugin.json")
 
 SKILL_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 XML_TAG = re.compile(r"<[A-Za-z/][^>]*>")
@@ -240,6 +241,36 @@ HOOK_SCRIPT = "command-hooks/publish_hook.py"
 # Cursor's only command per event: an unset root exits 1, which Cursor passes over (exit 2 would block).
 CURSOR_ENTRIES = {"sessionStart": "session-start", "preToolUse": "pre", "postToolUse": "post", "beforeMCPExecution": "mcp-guard"}
 CURSOR_COMMAND = '[ -n "$CURSOR_PLUGIN_ROOT" ] && python3 "$CURSOR_PLUGIN_ROOT/command-hooks/publish_hook.py" {} --host cursor'
+# Cortex Code's manifest and the one server file it may name: the core's `atlan` server.
+CORTEX_MANIFEST = ".cortex-plugin/plugin.json"
+CORTEX_MCP = "./cortex-mcp.json"
+CORTEX_SERVER = "atlan"
+
+
+def lint_cortex_manifest(root: Path, is_core: bool = False) -> list[str]:
+    """Cortex Code runs no hooks module and no command hooks, so its manifest names none; only the
+    core names a server file, cortex-mcp.json, which holds the one `atlan` server."""
+    manifest = root / CORTEX_MANIFEST
+    if not manifest.is_file():
+        return []
+    relative = manifest.relative_to(ROOT)
+    document = json.loads(manifest.read_text(encoding="utf-8"))
+    errors = []
+    if "hooks" in document or "claude-hooks" in json.dumps(document) or "command-hooks" in json.dumps(document):
+        errors.append(f"{relative}: Cortex Code runs neither hooks module; its manifest names no hooks")
+    if not is_core:
+        if "mcpServers" in document:
+            errors.append(f"{relative}: an add-on declares no mcpServers")
+        return errors
+    if document.get("mcpServers") != CORTEX_MCP:
+        return errors + [f"{relative}: `mcpServers` names {CORTEX_MCP!r}"]
+    servers = root / CORTEX_MCP
+    if not servers.is_file():
+        return errors + [f"{relative}: `mcpServers` names {CORTEX_MCP}, which does not exist"]
+    names = list(json.loads(servers.read_text(encoding="utf-8")).get("mcpServers", {}))
+    if names != [CORTEX_SERVER]:
+        errors.append(f"{servers.relative_to(ROOT)}: holds exactly the {CORTEX_SERVER!r} server, the name every skill calls")
+    return errors
 
 
 def lint_claude_manifest(root: Path, is_core: bool = False) -> list[str]:
@@ -336,7 +367,7 @@ def lint_mod(root: Path) -> list[str]:
     hooks (shell commands) are the least portable component and stay out."""
     relative = root.relative_to(ROOT)
     errors = []
-    for name in (".mcp.json", "mcp.json", "bin"):
+    for name in (".mcp.json", "mcp.json", "cortex-mcp.json", "bin"):
         if (root / name).exists():
             errors.append(f"{relative}/{name}: a mod reaches Atlan through the core plugin's server")
     manifest = root / ".claude-plugin" / "plugin.json"
@@ -357,7 +388,7 @@ def lint_mod(root: Path) -> list[str]:
 def lint_addon(root: Path) -> list[str]:
     relative = root.relative_to(ROOT)
     errors = []
-    for name in (".mcp.json", "mcp.json", "hooks", "bin"):
+    for name in (".mcp.json", "mcp.json", "cortex-mcp.json", "hooks", "bin"):
         if (root / name).exists():
             errors.append(f"{relative}/{name}: an add-on reaches Atlan through the core plugin's server and runs no hooks")
     manifest = root / ".claude-plugin" / "plugin.json"
@@ -475,6 +506,7 @@ def main() -> int:
         errors += lint_mod(root) if root.name in mods else lint_addon(root)
     for root in roots:
         errors += lint_claude_manifest(root, root == roots[0])
+        errors += lint_cortex_manifest(root, root == roots[0])
     errors += lint_core_hooks(roots[0])
     for root in roots:
         errors += lint_command_hooks(root)

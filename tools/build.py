@@ -17,6 +17,10 @@ Claude Code treats the core's tools; it is listed in the Claude marketplace alon
 host loads a hooks module. Every plugin folder gets the listing logo and the LICENSE copied in,
 because a plugin cannot point outside its own folder.
 
+Cortex Code (CoCo) gets its own manifest and server file, `.cortex-plugin/plugin.json` and
+`cortex-mcp.json`, from `[cortex]`: CoCo cannot sign in to the HTTP server yet, so the server it
+reads is a pinned mcp-remote bridge to the same URL, under the same `atlan` key.
+
 Every file here names production (`https://api.atlan.com`, `https://app.atlan.com`). Another
 environment is served by that environment's gateway, which vendors the core at a pinned commit and
 writes its own name, server URL and hosts on top; nothing here is built per environment.
@@ -48,6 +52,9 @@ CLAUDE_MARKETPLACE_SCHEMA = "https://code.claude.com/schemas/marketplace.json"
 # Agent Plugins 1.0: 1-64 lowercase letters, digits, hyphens and periods, alphanumeric at both ends.
 NAME = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
+# CoCo's bridge, pinned to one release: the package holds the user's Atlan token.
+MCP_REMOTE = re.compile(r"^mcp-remote@\d+\.\d+\.\d+$")
+CORTEX_TRANSPORTS = ("mcp-remote", "http")
 
 # Where every plugin lives.
 PLUGINS = "plugins"
@@ -103,6 +110,14 @@ def validate(source: dict) -> None:
     logo = ROOT / plugin["logo"]
     if not logo.is_file():
         raise SystemExit(f"plugin.logo {plugin['logo']} does not exist")
+    cortex = source.get("cortex", {})
+    if cortex.get("transport") not in CORTEX_TRANSPORTS:
+        raise SystemExit(f"cortex.transport must be one of {', '.join(CORTEX_TRANSPORTS)}")
+    if cortex["transport"] == "mcp-remote":
+        if not MCP_REMOTE.match(cortex.get("mcp_remote", "")):
+            raise SystemExit("cortex.mcp_remote must pin one release, as mcp-remote@<x.y.z>")
+        if not cortex.get("client_name") or not cortex.get("scope"):
+            raise SystemExit("cortex needs client_name and scope for the client mcp-remote registers")
     for shot in source.get("codex", {}).get("screenshots", []):
         if not re.match(r"^\./assets/[\w.-]+\.(?:png|jpe?g|webp)$", shot):
             raise SystemExit(f"codex.screenshots {shot} must be an image under ./assets/")
@@ -255,6 +270,11 @@ def addon_outputs(source: dict, addon: dict) -> dict[str, dict]:
             **addon_core(source, addon),
             "logo": source["plugin"]["logo"].removeprefix("./"),
         },
+        # Cortex Code installs no dependency: the skills check for the core's `atlan` tools.
+        f"{base}/.cortex-plugin/plugin.json": {
+            **addon_core(source, addon),
+            "displayName": addon["display_name"],
+        },
     }
 
 
@@ -297,6 +317,13 @@ Other hosts install plugins one at a time, so add `{plugin['name']}` first. In C
 codex plugin marketplace add {slug}
 codex plugin add {plugin['name']}@{market}
 codex plugin add {addon['name']}@{market}
+```
+
+In Cortex Code, install each from its folder, one chat message each:
+
+```
+/github-plugin-installer https://github.com/{slug}/tree/main/{core_dir(source)}
+/github-plugin-installer https://github.com/{slug}/tree/main/{addon_dir(addon)}
 ```
 
 ## Privacy
@@ -397,6 +424,24 @@ def skill_files(source: dict) -> dict[str, str]:
 def client_headers(source: dict) -> dict[str, str]:
     """The header that names this install to the gateway, which records it on each session."""
     return {"X-Atlan-Client": f"{source['mcp']['client']}/{source['plugin']['version']}"}
+
+
+def cortex_server(source: dict) -> dict:
+    """The `atlan` server Cortex Code runs. Over mcp-remote it is a local stdio process that
+    registers its own public client, signs in through the browser and proxies the registry's URL;
+    over http it is the Claude manifest's server."""
+    mcp, cortex = source["mcp"], source["cortex"]
+    headers = client_headers(source)
+    if cortex["transport"] == "http":
+        return {"type": "http", "url": mcp["url"], "headers": dict(headers)}
+    # One argument per header, with no space after the colon, so no shell or form splits it.
+    header = "".join(f"{name}:{value}" for name, value in headers.items())
+    metadata = json.dumps({"client_name": cortex["client_name"], "scope": cortex["scope"]}, separators=(",", ":"))
+    return {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", cortex["mcp_remote"], mcp["url"], "--header", header, "--static-oauth-client-metadata", metadata],
+    }
 
 
 def outputs(source: dict) -> dict[str, dict]:
@@ -533,6 +578,14 @@ def outputs(source: dict) -> dict[str, dict]:
             "logo": plugin["logo"].removeprefix("./"),
             **({"hooks": plugin["cursor_hooks"]} if plugin.get("cursor_hooks") else {}),
         },
+        # Cortex Code reads this manifest first, so the Claude one, which names a hooks module CoCo
+        # cannot run and a server CoCo cannot sign in to, is never its fallback.
+        f"{base}/.cortex-plugin/plugin.json": {
+            **core(source),
+            "displayName": plugin["display_name"],
+            "mcpServers": "./cortex-mcp.json",
+        },
+        f"{base}/cortex-mcp.json": {"mcpServers": {mcp["server"]: cortex_server(source)}},
         ".cursor-plugin/marketplace.json": {
             "name": market["name"],
             "owner": owner,

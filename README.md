@@ -46,6 +46,7 @@ and `atlanai-analytics` into each through its own plugin system. Then sign in on
 | Codex | Prompted when installed from inside Codex; after `codex plugin add`, run `codex mcp login atlan` |
 | Cursor | **Settings**, **Tools & MCP**, connect `atlan` |
 | VS Code and Copilot | Start the `atlan` server when prompted |
+| Cortex Code | **Customize**, **MCP**, connect `atlan`; a browser window opens |
 
 Then type: *"Connect me to Atlan."* In Claude Code,
 `/atlanai:get-started` does the same.
@@ -59,6 +60,7 @@ Then type: *"Connect me to Atlan."* In Claude Code,
 | [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **AI Registry**, then **Connect** on its **Connectors** tab |
 | [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **AI Registry** from the Cursor Marketplace |
 | [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **AI Registry** from Chat Plugins |
+| [Snowflake Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) Desktop | Type `/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai`, then **Customize**, **MCP**, **Connect** on `atlan`. Needs Node.js 18 or later |
 | Skills only, any Agent Skills tool | `npx skills add atlanai/atlan-plugins` (no MCP server; add `--skill <name>` to pick one) |
 | MCP server only, any MCP client | `https://api.atlan.com/mcp` (Streamable HTTP with OAuth), for example `claude mcp add --transport http atlan https://api.atlan.com/mcp` |
 
@@ -240,6 +242,7 @@ Every plugin is a folder under `plugins/`, the layout Anthropic's
 [official marketplace](https://github.com/anthropics/claude-plugins-official) and OpenAI's
 [plugins](https://github.com/openai/plugins) use. A workload built on the registry ships as its
 own plugin, named `atlanai-<workload>`. A Claude Code mod ships the same way, as `atlanai-mods`.
+Cortex Code installs from a plugin's folder on GitHub and reads its `.cortex-plugin/` manifest.
 
 ## Contributing
 

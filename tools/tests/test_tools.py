@@ -167,6 +167,78 @@ class AddonTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build.validate(broken)
 
+
+class CortexTest(unittest.TestCase):
+    """`[cortex]`: Cortex Code's own manifest and server file, and nothing it cannot run."""
+
+    def setUp(self) -> None:
+        self.source = build.load()
+        self.documents = build.outputs(self.source)
+        self.base = build.core_dir(self.source)
+        self.addon = build.addon_dir(self.source["addons"][0])
+
+    def test_the_core_names_its_own_server_file_and_no_hooks(self) -> None:
+        manifest = self.documents[f"{self.base}/.cortex-plugin/plugin.json"]
+        self.assertEqual((manifest["name"], manifest["version"]), (self.source["plugin"]["name"], self.source["plugin"]["version"]))
+        self.assertEqual(manifest["mcpServers"], lint.CORTEX_MCP)
+        self.assertNotIn("hooks", manifest)
+        servers = self.documents[f"{self.base}/cortex-mcp.json"]["mcpServers"]
+        self.assertEqual(list(servers), [self.source["mcp"]["server"]])
+        self.assertEqual(lint.lint_cortex_manifest(ROOT / self.base, True), [])
+
+    def test_the_bridge_is_pinned_and_sends_the_install_header_and_no_secret(self) -> None:
+        server = self.documents[f"{self.base}/cortex-mcp.json"]["mcpServers"]["atlan"]
+        args, cortex = server["args"], self.source["cortex"]
+        self.assertEqual((server["type"], server["command"]), ("stdio", "npx"))
+        self.assertIn(cortex["mcp_remote"], args)
+        self.assertNotIn("mcp-remote@latest", args)
+        self.assertIn(self.source["mcp"]["url"], args)
+        self.assertIn(f"X-Atlan-Client:atlan-plugin/{self.source['plugin']['version']}", args)
+        metadata = json.loads(args[args.index("--static-oauth-client-metadata") + 1])
+        self.assertEqual(metadata, {"client_name": cortex["client_name"], "scope": cortex["scope"]})
+        self.assertNotIn("--static-oauth-client-info", args)
+        self.assertNotIn("secret", json.dumps(server).lower())
+
+    def test_http_transport_writes_the_claude_server(self) -> None:
+        source = copy.deepcopy(self.source)
+        source["cortex"]["transport"] = "http"
+        server = build.outputs(source)[f"{self.base}/cortex-mcp.json"]["mcpServers"]["atlan"]
+        claude = self.documents[f"{self.base}/.mcp.json"]["mcpServers"]["atlan"]
+        self.assertEqual(server, {key: claude[key] for key in ("type", "url", "headers")})
+
+    def test_the_addon_gets_a_manifest_without_a_server_and_mods_get_none(self) -> None:
+        manifest = self.documents[f"{self.addon}/.cortex-plugin/plugin.json"]
+        self.assertNotIn("mcpServers", manifest)
+        self.assertNotIn(f"{self.addon}/cortex-mcp.json", self.documents)
+        for mod in self.source.get("mods", []):
+            self.assertNotIn(f"{build.mod_dir(mod)}/.cortex-plugin/plugin.json", self.documents)
+
+    def test_refuses_an_unpinned_bridge_or_an_unknown_transport(self) -> None:
+        for key, value in (("mcp_remote", "mcp-remote@latest"), ("mcp_remote", "mcp-remote"), ("transport", "sse")):
+            broken = copy.deepcopy(self.source)
+            broken["cortex"][key] = value
+            with self.subTest(key=key, value=value), self.assertRaises(SystemExit):
+                build.validate(broken)
+
+    def test_lint_refuses_hooks_another_server_or_an_addon_server(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            core, addon = Path(temp) / "atlan", Path(temp) / "atlan-x"
+            for plugin in (core, addon):
+                (plugin / ".cortex-plugin").mkdir(parents=True)
+            (core / ".cortex-plugin/plugin.json").write_text(json.dumps({"mcpServers": lint.CORTEX_MCP, "hooks": "./claude-hooks/hooks.json"}))
+            (core / "cortex-mcp.json").write_text(json.dumps({"mcpServers": {"atlan-trident": {}}}))
+            (addon / ".cortex-plugin/plugin.json").write_text(json.dumps({"mcpServers": lint.CORTEX_MCP}))
+            saved = lint.ROOT
+            lint.ROOT = Path(temp)
+            try:
+                core_errors = lint.lint_cortex_manifest(core, True)
+                addon_errors = lint.lint_cortex_manifest(addon, False)
+            finally:
+                lint.ROOT = saved
+        self.assertEqual(len(core_errors), 2)
+        self.assertEqual(len(addon_errors), 1)
+
+
 class ModTest(unittest.TestCase):
     """`[[mods]]`: Claude Code plugins whose hooks module acts on the core's tools."""
 
