@@ -657,6 +657,8 @@ EVAL_KINDS = {"dataset", "dataset_record", "experiment", "experiment_result", "s
 _DISPATCH = re.compile(r"(?:^|__)call(?:_read|_write)?_tool$")
 _WRITE_TOOL = re.compile(r"__(?:create|update|patch|put|delete|archive|restore|relate|unrelate|append|publish"
                          r"|release|withdraw|upload|install|uninstall|grant|revoke|rotate|set)(?:_|$)", re.I)
+# The desktop app's own turn tools (a progress plan) write to the chat window, never to data.
+_SESSION_UI = re.compile(r"^mcp__ccd_turn__")
 _EVAL_ID = re.compile(r"\b(?:dataset|dataset_record|experiment|experiment_result|scorer)_[0-9a-z]{10,}\b")
 _EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics|\.atlan-evals|/eval/v1/|gold_results", re.I)
 _NARRATION = ("rationale", "objective", "description")
@@ -736,7 +738,7 @@ def parse_transcript(path) -> dict:
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
                         or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
-                elif _WRITE_TOOL.search(name) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
+                elif (_WRITE_TOOL.search(name) and not _SESSION_UI.match(name)) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")
                 turns.append({"role": "tool_call", "name": name, "content": blob, "id": b.get("id"),
                               "message_id": mid})
@@ -2052,6 +2054,10 @@ def _selftest_integrity(ok) -> None:
             {"type": "tool_use", "id": "w1", "name": "mcp__atlan__mcp__call_write_tool",
              "input": {"name": "registry__create_artifact", "arguments": {"kind": "metric"}}}]}}))
         ok("a write through call_write_tool is contamination", parse_transcript(writer)["contaminated"])
+        plan = pr / "plan.jsonl"
+        plan.write_text(json.dumps({"message": {"role": "assistant", "content": [
+            {"type": "tool_use", "id": "p1", "name": "mcp__ccd_turn__update_plan", "input": {"advance": True}}]}}))
+        ok("the desktop app's progress plan is not contamination", not parse_transcript(plan)["contaminated"])
         (pr / "eval").mkdir()
         (pr / "eval" / "cases.jsonl").write_text("".join(json.dumps(c) + "\n" for c in cs))
         (pr / "eval" / "answers.jsonl").write_text("".join(json.dumps({"case_id": c["case_id"], "gold_sql": "select 1"}) + "\n"
