@@ -127,7 +127,7 @@ def cmd_start(a) -> dict:
                  "compare its answer with the trusted one. Which questions should I test with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",
                      "description": "The eval set you already have."} for s in found]
-                   + [{"label": "Generate 5 new questions",
+                   + [{"label": "Generate 8 new questions",
                        "description": "From your dashboard and the queries your analysts run most."}]}
     return out
 

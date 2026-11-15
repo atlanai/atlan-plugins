@@ -22,8 +22,8 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
 
 1. `EVAL todo --variant baseline --reps 1` lists the questions not yet run. A stopped run
    resumes here.
-2. Start one subagent per question, all at once (a set has 5), so the test takes as long as its
-   slowest question. For each:
+2. Start one subagent per question, all at once (a generated set has 8), so the test takes as
+   long as its slowest question. For each:
    1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
       cost down, with this prompt, filled in:
       ```

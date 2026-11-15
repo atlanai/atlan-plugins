@@ -8,7 +8,7 @@ tile and history shape the engine verified, each linked to the metrics it comput
 input, picks the set (the focus metric first, then breadth) and writes it. Standard library only.
 
     python3 scope.py inputs --project <project> [--run <run-dir>]
-    python3 scope.py pick --gen <gen-dir> [--limit 5] [--focus-count 2]
+    python3 scope.py pick --gen <gen-dir> [--limit 8] [--focus-count 2]
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
 
@@ -250,7 +250,7 @@ def main(argv=None) -> int:
     c.set_defaults(func=cmd_inputs)
     c = s.add_parser("pick", help="the set: the focus metric first, then breadth")
     c.add_argument("--gen", required=True)
-    c.add_argument("--limit", type=int, default=5)
+    c.add_argument("--limit", type=int, default=8)
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
     c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")
