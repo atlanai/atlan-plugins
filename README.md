@@ -60,7 +60,7 @@ Then type: *"Connect me to Atlan."* In Claude Code,
 | [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **AI Registry**, then **Connect** on its **Connectors** tab |
 | [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **AI Registry** from the Cursor Marketplace |
 | [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **AI Registry** from Chat Plugins |
-| [Snowflake Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) Desktop | Type `/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai`, then **Customize**, **MCP**, **Connect** on `atlan`. Needs Node.js 18 or later |
+| [Snowflake Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) Desktop | Type `/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai`, then **Customize**, **MCP**, **Connect** on `atlan` |
 | Skills only, any Agent Skills tool | `npx skills add atlanai/atlan-plugins` (no MCP server; add `--skill <name>` to pick one) |
 | MCP server only, any MCP client | `https://api.atlan.com/mcp` (Streamable HTTP with OAuth), for example `claude mcp add --transport http atlan https://api.atlan.com/mcp` |
 

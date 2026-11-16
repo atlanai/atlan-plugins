@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.55"
+version = "0.5.56"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -67,22 +67,6 @@ url = "https://api.atlan.com/mcp"
 # a session came from; a server added by hand sends none (MCP service decision
 # mcp-2026-10-30-session-records-the-install-surface).
 client = "atlan-plugin"
-
-[cortex]
-# Snowflake Cortex Code (CoCo) reads .cortex-plugin/plugin.json, and its server from
-# cortex-mcp.json. CoCo's own OAuth asks /oauth/register for a grant set the registry refuses
-# (`invalid_client_metadata: unsupported grant_type`, November 2026), so it cannot sign in to the
-# HTTP server the other hosts use. Until that is fixed, "mcp-remote" runs a local stdio bridge to
-# the same server: it registers a public client (authorization_code and refresh_token, no secret),
-# signs in through the browser and passes every MCP message through. Users enter no client id or
-# secret. "http" writes the same server the Claude manifest uses, with no bridge.
-transport = "mcp-remote"
-# Pinned to a reviewed release, never @latest: the bridge holds the user's Atlan token.
-mcp_remote = "mcp-remote@0.16.6"
-# Shown on Atlan's consent screen and in delegated access settings instead of "MCP CLI Proxy".
-client_name = "Cortex Code (Atlan plugin)"
-# What the registered client asks for: the registry's own scopes, nothing administrative.
-scope = "contextplane:read contextplane:write"
 
 [codex]
 capabilities = ["Interactive", "Write"]
