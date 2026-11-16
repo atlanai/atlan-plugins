@@ -869,7 +869,7 @@ def _ids_from_transcript(tr: dict) -> list:
 def cmd_record(a) -> dict:
     pr = Proj(a.dir)
     check_harness(pr)
-    for key in ("answer_file", "gold_result", "agent_result", "transcript", "verdict"):
+    for key in ("answer_file", "gold_result", "agent_result", "transcript", "verdict", "reference_transcript"):
         setattr(a, key, pr.f(getattr(a, key, None)))
     smoke = not a.gold_result and bool(a.question)
     if smoke:  # smoke: an ad-hoc question outside the eval set
@@ -949,6 +949,25 @@ def cmd_record(a) -> dict:
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
         g = {"grade": {"pass": 0, "exec_ok": int(agent_res is not None), "extra_cols": 0}, "class": "ungraded",
              "reason": "no gold result (smoke run)"}
+    reference_check = None
+    if a.reference_transcript:
+        if not a.gold_result or not gold_sql:
+            raise Blocked("A reference recheck needs gold SQL and --gold-result.",
+                          "Use the saved case and its original reference result.")
+        fresh, why = transcript_result(a.reference_transcript, gold_sql)
+        if fresh is None:
+            raise Blocked("The reference recheck did not run the unchanged gold SQL: " + str(why),
+                          "Run the reference SQL exactly as saved and retain the tool transcript.")
+        checked = grade(gold_res, fresh, gold_sql, gold_sql, sig)
+        reference_check = {"class": checked["class"], "reason": checked["reason"],
+                           "result": fresh}
+        dump_json(vd / "results" / f"{tag}.reference-check.json", reference_check)
+        if checked["class"] != "pass":
+            g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
+                 "class": "harness_error",
+                 "reason": "the saved reference is no longer reproducible; data or query volatility "
+                           "changed its result. Re-run both queries against a shared snapshot; "
+                           "do not count this as an agent miss or silently replace the gold."}
     if tr.get("unsupported"):
         g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
              "class": "harness_error",
@@ -970,6 +989,7 @@ def cmd_record(a) -> dict:
            "isolation": "verified" if a.transcript and not tr.get("unsupported") else "unverified",
            **({"freeze": frozen} if frozen else {}),
            **_provenance(a, gold_res, agent_res),
+           **({"reference_check": reference_check} if reference_check else {}),
            "attempt": attempt, **({"supersedes": prior.get("class")} if prior else {})}
     with res_path.open("a") as fh:
         fh.write(json.dumps(row, default=str) + "\n")
@@ -1951,15 +1971,50 @@ def selftest() -> dict:
         ok("search-mode call names the dispatched tool",
            parse_transcript(dispatched)["turns"][0]["name"] == "registry__list_artifacts")
 
-        def rec(variant, transcript, rep=0):
+        def rec(variant, transcript, rep=0, reference=None):
             ns = argparse.Namespace(dir=d, variant=variant, case="c1", rep=rep, answer_file=str(pr / "ans.json"),
                                     gold_result=str(pr / "gold.json"), agent_result=str(pr / "agent.json"),
-                                    transcript=str(transcript), model=None, latency_s=12.0)
+                                    transcript=str(transcript), model=None, latency_s=12.0, reference_transcript=reference)
             return cmd_record(ns)
 
         r1 = rec("v1", clean)
         ok("record grades a clean run", r1["class"] == "pass")
         ok("record is resume-idempotent", rec("v1", clean).get("exists"))
+        reference = pr / "reference.jsonl"
+        def reference_run(value, sql="select count(*) from t", failed=False):
+            reference.write_text(json.dumps({"type": "item.completed", "item": {
+                "type": "mcp_tool_call", "id": "reference", "tool": "sql_exec_tool",
+                "arguments": {"sql": sql}, "result": {"columns": ["n"], "rows": [[value]]},
+                "status": "failed" if failed else "completed"}}) + "\n")
+        reference_run(4)
+        drift = rec("reference-drift", clean, reference=str(reference))
+        ok("changed reference is not an agent miss", drift["class"] == "harness_error")
+        drift_rows = read_jsonl(pr / "hillclimb/reference-drift/results.jsonl")
+        ok("reference drift leaves score and preserves evidence", case_means(drift_rows) == {}
+           and drift_rows[0]["reference_check"]["result"]["rows"] == [[4]]
+           and load_json(pr / "gold.json")["rows"] == [[3]])
+        ok("reference drift cannot hide contamination",
+           rec("reference-dirty", dirty, reference=str(reference))["class"] == "invalid_contaminated")
+        reference_run(3)
+        ok("stable reference retains real grade",
+           rec("reference-stable", clean, reference=str(reference))["class"] == "pass")
+        dump_json(pr / "agent.json", [{"N": 2}])
+        ok("stable reference retains a genuine miss",
+           rec("reference-real-miss", clean, reference=str(reference))["class"] == "wrong_result")
+        dump_json(pr / "agent.json", [{"N": 3}])
+        def reference_blocked(fn):
+            try:
+                fn()
+            except Blocked:
+                return True
+            return False
+        reference_run(3, sql="select 3")
+        ok("recheck requires exact reference SQL", reference_blocked(lambda:
+           rec("reference-wrong-sql", clean, reference=str(reference))))
+        reference_run(3, failed=True)
+        ok("failed reference recheck cannot certify grade", reference_blocked(lambda:
+           rec("reference-failed", clean, reference=str(reference))))
+
         ok("contamination invalidates", rec("v2", dirty)["class"] == "invalid_contaminated")
         ok("search-mode contamination invalidates", rec("v3", dispatched)["class"] == "invalid_contaminated")
         ok("a write call invalidates", rec("v4", writer)["class"] == "invalid_contaminated")
@@ -2467,6 +2522,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="record a run that failed for a reason outside the agent (tool failure, timeout)")
     c.add_argument("--reason", help="with --class: what failed")
     c.add_argument("--gold-result", help="omit only for smoke runs (the row is recorded ungraded)")
+    c.add_argument("--reference-transcript", help="runner transcript rechecking unchanged gold SQL; "
+                   "a changed reference is an unscored harness error, never an agent miss")
     c.add_argument("--question", help="smoke runs only: the ad-hoc question (no gold, not in the eval set)")
     c.add_argument("--agent-result")
     c.add_argument("--transcript")

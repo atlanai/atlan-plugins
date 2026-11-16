@@ -141,7 +141,17 @@ These are plain lines, no table: they become a question's text.
 | Query failed | Its SQL did not run |
 | Question asks the opposite | The answer is the trusted result's complement (the share rejected where the SQL counts the share approved), and both rank the same. The question's wording, not the context, is wrong |
 
-Report the miss as the set states it, without doubting the set. Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
+Before diagnosing a warehouse result mismatch, have a separate runner repeat the unchanged
+trusted SQL and retain its transcript. Record the case with `--reference-transcript <runner
+transcript>` as well as the original `--gold-result`. The script checks that exact SQL ran;
+if the saved reference changed, it records an unscored `harness_error` and retains both
+results. A reference can change within minutes: an age warning alone is insufficient.
+Do not alter a metric, widen numeric tolerance or replace expected values to make a changing
+warehouse pass. Freeze a shared database snapshot for a repeatable rerun, or report a paired
+replay separately with both execution receipts. That replay validates the saved SQL, not a
+new agent answer. Keep the original attempt and use a new variant for the correction.
+
+When the reference is reproducible, report the miss as the set states it. Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
 the count; name how many.
 
 ## Test again
