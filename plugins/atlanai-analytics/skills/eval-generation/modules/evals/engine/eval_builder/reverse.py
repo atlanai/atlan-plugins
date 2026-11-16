@@ -43,11 +43,16 @@ the question a person asked that led someone to write this query.
 
 Return TWO forms of that question.
 
-question_natural — how a person would genuinely ask it out loud. Short. Business \
-vocabulary only. It may be ambiguous; real questions are. Do NOT mention column \
-names, table names, SQL keywords, joins, filters, or values that appear as \
-literals in the query. Someone reading it should not be able to reconstruct the \
-query from its wording.
+question_natural — how a person would genuinely ask it out loud. Use business \
+vocabulary. Name every requested measure and breakdown: a count, a mean and a \
+median are different requests. A query answering several requests needs a \
+question that asks for each, not a vague summary such as "how are we doing?" \
+Business category names and named thresholds may appear when they identify \
+the requested measure, even if they are SQL literals. Keep the company's \
+implementation rules implicit: exclusions, join paths and column mappings \
+belong in question_spec. Do NOT mention schema identifiers or SQL syntax. \
+Ambiguity about how a business metric is defined is useful; ambiguity about \
+which metrics the person requested is not.
 
 question_spec — the same question with every AMBIGUOUS decision pinned down, so \
 that exactly one answer is correct. Pin the population, the exclusions, the time \
@@ -75,7 +80,7 @@ Respond with JSON only, no prose, no code fences:
 """
 
 # A tile prompt shares everything from the two forms on; only the framing
-# differs. The query-history prompt above is left exactly as it was.
+# differs. Both forms retain the measures the person requested.
 _TILE_SYSTEM = """\
 You reverse-engineer the business question that a dashboard tile answers.
 
