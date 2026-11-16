@@ -72,7 +72,7 @@ The expected answer is one value or one short phrase, never a table, and never S
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
+| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 4 minutes. |
 | Not now | Keep the questions on this machine. |
 
 There is no edit option. On Not now, end with "What would you like to do next?", whose text is one

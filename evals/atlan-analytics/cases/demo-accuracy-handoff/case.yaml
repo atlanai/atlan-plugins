@@ -27,7 +27,7 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply says it will pick 8 questions from Ticketfuddle's dashboard and past
+      PASS if the reply says it will pick 20 questions from Ticketfuddle's dashboard and past
       queries, show each with where it came from and its expected answer, and ask once whether to
       run them; and that where the questions live is asked after the score.
       FAIL if it offers to edit the questions, asks the person to write questions or SQL, starts

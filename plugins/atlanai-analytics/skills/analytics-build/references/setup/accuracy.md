@@ -38,15 +38,16 @@ the sources belong to, or "your team" when the sources do not name it.
 Your <agent> is built: <N> metrics and <N> queries, <where it lives>.
 
 Before you ask it anything, I can test how accurate it is. I take <N>
-questions <firm>'s <dashboard and analysts> already answer, ask each to a
-fresh agent that sees only this context, and score its answer against the
-trusted one. About 3 minutes. Nothing changes unless you approve a fix.
+questions <firm>'s <dashboard and analysts> already answer and ask each
+twice: to a fresh agent that sees only this context, and to one that sees
+only the raw tables. I score both against the trusted answer and show them
+side by side. About 8 minutes. Nothing changes unless you approve a fix.
 
 Check how accurate it is first?
 ```
 
 With a set already in the project, the second paragraph names it: "<N> questions from
-<set name>". With none, it says 8 questions.
+<set name>". With none, it says 20 questions.
 
 | Option | Description |
 | --- | --- |
@@ -64,9 +65,14 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
 - **The run.** Pass `--run <run-dir>` to every `CHECK start`, `CHECK load` and `SCOPE inputs`,
   and `--use-case "<agent>: <what it answers>"` to `SCOPE inputs`, from the interview. Never
   let them pick a run, and never ask the person which run: this build knows its own.
+- **Before and after.** Every check here also runs accuracy-check's
+  [before and after](../../../accuracy-check/references/run.md#before-and-after) pass, started
+  with the context pass so both finish together. The score question's text opens with its
+  `report`, word for word, above the score line and the misses. The Test again step runs the
+  context pass only, and its result names the raw-source score beside the new one.
 - **A warehouse build.** `CHECK load` returns `pending_gold` and the answering agents run their
   SQL on the warehouse, as accuracy-check's run procedure describes. Use the warehouse query
-  tool this build already used. The time in the offer stays about 3 minutes.
+  tool this build already used. The time in the offer stays about 8 minutes.
 - **Facts.** There is no facts file: `<agent>`, `<firm>` and the use case come from this run's
   intent and sources, as in the offer.
 - **Generating.** When `eval-generation` `generate` returns blocked, say its reason in one line,
@@ -88,10 +94,13 @@ ask?" with its ready block, adding one row after What it can answer:
 
 ```
   How accurate          <p>% on <N> questions <firm>'s analysts ask
+                        <q>% on the raw tables alone
                         <, up from <p>% after one fix>
 ```
 
-Every question right puts the demo's banner above "Your <agent> is ready." Leave the score line,
-the source line and the misses out of the block: the row carries the result. When the person
+`<q>` is the raw-source accuracy from `EVAL before-after`. When every question was right the
+score question was never asked, so the `report` goes above this block, word for word, in the
+same question's text. Every question right puts the demo's banner above "Your <agent> is ready."
+Leave the score line, the source line and the misses out of the block: the rows carry the result. When the person
 picked **Check how accurate it is** after answers instead, end on the demo's result block
 (`ACC result`) and ready's `Next:` line, without that option.

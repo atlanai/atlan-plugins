@@ -1,6 +1,6 @@
 ---
 name: eval-generation
-description: "Atlan Analytics: generate an eval set for a use case, 8 questions its dashboard and analysts already ask with trusted SQL, kept locally or saved to Atlan Trident. Use when asked to build evals or golden questions. Not for metrics."
+description: "Atlan Analytics: generate an eval set for a use case, 20 questions its dashboard and analysts already ask with trusted SQL, kept locally or saved to Atlan Trident. Use when asked to build evals or golden questions. Not for metrics."
 ---
 
 # Generate an eval set for a use case
@@ -21,7 +21,7 @@ command.
 
 | Step | Owner |
 | --- | --- |
-| Use case, question pool, picking 8, drafting, the set file, saving the set | this skill |
+| Use case, question pool, picking 20, drafting, the set file, saving the set | this skill |
 | Running the set, scoring it, acting on a miss | whatever runs the set, never this skill |
 
 Never edit a metric, a saved query or the run's files from here.
@@ -49,8 +49,9 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 2. **Gate and rank.** `EVALGEN init --local`, then
    `EVALGEN build --from-files "<gen>/src" --dialect <the dialect `SCOPE inputs` returned> --limit 100`. It drops a query
    pinned to one record and withholds personal data. Do not reopen its JSON.
-3. **Pick 8.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
-   the metrics nearest the use case. It keeps only those prompts.
+3. **Pick 20.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
+   the metrics nearest the use case, round after round, then past queries no metric computes yet (`no_metric`), until it has 20 or
+   the pool runs out. It keeps only those prompts. Say so when it picked fewer than 20.
 4. **Draft, in a subagent.** Give one subagent the paths of `work/prompts/` and
    `work/answers.json` and this instruction: follow each prompt and fill its key in
    `answers.json` with the JSON it asks for, and ask for what the SQL measures, in its direction:
@@ -60,7 +61,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    It writes `<project>/.atlan-evals/sets/<slug>.jsonl`, one question per line: `{"id",
    "question", "sql", "tests", "from", "generated"}`, the same shape as a set a person brings.
 
-Budget: about 2 minutes. Keep every model step in a subagent and every count in a script.
+Budget: about 3 minutes. Keep every model step in a subagent and every count in a script.
 
 ## `save`: on this machine, or to Atlan Trident
 

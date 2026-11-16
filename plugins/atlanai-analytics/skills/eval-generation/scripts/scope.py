@@ -8,7 +8,7 @@ tile and history shape the engine verified, each linked to the metrics it comput
 input, picks the set (the focus metric first, then breadth) and writes it. Standard library only.
 
     python3 scope.py inputs --project <project> [--run <run-dir>] [--use-case "<text>"]
-    python3 scope.py pick --gen <gen-dir> [--limit 8] [--focus-count 2]
+    python3 scope.py pick --gen <gen-dir> [--limit 20] [--focus-count 2]
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
 
@@ -178,6 +178,10 @@ def cmd_pick(a) -> dict:
                 added = True
         if not added:
             break
+    # Still short: queries the analysts run that no metric computes yet, the most run first. They
+    # test what the context does not define, so a set is not only what it was built from.
+    loose = sorted((c for c in cands if not metric_of(c)), key=strength)
+    chosen += [(None, c) for c in loose[:max(0, a.limit - len(chosen))]]
 
     keep = {c["id"] for _, c in chosen}
     dump(work / "candidates.json", [c for c in cands if c["id"] in keep])
@@ -186,13 +190,14 @@ def cmd_pick(a) -> dict:
     for p in (work / "prompts").glob("*.txt") if (work / "prompts").exists() else []:
         if p.stem not in keep:
             p.unlink()
-    selection = [{"id": c["id"], "metric": names.get(m, m), "focus": m == focus,
+    selection = [{"id": c["id"], "metric": names.get(m, m) or "", "focus": bool(m) and m == focus,
                   "from": "dashboard tile" if (pool.get(c["query_id"]) or {}).get("source") == "tile" else
                   f"past query, run {(pool.get(c['query_id']) or {}).get('runs') or 1} times"}
                  for m, c in chosen]
     dump(work / "selection.json", selection)
     return {"status": "ok", "picked": len(selection), "of": len(cands),
-            "metrics_covered": len({s["metric"] for s in selection}), "selection": selection}
+            "metrics_covered": len({s["metric"] for s in selection if s["metric"]}),
+            "no_metric": sum(1 for s in selection if not s["metric"]), "selection": selection}
 
 
 def cmd_emit(a) -> dict:
@@ -243,7 +248,7 @@ def main(argv=None) -> int:
     c.set_defaults(func=cmd_inputs)
     c = s.add_parser("pick", help="the set: the focus metric first, then breadth")
     c.add_argument("--gen", required=True)
-    c.add_argument("--limit", type=int, default=8)
+    c.add_argument("--limit", type=int, default=20)
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
     c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")

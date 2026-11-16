@@ -134,6 +134,27 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(len(list((work / "prompts").glob("*.txt"))), 4)
         self.assertEqual(len(json.loads((work / "answers.json").read_text())), 4)
 
+    def test_pick_fills_a_short_set_with_past_queries_no_metric_computes(self) -> None:
+        self.ev = Path(self.scope("inputs", "--project", str(self.tmp))["gen"])
+        work = self.ev / "work"
+        work.mkdir(parents=True, exist_ok=True)
+        cands = [{"id": "m0", "query_id": "h-rev", "scores": {}}, {"id": "m1", "query_id": "h-adhoc", "scores": {}}]
+        (work / "candidates.json").write_text(json.dumps(cands))
+        res = self.scope("pick", "--gen", str(self.ev))
+        self.assertEqual([(s["id"], s["metric"]) for s in res["selection"]], [("m0", "Net Revenue"), ("m1", "")])
+        self.assertEqual((res["picked"], res["metrics_covered"], res["no_metric"]), (2, 1, 1))
+
+    def test_a_generated_set_asks_for_twenty_questions(self) -> None:
+        sys.path.insert(0, str(ROOT / "plugins/atlanai-analytics/skills/eval-generation/scripts"))
+        import scope
+        seen = {}
+        original, scope.cmd_pick = scope.cmd_pick, lambda a: seen.update(limit=a.limit, focus=a.focus_count) or {"status": "ok"}
+        try:
+            scope.main(["pick", "--gen", str(self.ev)])
+        finally:
+            scope.cmd_pick = original
+        self.assertEqual(seen, {"limit": 20, "focus": 2})
+
     def test_a_run_without_a_use_case_is_refused(self) -> None:
         (self.run / "interaction.json").write_text("{}")
         res = self.scope("inputs", "--project", str(self.tmp))
@@ -168,7 +189,7 @@ class ScopeTest(unittest.TestCase):
         res = self.check("start", "--project", str(self.tmp))
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
-        self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Generate 8 new questions"])
+        self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Generate 20 new questions"])
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")
