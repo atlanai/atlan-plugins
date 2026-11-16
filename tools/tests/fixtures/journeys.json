@@ -533,6 +533,86 @@
    "measured": null
   },
   {
+   "id": "registry-remember",
+   "plugin": "atlanai",
+   "skill": "atlan-memory",
+   "title": "Remember a preference in the user's memory",
+   "route": "Find the user's own workspace and their my-memory bundle, read the topic's note at its pin, write it back with the new line",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "user_default"
+      }
+     },
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "knowledge",
+       "query": "my-memory"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<my-memory>"
+      }
+     },
+     {
+      "tool": "registry__get_file_content",
+      "runner": "call_read_tool",
+      "args": {
+       "file_id": "<note>",
+       "version_ordinal": "<pinned>"
+      }
+     },
+     {
+      "tool": "extension__knowledge__apply_changes",
+      "runner": "call_write_tool",
+      "args": {
+       "bundle_id": "<my-memory>",
+       "changes": "<one write>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<my-memory>"
+      }
+     },
+     {
+      "tool": "registry__get_file_content",
+      "runner": "call_read_tool",
+      "args": {
+       "file_id": "<note>",
+       "version_ordinal": "<pinned>"
+      }
+     },
+     {
+      "tool": "extension__knowledge__apply_changes",
+      "runner": "call_write_tool",
+      "args": {
+       "bundle_id": "<my-memory>",
+       "changes": "<one write>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 5,
+    "warm": 3
+   },
+   "targets": null,
+   "measured": null
+  },
+  {
    "id": "registry-connect-repo",
    "plugin": "atlanai",
    "skill": "atlan-connect-repo",
