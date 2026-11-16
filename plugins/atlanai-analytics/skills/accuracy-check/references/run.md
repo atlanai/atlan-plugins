@@ -107,7 +107,8 @@ trusted results come from the warehouse, and no model copies a value:
       - **Local:** run it exactly as given with `PROJECT execute` and save the output there.
       - **A warehouse:** the agent already ran it. `EVAL agent-result --transcript <output_file>
         --answer-file <answer> --out <that file>` reads the result from the agent's own tool
-        call. When it returns `source: replay`, the result could not be read whole, or the
+        call. An agent that states no SQL, or a stand-in such as "the SQL above", is
+        graded on the last read it ran. When it returns `source: replay`, the result could not be read whole, or the
         agent stated a statement it did not run: have a runner subagent run the `sql_file` it
         names exactly as written, as above, then `EVAL agent-result` again with the runner's
         transcript. A statement the warehouse rejects in the replay too is saved as

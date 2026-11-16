@@ -990,6 +990,13 @@ def cmd_record(a) -> dict:
                       "Run the agent's SQL again through the run's runner (PROJECT with --run-dir), then record.")
     raw_seen = raw_hits(tr["turns"], a.raw) if getattr(a, "raw", None) else []
     tainted = bool(tr["contaminated"] or raw_seen)
+    if a.gold_result and agent_res is None and not harness_error and (ans.get("sql") or "").strip():
+        # The answer states SQL and nothing says what it returned. Recorded now, that is a miss for
+        # good, and the statement may be right: its result is read, replayed or saved as an error first.
+        raise Blocked(f"The answer for {a.case} states SQL, and no --agent-result was given.",
+                      "Get its result first: `agent-result` reads it from the agent's transcript or names the "
+                      "statement to replay; a statement that fails as given is saved as {\"error\": \"<message>\"} "
+                      "and passed as --agent-result.")
     # keep the executed results beside the row so a re-grade needs no warehouse
     tag = f"{a.case}_rep{a.rep}"
     if gold_res is not None:
@@ -1002,9 +1009,10 @@ def cmd_record(a) -> dict:
         g = {"grade": {"pass": int(bool(verdict["pass"])), "exec_ok": int(agent_res is not None), "extra_cols": 0},
              "class": JUDGED, "reason": str(verdict.get("reason") or "")[:500]}
     elif a.gold_result:
-        g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "", sig)
+        g = grade(gold_res, agent_res, gold_sql, _agent_sql(ans, agent_res), sig)
         g["graded_by"] = "script"
-        brief = judge_brief(cases[a.case]["question"], gold_res, agent_res, gold_sql, ans, g["reason"]) \
+        brief = judge_brief(cases[a.case]["question"], gold_res, agent_res, gold_sql,
+                            {**ans, "sql": _agent_sql(ans, agent_res)}, g["reason"]) \
             if judging and g["class"] == "wrong_result" and not tainted else None
         if brief is not None and verdict is None:
             # No row yet: the judge rules first. Its brief sits beside the run, outside any answering agent's reach.
@@ -1039,7 +1047,7 @@ def cmd_record(a) -> dict:
            "tags": cases[a.case].get("tags") or [], "grade": g["grade"], "class": g["class"],
            "reason": g.get("reason"), "model": tr["model"] or a.model, **_latency(a.latency_s, tr["elapsed_s"]),
            "tool_calls": tr["tool_calls"], "usage": tr["usage"], "answer": ans.get("answer", ""),
-           "sql": ans.get("sql") or "", "used_context_ids": ans.get("used_context_ids") or [],
+           "sql": _agent_sql(ans, agent_res), "used_context_ids": ans.get("used_context_ids") or [],
            "used_context_refs": ans.get("used_context_refs") or [], "ts": now(),
            "isolation": "verified" if a.transcript else "unverified", **({"freeze": frozen} if frozen else {}),
            **_provenance(a, gold_res, agent_res),
@@ -1052,6 +1060,14 @@ def cmd_record(a) -> dict:
             "reason": g.get("reason"), **({"graded_by": g["graded_by"]} if g.get("graded_by") else {}), **({"attempt": attempt, "supersedes": prior.get("class")} if prior else {})}
 
 
+def _agent_sql(ans: dict, agent_res) -> str:
+    """The statement the row is graded on: the one the agent ran when its answer named none, or a
+    stand-in for it; otherwise the one it stated."""
+    if isinstance(agent_res, dict) and agent_res.get("source") == "transcript_last_call" and agent_res.get("sql"):
+        return agent_res["sql"]
+    return ans.get("sql") or ""
+
+
 def _provenance(a, gold_res, agent_res) -> dict:
     """Which gold the row was graded against, and when it ran; whether the agent's result is the one
     its own run returned (read from the transcript) or the parent's replay of its SQL."""
@@ -1062,8 +1078,8 @@ def _provenance(a, gold_res, agent_res) -> dict:
         if ran:
             out["gold_ran_at"] = ran
     if agent_res is not None:
-        out["agent_result_source"] = "transcript" if isinstance(agent_res, dict) and \
-            agent_res.get("source") == "transcript" else "replay"
+        out["agent_result_source"] = agent_res["source"] if isinstance(agent_res, dict) and \
+            str(agent_res.get("source") or "").startswith("transcript") else "replay"
     return out
 
 
@@ -1096,8 +1112,17 @@ _SAVED_RESULT = re.compile(r"saved to:?\s+(/[^\s\"']+?\.(?:txt|json))(?=[\s.,\"'
 def _sql_key(sql: str) -> str:
     """A statement as sent, without the layout: an agent runs its SQL across lines and states it on
     one, so a line break beside a bracket or comma is a space in one copy and nothing in the other."""
-    flat = re.sub(r"\s+", " ", (sql or "").strip().rstrip(";").strip())
+    flat = re.sub(r"\s+", " ", _no_comments(sql or "").strip().rstrip(";").strip())
     return re.sub(r"\s*([(),])\s*", r"\1", flat)
+
+
+_SQL_PIECE = re.compile(r"""'(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*|/\*[\s\S]*?\*/""")
+
+
+def _no_comments(sql: str) -> str:
+    """A statement without its comments: an agent runs a saved query with them and states it
+    without, and the two are one statement. A quoted string that holds `--` is kept whole."""
+    return _SQL_PIECE.sub(lambda m: m.group(0) if m.group(0)[0] in "'\"" else " ", sql)
 
 
 def _strings(obj):
@@ -1111,14 +1136,23 @@ def _strings(obj):
             yield from _strings(v)
 
 
-def transcript_result(path, sql: str) -> tuple:
+_SQL_ARGS = ("sql", "query", "statement", "sql_query", "sql_statement", "statement_text")
+_READ_SQL = re.compile(r"^\s*(?:with|select)\b", re.I)
+
+
+def transcript_result(path, sql: str, last_call: bool = False) -> tuple:
     """The result of the agent's last tool call that ran `sql`, from its own transcript.
-    -> ({columns, rows, error: None, source, tool_use_id}, None) or (None, why it must be replayed)."""
+    -> ({columns, rows, error: None, source, tool_use_id}, None) or (None, why it must be replayed).
+
+    `last_call` is for an answering agent only: when it states no SQL, or a stand-in for it ("the
+    SQL above"), the statement it answered from is the last read it ran that returned rows. That
+    result is used, marked `transcript_last_call`, with the statement itself as `sql`."""
     key = _sql_key(sql)
-    if not key:
+    if not key and not last_call:
         return None, "the answer has no SQL"
     calls: dict = {}
     results: dict = {}
+    reads: dict = {}
     for obj in transcript_objects(path):
         msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
         for b in _blocks(msg.get("content")):
@@ -1126,11 +1160,21 @@ def transcript_result(path, sql: str) -> tuple:
                 inp = b.get("input") or {}
                 if _DISPATCH.search(b.get("name") or "") and isinstance(inp.get("arguments"), dict):
                     inp = inp["arguments"]
-                if any(_sql_key(x) == key for x in _strings(inp)):
+                if key and any(_sql_key(x) == key for x in _strings(inp)):
                     calls[b.get("id")] = inp
+                stated = next((inp[k] for k in _SQL_ARGS if isinstance(inp.get(k), str)
+                               and _READ_SQL.match(inp[k])), None) if isinstance(inp, dict) else None
+                if stated:
+                    reads[b.get("id")] = (inp, stated)
             elif b.get("type") == "tool_result":
                 results[b.get("tool_use_id")] = b
     ran = [c for c in calls if c in results]
+    source, ran_sql = "transcript", None
+    if not ran and last_call:
+        good = [c for c in reads if c in results and not results[c].get("is_error")]
+        if good:
+            calls[good[-1]], ran_sql = reads[good[-1]]
+            ran, source = [good[-1]], "transcript_last_call"
     if not ran:
         return None, "no tool call in the transcript ran the answer's SQL and got a result"
     cid = ran[-1]
@@ -1157,7 +1201,7 @@ def transcript_result(path, sql: str) -> tuple:
     if caps and len(res.get("rows") or []) >= min(caps):
         return None, f"the tool capped the rows at {min(caps)}, so more may exist"
     return {"columns": res.get("columns") or [], "rows": res.get("rows") or [], "error": None,
-            "source": "transcript", "tool_use_id": cid}, None
+            "source": source, "tool_use_id": cid, **({"sql": ran_sql} if ran_sql else {})}, None
 
 
 def cmd_agent_result(a) -> dict:
@@ -1167,7 +1211,10 @@ def cmd_agent_result(a) -> dict:
         raise Blocked("The transcript or the answer file is missing.",
                       "Pass the subagent's output_file and the answer saved from its final message.")
     sql = _read_answer(answer).get("sql") or ""
-    res, why = transcript_result(transcript, sql)
+    res, why = transcript_result(transcript, sql, last_call=True)
+    if res is None and not sql.strip():
+        return {"status": "ok", "source": "none", "reason": "the agent stated no SQL and ran none",
+                "next": "Record the answer without --agent-result: it is graded as giving no SQL."}
     if res is None:
         # The statement, alone in a file, for whoever runs it again: it is sent as the file holds it.
         sql_file = pathlib.Path(out).with_suffix(".sql")
@@ -1178,7 +1225,7 @@ def cmd_agent_result(a) -> dict:
                         f"run agent-result again with the runner's transcript. If it fails there too, save "
                         f"{{\"error\": \"<the tool's message>\"}} to {a.out}."}
     dump_json(pathlib.Path(out), res)
-    return {"status": "ok", "source": "transcript", "rows": len(res["rows"]), "out": a.out}
+    return {"status": "ok", "source": res["source"], "rows": len(res["rows"]), "out": a.out}
 
 
 UNSCORED = ("harness_error", "gold_error", "incomplete")

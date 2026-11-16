@@ -299,6 +299,10 @@ class ScopeTest(unittest.TestCase):
         # The raw-source pass is told which tables to work from: the ones the run's metrics read.
         self.assertEqual(res["execution"]["tables"], ["L.Z.TICKET"])
         self.assertEqual(self.check("start", "--project", str(self.tmp), "--run", str(self.tmp / "nope"))["status"], "BLOCKED")
+        # Eval files never go inside the run that answering agents read.
+        inside = self.check("start", "--project", str(wh), "--run", str(wh))
+        self.assertEqual(inside["status"], "BLOCKED")
+        self.assertIn(str(self.tmp.resolve()), inside["reason"])
 
     def test_inputs_takes_a_named_warehouse_run_its_engine_folder_and_a_given_use_case(self) -> None:
         wh = self.warehouse_run(".atlan-metrics", "sales-pipeline")
@@ -369,6 +373,15 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(harness._sql_key("with a as (\n  select 1,\n  2\n)\nselect * from a;"),
                          harness._sql_key("with a as (select 1, 2) select * from a"))
         self.assertNotEqual(harness._sql_key("select a b from t"), harness._sql_key("select ab from t"))
+        # An answering agent that names no SQL, or a stand-in for it, is graded on the last read it ran.
+        ok = json.dumps({"columns": ["n"], "rows": [[7]]})
+        t = self.transcript(self.tmp / "agent.jsonl", [("select 1 as n", ok, False), ("select count(*) n from t", ok, False),
+                                                       ("select broken", "error", True)])
+        got, _ = harness.transcript_result(t, "<the SQL above, verbatim>", last_call=True)
+        self.assertEqual((got["source"], got["sql"], got["rows"]), ("transcript_last_call", "select count(*) n from t", [[7]]))
+        self.assertEqual(harness.transcript_result(t, "", last_call=True)[0]["sql"], "select count(*) n from t")
+        self.assertIsNone(harness.transcript_result(t, "<the SQL above, verbatim>")[0])  # never for trusted SQL
+        self.assertEqual(harness.transcript_result(t, "select 1 as n", last_call=True)[0]["source"], "transcript")
         self.assertFalse(harness._EVAL_PATH.search("/p/.atlan-analytics/support-tickets/context/metrics.json"))
         self.assertTrue(harness._EVAL_PATH.search("/p/.atlan-analytics/shop/eval/answers.jsonl"))
         self.assertTrue(harness._EVAL_PATH.search("/p/.atlan-evals/support-tickets/eval/gold/a.json"))

@@ -44,6 +44,17 @@ def built_runs(project: pathlib.Path) -> list:
     return sorted(runs, key=lambda r: (r / "context" / "metrics.json").stat().st_mtime, reverse=True)
 
 
+def outside(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
+    """Refuse a project that is the run or sits inside it: eval sets and trusted answers are written
+    under the project, and the agents that answer read the run."""
+    proj, r = project.expanduser().resolve(), run.resolve()
+    if proj == r or r in proj.parents:
+        raise Blocked(f"--project is inside the run at {r}. Use the folder that holds the run's "
+                      f".atlan-metrics or .atlan-analytics folder ({r.parent.parent}), so eval files stay "
+                      "outside what answering agents read.")
+    return run
+
+
 def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
     """The run to use: the one named, else the project's only built run. Several ask which."""
     if run:
@@ -53,7 +64,7 @@ def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
         if not is_built(named):
             raise Blocked(f"No built context at {named}: it has no context/metrics.json. Name the run folder "
                           "the build wrote, or build the context first.")
-        return named
+        return outside(project, named)
     ready = built_runs(project)
     if not ready:
         raise Blocked("No built analytics run in this project. Build the context first.")
