@@ -314,54 +314,69 @@ STYLE = '''
 '''
 
 
+STYLE += '\nmain{max-width:1480px;padding:24px 24px 40px}h1{font-size:26px;margin:4px 0 16px}.environment{font-size:13px;line-height:1.65;padding-left:20px;margin:0 0 12px}.takeaway{font-size:13px;margin:12px 0;color:var(--fg)}.toolbar{position:static;padding:8px 0}.overview{overflow:auto;background:white;border:1px solid var(--border-strong);border-radius:6px}.overview table{font-size:12px;min-width:1060px}.overview td{vertical-align:middle;padding:12px 10px}.overview th{white-space:nowrap;padding:12px 10px}.qtext{white-space:nowrap;max-width:390px;overflow:hidden;text-overflow:ellipsis}.overview tr:hover{background:var(--accent-soft)}.actions{white-space:nowrap}.actions button{padding:3px 5px;border:0;background:transparent;color:var(--accent);font-size:12px}.reason{padding-left:14px;margin:0;max-width:290px;line-height:1.4}.pass{background:var(--good-soft);color:#00795e}.fail{background:var(--bad-soft);color:var(--bad)}dialog{width:min(1100px,94vw);max-height:88vh;overflow:auto;border:1px solid var(--border-strong);border-radius:6px;padding:24px;color:var(--fg-body)}dialog::backdrop{background:rgba(27,31,41,.45)}dialog header{display:flex;gap:16px;justify-content:space-between;align-items:start}dialog h2{font-size:20px;margin:0 0 16px}dialog nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border-strong);padding-bottom:12px;margin-bottom:16px}dialog nav [aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}[hidden]{display:none!important}button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}dialog pre{max-height:50vh}.close{flex-shrink:0}@media(max-width:700px){main{padding:18px 12px}.environment{font-size:12px}dialog{padding:16px}.pair{grid-template-columns:1fr}.qtext{max-width:310px}}\n'
+
 def render(comparison, sources=None, diagnoses=None):
     report = collect(comparison)
-    manifest = report['manifest']; n = report['total']; totals = report['totals']
+    manifest = report['manifest']; n = report['total']
     source_map = {r['id']: r for r in sources or []}
     diagnoses = diagnoses or {}
-    labels = {'win': 'Extra exact match', 'regression': 'Metrics regression', 'both_right': 'Both correct', 'both_wrong': 'Both incorrect', 'pending': 'Not yet scored'}
-    if report['complete']:
-        a, b = [report['scores'][arm] for arm in manifest['arms']]
-        headline = f'{a}/{n} without metrics · {b}/{n} with metrics'
-        summary = f"{totals['win']} extra exact matches, {totals['regression']} regressions, {totals['both_right'] + totals['both_wrong']} ties."
-        conclusion = 'More exact result matches with metrics; review the causes below.' if b > a else 'No difference in exact result matches in this run.' if b == a else 'Fewer exact result matches with metrics; review the causes below.'
-    else:
-        headline = 'Comparison in progress'
-        summary = f"{totals['pending']} of {n} question pairs lack complete valid execution evidence."
-        conclusion = 'No accuracy difference is reported until every question has a valid pair.'
-    if diagnoses.get('_summary'):
-        conclusion = diagnoses['_summary']
-    cards = []
+    gold_rows = trusted(comparison, manifest)
+    headline = (f"{report['scores']['without_metrics']}/{n} without metrics · "
+                f"{report['scores']['with_metrics']}/{n} with metrics") if report['complete'] else 'Comparison in progress'
+    rows, dialogs = [], []
     for index, row in enumerate(report['rows'], 1):
-        ident = row['id']; source = source_map.get(ident, {}); diagnosis = diagnoses.get(ident, {})
-        arms = []
+        ident = row['id']; diagnosis = diagnoses.get(ident, {}); source = source_map.get(ident, {})
+        panels = {name: [] for name in ('sql', 'results', 'evidence')}
+        verdicts, failed = [], []
         for arm, record in row['arms'].items():
             label = 'Without metrics' if arm == 'without_metrics' else 'With metrics'
-            if record['status'] == 'scored':
-                text = record['answer'].get('answer', '')
-                if not isinstance(text, str):
-                    text = f"Returned {len(record.get('agent_result', {}).get('rows', []))} rows. Executed values are shown below."
-                sql = record['answer']['sql']; result = table(record.get('agent_result'))
-                verdict = 'Correct' if record['score']['grade']['pass'] else 'Incorrect'
-                folder = 'executions/' + arm + '/' + case_key(ident)
-                links = f'<a href="{folder}/events.jsonl">Raw transcript</a> · <a href="{folder}/tools.jsonl">Tool results</a> · <a href="{folder}/record.json">Score record</a>'
-                source_label = 'Controller replay' if record.get('result_source') == 'controller_replay' else 'Agent tool execution'
-                extra = '<p class="evidence">Result source: ' + source_label + '</p><p class="evidence">Read: ' + h(', '.join(record.get('context_reads', []))) + '</p>'
-            else:
-                text = record.get('error', 'Awaiting execution'); sql = ''; result = ''; verdict = 'Unmeasured'; links = ''; extra = ''
-            arms.append(f'<div><h3>{label} <span class="badge">{verdict}</span></h3><p>{h(text)}</p>{result}<details><summary>SQL and execution evidence</summary><pre>{h(sql)}</pre>{extra}<p class="evidence">{links}</p></details></div>')
+            scored = record['status'] == 'scored'
+            passed = scored and record['score']['grade']['pass']
+            verdict = ('Correct' if passed else 'Incorrect') if scored else 'Unmeasured'
+            verdicts.append(f'<td><span class="badge {"pass" if passed else "fail" if scored else ""}">{verdict}</span></td>')
+            if scored and not passed:
+                failed.append(label)
+            panels['sql'].append(f'<section><h3>{label}</h3><pre>{h(record.get("answer", {}).get("sql", "Not executed"))}</pre></section>')
+            panels['results'].append(f'<section><h3>{label} · {verdict}</h3>{table(record.get("agent_result"))}</section>')
+            folder = 'executions/' + arm + '/' + case_key(ident)
+            links = ''.join(f'<li><a href="{folder}/{file}">{title}</a></li>' for file, title in
+                            [('events.jsonl','Transcript'),('tools.jsonl','Tool results'),('record.json','Score record'),('launch.json','Runtime configuration')]) if scored else ''
+            result_source = 'Controller replay' if record.get('result_source') == 'controller_replay' else 'Agent tool execution' if scored else 'Not executed'
+            panels['evidence'].append(f'<section><h3>{label}</h3><p>Result source: {result_source}</p><ul>{links}</ul><p>{h(record.get("error", ""))}</p></section>')
+        note = diagnosis.get('explanation', 'Cause not yet diagnosed; inspect the executed results and metric rule.')
+        brief = diagnosis.get('brief')
+        if not failed:
+            brief = 'No failures.' if row['outcome'] == 'both_right' else 'Awaiting valid execution.'
+        elif not brief:
+            brief = '; '.join(failed) + ': cause not yet diagnosed.'
+        reason = '<ul class="reason"><li>' + h(brief) + '</li></ul>' if failed else '<span class="muted">' + h(brief) + '</span>'
+        actions = ''.join(f'<button data-dialog="q-{index}" data-panel="{name}">{title}</button>' for name,title in [('sql','SQL'),('results','Results'),('why','Why'),('evidence','Evidence'),('feedback','Feedback')])
+        rows.append(f'<tr class="question" data-outcome="{row["outcome"]}"><td class="qtext" title="{h(row["question"])}">{index}. {h(row["question"])}</td>{"".join(verdicts)}<td>{reason}</td><td class="actions">{actions}</td></tr>')
         golden = next((r.get('gold_result') for r in row['arms'].values() if r.get('gold_result')), None)
-        note = diagnosis.get('explanation', 'Cause not yet diagnosed. Compare the SQL and the rule actually read before attributing a difference to metrics.')
-        rule = '<p class="rule">' + h(diagnosis['metric_rule']) + '</p>' if diagnosis.get('metric_rule') else ''
-        opened = 'open' if row['outcome'] in ('win', 'regression', 'both_wrong') else ''
-        cards.append(f'''<details class="question" data-outcome="{row['outcome']}" id="q-{index}" {opened}>
-<summary><span class="badge {row['outcome']}">{labels[row['outcome']]}</span>{index}. {h(row['question'])}</summary>
-<p class="muted">Tests {h(source.get('tests', 'Source-backed question'))} · {h(source.get('from', 'See the frozen source set'))}</p>
-<div class="pair">{''.join(arms)}</div><h3>Why the answers differ</h3><p>{h(note)}</p>{rule}
-<details><summary>Trusted result and source SQL</summary>{table(golden)}<pre>{h(source.get('sql', 'See the trusted-answer file'))}</pre></details>
-<label for="feedback-{index}">Your feedback on this question</label><textarea id="feedback-{index}" data-case="{h(ident)}" placeholder="Question wording, expected rule, or interpretation to revisit"></textarea>
-</details>''')
-    flow = '''<details id="workflow"><summary>Review the proposed workflow</summary><p class="muted">Process nodes run automatically. Choice nodes are decisions for the person. This diagram describes the target demo flow.</p><div class="flow">
+        tabs = ''.join(f'<button data-panel="{name}" aria-pressed="false">{title}</button>' for name,title in [('sql','SQL'),('results','Results'),('why','Why'),('evidence','Evidence'),('feedback','Feedback')])
+        content = ''.join(f'<div data-content="{name}" hidden><div class="pair">{"".join(parts)}</div>' +
+                          (f'<h3>Trusted SQL</h3><pre>{h(gold_rows[ident]["gold_sql"])}</pre>' if name == 'sql' else
+                           f'<h3>Trusted result</h3>{table(golden)}' if name == 'results' else '') + '</div>' for name,parts in panels.items())
+        dialogs.append(f'''<dialog id="q-{index}" aria-labelledby="title-{index}"><header><h2 id="title-{index}">{index}. {h(row['question'])}</h2><button class="close" aria-label="Close details">Close</button></header><nav aria-label="Question details">{tabs}</nav>{content}
+<div data-content="why" hidden><p>{h(note)}</p><p class="rule">{h(diagnosis.get('metric_rule', ''))}</p><p class="muted">Source: {h(source.get('from', 'Frozen trusted-answer set'))}</p></div>
+<div data-content="feedback" hidden><label for="feedback-{index}">Your feedback</label><textarea id="feedback-{index}" data-case="{h(ident)}" placeholder="Question wording, expected rule, or interpretation to revisit"></textarea><p class="muted">Saved in this browser. Use Export feedback to share.</p></div></dialog>''')
+    reused = (comparison / 'baseline-reuse.json').is_file()
+    hosts = sorted({load(p).get('host', 'unknown') for p in (comparison / 'executions').glob('*/*/launch.json')})
+    environment = ', '.join(hosts) or manifest.get('host', 'Not yet executed')
+    conclusion = diagnoses.get('_summary', 'Inspect each result before attributing a difference to metrics.')
+    metadata = f'''<ul class="environment">
+<li><strong>Environment:</strong> local SQLite demo; {h(environment)} CLI; fresh isolated agent per question and arm. {n} questions.</li>
+<li><strong>Model:</strong> {h(manifest['model'])}; reasoning effort: {h(manifest['effort'])}. Same model and instructions in both runs.</li>
+<li><strong>Context:</strong> both runs get schema + raw query history; only the with-metrics run gets metric definitions. Read-only SQL tools.</li>
+<li><strong>Scorer:</strong> deterministic <code>analytics_eval</code>; executed results compared with trusted SQL, using each case’s numeric precision. Percent and fraction values are not equivalent.</li>
+<li><strong>Baseline:</strong> {'reused verified evidence' if reused else 'fresh run, retained for reuse' if report['complete'] else 'not yet complete'}; questions, data, model, effort and runtime are pinned.</li>
+<li><strong>Scope:</strong> source history overlaps the eval questions. This is a small reproduction test, not held-out accuracy.</li></ul>'''
+    page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Metrics accuracy comparison</title><style>{STYLE}</style></head><body><main>
+<p class="meta">Atlan Analytics · comparison review</p><h1>{h(headline)}</h1>{metadata}<p class="takeaway">{h(conclusion)}</p>
+<div class="toolbar"><label for="filter">Show</label><select id="filter"><option value="all">All questions</option><option value="win">Extra exact matches</option><option value="regression">Regressions</option><option value="both_wrong">Both incorrect</option><option value="pending">Unmeasured</option></select><button data-dialog="workflow-modal">Workflow</button><button id="export">Export feedback</button></div>
+<div class="overview"><table aria-label="Question comparison"><thead><tr><th>Question</th><th>Without metrics</th><th>With metrics</th><th>Why incorrect</th><th>Details</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>
+{''.join(dialogs)}<dialog id="workflow-modal" aria-labelledby="workflow-title"><header><h2 id="workflow-title">Evaluation workflow</h2><button class="close" aria-label="Close workflow">Close</button></header><p class="muted">Process nodes run automatically. Choice nodes are decisions for the person. This diagram describes the target demo flow.</p><div class="flow">
 <div class="node"><span class="meta">Process</span><br>Generate or load source-backed evals</div><span class="arrow">↓</span>
 <div class="node choice"><span class="meta">Choice</span><br>Run these questions?</div><span class="arrow">↓ Run</span>
 <div class="node"><span class="meta">Process</span><br>Freeze questions, data, model and effort</div><span class="arrow">↓</span>
@@ -369,19 +384,14 @@ def render(comparison, sources=None, diagnoses=None):
 <div class="branches"><div class="node"><span class="meta">Process</span><br>Without metrics<br><small>Reuse matching verified run, otherwise run fresh agents and persist</small></div><div class="node"><span class="meta">Process</span><br>With metrics<br><small>Same questions, model, effort and tools; add metrics only</small></div></div><span class="arrow">↓</span>
 <div class="node"><span class="meta">Artifact</span><br>Per-question comparison<br><small>Wins, ties, regressions, SQL and evidence</small></div><span class="arrow">↓</span>
 <div class="node choice"><span class="meta">Choice</span><br>Keep the report or improve a rule?</div><span class="arrow">↓ Improve</span>
-<div class="node"><span class="meta">Process</span><br>Version the metric and rerun<br><small>Same questions keep their baseline. Changed questions require both arms again.</small></div></div></details>'''
-    reused = (comparison / 'baseline-reuse.json').is_file()
-    replication_link = '<p class="evidence"><a href="replication-summary.json">Targeted repeatability evidence</a></p>' if (comparison / 'replication-summary.json').is_file() else ''
-    page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Metrics accuracy comparison</title><style>{STYLE}</style></head><body><main>
-<p class="meta">Atlan Analytics · comparison review</p><h1>{h(headline)}</h1><p>{h(summary)} {h(conclusion)}</p>
-<div class="cards"><div class="card"><span class="meta">Controlled comparison</span><p>{h(manifest['model'])} · effort: {h(manifest['effort'])}</p><p class="muted">Identical schema, raw history, data, instructions and SQL tools. Metrics are the added input.</p></div><div class="card"><span class="meta">Baseline</span><p>{'Reused verified evidence' if reused else 'New execution requested'}</p><p class="muted">{n} questions. Stored baseline identity: <code>{h(manifest['baseline_key'][:12])}</code></p></div></div>
-<p class="note">These questions were generated from the dashboard and query history used to build the metrics. Both arms can read that history. This is a small reproduction and interpretation test, not a held-out accuracy claim.</p>{flow}
-<div class="toolbar"><label for="filter">Show</label><select id="filter"><option value="all">All questions</option><option value="win">Extra exact matches</option><option value="regression">Regressions</option><option value="both_wrong">Both incorrect</option><option value="pending">Unmeasured</option></select><button id="expand">Expand all</button><button id="collapse">Collapse all</button><button id="export">Export feedback</button><span class="muted">Feedback stays in this browser.</span></div>
-{''.join(cards)}{replication_link}<p class="evidence">Comparison {h(manifest['comparison_key'])} · <a href="report.json">Structured report</a> · <a href="manifest.json">Frozen inputs</a></p>
+<div class="node"><span class="meta">Process</span><br>Version the metric and rerun<br><small>Same questions keep their baseline. Changed questions require both arms again.</small></div></div></dialog>
+<p class="evidence">Comparison {h(manifest['comparison_key'][:12])} · <a href="report.json">Structured report</a> · <a href="manifest.json">Frozen inputs &amp; scorer fingerprint</a>{' · <a href="replication-summary.json">Targeted repeats</a>' if (comparison / 'replication-summary.json').is_file() else ''}</p>
 </main><script>
 const prefix='atlan-comparison-'+{json.dumps(manifest['comparison_key'])};
-document.querySelector('#filter').onchange=e=>document.querySelectorAll('.question').forEach(q=>q.classList.toggle('hidden',e.target.value!=='all'&&q.dataset.outcome!==e.target.value));
-for(const id of ['expand','collapse'])document.getElementById(id).onclick=()=>document.querySelectorAll('.question').forEach(q=>q.open=id==='expand');
+const switchPanel=(dialog,name)=>{{dialog.querySelectorAll('[data-content]').forEach(p=>p.hidden=p.dataset.content!==name);dialog.querySelectorAll('nav [data-panel]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.panel===name));}};
+document.querySelectorAll('[data-dialog]').forEach(b=>b.onclick=()=>{{const d=document.getElementById(b.dataset.dialog);switchPanel(d,b.dataset.panel||'sql');d.showModal();}});
+document.querySelectorAll('dialog').forEach(d=>{{d.querySelector('.close').onclick=()=>d.close();d.querySelectorAll('nav [data-panel]').forEach(b=>b.onclick=()=>switchPanel(d,b.dataset.panel));d.addEventListener('click',e=>{{if(e.target===d){{const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}}}});}});
+document.querySelector('#filter').onchange=e=>document.querySelectorAll('.question').forEach(q=>q.hidden=e.target.value!=='all'&&q.dataset.outcome!==e.target.value);
 document.querySelectorAll('textarea').forEach(t=>{{try{{t.value=localStorage.getItem(prefix+t.dataset.case)||''}}catch(e){{}}t.oninput=()=>{{try{{localStorage.setItem(prefix+t.dataset.case,t.value)}}catch(e){{}}}}}});
 document.querySelector('#export').onclick=()=>{{const feedback=Object.fromEntries([...document.querySelectorAll('textarea')].map(t=>[t.dataset.case,t.value]));const url=URL.createObjectURL(new Blob([JSON.stringify({{comparison:prefix,feedback}},null,2)],{{type:'application/json'}}));const a=document.createElement('a');a.href=url;a.download='comparison-feedback.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}};
 </script></body></html>'''
