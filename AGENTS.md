@@ -17,7 +17,7 @@ plugins/atlanai/                    the core plugin
   plugin.json, mcp.json           Agent Plugins 1.0: Codex, Cursor, Copilot, VS Code  (generated)
   .mcp.json, .claude-plugin/      Claude Code's MCP file and manifest                 (generated)
   .codex-plugin/, .cursor-plugin/ Codex overlay and Cursor manifest                   (generated)
-  .cortex-plugin/, cortex-mcp.json  Cortex Code's manifest and its mcp-remote server   (generated)
+  .cortex-plugin/                 Cortex Code's manifest, naming .mcp.json            (generated)
   skills/<name>/SKILL.md          skills, written here
   skills/<name>/agents/openai.yaml  Codex's card for the skill, from [skills] in plugin.toml (generated)
   commands/*.md                   Claude Code and Cursor commands; each command's skill sets
@@ -136,19 +136,13 @@ evals/atlan/                      the core plugin's behaviour evals and the gate
   `bin/`: two plugins registering the `atlan` server would show every Atlan tool twice, and
   `make check` refuses it. Only Claude Code installs the dependency; in other hosts the add-on's
   skills check for the Atlan tools and say what to install.
-- **Cortex Code reads its own two files.** CoCo reads `.cortex-plugin/plugin.json` before
+- **Cortex Code reads its own manifest.** CoCo reads `.cortex-plugin/plugin.json` before
   `.claude-plugin/`, so the build writes one for the core and each add-on (none for a mod) with no
   hooks: CoCo runs neither the hooks module nor the command hooks, whose `items_from` expansion
-  needs a rewrite of the tool's input that CoCo's hooks do not offer. The core's names
-  `cortex-mcp.json`, which holds the same `atlan` server key, so the skills are unchanged. CoCo's
-  own OAuth cannot sign in to `https://api.atlan.com/mcp`: `/oauth/register` refuses its client
-  metadata with `unsupported grant_type`, and a client entered by hand hangs on `initialize`. So
-  with `[cortex] transport = "mcp-remote"` the server is a stdio `npx mcp-remote` bridge to the
-  same URL. It registers a public client (authorization_code and refresh_token, no secret) named
-  `client_name`, signs in through the browser and passes MCP through; users enter no client id
-  or secret. The bridge is a community npm package that holds the user's token, so it is pinned
-  (`mcp_remote`, `make check` refuses `@latest`), and a bump is reviewed like code. Set
-  `transport = "http"` once CoCo can sign in directly: the build then writes the Claude server.
+  needs a rewrite of the tool's input that CoCo's hooks do not offer. The core's names Claude
+  Code's `.mcp.json`, the same `atlan` HTTP server, so the skills and the sign-in are unchanged.
+  0.5.55 bridged CoCo through a pinned `mcp-remote` while the registry refused CoCo's client
+  registration; the control plane accepts it now, and 0.5.56 removed the bridge.
 
 ## Voice
 
