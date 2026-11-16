@@ -78,7 +78,9 @@ reached and never replace a moment with a status line.
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
-6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
+6. **Ask a question.** First offer the accuracy check through
+   [check accuracy](references/setup/accuracy.md): `eval-generation` and `accuracy-check`, run
+   only on a yes. Then read [ready for questions](references/setup/ready.md). Answer only the
    question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
 7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).
 

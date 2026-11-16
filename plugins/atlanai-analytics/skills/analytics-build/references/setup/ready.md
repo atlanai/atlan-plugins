@@ -19,6 +19,8 @@ and an answer ends its turn.
 The agent is this chat with the saved context; do not register, deploy or evaluate a
 separate agent, and say so only if asked. Do not answer any question the person has not
 chosen. When the question step starts, show what they made, then let them pick a supported question.
+Own-data setup reaches this moment through [check accuracy](accuracy.md), which offers the
+accuracy check first and adds its result to the ready block.
 
 Open the chosen demo's file again for its facts
 ([Fixit](../../../analytics-demo/references/yard.md), [Ticketfuddle](../../../analytics-demo/references/box-office.md)).
@@ -81,7 +83,8 @@ dashboard and after the edit-metric block.
 
 Offer these options in the `Next:` line after answering the person's request and after a
 dashboard is built. Ask more questions returns to the supported question list. Own-data setup omits the
-real-data transition option. A supplied question or explicit next action takes precedence
+real-data transition option, and offers the accuracy check only until it has run, through
+[check accuracy](accuracy.md). A supplied question or explicit next action takes precedence
 over asking again. Never start a flow until chosen.
 
 Answer only the question the person picks or types, through the ask route, with real
@@ -97,7 +100,8 @@ numbers. Every answer has three parts, in this order:
    that saving to Atlan Trident gives each answer its links.
 3. After the first answer, record `PROJECT journey asked`. Finish all questions in the
    selected request before the `Next:` line. After an own-data answer, that line offers
-   Design a dashboard, Ask another question and I'm done. Design a dashboard follows
+   Ask another question, Check how accurate it is (until it has run), Design a dashboard and
+   I'm done. Design a dashboard follows
    [the dashboard](../../../analytics-ask/references/dashboard.md).
 
 Say once per conversation that answers come from the context built from `<firm>`'s dashboard

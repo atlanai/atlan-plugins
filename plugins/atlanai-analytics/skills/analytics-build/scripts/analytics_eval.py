@@ -220,6 +220,17 @@ def _normalize_result(obj) -> dict:
             more = (obj.get("result") or {}).get("next_chunk_index") is not None
             return {"columns": cols, "rows": [list(r) for r in data],
                     "truncated": bool(manifest.get("truncated")) or more}
+        # Snowflake's SQL API, as its MCP connector returns it: column names under
+        # resultSetMetaData.rowType and rows as arrays under data (absent when no row came back),
+        # inside result_set or at the top. More than one partition means more rows to fetch.
+        sf = obj.get("result_set") if isinstance(obj.get("result_set"), dict) else obj
+        meta = sf.get("resultSetMetaData") if isinstance(sf.get("resultSetMetaData"), dict) else None
+        if meta is not None and isinstance(meta.get("rowType"), list):
+            data = sf.get("data") if isinstance(sf.get("data"), list) else []
+            total = meta.get("numRows")
+            more = len(meta.get("partitionInfo") or []) > 1 or (isinstance(total, int) and total > len(data))
+            return {"columns": [c.get("name") if isinstance(c, dict) else c for c in meta["rowType"]],
+                    "rows": [list(r) for r in data], "truncated": more}
         cols = obj.get("columns") or obj.get("column_names")
         rows = obj.get("rows")
         if cols is not None and isinstance(rows, list):
@@ -228,7 +239,7 @@ def _normalize_result(obj) -> dict:
                 return {"columns": cols, "rows": [[r.get(c) for c in cols] for r in rows],
                         "truncated": bool(obj.get("truncated"))}
             return {"columns": cols, "rows": [list(r) for r in rows], "truncated": bool(obj.get("truncated"))}
-        for key in ("data", "rows", "results", "resultSet", "result", "records"):
+        for key in ("structuredContent", "data", "rows", "results", "resultSet", "result", "records"):
             if key in obj:
                 return normalize_result(obj[key])
         if "content" in obj and isinstance(obj["content"], list):  # MCP tool result envelope
@@ -238,6 +249,9 @@ def _normalize_result(obj) -> dict:
     if isinstance(obj, list):
         if not obj:
             return {"columns": [], "rows": []}
+        if all(isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str) for b in obj):
+            # MCP content blocks saved as they came: the result is the text they carry, not rows.
+            return normalize_result("\n".join(b["text"] for b in obj))
         if isinstance(obj[0], dict):
             cols: list = []
             for r in obj:
@@ -660,7 +674,10 @@ _WRITE_TOOL = re.compile(r"__(?:create|update|patch|put|delete|archive|restore|r
 # The desktop app's own turn tools (a progress plan) write to the chat window, never to data.
 _SESSION_UI = re.compile(r"^mcp__ccd_turn__")
 _EVAL_ID = re.compile(r"\b(?:dataset|dataset_record|experiment|experiment_result|scorer)_[0-9a-z]{10,}\b")
-_EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics|\.atlan-evals|/eval/v1/|gold_results", re.I)
+# An eval folder, never a run's context: a warehouse build keeps its context in
+# .atlan-analytics/<slug>/context, which an answering agent must read.
+_EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics/[^/\s\"']+/(?:eval|hillclimb)\b|\.atlan-evals|/eval/v1/"
+                        r"|gold_results", re.I)
 _NARRATION = ("rationale", "objective", "description")
 
 
@@ -989,8 +1006,14 @@ def cmd_grade(a) -> dict:
 _ROW_CAPS = ("limit", "max_rows", "maxRows", "row_limit", "rowLimit", "max_results", "maxResults")
 
 
+_SAVED_RESULT = re.compile(r"saved to:?\s+(/[^\s\"']+?\.(?:txt|json))(?=[\s.,\"']|$)", re.I)
+
+
 def _sql_key(sql: str) -> str:
-    return re.sub(r"\s+", " ", (sql or "").strip().rstrip(";").strip())
+    """A statement as sent, without the layout: an agent runs its SQL across lines and states it on
+    one, so a line break beside a bracket or comma is a space in one copy and nothing in the other."""
+    flat = re.sub(r"\s+", " ", (sql or "").strip().rstrip(";").strip())
+    return re.sub(r"\s*([(),])\s*", r"\1", flat)
 
 
 def _strings(obj):
@@ -1034,7 +1057,12 @@ def transcript_result(path, sql: str) -> tuple:
     try:
         raw = json.loads(text)
     except json.JSONDecodeError:
-        return None, "the tool's result is not JSON (a rendered table or a pointer to a saved file)"
+        # A result too large to return inline: the host saved it to a file and returned its path.
+        saved = _SAVED_RESULT.search(text)
+        path = pathlib.Path(saved.group(1)) if saved else None
+        if path is None or not path.is_file():
+            return None, "the tool's result is not JSON (a rendered table or a pointer to a saved file)"
+        raw = path.read_text()
     res = normalize_result(raw)
     if res.get("error"):
         return None, f"the tool's result could not be read as rows ({res['error'][:80]})"
@@ -1054,11 +1082,17 @@ def cmd_agent_result(a) -> dict:
     if not (pathlib.Path(transcript).is_file() and pathlib.Path(answer).is_file()):
         raise Blocked("The transcript or the answer file is missing.",
                       "Pass the subagent's output_file and the answer saved from its final message.")
-    res, why = transcript_result(transcript, _read_answer(answer).get("sql") or "")
+    sql = _read_answer(answer).get("sql") or ""
+    res, why = transcript_result(transcript, sql)
     if res is None:
-        return {"status": "ok", "source": "replay", "reason": why,
-                "next": f"Run the answer's SQL with the warehouse query tool (LIMIT 10000) and save "
-                        f"{{columns, rows, error}} to {a.out}."}
+        # The statement, alone in a file, for whoever runs it again: it is sent as the file holds it.
+        sql_file = pathlib.Path(out).with_suffix(".sql")
+        sql_file.parent.mkdir(parents=True, exist_ok=True)
+        sql_file.write_text(sql.strip() + "\n")
+        return {"status": "ok", "source": "replay", "reason": why, "sql_file": str(sql_file),
+                "next": f"Have a runner run sql_file exactly as written with the warehouse query tool, then "
+                        f"run agent-result again with the runner's transcript. If it fails there too, save "
+                        f"{{\"error\": \"<the tool's message>\"}} to {a.out}."}
     dump_json(pathlib.Path(out), res)
     return {"status": "ok", "source": "transcript", "rows": len(res["rows"]), "out": a.out}
 
