@@ -32,6 +32,8 @@ this machine only.
 
 ## 1. Choose the questions
 
+When asked to strengthen the Fixit evals, first read [questions that test Fixit’s meaning](fixit-evals.md). Use source-backed definitions and vocabulary, and distinguish grading-format issues from metric-rule errors.
+
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
 context lives can change, so never reuse an earlier answer. `CHECK start --project <project>` returns the built run, `context_saved_to`, `execution`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
@@ -69,6 +71,8 @@ Run these <N> questions?
 ```
 
 The expected answer is one value or one short phrase, never a table, and never SQL unless asked.
+The paired comparison below is enabled for Fixit only. For other demos, keep the Run them
+description as “Each goes to a fresh agent that sees only your context, about 2 minutes.”
 
 | Option | Description |
 | --- | --- |
@@ -80,7 +84,12 @@ line: "The questions stay on this machine."
 
 ## 3. Run and score
 
-The selection or Run them authorizes both arms. For a local SQLite demo with Codex CLI, follow
+For demos other than Fixit, run the ordinary set with `accuracy-check` through
+[run it](../../accuracy-check/references/run.md#run-it). With every question right, go to step 5.
+With misses, show the ordinary score and the Improve it / Looks good choice below, then use
+the ordinary fix/retest path in step 4. Do not launch a paired comparison for Ticketfuddle yet.
+
+For Fixit, the selection or Run them authorizes both arms. With local SQLite and Codex CLI, follow
 accuracy-check's [paired comparison](../../accuracy-check/references/paired-comparison.md):
 freeze the set, trusted answers, schema, raw query history, metrics and database; choose a model
 and effort; prepare the comparison; reuse a matching saved no-metrics baseline if available;

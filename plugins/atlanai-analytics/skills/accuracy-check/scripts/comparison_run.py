@@ -225,7 +225,8 @@ def audit_existing(folder, manifest, database, schema, gold, arm, record):
         save(folder / 'gold-execution.json', {'sql': gold['gold_sql'], 'result': golden,
              'database_sha256': manifest['inputs']['data'], 'trusted_sha256': manifest['inputs']['gold'],
              'executor_sha256': read(folder / 'launch.json')['server_sha256']})
-        grade = scorer.grade(golden, agent_result, gold['gold_sql'], sql, scorer.case_sig(gold))
+        grade = scorer.grade(golden, agent_result, gold['gold_sql'], sql, scorer.case_sig(gold),
+                             gold.get('representation_equivalence'))
         if grade['class'] in ('gold_error', 'incomplete'):
             raise ValueError(grade['reason'])
         record.update(status='scored', model=model, session_id=result.get('session_id'), answer=answer,

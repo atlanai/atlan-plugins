@@ -3,9 +3,9 @@ name: demo-paired-accuracy-no-run
 tags: [analytics, demo, evals, regression]
 execution:
   prompt: |
-    Use Atlan Analytics to continue the Ticketfuddle demo from this saved checkpoint.
-    The context is built and saved to my personal workspace in Atlan Trident: 6 metrics and
-    9 queries. From the next-action choice I picked "Check how accurate it is" and approved
+    Use Atlan Analytics to continue the Fixit demo from this saved checkpoint.
+    The context is built and saved to my personal workspace in Atlan Trident: 7 metrics and
+    30 queries. From the next-action choice I picked "Check how accurate it is" and approved
     the questions. No Codex CLI or isolated-agent execution capability is available here.
     Read plugin instructions only in this test; do not execute commands or contact services.
     The host exposes no native question tool in this test, so use ordinary chat.

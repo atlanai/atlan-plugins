@@ -296,10 +296,30 @@ def _assignments(cands):
     yield from rec(0)
 
 
-def compare(gold: dict, agent: dict, gold_sql: str = "", sig: int = SIG) -> dict:
+def _scale_contract(contract):
+    """Validate the intentionally narrow, trusted per-column scale equivalence contract."""
+    if contract is None:
+        return {}
+    if not isinstance(contract, dict) or set(contract) != {"percent_fraction"}:
+        raise ValueError("representation_equivalence must contain only percent_fraction")
+    columns = contract["percent_fraction"]
+    if not isinstance(columns, dict):
+        raise ValueError("percent_fraction must map gold column names to decimal_places")
+    result = {}
+    for name, rule in columns.items():
+        places = rule.get("decimal_places") if isinstance(rule, dict) else None
+        if not isinstance(name, str) or not name or isinstance(places, bool) or not isinstance(places, int) or not 0 <= places <= 12:
+            raise ValueError("each percent_fraction column needs decimal_places from 0 to 12")
+        result[name.casefold()] = places
+    return result
+
+
+def compare(gold: dict, agent: dict, gold_sql: str = "", sig: int = SIG,
+            representation_equivalence=None) -> dict:
     ordered = is_ordered(gold_sql)
     g_rows, a_rows = gold.get("rows") or [], agent.get("rows") or []
     g_cols, a_cols = _cols(gold, sig), _cols(agent, sig)
+    contracts = _scale_contract(representation_equivalence)
     if not g_rows:
         ok = not a_rows
         return {"pass": int(ok), "extra_cols": 0,
@@ -310,31 +330,78 @@ def compare(gold: dict, agent: dict, gold_sql: str = "", sig: int = SIG) -> dict
     if len(a_cols) < len(g_cols):
         return {"pass": 0, "extra_cols": 0,
                 "reason": f"agent returned {len(a_cols)} column(s), gold has {len(g_cols)}"}
+    gold_names = [str(n).casefold() for n in (gold.get("columns") or [])]
+    missing_contracts = set(contracts) - set(gold_names)
+    if missing_contracts:
+        raise ValueError("percent_fraction contract names no gold result column: " + ", ".join(sorted(missing_contracts)))
     a_keys = [_key(c, ordered) for c in a_cols]
     cands = []
     for j, gc in enumerate(g_cols):
         k = _key(gc, ordered)
         cj = [i for i, ak in enumerate(a_keys) if ak == k]
+        if j < len(gold_names) and gold_names[j] in contracts:
+            # An opt-in gold column may have a different agent alias. The contract only
+            # adds candidate columns; row and full-vector checks below still constrain it.
+            cj = list(range(len(a_cols)))
         if not cj:
             name = (gold.get("columns") or ["?"] * (j + 1))[j]
             return {"pass": 0, "extra_cols": len(a_cols) - len(g_cols),
                     "reason": f"no agent column matches gold column {j + 1} ({name})"}
         cands.append(cj)
-    gold_multiset = Counter(tuple(g_cols[j][r] for j in range(len(g_cols))) for r in range(len(g_rows)))
     tried = 0
     for mapping in _assignments(cands):
         tried += 1
         if tried > MAX_ASSIGNMENTS:
             break
-        if ordered:
-            ok = all(a_cols[mapping[j]] == g_cols[j] for j in range(len(g_cols)))
-        else:
-            got = Counter(tuple(a_cols[mapping[j]][r] for j in range(len(g_cols))) for r in range(len(a_rows)))
-            ok = got == gold_multiset
-        if ok:
+        def aligned_match(gvectors, avectors):
+            if ordered:
+                return all(avectors[mapping[j]] == gvectors[j] for j in range(len(g_cols)))
+            got = Counter(tuple(avectors[mapping[j]][r] for j in range(len(g_cols))) for r in range(len(a_rows)))
+            return got == Counter(tuple(gvectors[j][r] for j in range(len(g_cols))) for r in range(len(g_rows)))
+
+        if not contracts and aligned_match(g_cols, a_cols):
             return {"pass": 1, "extra_cols": len(a_cols) - len(g_cols), "reason": "match"}
+        # Contract names refer to trusted result columns. For each one, try the two
+        # explicit unit conversions, rounding the converted fraction to its declared precision.
+        # The whole result row remains the comparison unit, preserving associations and NULLs.
+        variants = [(list(g_cols), list(a_cols))]
+        for name, places in contracts.items():
+            gj = next((j for j, n in enumerate(gold_names) if n == name), None)
+            if gj is None or gj >= len(g_cols):
+                continue
+            aj_candidates = [mapping[gj]] if gj < len(mapping) else []
+            expanded = []
+            for gv, av in variants:
+                for scale_gold, scale_agent in ((0.01, 1.0), (1.0, 0.01), (1.0, 1.0)):
+                    ng, na = list(gv), list(av)
+                    # Use raw cells: ordinary SIG normalization would erase the
+                    # precision declared by this contract before scaling.
+                    ng[gj] = [_scaled_decimal(r[gj] if gj < len(r) else None, scale_gold, places)
+                               for r in g_rows]
+                    ai = aj_candidates[0]
+                    na[ai] = [_scaled_decimal(r[ai] if ai < len(r) else None, scale_agent, places)
+                              for r in a_rows]
+                    expanded.append((ng, na))
+            variants = expanded
+        if any(aligned_match(gv, av) for gv, av in variants):
+            return {"pass": 1, "extra_cols": len(a_cols) - len(g_cols), "reason": "match (percent/fraction equivalent)"}
     return {"pass": 0, "extra_cols": len(a_cols) - len(g_cols),
             "reason": "columns match individually but the rows do not line up" if tried else "no mapping"}
+
+
+def _scaled_decimal(value, scale, places):
+    if value is None:
+        return None
+    try:
+        if isinstance(value, bool):
+            return norm(value, SIG)
+        d = decimal.Decimal(str(value)) * decimal.Decimal(str(scale))
+    except (decimal.InvalidOperation, ValueError, TypeError):
+        return norm(value, SIG)
+    if not d.is_finite():
+        return object()
+    quantum = decimal.Decimal(1).scaleb(-places)
+    return d.quantize(quantum, rounding=decimal.ROUND_HALF_UP)
 
 
 def case_sig(answer: dict) -> int:
@@ -346,7 +413,8 @@ def case_sig(answer: dict) -> int:
     return sig
 
 
-def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x", sig: int = SIG) -> dict:
+def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x", sig: int = SIG,
+          representation_equivalence=None) -> dict:
     """Both results already executed (by the skill, through the warehouse MCP). -> {grade, class, reason}."""
     zero = {"pass": 0, "exec_ok": 0, "extra_cols": 0}
     gold = normalize_result(gold_res)
@@ -367,7 +435,7 @@ def grade(gold_res, agent_res, gold_sql: str = "", agent_sql: str = "x", sig: in
         which = "gold and agent results are" if len(cut) == 2 else f"{cut[0]} result is"
         return {"grade": {**zero, "exec_ok": 1}, "class": "incomplete",
                 "reason": f"the {which} truncated: fetch every page, or bound the query, and grade again"}
-    cmp = compare(gold, agent, gold_sql, sig)
+    cmp = compare(gold, agent, gold_sql, sig, representation_equivalence)
     return {"grade": {"pass": cmp["pass"], "exec_ok": 1, "extra_cols": cmp["extra_cols"]},
             "class": "pass" if cmp["pass"] else "wrong_result", "reason": cmp["reason"]}
 
@@ -474,7 +542,9 @@ def cmd_import_spec(a) -> dict:
     cases = [{"case_id": r["id"], "question": r["question"],
               "tags": [((r.get("provenance") or {}).get("source") or "eval")] + list(r.get("modes") or [])}
              for r in keep]
-    answers = [{"case_id": r["id"], "gold_sql": r["golden_sql"], "notes": r.get("question_spec") or ""} for r in keep]
+    answers = [{"case_id": r["id"], "gold_sql": r["golden_sql"], "notes": r.get("question_spec") or "",
+                **({"representation_equivalence": r["representation_equivalence"]}
+                   if r.get("representation_equivalence") else {})} for r in keep]
     if pr.p("eval", "cases.jsonl").exists() and _scored_variants(pr) and \
             {c["case_id"]: c["question"] for c in pr.cases()} != {c["case_id"]: c["question"] for c in cases}:
         raise Blocked("This set already has graded runs.", "Import the changed set into a new --dir.")
@@ -942,7 +1012,8 @@ def cmd_record(a) -> dict:
         g = {"grade": {"pass": int(bool(verdict["pass"])), "exec_ok": int(agent_res is not None), "extra_cols": 0},
              "class": JUDGED, "reason": str(verdict.get("reason") or "")[:500]}
     elif a.gold_result:
-        g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "", sig)
+        g = grade(gold_res, agent_res, gold_sql, ans.get("sql") or "", sig,
+                  answer_row.get("representation_equivalence"))
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
         g = {"grade": {"pass": 0, "exec_ok": int(agent_res is not None), "extra_cols": 0}, "class": "ungraded",
              "reason": "no gold result (smoke run)"}

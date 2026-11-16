@@ -152,7 +152,8 @@ def export(comparison: Path, evals: Path, variant: str) -> dict:
         trusted = comparison_report.trusted(comparison, manifest)[row["id"]]
         expected = analytics_eval.grade(scored["gold_result"], scored["agent_result"],
                                         trusted["gold_sql"], scored["answer"]["sql"],
-                                        analytics_eval.case_sig(trusted))
+                                        analytics_eval.case_sig(trusted),
+                                        trusted.get("representation_equivalence"))
         if expected != scored["score"]:
             raise ValueError(f"Ordinary EVAL grading differs from the paired score for {row['id']}")
 

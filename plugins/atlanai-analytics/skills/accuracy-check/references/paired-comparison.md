@@ -1,6 +1,7 @@
 # Compare answers with and without metrics
 
-Read when analytics-demo requests a before/after comparison after loading an eval set.
+Read when analytics-demo requests a Fixit before/after comparison after loading an eval set.
+The demo rollout is scoped to Fixit; Ticketfuddle keeps the ordinary accuracy check.
 This is separate from correcting a metric: the existing `baseline` variant is a first
 **with-context** run, not evidence of performance without metrics.
 

@@ -195,7 +195,8 @@ def verified_record(folder, manifest, case_id, arm, gold):
         raise ValueError('Saved result differs from exact executed SQL')
     if arm == 'without_metrics' and any(r['tool'] == 'read_context' and r['arguments'].get('kind') == 'metrics' and 'text' in r['result'] for r in tool_rows):
         raise ValueError('Baseline read metrics')
-    score = scorer.grade(record['gold_result'], record['agent_result'], gold['gold_sql'], record['answer']['sql'], scorer.case_sig(gold))
+    score = scorer.grade(record['gold_result'], record['agent_result'], gold['gold_sql'], record['answer']['sql'],
+                         scorer.case_sig(gold), gold.get('representation_equivalence'))
     if score != record['score']:
         raise ValueError('Saved grade differs from deterministic rescoring')
     return record
@@ -365,11 +366,14 @@ def render(comparison, sources=None, diagnoses=None):
     hosts = sorted({load(p).get('host', 'unknown') for p in (comparison / 'executions').glob('*/*/launch.json')})
     environment = ', '.join(hosts) or manifest.get('host', 'Not yet executed')
     conclusion = diagnoses.get('_summary', 'Inspect each result before attributing a difference to metrics.')
+    ratio_policy = ('Declared ratio columns accept percent/fraction equivalents at their pinned precision; other columns remain strict.'
+                    if any(r.get('representation_equivalence') for r in gold_rows.values())
+                    else 'Percent and fraction values are not equivalent in this run.')
     metadata = f'''<ul class="environment">
 <li><strong>Environment:</strong> local SQLite demo; {h(environment)} CLI; fresh isolated agent per question and arm. {n} questions.</li>
 <li><strong>Model:</strong> {h(manifest['model'])}; reasoning effort: {h(manifest['effort'])}. Same model and instructions in both runs.</li>
 <li><strong>Context:</strong> both runs get schema + raw query history; only the with-metrics run gets metric definitions. Read-only SQL tools.</li>
-<li><strong>Scorer:</strong> deterministic <code>analytics_eval</code>; executed results compared with trusted SQL, using each case’s numeric precision. Percent and fraction values are not equivalent.</li>
+<li><strong>Scorer:</strong> deterministic <code>analytics_eval</code>; executed results compared with trusted SQL, using each case’s numeric precision. {h(ratio_policy)}</li>
 <li><strong>Baseline:</strong> {'reused verified evidence' if reused else 'fresh run, retained for reuse' if report['complete'] else 'not yet complete'}; questions, data, model, effort and runtime are pinned.</li>
 <li><strong>Scope:</strong> source history overlaps the eval questions. This is a small reproduction test, not held-out accuracy.</li></ul>'''
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Metrics accuracy comparison</title><style>{STYLE}</style></head><body><main>

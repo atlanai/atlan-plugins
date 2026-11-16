@@ -247,6 +247,8 @@ def cmd_load(a) -> dict:
     ev = evals_dir(project, run)
     records = [{"id": str(r.get("id") or f"q{i}"), "question": r["question"], "question_spec": r.get("note") or "",
                 "golden_sql": r["sql"], "review_status": "approved", "provenance": {"source": f"eval set {src.stem}"},
+                **({"representation_equivalence": r["representation_equivalence"]}
+                   if r.get("representation_equivalence") else {}),
                 "modes": []} for i, r in enumerate(rows, 1)]
     how = execution(run)
     plan = {"set": src.stem, "run": str(run), "execution": how, "rows": rows, "records": records}
