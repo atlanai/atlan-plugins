@@ -4,6 +4,42 @@ Unknown executable events fail closed. Keep raw events on disk for audit; never
 replace a missing transcript with a hand-authored assistant answer.
 """
 import json
+import re
+import shlex
+
+
+def read_command(command):
+    """Recognize simple file reads; never execute or interpret arbitrary scripts."""
+    try:
+        args = shlex.split(command) if isinstance(command, str) else list(command)
+        if len(args) == 3 and args[0] in ("/bin/sh", "/bin/bash", "/bin/zsh") and args[1] in ("-c", "-lc"):
+            args = shlex.split(args[2])
+            command = command if isinstance(command, str) else command[2]
+        text = command if isinstance(command, str) else " ".join(command)
+        if not args or any(c in text for c in "\n\r`$<>;&|"):
+            return False
+        name, rest = args[0], args[1:]
+        if name in ("cat", "/bin/cat"):
+            return bool(rest) and all(not x.startswith("-") or x == "--" for x in rest)
+        if name == "sed":
+            return len(rest) >= 3 and rest[0] == "-n" and bool(re.fullmatch(r"\d+(?:,\d+)?p", rest[1])) \
+                and all(not x.startswith("-") for x in rest[2:])
+        if name == "rg":
+            allowed = {"-n", "-i", "-F", "-l", "--fixed-strings", "--files", "--files-with-matches", "--no-heading", "--"}
+            index = 0
+            while index < len(rest):
+                token = rest[index]
+                if token in ("-A", "-B", "-C", "--after-context", "--before-context", "--context"):
+                    index += 1
+                    if index >= len(rest) or not rest[index].isdigit():
+                        return False
+                elif token.startswith("-") and token not in allowed:
+                    return False
+                index += 1
+            return bool(rest) and any(not x.startswith("-") for x in rest)
+    except (ValueError, TypeError):
+        pass
+    return False
 
 
 def normalize(obj):
@@ -29,6 +65,8 @@ def normalize(obj):
         if typ == "McpToolCall":
             return normalize({"type": "item.completed", "timestamp": stamp,
                               "item": {**item, "type": "mcp_tool_call"}})
+        if typ == "CommandExecution" and read_command(item.get("command")):
+            return [call("codex_read_command", {"command": item["command"]}, item.get("id"))]
         if typ not in ("Reasoning", "Plan", "TodoList"):
             return [call("unsupported_codex_execution", item, item.get("id"))]
         return []
@@ -42,7 +80,10 @@ def normalize(obj):
                 args = json.loads(payload.get("arguments") or "{}")
             except (ValueError, TypeError):
                 args = {"unparsed_arguments": payload.get("arguments")}
-            return [call(payload.get("name", "unknown_tool"), args, payload.get("call_id"))]
+            name = payload.get("name", "unknown_tool")
+            if name == "exec_command" and isinstance(args, dict) and read_command(args.get("cmd")):
+                name = "codex_read_command"
+            return [call(name, args, payload.get("call_id"))]
         if payload.get("type") == "function_call_output":
             return [row("user", [{"type": "tool_result", "tool_use_id": payload.get("call_id"),
                                   "content": payload.get("output", "")}])]
@@ -58,6 +99,8 @@ def normalize(obj):
         typ = item.get("type")
         if typ == "agent_message":
             return [row("assistant", [{"type": "text", "text": item.get("text", "")}])]
+        if typ == "command_execution" and read_command(item.get("command")):
+            return [call("codex_read_command", {"command": item["command"]}, item.get("id"))]
         if typ == "mcp_tool_call":
             name = item.get("tool") or item.get("name") or "unknown_tool"
             result = item.get("result")

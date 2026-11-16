@@ -151,6 +151,30 @@ class DashboardPublication(unittest.TestCase):
 
 
 class HostTranscripts(unittest.TestCase):
+    def test_codex_read_commands_are_narrowly_recognized(self):
+        from analytics_transcript import read_command
+        for command in ('cat context/metrics.json', "sed -n '1,80p' context/queries.json",
+                        "rg -n 'resolution' context/metrics.json",
+                        ['/bin/zsh', '-lc', 'cat context/metrics.json']):
+            with self.subTest(command=command):
+                self.assertTrue(read_command(command))
+        self.assertTrue(read_command("rg -n -C 18 backup context/metrics.json"))
+        self.assertFalse(read_command("rg -C --pre malicious context"))
+        for command in ('cat x; rm y', 'cat $(read-secret)', 'cat x > y',
+                        'rg --pre script pattern context', "sed -n '1p;e command' context",
+                        'python script.py', 'cat x\ncommand', None):
+            with self.subTest(command=command):
+                self.assertFalse(read_command(command))
+
+    def test_codex_local_reads_still_scan_for_eval_paths(self):
+        def event(command):
+            return {"type": "item.completed", "item": {"type": "command_execution", "command": command}}
+        clean = self.parse([event('cat context/metrics.json')])
+        self.assertEqual(clean['contaminated'], [])
+        self.assertEqual(clean['unsupported'], [])
+        self.assertTrue(self.parse([event('cat .atlan-evals/eval/answers.jsonl')])['contaminated'])
+        self.assertTrue(self.parse([event('python script.py')])['unsupported'])
+
     def parse(self, events):
         import analytics_eval
         with tempfile.TemporaryDirectory() as folder:

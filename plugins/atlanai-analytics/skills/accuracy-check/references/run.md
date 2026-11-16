@@ -65,8 +65,9 @@ trusted results come from the warehouse, and no model copies a value:
    resumes here.
 2. Start one subagent per question, all at once (a generated set has 8), so the test takes as
    long as its slowest question. For each:
-   1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
-      cost down, with this prompt, filled in:
+   1. Spawn a fresh answering agent in the current host. In Claude Code, use Haiku
+      (`model: haiku`) to keep cost down. In Codex, use a fresh Codex agent and record its
+      model; do not require Claude or switch providers to run the check. Use this prompt:
       ```
       <question>
 
@@ -93,6 +94,11 @@ trusted results come from the warehouse, and no model copies a value:
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
+      In Codex, retain the structured event stream with expanded tool calls (`codex exec
+      --json`), not just the final reply or an orchestration script. Read
+      local context with simple `cat`, `sed -n '<start>,<end>p'` or `rg` commands; the audit
+      recognizes these reads and still checks their paths. Arbitrary scripts and unrecognized
+      execution remain unverified, never a scored failure or a verified pass.
    2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`.
    3. Get the result of its `sql` as
       `<evals-run>/hillclimb/baseline/agent_results/<id>_rep0.json`. Never edit the agent's SQL,

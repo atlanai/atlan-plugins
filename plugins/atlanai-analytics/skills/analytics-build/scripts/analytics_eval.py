@@ -756,9 +756,9 @@ def parse_transcript(path) -> dict:
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
                         or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
-                elif name == "unsupported_codex_execution":
+                elif name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command"):
                     unsupported.append(f"{name}: {blob[:160]}")
-                elif (_WRITE_TOOL.search(name) and not _SESSION_UI.match(name)) or name in ("exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
+                elif (_WRITE_TOOL.search(name) and not _SESSION_UI.match(name)) or name in ("apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")
                 turns.append({"role": "tool_call", "name": name, "content": blob, "id": b.get("id"),
                               "message_id": mid})
