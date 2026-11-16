@@ -32,12 +32,6 @@ search mode. A few helpers (`mcp__search_tools`, `mcp__describe_tools`, the runn
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
 
-In Cortex Code, `atlan` is the same server reached through a pinned
-[`mcp-remote`](https://github.com/punkpeye/mcp-remote) bridge that runs locally with Node.js
-(`cortex-mcp.json`). It registers its own client, named "Cortex Code (Atlan plugin)", and opens
-the browser to sign in, so there is still no API key, client id or secret. Cortex Code's built-in
-sign-in to the server does not complete yet; the bridge goes once it does.
-
 ## Skills
 
 | Skill | Use it to |
