@@ -19,7 +19,7 @@ claude plugin install atlanai --marketplace atlanai/atlan-plugins
 ```
 
 Then run `/mcp`, pick `plugin:atlanai:atlan` and choose **Authenticate**. For Claude chat, Codex,
-Cursor and VS Code, see the [repository README](https://github.com/atlanai/atlan-plugins#install).
+Cursor, VS Code and Cortex Code, see the [repository README](https://github.com/atlanai/atlan-plugins#install).
 
 The first thing to type: *"Connect me to Atlan."*
 
@@ -31,6 +31,12 @@ search mode. A few helpers (`mcp__search_tools`, `mcp__describe_tools`, the runn
 `mcp__call_read_tools`) reach the registry's own tools, every Atlan app's tools, and every MCP
 server your organization registered. Atlan checks the permissions on each call and records each
 call in a session you can review.
+
+In Cortex Code, `atlan` is the same server reached through a pinned
+[`mcp-remote`](https://github.com/punkpeye/mcp-remote) bridge that runs locally with Node.js
+(`cortex-mcp.json`). It registers its own client, named "Cortex Code (Atlan plugin)", and opens
+the browser to sign in, so there is still no API key, client id or secret. Cortex Code's built-in
+sign-in to the server does not complete yet; the bridge goes once it does.
 
 ## Skills
 

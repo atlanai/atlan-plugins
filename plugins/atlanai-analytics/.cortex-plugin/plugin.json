@@ -1,0 +1,23 @@
+{
+  "name": "atlanai-analytics",
+  "version": "0.9.4",
+  "description": "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard.",
+  "author": {
+    "name": "Atlan",
+    "url": "https://atlan.com"
+  },
+  "homepage": "https://github.com/atlanai/atlan-plugins",
+  "repository": "https://github.com/atlanai/atlan-plugins",
+  "license": "Apache-2.0",
+  "keywords": [
+    "atlan",
+    "analytics",
+    "metrics",
+    "text-to-sql",
+    "talk-to-data",
+    "snowflake",
+    "databricks",
+    "dashboards"
+  ],
+  "displayName": "Analytics"
+}

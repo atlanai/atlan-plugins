@@ -14,7 +14,7 @@
 name = "atlanai"
 display_name = "AI Registry"
 # Bump on every release: Claude Code holds users on the version they installed.
-version = "0.5.54"
+version = "0.5.55"
 description = "Your organization's skills, agents, knowledge and MCP servers, from the Atlan registry. One sign-in, no API key."
 short_description = "Atlan AI Registry"
 long_description = "Connect your coding agent to the Atlan registry with one OAuth sign-in. Search your organization's skills, agents, knowledge and MCP servers, install a registry skill into the current project, reach every MCP server your organization registered through one gateway, and publish skills, agents and outputs back with the registry's own authoring recipes."
@@ -68,6 +68,22 @@ url = "https://api.atlan.com/mcp"
 # mcp-2026-10-30-session-records-the-install-surface).
 client = "atlan-plugin"
 
+[cortex]
+# Snowflake Cortex Code (CoCo) reads .cortex-plugin/plugin.json, and its server from
+# cortex-mcp.json. CoCo's own OAuth asks /oauth/register for a grant set the registry refuses
+# (`invalid_client_metadata: unsupported grant_type`, November 2026), so it cannot sign in to the
+# HTTP server the other hosts use. Until that is fixed, "mcp-remote" runs a local stdio bridge to
+# the same server: it registers a public client (authorization_code and refresh_token, no secret),
+# signs in through the browser and passes every MCP message through. Users enter no client id or
+# secret. "http" writes the same server the Claude manifest uses, with no bridge.
+transport = "mcp-remote"
+# Pinned to a reviewed release, never @latest: the bridge holds the user's Atlan token.
+mcp_remote = "mcp-remote@0.16.6"
+# Shown on Atlan's consent screen and in delegated access settings instead of "MCP CLI Proxy".
+client_name = "Cortex Code (Atlan plugin)"
+# What the registered client asks for: the registry's own scopes, nothing administrative.
+scope = "contextplane:read contextplane:write"
+
 [codex]
 capabilities = ["Interactive", "Write"]
 # The skill Codex offers to run right after install: it checks the sign-in and shows what the
@@ -90,7 +106,7 @@ default_prompts = [
 [[addons]]
 name = "atlanai-analytics"
 display_name = "Analytics"
-version = "0.9.3"
+version = "0.9.4"
 description = "Try Atlan Analytics on a demo or set it up on your own data, step by step: survey dashboards and query history, generate and check metrics, save them locally or to Atlan, ask questions and build a dashboard."
 short_description = "Publish analytics context and ask your data with Atlan"
 long_description = "The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection."
