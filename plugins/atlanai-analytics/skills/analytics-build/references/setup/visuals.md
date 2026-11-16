@@ -69,7 +69,9 @@ there: never write that you are drawing, recording or checking for a visual, and
 moment, chip, card or the helper. A moment that shows nothing gets no words either. While the
 engine builds, the chip after each gate is the update: add no line of your own about the
 engine's steps, its files or its terms (cards, gates, the export and its install, assembled
-rules) unless one is blocked or needs the person.
+rules) unless one is blocked or needs the person. Within a step, the helper's
+[drafts lines](progress.md#drafts-as-they-land) are posted as printed, one per saved batch:
+they are the helper's lines, not yours, and the step's chip still closes it.
 
 ## The side page
 
@@ -77,8 +79,10 @@ rules) unless one is blocked or needs the person.
 machine can open (`http://127.0.0.1:<port>/<key>/`), and its `next` says what to do with it:
 
 - **The Claude desktop app:** open the address in the app's browser pane with your browser tool
-  (its preview or navigate call, with the `url`). Do it right away; helper results name it
-  again (`side_page`) until the page has been opened.
+  (its preview or navigate call, with the `url`), then show that pane beside the chat (the
+  app's show-pane call with pane `preview`): loading a page leaves a hidden pane hidden, and the
+  person expects the page open by default. Do it right away; helper results name it again
+  (`side_page`) until the page has been opened.
 - **A terminal:** the helper opens the address in the person's browser, and the next chip that
   goes in a question names it, so the person can open it again.
 - **Anywhere else:** the next chip that goes in a question names the address the same way.
