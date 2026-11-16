@@ -295,7 +295,9 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual((res["run"], res["execution"]["via"], res["execution"]["dialect"],
                           res["execution"]["warehouse"]["tool"]), (str(wh), "host", "snowflake", "mcp__wh__sql_exec_tool"))
         self.assertEqual(self.check("start", "--project", str(self.tmp), "--run", str(self.run))["execution"],
-                         {"via": "local", "kind": "sqlite"})
+                         {"via": "local", "kind": "sqlite", "tables": ["s.orders"]})
+        # The raw-source pass is told which tables to work from: the ones the run's metrics read.
+        self.assertEqual(res["execution"]["tables"], ["L.Z.TICKET"])
         self.assertEqual(self.check("start", "--project", str(self.tmp), "--run", str(self.tmp / "nope"))["status"], "BLOCKED")
 
     def test_inputs_takes_a_named_warehouse_run_its_engine_folder_and_a_given_use_case(self) -> None:

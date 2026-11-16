@@ -11,7 +11,8 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
 ## Where the SQL runs
 
 `CHECK start` and `CHECK load` return `execution`. Read it before running anything: it decides
-how every statement in this file is executed, and the two ways are never mixed.
+how every statement in this file is executed, and the two ways are never mixed. Its `tables` are
+the source tables the run's metrics read.
 
 | `execution.via` | The run | SQL runs through |
 | --- | --- | --- |

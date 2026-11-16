@@ -93,8 +93,16 @@ def _yaml_value(path: pathlib.Path, key: str):
     return m.group(1) if m else None
 
 
+def tables(run: pathlib.Path) -> list:
+    """The source tables this run's metrics read: what a raw-source agent is told to work from."""
+    rows = load(run / "context" / "metrics.json", []) or []
+    rows = rows.get("metrics") or [] if isinstance(rows, dict) else rows
+    found = {((m.get("definition") or {}).get("source") or {}).get("entity") for m in rows if isinstance(m, dict)}
+    return sorted(t for t in found if t)
+
+
 def execution(run: pathlib.Path) -> dict:
-    """Where this run's SQL executes.
+    """Where this run's SQL executes, and `tables`, the source tables its metrics read.
 
     `{"via": "local", "kind": "sqlite" | "duckdb"}`: the run is bound to a local database, and
     `project.py execute` runs a statement on it.
@@ -104,7 +112,7 @@ def execution(run: pathlib.Path) -> dict:
     """
     bound = (load(run / "run.json", {}) or {}).get("execution") or {}
     if bound.get("kind") in LOCAL:
-        return {"via": "local", "kind": bound["kind"]}
+        return {"via": "local", "kind": bound["kind"], "tables": tables(run)}
     warehouse = (load(run / "state.json", {}) or {}).get("warehouse") or None
     dialect = (warehouse or {}).get("dialect")
     if not dialect:
@@ -115,4 +123,4 @@ def execution(run: pathlib.Path) -> dict:
     if not dialect:
         eng = engine_dir(run)
         dialect = _yaml_value(run / "run.yml", "dialect") or (_yaml_value(eng / "run.yml", "dialect") if eng else None)
-    return {"via": "host", "dialect": dialect, "warehouse": warehouse}
+    return {"via": "host", "dialect": dialect, "warehouse": warehouse, "tables": tables(run)}
