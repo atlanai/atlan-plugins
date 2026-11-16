@@ -33,7 +33,7 @@ the values below. Fill `<angle brackets>` from this run and the sources the pers
 Every count is true: when some did not pass their check, the count line says so ("17 of
 19 checked on `<firm>`'s data, 2 need a look"), and the celebration still stands.
 
-- **header:** `Step 5 of 7` for own data, `Step 4 of 6` for a demo
+- **header:** `Step 5 of 7` for own data, `Step 4 of 5` for a demo
 - **question:** the lines in the block below, with their line breaks and leading spaces.
   The fence only marks the lines here; it is not part of the question. The counts and the
   question come last, so they stay on screen if a short terminal scrolls the top away.
@@ -66,7 +66,9 @@ words. Do not oversell: say nothing about speed, accuracy scores or governance, 
 suggest the local choice is wrong; it is the right one for a quick look.
 
 Only "Save to Atlan Trident" starts sign-in. With "Keep it on this machine", go straight to
-the question step ([ready](ready.md)); its answers come from the local context.
+the question step ([ready](ready.md)); its answers come from the local context. Own-data setup
+goes, after either choice, to [check accuracy](accuracy.md) first, which offers the check and
+then opens the question step.
 
 **Sign-in.** People worry here about touching company data. Before the browser opens, say:
 "A browser window opens; sign in to Atlan Trident with your work account. Signing in
