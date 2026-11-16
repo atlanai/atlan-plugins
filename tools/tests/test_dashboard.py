@@ -175,6 +175,37 @@ class HostTranscripts(unittest.TestCase):
         ]:
             self.assertTrue(self.parse([{"type": "item.completed", "item": item}])["contaminated"])
 
+    def test_native_codex_messages_and_mcp_results(self):
+        import analytics_eval
+        def native(item):
+            return {"type": "event_msg", "payload": {"type": "item_completed", "item": item}}
+        events = [native({"type": "AgentMessage", "content": [{"type": "Text", "text": "Answer"}]}),
+                  native({"type": "McpToolCall", "id": "warehouse-call", "tool": "mcp__call_read_tool",
+                          "arguments": {"name": "warehouse__sql", "arguments": {"sql": "SELECT 42"}},
+                          "result": {"columns": ["n"], "rows": [[42]]}})]
+        parsed = self.parse(events)
+        self.assertEqual(parsed["turns"][0]["content"], "Answer")
+        self.assertEqual(parsed["contaminated"], [])
+        self.assertEqual(parsed["unsupported"], [])
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "trace.jsonl"
+            path.write_text("\n".join(json.dumps(e) for e in events))
+            result, reason = analytics_eval.transcript_result(path, "SELECT 42")
+            self.assertIsNone(reason)
+            self.assertEqual(result["rows"], [[42]])
+            events[-1]["payload"]["item"]["result"]["isError"] = True
+            path.write_text("\n".join(json.dumps(e) for e in events))
+            self.assertIsNone(analytics_eval.transcript_result(path, "SELECT 42")[0])
+
+    def test_unsupported_execution_is_not_evidence_of_contamination(self):
+        result = self.parse([{"type": "response_item", "payload": {
+            "type": "custom_tool_call", "name": "exec", "input": "arbitrary_code()"}}])
+        self.assertEqual(result["contaminated"], [])
+        self.assertTrue(result["unsupported"])
+        output = self.parse([{"type": "response_item", "payload": {
+            "type": "custom_tool_call_output", "output": "some result"}}])
+        self.assertEqual(output["unsupported"], [])
+
     def test_codex_rollout_functions_and_no_tool_flags(self):
         import analytics_case
         result = self.parse([{"type": "response_item", "payload": {"type": "function_call", "call_id": "c",

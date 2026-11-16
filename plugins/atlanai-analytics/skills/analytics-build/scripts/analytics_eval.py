@@ -716,6 +716,7 @@ def parse_transcript(path) -> dict:
     `elapsed_s` runs from the first message's timestamp to the last, None without two of them."""
     turns, tool_calls, usage, model, hits = [], 0, {"input_tokens": 0, "output_tokens": 0}, None, []
     assistant = 0
+    unsupported = []
     stamps: list = []
     seen_msg_ids: set = set()
     for obj in transcript_objects(path):
@@ -755,7 +756,9 @@ def parse_transcript(path) -> dict:
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
                         or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
                     hits.append(f"{name}: {blob[:160]}")
-                elif (_WRITE_TOOL.search(name) and not _SESSION_UI.match(name)) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
+                elif name == "unsupported_codex_execution":
+                    unsupported.append(f"{name}: {blob[:160]}")
+                elif (_WRITE_TOOL.search(name) and not _SESSION_UI.match(name)) or name in ("exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")
                 turns.append({"role": "tool_call", "name": name, "content": blob, "id": b.get("id"),
                               "message_id": mid})
@@ -764,7 +767,7 @@ def parse_transcript(path) -> dict:
                               "content": _text_of(b.get("content"))[:20000]})
     elapsed = round((max(stamps) - min(stamps)).total_seconds(), 3) if len(stamps) > 1 else None
     return {"turns": turns, "tool_calls": tool_calls, "usage": usage, "model": model, "contaminated": hits,
-            "assistant_messages": assistant, "elapsed_s": elapsed}
+            "assistant_messages": assistant, "elapsed_s": elapsed, "unsupported": unsupported}
 
 
 def _stamp(value):
@@ -946,6 +949,11 @@ def cmd_record(a) -> dict:
     else:  # smoke runs: nothing to grade against, the row only carries the trace and session
         g = {"grade": {"pass": 0, "exec_ok": int(agent_res is not None), "extra_cols": 0}, "class": "ungraded",
              "reason": "no gold result (smoke run)"}
+    if tr.get("unsupported"):
+        g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
+             "class": "harness_error",
+             "reason": "the transcript contains execution the audit cannot interpret: "
+                       + "; ".join(tr["unsupported"][:3])}
     if tr["contaminated"]:
         g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
              "class": "invalid_contaminated",
@@ -959,7 +967,8 @@ def cmd_record(a) -> dict:
            "tool_calls": tr["tool_calls"], "usage": tr["usage"], "answer": ans.get("answer", ""),
            "sql": ans.get("sql") or "", "used_context_ids": ans.get("used_context_ids") or [],
            "used_context_refs": ans.get("used_context_refs") or [], "ts": now(),
-           "isolation": "verified" if a.transcript else "unverified", **({"freeze": frozen} if frozen else {}),
+           "isolation": "verified" if a.transcript and not tr.get("unsupported") else "unverified",
+           **({"freeze": frozen} if frozen else {}),
            **_provenance(a, gold_res, agent_res),
            "attempt": attempt, **({"supersedes": prior.get("class")} if prior else {})}
     with res_path.open("a") as fh:
@@ -1954,6 +1963,13 @@ def selftest() -> dict:
         ok("contamination invalidates", rec("v2", dirty)["class"] == "invalid_contaminated")
         ok("search-mode contamination invalidates", rec("v3", dispatched)["class"] == "invalid_contaminated")
         ok("a write call invalidates", rec("v4", writer)["class"] == "invalid_contaminated")
+        unknown = pr / "unknown.jsonl"
+        unknown.write_text(json.dumps({"type": "response_item", "payload": {
+            "type": "custom_tool_call", "name": "exec", "input": "arbitrary_code()"}}))
+        ok("unsupported execution records a harness error", rec("native-unknown", unknown)["class"] == "harness_error")
+        unknown_rows = read_jsonl(pr / "hillclimb" / "native-unknown" / "results.jsonl")
+        ok("unsupported execution cannot verify isolation or enter the score",
+           unknown_rows[0]["isolation"] == "unverified" and case_means(unknown_rows) == {})
         failed = cmd_record(argparse.Namespace(dir=d, variant="v5", case="c1", rep=0, answer_file=None,
                                                gold_result=str(pr / "gold.json"), agent_result=None,
                                                transcript=None, model=None, latency_s=None,
