@@ -20,6 +20,13 @@ codex plugin add atlanai@atlan
 codex plugin add atlanai-analytics@atlan
 ```
 
+In Cortex Code, install each from its folder, one chat message each:
+
+```
+/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai
+/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai-analytics
+```
+
 ## Privacy
 
 Analytics itself has no hooks or shipped executable binaries. Its skills run bundled Python helpers and may

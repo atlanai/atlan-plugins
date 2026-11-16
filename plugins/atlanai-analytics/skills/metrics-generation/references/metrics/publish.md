@@ -124,6 +124,12 @@ failure is not this refusal: reconcile it before any further write. Do not repea
 an unavailable helper. A changed file requires preparation and review
 again, not editing its digest by hand. Keep the reviewed context fixed while sending batches.
 
+**Cortex Code runs no publish hook.** Skip the guarded empty-items probe there. Prepare with
+`--max-bytes 35000`, read each batch file the helper wrote (a JSON list of items, each with its
+`workspace_id`) and send that list inline as `items`, exactly as written. Never trim or
+regenerate a body to make it fit: a smaller `--max-bytes` makes smaller batches. Record receipts
+by hand.
+
 Send the returned `preflight` read first, through the connection that will write. A refused
 or empty answer means that connection cannot reach the reviewed workspace: send nothing.
 Its counts are the "before" side of the count check in **5. Verify**.
