@@ -69,7 +69,9 @@ there: never write that you are drawing, recording or checking for a visual, and
 moment, chip, card or the helper. A moment that shows nothing gets no words either. While the
 engine builds, the chip after each gate is the update: add no line of your own about the
 engine's steps, its files or its terms (cards, gates, the export and its install, assembled
-rules) unless one is blocked or needs the person.
+rules) unless one is blocked or needs the person. Within a step, the helper's
+[drafts lines](progress.md#drafts-as-they-land) are posted as printed, one per saved batch:
+they are the helper's lines, not yours, and the step's chip still closes it.
 
 ## The side page
 

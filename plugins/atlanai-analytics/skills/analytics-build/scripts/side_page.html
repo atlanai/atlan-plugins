@@ -450,7 +450,7 @@ function stepLabel(S) {
   return `Step ${n.at + 1} of ${M} · ${txt(n.step)}`;
 }
 
-const STATUS = {drafted: ['Drafted', ''], checking: ['Checking', 'brand'], tool: ['Warehouse check', ''], checked: ['Checked', 'ok'], look: ['Needs a look', 'warn']};
+const STATUS = {draft: ['Draft', ''], merged: ['Merged', ''], final: ['Final', ''], drafted: ['Drafted', ''], checking: ['Checking', 'brand'], tool: ['Warehouse check', ''], checked: ['Checked', 'ok'], look: ['Needs a look', 'warn']};
 const statusOf = s => STATUS[s] ? s : 'drafted';
 function statusBadge(s, UI) {
   s = statusOf(s);
@@ -552,7 +552,11 @@ function srcBadges(m) {
 }
 function row(S, UI, m, sel) {
   const s = statusOf(m.status), v = s === 'checked' ? fixMinus(m.value) : '';
-  const desc = m.rule ? esc(m.description) : '<span class="wt">Rule not written yet</span>';
+  const from = arr(m.from).map(txt).filter(Boolean);
+  const desc = m.rule ? esc(m.description)
+    : from.length ? `<span class="wt">Merged from ${esc(from.join(' + '))}</span>`
+    : m.status === 'draft' && txt(m.description) ? `<span class="wt">${esc(m.description)}</span>`
+    : '<span class="wt">Rule not written yet</span>';
   return `<button type="button" class="mr" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(lc(m.name))}" data-f="${esc(lc(m.name))}" data-s="${s}${m.rule ? 'r' : ''}"${UI.wide ? ` aria-pressed="${sel}"` : ''}>`
     + kindM() + `<span class="mm"><span class="nm">${esc(m.name)}</span>${desc ? `<span class="ds ell">${desc}</span>` : ''}<span class="src n">${srcBadges(m)}</span></span>`
     + `<span class="src w">${srcBadges(m)}</span><span class="w">${statusBadge(s, UI)}</span>`
@@ -564,6 +568,7 @@ function listHead(ms) {
     const c = k => ms.filter(m => m.status === k).length, ruled = ms.filter(m => m.rule).length;
     if (c('tool')) right = 'Checks run with the warehouse\'s own tool' + (c('look') ? ` · ${c('look')} need a look` : '');
     else if (ms.some(m => ['checking', 'checked', 'look'].includes(m.status))) right = `${c('checked')} of ${ms.length} checked` + (c('look') ? ` · ${c('look')} need a look` : '');
+    else if (c('draft')) right = c('merged') ? `${c('merged')} merged · ${c('draft')} drafts to merge` : `${c('draft')} drafts, not merged yet`;
     else if (ruled < ms.length) right = ruled ? `${ruled} of ${ms.length} rules written` : 'Rules not written yet';
     else right = 'Not checked yet';
   }

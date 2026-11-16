@@ -129,6 +129,67 @@ def _verdicts(f):
     return out, bool(checks)
 
 
+BATCHED = ('x1', 'x2', 'x3')  # the propose, merge and card steps save their answers in numbered batches
+
+
+def _batches(f, gate, key):
+    """The rows of a step's saved answer batches, oldest first. A batch still being written reads as empty."""
+    folder = f.engine / 'answers' / gate
+    try:
+        paths = sorted(folder.glob('*.json'), key=lambda p: (p.stat().st_mtime_ns, p.name)) if folder.is_dir() else []
+    except OSError:
+        return []
+    rows = []
+    for path in paths[:400]:
+        found = read_json(path, dict, {}).get(key)
+        rows += [r for r in found if isinstance(r, dict)] if isinstance(found, list) else []
+    return rows
+
+
+def _drafts(f):
+    """Each proposed metric by proposal id (`<query>#<n>`, as the engine numbers them): its name, meaning and query.
+    The propose step's accepted file once it has one, else its saved batches."""
+    out = {}
+    for p in f.engine_file('metric_proposals.json').get('proposals') or []:
+        if isinstance(p, dict) and p.get('proposal_id') and p.get('name'):
+            out[str(p['proposal_id'])] = {'name': str(p['name']), 'meaning': p.get('definition') or p.get('why_a_metric'),
+                                          'vq_id': p.get('vq_id')}
+    if out:
+        return out
+    for row in _batches(f, 'x1', 'statements'):
+        for i, m in enumerate(row.get('metrics') if isinstance(row.get('metrics'), list) else []):
+            if isinstance(m, dict) and m.get('name') and isinstance(row.get('vq_id'), str):
+                out['%s#%d' % (row['vq_id'], i)] = {'name': str(m['name']), 'meaning': m.get('definition') or m.get('why_a_metric'),
+                                                    'vq_id': row['vq_id']}
+    return out
+
+
+def _source_of(s, drafts):
+    """A merge's source as the object the engine records: a bare proposal id names its query through the draft."""
+    if isinstance(s, dict):
+        return s
+    if isinstance(s, str):
+        d = drafts.get(s) or {}
+        return {'proposal_id': s, 'vq_id': d.get('vq_id') or s.rsplit('#', 1)[0], 'name_as_proposed': d.get('name')}
+    return None
+
+
+def _merged_from(sources, drafts, merged_name=''):
+    """The drafts a merge combined, each name once with how many there were, when it combined more than one: when
+    every draft already had the metric's name, just how many drafts."""
+    names = {}
+    for s in sources:
+        name = s.get('name_as_proposed') or (drafts.get(str(s.get('proposal_id'))) or {}).get('name')
+        if name:
+            entry = names.setdefault(str(name).lower(), [sentence(str(name)), 0])
+            entry[1] += 1
+    if len(sources) < 2:
+        return []
+    if list(names) == [sentence(str(merged_name)).lower()]:
+        return ['%d drafts' % len(sources)]
+    return [n if k == 1 else '%s ×%d' % (n, k) for n, k in names.values()]
+
+
 def details(f):
     """The metrics as the engine made them, each with where it came from and why, its rule, and its check; the
     queries; and what the run read."""
@@ -136,6 +197,9 @@ def details(f):
     cards = f.engine_file('metric_cards.json')
     cards = cards.get('cards') or cards.get('metrics') or [] if isinstance(cards, dict) else []
     by_card = {str(c.get('name') or '').lower(): c for c in cards if isinstance(c, dict)}
+    for c in _batches(f, 'x3', 'metrics'):  # each rule shows as its batch is saved, before the step accepts them
+        by_card.setdefault(str(c.get('name') or '').lower(), c)
+    drafts = _drafts(f)
     defined = {str(m.get('name') or '').lower(): m for m in f.file('context', 'metrics.json', kind=list) if isinstance(m, dict)}
     verdicts, checking = _verdicts(f)
     # Once the flow has moved past the checks, an item that never got its verdict needs a look, as the chips count it.
@@ -144,9 +208,15 @@ def details(f):
     waiting = 'checking' if f.checks_here else 'tool'
     ruled = 'x3_ingest' in f.stages
     metrics = []
-    for m in f.engine_file('merged_metrics.json').get('metrics') or []:
+    merged = f.engine_file('merged_metrics.json').get('metrics') or []
+    pending = not merged  # until the merge step is accepted, its saved batches are the merges so far
+    merged = merged or _batches(f, 'x2', 'metrics')
+    claimed = set()
+    for m in merged:
         if not isinstance(m, dict) or not m.get('name'):
             continue
+        sources = [x for x in (_source_of(s, drafts) for s in m.get('sources') or []) if x]
+        claimed.update(str(s.get('proposal_id')) for s in sources)
         key = str(m['name']).lower()
         card, ctx = by_card.get(key) or {}, defined.get(key) or {}
         d = ctx.get('definition') if isinstance(ctx.get('definition'), dict) else {}
@@ -167,11 +237,23 @@ def details(f):
             ('population', _cut(card.get('population'), 300)),
             ('leaves_out', [_cut(x, 200) for x in card.get('exclusions') or []][:6]),
             ('reasoning', _cut(_plain(str(m.get('merge_reasoning') or '')), 420)),
-            ('sources', [_source(s, known, said) for s in m.get('sources') or [] if isinstance(s, dict)]),
-            ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over and ctx else waiting if checking else 'drafted'),
+            ('sources', [_source(s, known, said) for s in sources]),
+            ('from', _merged_from(sources, drafts, m['name'])),
+            ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over and ctx else waiting if checking
+             else 'final' if ruled or description else 'merged'),
             ('value', value), ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and ctx and not v else None))
             if x not in (None, '', [])}
                        )
+    if pending:
+        # Drafts no merge has claimed yet: one row per name, from every query that proposed it.
+        rows, shown = {}, {m['name'].lower() for m in metrics}
+        for pid, d in drafts.items():
+            if pid not in claimed and sentence(d['name']).lower() not in shown:  # a merged row of that name already shows it
+                rows.setdefault(d['name'].lower(), (d, []))[1].append({'proposal_id': pid, 'vq_id': d['vq_id']})
+        for d, sources in rows.values():
+            metrics.append({k: x for k, x in (
+                ('name', sentence(d['name'])), ('description', _cut(d['meaning'], 320)), ('rule', False),
+                ('sources', [_source(s, known, said) for s in sources]), ('status', 'draft')) if x not in (None, '', [])})
     for m in metrics:
         # Every metric carries its sources, an empty list when the engine named none.
         m.setdefault('sources', [])
@@ -459,7 +541,7 @@ def _fingerprint(run):
     """What changed since the page last looked: the run's files' sizes and times, which is cheap to read every second."""
     run = Path(run)
     h = hashlib.sha256()
-    for folder in (run, run / 'context', run / 'engine', run / 'view'):
+    for folder in (run, run / 'context', run / 'engine', run / 'view', *(run / 'engine' / 'answers' / g for g in BATCHED)):
         try:
             entries = sorted(os.scandir(folder), key=lambda e: e.name)
         except OSError:

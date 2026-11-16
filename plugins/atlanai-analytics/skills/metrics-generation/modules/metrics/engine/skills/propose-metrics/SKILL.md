@@ -51,6 +51,14 @@ judgment well : not a checklist to apply.
 `expression` must appear verbatim in the statement : you are reading what runs, never
 rewriting it.
 
+## Save in batches of about five statements
+
+Save the answer as several files in the gate's answers folder, not one at the end: judge about
+five statements in the prompt's task order, save them as the next numbered file (`01.json`,
+`02.json`, …) with the same `{"statements": [...]}` shape, then go on. Each statement appears
+in exactly one file. A person watches the drafts appear as each file lands; the gate still
+reads all the files together, so the judgment is the same.
+
 ---
 
 # Deciding what is a metric
