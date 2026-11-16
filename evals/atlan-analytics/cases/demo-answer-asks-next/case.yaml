@@ -1,5 +1,5 @@
 schema_version: "1.1"
-name: demo-answer-ends-on-next-line
+name: demo-answer-asks-next
 tags: [demo-flow-fix, analytics, demo, ask, regression]
 execution:
   prompt: |
@@ -26,21 +26,22 @@ graders:
     tool: Bash
     min: 0
     max: 0
-  - name: answer-then-next-line
+  - name: answer-then-next-question
     type: llm
     focus: last_message
     criteria: |
       One question only: does the message give the answer (Buttercup Vale Wind Turbine Base
-      lost the most) before anything else, and end with a single plain sentence of next
-      actions that includes designing a dashboard? PASS if yes. FAIL if it ends with a
-      separate question followed by a list or table of options, or if it asks something
-      before giving the answer. Ignore everything else about the content.
+      lost the most) before anything else, and end with the question "What would you like to
+      do next?" followed by its options as plain lines, including designing a dashboard? This
+      host has no question tool, so the question and options are the last thing printed.
+      PASS if yes. FAIL if it asks something before giving the answer, or ends without that
+      question. Ignore everything else about the content.
   - name: plain-reply
     type: llm
     focus: last_message
     criteria: |
       PASS if the reply gives the concrete result or next step in plain language,
       without a greeting, apology, em dash, machine status footer or generic offer.
-      The answer, its table and the next-actions line have no word limit.
-      The closing `Next:` line of the demo's options is required by the skill; it is neither
-      a generic offer nor a menu.
+      The answer, its table and the next-step question have no word limit.
+      The closing "What would you like to do next?" question with its options is required by
+      the skill; it is neither a generic offer nor a menu.

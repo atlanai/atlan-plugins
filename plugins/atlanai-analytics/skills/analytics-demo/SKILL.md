@@ -3,7 +3,7 @@ name: analytics-demo
 description: Guided Atlan Analytics demo on made-up data: pick a demo, build its metrics, save them, ask a question and design a dashboard. Use when someone wants to try, see or learn Atlan Analytics. Not for their own data (analytics-build).
 ---
 
-# Atlan Analytics demo: six guided steps
+# Atlan Analytics demo: five guided steps
 
 A demo exists so the person understands Atlan Analytics by watching it work on a small,
 made-up firm. The blocks printed at each moment (the welcome, the
@@ -15,12 +15,13 @@ Read plugin files with the Read tool, one file per call. In a shell, never print
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
-step below. Show each moment's chip or card as [visuals](../analytics-build/references/setup/visuals.md) says. The technical stages are the shared setup procedure in
+step below. Chips and cards follow [visuals](../analytics-build/references/setup/visuals.md).
+The technical stages are the shared setup procedure in
 [setup](../analytics-build/references/setup.md), run on the demo's working folder. `PROJECT`
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
 `python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
 
-## The six steps
+## The five steps
 
 Show this tracker in chat and in the host's task list when available, following
 [the checklist](../analytics-build/references/setup/checklist.md) with `--flow demo`. Once
@@ -32,7 +33,6 @@ these steps.
 3. Build and check metrics
 4. Keep local or save to Atlan Trident
 5. Ask a question
-6. Build a dashboard
 
 ## 1. Choose and load demo data
 
@@ -69,8 +69,8 @@ After "Start building", show the tracker, then do all of step 1's work:
 2. **Read the sources.** Start a new setup run with `PROJECT location --workspace "<folder>"`,
    so it lives in `<folder>/.atlan-metrics/`, outside the folder it reads. Inspect only `working_folder`, with
    [inspect and scope](../source-survey/references/inspect-scope.md) section 1, as if
-   the person had asked to set up that folder from scratch; then `PROJECT visual connect` opens
-   the side page. Then run `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
+   the person had asked to set up that folder from scratch. Then run
+   `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
    `database` and `schema`. Use these as given; do not work them out again.
 3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
@@ -87,7 +87,7 @@ sources revealed.
 ## 2. Choose what to build from
 
 Ask the sources question from [the tour rules](references/tour.md): dashboard and past
-queries (recommended), or dashboard only. In a terminal its text opens with the `sources` chip. Scope the run to the answer through
+queries (recommended), or dashboard only. Scope the run to the answer through
 [inspect and scope](../source-survey/references/inspect-scope.md) section 2, with
 `PROJECT scope "<scope>"` for the whole dashboard when `requests` wrote one. The data
 tables are used either way, to check the context.
@@ -102,8 +102,7 @@ written by hand. Run the metrics engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every
 card without a metric-list checkpoint or another build confirmation. Keep proposal and
-deduplication details internal; after each gate, show what that step produced with
-`PROJECT visual next`.
+deduplication details internal.
 Advance the same run through all its gates, export and run every check on the loaded
 data, through [build and check](../analytics-build/references/setup/build-check.md).
 
@@ -113,22 +112,25 @@ When every check has run, read [context built and where to keep it](../analytics
 The celebration is the save question's own text. Saving reads the person's workspaces with
 `registry__list_workspaces` (`user_default` for the personal destination) and writes
 in batches with `registry__create_artifacts`, as [publication](../metrics-generation/references/metrics/publish.md)
-describes. After the save, draw the `saved` visual with `show_widget`; in a terminal the ready
-question holds it. Kept here, it shows nothing.
+describes. Keeping it local, run `PROJECT journey keep-local` first.
 
-## 5 and 6. Ask a question, build a dashboard
+## 5. Ask a question, then choose what's next
 
 When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
 to ask?" with the ready block as its text, offering two or three questions supported by the
 checked context. Do not put an Ask AI menu before the question list. Answer the question or
-questions the person selects or supplies. End that turn on the answer, closing with one plain
-`Next:` line built from these options (no native question in the same turn, as ready describes):
+questions the person selects or supplies, then, in the same turn, ask the native "What would
+you like to do next?", its text the answer and proof links as plain lines
+(as [conventions](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost) says).
+This overrides ready's `Next:` line: a demo answer always ends on this question, as does a
+dashboard or an edit:
 
 | Option | Runs |
 | --- | --- |
 | Ask more questions | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
-| Design a dashboard, until one is built; then Change a rule and see what happens | Step 6: [the dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
+| Check how accurate it is | Test the context on questions the firm's analysts already ask, and fix the rule behind a miss, as [accuracy](references/accuracy.md) describes |
+| Design a dashboard, until one is built; then Change a rule and see what happens | [The dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
 | Continue building on real data | Load `analytics-build` in this chat. A separate run; the demo's intent, sources and approvals do not carry over |
 | I'm done | Finish with where the context and any dashboard live |
 

@@ -83,7 +83,9 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
    After a save to Atlan Trident with `show_widget`, draw the `saved` visual; in a terminal the
    ready question holds it.
-6. **Ask a question.** Read [ready for questions](references/setup/ready.md). Answer only the
+6. **Ask a question.** First offer the accuracy check through
+   [check accuracy](references/setup/accuracy.md): `eval-generation` and `accuracy-check`, run
+   only on a yes. Then read [ready for questions](references/setup/ready.md). Answer only the
    question the person picks, through `analytics-ask`, then `PROJECT journey asked`.
 7. **Build a dashboard.** Read [the dashboard](../analytics-ask/references/dashboard.md).
 

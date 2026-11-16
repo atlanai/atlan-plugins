@@ -16,7 +16,7 @@ import visuals
 
 ORDER = ('connect', 'sources', 'build', 'context', 'saved', 'answer', 'layout', 'edit')
 BUILD = ['Use case', 'Sources', 'Select', 'Metrics', 'Save', 'Ask', 'Dashboard']
-DEMO = ['Sources', 'Select', 'Metrics', 'Save', 'Ask', 'Dashboard']
+DEMO = ['Sources', 'Select', 'Metrics', 'Save', 'Ask']
 
 
 def before_the_engine(run, stage='scope'):
@@ -290,7 +290,7 @@ class SideView(unittest.TestCase):
                              'a page stuck on "Saving to Atlan Trident", or walked back, after the receipt landed (%s)' % shape)
 
     def test_finishing_without_a_dashboard_claims_no_page_built(self):
-        run = make_run(self.root, demo=True, saved=False, local=True)
+        run = make_run(self.root, saved=False, local=True)
         interaction = run / 'interaction.json'
         interaction.write_text(json.dumps({**json.loads(interaction.read_text(encoding='utf-8')), 'dashboard': True}), encoding='utf-8')
         (run / 'layout.json').unlink(missing_ok=True)

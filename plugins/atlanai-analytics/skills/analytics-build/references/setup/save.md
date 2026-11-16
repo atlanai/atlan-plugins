@@ -45,7 +45,8 @@ suggest the local choice is wrong; it is the right one for a quick look.
 
 Only "Save to Atlan Trident" starts sign-in. With "Keep it on this machine", run
 `PROJECT journey keep-local`, then go straight to the question step ([ready](ready.md)); its
-answers come from the local context.
+answers come from the local context. Own-data setup goes, after either choice, to
+[check accuracy](accuracy.md) first, which offers the check and then opens the question step.
 
 **Sign-in.** People worry here about touching company data. Before the browser opens, say:
 "A browser window opens; sign in to Atlan Trident with your work account. Signing in

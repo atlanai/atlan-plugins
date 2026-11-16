@@ -561,7 +561,7 @@ class Questions(unittest.TestCase):
         asked = questions.save(run, data=[facts()])
         self.assertIn("You turned Fixit's dashboard and past queries into context.", asked['question'])
         self.assertIn("on Fixit's data", asked['question'])
-        self.assertEqual(asked['header'], 'Step 4 of 6')
+        self.assertEqual(asked['header'], 'Step 4 of 5')
 
     def test_a_widget_host_keeps_the_count_line(self):
         asked = questions.save(make_run(self.root, saved=False), widget=True)
@@ -609,7 +609,7 @@ class Questions(unittest.TestCase):
 
     def test_a_demo_ready_question_counts_the_demo_steps_without_its_facts(self):
         run = make_run(self.root, local=True, demo=True)
-        self.assertEqual(questions.ready(run)['header'], 'Step 5 of 6')
+        self.assertEqual(questions.ready(run)['header'], 'Step 5 of 5')
 
     def test_a_partial_save_says_what_is_where(self):
         run = make_run(self.root)

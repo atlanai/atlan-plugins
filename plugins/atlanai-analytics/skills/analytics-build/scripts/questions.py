@@ -96,7 +96,7 @@ def save(run, widget=False, data=None, engine_dir=None):
             if c['passed'] else 'none ran cleanly yet', _where(f, demo)))
     lines += _one_metric(run, f, demo)
     lines += ['', 'Where should this context live?']
-    return {'header': 'Step 4 of 6' if demo or f.interaction.get('flow') == 'demo' else 'Step 5 of 7',
+    return {'header': 'Step 4 of 5' if demo or f.interaction.get('flow') == 'demo' else 'Step 5 of 7',
             'question': '\n'.join(lines), 'options': [{'label': a, 'description': b} for a, b in SAVE_OPTIONS],
             'shown': [k for k, v in (('build', card), ('context', shown)) if v], 'results': by_tool}
 
@@ -202,5 +202,5 @@ def ready(run, widget=False, data=None, engine_dir=None):
                                ("I'm done for now", 'Stop here; the context stays where it was kept')):
         if len(options) < 2:
             options.append({'label': label, 'description': description})
-    return {'header': 'Step 5 of 6' if flow_demo else 'Step 6 of 7', 'question': '\n'.join(lines),
+    return {'header': 'Step 5 of 5' if flow_demo else 'Step 6 of 7', 'question': '\n'.join(lines),
             'options': options, 'shown': ['saved'] if shown else []}

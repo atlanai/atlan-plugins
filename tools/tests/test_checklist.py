@@ -47,21 +47,29 @@ class Checklist(unittest.TestCase):
         rows = checklist.initial('demo')
         self.assertEqual([r['content'] for r in rows], [
             'Choose and load demo data', 'Choose what to build from', 'Build and check metrics',
-            'Keep local or save to Atlan Trident', 'Ask a question', 'Build a dashboard'])
+            'Keep local or save to Atlan Trident', 'Ask a question'])
 
-    def test_demo_flow_is_recorded_and_question_and_dashboard_are_ticked_only_when_done(self):
+    def test_demo_flow_is_recorded_and_ends_when_the_question_is_answered(self):
         fixture.seed_checked(self.run, 'checked')
         self.bind(self.run)
         self.run.journey('demo')
         self.run.journey('keep-local')
         result = self.steps()
         self.assertEqual(result['flow'], 'demo')
-        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 4 + ['in_progress', 'pending'])
+        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 4 + ['in_progress'])
         self.run.journey('asked')
-        self.assertEqual([r['status'] for r in self.steps()['steps']][4:], ['completed', 'in_progress'])
-        self.run.journey('dashboard')
         result = self.steps()
-        self.assertEqual((result['state'], result['step'], result['of']), ('done', 6, 6))
+        self.assertEqual((result['state'], result['step'], result['of']), ('done', 5, 5))
+
+    def test_a_demo_kept_local_after_its_check_moves_on_to_the_question(self):
+        self.bind(self.run)
+        self.run.journey('demo')
+        self.progress(stage='check', status='complete', completed_items=3, total_items=3)
+        self.run.journey('keep-local')
+        self.assertEqual([r['status'] for r in self.steps()['steps']], ['completed'] * 4 + ['in_progress'])
+        self.run.journey('asked')
+        result = self.steps()
+        self.assertEqual((result['state'], result['step'], result['of']), ('done', 5, 5))
 
     def test_demo_data_step_waits_for_bound_data_and_the_demo_never_asks_for_a_focus(self):
         self.progress(stage='inspect', status='complete', completed_items=3, total_items=3)
@@ -87,7 +95,7 @@ class Checklist(unittest.TestCase):
                 result = run.journey('keep-local')
                 self.assertEqual(result['continuation']['action'], 'explore-local')
                 self.assertEqual([r['status'] for r in result['checklist']['steps']],
-                                 ['completed'] * saved + ['in_progress', 'pending'])
+                                 ['completed'] * saved + ['in_progress'] + ['pending'] * (flow == 'build'))
                 self.assertEqual(result['checklist']['steps'][saved - 1]['content'], 'Kept on this machine')
 
     def test_one_step_runs_at_a_time_with_real_counts(self):

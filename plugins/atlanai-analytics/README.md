@@ -1,6 +1,6 @@
 # Analytics
 
-The analytics workload on the Atlan registry, as five skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
+The analytics workload on the Atlan registry, as seven skills. analytics-demo walks through a made-up firm end to end. analytics-build does the same on your own data, starting from nothing, a dashboard or a subject: it surveys what you already have, asks what you want to answer, and builds from reports first, then query history, then table definitions. source-survey says what a setup, a subject or a source holds, what can be built from it, and which metric names it offers. metrics-generation generates, checks, edits, proposes and publishes metrics and saved queries with the metrics engine. analytics-ask answers a data question from published metrics, with the definition it used, and turns answers into a dashboard. eval-generation turns the questions a team already asks into an eval set with trusted SQL, kept locally or saved to Atlan. accuracy-check runs a set against the context and scores it, saying why each miss failed. It finds your Snowflake, Databricks or other warehouse through Atlan or your own connector, and uses the Atlan plugin's connection.
 
 ## Install
 
@@ -18,6 +18,13 @@ Other hosts install plugins one at a time, so add `atlanai` first. In Codex:
 codex plugin marketplace add atlanai/atlan-plugins
 codex plugin add atlanai@atlan
 codex plugin add atlanai-analytics@atlan
+```
+
+In Cortex Code, install each from its folder, one chat message each:
+
+```
+/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai
+/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai-analytics
 ```
 
 ## Privacy

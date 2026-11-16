@@ -1192,6 +1192,90 @@
    "measured": null
   },
   {
+   "id": "analytics-eval-save",
+   "plugin": "atlanai-analytics",
+   "skill": "eval-generation",
+   "title": "Save a generated eval set beside the context",
+   "route": "Scorer, dataset, one batched record create, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "scorer"
+      }
+     },
+     {
+      "tool": "registry__create_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset"
+      }
+     },
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset_record",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "dataset_record",
+       "workspace_id": "<ws>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__create_artifacts",
+      "runner": "call_write_tool",
+      "args": {
+       "kind": "dataset_record",
+       "items": "<= 100"
+      }
+     },
+     {
+      "tool": "registry__list_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "kind": "dataset_record",
+       "workspace_id": "<ws>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 4,
+    "warm": 2
+   },
+   "mode": "evals",
+   "budget_note": "Shell needed; picking, drafting, gold runs and grading run locally and are not counted. Warm reuses the workspace's scorer and dataset.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "analytics-accuracy-run",
+   "plugin": "atlanai-analytics",
+   "skill": "accuracy-check",
+   "title": "Run an eval set against the context and score it",
+   "route": "Find the run, load the set and its trusted answers, a fresh agent per question, score by script",
+   "calls": null,
+   "budget": {
+    "cold": null,
+    "warm": null
+   },
+   "targets": null,
+   "measured": null,
+   "includes": [
+    "analytics-ask-governed"
+   ]
+  },
+  {
    "id": "analytics-demo-save",
    "plugin": "atlanai-analytics",
    "skill": "analytics-demo",
@@ -1390,6 +1474,114 @@
     "warm": 4
    },
    "warm_note": "Warm: the handle is known; the head and dependents reads go out together.",
+   "targets": null,
+   "measured": null
+  },
+  {
+   "id": "registry-change-owner",
+   "plugin": "atlanai",
+   "skill": "atlan-manage-artifacts",
+   "title": "Hand an artifact to another person",
+   "route": "Search and find the person, head with its owner and workspace rights, readout and one yes, patch on the etag read, read back",
+   "calls": {
+    "cold": [
+     {
+      "tool": "registry__search_artifacts",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<name>"
+      }
+     },
+     {
+      "tool": "registry__list_users",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<person>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     },
+     {
+      "tool": "registry__list_users",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<owner_id>"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {}
+     },
+     {
+      "tool": "registry__patch_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "artifact_id": "<picked>",
+       "patch": {
+        "owner_id": "<user_id>"
+       },
+       "if_match": "<etag>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<picked>"
+      }
+     }
+    ],
+    "warm": [
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     },
+     {
+      "tool": "registry__list_users",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<owner_id>"
+      }
+     },
+     {
+      "tool": "registry__list_workspaces",
+      "runner": "call_read_tool",
+      "args": {}
+     },
+     {
+      "tool": "registry__patch_artifact",
+      "runner": "call_write_tool",
+      "args": {
+       "artifact_id": "<handle>",
+       "patch": {
+        "owner_id": "<user_id>"
+       },
+       "if_match": "<etag>"
+      }
+     },
+     {
+      "tool": "registry__get_artifact",
+      "runner": "call_read_tool",
+      "args": {
+       "artifact_id": "<handle>"
+      }
+     }
+    ]
+   },
+   "budget": {
+    "cold": 7,
+    "warm": 5
+   },
+   "warm_note": "Warm: the handle and the person's id are known; the head, the owner's name and the workspace rights go out together.",
    "targets": null,
    "measured": null
   },
