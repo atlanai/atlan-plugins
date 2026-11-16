@@ -351,12 +351,24 @@ def check_admissible(c: Candidate, tree: exp.Expression | None) -> None:
         c.admissible = False
         c.notes.append(f"dropped: only touches staging/temp objects ({', '.join(staged)})")
         return
-    # A bare SELECT with no projection narrowing is exploration, not a question.
-    if isinstance(tree, exp.Select):
-        projections = tree.args.get("expressions") or []
-        if len(projections) == 1 and isinstance(projections[0], exp.Star) and not tree.args.get("where"):
-            c.admissible = False
-            c.notes.append("dropped: unfiltered SELECT * — browsing, not asking")
+    # A result-limit wrapper does not turn an aggregate into table browsing.
+    # Inspect its source without rewriting the SQL that will be scored.
+    if _unfiltered_browse(tree):
+        c.admissible = False
+        c.notes.append("dropped: unfiltered SELECT * — browsing, not asking")
+
+
+def _unfiltered_browse(tree: exp.Expression) -> bool:
+    if not isinstance(tree, exp.Select):
+        return False
+    projections = tree.args.get("expressions") or []
+    if len(projections) != 1 or not isinstance(projections[0], exp.Star) or tree.args.get("where"):
+        return False
+    source = tree.args.get("from_")
+    source = source.this if source is not None else None
+    if isinstance(source, exp.Subquery) and not tree.args.get("joins"):
+        return _unfiltered_browse(source.this)
+    return True
 
 
 def _bind_params(sql: str) -> int:
