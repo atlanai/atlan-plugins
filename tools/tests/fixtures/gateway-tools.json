@@ -41,6 +41,7 @@
     "registry__list_artifacts": "read",
     "registry__list_releases": "read",
     "registry__list_traces": "read",
+    "registry__list_users": "read",
     "registry__list_workspaces": "read",
     "registry__move_artifact": "write",
     "registry__patch_artifact": "write",
