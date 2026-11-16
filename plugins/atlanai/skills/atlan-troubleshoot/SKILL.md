@@ -8,8 +8,7 @@ license: Apache-2.0
 
 Read the error before acting, and key on its `code` (in the result's JSON, or in a JSON-RPC
 error's `data`) rather than its wording, which can change. Most refusals say exactly what to change, and repeating a
-write to test it is how duplicates get made. Reply with the cause in one sentence and the one
-step that fixes it, under 80 words, with no apology or tour of how the tools work.
+write to test it is how duplicates get made. Give the cause and one next step in under 80 words; no apology or tool tour.
 
 ## Connection and sign-in
 
@@ -44,6 +43,7 @@ step that fixes it, under 80 words, with no apology or tour of how the tools wor
 | A recipe starts with `mcp__initialise` and search mode does not list it | Skip it: the first search opened the session. |
 | `mcp__search_tools` finds nothing, or not the registry tool you expected | Search ranks every connected server. Call a tool you know by name (`registry__…`) directly, or pass `servers: ["registry"]`. An empty search does not mean the tool is missing. |
 | `mcp__connect_server` is not a tool | Older gateways do not list it. Run it through `mcp__call_write_tool` (or `mcp__call_tool`) with `name: "mcp__connect_server"` and `arguments: { "server": … }`. A connection opened read-only (`?access=read`) cannot run it at all. |
+| Cloudflare HTML `403` | See [edge refusals](references/edge-refusals.md). |
 | `403` "Only a project's Claw … can use the Claw session tools" | `extension__agent__session_read` and `session_list` serve a project's Claw, not a person's agent. Read a session through its traces instead (`atlan-continue`, step 2). |
 | `mcp__call_read_tools` answered but some `results` are errors | Each result stands alone, in the order sent. Fix each by its row here and resend only the failed reads. |
 | JSON-RPC `-32003`, `rate_limited` | The organization's call budget is spent for the moment. Wait, then retry reads. Retry a write only by reusing its `idempotency_key` with identical arguments. |
@@ -62,5 +62,5 @@ A refused or incomplete create, update, relate, upload or file read (a `400`, `4
 | A search names the server under `unavailable` (`"reason": "disabled"`) | It is registered but disabled, so its tools cannot be found or called. Tell the user an admin can enable it in Atlan's MCP servers, and do not use another product's tool in its place. |
 | A server's tools never appear | It is disabled (`is_enabled: false`), `unreachable`, or quarantined after repeated failures. An editor of the server can test and re-enable it in the Atlan dashboard's MCP studio. |
 
-When none of these fit, report the tool, the arguments sent (no credentials or upload
-URLs) and the exact error. Then offer feedback once (`references/feedback.md`).
+Otherwise report the tool, safe arguments and exact error; offer feedback once
+(`references/feedback.md`).
