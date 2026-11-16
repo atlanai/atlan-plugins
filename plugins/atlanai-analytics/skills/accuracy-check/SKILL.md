@@ -5,8 +5,9 @@ description: "Atlan Analytics: run an eval set against a project's context and s
 
 # Run and score an eval set
 
-A capability. It takes an eval set, asks each question to a fresh agent that sees only the
-context, compares each answer's result with the trusted result by script, and says why each
+A capability. It works on any built run: a local SQLite or DuckDB one, or a warehouse build
+(Snowflake, Databricks or another) whose SQL runs through this host's warehouse query tool. It
+takes an eval set, asks each question to a fresh agent that sees only the context, compares each answer's result with the trusted result by script, and says why each
 miss failed. It generates no questions and changes nothing: a metric, a saved query and the set
 stay as they are. A person can call it directly, and another skill can call it as a step; it
 behaves the same either way.
@@ -32,11 +33,16 @@ command as separate argv entries; zsh does not split a string holding one.
 ## Run a set
 
 1. **Find the run.** `CHECK start --project <project>` returns the built run, `context_saved_to`
-   (where the context lives; `null` means this machine only) and the project's sets.
+   (where the context lives; `null` means this machine only), `execution` (where its SQL runs)
+   and the project's sets. A caller that knows the run passes `--run <run-dir>` here and to
+   `load`. With several built runs and none named, the reply lists them: ask which one once.
 2. **Load the set.** `CHECK load --project <project> --file <set>` puts it in a fresh eval folder
-   in `.atlan-evals/`, runs each trusted SQL on the run's data, drops a question whose trusted SQL
-   fails or returns nothing (`dropped`), and sets the rest up for scoring. Its
-   `work/selection.json` holds each question's metric, source and expected answer.
+   in `.atlan-evals/`. On a local run it runs each trusted SQL on the run's data, drops a question
+   whose trusted SQL fails or returns nothing (`dropped`), and sets the rest up for scoring. On a
+   warehouse run it returns `pending_gold`: get the trusted results as
+   [trusted answers on a warehouse run](references/run.md#trusted-answers-on-a-warehouse-run)
+   describes, and `CHECK gold` finishes the same way. `work/selection.json` holds each
+   question's metric, source and expected answer.
 3. **Run and score it** as [run it](references/run.md#run-it) describes, then show the score as
    [show the score](references/run.md#show-the-score) describes.
 

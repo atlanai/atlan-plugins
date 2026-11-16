@@ -11,6 +11,10 @@ names them, `ACC` is `python3 "<demo-dir>/scripts/accuracy.py"` and `EDIT` is
 `python3 "<demo-dir>/scripts/edit_metric.py" --run-dir "<run>"`, with `<demo-dir>` this skill's
 directory.
 
+An own-data build runs steps 1 to 4 through `analytics-build`'s
+[check accuracy](../../analytics-build/references/setup/accuracy.md), which offers the check before
+the first question, asks before a release and replaces step 5's ending.
+
 When the host keeps a task list, its items are these, in the person's words, whichever questions
 are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**.
 When the person picks Improve it, add **Find what to fix**, **Apply the fix** and **Test again**
@@ -29,9 +33,10 @@ this machine only.
 ## 1. Choose the questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
-context lives can change, so never reuse an earlier answer. `CHECK start --project <project>` returns the built run, `context_saved_to`, the project's
+context lives can change, so never reuse an earlier answer. `CHECK start --project <project>` returns the built run, `context_saved_to`, `execution`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
-`text` and `options`). With no sets, or the person asking for new questions, generate. Otherwise,
+`text` and `options`). Add `--run <run-dir>`, here and on `CHECK load` and `SCOPE inputs`,
+whenever the run is known: the demo's own run, or the build's. With no sets, or the person asking for new questions, generate. Otherwise,
 unless the request named a set, put `ask` as one native question, as it is, even when the folder
 holds only one set.
 

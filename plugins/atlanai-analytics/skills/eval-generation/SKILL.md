@@ -42,10 +42,12 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 
 1. **Scope.** `SCOPE inputs --project <project>`. It finds the built run, opens the drafting
    folder, reads the use case and focus metric, and writes the pool: every dashboard tile and
-   analyst query the metrics engine verified, each linked to the metrics it computes. A blocked
-   reply names what to ask: ask it once and stop until told.
+   analyst query the metrics engine verified, each linked to the metrics it computes. A caller
+   that knows the run passes `--run <run-dir>`, and `--use-case "<which agent, answering what>"`
+   when the run recorded none. It works on a local run and on a warehouse build alike: nothing
+   here runs SQL. A blocked reply names what to ask: ask it once and stop until told.
 2. **Gate and rank.** `EVALGEN init --local`, then
-   `EVALGEN build --from-files "<gen>/src" --dialect <its dialect> --limit 100`. It drops a query
+   `EVALGEN build --from-files "<gen>/src" --dialect <the dialect `SCOPE inputs` returned> --limit 100`. It drops a query
    pinned to one record and withholds personal data. Do not reopen its JSON.
 3. **Pick 8.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
    the metrics nearest the use case. It keeps only those prompts.

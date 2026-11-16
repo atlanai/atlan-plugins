@@ -6,7 +6,48 @@ Read when running a set, showing its score and testing again. `CHECK` is
 `python3 "<build-dir>/scripts/project.py" --run-dir "<run>"` (without `--run-dir` it refuses every
 query), with `<build-dir>` the `analytics-build` skill directory, `<run>` load's `run` and `<evals-run>`
 load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`, which
-`CHECK load` writes.
+`CHECK load` writes on a local run and `CHECK gold` writes on a warehouse run.
+
+## Where the SQL runs
+
+`CHECK start` and `CHECK load` return `execution`. Read it before running anything: it decides
+how every statement in this file is executed, and the two ways are never mixed.
+
+| `execution.via` | The run | SQL runs through |
+| --- | --- | --- |
+| `local` | Bound to a SQLite or DuckDB file: a demo, CSVs, a local database | `PROJECT execute`, on this machine |
+| `host` | Built on a warehouse (Snowflake, Databricks or another), in `execution.dialect` | The warehouse query tool, in this host |
+
+On a warehouse run nothing on this machine can run SQL, and `PROJECT execute` refuses. The
+warehouse query tool is the one in `execution.warehouse.tool` when the build recorded it, else the
+one this conversation built the context with, else the one steps 0 to 2 of
+[warehouse discovery](../../source-survey/references/connect.md) find. Its read-only rules apply.
+With no tool, say the warehouse is not reachable from this host and stop: a check that cannot run
+its SQL has no score.
+
+## Trusted answers on a warehouse run
+
+`CHECK load` returns `status: pending_gold` and `pending`, one `sql_file` per question. The
+trusted results come from the warehouse, and no model copies a value:
+
+1. Start one subagent, the runner, with this prompt, filled in:
+   ```
+   Run each SQL file below on <warehouse> with <the warehouse query tool>, one call per file.
+   Send the statement exactly as the file holds it: no edit, no added LIMIT, no comment.
+   Read-only. Do nothing else, and reply "done" with how many ran and which failed.
+   <each sql_file, one per line>
+   ```
+   Keep the Agent tool's `output_file`: it is the runner's transcript.
+2. `CHECK gold --evals <evals-run> --transcript <output_file>` reads each result from the tool
+   call that ran exactly that SQL, following the path when the host saved a large result to a
+   file. It drops a question whose trusted SQL failed, returned nothing, or returned more rows
+   than one response holds (`dropped`, each with its reason), and sets the rest up for scoring.
+   It returns what `CHECK load` returns on a local run. Say how many were dropped and why: a set
+   of 5 can come back as 3.
+3. A `BLOCKED` reply names each SQL with no result: it was changed on the way. Run that file
+   again exactly as written, or save its raw result to the `result_file` `CHECK load` named, as
+   the tool or a CLI (`--format json`) returned it. Then run `CHECK gold` again. Where the host
+   has no subagents, run each file yourself and save each raw result to its `result_file`.
 
 ## Why the score can be trusted
 
@@ -14,8 +55,8 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
   below, nothing else: no case id, tags, SQL, expected value or other question.
 - The agent answers the way a person's question is answered, through `analytics-ask` on the
   same context. A score therefore measures the context the person built.
-- **You** run the agent's SQL and **the script** compares the two results. No model grades a
-  result. A transcript that opens anything under `.atlan-evals/` or names an eval artifact is
+- **The script** compares the two results, each as the database returned it. No model grades a
+  result or copies one. A transcript that opens anything under `.atlan-evals/` or names an eval artifact is
   marked contaminated and fails.
 
 ## Run it
@@ -31,13 +72,17 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
 
       Answer this question about <firm or project>'s data with the analytics-ask skill, from
       <where the context lives>. That is the only context you need; do not search other
-      folders. Run SQL only through the run's query runner, never by opening a database file:
-      write {"sql": "<sql>", "limit": 1000} to a file and run
-      python3 "<build-dir>/scripts/project.py" --run-dir "<run>" execute <that file>
+      folders. <how to run SQL>
       End with one JSON object and nothing after it:
       {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>",
        "used_context_ids": ["<the id of each metric or query you read, like metric_... or sql_query_...; never empty when you read one>"]}
       ```
+      `<how to run SQL>` follows `execution.via`. Local: "Run SQL only through the run's query
+      runner, never by opening a database file: write {"sql": "<sql>", "limit": 1000} to a file
+      and run python3 "<build-dir>/scripts/project.py" --run-dir "<run>" execute <that file>".
+      A warehouse: "Run SQL only with <the warehouse query tool>, read-only, on <warehouse>,
+      in the <dialect> dialect. Run the one statement your answer states, whole, before you
+      answer."
       `<where the context lives>` follows `context_saved_to`. In Atlan Trident: "the context
       saved in the Atlan Trident workspace <name>: read its metrics and queries there, at their
       released versions, never from files on this machine; the run folder is only for the query
@@ -49,10 +94,19 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
    2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`.
-   3. Run its `sql` exactly as given with `PROJECT execute` and save the output as
+   3. Get the result of its `sql` as
       `<evals-run>/hillclimb/baseline/agent_results/<id>_rep0.json`. Never edit the agent's SQL,
       not even a table prefix: a query that fails as given is `agent_sql_error`. An empty `sql`
       needs no run.
+      - **Local:** run it exactly as given with `PROJECT execute` and save the output there.
+      - **A warehouse:** the agent already ran it. `EVAL agent-result --transcript <output_file>
+        --answer-file <answer> --out <that file>` reads the result from the agent's own tool
+        call. When it returns `source: replay`, the result could not be read whole, or the
+        agent stated a statement it did not run: have a runner subagent run the `sql_file` it
+        names exactly as written, as above, then `EVAL agent-result` again with the runner's
+        transcript. A statement the warehouse rejects in the replay too is saved as
+        `{"error": "<the tool's message>"}`. A tool timeout is not the agent's miss: record it
+        as `--class harness_error`.
    4. `EVAL record --variant baseline --case <id> --rep 0 --answer-file <answer> --agent-result <agent result> --gold-result <evals-run>/eval/gold/<id>.json --transcript <output_file>`.
       A run that failed outside the agent (a timeout, a tool error) is
       `record --class harness_error --reason "<what failed>"` with no answer file.

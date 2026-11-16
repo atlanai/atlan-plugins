@@ -7,7 +7,7 @@ tile and history shape the engine verified, each linked to the metrics it comput
 (`context/queries.json`, `engine/metric_cards.json`). This script turns that into eval-builder
 input, picks the set (the focus metric first, then breadth) and writes it. Standard library only.
 
-    python3 scope.py inputs --project <project> [--run <run-dir>]
+    python3 scope.py inputs --project <project> [--run <run-dir>] [--use-case "<text>"]
     python3 scope.py pick --gen <gen-dir> [--limit 8] [--focus-count 2]
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
@@ -25,14 +25,14 @@ import re
 import shutil
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scripts"))
+
+from eval_runs import Blocked, engine_dir, execution, find_run, use_case  # noqa: E402
+
 # Words that say nothing about which metric a use case needs.
 _STOP = {"a", "an", "and", "the", "of", "to", "in", "on", "for", "by", "or", "is", "it", "its", "with",
          "which", "what", "why", "how", "that", "this", "build", "agent", "answers", "answer", "each",
          "per", "as", "at", "from", "be", "are", "was", "were", "their", "they", "not", "all", "one"}
-
-
-class Blocked(Exception):
-    pass
 
 
 def load(path: pathlib.Path, default=None):
@@ -44,20 +44,6 @@ def dump(path: pathlib.Path, obj) -> None:
     path.write_text(json.dumps(obj, indent=1))
 
 
-def find_run(project: pathlib.Path) -> pathlib.Path:
-    """The project's built analytics run: one with metrics. Several ask which use case."""
-    ready = sorted((r for r in (project / ".atlan-metrics").glob("run_*")
-                    if (r / "context" / "metrics.json").is_file()),
-                   key=lambda r: (r / "run.json").stat().st_mtime if (r / "run.json").exists() else 0, reverse=True)
-    if not ready:
-        raise Blocked("No built analytics run in this project. Build the context first.")
-    if len(ready) > 1:
-        cases = [f"{r.name}: {((load(r / 'interaction.json', {}) or {}).get('intent') or {}).get('purpose') or 'no use case'}"
-                 for r in ready]
-        raise Blocked("Several built runs; ask which use case to test: " + "; ".join(cases))
-    return ready[0]
-
-
 def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
     """Where a set is drafted, outside the run: answering agents read the run."""
     return project / ".atlan-evals" / "gen" / run.name
@@ -65,19 +51,24 @@ def gen_dir(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
 
 def cmd_inputs(a) -> dict:
     project = pathlib.Path(a.project)
-    run = pathlib.Path(a.run) if a.run else find_run(project)
+    run = find_run(project, a.run)
     ev = gen_dir(project, run)
-    if ev.exists():
-        shutil.rmtree(ev)
     interaction = load(run / "interaction.json", {}) or {}
-    intent = interaction.get("intent") or {}
+    intent = use_case(run, a.use_case or "")
     if not (intent.get("domain") or intent.get("purpose")):
-        raise Blocked("The run records no use case. Ask for it once: which agent, answering what.")
+        raise Blocked("The run records no use case. Pass it with --use-case: which agent, answering what. "
+                      "Ask the person once when the conversation does not say.")
     metrics = load(run / "context" / "metrics.json", []) or []
     queries = load(run / "context" / "queries.json", []) or []
-    cards = load(run / "engine" / "metric_cards.json", {}) or {}
+    engine = engine_dir(run)
+    cards = load(engine / "metric_cards.json", {}) if engine else {}
     if not metrics or not queries:
         raise Blocked("The run has no built metrics or queries yet. Build the context first.")
+    if not (cards or {}).get("metrics"):
+        raise Blocked("The run has no metric cards from the metrics engine, so no question can be tied to a "
+                      "metric. Bring a set instead: one {id, question, sql} per line in .atlan-evals/sets/.")
+    if ev.exists():
+        shutil.rmtree(ev)
     refs_by_vq = cards.get("metric_refs_by_vq") or {}
     names = {c.get("metric_ref"): c.get("display_name") or c.get("name") for c in cards.get("metrics") or []}
     focus = (interaction.get("focus") or "").removeprefix("metric:")
@@ -102,9 +93,9 @@ def cmd_inputs(a) -> dict:
     src = ev / "src"
     src.mkdir(parents=True)
     (src / "pool.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
-    schema = run / "context" / "database-schema.json"
-    if schema.is_file():
-        shutil.copy(schema, src / "database-schema.json")
+    for schema in ("database-schema.json", "table-schema.json"):  # a local build, a warehouse build
+        if (run / "context" / schema).is_file():
+            shutil.copy(run / "context" / schema, src / schema)
     tables = sorted({t for m in metrics for t in _tables(m)})
     text = {c.get("metric_ref"): f"{c.get('display_name') or ''} {c.get('description') or ''}"
             for c in cards.get("metrics") or []}
@@ -112,9 +103,10 @@ def cmd_inputs(a) -> dict:
     scope = {"use_case": intent, "focus": focus_ref,
              "metrics": [{"ref": r, "name": n, "relevance": len(want & _words(text.get(r, "")))}
                          for r, n in names.items()],
-             "related": _related(run, focus_ref), "pool": pool}
+             "related": _related(engine, focus_ref), "pool": pool}
     dump(ev / "scope.json", scope)
-    dialect = next((r["dialect"] for r in rows if r.get("dialect")), None)
+    dialect = next((r["dialect"] for r in rows if r.get("dialect")), None) or execution(run).get("dialect") \
+        or execution(run).get("kind")
     return {"status": "ok", "run": str(run), "gen": str(ev), "use_case": intent, "focus": names.get(focus_ref) or None,
             "pool": len(rows), "tiles": sum(1 for p in pool.values() if p["source"] == "tile"),
             "dialect": dialect, "tables": tables, "src": str(src)}
@@ -129,9 +121,9 @@ def _tables(metric: dict) -> list:
     return [entity] if entity else []
 
 
-def _related(run: pathlib.Path, focus_ref) -> list:
+def _related(engine: pathlib.Path, focus_ref) -> list:
     """Metrics one edge away from the focus, nearest first."""
-    edges = (load(run / "engine" / "metric_relationships.json", {}) or {}).get("edges") or []
+    edges = (load(engine / "metric_relationships.json", {}) or {}).get("edges") or []
     out = []
     for e in sorted(edges, key=lambda e: -(e.get("confidence") or 0)):
         for a, b in ((e.get("from_ref"), e.get("to_ref")), (e.get("to_ref"), e.get("from_ref"))):
@@ -246,7 +238,8 @@ def main(argv=None) -> int:
     s = p.add_subparsers(dest="cmd", required=True)
     c = s.add_parser("inputs", help="eval-builder input and scope.json from the analytics run")
     c.add_argument("--project", required=True, help="the folder holding .atlan-metrics/")
-    c.add_argument("--run", help="a run to use instead of the project's one built run")
+    c.add_argument("--run", help="the run folder to use, when the project holds several")
+    c.add_argument("--use-case", help="which agent, answering what, when the run recorded none")
     c.set_defaults(func=cmd_inputs)
     c = s.add_parser("pick", help="the set: the focus metric first, then breadth")
     c.add_argument("--gen", required=True)
