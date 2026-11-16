@@ -13,10 +13,15 @@ def read_command(command):
     try:
         args = shlex.split(command) if isinstance(command, str) else list(command)
         if len(args) == 3 and args[0] in ("/bin/sh", "/bin/bash", "/bin/zsh") and args[1] in ("-c", "-lc"):
-            args = shlex.split(args[2])
-            command = command if isinstance(command, str) else command[2]
+            command = args[2]
+            args = shlex.split(command)
         text = command if isinstance(command, str) else " ".join(command)
-        if not args or any(c in text for c in "\n\r`$<>;&|"):
+        # Separate shell operators while preserving quoted regex alternations.
+        lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|<>")
+        lexer.whitespace_split = True
+        shell_tokens = list(lexer)
+        if not args or any(c in text for c in "\n\r`$") or any(
+                token and all(c in ";&|<>" for c in token) for token in shell_tokens):
             return False
         name, rest = args[0], args[1:]
         if name in ("cat", "/bin/cat"):

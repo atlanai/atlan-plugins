@@ -159,6 +159,8 @@ class HostTranscripts(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertTrue(read_command(command))
         self.assertTrue(read_command("rg -n -C 18 backup context/metrics.json"))
+        self.assertTrue(read_command("/bin/zsh -lc \"rg -n 'platform|checkly' context/metrics.json\""))
+        self.assertFalse(read_command("/bin/zsh -lc 'cat context|cat other'"))
         self.assertFalse(read_command("rg -C --pre malicious context"))
         for command in ('cat x; rm y', 'cat $(read-secret)', 'cat x > y',
                         'rg --pre script pattern context', "sed -n '1p;e command' context",
