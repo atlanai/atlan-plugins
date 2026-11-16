@@ -72,7 +72,7 @@ The expected answer is one value or one short phrase, never a table, and never S
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
+| Run them (Recommended) | Compare fresh agents with and without metrics, and keep both runs for review. |
 | Not now | Keep the questions on this machine. |
 
 There is no edit option. On Not now, end with "What would you like to do next?", whose text is one
@@ -80,9 +80,44 @@ line: "The questions stay on this machine."
 
 ## 3. Run and score
 
-Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes. With every question right, go to
-step 5. With misses, ask one native question, "Does the score look good?", whose text is the
-score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
+The selection or Run them authorizes both arms. For a local SQLite demo with Codex CLI, follow
+accuracy-check's [paired comparison](../../accuracy-check/references/paired-comparison.md):
+freeze the set, trusted answers, schema, raw query history, metrics and database; choose a model
+and effort; prepare the comparison; reuse a matching saved no-metrics baseline if available;
+otherwise run both arms with `comparison_run.py --host codex --comparison <comparison>
+--database <database> --gold <gold> --schema <schema>`, then persist the complete no-metrics
+arm with `comparison_report.py --comparison <comparison> --persist-baseline <cache>`. Render
+the per-question report with `comparison_report.py --comparison <comparison> --sources <set>
+--diagnoses <diagnoses>`; omit diagnoses until they are source-backed. Import the verified
+metrics arm into the loaded eval folder with
+`comparison_export.py --comparison <comparison> --evals <evals-run> --variant baseline`.
+Then use `ACC result` and the ordinary save flow for the metrics score. The paired report and
+no-metrics evidence stay local; only the metrics arm enters the ordinary EVAL baseline. Do not
+run the ordinary `EVAL` baseline first.
+When a saved baseline is available, offer **Use saved baseline** or **Run on another model or
+effort**. A changed model or effort requires both arms again. Show every question, including
+ties and regressions, even when all answers are correct. If that identity already has an
+exported EVAL run, use a fresh EVAL folder for the new model or effort; do not compare its score
+with another identity's variants.
+
+If Codex CLI or the supported isolated execution path is unavailable, keep the prepared inputs
+and say the comparison has not run. Do not simulate answers or show a score from the ordinary
+with-context `baseline` as a no-metrics result. A host may execute the pair only when it can
+provide fresh agents, enforce or verify packet/tool isolation, and preserve the evidence required
+by the paired report.
+
+If the person chooses **Improve it**, retain the original paired report and score. Diagnose each
+miss from the trusted source, the relevant metric rule and the observed SQL/result difference;
+if those do not establish a cause, say it is unknown. Separate model errors, question wording,
+expected-population disagreements and percentage-presentation issues from metric-definition
+fixes. Only a source-backed metric-rule error goes through the fix flow. Do not turn an expected-answer
+or question-wording issue into a metric change.
+If the person keeps the paired score, show the report as the result and continue to the demo's
+next-action choice with the `ACC result` metrics score; when saving, publish the ordinary EVAL
+metrics run only. Never claim the no-metrics arm was saved to Atlan Trident.
+
+With misses, ask one native question, "Does the score look good?", whose text is the paired
+report's two scores, paired outcomes and per-question misses, as plain lines:
 
 | Option | Description |
 | --- | --- |
@@ -93,7 +128,12 @@ Name no fix in the question's text: the fixes come from the diagnosis.
 
 ## 4. Improve it: find the fix, apply it, test again
 
-**Find what to fix.** The set is the source of truth for the rule: a miss is fixed in the context,
+For a paired report, keep its original report and identity. Apply the source-backed fix using the
+same local `EDIT` or Atlan Trident release steps below. Then follow the paired retest below rather
+than ordinary `accuracy-check` test-again, so the answering protocol stays unchanged. An ordinary
+EVAL check with no paired report continues to use `accuracy-check` test-again.
+
+**Find what to fix.** For paired comparisons, first apply the source-backed diagnosis rules above; a question or trusted-answer correction requires a new set and both arms. For ordinary brought-set checks, the set is the source of truth for the rule: a miss is fixed in the context,
 even when the dashboard or other queries follow the old rule. Never weigh the set against the
 context's sources, question who wrote it, offer changing the test, or say that it cannot be
 changed; the one exception is *question asks the opposite*, where the wording, not the rule, is
@@ -157,16 +197,31 @@ Trident write is refused and the owner must act in Metric Studio. Keep the score
   make the step 3 change.
   As on this machine, do not raise saved queries with the person.
 
-Then have `accuracy-check` [test again](../../accuracy-check/references/run.md#test-again) on the
-same eval folder, naming the new `version_ordinal`. When a question that uses the changed metric
-gets worse, withdraw that release with `registry__withdraw_release`, which puts `latest` back on the
-previous version, and say so. A question on another metric that gets worse is a miss for the next
-fix, never a reason to undo this one.
+For an ordinary EVAL check, have accuracy-check [test again](../../accuracy-check/references/run.md#test-again)
+on the same folder, naming the new `version_ordinal`. For a paired check, prepare a new comparison
+from the corrected metrics and the same set, trusted SQL, database, schema, history, model,
+effort and runtime. Reuse its matching no-metrics baseline with
+`comparison_report.py --comparison <new-comparison> --reuse-baseline <cache>`. Run only the metrics
+arm with `comparison_run.py --host codex --comparison <new-comparison> --database <database>
+--gold <gold> --schema <schema> --arm with_metrics`, then render the complete pair with
+`comparison_report.py --comparison <new-comparison> --sources <set> --diagnoses <diagnoses>`.
+Export that metrics arm as the next ordinary EVAL variant:
+`comparison_export.py --comparison <new-comparison> --evals <evals-run> --variant v<N>`.
+Use the ordinary `ACC result` and save flow for the metrics score across variants. Each paired
+report and its no-metrics evidence remain local; publish only the metrics variants. If a question
+that uses the changed metric gets worse, withdraw that release with `registry__withdraw_release`,
+which puts `latest` back on the previous version, and say so. A question on another metric that
+gets worse is a miss for the next fix, never a reason to undo this one.
 
 With every question right after the test again, go to step 5. With a miss left, ask "Does the
 score look good?" again as step 3 describes, with the new score; Improve it finds the next fix.
 
 ## 5. The result
+
+For a paired check, run the verified metrics arm through `comparison_export.py` first. This
+`ACC result` and save procedure then reports and saves only the imported metrics variant or
+variants. The paired report and its without-metrics evidence remain local and are not registered
+as an Atlan Trident baseline.
 
 The result block is the `text` that `ACC result --evals <evals-run> --agent <agent> --firm <firm>`
 prints, put as it is: add `--changed "<what changed, plain words>"` after a fix, `--misses "<what

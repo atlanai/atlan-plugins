@@ -46,6 +46,18 @@ command as separate argv entries; zsh does not split a string holding one.
 3. **Run and score it** as [run it](references/run.md#run-it) describes, then show the score as
    [show the score](references/run.md#show-the-score) describes.
 
+## Compare with and without metrics
+
+When the demo requests a paired comparison after loading a set, follow
+[paired comparison](references/paired-comparison.md). On a supported local SQLite demo and
+Codex CLI, the paired runner owns both arms and its comparison report is the initial result.
+Do not also run the ordinary `EVAL` baseline: that is a separate with-context scoring flow and
+would duplicate the questions. After verifying the complete pair, use `comparison_export.py` to
+import only the metrics arm as the ordinary EVAL `baseline`; the paired report and no-metrics
+evidence remain local. `ACC result` and the ordinary save flow then apply to the metrics score.
+For later fixes, follow the paired retest path in the reference instead of ordinary test-again,
+so the questions keep the same answering protocol.
+
 ## Test again
 
 After the context changed, [test again](references/run.md#test-again) on the same eval folder,

@@ -1,0 +1,36 @@
+schema_version: "1.1"
+name: demo-paired-accuracy-no-run
+tags: [analytics, demo, evals, regression]
+execution:
+  prompt: |
+    Use Atlan Analytics to continue the Ticketfuddle demo from this saved checkpoint.
+    The context is built and saved to my personal workspace in Atlan Trident: 6 metrics and
+    9 queries. From the next-action choice I picked "Check how accurate it is" and approved
+    the questions. No Codex CLI or isolated-agent execution capability is available here.
+    Read plugin instructions only in this test; do not execute commands or contact services.
+    The host exposes no native question tool in this test, so use ordinary chat.
+    Don't mention this test's limits in your reply. Say briefly what happens and what I decide.
+  max_turns: 16
+  allowed_tools: [Read, Glob, Grep, Skill]
+graders:
+  - name: reads-paired-workflow
+    type: tool_used
+    tool: Read
+    input_match: 'analytics-demo/references/accuracy\.md'
+    min: 1
+  - name: no-shell
+    type: tool_used
+    tool: Bash
+    min: 0
+    max: 0
+  - name: no-false-paired-score
+    type: llm
+    focus: last_message
+    criteria: |
+      PASS if the reply says no comparison has run, the prepared questions or inputs remain
+      available for a later supported run, and it does not use the ordinary with-context
+      baseline as a no-metrics score. It may say the paired route needs Codex CLI or another
+      verifiable isolated-agent host.
+      FAIL if it invents answers or scores, claims the paired comparison completed, starts the
+      ordinary EVAL run as a substitute, or asks the person to approve a fix before seeing a
+      paired report.
