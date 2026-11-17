@@ -405,18 +405,24 @@ def judge_brief(question: str, gold_res, agent_res, gold_sql: str, answer: dict,
 
 
 _RAW_TOOL = re.compile(r"^Skill$|registry__|extension__|__search_tools$|__call_(read_)?tool$", re.I)
+_WAREHOUSE_TOOL = re.compile(r"sql|query|statement|execute", re.I)  # the one MCP kind a raw-source agent may use
+_HOST_UI = ("mcp__ccd_",)  # the desktop app's own session and pane tools: they carry no data definitions
 
 
 def raw_hits(turns: list, run: str) -> list:
-    """Tool calls that gave a raw-source agent the prepared context: a skill, an Atlan tool, or
-    anything naming the run's context folder. A before pass that read the context is no before."""
+    """Tool calls that could give a raw-source agent prepared context: a skill, an Atlan tool, any
+    other MCP server than the warehouse's (another agent or catalog on the machine carries its own
+    definitions), or anything naming the run's context folder. A before pass that read context is
+    no before. An attempt counts: a refused call shows where the agent was reaching."""
     marks = [str(pathlib.Path(run).expanduser() / "context")] if run else []
     hits = []
     for t in turns:
         if t.get("role") != "tool_call":
             continue
         name, blob = t.get("name") or "", t.get("content") or ""
-        if _RAW_TOOL.search(name):
+        other_mcp = name.startswith("mcp__") and not name.startswith(_HOST_UI) \
+            and not _WAREHOUSE_TOOL.search(name.split("__")[-1])
+        if _RAW_TOOL.search(name) or other_mcp:
             hits.append(f"{name}: prepared context is not part of a raw-source run")
         elif any(m in blob for m in marks):
             hits.append(f"{name}: read the run's context folder")
@@ -1038,8 +1044,8 @@ def cmd_record(a) -> dict:
              "reason": "the agent reached eval data: " + "; ".join(tr["contaminated"][:3])}
     elif raw_seen:
         g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
-             "class": "invalid_contaminated",
-             "reason": "a raw-source run used the prepared context: " + "; ".join(raw_seen[:3])}
+             "class": RAW_USED_CONTEXT,
+             "reason": "a raw-source run reached for prepared context, so it leaves the score: " + "; ".join(raw_seen[:3])}
     turns = tr["turns"] or [{"role": "user", "content": cases[a.case]["question"]},
                             {"role": "assistant", "content": ans.get("answer", "")}]
     dump_json(vd / "traces" / f"{tag}.json", turns)
@@ -1228,7 +1234,10 @@ def cmd_agent_result(a) -> dict:
     return {"status": "ok", "source": res["source"], "rows": len(res["rows"]), "out": a.out}
 
 
-UNSCORED = ("harness_error", "gold_error", "incomplete")
+RAW_USED_CONTEXT = "raw_used_context"
+# A raw-source answer that reached for prepared context leaves the score rather than failing it:
+# counted as a miss, it would lower the before score and flatter the context.
+UNSCORED = ("harness_error", "gold_error", "incomplete", RAW_USED_CONTEXT)
 JUDGED = "judged"  # a fuzzy case the grader agent judged: its own rate, never mixed into the result-set rate
 
 
@@ -2465,7 +2474,10 @@ def _selftest_inputs(ok) -> None:
         ok("without --judge a refused answer is a wrong result at once",
            rec2("raw", "c2", judge=False)["class"] == "wrong_result")
         peeked = rec2("raw", "c1", transcript=str(pr / "skill.jsonl"), raw=str(pr / "run"))
-        ok("a raw-source answer that used a skill is contaminated", peeked["class"] == "invalid_contaminated")
+        ok("a raw-source answer that used a skill leaves the score", peeked["class"] == RAW_USED_CONTEXT)
+        ok("a raw-source run may use the warehouse tool and nothing else from MCP",
+           raw_hits([{"role": "tool_call", "name": "mcp__wh__sql_exec_tool", "content": "{}"}], "") == []
+           and len(raw_hits([{"role": "tool_call", "name": "mcp__other__ask_analyst", "content": "{}"}], "")) == 1)
         put("raw", "c3", [[12.0]])
         ok("a stated statement with no result is not recorded as a miss",
            blocked(lambda: rec2("raw", "c3", agent_result=None, judge=False)))
@@ -2481,11 +2493,12 @@ def _selftest_inputs(ok) -> None:
                        {"columns": ["n"], "rows": [[1]]}, "", {}, "row count") is None)
         rec2("raw", "c3", judge=False)
         ba = cmd_before_after(argparse.Namespace(dir=d, before="raw", after="ctx"))
+        # c1's raw answer reached for context, so c1 leaves both sides: the two rates share c2 and c3.
         ok("before and after count the same questions",
-           ba["questions"] == 3 and ba["correct"] == {"before": 0, "after": 2} and ba["right_only_after"] == ["c1", "c2"]
-           and ba["wrong_both"] == 1 and ba["judge_passed"] == {"before": 0, "after": 1})
+           ba["questions"] == 2 and ba["correct"] == {"before": 0, "after": 1} and ba["right_only_after"] == ["c2"]
+           and ba["wrong_both"] == 1 and ba["judge_passed"] == {"before": 0, "after": 1} and ba["left_out"] == ["c1"])
         ok("the report states both scores and both times",
-           "0 of 3" in ba["report"] and "2 of 3" in ba["report"] and "67%" in ba["report"] and "10 s" in ba["report"])
+           "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)

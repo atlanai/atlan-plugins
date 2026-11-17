@@ -150,8 +150,9 @@ again, each to a fresh agent that has only the source's tables and no context, a
      {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>"}
      ```
    - Its files go under `<evals-run>/hillclimb/raw/` and every `EVAL` call names `--variant raw`.
-   - `EVAL record` adds `--raw <run>`: an answer whose agent used a skill, an Atlan tool or the
-     run's context folder fails as contaminated. It keeps `--judge`: both passes are graded the
+   - `EVAL record` adds `--raw <run>`: an answer whose agent reached for a skill, an Atlan tool,
+     any MCP server other than the warehouse's, or the run's context folder is `raw_used_context`
+     and leaves both scores, as `report` says. Counted as a miss, it would flatter the context. It keeps `--judge`: both passes are graded the
      same way.
 2. `EVAL summary --variant raw --require-isolation` must show one row per question.
 3. `EVAL before-after --before raw --after baseline` returns `report`: both scores, the time per
