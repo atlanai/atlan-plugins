@@ -178,7 +178,7 @@ def cmd_result(a) -> dict:
             raise Blocked("After a fix, say what changed (--changed), in plain words.")
         lines.append(f"Your {a.agent} has reached 100% accuracy, up from {first['pct']}%, now that {a.changed}.")
     elif right:
-        lines.append(f"Your {a.agent} is at 100% accuracy on the {last['n']} questions {a.firm}'s analysts ask most.")
+        lines.append(f"Your {a.agent} is at 100% accuracy on the {last['n']} questions in this check.")
     else:
         if not a.misses:
             raise Blocked("With misses left, say what they share (--misses), in plain words.")

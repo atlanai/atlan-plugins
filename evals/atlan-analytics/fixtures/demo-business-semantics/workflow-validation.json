@@ -1,0 +1,1825 @@
+{
+  "status": "completed_with_findings",
+  "tested_product_head": "5a334173876037fd53450554954b4f2b78835509",
+  "execution": "Native agents follow analytics-demo with preselected user decisions, fresh source builds, default generated-eight check, then separate supplied-ten check. No synthetic faults.",
+  "limitations": [
+    "Headless decisions and emitted blocks, not interactive client rendering.",
+    "Default generated questions and explicitly supplied fixtures are separate paths; fixtures are not automatically injected.",
+    "Source review warnings and unavailable dashboard display-value parity remain disclosed in build evidence.",
+    "Ticketfuddle original X2 authoring record misstated a population; supported replay with corrected X2 validated byte-identical metrics and query changes limited to witness timestamps. Evaluated semantic context was unchanged."
+  ],
+  "workflow_fix": {
+    "commit": "5a33417",
+    "problem": "CHECK start omitted approved local join tables by listing only metric base entities. Earlier custom answering worker bypassed this handoff.",
+    "change": "Local execution metadata now uses the approved binding table list, with legacy fallback.",
+    "verification": "SQLite and DuckDB regression failed before; 28 eval-scope tests and full 665-test suite passed after."
+  },
+  "demos": {
+    "fixit": {
+      "default": {
+        "path": "default generated eight",
+        "questions": [
+          {
+            "id": "mined-03",
+            "question": "What is our total gross margin?",
+            "gold_sql": "SELECT SUM(T.AMOUNT_GBP) AS GROSS_MARGIN FROM (SELECT P.CONTRACT_VALUE_GBP AS AMOUNT_GBP FROM SITE.PROJECTS AS P WHERE P.STATUS <> 'cancelled' UNION ALL SELECT -SUM(W.HOURS * C.HOURLY_RATE_GBP) AS _COL_3 FROM SITE.WORK_LOGS AS W JOIN SITE.CREW AS C ON C.CREW_ID = W.CREW_ID JOIN SITE.PROJECTS AS P ON P.PROJECT_ID = W.PROJECT_ID WHERE P.STATUS <> 'cancelled' GROUP BY P.PROJECT_ID, P.PROJECT_NAME UNION ALL SELECT -SUM(O.QUANTITY * O.UNIT_COST_GBP) AS _COL_3 FROM SITE.MATERIAL_ORDERS AS O JOIN SITE.PROJECTS AS P ON P.PROJECT_ID = O.PROJECT_ID WHERE O.ORDER_STATUS = 'delivered' AND P.STATUS <> 'cancelled' GROUP BY P.PROJECT_ID, P.PROJECT_NAME) AS T"
+          },
+          {
+            "id": "mined-09",
+            "question": "What is the gross margin for each job?",
+            "gold_sql": "SELECT T.PROJECT_NAME, SUM(T.AMOUNT_GBP) AS GROSS_MARGIN FROM (SELECT P.PROJECT_NAME, P.CONTRACT_VALUE_GBP AS AMOUNT_GBP FROM SITE.PROJECTS AS P WHERE P.STATUS <> 'cancelled' UNION ALL SELECT P.PROJECT_NAME, -SUM(W.HOURS * C.HOURLY_RATE_GBP) AS _COL_3 FROM SITE.WORK_LOGS AS W JOIN SITE.CREW AS C ON C.CREW_ID = W.CREW_ID JOIN SITE.PROJECTS AS P ON P.PROJECT_ID = W.PROJECT_ID WHERE P.STATUS <> 'cancelled' GROUP BY P.PROJECT_ID, P.PROJECT_NAME UNION ALL SELECT P.PROJECT_NAME, -SUM(O.QUANTITY * O.UNIT_COST_GBP) AS _COL_3 FROM SITE.MATERIAL_ORDERS AS O JOIN SITE.PROJECTS AS P ON P.PROJECT_ID = O.PROJECT_ID WHERE O.ORDER_STATUS = 'delivered' AND P.STATUS <> 'cancelled' GROUP BY P.PROJECT_ID, P.PROJECT_NAME) AS T GROUP BY T.PROJECT_NAME HAVING (NOT SUM(T.AMOUNT_GBP) IS NULL)"
+          },
+          {
+            "id": "mined-05",
+            "question": "How many jobs were late?",
+            "gold_sql": "SELECT (NULLIF(COUNT(CASE WHEN UPPER(RTRIM(T.DELIVERY)) = 'LATE' THEN 1 END), 0)) AS LATE_JOBS FROM (SELECT CASE WHEN CAST(JULIANDAY(P.ACTUAL_END_DATE) - JULIANDAY(P.PLANNED_END_DATE) AS INT) > 7 THEN 'late' ELSE 'on_time' END AS DELIVERY FROM SITE.PROJECTS AS P WHERE P.STATUS = 'complete') AS T"
+          },
+          {
+            "id": "mined-07",
+            "question": "What share of jobs finished on time?",
+            "gold_sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_rate\nFROM site.projects WHERE status = 'complete'"
+          },
+          {
+            "id": "mined-13",
+            "question": "How much did rework cost on each job?",
+            "gold_sql": "SELECT p.project_name, SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp\nFROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id JOIN site.projects p ON p.project_id = w.project_id\nWHERE w.task_type = 'rework' GROUP BY 1 ORDER BY 2 DESC"
+          },
+          {
+            "id": "mined-04",
+            "question": "How much did rework cost for each crew member?",
+            "gold_sql": "SELECT T.CREW_NAME, (SUM(CASE WHEN UPPER(RTRIM(T.TASK_TYPE)) = 'REWORK' THEN T.COST_GBP END)) AS REWORK_COST FROM (SELECT W.TASK_TYPE, C.CREW_NAME, W.HOURS * C.HOURLY_RATE_GBP AS COST_GBP FROM SITE.WORK_LOGS AS W JOIN SITE.CREW AS C ON C.CREW_ID = W.CREW_ID) AS T GROUP BY T.CREW_NAME HAVING (NOT (SUM(CASE WHEN UPPER(RTRIM(T.TASK_TYPE)) = 'REWORK' THEN T.COST_GBP END)) IS NULL)"
+          },
+          {
+            "id": "mined-02",
+            "question": "How billable is each crew member’s time?",
+            "gold_sql": "SELECT c.crew_name, SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) / SUM(w.hours) AS billable_utilisation\nFROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id GROUP BY 1 ORDER BY 2"
+          },
+          {
+            "id": "mined-17",
+            "question": "What share of material value was wasted for each material?",
+            "gold_sql": "SELECT material, SUM(wasted_quantity * unit_cost_gbp) / SUM(quantity * unit_cost_gbp) AS waste_pct\nFROM site.material_orders WHERE order_status = 'delivered' GROUP BY material ORDER BY waste_pct DESC"
+          }
+        ],
+        "runs": [
+          {
+            "variant": "raw",
+            "cases": 8,
+            "passed": 0,
+            "isolation_unverified": 0,
+            "score_line": "0% accuracy: 0 of 8 answered correctly (likely between 0% and 32%; a small sample)",
+            "prior_harness_error_rows": 2,
+            "results": [
+              {
+                "prompt_id": "mined-02",
+                "prompt": "How billable is each crew member’s time?",
+                "class": "wrong_result",
+                "reason": "The question asks how billable each crew member’s time is; the agent reports 0% for everyone, while the trusted rows show different utilization shares (for example, Rob is 77.0%).",
+                "model": "gpt-6.2-sol",
+                "answer": "No crew member had hours explicitly labeled “billable” in the work logs. Under that definition, each had 0 billable hours (0% of logged time). Total logged hours were Dig 496, Flatt 138, Lanky 389, Rob 870, Sprout 165.5, Tipper 482, Wanda 983.5, and Whirl 517. The schema has no dedicated billability field, so actual billable shares remain undetermined.",
+                "sql": "SELECT\n  c.crew_id,\n  c.crew_name,\n  ROUND(COALESCE(SUM(w.hours), 0), 2) AS total_hours,\n  ROUND(SUM(CASE WHEN LOWER(TRIM(w.task_type)) = 'billable' THEN COALESCE(w.hours, 0) ELSE 0 END), 2) AS billable_hours,\n  ROUND(100.0 * SUM(CASE WHEN LOWER(TRIM(w.task_type)) = 'billable' THEN COALESCE(w.hours, 0) ELSE 0 END) / NULLIF(SUM(w.hours), 0), 2) AS billable_pct\nFROM site.crew AS c\nLEFT JOIN site.work_logs AS w ON w.crew_id = c.crew_id\nGROUP BY c.crew_id, c.crew_name\nORDER BY billable_pct DESC NULLS LAST, c.crew_name, c.crew_id\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 3
+                }
+              },
+              {
+                "prompt_id": "mined-03",
+                "prompt": "What is our total gross margin?",
+                "class": "wrong_result",
+                "reason": "The question asks for total gross margin, and the agent's value (100,951) differs from the trusted value (118,681).",
+                "model": "gpt-6.2-sol",
+                "answer": "Total gross margin is £100,951.00, or 21.13% of total contract value, after deducting logged labor costs and all material order costs.",
+                "sql": "WITH labor AS (\n    SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS cost_gbp\n    FROM site.work_logs AS w\n    JOIN site.crew AS c ON c.crew_id = w.crew_id\n    GROUP BY w.project_id\n),\nmaterials AS (\n    SELECT project_id, SUM(quantity * unit_cost_gbp) AS cost_gbp\n    FROM site.material_orders\n    GROUP BY project_id\n),\ntotals AS (\n    SELECT SUM(p.contract_value_gbp) AS revenue_gbp,\n           SUM(COALESCE(l.cost_gbp, 0) + COALESCE(m.cost_gbp, 0)) AS direct_cost_gbp\n    FROM site.projects AS p\n    LEFT JOIN labor AS l ON l.project_id = p.project_id\n    LEFT JOIN materials AS m ON m.project_id = p.project_id\n)\nSELECT ROUND(revenue_gbp - direct_cost_gbp, 2) AS gross_margin_gbp,\n       ROUND(100.0 * (revenue_gbp - direct_cost_gbp) / NULLIF(revenue_gbp, 0), 2) AS gross_margin_pct\nFROM totals\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                }
+              },
+              {
+                "prompt_id": "mined-05",
+                "prompt": "How many jobs were late?",
+                "class": "wrong_result",
+                "reason": "The question asks how many jobs were late; the trusted rows give 2 and the agent rows give 3.",
+                "model": "gpt-6.2-sol",
+                "answer": "3 jobs finished after their planned end date.",
+                "sql": "SELECT COUNT(DISTINCT project_id) AS late_jobs FROM site.projects WHERE DATE(actual_end_date) > DATE(planned_end_date) LIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-04",
+                "prompt": "How much did rework cost for each crew member?",
+                "class": "wrong_result",
+                "reason": "Sprout is an extra crew member with £0.00 rework cost; the trusted rows include only seven crew members.",
+                "model": "gpt-6.2-sol",
+                "answer": "Rework labour cost by crew member, calculated as logged rework hours multiplied by the crew member’s hourly rate:\nWanda £10,500.00\nRob £6,705.00\nLanky £6,120.00\nDig £5,040.00\nWhirl £3,500.00\nTipper £1,760.00\nFlatt £175.00\nSprout £0.00",
+                "sql": "SELECT c.crew_name,\n       ROUND(COALESCE(SUM(w.hours * c.hourly_rate_gbp), 0), 2) AS rework_cost_gbp\nFROM site.crew AS c\nLEFT JOIN site.work_logs AS w\n  ON w.crew_id = c.crew_id\n AND LOWER(TRIM(w.task_type)) = 'rework'\nGROUP BY c.crew_id, c.crew_name\nORDER BY rework_cost_gbp DESC, c.crew_name, c.crew_id\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-09",
+                "prompt": "What is the gross margin for each job?",
+                "class": "wrong_result",
+                "reason": "The agent adds Jojo's Yard Fence, which is absent from the trusted rows; it also reports different gross profit for Farmer Marrow's Barn Extension and Mr Bramley's Office Refit.",
+                "model": "gpt-6.2-sol",
+                "answer": "Gross margin is contract value less logged labor costs and all recorded material order costs, divided by contract value. Gross profit is shown in parentheses.\n\n- P01 Mrs Kettle's Pergola — 32.68% (£3,202.50)\n- P02 Farmer Marrow's Barn Extension — 15.02% (£10,817.00)\n- P03 Buttercup Vale Wind Turbine Base — −13.55% (−£20,320.00)\n- P04 Sprout's Scarecrow Workshop — −11.62% (−£1,220.00)\n- P05 Hammerton Skate Park — 25.36% (£24,344.00)\n- P06 Town Hall Clock Tower Repair — 50.38% (£27,205.00)\n- P07 Jojo's Yard Fence — 100.00% (£3,200.00)\n- P08 Mr Bramley's Office Refit — 76.03% (£46,377.00)\n- P09 Buttercup Vale Bus Shelter — 40.53% (£8,512.00)\n- P10 Kipper's Cat Flap — −777.67% (−£1,166.50)",
+                "sql": "WITH labor AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labor_cost_gbp\n  FROM site.work_logs AS w\n  JOIN site.crew AS c ON c.crew_id = w.crew_id\n  GROUP BY w.project_id\n), materials AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS material_cost_gbp\n  FROM site.material_orders\n  GROUP BY project_id\n), margins AS (\n  SELECT p.project_id, p.project_name, p.contract_value_gbp,\n         p.contract_value_gbp - COALESCE(l.labor_cost_gbp, 0)\n                              - COALESCE(m.material_cost_gbp, 0) AS gross_profit_gbp\n  FROM site.projects AS p\n  LEFT JOIN labor AS l ON l.project_id = p.project_id\n  LEFT JOIN materials AS m ON m.project_id = p.project_id\n)\nSELECT project_id, project_name,\n       ROUND(gross_profit_gbp, 2) AS gross_profit_gbp,\n       ROUND(100.0 * gross_profit_gbp / NULLIF(contract_value_gbp, 0), 2) AS gross_margin_pct\nFROM margins\nORDER BY project_id\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "mined-13",
+                "prompt": "How much did rework cost on each job?",
+                "class": "wrong_result",
+                "reason": "The agent adds three jobs with £0.00 rework cost that are absent from the trusted results.",
+                "model": "gpt-6.2-sol",
+                "answer": "Rework labour cost by job, calculated from logged rework hours and crew hourly rates:\nP01 — Mrs Kettle's Pergola: £0.00\nP02 — Farmer Marrow's Barn Extension: £1,200.00\nP03 — Buttercup Vale Wind Turbine Base: £30,084.00\nP04 — Sprout's Scarecrow Workshop: £1,596.00\nP05 — Hammerton Skate Park: £175.00\nP06 — Town Hall Clock Tower Repair: £0.00\nP07 — Jojo's Yard Fence: £0.00\nP08 — Mr Bramley's Office Refit: £160.00\nP09 — Buttercup Vale Bus Shelter: £180.00\nP10 — Kipper's Cat Flap: £405.00",
+                "sql": "WITH rework AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS cost_gbp\n  FROM site.work_logs AS w\n  JOIN site.crew AS c ON c.crew_id = w.crew_id\n  WHERE LOWER(TRIM(w.task_type)) = 'rework'\n  GROUP BY w.project_id\n)\nSELECT p.project_id, p.project_name,\n       ROUND(COALESCE(r.cost_gbp, 0), 2) AS rework_cost_gbp\nFROM site.projects AS p\nLEFT JOIN rework AS r ON r.project_id = p.project_id\nORDER BY p.project_id\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                }
+              },
+              {
+                "prompt_id": "mined-17",
+                "prompt": "What share of material value was wasted for each material?",
+                "class": "wrong_result",
+                "reason": "The agent's cement share is 14.54%, while the trusted rows give 18.60%; the shares differ beyond rounding.",
+                "model": "gpt-6.2-sol",
+                "answer": "Share of ordered material value wasted, across all recorded orders: bricks 2.11%, cement 14.54%, nails 8.91%, paint 9.20%, steel rebar 1.41%, and timber 4.12%.",
+                "sql": "SELECT\n    material,\n    ROUND(100.0 * SUM(wasted_quantity * unit_cost_gbp)\n        / NULLIF(SUM(quantity * unit_cost_gbp), 0), 2) AS wasted_value_pct\nFROM site.material_orders\nGROUP BY material\nORDER BY material\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-07",
+                "prompt": "What share of jobs finished on time?",
+                "class": "wrong_result",
+                "reason": "The agent reports 57.14% on time, while the trusted rows give 71.43%; the shares differ.",
+                "model": "gpt-6.2-sol",
+                "answer": "57.14% of finished jobs with both a planned and an actual end date finished on time (4 of 7).",
+                "sql": "SELECT\n  COUNT(*) AS finished_jobs,\n  COUNT(CASE WHEN DATE(actual_end_date) <= DATE(planned_end_date) THEN 1 END) AS on_time_jobs,\n  ROUND(100.0 * COUNT(CASE WHEN DATE(actual_end_date) <= DATE(planned_end_date) THEN 1 END) / NULLIF(COUNT(*), 0), 2) AS on_time_pct\nFROM site.projects\nWHERE DATE(actual_end_date) IS NOT NULL\n  AND DATE(planned_end_date) IS NOT NULL\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              }
+            ]
+          },
+          {
+            "variant": "baseline",
+            "cases": 8,
+            "passed": 8,
+            "isolation_unverified": 0,
+            "score_line": "100% accuracy: 8 of 8 answered correctly (likely between 68% and 100%; a small sample)",
+            "prior_harness_error_rows": 2,
+            "results": [
+              {
+                "prompt_id": "mined-03",
+                "prompt": "What is our total gross margin?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Fixit’s total gross margin is £118,681 across all non-cancelled jobs in the local sample data. It equals contract value less labour costs, including rework, and delivered material costs.",
+                "sql": "SELECT SUM(t.amount_gbp) AS gross_margin\nFROM (\n  SELECT p.project_id, p.project_name, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, 'labour', -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, 'materials', -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n) t\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-02",
+                "prompt": "How billable is each crew member’s time?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Across all logged dates in Fixit’s local sample data, the share of each crew member’s hours that was billable was Sprout 56.8%, Wanda 71.4%, Whirl 72.9%, Rob 77.0%, Lanky 81.5%, Dig 83.1%, Tipper 90.9%, and Flatt 96.4%. The Billable Utilisation metric divides billable hours by total logged hours. Tea breaks, yard tidy, rework, and sprout helping count toward total hours only.",
+                "sql": "SELECT c.crew_name,\n       SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) / SUM(w.hours) AS billable_utilisation\nFROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id\nGROUP BY 1\nORDER BY 2\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:yard:920df685006d",
+                  "vq:yard:1615df7b69e02dea",
+                  "vq:yard:5e0c33b561b6fef7",
+                  "vq:yard:8ea7a02e0a3ec04b"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-05",
+                "prompt": "How many jobs were late?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "2 completed jobs in Fixit’s local sample data were handed over more than seven days after their planned end date.",
+                "sql": "SELECT NULLIF(COUNT(CASE WHEN CAST(julianday(site.projects.actual_end_date) - julianday(site.projects.planned_end_date) AS INTEGER) > 7 THEN 1 END), 0) AS late_jobs\nFROM site.projects\nWHERE site.projects.status = 'complete'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:f2d1b3bdb072",
+                  "metric:yard:a9b426873ea5",
+                  "metric:yard:6b818dbd2f10",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-04",
+                "prompt": "How much did rework cost for each crew member?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Across all dates in Fixit’s local sample data, rework cost £10,500 for Wanda, £6,705 for Rob, £6,120 for Lanky, £5,040 for Dig, £3,500 for Whirl, £1,760 for Tipper, and £175 for Flatt. The saved Rework Cost by Crew query multiplies logged rework hours by the applicable hourly rate and omits crew members with no recorded rework cost.",
+                "sql": "SELECT t.crew_name,\n       (SUM(CASE WHEN UPPER(RTRIM(t.task_type)) = 'REWORK' THEN t.cost_gbp END)) AS rework_cost\nFROM   (\nSELECT w.log_id, w.project_id, w.work_date, w.task_type, c.crew_name, c.crew_type, w.hours,        w.hours * c.hourly_rate_gbp AS cost_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id\n) t\nGROUP BY t.crew_name\nHAVING ((SUM(CASE WHEN UPPER(RTRIM(t.task_type)) = 'REWORK' THEN t.cost_gbp END)) IS NOT NULL)\nORDER BY rework_cost DESC, t.crew_name\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "metric:yard:d150bcceca43",
+                  "metric:yard:95d1b7020e9a",
+                  "metric:yard:920df685006d",
+                  "metric:yard:6b818dbd2f10",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-rewo",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-rewo-e86e7359"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-07",
+                "prompt": "What share of jobs finished on time?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "In Fixit’s local sample data, 5 of 7 completed jobs (71.4%) finished on time. The On Time Completion Rate counts jobs handed over no more than seven days after their planned end date.",
+                "sql": "SELECT\n  COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_completion_rate,\n  COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) AS on_time_jobs,\n  COUNT(*) AS completed_jobs\nFROM site.projects\nWHERE status = 'complete'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:17d64161c612"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "mined-09",
+                "prompt": "What is the gross margin for each job?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Local sample data. Fixit’s Gross Margin metric subtracts labour costs, including rework, and delivered material costs from contract value. It excludes cancelled jobs. The local Gross Margin by Job query is marked unreviewed.\n\n| Job | Gross margin |\n|---|---:|\n| Buttercup Vale Bus Shelter | £8,512.00 |\n| Buttercup Vale Wind Turbine Base | −£6,360.00 |\n| Farmer Marrow's Barn Extension | £16,137.00 |\n| Hammerton Skate Park | £24,344.00 |\n| Kipper's Cat Flap | −£646.50 |\n| Mr Bramley's Office Refit | £46,467.00 |\n| Mrs Kettle's Pergola | £3,202.50 |\n| Sprout's Scarecrow Workshop | −£180.00 |\n| Town Hall Clock Tower Repair | £27,205.00 |",
+                "sql": "SELECT t.project_name, SUM(t.amount_gbp) AS gross_margin\nFROM (\n    SELECT p.project_id, p.project_name, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp\n    FROM site.projects p\n    WHERE p.status <> 'cancelled'\n    UNION ALL\n    SELECT p.project_id, p.project_name, 'labour', -SUM(w.hours * c.hourly_rate_gbp)\n    FROM site.work_logs w\n    JOIN site.crew c ON c.crew_id = w.crew_id\n    JOIN site.projects p ON p.project_id = w.project_id\n    WHERE p.status <> 'cancelled'\n    GROUP BY p.project_id, p.project_name\n    UNION ALL\n    SELECT p.project_id, p.project_name, 'materials', -SUM(o.quantity * o.unit_cost_gbp)\n    FROM site.material_orders o\n    JOIN site.projects p ON p.project_id = o.project_id\n    WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n    GROUP BY p.project_id, p.project_name\n) t\nGROUP BY t.project_name\nHAVING (SUM(t.amount_gbp) IS NOT NULL)\nORDER BY t.project_name\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-13",
+                "prompt": "How much did rework cost on each job?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Across all dates in the local sample, seven jobs had work logged exactly as `rework`. Using logged hours multiplied by crew hourly rates, the costs were:\n\n- Buttercup Vale Wind Turbine Base — £30,084\n- Sprout's Scarecrow Workshop — £1,596\n- Farmer Marrow's Barn Extension — £1,200\n- Kipper's Cat Flap — £405\n- Buttercup Vale Bus Shelter — £180\n- Hammerton Skate Park — £175\n- Mr Bramley's Office Refit — £160\n\nThese figures use Fixit's Rework Cost for Linked Jobs metric and its verified Rework Cost by Job query. The job-specific definition requires matching job and crew records and uses an exact task label. The general Rework Cost metric ignores case and trailing spaces.",
+                "sql": "SELECT p.project_name, SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp\nFROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id JOIN site.projects p ON p.project_id = w.project_id\nWHERE w.task_type = 'rework' GROUP BY 1 ORDER BY 2 DESC\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "metric:yard:d150bcceca43",
+                  "metric:yard:95d1b7020e9a",
+                  "metric:yard:6b818dbd2f10",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c",
+                  "vq:yard:d90e003a24ac335d"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-17",
+                "prompt": "What share of material value was wasted for each material?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Across all delivered orders in Fixit’s local sample data, the share of each material’s value wasted was 18.60% for cement, 10.89% for nails, 9.20% for paint, 4.31% for timber, 3.15% for bricks, and 1.41% for steel rebar. The Material Waste Share metric divides wasted value by delivered value for each material, using each order’s unit cost.",
+                "sql": "SELECT material,\n       1.0 * SUM(wasted_quantity * unit_cost_gbp)\n           / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS material_waste_share\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY material\nORDER BY material_waste_share DESC, material\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:yard:f2d1b3bdb072",
+                  "metric:yard:3c0c5bf8d3f6",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              }
+            ]
+          }
+        ],
+        "status": "complete"
+      },
+      "supplied": {
+        "path": "explicitly supplied ten",
+        "questions": [
+          {
+            "id": "late_jobs_discount",
+            "question": "How many completed jobs incurred the late-completion discount?",
+            "gold_sql": "SELECT COUNT(*) AS late_jobs FROM projects WHERE status='complete' AND CAST(julianday(actual_end_date)-julianday(planned_end_date) AS INTEGER)>7"
+          },
+          {
+            "id": "on_time_handover_rate",
+            "question": "What share of our finished jobs made handover on time?",
+            "gold_sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date)-julianday(planned_end_date) AS INTEGER)<=7 THEN 1 END)*1.0/COUNT(*) AS on_time_rate FROM projects WHERE status='complete'"
+          },
+          {
+            "id": "material_waste_gbp",
+            "question": "What did the material we sent to the skip cost us?",
+            "gold_sql": "SELECT SUM(wasted_quantity*unit_cost_gbp) AS material_waste_gbp FROM material_orders WHERE order_status='delivered'"
+          },
+          {
+            "id": "dig_rework_cost",
+            "question": "How much did crew member Dig’s rework cost?",
+            "gold_sql": "SELECT SUM(w.hours*c.hourly_rate_gbp) AS rework_cost_gbp FROM work_logs w JOIN crew c USING(crew_id) WHERE w.task_type='rework' AND c.crew_name='Dig'"
+          },
+          {
+            "id": "total_rework_labour_cost",
+            "question": "How much did rework labour cost in total?",
+            "gold_sql": "SELECT SUM(w.hours*c.hourly_rate_gbp) AS total_rework_labour_cost_gbp FROM work_logs w JOIN crew c USING(crew_id) WHERE w.task_type='rework'"
+          },
+          {
+            "id": "delivered_material_spend",
+            "question": "How much did delivered material cost us in total?",
+            "gold_sql": "SELECT SUM(quantity*unit_cost_gbp) AS delivered_material_spend_gbp FROM material_orders WHERE order_status='delivered'"
+          },
+          {
+            "id": "billable_share",
+            "question": "What share of the yard’s logged time went to work we could charge clients for?",
+            "gold_sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break','yard_tidy','rework','sprout_helping') THEN hours ELSE 0 END)*1.0/NULLIF(SUM(hours),0) AS billable_utilisation FROM work_logs"
+          },
+          {
+            "id": "supplier_skip_waste_rate",
+            "question": "What is each supplier’s skip-waste percentage?",
+            "gold_sql": "SELECT supplier,SUM(wasted_quantity*unit_cost_gbp)*1.0/NULLIF(SUM(quantity*unit_cost_gbp),0) AS material_waste_rate FROM material_orders WHERE order_status='delivered' GROUP BY supplier ORDER BY material_waste_rate DESC"
+          },
+          {
+            "id": "late_jobs_gross_margin",
+            "question": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "gold_sql": "WITH labour AS (SELECT w.project_id,SUM(w.hours*c.hourly_rate_gbp) AS cost FROM work_logs w JOIN crew c USING(crew_id) GROUP BY w.project_id), materials AS (SELECT project_id,SUM(quantity*unit_cost_gbp) AS cost FROM material_orders WHERE order_status='delivered' GROUP BY project_id) SELECT SUM(p.contract_value_gbp-COALESCE(l.cost,0)-COALESCE(m.cost,0)) AS gross_margin_gbp FROM projects p LEFT JOIN labour l USING(project_id) LEFT JOIN materials m USING(project_id) WHERE p.status='complete' AND CAST(julianday(p.actual_end_date)-julianday(p.planned_end_date) AS INTEGER)>7"
+          },
+          {
+            "id": "nonbillable_paid_time_cost",
+            "question": "In total, what did labour for nonbillable time cost us?",
+            "gold_sql": "SELECT SUM(w.hours*c.hourly_rate_gbp) AS nonbillable_time_cost_gbp FROM work_logs w JOIN crew c USING(crew_id) WHERE w.task_type IN ('tea_break','yard_tidy','rework','sprout_helping')"
+          }
+        ],
+        "runs": [
+          {
+            "variant": "raw",
+            "cases": 10,
+            "passed": 4,
+            "isolation_unverified": 0,
+            "score_line": "40% accuracy: 4 of 10 answered correctly (likely between 17% and 69%; a small sample)",
+            "prior_harness_error_rows": 0,
+            "results": [
+              {
+                "prompt_id": "delivered_material_spend",
+                "prompt": "How much did delivered material cost us in total?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "£174,201.00",
+                "sql": "SELECT ROUND(SUM(quantity * unit_cost_gbp), 2) AS total_cost_gbp FROM site.material_orders WHERE LOWER(order_status) = 'delivered' LIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "dig_rework_cost",
+                "prompt": "How much did crew member Dig’s rework cost?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Dig’s rework cost £5,040.00 in labor.",
+                "sql": "SELECT ROUND(SUM(w.hours * c.hourly_rate_gbp), 2) AS rework_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE LOWER(TRIM(c.crew_name)) = 'dig'\n  AND LOWER(TRIM(w.task_type)) = 'rework'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "billable_share",
+                "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+                "class": "wrong_result",
+                "reason": "The agent reports 98.52% of time on projects with named clients, while the question asks for the share of time spent on billable work; the trusted answer is 77.78%, so the measures differ.",
+                "model": "gpt-6.2-sol",
+                "answer": "98.52% of logged hours were on projects with a named client. This uses client-project time as a proxy for billable time because the schema has no billability field.",
+                "sql": "SELECT ROUND(\n  100.0 * SUM(CASE WHEN EXISTS (\n    SELECT 1\n    FROM site.projects AS p\n    WHERE p.project_id = w.project_id\n      AND NULLIF(TRIM(p.client_name), '') IS NOT NULL\n  ) THEN w.hours ELSE 0 END) / NULLIF(SUM(w.hours), 0),\n  2\n) AS client_project_hours_pct\nFROM site.work_logs AS w\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "late_jobs_discount",
+                "prompt": "How many completed jobs incurred the late-completion discount?",
+                "class": "wrong_result",
+                "reason": "The question asks how many completed jobs incurred the discount; the trusted count is 2, while the agent's count is 0.",
+                "model": "gpt-6.2-sol",
+                "answer": "0",
+                "sql": "SELECT COUNT(DISTINCT project_id) AS completed_jobs_with_late_discount\nFROM site.projects\nWHERE LOWER(status) = 'completed'\n  AND actual_end_date > planned_end_date\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "late_jobs_gross_margin",
+                "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+                "class": "wrong_result",
+                "reason": "The question asks for total gross margin, and the agent returns £0.00 while the trusted rows give -£6,540.00.",
+                "model": "gpt-6.2-sol",
+                "answer": "The query found zero jobs marked 'completed' with an actual end date after the planned end date, yielding £0.00 for that filter. The schema lacks discount records and rules, so the gross margin on jobs that actually received the discount cannot be verified.",
+                "sql": "SELECT COUNT(*) AS completed_late_jobs,\n       CASE WHEN COUNT(*) = 0 THEN 0.0 END AS gross_margin_after_discount_gbp\nFROM site.projects\nWHERE LOWER(TRIM(status)) = 'completed'\n  AND DATE(actual_end_date) > DATE(planned_end_date)\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                }
+              },
+              {
+                "prompt_id": "nonbillable_paid_time_cost",
+                "prompt": "In total, what did labour for nonbillable time cost us?",
+                "class": "wrong_result",
+                "reason": "The question asks for the total labour cost of nonbillable time; the trusted rows return 38705.0, while the agent returns NULL.",
+                "model": "gpt-6.2-sol",
+                "answer": "No total was returned (SQL NULL). The query treated work logs labeled “nonbillable” as nonbillable time, allowing for differences in case, spaces, hyphens, and underscores.",
+                "sql": "SELECT ROUND(SUM(w.hours * c.hourly_rate_gbp), 2) AS nonbillable_labour_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE REPLACE(REPLACE(REPLACE(LOWER(TRIM(w.task_type)), '-', ''), '_', ''), ' ', '') = 'nonbillable'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "on_time_handover_rate",
+                "prompt": "What share of our finished jobs made handover on time?",
+                "class": "wrong_result",
+                "reason": "The question asks what share of finished jobs were on time: the trusted share is 71.43%, while the agent reports 57.14%.",
+                "model": "gpt-6.2-sol",
+                "answer": "57.14% (4 of 7 jobs with a recorded actual end date) finished on or before their planned end date.",
+                "sql": "SELECT\n  COUNT(*) AS finished_jobs,\n  COUNT(CASE WHEN DATE(actual_end_date) <= DATE(planned_end_date) THEN 1 END) AS on_time_jobs,\n  ROUND(100.0 * COUNT(CASE WHEN DATE(actual_end_date) <= DATE(planned_end_date) THEN 1 END) / NULLIF(COUNT(*), 0), 2) AS on_time_pct\nFROM site.projects\nWHERE DATE(actual_end_date) IS NOT NULL\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "supplier_skip_waste_rate",
+                "prompt": "What is each supplier’s skip-waste percentage?",
+                "class": "wrong_result",
+                "reason": "The supplier groups match, but the skip-waste percentages differ: Buttercup Vale Quarry is 9.93% versus 4.57%, and Hammerton Builders' Merchant is 5.90% versus 4.09%.",
+                "model": "gpt-6.2-sol",
+                "answer": "Buttercup Vale Quarry: 9.93%. Hammerton Builders' Merchant: 5.90%. Each percentage is the supplier's total wasted quantity divided by its total ordered quantity, multiplied by 100.",
+                "sql": "SELECT supplier, ROUND(100.0 * SUM(wasted_quantity) / NULLIF(SUM(quantity), 0), 2) AS skip_waste_percentage\nFROM site.material_orders\nGROUP BY supplier\nORDER BY supplier\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "total_rework_labour_cost",
+                "prompt": "How much did rework labour cost in total?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "£33,800.00",
+                "sql": "SELECT ROUND(SUM(w.hours * c.hourly_rate_gbp), 2) AS total_rework_labour_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE LOWER(TRIM(w.task_type)) = 'rework'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "material_waste_gbp",
+                "prompt": "What did the material we sent to the skip cost us?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "The material sent to the skip cost £7,646.50, based on recorded wasted quantities and their unit costs.",
+                "sql": "SELECT ROUND(SUM(wasted_quantity * unit_cost_gbp), 2) AS wasted_material_cost_gbp\nFROM site.material_orders\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              }
+            ]
+          },
+          {
+            "variant": "baseline",
+            "cases": 10,
+            "passed": 10,
+            "isolation_unverified": 0,
+            "score_line": "100% accuracy: 10 of 10 answered correctly (likely between 72% and 100%; a small sample)",
+            "prior_harness_error_rows": 0,
+            "results": [
+              {
+                "prompt_id": "billable_share",
+                "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+                "class": "pass",
+                "reason": "Both rows give a billable share of 77.78% (0.7778 as a fraction).",
+                "model": "gpt-6.2-sol",
+                "answer": "In the local sample data, 77.78% of the yard’s logged time was billable to clients (3,143 of 4,041 hours). The Billable Utilisation metric uses all work logs with a matching crew record and excludes tea breaks, yard tidying, rework, and sprout helping from billable hours.",
+                "sql": "WITH hours AS (\n  SELECT\n    SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) AS billable_hours,\n    SUM(w.hours) AS logged_hours\n  FROM site.work_logs AS w\n  INNER JOIN site.crew AS c ON w.crew_id = c.crew_id\n)\nSELECT billable_hours, logged_hours,\n       ROUND(100.0 * billable_hours / NULLIF(logged_hours, 0), 2) AS billable_percent\nFROM hours\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:920df685006d"
+                ],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "delivered_material_spend",
+                "prompt": "How much did delivered material cost us in total?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Fixit’s delivered materials cost £174,201.00 across all delivered orders in the local sample data.",
+                "sql": "SELECT SUM(quantity * unit_cost_gbp) AS delivered_material_cost_gbp\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:f2d1b3bdb072",
+                  "metric:yard:138642ba364b",
+                  "metric:yard:3c0c5bf8d3f6",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate",
+                  "vq:yard:07d52022023e5a9a",
+                  "vq:yard:0aeadbd12a450cac",
+                  "vq:yard:37281a2c85de58d7",
+                  "vq:yard:6e9b1bc29c865504",
+                  "vq:yard:b73517d1ad26b2b4",
+                  "vq:yard:cdaec82f77996c11"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "late_jobs_discount",
+                "prompt": "How many completed jobs incurred the late-completion discount?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "2 completed jobs incurred the late-completion discount. Both were handed over more than seven days after their planned end date.",
+                "sql": "SELECT NULLIF(COUNT(CASE WHEN CAST(julianday(site.projects.actual_end_date) - julianday(site.projects.planned_end_date) AS INTEGER) > 7 THEN 1 END), 0) AS late_jobs\nFROM site.projects\nWHERE site.projects.status = 'complete'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:a9b426873ea5",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "dig_rework_cost",
+                "prompt": "How much did crew member Dig’s rework cost?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Dig’s rework cost £5,040 across all dates in the local sample data.",
+                "sql": "SELECT SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs AS w\nINNER JOIN site.crew AS c ON w.crew_id = c.crew_id\nWHERE c.crew_name = 'Dig'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "metric:yard:d150bcceca43",
+                  "metric:yard:95d1b7020e9a",
+                  "metric:yard:6b818dbd2f10",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "material_waste_gbp",
+                "prompt": "What did the material we sent to the skip cost us?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "The material Fixit sent to the skip cost £7,646.50 across all delivered orders in the local sample data. The Material Waste metric values the wasted quantity from each order at its unit cost.",
+                "sql": "SELECT SUM(o.wasted_quantity * o.unit_cost_gbp) AS material_waste\nFROM site.material_orders AS o\nWHERE o.order_status = 'delivered'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:3c0c5bf8d3f6",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "late_jobs_gross_margin",
+                "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Total gross margin was −£6,540 on completed jobs handed over more than seven days after their planned end date, the threshold for the late-completion discount.",
+                "sql": "WITH late_jobs AS (\n    SELECT project_id, project_name, contract_value_gbp\n    FROM site.projects\n    WHERE status = 'complete'\n      AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n),\njob_ledger AS (\n    SELECT contract_value_gbp AS amount_gbp\n    FROM late_jobs\n    UNION ALL\n    SELECT -SUM(w.hours * c.hourly_rate_gbp)\n    FROM site.work_logs AS w\n    JOIN site.crew AS c ON c.crew_id = w.crew_id\n    JOIN late_jobs AS p ON p.project_id = w.project_id\n    GROUP BY p.project_id, p.project_name\n    UNION ALL\n    SELECT -SUM(o.quantity * o.unit_cost_gbp)\n    FROM site.material_orders AS o\n    JOIN late_jobs AS p ON p.project_id = o.project_id\n    WHERE o.order_status = 'delivered'\n    GROUP BY p.project_id, p.project_name\n)\nSELECT SUM(amount_gbp) AS gross_margin_gbp\nFROM job_ledger\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late",
+                  "metric:yard:a9b426873ea5"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "nonbillable_paid_time_cost",
+                "prompt": "In total, what did labour for nonbillable time cost us?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Nonbillable labour cost Fixit £38,705.00 across all dates in the local sample data. The total values logged hours for tea breaks, yard tidy, rework and sprout helping at the applicable hourly rates.",
+                "sql": "SELECT ROUND(SUM(w.hours * c.hourly_rate_gbp), 2) AS nonbillable_labour_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping')\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:920df685006d",
+                  "vq:yard:5e0c33b561b6fef7",
+                  "vq:yard:8ea7a02e0a3ec04b",
+                  "metric:yard:d150bcceca43",
+                  "metric:yard:95d1b7020e9a",
+                  "metric:yard:6b818dbd2f10"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "on_time_handover_rate",
+                "prompt": "What share of our finished jobs made handover on time?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "71.4% of Fixit’s finished jobs (5 of 7) made handover on time in the local sample. The On Time Completion Rate metric counts handovers on or before seven days after the planned end date.",
+                "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_rate,\n       COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) AS on_time_jobs,\n       COUNT(*) AS completed_jobs\nFROM site.projects\nWHERE status = 'complete'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:17d64161c612",
+                  "metric:yard:a9b426873ea5",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late",
+                  "vq:yard:15d6fde7c50d356a",
+                  "vq:yard:2c41e678da90d37f",
+                  "vq:yard:54cb227c7220746a"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "total_rework_labour_cost",
+                "prompt": "How much did rework labour cost in total?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Fixit’s total rework labour cost was £33,800 across all dates in the local sample data, including crew and machine hours valued at their hourly rates.",
+                "sql": "SELECT SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs AS w\nINNER JOIN site.crew AS c ON w.crew_id = c.crew_id\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:yard:138642ba364b",
+                  "metric:yard:d150bcceca43",
+                  "metric:yard:95d1b7020e9a",
+                  "metric:yard:920df685006d",
+                  "metric:yard:6b818dbd2f10"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "supplier_skip_waste_rate",
+                "prompt": "What is each supplier’s skip-waste percentage?",
+                "class": "pass",
+                "reason": "Both supplier groups match, and the agent’s 4.57% and 4.09% match the trusted rates when expressed as percentages.",
+                "model": "gpt-6.2-sol",
+                "answer": "In Fixit’s local sample data, Buttercup Vale Quarry had 4.57% skip waste and Hammerton Builders' Merchant had 4.09%. The Material Waste Share metric divides the value of material that went into a skip by the total value of delivered materials for each supplier.",
+                "sql": "SELECT supplier,\n       ROUND(100.0 * SUM(wasted_quantity * unit_cost_gbp)\n             / NULLIF(SUM(quantity * unit_cost_gbp), 0), 2) AS skip_waste_pct\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY skip_waste_pct DESC, supplier\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:yard:f2d1b3bdb072",
+                  "metric:yard:3c0c5bf8d3f6",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+                  "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+                ],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              }
+            ]
+          }
+        ],
+        "status": "complete"
+      },
+      "source_build": {
+        "metrics": 9,
+        "queries": 30,
+        "checked_examples": 39,
+        "holds": 0,
+        "source_review_pending": 5
+      },
+      "context_hashes": {
+        "metrics.json": {
+          "source_built": "a9989dc9708bf07a26bcd8890e59c58c4fb4a072e1411bbd66f6cf9e5a47fa55",
+          "current": "a9989dc9708bf07a26bcd8890e59c58c4fb4a072e1411bbd66f6cf9e5a47fa55",
+          "unchanged": true
+        },
+        "queries.json": {
+          "source_built": "106c908e47a27fba232887f80acf8ceea65352205c196d8f16dfd09814ff246b",
+          "current": "106c908e47a27fba232887f80acf8ceea65352205c196d8f16dfd09814ff246b",
+          "unchanged": true
+        }
+      },
+      "database_unchanged": true
+    },
+    "ticketfuddle": {
+      "default": {
+        "path": "default generated eight",
+        "questions": [
+          {
+            "id": "mined-01",
+            "question": "What share of what fans paid in July through September 2026 was fees?",
+            "gold_sql": "WITH PAID AS (SELECT SUM(T.FACE_VALUE) AS FACE, SUM(T.SERVICE_FEE + T.FACILITY_FEE + T.DEMAND_FEE) + MAX(O.ORDER_PROCESSING_FEE + O.DELIVERY_FEE) AS FEES FROM TIX.TICKETS AS T JOIN TIX.ORDERS AS O ON O.ORDER_ID = T.ORDER_ID JOIN TIX.EVENTS AS E ON E.EVENT_ID = T.EVENT_ID WHERE T.TICKET_TYPE = 'primary' AND O.STATUS <> 'chargeback' AND E.VENUE_ID <> 'V99' AND O.ORDER_TS >= '2026-07-01' AND O.ORDER_TS < '2026-10-01' GROUP BY O.ORDER_ID, SUBSTRING(O.ORDER_TS, 1, 4) || '-Q' || ((CAST(SUBSTRING(O.ORDER_TS, 6, 2) AS INT) + 2) / 3)) SELECT SUM(PAID.FEES) / SUM(PAID.FACE + PAID.FEES) AS FEE_SHARE_OF_TOTAL_PAID FROM PAID AS PAID"
+          },
+          {
+            "id": "mined-04",
+            "question": "How has the share of what fans pay in fees changed by quarter?",
+            "gold_sql": "WITH paid AS (\n  SELECT o.order_id,\n         substr(o.order_ts, 1, 4) || '-Q' || ((CAST(substr(o.order_ts, 6, 2) AS INTEGER) + 2) / 3) AS order_quarter,\n         SUM(t.face_value) AS face,\n         SUM(t.service_fee + t.facility_fee + t.demand_fee) + MAX(o.order_processing_fee + o.delivery_fee) AS fees\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = t.event_id\n  WHERE t.ticket_type = 'primary' AND o.status <> 'chargeback' AND e.venue_id <> 'V99'\n  GROUP BY o.order_id, order_quarter\n)\nSELECT order_quarter, SUM(fees) / SUM(face + fees) AS fee_share_of_total_paid\nFROM paid\nGROUP BY 1\nORDER BY 1"
+          },
+          {
+            "id": "mined-18",
+            "question": "What are our gross ticket sales?",
+            "gold_sql": "SELECT SUM(t.face_value) + SUM(t.service_fee) + SUM(t.facility_fee) + SUM(t.demand_fee) + SUM(t.order_fees_allocated) AS gross_sales\nFROM   (\nSELECT t.ticket_id, t.order_id, t.event_id, e.event_name, e.event_date, e.status AS event_status,\n       v.venue_name, v.venue_type, o.order_ts, substr(o.order_ts, 1, 10) AS order_date,\n       lower(replace(o.channel, ' ', '_')) AS channel, t.tier, t.is_comp,\n       t.face_value, t.service_fee, t.facility_fee, t.demand_fee,\n       (o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order AS order_fees_allocated\nFROM tix.tickets t\nJOIN tix.orders o ON o.order_id = t.order_id\nJOIN tix.events e ON e.event_id = t.event_id\nJOIN tix.venues v ON v.venue_id = e.venue_id\nJOIN (SELECT order_id, COUNT(*) AS tickets_in_order FROM tix.tickets GROUP BY order_id) n\n  ON n.order_id = t.order_id\nWHERE t.ticket_type = 'primary'\n  AND o.status <> 'chargeback'\n  AND v.venue_type <> 'test'\n) t"
+          },
+          {
+            "id": "mined-13",
+            "question": "How do ticket face value and fees compare month by month?",
+            "gold_sql": "SELECT substr(\"Custom SQL Query\".\"order_date\", 1, 7) || '-01' AS \"tmn:order_date:ok\", SUM(\"Custom SQL Query\".\"face_value\") AS \"sum:face_value:ok\", SUM(\"Custom SQL Query\".\"service_fee\" + \"Custom SQL Query\".\"facility_fee\" + \"Custom SQL Query\".\"demand_fee\" + \"Custom SQL Query\".\"order_fees_allocated\") AS \"sum:fees:ok\"\nFROM (\nSELECT t.ticket_id, t.order_id, t.event_id, e.event_name, e.event_date, e.status AS event_status,\n       v.venue_name, v.venue_type, o.order_ts, substr(o.order_ts, 1, 10) AS order_date,\n       lower(replace(o.channel, ' ', '_')) AS channel, t.tier, t.is_comp,\n       t.face_value, t.service_fee, t.facility_fee, t.demand_fee,\n       (o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order AS order_fees_allocated\nFROM tix.tickets t\nJOIN tix.orders o ON o.order_id = t.order_id\nJOIN tix.events e ON e.event_id = t.event_id\nJOIN tix.venues v ON v.venue_id = e.venue_id\nJOIN (SELECT order_id, COUNT(*) AS tickets_in_order FROM tix.tickets GROUP BY order_id) n\n  ON n.order_id = t.order_id\nWHERE t.ticket_type = 'primary'\n  AND o.status <> 'chargeback'\n  AND v.venue_type <> 'test'\n) \"Custom SQL Query\"\nGROUP BY 1"
+          },
+          {
+            "id": "mined-11",
+            "question": "How has the fee take rate changed by month?",
+            "gold_sql": "WITH ticket_fees AS (\n  SELECT t.order_id, SUM(t.face_value) AS face,\n         SUM(t.service_fee + t.facility_fee + t.demand_fee) AS ticket_fees\n  FROM tix.tickets t\n  WHERE t.ticket_type = 'primary'\n  GROUP BY t.order_id\n)\nSELECT substr(o.order_ts, 1, 7) AS order_month,\n       SUM(f.ticket_fees + o.order_processing_fee + o.delivery_fee) / SUM(f.face) AS take_rate\nFROM ticket_fees f\nJOIN tix.orders o ON o.order_id = f.order_id\nJOIN tix.events e ON e.event_id = o.event_id\nWHERE o.status <> 'chargeback' AND e.venue_id <> 'V99'\nGROUP BY 1\nORDER BY 1"
+          },
+          {
+            "id": "mined-19",
+            "question": "For each completed show, how many paid tickets did we sell and how full was its venue?",
+            "gold_sql": "SELECT e.event_name, e.event_date, v.capacity AS venue_capacity, COUNT(t.ticket_id) AS paid_tickets,\n       COUNT(t.ticket_id) * 1.0 / v.capacity AS sell_through\nFROM tix.events e\nJOIN tix.venues v ON v.venue_id = e.venue_id\nJOIN tix.orders o ON o.event_id = e.event_id\nJOIN tix.tickets t ON t.order_id = o.order_id\nWHERE e.status = 'completed' AND t.ticket_type = 'primary' AND t.is_comp = 0 AND o.status = 'paid'\nGROUP BY 1, 2, 3\nORDER BY 5 DESC"
+          },
+          {
+            "id": "mined-20",
+            "question": "How much were primary ticket sales each month, counting full order fees with each ticket?",
+            "gold_sql": "SELECT substr(o.order_ts, 1, 7) AS order_month,\n       SUM(t.face_value + t.service_fee + t.facility_fee + t.demand_fee\n           + o.order_processing_fee + o.delivery_fee) AS gross_sales\nFROM tix.orders o\nJOIN tix.tickets t ON t.order_id = o.order_id\nWHERE t.ticket_type = 'primary'\nGROUP BY 1\nORDER BY 1"
+          },
+          {
+            "id": "mined-31",
+            "question": "For each event, how many tickets carried demand fees and what were the total and average fees?",
+            "gold_sql": "SELECT e.event_name, COUNT(*) AS tickets, SUM(t.demand_fee) AS demand_fees, AVG(t.demand_fee) AS avg_demand_fee\nFROM tix.tickets t\nJOIN tix.events e ON e.event_id = t.event_id\nWHERE t.demand_fee > 0\nGROUP BY 1\nORDER BY 3 DESC"
+          }
+        ],
+        "runs": [
+          {
+            "variant": "raw",
+            "cases": 8,
+            "passed": 1,
+            "isolation_unverified": 0,
+            "score_line": "12% accuracy: 1 of 8 answered correctly (likely between 2% and 47%; a small sample)",
+            "prior_harness_error_rows": 0,
+            "results": [
+              {
+                "prompt_id": "mined-04",
+                "prompt": "How has the share of what fans pay in fees changed by quarter?",
+                "class": "wrong_result",
+                "reason": "The quarterly fee share differs: for example, 2025-Q3 is 18.59% in the agent’s rows versus 18.76% in the trusted rows.",
+                "model": "gpt-6.2-sol",
+                "answer": "Fees fell from 19.49% of fan payments in 2025 Q2 to 17.95% in 2025 Q4, then climbed to a peak of 21.26% in 2026 Q3 before dropping 7.97 percentage points to 13.29% in 2026 Q4. The quarterly shares were 19.49% (2025 Q2), 18.59% (2025 Q3), 17.95% (2025 Q4), 19.02% (2026 Q1), 19.25% (2026 Q2), 21.26% (2026 Q3), and 13.29% (2026 Q4). The share is total buyer fees divided by total payments before refunds, grouped by order quarter.",
+                "sql": "WITH payments_by_order AS (\n    SELECT order_id, SUM(amount) AS amount_paid\n    FROM tix.payments\n    GROUP BY order_id\n    HAVING SUM(amount) > 0\n),\nticket_fees_by_order AS (\n    SELECT order_id,\n           SUM(COALESCE(service_fee, 0) + COALESCE(facility_fee, 0)\n               + COALESCE(demand_fee, 0)) AS ticket_fees\n    FROM tix.tickets\n    GROUP BY order_id\n),\nquarterly AS (\n    SELECT strftime('%Y', o.order_ts) || '-Q' ||\n           (((CAST(strftime('%m', o.order_ts) AS INTEGER) - 1) / 3) + 1) AS quarter,\n           SUM(COALESCE(t.ticket_fees, 0) + COALESCE(o.order_processing_fee, 0)\n               + COALESCE(o.delivery_fee, 0)) AS buyer_fees,\n           SUM(p.amount_paid) AS amount_paid\n    FROM tix.orders AS o\n    JOIN payments_by_order AS p ON p.order_id = o.order_id\n    LEFT JOIN ticket_fees_by_order AS t ON t.order_id = o.order_id\n    WHERE strftime('%Y-%m', o.order_ts) IS NOT NULL\n    GROUP BY quarter\n),\nshares AS (\n    SELECT quarter, 100.0 * buyer_fees / NULLIF(amount_paid, 0) AS fee_share\n    FROM quarterly\n)\nSELECT quarter,\n       ROUND(fee_share, 2) AS fee_share_pct,\n       ROUND(fee_share - LAG(fee_share) OVER (ORDER BY quarter), 2) AS change_pp\nFROM shares\nORDER BY quarter\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                }
+              },
+              {
+                "prompt_id": "mined-01",
+                "prompt": "What share of what fans paid in July through September 2026 was fees?",
+                "class": "wrong_result",
+                "reason": "The question asks for fees as a share of total paid; the trusted share is 23.77%, while the agent reports 21.26%.",
+                "model": "gpt-6.2-sol",
+                "answer": "Fees accounted for 21.26% of what fans paid from July through September 2026. Buyer fees totaled $204,229.24 out of $960,704.74 in payments before refunds.",
+                "sql": "WITH period_payments AS (\n  SELECT order_id, SUM(amount) AS amount_paid\n  FROM tix.payments\n  WHERE paid_at >= '2026-07-01' AND paid_at < '2026-10-01'\n  GROUP BY order_id\n),\nticket_fees AS (\n  SELECT order_id,\n         SUM(COALESCE(service_fee, 0) + COALESCE(facility_fee, 0)\n             + COALESCE(demand_fee, 0)) AS buyer_ticket_fees\n  FROM tix.tickets\n  GROUP BY order_id\n),\ntotals AS (\n  SELECT SUM(p.amount_paid) AS amount_paid,\n         SUM(COALESCE(t.buyer_ticket_fees, 0)\n             + COALESCE(o.order_processing_fee, 0)\n             + COALESCE(o.delivery_fee, 0)) AS buyer_fees\n  FROM period_payments AS p\n  LEFT JOIN tix.orders AS o ON o.order_id = p.order_id\n  LEFT JOIN ticket_fees AS t ON t.order_id = p.order_id\n)\nSELECT ROUND(100.0 * buyer_fees / NULLIF(amount_paid, 0), 2) AS fee_share_pct,\n       ROUND(buyer_fees, 2) AS buyer_fees,\n       ROUND(amount_paid, 2) AS amount_paid\nFROM totals\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "mined-11",
+                "prompt": "How has the fee take rate changed by month?",
+                "class": "wrong_result",
+                "reason": "The monthly fee take rates differ; for example, June 2025 is 24.21% in the trusted rows and 24.56% in the agent rows.",
+                "model": "gpt-6.2-sol",
+                "answer": "The fee take rate fell from 24.56% in June 2025 to 21.35% in November 2025, then recovered to 24.87% by June 2026. It swung sharply from July onward, peaking at 29.57% in September before falling 10.71 percentage points to 18.86% in October 2026, the lowest month shown.\n\n2025 monthly rates and changes in percentage points: Jun 24.56%, Jul 23.65% (−0.91), Aug 23.18% (−0.48), Sep 23.28% (+0.11), Oct 22.64% (−0.64), Nov 21.35% (−1.29), Dec 22.53% (+1.18).\n\n2026 monthly rates and changes in percentage points: Jan 24.84% (+2.31), Feb 22.41% (−2.43), Mar 24.42% (+2.01), Apr 24.44% (+0.02), May 24.09% (−0.35), Jun 24.87% (+0.78), Jul 29.34% (+4.47), Aug 21.66% (−7.68), Sep 29.57% (+7.91), Oct 18.86% (−10.71).\n\nThe rate is total ticket and order fees divided by ticket value before fees, using resale price when available. It includes orders with a positive payment and deducts recorded refunds in the original order month. Month-over-month changes use unrounded rates.",
+                "sql": "WITH ticket_totals AS (\n  SELECT order_id,\n         SUM(COALESCE(resale_price, face_value, 0)) AS ticket_value,\n         SUM(COALESCE(service_fee, 0) + COALESCE(facility_fee, 0)\n             + COALESCE(demand_fee, 0) + COALESCE(seller_fee, 0)) AS ticket_fees\n  FROM tix.tickets\n  GROUP BY order_id\n),\nrefund_totals AS (\n  SELECT order_id,\n         SUM(COALESCE(face_refunded, 0)) AS refunded_value,\n         SUM(COALESCE(service_fee_refunded, 0) + COALESCE(facility_fee_refunded, 0)\n             + COALESCE(demand_fee_refunded, 0) + COALESCE(order_fees_refunded, 0)) AS refunded_fees\n  FROM tix.refunds\n  GROUP BY order_id\n),\nmonthly AS (\n  SELECT SUBSTR(o.order_ts, 1, 7) AS month,\n         SUM(t.ticket_value - COALESCE(r.refunded_value, 0)) AS net_ticket_value,\n         SUM(t.ticket_fees + COALESCE(o.order_processing_fee, 0)\n             + COALESCE(o.delivery_fee, 0) - COALESCE(r.refunded_fees, 0)) AS net_fees\n  FROM tix.orders AS o\n  JOIN ticket_totals AS t ON t.order_id = o.order_id\n  LEFT JOIN refund_totals AS r ON r.order_id = o.order_id\n  WHERE o.order_ts IS NOT NULL\n    AND EXISTS (\n      SELECT 1\n      FROM tix.payments AS p\n      WHERE p.order_id = o.order_id AND p.amount > 0\n    )\n  GROUP BY SUBSTR(o.order_ts, 1, 7)\n),\nrates AS (\n  SELECT month, 100.0 * net_fees / NULLIF(net_ticket_value, 0) AS fee_take_rate_pct\n  FROM monthly\n)\nSELECT month,\n       ROUND(fee_take_rate_pct, 2) AS fee_take_rate_pct,\n       ROUND(fee_take_rate_pct - LAG(fee_take_rate_pct) OVER (ORDER BY month), 2) AS change_pp\nFROM rates\nORDER BY month\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                }
+              },
+              {
+                "prompt_id": "mined-13",
+                "prompt": "How do ticket face value and fees compare month by month?",
+                "class": "wrong_result",
+                "reason": "The month groups match, but the June 2025 face value differs: 55,371.00 in the agent's rows versus 55,335.00 in the trusted rows.",
+                "model": "gpt-6.2-sol",
+                "answer": "By order month, total fees ranged from 21.0% to 33.0% of ticket face value. November 2025 had the lowest rate (21.0%). July 2026 had the highest face value and fee totals, while September and October 2026 had the highest fee rate (33.0% each, rounded).\n\nFigures are gross before refunds. Total fees include ticket-level service, facility, demand, and seller fees, plus order processing and delivery fees counted once per order with tickets.\n\n| Order month | Ticket face value | Ticket fees | Order fees | Total fees | Fees as % of face value |\n|---|---:|---:|---:|---:|---:|\n| 2025-06 | 55,371.00 | 12,177.63 | 1,229.60 | 13,407.23 | 24.2% |\n| 2025-07 | 26,267.00 | 5,378.29 | 800.20 | 6,178.49 | 23.5% |\n| 2025-08 | 59,558.00 | 12,434.18 | 1,306.35 | 13,740.53 | 23.1% |\n| 2025-09 | 36,717.50 | 7,398.31 | 966.05 | 8,364.36 | 22.8% |\n| 2025-10 | 68,086.50 | 14,046.02 | 1,276.90 | 15,322.92 | 22.5% |\n| 2025-11 | 36,586.50 | 6,962.88 | 708.25 | 7,671.13 | 21.0% |\n| 2025-12 | 27,598.50 | 5,491.37 | 759.75 | 6,251.12 | 22.7% |\n| 2026-01 | 51,997.00 | 11,507.33 | 1,316.40 | 12,823.73 | 24.7% |\n| 2026-02 | 62,018.50 | 12,644.55 | 1,154.00 | 13,798.55 | 22.2% |\n| 2026-03 | 40,009.00 | 8,723.62 | 985.25 | 9,708.87 | 24.3% |\n| 2026-04 | 50,814.50 | 10,826.88 | 1,421.15 | 12,248.03 | 24.1% |\n| 2026-05 | 35,215.50 | 7,465.79 | 924.70 | 8,390.49 | 23.8% |\n| 2026-06 | 81,810.00 | 18,000.69 | 1,772.60 | 19,773.29 | 24.2% |\n| 2026-07 | 413,877.00 | 127,192.76 | 6,716.80 | 133,909.56 | 32.4% |\n| 2026-08 | 82,721.00 | 21,700.27 | 1,629.85 | 23,330.12 | 28.2% |\n| 2026-09 | 166,478.00 | 52,270.76 | 2,625.35 | 54,896.11 | 33.0% |\n| 2026-10 | 47,334.50 | 14,235.14 | 1,371.70 | 15,606.84 | 33.0% |",
+                "sql": "WITH ticket_amounts AS (\n  SELECT order_id,\n         SUM(COALESCE(face_value, 0)) AS face_value,\n         SUM(COALESCE(service_fee, 0) + COALESCE(facility_fee, 0)\n             + COALESCE(demand_fee, 0) + COALESCE(seller_fee, 0)) AS ticket_fees\n  FROM tix.tickets\n  GROUP BY order_id\n),\nmonthly AS (\n  SELECT SUBSTR(o.order_ts, 1, 7) AS month,\n         SUM(t.face_value) AS face_value,\n         SUM(t.ticket_fees) AS ticket_fees,\n         SUM(COALESCE(o.order_processing_fee, 0) + COALESCE(o.delivery_fee, 0)) AS order_fees\n  FROM tix.orders AS o\n  JOIN ticket_amounts AS t ON t.order_id = o.order_id\n  WHERE o.order_ts IS NOT NULL\n  GROUP BY SUBSTR(o.order_ts, 1, 7)\n)\nSELECT month,\n       ROUND(face_value, 2) AS face_value,\n       ROUND(ticket_fees, 2) AS ticket_fees,\n       ROUND(order_fees, 2) AS order_fees,\n       ROUND(ticket_fees + order_fees, 2) AS total_fees,\n       ROUND(100.0 * (ticket_fees + order_fees) / NULLIF(face_value, 0), 1) AS fees_pct_of_face_value\nFROM monthly\nORDER BY month\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 3
+                }
+              },
+              {
+                "prompt_id": "mined-18",
+                "prompt": "What are our gross ticket sales?",
+                "class": "wrong_result",
+                "reason": "The agent returned 1,473,558.00, while the trusted rows show gross ticket sales of 1,550,066.18.",
+                "model": "gpt-6.2-sol",
+                "answer": "Gross ticket sales total 1,473,558.00 across paid orders. This includes primary sales at face value and resales at the resale price, before refunds and excluding fees and complimentary tickets.",
+                "sql": "SELECT ROUND(COALESCE(SUM(COALESCE(t.resale_price, t.face_value)), 0), 2) AS gross_ticket_sales\nFROM tix.tickets AS t\nWHERE COALESCE(t.is_comp, 0) = 0\n  AND EXISTS (\n    SELECT 1\n    FROM tix.payments AS p\n    WHERE p.order_id = t.order_id AND p.amount > 0\n  )\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-20",
+                "prompt": "How much were primary ticket sales each month, counting full order fees with each ticket?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Gross primary ticket sales by order month, excluding complimentary tickets and counting the full order processing and delivery fees on each ticket:\n2025-06: 70,184.73\n2025-07: 32,618.59\n2025-08: 73,240.63\n2025-09: 44,760.71\n2025-10: 83,338.32\n2025-11: 43,787.08\n2025-12: 33,757.32\n2026-01: 65,777.03\n2026-02: 76,710.55\n2026-03: 49,573.67\n2026-04: 63,641.98\n2026-05: 43,134.04\n2026-06: 101,920.54\n2026-07: 513,104.21\n2026-08: 80,043.47\n2026-09: 205,220.91\n2026-10: 32,903.19",
+                "sql": "SELECT\n    SUBSTR(o.order_ts, 1, 7) AS sale_month,\n    ROUND(SUM(\n        COALESCE(t.face_value, 0)\n        + COALESCE(t.service_fee, 0)\n        + COALESCE(t.facility_fee, 0)\n        + COALESCE(t.demand_fee, 0)\n        + COALESCE(o.order_processing_fee, 0)\n        + COALESCE(o.delivery_fee, 0)\n    ), 2) AS primary_ticket_sales\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nWHERE LOWER(t.ticket_type) = 'primary'\n    AND COALESCE(t.is_comp, 0) = 0\nGROUP BY SUBSTR(o.order_ts, 1, 7)\nORDER BY sale_month\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-19",
+                "prompt": "For each completed show, how many paid tickets did we sell and how full was its venue?",
+                "class": "agent_sql_error",
+                "reason": "unrecognised result shape",
+                "model": "gpt-6.2-sol",
+                "answer": "The query executed successfully. The SQL tool returned a reference to a result file in the run folder, so the per-show counts and percentages are unavailable under the requested access rules.",
+                "sql": "WITH completed_shows AS (\n    SELECT e.event_id, e.event_name, e.event_date, v.venue_name,\n           COALESCE(NULLIF(e.capacity, 0), NULLIF(v.capacity, 0)) AS capacity\n    FROM tix.events AS e\n    LEFT JOIN tix.venues AS v ON v.venue_id = e.venue_id\n    WHERE LOWER(TRIM(e.status)) = 'completed'\n),\npaid_sales AS (\n    SELECT t.event_id, COUNT(DISTINCT t.ticket_id) AS paid_tickets_sold\n    FROM tix.tickets AS t\n    JOIN completed_shows AS e ON e.event_id = t.event_id\n    JOIN tix.orders AS o ON o.order_id = t.order_id AND o.event_id = t.event_id\n    WHERE t.is_comp = 0\n      AND t.resale_of_ticket_id IS NULL\n      AND LOWER(TRIM(COALESCE(o.status, ''))) NOT IN ('cancelled', 'canceled', 'void', 'voided', 'refunded', 'fully_refunded')\n      AND EXISTS (\n          SELECT 1\n          FROM tix.payments AS p\n          WHERE p.order_id = o.order_id AND p.amount > 0\n      )\n    GROUP BY t.event_id\n),\nattendance AS (\n    SELECT s.event_id, COUNT(DISTINCT s.ticket_id) AS admitted_tickets\n    FROM tix.scans AS s\n    JOIN completed_shows AS e ON e.event_id = s.event_id\n    WHERE LOWER(TRIM(s.result)) IN ('accepted', 'admitted', 'success', 'successful', 'valid', 'ok')\n    GROUP BY s.event_id\n)\nSELECT e.event_id, e.event_date, e.event_name, e.venue_name, e.capacity,\n       COALESCE(p.paid_tickets_sold, 0) AS paid_tickets_sold,\n       ROUND(100.0 * COALESCE(p.paid_tickets_sold, 0) / NULLIF(e.capacity, 0), 1) AS paid_sell_through_pct,\n       COALESCE(a.admitted_tickets, 0) AS admitted_tickets,\n       ROUND(100.0 * COALESCE(a.admitted_tickets, 0) / NULLIF(e.capacity, 0), 1) AS attendance_pct\nFROM completed_shows AS e\nLEFT JOIN paid_sales AS p ON p.event_id = e.event_id\nLEFT JOIN attendance AS a ON a.event_id = e.event_id\nORDER BY e.event_date, e.event_id\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 0,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-31",
+                "prompt": "For each event, how many tickets carried demand fees and what were the total and average fees?",
+                "class": "wrong_result",
+                "reason": "The agent includes many zero-fee events and splits event totals by event ID; the question asks for totals by event, and its Grumpy Moose and Glitter Hazard rows do not match the trusted grouped counts and fees.",
+                "model": "gpt-6.2-sol",
+                "answer": "Tickets with a positive demand fee are counted. The average is per ticket charged, and — indicates no average because no tickets were charged.\n\n| Event ID | Event | Tickets charged | Total demand fees | Average demand fee |\n|---|---|---:|---:|---:|\n| E001 | The Quiet Carriage Live | 0 | 0.00 | — |\n| E002 | Auntie Synth Live | 0 | 0.00 | — |\n| E003 | Saxophone Steve Live | 0 | 0.00 | — |\n| E004 | Big Tuesday: Midweek Tour | 0 | 0.00 | — |\n| E005 | Mild Salsa Live | 0 | 0.00 | — |\n| E006 | The Orchestra of Mild Inconvenience: Mostly Brahms | 0 | 0.00 | — |\n| E007 | DJ Spreadsheet Live | 0 | 0.00 | — |\n| E008 | The Late Fees: Overdue Tour | 0 | 0.00 | — |\n| E009 | Glitter Hazard: Hi-Vis Tour | 0 | 0.00 | — |\n| E010 | Kevin From Accounting: The Reconciliation Tour | 0 | 0.00 | — |\n| E011 | Cardboard Castle: The Big Box Tour | 0 | 0.00 | — |\n| E012 | Lullaby Riot: Wide Awake Tour | 0 | 0.00 | — |\n| E013 | The Unpaid Interns Live | 0 | 0.00 | — |\n| E014 | Nana Beats Live | 0 | 0.00 | — |\n| E015 | Velvet Thunder: Loud Library Tour | 0 | 0.00 | — |\n| E016 | Saxophone Steve Live | 0 | 0.00 | — |\n| E017 | The Orchestra of Mild Inconvenience: Mostly Brahms | 0 | 0.00 | — |\n| E018 | Auntie Synth Live | 0 | 0.00 | — |\n| E019 | Lullaby Riot: Wide Awake Tour | 0 | 0.00 | — |\n| E020 | The Late Fees: Overdue Tour | 0 | 0.00 | — |\n| E021 | Big Tuesday: Midweek Tour | 0 | 0.00 | — |\n| E022 | Velvet Thunder: Loud Library Tour | 0 | 0.00 | — |\n| E023 | DJ Spreadsheet Live | 0 | 0.00 | — |\n| E024 | The Quiet Carriage Live | 0 | 0.00 | — |\n| E025 | Mild Salsa Live | 0 | 0.00 | — |\n| E026 | Big Tuesday: Midweek Tour | 196 | 2,119.90 | 10.82 |\n| E027 | The Unpaid Interns Live | 0 | 0.00 | — |\n| E028 | The Grumpy Moose: Antler Tour | 666 | 8,381.65 | 12.59 |\n| E029 | The Grumpy Moose: Antler Tour | 638 | 8,242.15 | 12.92 |\n| E030 | Cardboard Castle: The Big Box Tour | 0 | 0.00 | — |\n| E031 | Mild Salsa Live | 0 | 0.00 | — |\n| E032 | The Grumpy Moose: Antler Tour | 878 | 10,555.10 | 12.02 |\n| E033 | Kevin From Accounting: The Reconciliation Tour | 0 | 0.00 | — |\n| E034 | Lullaby Riot: Wide Awake Tour | 638 | 7,543.60 | 11.82 |\n| E035 | Glitter Hazard: Hi-Vis Tour | 283 | 1,438.00 | 5.08 |\n| E036 | Nana Beats Live | 0 | 0.00 | — |\n| E037 | The Orchestra of Mild Inconvenience: Mostly Brahms | 0 | 0.00 | — |\n| E038 | Auntie Synth Live | 0 | 0.00 | — |\n| E039 | The Late Fees: Overdue Tour | 0 | 0.00 | — |\n| E040 | Velvet Thunder: Loud Library Tour | 0 | 0.00 | — |\n| E041 | Saxophone Steve Live | 0 | 0.00 | — |\n| E042 | Glitter Hazard: Hi-Vis Tour | 342 | 3,962.40 | 11.59 |\n| E043 | Cardboard Castle: The Big Box Tour | 0 | 0.00 | — |\n| E044 | The Quiet Carriage: New Year's Eve (Quietly) | 0 | 0.00 | — |\n| E045 | The Grumpy Moose: Antler Tour | 700 | 9,398.25 | 13.43 |\n| E999 | TEST EVENT - DO NOT SELL | 0 | 0.00 | — |",
+                "sql": "SELECT e.event_id, e.event_name, COUNT(t.demand_fee) AS tickets_with_demand_fee, ROUND(COALESCE(SUM(t.demand_fee), 0), 2) AS total_demand_fees, ROUND(AVG(t.demand_fee), 2) AS average_demand_fee\nFROM tix.events AS e\nLEFT JOIN tix.tickets AS t ON t.event_id = e.event_id AND t.demand_fee > 0\nGROUP BY e.event_id, e.event_name\nORDER BY e.event_id\nLIMIT 1000",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                }
+              }
+            ]
+          },
+          {
+            "variant": "baseline",
+            "cases": 8,
+            "passed": 8,
+            "isolation_unverified": 0,
+            "score_line": "100% accuracy: 8 of 8 answered correctly (likely between 68% and 100%; a small sample)",
+            "prior_harness_error_rows": 0,
+            "results": [
+              {
+                "prompt_id": "mined-04",
+                "prompt": "How has the share of what fans pay in fees changed by quarter?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "In Ticketfuddle’s local sample, fees peaked at 23.8% of what fans paid for primary tickets in Q3 2026, up 4.4 percentage points from Q2. The share fell to 20.4% in the October-only Q4 sample.\n\nBy order quarter: Q2 2025 19.5% (partial, June 6–30), Q3 2025 18.8%, Q4 2025 18.1%, Q1 2026 19.1%, Q2 2026 19.4%, Q3 2026 23.8%, and Q4 2026 20.4% (partial, October 1–31).\n\nThe local Fee Share of Total Paid metric divides total fees by face value plus those fees. It includes service, facility, demand, order processing, and delivery fees, counts order-level fees once per order, and excludes chargebacks and venue V99.",
+                "sql": "WITH paid AS (\n  SELECT o.order_id,\n         substr(o.order_ts, 1, 4) || '-Q' || ((CAST(substr(o.order_ts, 6, 2) AS INTEGER) + 2) / 3) AS order_quarter,\n         MIN(substr(o.order_ts, 1, 10)) AS order_date,\n         SUM(t.face_value) AS face,\n         SUM(t.service_fee + t.facility_fee + t.demand_fee) + MAX(o.order_processing_fee + o.delivery_fee) AS fees\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = t.event_id\n  WHERE t.ticket_type = 'primary' AND o.status <> 'chargeback' AND e.venue_id <> 'V99'\n  GROUP BY o.order_id, order_quarter\n)\nSELECT order_quarter,\n       SUM(fees) / SUM(face + fees) AS fee_share_of_total_paid,\n       SUM(face + fees) AS total_paid,\n       MIN(order_date) AS first_order_date,\n       MAX(order_date) AS last_order_date\nFROM paid\nGROUP BY order_quarter\nORDER BY order_quarter\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:box-office:5e2696ff2c83",
+                  "vq:box-office:tableau-fee-income-by-type",
+                  "metric:box-office:d4d9c4899c35",
+                  "vq:box-office:tableau-sell-through",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month",
+                  "vq:box-office:tableau-net-fee-revenue",
+                  "vq:box-office:tableau-sell-through-by-event",
+                  "vq:box-office:d11e741054942d64",
+                  "vq:box-office:eeeb15cacb426a7c",
+                  "vq:box-office:62c3eca9650a9b47",
+                  "metric:box-office:53dcf754b912",
+                  "metric:box-office:8e6f9d7b5897"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 3
+                }
+              },
+              {
+                "prompt_id": "mined-01",
+                "prompt": "What share of what fans paid in July through September 2026 was fees?",
+                "class": "pass",
+                "reason": "Both rows give a fee share of about 23.77% for July through September 2026.",
+                "model": "gpt-6.2-sol",
+                "answer": "Fees accounted for 23.77% of what fans paid for primary tickets from July through September 2026. Fans paid $179,697.01 in fees on $755,993.01 in gross sales before refunds, excluding chargebacks and test venues.",
+                "sql": "WITH tickets_per_order AS (\n  SELECT order_id, COUNT(*) AS tickets_in_order\n  FROM tix.tickets\n  GROUP BY order_id\n),\nprimary_sales AS (\n  SELECT t.face_value, t.service_fee, t.facility_fee, t.demand_fee,\n         (o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order AS order_fees_allocated\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = t.event_id\n  JOIN tix.venues v ON v.venue_id = e.venue_id\n  JOIN tickets_per_order n ON n.order_id = t.order_id\n  WHERE t.ticket_type = 'primary'\n    AND o.status <> 'chargeback'\n    AND v.venue_type <> 'test'\n    AND substr(o.order_ts, 1, 10) >= '2026-07-01'\n    AND substr(o.order_ts, 1, 10) < '2026-10-01'\n),\ntotals AS (\n  SELECT SUM(service_fee + facility_fee + demand_fee + order_fees_allocated) AS primary_ticket_fees,\n         SUM(face_value) + SUM(service_fee) + SUM(facility_fee) + SUM(demand_fee) + SUM(order_fees_allocated) AS gross_sales\n  FROM primary_sales\n)\nSELECT ROUND(100.0 * primary_ticket_fees / NULLIF(gross_sales, 0), 2) AS fee_share_pct,\n       ROUND(primary_ticket_fees, 2) AS primary_ticket_fees,\n       ROUND(gross_sales, 2) AS gross_sales\nFROM totals\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:5e2696ff2c83",
+                  "vq:box-office:tableau-fee-income-by-type",
+                  "metric:box-office:d4d9c4899c35",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month",
+                  "vq:box-office:tableau-net-fee-revenue",
+                  "vq:box-office:tableau-sell-through",
+                  "vq:box-office:tableau-sell-through-by-event",
+                  "vq:box-office:121938813b5a4e8a",
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:2cc3c9199711",
+                  "metric:box-office:3c17aa0e691a"
+                ],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "mined-11",
+                "prompt": "How has the fee take rate changed by month?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle’s primary fee take rate fell from 24.21% in June 2025 to a low of 20.89% in November 2025. It stayed between 22.23% and 24.65% from December 2025 through June 2026, then swung more sharply. It reached 31.66% in July, dipped to 25.47% in August, peaked at 32.38% in September, and fell to 25.60% in October 2026, the latest month in the local sample.\n\n2025 monthly rates: Jun 24.21%, Jul 23.49%, Aug 23.13%, Sep 22.76%, Oct 22.52%, Nov 20.89%, Dec 22.71%.\n2026 monthly rates: Jan 24.65%, Feb 22.23%, Mar 24.48%, Apr 24.10%, May 23.86%, Jun 24.19%, Jul 31.66%, Aug 25.47%, Sep 32.38%, Oct 25.60%.\n\nThe local Primary Fee Take Rate metric divides primary ticket fees plus order processing and delivery fees by primary ticket face value. It groups by order month and excludes chargebacks and venue V99.",
+                "sql": "WITH ticket_fees AS (\n  SELECT t.order_id, SUM(t.face_value) AS face,\n         SUM(t.service_fee + t.facility_fee + t.demand_fee) AS ticket_fees\n  FROM tix.tickets t\n  WHERE t.ticket_type = 'primary'\n  GROUP BY t.order_id\n)\nSELECT substr(o.order_ts, 1, 7) AS order_month,\n       SUM(f.ticket_fees + o.order_processing_fee + o.delivery_fee) / SUM(f.face) AS take_rate\nFROM ticket_fees f\nJOIN tix.orders o ON o.order_id = f.order_id\nJOIN tix.events e ON e.event_id = o.event_id\nWHERE o.status <> 'chargeback' AND e.venue_id <> 'V99'\nGROUP BY 1\nORDER BY 1\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:box-office:d4d9c4899c35",
+                  "vq:box-office:tableau-fee-income-by-type",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month",
+                  "vq:box-office:tableau-net-fee-revenue",
+                  "vq:box-office:tableau-sell-through",
+                  "vq:box-office:tableau-sell-through-by-event",
+                  "vq:box-office:121938813b5a4e8a",
+                  "vq:box-office:204e85199354a1d8"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-18",
+                "prompt": "What are our gross ticket sales?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle’s gross ticket sales were $1,550,066.18 USD across all dates in the local sample. The Gross Sales metric includes primary ticket face value, ticket fees, and allocated order processing and delivery fees before refunds. It excludes chargebacks and test venues.",
+                "sql": "SELECT SUM(t.face_value) + SUM(t.service_fee) + SUM(t.facility_fee) + SUM(t.demand_fee) + SUM(t.order_fees_allocated) AS gross_sales\nFROM (\nSELECT t.ticket_id, t.order_id, t.event_id, e.event_name, e.event_date, e.status AS event_status,\n       v.venue_name, v.venue_type, o.order_ts, substr(o.order_ts, 1, 10) AS order_date,\n       lower(replace(o.channel, ' ', '_')) AS channel, t.tier, t.is_comp,\n       t.face_value, t.service_fee, t.facility_fee, t.demand_fee,\n       (o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order AS order_fees_allocated\nFROM tix.tickets t\nJOIN tix.orders o ON o.order_id = t.order_id\nJOIN tix.events e ON e.event_id = t.event_id\nJOIN tix.venues v ON v.venue_id = e.venue_id\nJOIN (SELECT order_id, COUNT(*) AS tickets_in_order FROM tix.tickets GROUP BY order_id) n\n  ON n.order_id = t.order_id\nWHERE t.ticket_type = 'primary'\n  AND o.status <> 'chargeback'\n  AND v.venue_type <> 'test'\n) t\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:2cc3c9199711",
+                  "vq:box-office:tableau-fee-income-by-type"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-13",
+                "prompt": "How do ticket face value and fees compare month by month?",
+                "class": "pass",
+                "reason": "The agent rows match the trusted month-by-month face value and fees for every month from June 2025 through October 2026; the extra percentage and date columns do not affect the comparison.",
+                "model": "gpt-6.2-sol",
+                "answer": "In Ticketfuddle’s local sample, primary ticket face value exceeded fees in every observed order month from June 2025 through October 2026. Fees accounted for 17.28% to 24.46% of the combined amount. July 2026 had the highest face value and fees in dollars, while September 2026 had the highest fee share.\n\nThe comparison uses the Primary Ticket Face Value and Primary Ticket Fees metrics. Amounts are in USD before refunds and exclude chargebacks and test venues. Fees include service, facility, and demand fees, plus order processing and delivery fees allocated across all tickets in each order. The first qualifying order in the sample was June 6, 2025.\n\n| Order month | Face value | Fees | Fees as % of face value plus fees |\n|---|---:|---:|---:|\n| 2025-06 | $55,335.00 | $13,397.28 | 19.49% |\n| 2025-07 | $25,669.50 | $6,030.19 | 19.02% |\n| 2025-08 | $57,824.50 | $13,375.70 | 18.79% |\n| 2025-09 | $35,422.50 | $8,060.46 | 18.54% |\n| 2025-10 | $66,498.50 | $14,972.86 | 18.38% |\n| 2025-11 | $35,461.50 | $7,408.06 | 17.28% |\n| 2025-12 | $26,777.00 | $6,082.22 | 18.51% |\n| 2026-01 | $51,625.00 | $12,727.48 | 19.78% |\n| 2026-02 | $61,188.00 | $13,601.59 | 18.19% |\n| 2026-03 | $38,293.50 | $9,374.92 | 19.67% |\n| 2026-04 | $49,954.00 | $12,039.53 | 19.42% |\n| 2026-05 | $33,887.50 | $8,085.83 | 19.26% |\n| 2026-06 | $79,837.50 | $19,311.96 | 19.48% |\n| 2026-07 | $364,091.50 | $115,287.65 | 24.05% |\n| 2026-08 | $62,244.00 | $15,854.68 | 20.30% |\n| 2026-09 | $149,960.50 | $48,554.68 | 24.46% |\n| 2026-10 | $25,342.50 | $6,488.59 | 20.38% |",
+                "sql": "WITH monthly AS (\n  SELECT substr(o.order_ts, 1, 7) AS order_month,\n         SUM(t.face_value) AS face_value,\n         SUM(t.service_fee + t.facility_fee + t.demand_fee\n             + (o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order) AS fees,\n         MIN(substr(o.order_ts, 1, 10)) AS first_order_date,\n         MAX(substr(o.order_ts, 1, 10)) AS last_order_date\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = t.event_id\n  JOIN tix.venues v ON v.venue_id = e.venue_id\n  JOIN (\n    SELECT order_id, COUNT(*) AS tickets_in_order\n    FROM tix.tickets\n    GROUP BY order_id\n  ) n ON n.order_id = t.order_id\n  WHERE t.ticket_type = 'primary'\n    AND o.status <> 'chargeback'\n    AND v.venue_type <> 'test'\n  GROUP BY substr(o.order_ts, 1, 7)\n)\nSELECT order_month,\n       ROUND(face_value, 2) AS face_value_usd,\n       ROUND(fees, 2) AS fees_usd,\n       ROUND(100.0 * fees / NULLIF(face_value + fees, 0), 2) AS fees_pct_of_combined,\n       first_order_date,\n       last_order_date\nFROM monthly\nORDER BY order_month\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:2cc3c9199711",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month",
+                  "metric:box-office:aa55fbb8017b",
+                  "metric:box-office:3c17aa0e691a"
+                ],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 3
+                }
+              },
+              {
+                "prompt_id": "mined-20",
+                "prompt": "How much were primary ticket sales each month, counting full order fees with each ticket?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle’s monthly primary ticket sales in USD, from local sample data, were as follows. The Primary Gross Sales with Order Fees per Ticket metric counts the full order processing and delivery fees for every primary ticket, so those fees repeat on multi-ticket orders.\n\n| Order month | Sales (USD) |\n|---|---:|\n| 2025-06 | $70,184.73 |\n| 2025-07 | $32,618.59 |\n| 2025-08 | $73,240.63 |\n| 2025-09 | $44,760.71 |\n| 2025-10 | $83,338.32 |\n| 2025-11 | $43,787.08 |\n| 2025-12 | $33,757.32 |\n| 2026-01 | $65,777.03 |\n| 2026-02 | $76,710.55 |\n| 2026-03 | $49,573.67 |\n| 2026-04 | $63,641.98 |\n| 2026-05 | $43,134.04 |\n| 2026-06 | $101,920.54 |\n| 2026-07 | $513,104.21 |\n| 2026-08 | $80,043.47 |\n| 2026-09 | $205,220.91 |\n| 2026-10 | $32,903.19 |",
+                "sql": "SELECT substr(o.order_ts, 1, 7) AS order_month,\n       SUM(t.face_value + t.service_fee + t.facility_fee + t.demand_fee\n           + o.order_processing_fee + o.delivery_fee) AS gross_sales\nFROM tix.orders o\nJOIN tix.tickets t ON t.order_id = o.order_id\nWHERE t.ticket_type = 'primary'\nGROUP BY 1\nORDER BY 1\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:2cc3c9199711",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-19",
+                "prompt": "For each completed show, how many paid tickets did we sell and how full was its venue?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Local sample data. The query returned 36 completed shows with paid primary ticket sales. Sell-through is paid primary tickets divided by venue capacity, rounded to one decimal place. The count excludes complimentary tickets and includes the test event because it meets the local definition’s filters.\n\n| Date | Show | Paid tickets | Venue capacity | Sell-through |\n|---|---|---:|---:|---:|\n| 2026-08-14 | The Grumpy Moose: Antler Tour | 676 | 700 | 96.6% |\n| 2026-08-15 | The Grumpy Moose: Antler Tour | 675 | 700 | 96.4% |\n| 2026-09-26 | Lullaby Riot: Wide Awake Tour | 665 | 700 | 95.0% |\n| 2026-04-10 | Lullaby Riot: Wide Awake Tour | 658 | 700 | 94.0% |\n| 2025-12-19 | Lullaby Riot: Wide Awake Tour | 649 | 700 | 92.7% |\n| 2025-10-17 | The Late Fees: Overdue Tour | 83 | 90 | 92.2% |\n| 2026-09-12 | The Grumpy Moose: Antler Tour | 921 | 1,000 | 92.1% |\n| 2026-10-03 | Glitter Hazard: Hi-Vis Tour | 320 | 350 | 91.4% |\n| 2025-07-11 | The Quiet Carriage Live | 80 | 90 | 88.9% |\n| 2026-07-31 | The Unpaid Interns Live | 53 | 60 | 88.3% |\n| 2026-07-25 | Big Tuesday: Midweek Tour | 608 | 700 | 86.9% |\n| 2026-02-27 | Saxophone Steve Live | 52 | 60 | 86.7% |\n| 2026-04-24 | The Late Fees: Overdue Tour | 76 | 90 | 84.4% |\n| 2025-11-21 | Kevin From Accounting: The Reconciliation Tour | 210 | 250 | 84.0% |\n| 2026-10-30 | Auntie Synth Live | 74 | 90 | 82.2% |\n| 2025-11-07 | Glitter Hazard: Hi-Vis Tour | 572 | 700 | 81.7% |\n| 2026-01-16 | The Unpaid Interns Live | 72 | 90 | 80.0% |\n| 2026-06-12 | The Quiet Carriage Live | 194 | 250 | 77.6% |\n| 2026-08-01 | TEST EVENT - DO NOT SELL | 386 | 500 | 77.2% |\n| 2025-08-08 | Saxophone Steve Live | 46 | 60 | 76.7% |\n| 2025-10-03 | DJ Spreadsheet Live | 267 | 350 | 76.3% |\n| 2026-03-27 | Auntie Synth Live | 189 | 250 | 75.6% |\n| 2026-10-09 | Nana Beats Live | 45 | 60 | 75.0% |\n| 2025-09-19 | The Orchestra of Mild Inconvenience: Mostly Brahms | 186 | 250 | 74.4% |\n| 2026-05-08 | Big Tuesday: Midweek Tour | 256 | 350 | 73.1% |\n| 2026-02-13 | Velvet Thunder: Loud Library Tour | 246 | 350 | 70.3% |\n| 2026-10-17 | The Orchestra of Mild Inconvenience: Mostly Brahms | 175 | 250 | 70.0% |\n| 2026-05-30 | DJ Spreadsheet Live | 481 | 700 | 68.7% |\n| 2025-07-26 | Auntie Synth Live | 233 | 350 | 66.6% |\n| 2025-12-06 | Cardboard Castle: The Big Box Tour | 164 | 250 | 65.6% |\n| 2026-08-22 | Cardboard Castle: The Big Box Tour | 153 | 250 | 61.2% |\n| 2025-08-23 | Big Tuesday: Midweek Tour | 425 | 700 | 60.7% |\n| 2026-01-30 | Nana Beats Live | 206 | 350 | 58.9% |\n| 2026-06-27 | Mild Salsa Live | 541 | 1,000 | 54.1% |\n| 2025-09-06 | Mild Salsa Live | 507 | 1,000 | 50.7% |\n| 2026-03-13 | The Orchestra of Mild Inconvenience: Mostly Brahms | 306 | 700 | 43.7% |",
+                "sql": "SELECT e.event_name, e.event_date, v.capacity AS venue_capacity, COUNT(t.ticket_id) AS paid_tickets,\n       COUNT(t.ticket_id) * 1.0 / v.capacity AS sell_through\nFROM tix.events e\nJOIN tix.venues v ON v.venue_id = e.venue_id\nJOIN tix.orders o ON o.event_id = e.event_id\nJOIN tix.tickets t ON t.order_id = o.order_id\nWHERE e.status = 'completed' AND t.ticket_type = 'primary' AND t.is_comp = 0 AND o.status = 'paid'\nGROUP BY 1, 2, 3\nORDER BY 5 DESC\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:box-office:8e6f9d7b5897",
+                  "metric:box-office:ad0fd0b38fb8",
+                  "vq:box-office:tableau-fee-income-by-type",
+                  "metric:box-office:6ef9ff31980f",
+                  "metric:box-office:2b61691e20b6",
+                  "metric:box-office:bb40d66208f8",
+                  "vq:box-office:076fb1a9504876ee"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "mined-31",
+                "prompt": "For each event, how many tickets carried demand fees and what were the total and average fees?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Four events in Ticketfuddle’s local sample data had positive demand fees. The average is per ticket charged a demand fee, and amounts are in USD before refunds.\n\n| Event | Tickets with demand fees | Total demand fees | Average per charged ticket |\n|---|---:|---:|---:|\n| The Grumpy Moose: Antler Tour | 2,882 | $36,577.15 | $12.69 |\n| Lullaby Riot: Wide Awake Tour | 638 | $7,543.60 | $11.82 |\n| Glitter Hazard: Hi-Vis Tour | 625 | $5,400.40 | $8.64 |\n| Big Tuesday: Midweek Tour | 196 | $2,119.90 | $10.82 |",
+                "sql": "SELECT e.event_name, COUNT(*) AS tickets, SUM(t.demand_fee) AS demand_fees, AVG(t.demand_fee) AS avg_demand_fee\nFROM tix.tickets t\nJOIN tix.events e ON e.event_id = t.event_id\nWHERE t.demand_fee > 0\nGROUP BY 1\nORDER BY 3 DESC\nLIMIT 1000",
+                "used_context_ids": [
+                  "metric:box-office:5e2696ff2c83",
+                  "vq:box-office:tableau-fee-income-by-type",
+                  "metric:box-office:1e0bf03eae42",
+                  "vq:box-office:ac15e86272d950fb",
+                  "metric:box-office:b7ea2cc4734e",
+                  "metric:box-office:fca7815b5f0b",
+                  "metric:box-office:c301dfbedfa6"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              }
+            ]
+          }
+        ],
+        "status": "complete"
+      },
+      "supplied": {
+        "path": "explicitly supplied ten",
+        "questions": [
+          {
+            "id": "TF01",
+            "question": "What were gross sales for completed shows in 2026?",
+            "gold_sql": "SELECT SUM(t.face_value+t.service_fee+t.facility_fee+t.demand_fee + (o.order_processing_fee+o.delivery_fee)*1.0/n.ticket_count) AS gross_sales FROM tickets t JOIN orders o USING(order_id) JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id JOIN (SELECT order_id,COUNT(*) ticket_count FROM tickets GROUP BY order_id) n USING(order_id) WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND e.status='completed' AND substr(e.event_date,1,4)='2026';"
+          },
+          {
+            "id": "TF02",
+            "question": "What was the fee take rate for primary tickets in 2026?",
+            "gold_sql": "SELECT (SUM(t.service_fee+t.facility_fee+t.demand_fee)+SUM((o.order_processing_fee+o.delivery_fee)*1.0/n.ticket_count))/SUM(t.face_value) AS fee_take_rate FROM tickets t JOIN orders o USING(order_id) JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id JOIN (SELECT order_id,COUNT(*) ticket_count FROM tickets GROUP BY order_id) n USING(order_id) WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND substr(o.order_ts,1,4)='2026';"
+          },
+          {
+            "id": "TF03",
+            "question": "For completed shows in 2026, what was sell-through?",
+            "gold_sql": "SELECT SUM(tickets_issued)*1.0/SUM(capacity) AS sell_through FROM (SELECT e.event_id,e.event_date,e.status,e.capacity,COUNT(t.ticket_id) AS tickets_issued FROM events e JOIN venues v ON v.venue_id=e.venue_id LEFT JOIN orders o ON o.event_id=e.event_id AND o.status<>'chargeback' LEFT JOIN tickets t ON t.order_id=o.order_id AND t.ticket_type='primary' WHERE v.venue_type<>'test' GROUP BY e.event_id,e.event_date,e.status,e.capacity) WHERE status='completed' AND substr(event_date,1,4)='2026'"
+          },
+          {
+            "id": "TF04",
+            "question": "How much net fee revenue was paid back as fee refunds in 2026?",
+            "gold_sql": "SELECT SUM(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) AS fee_refunds FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND substr(r.refund_ts,1,4)='2026'"
+          },
+          {
+            "id": "TF05",
+            "question": "In the 2026 Fee Income by Type breakdown, which category has the highest net amount, and what is it?",
+            "gold_sql": "SELECT fee_type,SUM(amount) AS net_fee_revenue FROM (SELECT o.order_id,substr(o.order_ts,1,10) AS entry_date,o.event_id,CASE WHEN t.ticket_type='resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,t.service_fee AS amount FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.service_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'demand',t.demand_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.demand_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'resale_seller',t.seller_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.seller_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'order_processing',o.order_processing_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.order_processing_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'delivery',o.delivery_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.delivery_fee>0 UNION ALL SELECT r.order_id,substr(r.refund_ts,1,10),o.event_id,'refunded',-(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded>0) WHERE substr(entry_date,1,4)='2026' GROUP BY fee_type ORDER BY net_fee_revenue DESC LIMIT 1"
+          },
+          {
+            "id": "TF06",
+            "question": "What was Ticketfuddle's net fee revenue in 2026?",
+            "gold_sql": "SELECT SUM(amount) AS net_fee_revenue FROM (SELECT o.order_id,substr(o.order_ts,1,10) AS entry_date,o.event_id,CASE WHEN t.ticket_type='resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,t.service_fee AS amount FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.service_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'demand',t.demand_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.demand_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'resale_seller',t.seller_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.seller_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'order_processing',o.order_processing_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.order_processing_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'delivery',o.delivery_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.delivery_fee>0 UNION ALL SELECT r.order_id,substr(r.refund_ts,1,10),o.event_id,'refunded',-(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded>0) WHERE substr(entry_date,1,4)='2026'"
+          },
+          {
+            "id": "TF07",
+            "question": "For non-chargeback primary tickets at non-test venues with 2026 order dates, what was the average face value after excluding comps?",
+            "gold_sql": "SELECT SUM(CASE WHEN t.is_comp=0 THEN t.face_value ELSE 0 END)*1.0/SUM(CASE WHEN t.is_comp=0 THEN 1 ELSE 0 END) AS avg_ticket_price FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND substr(o.order_ts,1,4)='2026'"
+          },
+          {
+            "id": "TF08",
+            "question": "How many non-chargeback primary tickets were sold through web or app in 2026 at non-test venues?",
+            "gold_sql": "SELECT COUNT(*) AS tickets FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND lower(replace(o.channel,' ','_')) IN ('web','app') AND substr(o.order_ts,1,4)='2026'"
+          },
+          {
+            "id": "TF09",
+            "question": "At non-test venues, for non-chargeback primary-ticket orders, what was the average number of tickets in an order?",
+            "gold_sql": "SELECT AVG(ticket_count)*1.0 AS tickets_per_order FROM (SELECT t.order_id,COUNT(t.ticket_id) AS ticket_count FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' GROUP BY t.order_id)"
+          },
+          {
+            "id": "TF10",
+            "question": "Which completed event had the highest sell-through, and what was its rate?",
+            "gold_sql": "SELECT event_name,tickets_issued*1.0/capacity AS sell_through FROM (SELECT e.event_id,e.event_name,e.status,e.capacity,COUNT(t.ticket_id) AS tickets_issued FROM events e JOIN venues v ON v.venue_id=e.venue_id LEFT JOIN orders o ON o.event_id=e.event_id AND o.status<>'chargeback' LEFT JOIN tickets t ON t.order_id=o.order_id AND t.ticket_type='primary' WHERE v.venue_type<>'test' GROUP BY e.event_id,e.event_name,e.status,e.capacity) WHERE status='completed' ORDER BY sell_through DESC LIMIT 1"
+          }
+        ],
+        "runs": [
+          {
+            "variant": "raw",
+            "cases": 10,
+            "passed": 3,
+            "isolation_unverified": 0,
+            "score_line": "30% accuracy: 3 of 10 answered correctly (likely between 11% and 60%; a small sample)",
+            "prior_harness_error_rows": 0,
+            "results": [
+              {
+                "prompt_id": "TF01",
+                "prompt": "What were gross sales for completed shows in 2026?",
+                "class": "wrong_result",
+                "reason": "Gross sales differ: the trusted rows show 911,689.4, while the agent's rows show 1,108,215.32.",
+                "model": "gpt-6.2-sol",
+                "answer": "Completed shows in 2026 generated 1,108,215.32 in gross sales, measured as payments before refunds.",
+                "sql": "SELECT ROUND(COALESCE(SUM(p.amount), 0), 2) AS gross_sales\nFROM tix.payments AS p\nJOIN tix.orders AS o ON o.order_id = p.order_id\nJOIN tix.events AS e ON e.event_id = o.event_id\nWHERE LOWER(e.status) = 'completed'\n  AND e.event_date >= '2026-01-01'\n  AND e.event_date < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF02",
+                "prompt": "What was the fee take rate for primary tickets in 2026?",
+                "class": "wrong_result",
+                "reason": "The trusted fee take rate is 28.52%, while the agent reports 26.73%.",
+                "model": "gpt-6.2-sol",
+                "answer": "26.73% of face value for primary tickets ordered in 2026, counting service, facility, and demand fees before refunds.",
+                "sql": "SELECT ROUND(\n    100.0 * SUM(COALESCE(t.service_fee, 0) + COALESCE(t.facility_fee, 0) + COALESCE(t.demand_fee, 0))\n    / NULLIF(SUM(t.face_value), 0), 2\n) AS fee_take_rate_pct\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nWHERE LOWER(t.ticket_type) = 'primary'\n  AND o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF03",
+                "prompt": "For completed shows in 2026, what was sell-through?",
+                "class": "wrong_result",
+                "reason": "The sell-through differs: the trusted rows give 84.33%, while the agent rows give 81.42%.",
+                "model": "gpt-6.2-sol",
+                "answer": "81.42% sell-through across completed shows in 2026, measured as paid primary tickets divided by total show capacity.",
+                "sql": "WITH completed_shows AS (\n  SELECT event_id, capacity\n  FROM tix.events\n  WHERE LOWER(status) = 'completed'\n    AND event_date >= '2026-01-01'\n    AND event_date < '2027-01-01'\n),\nprimary_sales AS (\n  SELECT t.event_id, COUNT(*) AS tickets_sold\n  FROM tix.tickets AS t\n  JOIN completed_shows AS s ON s.event_id = t.event_id\n  WHERE t.resale_of_ticket_id IS NULL\n    AND t.is_comp = 0\n  GROUP BY t.event_id\n)\nSELECT ROUND(\n  100.0 * SUM(COALESCE(p.tickets_sold, 0)) / NULLIF(SUM(s.capacity), 0),\n  2\n) AS sell_through_pct\nFROM completed_shows AS s\nLEFT JOIN primary_sales AS p ON p.event_id = s.event_id\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF04",
+                "prompt": "How much net fee revenue was paid back as fee refunds in 2026?",
+                "class": "wrong_result",
+                "reason": "The agent returned $15,192.07 in fee refunds, while the trusted rows show $11,987.07.",
+                "model": "gpt-6.2-sol",
+                "answer": "$15,192.07 was paid back as fee refunds in 2026.",
+                "sql": "SELECT ROUND(COALESCE(SUM(\n    COALESCE(service_fee_refunded, 0)\n    + COALESCE(facility_fee_refunded, 0)\n    + COALESCE(demand_fee_refunded, 0)\n    + COALESCE(order_fees_refunded, 0)\n), 0), 2) AS fee_refunds_2026\nFROM tix.refunds\nWHERE refund_ts >= '2026-01-01'\n  AND refund_ts < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF05",
+                "prompt": "In the 2026 Fee Income by Type breakdown, which category has the highest net amount, and what is it?",
+                "class": "wrong_result",
+                "reason": "The highest category matches as service, but its net amount differs: trusted 153,580.99 versus agent 167,588.72.",
+                "model": "gpt-6.2-sol",
+                "answer": "Service Fee had the highest net amount in 2026 at 167,588.72.",
+                "sql": "WITH orders_2026 AS (\n    SELECT order_id, order_processing_fee, delivery_fee\n    FROM tix.orders\n    WHERE order_ts >= '2026-01-01' AND order_ts < '2027-01-01'\n),\nticket_fees_2026 AS (\n    SELECT t.service_fee, t.facility_fee, t.demand_fee, t.seller_fee\n    FROM tix.tickets AS t\n    JOIN orders_2026 AS o ON o.order_id = t.order_id\n),\nrefunds_2026 AS (\n    SELECT service_fee_refunded, facility_fee_refunded, demand_fee_refunded, order_fees_refunded\n    FROM tix.refunds\n    WHERE refund_ts >= '2026-01-01' AND refund_ts < '2027-01-01'\n),\nfee_activity AS (\n    SELECT 'Service Fee' AS category, SUM(service_fee) AS amount FROM ticket_fees_2026\n    UNION ALL\n    SELECT 'Facility Fee', SUM(facility_fee) FROM ticket_fees_2026\n    UNION ALL\n    SELECT 'Demand Fee', SUM(demand_fee) FROM ticket_fees_2026\n    UNION ALL\n    SELECT 'Seller Fee', SUM(seller_fee) FROM ticket_fees_2026\n    UNION ALL\n    SELECT 'Order Fees', SUM(COALESCE(order_processing_fee, 0) + COALESCE(delivery_fee, 0))\n    FROM orders_2026\n    UNION ALL\n    SELECT 'Service Fee', -SUM(service_fee_refunded) FROM refunds_2026\n    UNION ALL\n    SELECT 'Facility Fee', -SUM(facility_fee_refunded) FROM refunds_2026\n    UNION ALL\n    SELECT 'Demand Fee', -SUM(demand_fee_refunded) FROM refunds_2026\n    UNION ALL\n    SELECT 'Order Fees', -SUM(order_fees_refunded) FROM refunds_2026\n)\nSELECT category, ROUND(SUM(amount), 2) AS net_amount\nFROM fee_activity\nGROUP BY category\nORDER BY SUM(amount) DESC, category\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF06",
+                "prompt": "What was Ticketfuddle's net fee revenue in 2026?",
+                "class": "wrong_result",
+                "reason": "Net fee revenue differs: the trusted result is 245,871.92, while the agent returned 249,630.52.",
+                "model": "gpt-6.2-sol",
+                "answer": "249,630.52, treating facility fees as venue pass-throughs.",
+                "sql": "WITH orders_2026 AS (\n    SELECT order_id, order_processing_fee, delivery_fee\n    FROM tix.orders\n    WHERE order_ts >= '2026-01-01' AND order_ts < '2027-01-01'\n),\nfee_activity AS (\n    SELECT COALESCE(order_processing_fee, 0) + COALESCE(delivery_fee, 0) AS amount\n    FROM orders_2026\n    UNION ALL\n    SELECT COALESCE(t.service_fee, 0) + COALESCE(t.demand_fee, 0) + COALESCE(t.seller_fee, 0)\n    FROM tix.tickets AS t\n    JOIN orders_2026 AS o ON o.order_id = t.order_id\n    UNION ALL\n    SELECT -(COALESCE(service_fee_refunded, 0) + COALESCE(demand_fee_refunded, 0) + COALESCE(order_fees_refunded, 0))\n    FROM tix.refunds\n    WHERE refund_ts >= '2026-01-01' AND refund_ts < '2027-01-01'\n)\nSELECT ROUND(COALESCE(SUM(amount), 0), 2) AS net_fee_revenue\nFROM fee_activity\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF07",
+                "prompt": "For non-chargeback primary tickets at non-test venues with 2026 order dates, what was the average face value after excluding comps?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "93.39",
+                "sql": "SELECT ROUND(AVG(t.face_value), 2) AS average_face_value\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nJOIN tix.events AS e ON e.event_id = t.event_id\nJOIN tix.venues AS v ON v.venue_id = e.venue_id\nWHERE LOWER(t.ticket_type) = 'primary'\n  AND t.is_comp = 0\n  AND LOWER(o.status) <> 'chargeback'\n  AND LOWER(COALESCE(v.venue_type, '')) <> 'test'\n  AND LOWER(COALESCE(v.venue_name, '')) NOT LIKE '%test%'\n  AND o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF08",
+                "prompt": "How many non-chargeback primary tickets were sold through web or app in 2026 at non-test venues?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "9254",
+                "sql": "SELECT COUNT(DISTINCT t.ticket_id) AS ticket_count\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nJOIN tix.events AS e ON e.event_id = t.event_id\nJOIN tix.venues AS v ON v.venue_id = e.venue_id\nWHERE LOWER(t.ticket_type) = 'primary'\n  AND COALESCE(t.is_comp, 0) = 0\n  AND LOWER(o.channel) IN ('web', 'app')\n  AND o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\n  AND LOWER(COALESCE(o.status, '')) <> 'chargeback'\n  AND NOT EXISTS (\n    SELECT 1\n    FROM tix.refunds AS r\n    WHERE r.order_id = o.order_id\n      AND LOWER(r.reason) = 'chargeback'\n  )\n  AND LOWER(COALESCE(v.venue_type, '')) <> 'test'\n  AND LOWER(COALESCE(v.venue_name, '')) NOT LIKE '%test%'\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF09",
+                "prompt": "At non-test venues, for non-chargeback primary-ticket orders, what was the average number of tickets in an order?",
+                "class": "pass",
+                "reason": "Both rows give the average as 2.30 tickets per order when rounded to the shown precision.",
+                "model": "gpt-6.2-sol",
+                "answer": "2.30 tickets per order",
+                "sql": "WITH tickets_per_order AS (\n    SELECT o.order_id, COUNT(*) AS ticket_count\n    FROM tix.orders AS o\n    JOIN tix.tickets AS t ON t.order_id = o.order_id\n    JOIN tix.events AS e ON e.event_id = o.event_id\n    JOIN tix.venues AS v ON v.venue_id = e.venue_id\n    WHERE LOWER(TRIM(t.ticket_type)) = 'primary'\n      AND LOWER(TRIM(COALESCE(v.venue_type, ''))) <> 'test'\n      AND (' ' || LOWER(TRIM(COALESCE(v.venue_name, ''))) || ' ') NOT LIKE '% test %'\n      AND LOWER(TRIM(COALESCE(o.status, ''))) <> 'chargeback'\n      AND NOT EXISTS (\n          SELECT 1\n          FROM tix.refunds AS r\n          WHERE r.order_id = o.order_id\n            AND LOWER(TRIM(r.reason)) = 'chargeback'\n      )\n    GROUP BY o.order_id\n)\nSELECT ROUND(AVG(ticket_count), 2) AS average_tickets_per_order\nFROM tickets_per_order\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF10",
+                "prompt": "Which completed event had the highest sell-through, and what was its rate?",
+                "class": "wrong_result",
+                "reason": "The event matches, but the sell-through rate is 100% in the trusted rows and 97% in the agent's rows.",
+                "model": "gpt-6.2-sol",
+                "answer": "The Grumpy Moose: Antler Tour had the highest sell-through at 97% (679 paid primary tickets out of 700 capacity).",
+                "sql": "SELECT\n    e.event_name,\n    COUNT(DISTINCT t.ticket_id) AS tickets_sold,\n    e.capacity,\n    ROUND(100.0 * COUNT(DISTINCT t.ticket_id) / e.capacity, 2) AS sell_through_pct\nFROM tix.events AS e\nLEFT JOIN tix.tickets AS t\n    ON t.event_id = e.event_id\n    AND COALESCE(t.is_comp, 0) = 0\n    AND NULLIF(t.resale_of_ticket_id, '') IS NULL\n    AND LOWER(COALESCE(t.ticket_type, '')) <> 'resale'\nWHERE LOWER(e.status) = 'completed'\n    AND e.capacity > 0\nGROUP BY e.event_id, e.event_name, e.capacity\nORDER BY 1.0 * COUNT(DISTINCT t.ticket_id) / e.capacity DESC, e.event_id\nLIMIT 1",
+                "used_context_ids": [],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              }
+            ]
+          },
+          {
+            "variant": "baseline",
+            "cases": 10,
+            "passed": 10,
+            "isolation_unverified": 0,
+            "score_line": "100% accuracy: 10 of 10 answered correctly (likely between 72% and 100%; a small sample)",
+            "prior_harness_error_rows": 0,
+            "results": [
+              {
+                "prompt_id": "TF02",
+                "prompt": "What was the fee take rate for primary tickets in 2026?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "The primary ticket fee take rate was 28.52% in the available 2026 data. The latest qualifying order was on October 31, 2026. The rate divides ticket fees plus order processing and delivery fees by primary ticket face value, excluding chargebacks and venue V99.",
+                "sql": "WITH ticket_fees AS (\n  SELECT order_id,\n         SUM(face_value) AS face,\n         SUM(service_fee + facility_fee + demand_fee) AS ticket_fees\n  FROM tix.tickets\n  WHERE ticket_type = 'primary'\n  GROUP BY order_id\n)\nSELECT 1.0 * SUM(f.ticket_fees + o.order_processing_fee + o.delivery_fee)\n         / NULLIF(SUM(f.face), 0) AS primary_fee_take_rate,\n       SUM(f.face) AS primary_face_value,\n       MAX(o.order_ts) AS latest_order_ts\nFROM ticket_fees f\nJOIN tix.orders o ON o.order_id = f.order_id\nJOIN tix.events e ON e.event_id = o.event_id\nWHERE o.status <> 'chargeback'\n  AND e.venue_id <> 'V99'\n  AND o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:d4d9c4899c35"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "TF01",
+                "prompt": "What were gross sales for completed shows in 2026?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle recorded $911,689.40 USD in gross primary ticket sales before refunds for shows dated in 2026 and marked completed in the local sample data. The total includes ticket fees and allocated order fees and excludes chargebacks and test venues.",
+                "sql": "WITH order_ticket_counts AS (\n  SELECT order_id, COUNT(*) AS tickets_in_order\n  FROM tix.tickets\n  GROUP BY order_id\n)\nSELECT ROUND(\n  SUM(t.face_value) + SUM(t.service_fee) + SUM(t.facility_fee)\n  + SUM(t.demand_fee)\n  + SUM((o.order_processing_fee + o.delivery_fee) * 1.0 / n.tickets_in_order),\n  2\n) AS gross_sales\nFROM tix.tickets t\nJOIN tix.orders o ON o.order_id = t.order_id\nJOIN tix.events e ON e.event_id = t.event_id\nJOIN tix.venues v ON v.venue_id = e.venue_id\nJOIN order_ticket_counts n ON n.order_id = t.order_id\nWHERE t.ticket_type = 'primary'\n  AND o.status <> 'chargeback'\n  AND v.venue_type <> 'test'\n  AND e.status = 'completed'\n  AND e.event_date >= '2026-01-01'\n  AND e.event_date < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:2cc3c9199711",
+                  "vq:box-office:tableau-sell-through",
+                  "vq:box-office:tableau-sell-through-by-event"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF03",
+                "prompt": "For completed shows in 2026, what was sell-through?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Sell-through was 84.33% for completed shows dated in 2026 in the local sample data. Ticketfuddle issued 8,011 primary tickets, including comps, against a total event capacity of 9,500. The Sell-Through metric excludes test venues and tickets from chargeback orders.",
+                "sql": "WITH event_sales AS (\n    SELECT e.event_id, e.event_name, e.event_date, e.status, v.venue_name, v.venue_type,\n           e.capacity, COUNT(t.ticket_id) AS tickets_issued\n    FROM tix.events e\n    JOIN tix.venues v ON v.venue_id = e.venue_id\n    LEFT JOIN tix.orders o ON o.event_id = e.event_id AND o.status <> 'chargeback'\n    LEFT JOIN tix.tickets t ON t.order_id = o.order_id AND t.ticket_type = 'primary'\n    WHERE v.venue_type <> 'test'\n    GROUP BY e.event_id, e.event_name, e.event_date, e.status, v.venue_name, v.venue_type, e.capacity\n)\nSELECT CAST(SUM(t.tickets_issued) AS REAL) / NULLIF(SUM(t.capacity), 0) AS sell_through,\n       SUM(t.tickets_issued) AS tickets_issued,\n       SUM(t.capacity) AS total_event_capacity\nFROM event_sales t\nWHERE t.status IN ('completed')\n  AND t.event_date >= '2026-01-01'\n  AND t.event_date < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:ad0fd0b38fb8",
+                  "metric:box-office:6ef9ff31980f",
+                  "vq:box-office:tableau-fee-income-by-type"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                }
+              },
+              {
+                "prompt_id": "TF04",
+                "prompt": "How much net fee revenue was paid back as fee refunds in 2026?",
+                "class": "pass",
+                "reason": "Both rows give $11,987.07 in fee refunds for 2026; the agent expresses it as a $11,987.07 reduction to net fee revenue.",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle paid back $11,987.07 USD in fee refunds recorded in 2026, reducing net fee revenue by that amount. The Net Fee Revenue metric excludes events at venue V99.",
+                "sql": "SELECT ROUND(SUM(-(r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded)), 2) AS net_fee_revenue_from_refunds\nFROM tix.refunds r\nJOIN tix.orders o ON o.order_id = r.order_id\nJOIN tix.events e ON e.event_id = o.event_id\nWHERE e.venue_id <> 'V99'\n  AND r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded > 0\n  AND substr(r.refund_ts, 1, 10) >= '2026-01-01'\n  AND substr(r.refund_ts, 1, 10) < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:5e2696ff2c83"
+                ],
+                "isolation": "verified",
+                "graded_by": "judge",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF05",
+                "prompt": "In the 2026 Fee Income by Type breakdown, which category has the highest net amount, and what is it?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Service fees had the highest net amount in the 2026 Fee Income by Type breakdown, at US$153,580.99 in the local sample data.",
+                "sql": "SELECT t.fee_type,\n       ROUND(SUM(t.amount), 2) AS net_fee_revenue\nFROM (\n    SELECT substr(o.order_ts, 1, 10) AS entry_date,\n           CASE WHEN t.ticket_type = 'resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,\n           t.service_fee AS amount\n    FROM tix.tickets t\n    JOIN tix.orders o ON o.order_id = t.order_id\n    JOIN tix.events e ON e.event_id = o.event_id\n    WHERE e.venue_id <> 'V99' AND t.service_fee > 0\n    UNION ALL\n    SELECT substr(o.order_ts, 1, 10), 'demand', t.demand_fee\n    FROM tix.tickets t\n    JOIN tix.orders o ON o.order_id = t.order_id\n    JOIN tix.events e ON e.event_id = o.event_id\n    WHERE e.venue_id <> 'V99' AND t.demand_fee > 0\n    UNION ALL\n    SELECT substr(o.order_ts, 1, 10), 'resale_seller', t.seller_fee\n    FROM tix.tickets t\n    JOIN tix.orders o ON o.order_id = t.order_id\n    JOIN tix.events e ON e.event_id = o.event_id\n    WHERE e.venue_id <> 'V99' AND t.seller_fee > 0\n    UNION ALL\n    SELECT substr(o.order_ts, 1, 10), 'order_processing', o.order_processing_fee\n    FROM tix.orders o\n    JOIN tix.events e ON e.event_id = o.event_id\n    WHERE e.venue_id <> 'V99' AND o.order_processing_fee > 0\n    UNION ALL\n    SELECT substr(o.order_ts, 1, 10), 'delivery', o.delivery_fee\n    FROM tix.orders o\n    JOIN tix.events e ON e.event_id = o.event_id\n    WHERE e.venue_id <> 'V99' AND o.delivery_fee > 0\n    UNION ALL\n    SELECT substr(r.refund_ts, 1, 10), 'refunded',\n           -(r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded)\n    FROM tix.refunds r\n    JOIN tix.orders o ON o.order_id = r.order_id\n    JOIN tix.events e ON e.event_id = o.event_id\n    WHERE e.venue_id <> 'V99'\n      AND r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded > 0\n) t\nWHERE t.entry_date >= '2026-01-01' AND t.entry_date < '2027-01-01'\nGROUP BY t.fee_type\nORDER BY SUM(t.amount) DESC, t.fee_type\nLIMIT 1",
+                "used_context_ids": [
+                  "vq:box-office:tableau-fee-income-by-type"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF06",
+                "prompt": "What was Ticketfuddle's net fee revenue in 2026?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle recorded $245,871.92 USD in net fee revenue for calendar year 2026 in the local sample data. The total subtracts refunded fees and excludes facility fees and events at venue V99.",
+                "sql": "SELECT SUM(t.amount) AS net_fee_revenue\nFROM (\n  SELECT o.order_id, substr(o.order_ts, 1, 10) AS entry_date, o.event_id,\n         CASE WHEN t.ticket_type = 'resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,\n         t.service_fee AS amount\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = o.event_id\n  WHERE e.venue_id <> 'V99' AND t.service_fee > 0\n  UNION ALL\n  SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'demand', t.demand_fee\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = o.event_id\n  WHERE e.venue_id <> 'V99' AND t.demand_fee > 0\n  UNION ALL\n  SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'resale_seller', t.seller_fee\n  FROM tix.tickets t\n  JOIN tix.orders o ON o.order_id = t.order_id\n  JOIN tix.events e ON e.event_id = o.event_id\n  WHERE e.venue_id <> 'V99' AND t.seller_fee > 0\n  UNION ALL\n  SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'order_processing', o.order_processing_fee\n  FROM tix.orders o\n  JOIN tix.events e ON e.event_id = o.event_id\n  WHERE e.venue_id <> 'V99' AND o.order_processing_fee > 0\n  UNION ALL\n  SELECT o.order_id, substr(o.order_ts, 1, 10), o.event_id, 'delivery', o.delivery_fee\n  FROM tix.orders o\n  JOIN tix.events e ON e.event_id = o.event_id\n  WHERE e.venue_id <> 'V99' AND o.delivery_fee > 0\n  UNION ALL\n  SELECT r.order_id, substr(r.refund_ts, 1, 10), o.event_id, 'refunded',\n         -(r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded)\n  FROM tix.refunds r\n  JOIN tix.orders o ON o.order_id = r.order_id\n  JOIN tix.events e ON e.event_id = o.event_id\n  WHERE e.venue_id <> 'V99'\n    AND r.service_fee_refunded + r.demand_fee_refunded + r.order_fees_refunded > 0\n) AS t\nWHERE t.entry_date >= '2026-01-01' AND t.entry_date < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:5e2696ff2c83",
+                  "vq:box-office:tableau-fee-income-by-type"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF07",
+                "prompt": "For non-chargeback primary tickets at non-test venues with 2026 order dates, what was the average face value after excluding comps?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "The average face value was $93.39 USD per ticket in the local sample for 2026 order dates, after excluding comps, chargebacks, and test venues.",
+                "sql": "SELECT ROUND(AVG(t.face_value), 2) AS average_face_value_usd\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nJOIN tix.events AS e ON e.event_id = t.event_id\nJOIN tix.venues AS v ON v.venue_id = e.venue_id\nWHERE t.ticket_type = 'primary'\n  AND o.status <> 'chargeback'\n  AND v.venue_type <> 'test'\n  AND t.is_comp = 0\n  AND substr(o.order_ts, 1, 10) >= '2026-01-01'\n  AND substr(o.order_ts, 1, 10) < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:2cc3c9199711",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month",
+                  "metric:box-office:e8463133b28b",
+                  "metric:box-office:8e6f9d7b5897",
+                  "vq:box-office:076fb1a9504876ee"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF08",
+                "prompt": "How many non-chargeback primary tickets were sold through web or app in 2026 at non-test venues?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "Ticketfuddle’s local data records 9,254 non-chargeback primary tickets sold through web or app at non-test venues with 2026 order dates.",
+                "sql": "SELECT COUNT(t.ticket_id) AS tickets_sold\nFROM tix.tickets t\nJOIN tix.orders o ON o.order_id = t.order_id\nJOIN tix.events e ON e.event_id = t.event_id\nJOIN tix.venues v ON v.venue_id = e.venue_id\nWHERE t.ticket_type = 'primary'\n  AND o.status <> 'chargeback'\n  AND v.venue_type <> 'test'\n  AND lower(replace(o.channel, ' ', '_')) IN ('web', 'app')\n  AND substr(o.order_ts, 1, 10) >= '2026-01-01'\n  AND substr(o.order_ts, 1, 10) < '2027-01-01'\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:997fcce55556",
+                  "metric:box-office:ad0fd0b38fb8",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month",
+                  "vq:box-office:2c30bd684e20c114",
+                  "vq:box-office:31aad31bdd639caa",
+                  "metric:box-office:9ffc56a4e3bf",
+                  "vq:box-office:076fb1a9504876ee"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF09",
+                "prompt": "At non-test venues, for non-chargeback primary-ticket orders, what was the average number of tickets in an order?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "In the local sample data, non-chargeback primary-ticket orders at non-test venues averaged 2.30 tickets per order.",
+                "sql": "WITH eligible_orders AS (\n    SELECT DISTINCT t.order_id\n    FROM tix.tickets AS t\n    JOIN tix.orders AS o ON o.order_id = t.order_id\n    JOIN tix.events AS e ON e.event_id = t.event_id\n    JOIN tix.venues AS v ON v.venue_id = e.venue_id\n    WHERE t.ticket_type = 'primary'\n      AND o.status <> 'chargeback'\n      AND v.venue_type <> 'test'\n),\norder_sizes AS (\n    SELECT t.order_id, COUNT(*) AS tickets_in_order\n    FROM tix.tickets AS t\n    JOIN eligible_orders AS o ON o.order_id = t.order_id\n    GROUP BY t.order_id\n)\nSELECT AVG(tickets_in_order) AS average_tickets_per_order\nFROM order_sizes\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:562fc9ee042a",
+                  "metric:box-office:543eb4c96c32",
+                  "metric:box-office:3e5c0225c3f0",
+                  "vq:box-office:13ca8d9566da9a0a",
+                  "vq:box-office:tableau-gross-sales",
+                  "vq:box-office:tableau-gross-sales-by-month"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                }
+              },
+              {
+                "prompt_id": "TF10",
+                "prompt": "Which completed event had the highest sell-through, and what was its rate?",
+                "class": "pass",
+                "reason": "match",
+                "model": "gpt-6.2-sol",
+                "answer": "The Grumpy Moose: Antler Tour had the highest sell-through at 100%, with 700 primary tickets issued, including comps, against a capacity of 700.",
+                "sql": "WITH event_sales AS (\n    SELECT e.event_id, e.event_name, e.event_date, e.capacity,\n           COUNT(t.ticket_id) AS tickets_issued\n    FROM tix.events e\n    JOIN tix.venues v ON v.venue_id = e.venue_id\n    LEFT JOIN tix.orders o ON o.event_id = e.event_id AND o.status <> 'chargeback'\n    LEFT JOIN tix.tickets t ON t.order_id = o.order_id AND t.ticket_type = 'primary'\n    WHERE e.status = 'completed' AND v.venue_type <> 'test'\n    GROUP BY e.event_id, e.event_name, e.event_date, e.capacity\n)\nSELECT event_name, event_date, tickets_issued, capacity,\n       CAST(tickets_issued AS REAL) / NULLIF(capacity, 0) AS sell_through\nFROM event_sales\nWHERE NULLIF(capacity, 0) IS NOT NULL\nORDER BY sell_through DESC, event_id\nLIMIT 1",
+                "used_context_ids": [
+                  "metric:box-office:ad0fd0b38fb8",
+                  "metric:box-office:6ef9ff31980f",
+                  "vq:box-office:tableau-fee-income-by-type"
+                ],
+                "isolation": "verified",
+                "graded_by": "script",
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 3
+                }
+              }
+            ]
+          }
+        ],
+        "status": "complete"
+      },
+      "source_build": {
+        "metrics": 45,
+        "queries": 45,
+        "checked_examples": 90,
+        "held_metrics": 1,
+        "held_queries": 1,
+        "hold_reason": "Fee-rate dashboard title and denominator source ambiguity."
+      },
+      "context_hashes": {
+        "metrics.json": {
+          "source_built": "e37278d4eabc91b9ea005faaf643bce0d0083789ec8c48b45cf7663737a4f2b4",
+          "current": "e37278d4eabc91b9ea005faaf643bce0d0083789ec8c48b45cf7663737a4f2b4",
+          "unchanged": true
+        },
+        "queries.json": {
+          "source_built": "303a7820bd72c3a21235f9bdc0ccfc1d436ff782ba3e32ee6994707caad60731",
+          "current": "303a7820bd72c3a21235f9bdc0ccfc1d436ff782ba3e32ee6994707caad60731",
+          "unchanged": true
+        }
+      },
+      "database_unchanged": true
+    }
+  },
+  "findings": [
+    {
+      "kind": "product",
+      "issue": "Local CHECK table list omitted bound join tables",
+      "resolution": "Fixed in 5a33417; normal CHECK now advertises all approved local tables; SQLite/DuckDB regression passed."
+    },
+    {
+      "kind": "product",
+      "issue": "A supplied-set perfect score claimed the questions were those analysts ask most",
+      "resolution": "Result wording now says questions in this check; actual supplied-set result re-executed and verified."
+    },
+    {
+      "kind": "local_answering_adapter",
+      "issue": "Large PROJECT results arrived as result_file references; adapter and exact replay did not read them",
+      "resolution": "Both request supported PROJECT --full output. An isolated real SQLite test returned identical 250 rows, about14KB, through MCP and exact replay. No grader changed."
+    }
+  ],
+  "ticketfuddle_default_delivery_failure": {
+    "case": "mined-19",
+    "original_record": "agent_sql_error; original agent could not display query rows",
+    "recovery": "Exact original SQL re-executed with --full against unchanged database, original answer/transcript preserved, graded in separate copied eval only. Independent judge found235 versus trusted233. Original recorded score remains1/8; this is not a seamless original tool-delivery success.",
+    "answer_resampled": false
+  },
+  "repair_coverage": "All four fresh context passes were perfect on their first scoring attempt. No synthetic faults were introduced, so metric repair and post-repair retest branches were not exercised by these normal journeys. Earlier seeded repair experiments remain separate.",
+  "model": {
+    "answer": "gpt-6.2-sol",
+    "judge": "gpt-6-luna",
+    "reasoning_effort": "medium"
+  }
+}

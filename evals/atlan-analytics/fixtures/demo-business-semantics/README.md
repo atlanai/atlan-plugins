@@ -116,3 +116,50 @@ and seeds only the declared missing-task classification. Both arms are rerun on 
 no score is transferred from the previous question set. Earlier questions, SQL and measured
 1/8/10 results remain in the review evidence. A fresh baseline near four is a hypothesis, not a
 guarantee or a reason to change grading. Revision 2 measured **4/10 schema-only, 8/10 injected context and 10/10 repaired context**. All four ordinary controls passed raw; all six rule cases failed raw. The two initial-context misses exactly match the declared missing-task classification. All ten questions were retested after the normal metric edit restored the rule.
+
+## Fresh analytics-demo workflow test
+
+The earlier seeded results above used a controller-driven sequence of product helpers. They
+did not test the whole demo journey or automatic fixture selection. Two fresh native workflow
+agents subsequently followed `analytics-demo` from `DEMO open`, through source selection,
+normal engine gates, export and execution checks, keeping context local and answering an initial
+question. Each then ran the default generated-eight-question route, followed by a separate
+explicitly selected supplied set. No prior context, injected faults or metric repairs were used.
+User decisions were preselected for this headless test; interactive client rendering was not tested.
+
+| Fresh workflow | Schema only | Source-built context |
+| --- | ---: | ---: |
+| Fixit, default generated eight | 0/8 | 8/8 |
+| Fixit, supplied ten | 4/10 | 10/10 |
+| Ticketfuddle, default generated eight | 1/8* | 8/8 |
+| Ticketfuddle, supplied ten | 3/10 | 10/10 |
+
+All eight score stages have verified isolation. Source-built metric/query hashes and database
+hashes remained unchanged. These fresh runs used `gpt-6.2-sol` answering and `gpt-6-luna`
+judging; the earlier seeded experiments used `gpt-6-luna` answering. They are distinct experiments,
+not a controlled comparison between old and new builds. The fresh contexts had no misses, so
+the normal metric-repair and post-repair retest branches were not exercised. The earlier
+synthetic 80-to-100 exercise must not be presented as the default demo's observed trajectory.
+
+The journey exposed and corrected two product issues: local `CHECK start` omitted approved
+join tables by reporting only metric base entities, and a supplied-set result made an unsupported
+claim that its questions were those analysts ask most. The table handoff now uses the bound local
+table list; result wording refers to the questions in the check.
+
+*Ticketfuddle's first raw run also exposed a local adapter defect: large query results were
+returned by file reference, which the adapter failed to read. That original answer could not
+display its rows and remains recorded as an execution error. A separate replay of its exact SQL,
+with the original answer/transcript and unchanged database, found a wrong result too (235 versus
+233). The adapter and exact replay now use the supported `PROJECT --full` option; a real SQLite
+regression delivered the same 250 rows, about 14 KB, through both paths. No answer was resampled
+or normalized, and the original score was not overwritten.
+
+Fixit built nine metrics and 30 queries, with five source-review warnings. Ticketfuddle built
+45 metrics and 45 queries; one dashboard metric/query pair remained held for a fee-rate source
+ambiguity. Its incorrect intermediate X2 population record was corrected in a normal build
+replay; exported metric definitions were byte-identical and query changes were only witness
+timestamps. Independent dashboard display-value parity was unavailable for both demos.
+
+[Workflow evidence](workflow-validation.json) contains the generated questions, original SQL,
+scores, failures and source-context hashes. The ten-question fixtures are still explicitly
+supplied sets: this PR does not automatically install or select them in the normal demo.
