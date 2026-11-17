@@ -1,0 +1,106 @@
+{
+  "TF01": {
+    "columns": [
+      "gross_sales"
+    ],
+    "rows": [
+      [
+        911689.4
+      ]
+    ]
+  },
+  "TF02": {
+    "columns": [
+      "fee_take_rate"
+    ],
+    "rows": [
+      [
+        0.28515939128612955
+      ]
+    ]
+  },
+  "TF03": {
+    "columns": [
+      "sell_through"
+    ],
+    "rows": [
+      [
+        0.8432631578947368
+      ]
+    ]
+  },
+  "TF04": {
+    "columns": [
+      "fee_refunds"
+    ],
+    "rows": [
+      [
+        11987.07
+      ]
+    ]
+  },
+  "TF05": {
+    "columns": [
+      "fee_type",
+      "net_fee_revenue"
+    ],
+    "rows": [
+      [
+        "service",
+        153580.99
+      ]
+    ]
+  },
+  "TF06": {
+    "columns": [
+      "net_fee_revenue"
+    ],
+    "rows": [
+      [
+        245871.92
+      ]
+    ]
+  },
+  "TF07": {
+    "columns": [
+      "avg_ticket_price"
+    ],
+    "rows": [
+      [
+        93.38876999898095
+      ]
+    ]
+  },
+  "TF08": {
+    "columns": [
+      "tickets"
+    ],
+    "rows": [
+      [
+        9254
+      ]
+    ]
+  },
+  "TF09": {
+    "columns": [
+      "tickets_per_order"
+    ],
+    "rows": [
+      [
+        2.297505743354119
+      ]
+    ]
+  },
+  "TF10": {
+    "columns": [
+      "event_name",
+      "sell_through"
+    ],
+    "rows": [
+      [
+        "The Grumpy Moose: Antler Tour",
+        1.0
+      ]
+    ]
+  }
+}

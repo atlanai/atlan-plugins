@@ -1,0 +1,118 @@
+{
+  "late_jobs_discount": {
+    "columns": [
+      "late_jobs"
+    ],
+    "rows": [
+      [
+        2
+      ]
+    ]
+  },
+  "on_time_handover_rate": {
+    "columns": [
+      "on_time_rate"
+    ],
+    "rows": [
+      [
+        0.7142857142857143
+      ]
+    ]
+  },
+  "material_waste_gbp": {
+    "columns": [
+      "material_waste_gbp"
+    ],
+    "rows": [
+      [
+        7646.5
+      ]
+    ]
+  },
+  "dig_rework_cost": {
+    "columns": [
+      "rework_cost_gbp"
+    ],
+    "rows": [
+      [
+        5040.0
+      ]
+    ]
+  },
+  "jobs_losing_money": {
+    "columns": [
+      "project_name",
+      "gross_margin_gbp"
+    ],
+    "rows": [
+      [
+        "Buttercup Vale Wind Turbine Base",
+        -6360.0
+      ],
+      [
+        "Kipper's Cat Flap",
+        -646.5
+      ],
+      [
+        "Sprout's Scarecrow Workshop",
+        -180.0
+      ]
+    ]
+  },
+  "skip_waste_share": {
+    "columns": [
+      "material_waste_rate"
+    ],
+    "rows": [
+      [
+        0.04389469635650771
+      ]
+    ]
+  },
+  "billable_share": {
+    "columns": [
+      "billable_utilisation"
+    ],
+    "rows": [
+      [
+        0.7777777777777778
+      ]
+    ]
+  },
+  "supplier_skip_waste_rate": {
+    "columns": [
+      "supplier",
+      "material_waste_rate"
+    ],
+    "rows": [
+      [
+        "Buttercup Vale Quarry",
+        0.045674486803519064
+      ],
+      [
+        "Hammerton Builders' Merchant",
+        0.04091055761282095
+      ]
+    ]
+  },
+  "late_jobs_gross_margin": {
+    "columns": [
+      "gross_margin_gbp"
+    ],
+    "rows": [
+      [
+        -6540.0
+      ]
+    ]
+  },
+  "nonbillable_paid_time_cost": {
+    "columns": [
+      "nonbillable_time_cost_gbp"
+    ],
+    "rows": [
+      [
+        38705.0
+      ]
+    ]
+  }
+}

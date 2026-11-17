@@ -1,0 +1,66 @@
+[
+  {
+    "demo": "yard",
+    "case_id": "billable_share",
+    "defect": "Omit sprout_helping from the nonbillable classification",
+    "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break','yard_tidy','rework') THEN hours ELSE 0 END)*1.0/NULLIF(SUM(hours),0) AS billable_utilisation FROM work_logs",
+    "rows": [
+      [
+        0.7856966097500618
+      ]
+    ],
+    "gold_rows": [
+      [
+        0.7777777777777778
+      ]
+    ]
+  },
+  {
+    "demo": "yard",
+    "case_id": "nonbillable_paid_time_cost",
+    "defect": "Omit sprout_helping from the nonbillable classification",
+    "sql": "SELECT SUM(w.hours*c.hourly_rate_gbp) AS nonbillable_time_cost_gbp FROM work_logs w JOIN crew c USING(crew_id) WHERE w.task_type IN ('tea_break','yard_tidy','rework')",
+    "rows": [
+      [
+        38129.0
+      ]
+    ],
+    "gold_rows": [
+      [
+        38705.0
+      ]
+    ]
+  },
+  {
+    "demo": "box-office",
+    "case_id": "TF01",
+    "defect": "omit allocated order_processing_fee and delivery_fee from Gross Sales",
+    "sql": "SELECT SUM(t.face_value+t.service_fee+t.facility_fee+t.demand_fee) AS gross_sales FROM tickets t JOIN orders o USING(order_id) JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id JOIN (SELECT order_id,COUNT(*) ticket_count FROM tickets GROUP BY order_id) n USING(order_id) WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND e.status='completed' AND substr(e.event_date,1,4)='2026';",
+    "rows": [
+      [
+        898305.5
+      ]
+    ],
+    "gold_rows": [
+      [
+        911689.4
+      ]
+    ]
+  },
+  {
+    "demo": "box-office",
+    "case_id": "TF06",
+    "defect": "include primary ticket facility fees in Ticketfuddle net fee income",
+    "sql": "SELECT SUM(amount) AS net_fee_revenue FROM (SELECT o.order_id,substr(o.order_ts,1,10) AS entry_date,o.event_id,CASE WHEN t.ticket_type='resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,t.service_fee AS amount FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.service_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'demand',t.demand_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.demand_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'resale_seller',t.seller_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.seller_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'order_processing',o.order_processing_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.order_processing_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'delivery',o.delivery_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.delivery_fee>0 UNION ALL SELECT r.order_id,substr(r.refund_ts,1,10),o.event_id,'refunded',-(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'facility',t.facility_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.ticket_type='primary' AND t.facility_fee>0) WHERE substr(entry_date,1,4)='2026'",
+    "rows": [
+      [
+        286809.92
+      ]
+    ],
+    "gold_rows": [
+      [
+        245871.92
+      ]
+    ]
+  }
+]
