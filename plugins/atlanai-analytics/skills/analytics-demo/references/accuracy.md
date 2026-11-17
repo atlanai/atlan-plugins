@@ -33,7 +33,7 @@ this machine only.
 ## 1. Choose the questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
-context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8 --context-only` returns the built run, `context_saved_to`, `execution`, the project's
+context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8` returns the built run, `context_saved_to`, `execution`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
 `text` and `options`). Add `--run <run-dir>`, here and on `CHECK load` and `SCOPE inputs`,
 whenever the run is known: the demo's own run, or the build's. With no sets, or the person asking for new questions, generate. Otherwise,
@@ -48,7 +48,7 @@ questions are shown with their expected answers, in step 2, because the person h
   then step 3, with no list to confirm.
 - **Generate:** run `eval-generation` `generate` (not its `save`) with 8 questions, passing
   `--limit 8` to its `SCOPE pick`, then `CHECK load` on the set it wrote, then step 2. A demo
-  check stays at 8 questions, so it ends in about 2 minutes.
+  check stays at 8 questions, so it ends in about 4 minutes with both passes.
 
 `CHECK load` drops a question whose trusted SQL fails or returns nothing; name how many.
 
@@ -69,21 +69,29 @@ query its analysts already run, and the expected answer is what that query retur
 Run these <N> questions?
 ```
 
-The expected answer is one value or one short phrase, never a table, and never SQL unless asked.
+The expected answer is the headline number with its label ("Reopen rate: 19.7%"), or one short
+phrase, never a row of bare values, never a table, and never SQL unless asked. The number beside
+each question is the one it keeps in the score, the misses and any fix.
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
+| Run them (Recommended) | Each goes to a fresh agent that sees only your context, and to one that sees only the raw tables, about 4 minutes. |
+| Drop some | Tell me the numbers to leave out, and I run the rest. |
 | Not now | Keep the questions on this machine. |
 
-There is no edit option. On Not now, end with "What would you like to do next?", whose text is one
-line: "The questions stay on this machine."
+On Drop some, ask which numbers in plain chat, run `CHECK drop --evals <evals-run> --questions
+<numbers>`, and run the rest without asking again; say how many were left out. The set file keeps
+them. Rewording a question is not offered here: a reworded question needs its trusted SQL checked
+again, so the person edits the set file and runs a new check. On Not now, end with "What would
+you like to do next?", whose text is one line: "The questions stay on this machine."
 
 ## 3. Run and score
 
-Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes. With every question right, go to
-step 5. With misses, ask one native question, "Does the score look good?", whose text is the
-score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
+Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
+[before and after](../../accuracy-check/references/run.md#before-and-after) pass started with the
+context pass. With every question right, go to step 5. With misses, ask one native question,
+"Does the score look good?", whose text opens with the before-and-after `report`, word for
+word, then the score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
 
 | Option | Description |
 | --- | --- |
@@ -117,27 +125,39 @@ in `<evals-run>/work/spec.json`, name the fix:
   words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>", "value":
   <new value>}]}]`. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has
   no `changes`.
-- **Ask "Apply this fix?"**, one native question whose text is the fixes as plain lines, and
-  nothing after the options: not saved queries that follow the old rule, nor what else the fix
-  might touch. One per
-  miss, the question, why it failed, and the fix (rule now, rule proposed), the recommended one
-  first.
+- **A period that moves is never tied to a date.** When a miss comes from "last quarter", "this
+  month" or any other period that moves with the calendar, and the trusted SQL fixes its dates,
+  the context is not wrong: the question is. Never propose a rule that says what that phrase
+  means on a date ("last quarter means Q2 2026"): it would answer every later question with a
+  stale period. `ACC fixes` refuses such a fix. Write it as a redraft whose why says the period
+  is relative; it is shown with the fixes, as a question to reword, and changes nothing in the
+  context.
+- **Ask "Which fixes should I apply?"**, one native multiple-choice question whose text is the
+  fixes as plain lines, and nothing after the options: not saved queries that follow the old
+  rule, nor what else the fix might touch. One block per miss, under the miss's own number: the
+  question, why it failed, and the fix (rule now, rule proposed). A person decides each fix on
+  its own: there is one option per fix, and never an option that applies them all or a
+  recommendation for a fix that carries a caution.
 
   | Option | Description |
   | --- | --- |
-  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
-  | Keep the score | Keep this score as the bar to beat. |
+  | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
+  | Reword question `<n>` (one option per redraft) | The question names a period that moves, or asks the opposite of its SQL. I leave the context alone and mark the question to reword in the set. |
+  | Keep the score | Apply nothing. Keep this score as the bar to beat. |
 
-**Apply it** is the yes through the next score, so ask nothing more until the score, unless a
-Trident write is refused and the owner must act in Metric Studio. Keep the score goes to step 5.
+The fixes the person ticks are the yes through the next score, so apply only those, in order,
+then test the same questions again and ask nothing more until the score, unless a Trident write
+is refused and the owner must act in Metric Studio. A question marked to reword stays in the set
+and in the score until its wording is changed; say so in one line beside the next score. With
+nothing ticked, or Keep the score, go to step 5.
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
   rule there no longer tests the context), and run `EDIT <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
-  keeps the old rule, so say so and ask "Apply this fix?" again with the next fix. Change only that metric,
+  keeps the old rule, so say so and ask "Which fixes should I apply?" again with the fixes left. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
-- **Context in Atlan Trident:** Apply it is the approval, so apply and release the fix here, with
+- **Context in Atlan Trident:** a ticked fix is the approval, so apply and release the fix here, with
   no second approval in Metric Studio and no proposal record: the new version is the record. For
   each metric the fix changes:
   1. Read the metric's head (`registry__get_artifact`, `properties: []`) for its `etag` and
@@ -187,7 +207,9 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
    accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
    <what the misses share>."
 3. The score line, word for word, which carries the range.
-4. Only when `CHECK load` returned `generated: true`: the source line.
+4. The before-and-after comparison, word for word: the raw tables against your context on the
+   same questions. `ACC result` adds it from the check's `raw` run; it is never left out.
+5. Only when `CHECK load` returned `generated: true`: the source line.
 
 No other line: not a significance test, an open question, a note on saved queries or past
 queries that still follow the old rule, or an offer to change a saved query, another metric

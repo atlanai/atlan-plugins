@@ -23,8 +23,16 @@ HARNESS = pathlib.Path(__file__).resolve().parents[2] / "analytics-build" / "scr
 BANNER = (" *   .  '   *    .   '  *   .    '   *  .",
           " '   *   .   {n} OUT OF {n} RIGHT   .   *   '",
           " .   *    '   .    *   '    .   *    '  .")
-SOURCE = ("The questions came from the past queries and tiles the context was built from, so the score shows "
-          "the context reproduces what the analysts asked, not how it handles a new question.")
+SOURCE = ("These questions were written from your own dashboards and past queries. So this score says the "
+          "agent can answer what your team already asks. It does not say how it will do on a question nobody "
+          "has asked before.")
+
+# A phrase that moves with the calendar, and a date or period that does not. A fix that ties the
+# first to the second answers this run's question and every later one wrongly.
+RELATIVE = re.compile(r"\b(?:last|this|previous|prior|current|past|recent|latest|next)\s+"
+                      r"(?:\d+\s+)?(?:day|week|month|quarter|year|fiscal year|fy)s?\b|\b(?:to date|year to date|ytd|mtd|qtd)\b", re.I)
+FIXED = re.compile(r"\b(?:19|20)\d{2}-\d{2}(?:-\d{2})?\b|\bQ[1-4]\s*(?:FY)?\s*'?(?:19|20)?\d{2}\b|\bFY\s*'?\d{2,4}\b"
+                   r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:\d{1,2},?\s+)?(?:19|20)\d{2}\b", re.I)
 
 FIX_KINDS = ("metric", "redraft", "new_metric")
 
@@ -60,9 +68,17 @@ def cmd_fixes(a) -> dict:
             raise Blocked(f"Fix {n} names no miss of this set" + (f": {', '.join(missing)}" if missing else "") + ".")
         if not f.get("why"):
             raise Blocked(f"Fix {n} needs why the miss failed.")
-        if kind == "redraft" and "opposite" not in f["why"].lower():
-            raise Blocked(f"Fix {n}: the set is the source of truth; only a question that asks the opposite "
-                          "is redrafted. Fix the context instead.")
+        # Read from the rule in plain words, never from the changes: a parameter's default date is not a pin.
+        said = str(f.get("rule_proposed") or "")
+        pins = kind == "metric" and RELATIVE.search(said) and FIXED.search(said)
+        if pins:
+            raise Blocked(f"Fix {n} ties a period that moves ({RELATIVE.search(said).group(0)}) to a fixed one "
+                          f"({FIXED.search(said).group(0)}): it would answer every later question with that "
+                          "date. This miss is the question's wording. Offer rewording the question instead: "
+                          'kind "redraft", with a why that says the period is relative.')
+        if kind == "redraft" and not re.search(r"opposite|relative", f["why"], re.I):
+            raise Blocked(f"Fix {n}: the set is the source of truth; a question is redrafted only when it asks "
+                          "the opposite of its SQL, or names a relative period its SQL fixes. Fix the context instead.")
         if kind == "metric":
             changes = f.get("changes") or []
             if not (f.get("metric") and f.get("rule_now") and f.get("rule_proposed") and changes):
@@ -134,6 +150,20 @@ def _score(ev: pathlib.Path, variant: str) -> dict:
             "pct": round(100 * float(v.get("pass_rate") or 0))}
 
 
+def _compare(ev: pathlib.Path, after: str) -> str:
+    """The before-and-after report: the raw tables against the context, on the same questions."""
+    out = subprocess.run([sys.executable, str(HARNESS), "before-after", "--dir", str(ev),
+                          "--before", "raw", "--after", after], capture_output=True, text=True)
+    try:
+        report = json.loads(out.stdout).get("report")
+    except json.JSONDecodeError:
+        report = None
+    if not report:
+        raise Blocked("This check has no raw-source pass to compare with. Run the before-and-after pass, "
+                      "then ask for the result again.")
+    return report
+
+
 def cmd_result(a) -> dict:
     """The demo's result block, word for word: banner when every question is right, result line, score line."""
     ev = pathlib.Path(a.evals)
@@ -154,9 +184,12 @@ def cmd_result(a) -> dict:
             raise Blocked("With misses left, say what they share (--misses), in plain words.")
         lines.append(f"Your {a.agent} misses {a.misses}.")
     lines.append(last["line"])
+    # Every check runs the raw-source pass, so every result carries the comparison.
+    lines += ["", _compare(ev, runs[-1])]
     if a.generated:
         lines.append(SOURCE)
     return {"status": "ok", "text": "\n".join(lines), "all_right": right, "from": first["pct"], "to": last["pct"],
+            "compared": True,
             "fixed": len(runs) > 1}
 
 

@@ -132,9 +132,9 @@ trusted results come from the warehouse, and no model copies a value:
 
 ## Before and after
 
-Run on every check whose `CHECK start` returned `before_after: true`: every check, whether a
-person asked here directly or a skill started it, except one started with `--context-only` (the
-demo's short check). Never skip it because nobody asked for it. The same questions
+Run on every check: whether a person asked here directly, the build offered it or the demo
+started it, and whatever the size of the set. Never skip it because nobody asked for it. The
+same questions
 again, each to a fresh agent that has only the source's tables and no context, as the variant
 `raw`. It shows what the context changed, on the same questions and the same trusted results.
 
@@ -165,16 +165,34 @@ again, each to a fresh agent that has only the source's tables and no context, a
 
 ## Show the score
 
-With a before pass, the `report` comes first. Then lead with the summary's `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly
-(likely between 21% and 94%; a small sample)"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
-line: the questions came from the past queries and tiles the context was built from, so the score
-shows the context reproduces what the analysts asked, not how it handles a new question. With
-`generated: false` (a set the person brought) there is no such line: say nothing about where its
-questions came from, not even that you are leaving it out.
+The result comes first and nothing is written around it: no setup recap, no list of commands,
+no closing summary. A person who asked how accurate the agent is reads the score in the first
+line, and a result buried under process is a result they miss.
 
-Then one line per miss: the question, the metric it tests, the expected value, the agent's
-value, and **why it failed**, read from the agent's answer and SQL against the trusted SQL.
-These are plain lines, no table: they become a question's text.
+With a before pass, the before-and-after `report` comes first. Then show the run report as
+printed: `EVAL report --why <why file>` gives the same sections for every run of a check, the
+first or the tenth, so a later run never reads thinner than the first. It holds the
+`score_line`, word for word ("67% accuracy: 2 of 3 answered correctly (likely between 21% and
+94%; a small sample)"), every run on this set, which run it is compared with and where that
+run lives, the questions that changed since, and the misses grouped by cause. Never count the
+passes yourself, never drop a section and never rebuild its numbers.
+
+Only when `CHECK load` returned `generated: true`, add these lines after the score, as they are:
+"These questions were written from your own dashboards and past queries. So this score says
+the agent can answer what your team already asks. It does not say how it will do on a question
+nobody has asked before." With `generated: false` (a set the person brought) there is no such
+line: say nothing about where its questions came from, not even that you are leaving it out.
+
+**Every miss has a number, and keeps it.** A question's number is its place in the set, the
+same in the list the person confirmed, in every run's report and in a fix. Each miss is four
+plain lines under its number: the question; `Tests <metric>`; `Expected <value>. Got <value>.`;
+`Why: <one plain sentence>`. No table: they become a question's text.
+
+Before the report, write the why file, `<evals-run>/hillclimb/<variant>/why.json`: for each
+missed question id, `{"why": "<one cause from the table below>", "detail": "<one plain
+sentence>"}`, read from the agent's answer and SQL against the trusted SQL. The report groups
+the misses by that cause. A miss you leave out is printed as "Not yet explained", and the
+report's `unexplained` names it: explain it and print the report again.
 
 | Why | Means |
 | --- | --- |
@@ -195,9 +213,17 @@ on the same eval folder as the next variant (`v1`, then `v2`) on the same questi
 question first. When the caller names a metric version, add one line to
 each answering agent's prompt: "If you use <metric>, read it at version <N>; read every other
 metric at its released version." Never list only the changed metrics: an agent told to read
-those reads nothing else. Show `EVAL compare --a baseline --b v1` as one line
-per question that changed, with the new score line. The raw-source pass is not run again: the
-source did not change.
+those reads nothing else. Show `EVAL report` as printed: it names the run this one is compared
+with, when that run was scored and where it lives (the folder on this machine, or the
+experiment in Atlan Trident once the check is saved), then the questions that changed, by
+number. A comparison whose other run the person cannot find is no comparison. `EVAL compare
+--a baseline --b v1` gives the same change as numbers when asked. The raw-source pass is not
+run again: the source did not change.
+
+A comparison is only ever with a run of this same eval folder. When the person asks to compare
+with another run (an older check, another set), `CHECK start` lists the project's eval folders
+under `checks`: ask which one, once, and say which you used. Never pick one silently, and never
+compare runs graded on different questions.
 
 ## Save to Atlan Trident
 

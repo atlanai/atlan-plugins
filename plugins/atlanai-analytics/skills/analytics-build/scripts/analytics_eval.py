@@ -1941,6 +1941,106 @@ def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
         pub.s["completed"] = True
 
 
+# ====================================================================== the run report
+# One report shape for every run of a check, first or tenth, so a later run never reads thinner
+# than the first: the score, every run on this set, which run it is compared with and where that
+# run lives, what flipped, and the misses grouped by cause. Read-only, outside the harness span.
+REPORT_WHYS = ("Different rule", "Different filter", "No definition", "Query failed", "Question asks the opposite")
+_CLASS_WHY = {"no_sql": "Query failed", "agent_sql_error": "Query failed"}
+
+
+def _report_runs(pr: Proj, skip=()) -> list:
+    """The scored runs of a check, first to last: baseline, then each test again."""
+    found = [d.name for d in pr.p("hillclimb").glob("*") if (d / "results.jsonl").is_file() and d.name not in skip]
+    later = sorted((v for v in found if re.fullmatch(r"v\d+", v)), key=lambda v: int(v[1:]))
+    return (["baseline"] if "baseline" in found else []) + later + sorted(set(found) - {"baseline"} - set(later))
+
+
+def _short(cells, width: int = 60) -> str:
+    """A result's first row as a person reads it: a few values, never a table."""
+    text = ", ".join("none" if c is None else str(c) for c in list(cells or [])[:4])
+    return text if len(text) <= width else text[:width - 1].rstrip() + "…"
+
+
+def _when(stamp) -> str:
+    t = _stamp(stamp)
+    return f"{t.day} {t:%b %H:%M} UTC" if t else "time not recorded"
+
+
+def cmd_report(a) -> dict:
+    pr = Proj(a.dir)
+    runs = _report_runs(pr, skip=(a.raw,))
+    if not runs:
+        raise Blocked("This eval folder has no scored run yet.", "Run and record the set, then ask for the report.")
+    last = a.variant or runs[-1]
+    if last not in runs:
+        raise Blocked(f"No scored run named {last}.", f"Scored runs here: {', '.join(runs)}.")
+    cases = pr.cases()
+    number = {c["case_id"]: n for n, c in enumerate(cases, 1)}  # one number per question, the same in every run
+    question = {c["case_id"]: c["question"] for c in cases}
+    picked = {s["id"]: s for s in load_json(pr.p("work", "selection.json"), []) or []}
+    whys = load_json(pr.f(a.why), {}) if a.why else {}
+    if a.why and not isinstance(whys, dict):
+        raise Blocked("--why is a JSON object, one entry per missed question id.",
+                      '{"<id>": {"why": "<one of the causes>", "detail": "<one plain sentence>"}}')
+    rows = {v: {r["prompt_id"]: r for r in read_results(pr.vdir(v) / "results.jsonl")} for v in runs}
+    ok = lambda v, i: (rows[v].get(i, {}).get("grade") or {}).get("pass") == 1  # noqa: E731
+    scored = lambda v: [i for i, r in rows[v].items() if r.get("class") not in UNSCORED]  # noqa: E731
+    summ = summarize(pr, last, False)
+    name = (load_json(pr.p("work", "spec.json"), {}) or {}).get("name") or pr.dir.name
+    lines = [f"Accuracy check on {name}: run {runs.index(last) + 1} of {len(runs)}", summ.get("score_line") or "No question was scored."]
+
+    table = [("Run", "When", "Right", "Accuracy")]
+    for v in runs:
+        ids = scored(v)
+        k = sum(1 for i in ids if ok(v, i))
+        when = max((r.get("ts") or "" for r in rows[v].values()), default="")
+        table.append((v, _when(when), f"{k} of {len(ids)}", f"{k / len(ids):.0%}" if ids else "none scored"))
+    w = [max(len(r[k]) for r in table) for k in range(4)]
+    lines += ["", "Runs on this set"] + ["  " + "   ".join(c.ljust(w[k]) for k, c in enumerate(r)).rstrip() for r in table]
+
+    prev = runs[runs.index(last) - 1] if runs.index(last) else None
+    saved = ((pr.state().get("ids") or {}).get("experiments") or {})
+    if prev:
+        where = f"saved in Atlan Trident as {saved[prev]}" if saved.get(prev) else f"on this machine, in {pr.vdir(prev)}"
+        when = max((r.get("ts") or "" for r in rows[prev].values()), default="")
+        lines += ["", f"Compared with {prev}, run {_when(when)}, {where}."]
+        both = [i for i in scored(last) if i in scored(prev)]
+        up = sorted(number[i] for i in both if ok(last, i) and not ok(prev, i))
+        down = sorted(number[i] for i in both if not ok(last, i) and ok(prev, i))
+        say = lambda ns: ", ".join(str(n) for n in ns) if ns else "none"  # noqa: E731
+        lines.append(f"Changed since {prev}: now right: {say(up)}. Now wrong: {say(down)}.")
+
+    misses = sorted((i for i in scored(last) if not ok(last, i)), key=lambda i: number.get(i, 0))
+    groups: dict = {}
+    for i in misses:
+        given = whys.get(i) if isinstance(whys.get(i), dict) else {}
+        why = given.get("why") if given.get("why") in REPORT_WHYS else _CLASS_WHY.get(rows[last][i].get("class"), "Not yet explained")
+        groups.setdefault(why, []).append((i, given.get("detail") or rows[last][i].get("reason") or ""))
+    if misses:
+        lines += ["", f"Misses ({len(misses)}), by cause"]
+        for why in [g for g in (*REPORT_WHYS, "Not yet explained") if g in groups]:
+            lines.append(f"{why} ({len(groups[why])})")
+            for i, detail in groups[why]:
+                got = load_json(pr.vdir(last) / "results" / f"{i}_rep0.agent.json", {}) or {}
+                got_row = ((normalize_result(got).get("rows") or [[]]) or [[]])[0] if got else []
+                tests = (picked.get(i) or {}).get("metric")
+                lines.append(f"  {number.get(i, '?')}. {question.get(i, i)}")
+                lines.append("     " + (f"Tests {tests}. " if tests else "") +
+                             f"Expected {_short((picked.get(i) or {}).get('expected')) or 'not recorded'}. "
+                             f"Got {_short(got_row) or 'no result'}.")
+                if detail:
+                    lines.append(f"     Why: {detail}")
+    left = sorted(number.get(i, 0) for i, r in rows[last].items() if r.get("class") in UNSCORED)
+    if left:
+        lines += ["", f"Left out of the score: {len(left)} (question {', '.join(str(n) for n in left)}); the run failed there, not the answer."]
+    if summ.get("judge_passed"):
+        lines.append(f"A judge accepted {summ['judge_passed']} answer(s) the exact comparison refused.")
+    return {"status": "ok", "variant": last, "runs": runs, "compared_with": prev, "misses": [number.get(i) for i in misses],
+            "unexplained": [i for i in misses if not isinstance(whys.get(i), dict) or whys[i].get("why") not in REPORT_WHYS],
+            "report": "\n".join(lines)}
+
+
 # ====================================================================== selftest
 
 def _selftest_generated_set(pr: pathlib.Path) -> tuple:
@@ -2773,6 +2873,13 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--before", default="raw", help="the raw-source variant")
     c.add_argument("--after", default="baseline", help="the variant that answered from the context")
     c.set_defaults(func=cmd_before_after)
+
+    c = s.add_parser("report", help="one run's report: score, every run on the set, what flipped, misses by cause")
+    c.add_argument("--dir", required=True)
+    c.add_argument("--variant", help="the run to report; the latest by default")
+    c.add_argument("--why", help='JSON {"<id>": {"why": "<cause>", "detail": "<one sentence>"}} for the misses')
+    c.add_argument("--raw", default="raw", help="the raw-source variant, which is not a run of the context")
+    c.set_defaults(func=cmd_report)
 
     c = s.add_parser("refreeze", help="accept a deliberate change to cases, gold, split or grader; re-baseline after")
     c.add_argument("--dir", required=True)

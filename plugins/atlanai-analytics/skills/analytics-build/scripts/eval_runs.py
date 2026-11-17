@@ -67,7 +67,9 @@ def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
         return outside(project, named)
     ready = built_runs(project)
     if not ready:
-        raise Blocked("No built analytics run in this project. Build the context first.")
+        raise Blocked("This folder holds no context built with Atlan Analytics, so there is nothing to check "
+                      "here. Open the folder where it was built, or build one with analytics-build. This "
+                      "check scores a built context; it does not score a registry agent's own eval set.")
     if len(ready) > 1:
         cases = [f"{r.relative_to(project)}: {purpose(r)}" for r in ready]
         raise Blocked("Several built runs; name one with --run <folder>: " + "; ".join(cases))

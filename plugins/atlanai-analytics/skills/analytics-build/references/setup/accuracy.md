@@ -7,6 +7,10 @@ analysts already ask, before they ask it anything. The check itself is the demo'
 [accuracy](../../../analytics-demo/references/accuracy.md) procedure, steps 1 to 4, run on this
 build's run with the differences below. This file owns the offer and the ending.
 
+An existing build is checked as it is. A person who asks "check how accurate my agent is" in
+the folder of a build made earlier needs no new build and no re-check of its metrics: run
+`CHECK start` on that build's run and go on from the offer's yes.
+
 ## When to offer
 
 Before the offer, and never after it, run `CHECK start --project <project> --run <run-dir>`
