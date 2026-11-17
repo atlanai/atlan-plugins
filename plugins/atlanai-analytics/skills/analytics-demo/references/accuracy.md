@@ -247,7 +247,8 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
 
 2. The result line, in percentages. After a fix: "Your <agent> has reached 100% accuracy, up
    from <p>%, now that <what changed, plain words>." First time: "Your <agent> is at 100%
-   accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
+   accuracy on the <N> questions in this eval set." For a generated set, use "questions
+   <firm>'s analysts ask most" instead. Some missed: "Your <agent> misses
    <what the misses share>."
 3. The score line, word for word, which carries the range.
 4. Only when `CHECK load` returned `generated: true`: the source line.

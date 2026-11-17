@@ -1,6 +1,16 @@
 # Fixit semantic validation set
 
-Eight curated questions, selected before fresh answering runs. This is a brought-set regression
+Use `fixit-semantic-v3.jsonl` for current validation. The original v1 set is retained: its
+losing-jobs question asked only for job identities while the gold also required margin amounts.
+V2 explicitly requests gross margin in GBP. All eight questions are rerun in both arms, with
+unchanged metrics, sources, model, effort and scoring. No question was dropped.
+
+V3 retains all eight V2 cases and adds two compositions: gross margin on discount-triggering
+completed jobs, and labour cost of nonbillable time. These combine existing source definitions;
+they are not claims that analysts asked those exact questions. Each version was frozen before
+its answering runs. Earlier results remain part of the validation record.
+
+Ten curated questions, selected before fresh answering runs. This is a brought-set regression
 fixture, not output claimed from the automatic generator. It tests Fixit only.
 
 The original business definitions are shipped in
@@ -41,3 +51,7 @@ results for every case. The money-loss control returns only negative-margin jobs
 explicitly request shares; the supplier question requests every supplier to avoid an accidental
 top-one test. A Sprout-specific rework case was rejected before testing because both candidate
 implementations returned NULL. Passing baseline questions must remain in the reported set.
+
+See [the measured validation and limitations](fixit-semantic-validation.md) for all iterations.
+The two composition rows also mention generated cards in their source notes; those are checked
+interpretations. Original BI descriptions and raw analyst history establish their rules.

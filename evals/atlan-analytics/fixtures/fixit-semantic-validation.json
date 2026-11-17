@@ -1,0 +1,3844 @@
+{
+  "date": "2026-11-16",
+  "scope": "Fixit only; fictional data; source-history overlap; curated supplied set",
+  "iterations": [
+    {
+      "label": "v1",
+      "comparison_key": "f115c459ecd4a831c18d444f4667e78a66a28bf343cd8ef9078723643d52df6d",
+      "baseline_key": "a1c16815a13ed5e253d3fd168a7d4e83868ad77ddab6827fd8cae317639e2e37",
+      "model": "gpt-6-luna",
+      "effort": "medium",
+      "runtime_sha256": "f19ea99ff8cd3f3eca33495cf2bebddcb9b03f3590f125e60ab093075fdf508c",
+      "scorer_sha256": "5163f88c056169bde2816d6afff39cd0dd94c60de08bc7342f1979905d30a099",
+      "inputs": {
+        "cases": "541b54503dd1e0fd80566944e5d5d85435763a0b6f0943b9d5c75ed8b2e627a7",
+        "data": "bfa7100a48de7d1e6098bd8d8c056c6440edc97436d09d3bd2eaf1c94ce63922",
+        "gold": "3ce6936fd66df3d7908961b79ed25fa6c888a71824d021b1d5dac46b79cc5b42",
+        "history": "8250aae802156c04a19ba214f5568df4b347b80b219deb9babbb8f0f5c2ab760",
+        "metrics": "9c0d1531e47a76cfd551dcb8f0b42f77f3dbbc725334f2f7f2d90fd52caa8bd3",
+        "schema": "4b9d053ff4cbd8b87d8582b4b33d7ad867934808eeb9a84d351f0f5142988185"
+      },
+      "scores": {
+        "without_metrics": 4,
+        "with_metrics": 8
+      },
+      "questions": [
+        {
+          "id": "late_jobs_discount",
+          "question": "How many completed jobs incurred the late-completion discount?",
+          "gold_result": {
+            "columns": [
+              "late_jobs"
+            ],
+            "rows": [
+              [
+                2
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": 3,
+                "sql": "SELECT COUNT(*) AS completed_jobs_with_late_completion_discount FROM site.projects WHERE status = 'complete' AND actual_end_date > planned_end_date",
+                "used_context_ids": [],
+                "assumptions": [
+                  "A completed job incurred the late-completion discount when its actual end date was later than its planned end date."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "completed_jobs_with_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    3
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "wrong_result",
+                "reason": "no agent column matches gold column 1 (late_jobs)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": 2,
+                "sql": "SELECT COUNT(*) AS jobs_with_late_completion_discount FROM site.projects WHERE status = 'complete' AND actual_end_date IS NOT NULL AND planned_end_date IS NOT NULL AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7",
+                "used_context_ids": [
+                  "Late Jobs"
+                ],
+                "assumptions": [
+                  "Interpreted \u201cincurred the late-completion discount\u201d as completed jobs handed over more than seven days after the planned end date, per the Late Jobs metric."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "jobs_with_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    2
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "on_time_handover_rate",
+          "question": "What share of our finished jobs made handover on time?",
+          "gold_result": {
+            "columns": [
+              "on_time_rate"
+            ],
+            "rows": [
+              [
+                0.7142857142857143
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "4 of 7 finished jobs made handover on time (57.14%).",
+                "sql": "SELECT COUNT(*) AS finished_jobs, SUM(CASE WHEN date(actual_end_date) <= date(planned_end_date) THEN 1 ELSE 0 END) AS on_time_jobs, ROUND(100.0 * SUM(CASE WHEN date(actual_end_date) <= date(planned_end_date) THEN 1 ELSE 0 END) / COUNT(*), 2) AS share_percent FROM site.projects WHERE lower(status) = 'complete' AND actual_end_date IS NOT NULL AND planned_end_date IS NOT NULL",
+                "used_context_ids": [],
+                "assumptions": [
+                  "\u201cFinished jobs\u201d means projects with status = 'complete'.",
+                  "On-time handover means actual_end_date is on or before planned_end_date; rows missing either date are excluded."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "finished_jobs",
+                  "on_time_jobs",
+                  "share_percent"
+                ],
+                "rows": [
+                  [
+                    7,
+                    4,
+                    57.14
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "wrong_result",
+                "reason": "columns match individually but the rows do not line up"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "71.4% of finished jobs made handover on time (within seven days after the planned end date).",
+                "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_completion_rate FROM site.projects WHERE status = 'complete';",
+                "used_context_ids": [
+                  "On-time Completion Rate"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "on_time_completion_rate"
+                ],
+                "rows": [
+                  [
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "material_waste_gbp",
+          "question": "What did the material we sent to the skip cost us?",
+          "gold_result": {
+            "columns": [
+              "material_waste_gbp"
+            ],
+            "rows": [
+              [
+                7646.5
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "The recorded material sent to waste cost \u00a37,646.50, calculated as wasted quantity \u00d7 unit cost across material orders.",
+                "sql": "SELECT COALESCE(SUM(wasted_quantity * unit_cost_gbp), 0) AS total_waste_cost_gbp FROM material_orders WHERE wasted_quantity > 0;",
+                "used_context_ids": [],
+                "assumptions": [
+                  "\u201cSent to the skip\u201d means the quantities recorded in material_orders.wasted_quantity.",
+                  "Cost is valued at each order\u2019s unit_cost_gbp; this excludes any disposal or skip-hire fees."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "total_waste_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    7646.5
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "The material sent to the skip cost \u00a37,646.50.",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [
+                  "Material Waste"
+                ],
+                "assumptions": [
+                  "Interpreted \u201csent to the skip\u201d as delivered materials recorded as wasted."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "material_waste_gbp"
+                ],
+                "rows": [
+                  [
+                    7646.5
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "dig_rework_cost",
+          "question": "How much did Dig\u2019s rework cost?",
+          "gold_result": {
+            "columns": [
+              "rework_cost_gbp"
+            ],
+            "rows": [
+              [
+                5040.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT c.crew_name, SUM(w.hours * c.hourly_rate_gbp) AS cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE w.task_type = 'rework' AND c.crew_name = 'Dig'\nGROUP BY c.crew_name;",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cDig\u201d as the crew named Dig and calculated rework cost as rework hours multiplied by hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "crew_name",
+                  "cost_gbp"
+                ],
+                "rows": [
+                  [
+                    "Dig",
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT c.crew_name, COALESCE(SUM(CASE WHEN w.task_type = 'rework' THEN w.hours * c.hourly_rate_gbp END), 0) AS rework_cost_gbp FROM site.crew c LEFT JOIN site.work_logs w ON w.crew_id = c.crew_id WHERE c.crew_name = 'Dig' GROUP BY c.crew_id, c.crew_name",
+                "used_context_ids": [
+                  "Rework Cost"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "crew_name",
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    "Dig",
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "jobs_losing_money",
+          "question": "Which jobs actually lost money?",
+          "gold_result": {
+            "columns": [
+              "project_name",
+              "gross_margin_gbp"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Wind Turbine Base",
+                -6360.0
+              ],
+              [
+                "Kipper's Cat Flap",
+                -646.5
+              ],
+              [
+                "Sprout's Scarecrow Workshop",
+                -180.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "Three jobs lost money based on contract value minus recorded labor and material costs: Buttercup Vale Wind Turbine Base (P03), \u00a320,320 loss; Sprout's Scarecrow Workshop (P04), \u00a31,220 loss; and Kipper's Cat Flap (P10), \u00a31,166.50 loss.",
+                "sql": "WITH labor AS (\n SELECT w.project_id, SUM(w.hours*c.hourly_rate_gbp) AS labor_cost_gbp\n FROM site.work_logs w JOIN site.crew c ON c.crew_id=w.crew_id\n GROUP BY w.project_id\n), materials AS (\n SELECT project_id, SUM(quantity*unit_cost_gbp) AS material_cost_gbp\n FROM site.material_orders\n GROUP BY project_id\n)\nSELECT p.project_id, p.project_name, p.client_name, p.contract_value_gbp,\n       COALESCE(l.labor_cost_gbp,0) AS labor_cost_gbp,\n       COALESCE(m.material_cost_gbp,0) AS material_cost_gbp,\n       p.contract_value_gbp-COALESCE(l.labor_cost_gbp,0)-COALESCE(m.material_cost_gbp,0) AS profit_gbp\nFROM site.projects p\nLEFT JOIN labor l USING(project_id)\nLEFT JOIN materials m USING(project_id)\nWHERE p.contract_value_gbp-COALESCE(l.labor_cost_gbp,0)-COALESCE(m.material_cost_gbp,0)<0\nORDER BY profit_gbp, p.project_id",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Profit is contract value minus recorded labor cost (logged hours \u00d7 crew hourly rate) and material cost (ordered quantity \u00d7 unit cost).",
+                  "Missing labor or material records count as zero; other costs and revenue adjustments are not included."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "project_id",
+                  "project_name",
+                  "client_name",
+                  "contract_value_gbp",
+                  "labor_cost_gbp",
+                  "material_cost_gbp",
+                  "profit_gbp"
+                ],
+                "rows": [
+                  [
+                    "P03",
+                    "Buttercup Vale Wind Turbine Base",
+                    "Buttercup Vale Council",
+                    150000.0,
+                    97620.0,
+                    72700.0,
+                    -20320.0
+                  ],
+                  [
+                    "P04",
+                    "Sprout's Scarecrow Workshop",
+                    "Sprout",
+                    10500.0,
+                    9482.0,
+                    2238.0,
+                    -1220.0
+                  ],
+                  [
+                    "P10",
+                    "Kipper's Cat Flap",
+                    "Rob (personal job)",
+                    150.0,
+                    787.5,
+                    529.0,
+                    -1166.5
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 5
+                },
+                "class": "wrong_result",
+                "reason": "no agent column matches gold column 2 (gross_margin_gbp)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "Three jobs had negative gross margin: Buttercup Vale Wind Turbine Base (\u00a36,360 loss), Kipper's Cat Flap (\u00a3646.50 loss), and Sprout's Scarecrow Workshop (\u00a3180 loss).",
+                "sql": "WITH job_margin_components AS (\n  SELECT p.project_id, p.project_name, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(w.hours * c.hourly_rate_gbp) AS amount_gbp\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(o.quantity * o.unit_cost_gbp) AS amount_gbp\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n)\nSELECT project_id, project_name, ROUND(SUM(amount_gbp), 2) AS gross_margin_gbp\nFROM job_margin_components\nGROUP BY project_id, project_name\nHAVING SUM(amount_gbp) < 0\nORDER BY SUM(amount_gbp) ASC;",
+                "used_context_ids": [
+                  "Gross Margin"
+                ],
+                "assumptions": [
+                  "\u201cLost money\u201d means negative Gross Margin: contract value minus labour cost (including rework) and delivered material cost.",
+                  "Cancelled projects are excluded per the Gross Margin definition."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "project_id",
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "P03",
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "P10",
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "P04",
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "skip_waste_share",
+          "question": "What share of our material spend ended up in the skip?",
+          "gold_result": {
+            "columns": [
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                0.04389469635650771
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "About 4.39% of delivered material spend ended up as waste (the dataset\u2019s proxy for material going into the skip).",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) * 1.0 / SUM(quantity * unit_cost_gbp) AS share_material_spend_wasted FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Used wasted_quantity as the proxy for material ending up in the skip.",
+                  "Included delivered material orders and valued waste at each order\u2019s unit cost."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_material_spend_wasted"
+                ],
+                "rows": [
+                  [
+                    0.04389469635650771
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "4.39% of delivered material spend ended up in the skip (\u00a37,646.50 of \u00a3174,201.00).",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS wasted_material_spend_gbp, SUM(quantity * unit_cost_gbp) AS total_material_spend_gbp, SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS share_of_material_spend FROM site.material_orders WHERE order_status = 'delivered';",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "\u201cEnded up in the skip\u201d means the dataset\u2019s recorded wasted_quantity.",
+                  "Applied the Material Waste Rate definition across all delivered material orders, with no additional filters."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "wasted_material_spend_gbp",
+                  "total_material_spend_gbp",
+                  "share_of_material_spend"
+                ],
+                "rows": [
+                  [
+                    7646.5,
+                    174201.0,
+                    0.04389469635650771
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "billable_share",
+          "question": "What share of the yard\u2019s logged time went to work we could charge clients for?",
+          "gold_result": {
+            "columns": [
+              "billable_utilisation"
+            ],
+            "rows": [
+              [
+                0.7777777777777778
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "77.8% of the yard\u2019s logged time was billable (3,143 of 4,041 hours).",
+                "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) * 1.0 / SUM(hours) AS billable_share, SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) AS billable_hours, SUM(hours) AS total_logged_hours FROM site.work_logs",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Applied the billable task exclusions found in prior query history: tea_break, yard_tidy, rework, and sprout_helping.",
+                  "Included all rows in site.work_logs; no date range was specified."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "billable_share",
+                  "billable_hours",
+                  "total_logged_hours"
+                ],
+                "rows": [
+                  [
+                    0.7777777777777778,
+                    3143.0,
+                    4041.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "77.8% of the yard\u2019s logged time was billable (3,143 of 4,041 hours).",
+                "sql": "SELECT SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) AS billable_hours, SUM(w.hours) AS total_logged_hours, 100.0 * SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) / NULLIF(SUM(w.hours), 0) AS billable_share_pct FROM site.work_logs AS w;",
+                "used_context_ids": [
+                  "Billable Utilisation"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "billable_hours",
+                  "total_logged_hours",
+                  "billable_share_pct"
+                ],
+                "rows": [
+                  [
+                    3143.0,
+                    4041.0,
+                    77.77777777777777
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "supplier_skip_waste_rate",
+          "question": "What is each supplier\u2019s skip-waste percentage?",
+          "gold_result": {
+            "columns": [
+              "supplier",
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Quarry",
+                0.045674486803519064
+              ],
+              [
+                "Hammerton Builders' Merchant",
+                0.04091055761282095
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 9.93
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 5.9
+                  }
+                ],
+                "sql": "SELECT supplier, SUM(COALESCE(wasted_quantity, 0)) * 100.0 / NULLIF(SUM(quantity), 0) AS skip_waste_percentage FROM site.material_orders GROUP BY supplier ORDER BY supplier",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Skip-waste percentage is total wasted quantity divided by total ordered quantity, multiplied by 100; NULL wasted quantities count as zero."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    9.929078014184396
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    5.901162790697675
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "wrong_result",
+                "reason": "columns match individually but the rows do not line up"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.5674
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.0911
+                  }
+                ],
+                "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "\u201cSkip-waste percentage\u201d means the Material Waste Rate: wasted material value divided by delivered material value, expressed as a percentage."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "v2",
+      "comparison_key": "b593b23b2ae929f6b5f428df6e858f0c69564b9a48330805f24b38a63d9d8fd5",
+      "baseline_key": "805bafd7c755724b1a3921ef405f45e200f2113a9493a06a864a59491d42ab33",
+      "model": "gpt-6-luna",
+      "effort": "medium",
+      "runtime_sha256": "f19ea99ff8cd3f3eca33495cf2bebddcb9b03f3590f125e60ab093075fdf508c",
+      "scorer_sha256": "5163f88c056169bde2816d6afff39cd0dd94c60de08bc7342f1979905d30a099",
+      "inputs": {
+        "cases": "4dfe87aa75bebd37128ad0eb3da64b22ab15a7e088f3c94f320af9965496e8d0",
+        "data": "bfa7100a48de7d1e6098bd8d8c056c6440edc97436d09d3bd2eaf1c94ce63922",
+        "gold": "3ce6936fd66df3d7908961b79ed25fa6c888a71824d021b1d5dac46b79cc5b42",
+        "history": "8250aae802156c04a19ba214f5568df4b347b80b219deb9babbb8f0f5c2ab760",
+        "metrics": "9c0d1531e47a76cfd551dcb8f0b42f77f3dbbc725334f2f7f2d90fd52caa8bd3",
+        "schema": "4b9d053ff4cbd8b87d8582b4b33d7ad867934808eeb9a84d351f0f5142988185"
+      },
+      "scores": {
+        "without_metrics": 7,
+        "with_metrics": 8
+      },
+      "questions": [
+        {
+          "id": "late_jobs_discount",
+          "question": "How many completed jobs incurred the late-completion discount?",
+          "gold_result": {
+            "columns": [
+              "late_jobs"
+            ],
+            "rows": [
+              [
+                2
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": 3,
+                "sql": "SELECT COUNT(*) AS completed_jobs_with_late_completion_discount FROM site.projects WHERE status = 'complete' AND actual_end_date > planned_end_date",
+                "used_context_ids": [],
+                "assumptions": [
+                  "A completed job incurred the late-completion discount when its actual_end_date is later than its planned_end_date."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "completed_jobs_with_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    3
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "wrong_result",
+                "reason": "no agent column matches gold column 1 (late_jobs)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": 2,
+                "sql": "SELECT COUNT(*) AS jobs_with_late_completion_discount\nFROM site.projects\nWHERE status = 'complete'\n  AND planned_end_date IS NOT NULL\n  AND actual_end_date IS NOT NULL\n  AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7",
+                "used_context_ids": [
+                  "Late Jobs"
+                ],
+                "assumptions": [
+                  "The late-completion discount applies to completed jobs handed over more than seven days after the planned end date, as defined by the Late Jobs metric."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "jobs_with_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    2
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "on_time_handover_rate",
+          "question": "What share of our finished jobs made handover on time?",
+          "gold_result": {
+            "columns": [
+              "on_time_rate"
+            ],
+            "rows": [
+              [
+                0.7142857142857143
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "5 of 7 finished jobs made handover within 7 days of the planned end date, a share of 71.4%.",
+                "sql": "SELECT COUNT(*) AS finished_jobs, SUM(CASE WHEN actual_end_date IS NOT NULL AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 ELSE 0 END) AS on_time_jobs, SUM(CASE WHEN actual_end_date IS NOT NULL AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS share_on_time FROM site.projects WHERE status = 'complete'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Used the query-history convention that a finished job is a project with status = 'complete'.",
+                  "Used the query-history definition of on time as actual_end_date no more than 7 days after planned_end_date; earlier handovers count as on time."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "finished_jobs",
+                  "on_time_jobs",
+                  "share_on_time"
+                ],
+                "rows": [
+                  [
+                    7,
+                    5,
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "71.4% of finished jobs made handover on time (within seven days of the planned end date).",
+                "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_completion_rate FROM site.projects WHERE status = 'complete'",
+                "used_context_ids": [
+                  "On-time Completion Rate"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "on_time_completion_rate"
+                ],
+                "rows": [
+                  [
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "material_waste_gbp",
+          "question": "What did the material we sent to the skip cost us?",
+          "gold_result": {
+            "columns": [
+              "material_waste_gbp"
+            ],
+            "rows": [
+              [
+                7646.5
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "The material sent to the skip cost \u00a37,646.50, across 44 order lines (48.3 units wasted).",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS skip_cost_gbp, SUM(wasted_quantity) AS wasted_quantity, COUNT(*) AS order_lines FROM site.material_orders WHERE wasted_quantity > 0;",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Treated `wasted_quantity` as the material sent to the skip and valued it at the order line's `unit_cost_gbp`."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "skip_cost_gbp",
+                  "wasted_quantity",
+                  "order_lines"
+                ],
+                "rows": [
+                  [
+                    7646.5,
+                    48.3,
+                    44
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "The wasted delivered materials cost \u00a37,646.50.",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [
+                  "Material Waste"
+                ],
+                "assumptions": [
+                  "Interpreted \u201csent to the skip\u201d as delivered materials recorded as wasted."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "material_waste_gbp"
+                ],
+                "rows": [
+                  [
+                    7646.5
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "dig_rework_cost",
+          "question": "How much did Dig\u2019s rework cost?",
+          "gold_result": {
+            "columns": [
+              "rework_cost_gbp"
+            ],
+            "rows": [
+              [
+                5040.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE c.crew_name = 'Dig' AND lower(w.task_type) LIKE '%rework%'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "\u201cDig\u201d refers to the crew member named Dig.",
+                  "Rework cost is logged rework hours multiplied by the crew member\u2019s hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp FROM site.work_logs AS w INNER JOIN site.crew AS c ON w.crew_id = c.crew_id WHERE w.task_type = 'rework' AND c.crew_name = 'Dig';",
+                "used_context_ids": [
+                  "Rework Cost"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "jobs_losing_money",
+          "question": "Which jobs actually lost money, and what was each job\u2019s gross margin in GBP?",
+          "gold_result": {
+            "columns": [
+              "project_name",
+              "gross_margin_gbp"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Wind Turbine Base",
+                -6360.0
+              ],
+              [
+                "Kipper's Cat Flap",
+                -646.5
+              ],
+              [
+                "Sprout's Scarecrow Workshop",
+                -180.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "job": "Buttercup Vale Wind Turbine Base",
+                    "gross_margin_gbp": -6360.0
+                  },
+                  {
+                    "job": "Kipper's Cat Flap",
+                    "gross_margin_gbp": -646.5
+                  },
+                  {
+                    "job": "Sprout's Scarecrow Workshop",
+                    "gross_margin_gbp": -180.0
+                  }
+                ],
+                "sql": "WITH labour AS (SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labour_cost FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id WHERE w.project_id IS NOT NULL GROUP BY w.project_id), materials AS (SELECT project_id, SUM(quantity * unit_cost_gbp) AS materials_cost FROM site.material_orders WHERE order_status = 'delivered' GROUP BY project_id) SELECT p.project_name, p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0) AS gross_margin_gbp FROM site.projects p LEFT JOIN labour l ON l.project_id = p.project_id LEFT JOIN materials m ON m.project_id = p.project_id WHERE p.status <> 'cancelled' AND p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0) < 0 ORDER BY gross_margin_gbp, p.project_name",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Gross margin is contract value minus logged labour cost and delivered material cost, following the calculation in query history.",
+                  "Cancelled projects are excluded."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "job": "Buttercup Vale Wind Turbine Base",
+                    "gross_margin_gbp": -6360.0
+                  },
+                  {
+                    "job": "Kipper's Cat Flap",
+                    "gross_margin_gbp": -646.5
+                  },
+                  {
+                    "job": "Sprout's Scarecrow Workshop",
+                    "gross_margin_gbp": -180.0
+                  }
+                ],
+                "sql": "WITH job_margin_components AS (SELECT p.project_id, p.project_name, p.contract_value_gbp AS amount_gbp FROM site.projects p WHERE p.status <> 'cancelled' UNION ALL SELECT p.project_id, p.project_name, -SUM(w.hours * c.hourly_rate_gbp) FROM site.work_logs w JOIN site.crew c ON c.crew_id=w.crew_id JOIN site.projects p ON p.project_id=w.project_id WHERE p.status <> 'cancelled' GROUP BY p.project_id,p.project_name UNION ALL SELECT p.project_id,p.project_name,-SUM(o.quantity*o.unit_cost_gbp) FROM site.material_orders o JOIN site.projects p ON p.project_id=o.project_id WHERE o.order_status='delivered' AND p.status <> 'cancelled' GROUP BY p.project_id,p.project_name) SELECT project_id, project_name, ROUND(SUM(amount_gbp),2) AS gross_margin_gbp FROM job_margin_components GROUP BY project_id,project_name HAVING SUM(amount_gbp)<0 ORDER BY SUM(amount_gbp), project_name",
+                "used_context_ids": [
+                  "Gross Margin"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "project_id",
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "P03",
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "P10",
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "P04",
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "skip_waste_share",
+          "question": "What share of our material spend ended up in the skip?",
+          "gold_result": {
+            "columns": [
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                0.04389469635650771
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "4.39% of delivered material spend ended up in the skip (\u00a37,646.50 of \u00a3174,201.00).",
+                "sql": "SELECT 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS share_pct, SUM(wasted_quantity * unit_cost_gbp) AS wasted_spend_gbp, SUM(quantity * unit_cost_gbp) AS material_spend_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "\u201cEnded up in the skip\u201d means recorded wasted_quantity.",
+                  "Material spend includes delivered orders and is valued at unit_cost_gbp.",
+                  "No metric definition was available; used the matching calculation in query history."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_pct",
+                  "wasted_spend_gbp",
+                  "material_spend_gbp"
+                ],
+                "rows": [
+                  [
+                    4.389469635650771,
+                    7646.5,
+                    174201.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "4.39% of delivered material spend ended up in the skip (\u00a37,646.50 of \u00a3174,201.00).",
+                "sql": "SELECT 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS waste_share_pct, SUM(wasted_quantity * unit_cost_gbp) AS wasted_spend_gbp, SUM(quantity * unit_cost_gbp) AS delivered_material_spend_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "Interpreted \u201cended up in the skip\u201d as recorded wasted_quantity.",
+                  "Used all delivered material orders, as defined by the Material Waste Rate metric."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "waste_share_pct",
+                  "wasted_spend_gbp",
+                  "delivered_material_spend_gbp"
+                ],
+                "rows": [
+                  [
+                    4.389469635650771,
+                    7646.5,
+                    174201.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "billable_share",
+          "question": "What share of the yard\u2019s logged time went to work we could charge clients for?",
+          "gold_result": {
+            "columns": [
+              "billable_utilisation"
+            ],
+            "rows": [
+              [
+                0.7777777777777778
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "77.8% (3,143 of 4,041 logged hours)",
+                "sql": "SELECT 100.0 * SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) / SUM(hours) AS chargeable_share_pct FROM work_logs;",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Treated build, dig, haul, lift, mix, roll, and supervise as chargeable; excluded tea_break, yard_tidy, rework, and sprout_helping.",
+                  "Interpreted \u201cthe yard\u2019s logged time\u201d as all hours in work_logs."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "chargeable_share_pct"
+                ],
+                "rows": [
+                  [
+                    77.77777777777777
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "77.8% of the yard\u2019s logged time was billable.",
+                "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) * 1.0 / SUM(hours) AS billable_share FROM site.work_logs",
+                "used_context_ids": [
+                  "Billable Utilisation"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "billable_share"
+                ],
+                "rows": [
+                  [
+                    0.7777777777777778
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "supplier_skip_waste_rate",
+          "question": "What is each supplier\u2019s skip-waste percentage?",
+          "gold_result": {
+            "columns": [
+              "supplier",
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Quarry",
+                0.045674486803519064
+              ],
+              [
+                "Hammerton Builders' Merchant",
+                0.04091055761282095
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.57
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.09
+                  }
+                ],
+                "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted skip-waste percentage as the value-weighted waste rate: wasted quantity \u00d7 unit cost divided by ordered quantity \u00d7 unit cost, following prior query history.",
+                  "Included delivered material orders only, following prior query history."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.57
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.09
+                  }
+                ],
+                "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "Interpreted skip-waste percentage as the delivered material value lost to waste, calculated per the Material Waste Rate definition.",
+                  "Percentages are rounded to two decimal places."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "v3-initial",
+      "comparison_key": "56368a53f567fe5ececc2a3f6781fb0ddbfe979c44b08ec3c9236ca0943cb059",
+      "baseline_key": "4fabd0ee55a685576354c63f3156e93f5d9611c645582f0bc10e3c902df897dd",
+      "model": "gpt-6-luna",
+      "effort": "medium",
+      "runtime_sha256": "f19ea99ff8cd3f3eca33495cf2bebddcb9b03f3590f125e60ab093075fdf508c",
+      "scorer_sha256": "5163f88c056169bde2816d6afff39cd0dd94c60de08bc7342f1979905d30a099",
+      "inputs": {
+        "cases": "29eb41006c0dd7a1addba67546bd8031cf4103bc83700e0598cafd77634608da",
+        "data": "bfa7100a48de7d1e6098bd8d8c056c6440edc97436d09d3bd2eaf1c94ce63922",
+        "gold": "48e68107e70b19c1f3354ad858a1e33162e6952e628e0498357a94082332bd47",
+        "history": "8250aae802156c04a19ba214f5568df4b347b80b219deb9babbb8f0f5c2ab760",
+        "metrics": "9c0d1531e47a76cfd551dcb8f0b42f77f3dbbc725334f2f7f2d90fd52caa8bd3",
+        "schema": "4b9d053ff4cbd8b87d8582b4b33d7ad867934808eeb9a84d351f0f5142988185"
+      },
+      "scores": {
+        "without_metrics": 8,
+        "with_metrics": 9
+      },
+      "questions": [
+        {
+          "id": "late_jobs_discount",
+          "question": "How many completed jobs incurred the late-completion discount?",
+          "gold_result": {
+            "columns": [
+              "late_jobs"
+            ],
+            "rows": [
+              [
+                2
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": 2,
+                "sql": "SELECT COUNT(*) AS jobs_with_late_completion_discount FROM site.projects WHERE status = 'complete' AND actual_end_date IS NOT NULL AND planned_end_date IS NOT NULL AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7",
+                "used_context_ids": [],
+                "assumptions": [
+                  "A late-completion discount applies to completed jobs more than 7 days past their planned end date, following the matching query in history."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "jobs_with_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    2
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": 2,
+                "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7 THEN 1 END) AS late_jobs\nFROM site.projects\nWHERE status = 'complete';",
+                "used_context_ids": [
+                  "Late Jobs"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "late_jobs"
+                ],
+                "rows": [
+                  [
+                    2
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "on_time_handover_rate",
+          "question": "What share of our finished jobs made handover on time?",
+          "gold_result": {
+            "columns": [
+              "on_time_rate"
+            ],
+            "rows": [
+              [
+                0.7142857142857143
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "5 of 7 finished jobs made handover on time, a share of 71.4%.",
+                "sql": "SELECT COUNT(*) AS finished_jobs, COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) AS on_time_jobs, COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_share FROM site.projects WHERE status = 'complete'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cfinished jobs\u201d as projects with status = 'complete'.",
+                  "Used the repeated query-history convention that on time means actual end date no more than 7 days after planned end date."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "finished_jobs",
+                  "on_time_jobs",
+                  "on_time_share"
+                ],
+                "rows": [
+                  [
+                    7,
+                    5,
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "71.4% of finished jobs made handover on time (within seven days after the planned end date).",
+                "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_completion_rate FROM site.projects WHERE status = 'complete';",
+                "used_context_ids": [
+                  "On-time Completion Rate"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "on_time_completion_rate"
+                ],
+                "rows": [
+                  [
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "material_waste_gbp",
+          "question": "What did the material we sent to the skip cost us?",
+          "gold_result": {
+            "columns": [
+              "material_waste_gbp"
+            ],
+            "rows": [
+              [
+                7646.5
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "I couldn\u2019t identify any material or supplier labeled \u201cskip\u201d in the dataset, so I can\u2019t determine what the material sent to the skip cost. The recorded material categories are bricks, cement, nails, paint, steel rebar, and timber.",
+                "sql": "SELECT material, unit, supplier, order_status, COUNT(*) AS rows, SUM(quantity) AS quantity, SUM(wasted_quantity) AS wasted_quantity, SUM(quantity * unit_cost_gbp) AS ordered_cost, SUM(COALESCE(wasted_quantity,0) * unit_cost_gbp) AS wasted_cost FROM site.material_orders GROUP BY material, unit, supplier, order_status ORDER BY material",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cmaterial we sent to the skip\u201d as material explicitly labeled skip or associated with a skip supplier; no such records were found.",
+                  "The dataset records wasted quantities by material, but does not identify which waste was sent to a skip."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "material",
+                  "unit",
+                  "supplier",
+                  "order_status",
+                  "rows",
+                  "quantity",
+                  "wasted_quantity",
+                  "ordered_cost",
+                  "wasted_cost"
+                ],
+                "rows": [
+                  [
+                    "bricks",
+                    "pallet",
+                    "Hammerton Builders' Merchant",
+                    "cancelled",
+                    2,
+                    36.0,
+                    0.0,
+                    13680.0,
+                    0.0
+                  ],
+                  [
+                    "bricks",
+                    "pallet",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    6,
+                    73.0,
+                    2.3,
+                    27740.0,
+                    874.0
+                  ],
+                  [
+                    "cement",
+                    "tonne",
+                    "Buttercup Vale Quarry",
+                    "cancelled",
+                    1,
+                    40.0,
+                    0.0,
+                    5600.0,
+                    0.0
+                  ],
+                  [
+                    "cement",
+                    "tonne",
+                    "Buttercup Vale Quarry",
+                    "delivered",
+                    7,
+                    143.0,
+                    26.6,
+                    20020.0,
+                    3724.0
+                  ],
+                  [
+                    "nails",
+                    "box",
+                    "Hammerton Builders' Merchant",
+                    "cancelled",
+                    1,
+                    10.0,
+                    0.0,
+                    90.0,
+                    0.0
+                  ],
+                  [
+                    "nails",
+                    "box",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    10,
+                    45.0,
+                    4.9,
+                    405.0,
+                    44.1
+                  ],
+                  [
+                    "paint",
+                    "tin",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    8,
+                    112.0,
+                    10.299999999999999,
+                    3136.0,
+                    288.4
+                  ],
+                  [
+                    "steel rebar",
+                    "tonne",
+                    "Buttercup Vale Quarry",
+                    "delivered",
+                    5,
+                    99.0,
+                    1.4,
+                    89100.0,
+                    1260.0
+                  ],
+                  [
+                    "timber",
+                    "m3",
+                    "Hammerton Builders' Merchant",
+                    "cancelled",
+                    2,
+                    3.0,
+                    0.0,
+                    1560.0,
+                    0.0
+                  ],
+                  [
+                    "timber",
+                    "m3",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    9,
+                    65.0,
+                    2.8,
+                    33800.0,
+                    1456.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 8
+                },
+                "class": "wrong_result",
+                "reason": "row count 10 vs gold 1"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "The material we sent to the skip cost \u00a37,646.50.",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [
+                  "Material Waste"
+                ],
+                "assumptions": [
+                  "\u201cMaterial sent to the skip\u201d means delivered material recorded as wasted in the dataset."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "material_waste_gbp"
+                ],
+                "rows": [
+                  [
+                    7646.5
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "dig_rework_cost",
+          "question": "How much did Dig\u2019s rework cost?",
+          "gold_result": {
+            "columns": [
+              "rework_cost_gbp"
+            ],
+            "rows": [
+              [
+                5040.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT c.crew_name, SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE c.crew_name = 'Dig' AND w.task_type = 'rework'\nGROUP BY c.crew_id, c.crew_name",
+                "used_context_ids": [],
+                "assumptions": [
+                  "\u201cDig\u201d refers to the crew named Dig. Rework cost is the sum of logged rework hours multiplied by the crew member\u2019s hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "crew_name",
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    "Dig",
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT COALESCE(SUM(w.hours * c.hourly_rate_gbp), 0) AS rework_cost_gbp FROM site.work_logs AS w INNER JOIN site.crew AS c ON w.crew_id = c.crew_id WHERE w.task_type = 'rework' AND c.crew_name = 'Dig'",
+                "used_context_ids": [
+                  "Rework Cost"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "jobs_losing_money",
+          "question": "Which jobs actually lost money, and what was each job\u2019s gross margin in GBP?",
+          "gold_result": {
+            "columns": [
+              "project_name",
+              "gross_margin_gbp"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Wind Turbine Base",
+                -6360.0
+              ],
+              [
+                "Kipper's Cat Flap",
+                -646.5
+              ],
+              [
+                "Sprout's Scarecrow Workshop",
+                -180.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "job": "Buttercup Vale Wind Turbine Base",
+                    "gross_margin_gbp": -6360.0
+                  },
+                  {
+                    "job": "Kipper's Cat Flap",
+                    "gross_margin_gbp": -646.5
+                  },
+                  {
+                    "job": "Sprout's Scarecrow Workshop",
+                    "gross_margin_gbp": -180.0
+                  }
+                ],
+                "sql": "WITH labour AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labour_cost\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  WHERE w.project_id IS NOT NULL\n  GROUP BY w.project_id\n), mats AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS materials_cost\n  FROM site.material_orders\n  WHERE order_status = 'delivered'\n  GROUP BY project_id\n)\nSELECT p.project_id, p.project_name,\n       ROUND(p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0), 2) AS gross_margin_gbp\nFROM site.projects p\nLEFT JOIN labour l ON l.project_id = p.project_id\nLEFT JOIN mats m ON m.project_id = p.project_id\nWHERE p.status <> 'cancelled'\n  AND p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0) < 0\nORDER BY gross_margin_gbp, p.project_id",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Gross margin is contract value minus logged labour cost and delivered material cost, following the established query pattern in query history.",
+                  "Cancelled projects are excluded."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "project_id",
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "P03",
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "P10",
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "P04",
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "job": "Buttercup Vale Wind Turbine Base",
+                    "gross_margin_gbp": -6360.0
+                  },
+                  {
+                    "job": "Kipper's Cat Flap",
+                    "gross_margin_gbp": -646.5
+                  },
+                  {
+                    "job": "Sprout's Scarecrow Workshop",
+                    "gross_margin_gbp": -180.0
+                  }
+                ],
+                "sql": "WITH job_margin_components AS (\n  SELECT p.project_id, p.project_name, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(w.hours * c.hourly_rate_gbp) AS amount_gbp\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(m.quantity * m.unit_cost_gbp) AS amount_gbp\n  FROM site.material_orders m\n  JOIN site.projects p ON p.project_id = m.project_id\n  WHERE m.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n)\nSELECT project_name, SUM(amount_gbp) AS gross_margin_gbp\nFROM job_margin_components\nGROUP BY project_id, project_name\nHAVING SUM(amount_gbp) < 0\nORDER BY gross_margin_gbp, project_name",
+                "used_context_ids": [
+                  "Gross Margin"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "skip_waste_share",
+          "question": "What share of our material spend ended up in the skip?",
+          "gold_result": {
+            "columns": [
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                0.04389469635650771
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "About 4.39% of delivered material spend ended up as waste (\u00a37,646.50 of \u00a3174,201.00).",
+                "sql": "SELECT 100.0 * SUM(wasted_quantity * unit_cost_gbp) / SUM(quantity * unit_cost_gbp) AS share_pct, SUM(wasted_quantity * unit_cost_gbp) AS wasted_spend_gbp, SUM(quantity * unit_cost_gbp) AS material_spend_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cended up in the skip\u201d as the recorded wasted_quantity.",
+                  "Calculated material spend from delivered orders as quantity \u00d7 unit_cost_gbp."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_pct",
+                  "wasted_spend_gbp",
+                  "material_spend_gbp"
+                ],
+                "rows": [
+                  [
+                    4.389469635650771,
+                    7646.5,
+                    174201.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "4.39% of delivered material spend ended up in the skip.",
+                "sql": "SELECT 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS material_waste_rate_percent FROM site.material_orders WHERE order_status = 'delivered';",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "Interpreted \u201cended up in the skip\u201d as the Material Waste Rate: wasted material value divided by delivered material value."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "material_waste_rate_percent"
+                ],
+                "rows": [
+                  [
+                    4.389469635650771
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "billable_share",
+          "question": "What share of the yard\u2019s logged time went to work we could charge clients for?",
+          "gold_result": {
+            "columns": [
+              "billable_utilisation"
+            ],
+            "rows": [
+              [
+                0.7777777777777778
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "77.8% of logged time (3,143 of 4,041 hours) went to chargeable work.",
+                "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) * 1.0 / SUM(hours) AS share_chargeable, SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) AS chargeable_hours, SUM(hours) AS total_hours FROM site.work_logs",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cyard\u2019s logged time\u201d as all hours in site.work_logs because the schema has no separate yard field.",
+                  "Applied the prior query convention that tea_break, yard_tidy, rework, and sprout_helping are not chargeable."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_chargeable",
+                  "chargeable_hours",
+                  "total_hours"
+                ],
+                "rows": [
+                  [
+                    0.7777777777777778,
+                    3143.0,
+                    4041.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "77.8% of the yard\u2019s logged time was billable (3,143 of 4,041 hours).",
+                "sql": "SELECT SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) * 1.0 / NULLIF(SUM(w.hours), 0) AS billable_share, SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) AS billable_hours, SUM(w.hours) AS total_logged_hours FROM site.work_logs w INNER JOIN site.crew c ON w.crew_id = c.crew_id",
+                "used_context_ids": [
+                  "Billable Utilisation"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "billable_share",
+                  "billable_hours",
+                  "total_logged_hours"
+                ],
+                "rows": [
+                  [
+                    0.7777777777777778,
+                    3143.0,
+                    4041.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "supplier_skip_waste_rate",
+          "question": "What is each supplier\u2019s skip-waste percentage?",
+          "gold_result": {
+            "columns": [
+              "supplier",
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Quarry",
+                0.045674486803519064
+              ],
+              [
+                "Hammerton Builders' Merchant",
+                0.04091055761282095
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.57
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.09
+                  }
+                ],
+                "sql": "SELECT supplier,\n       100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY supplier",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Used the established query-history calculation: delivered waste value (wasted_quantity \u00d7 unit_cost_gbp) divided by delivered material value (quantity \u00d7 unit_cost_gbp), expressed as a percentage."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.57
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.09
+                  }
+                ],
+                "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "Reported percentages are rounded to two decimal places."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "late_jobs_gross_margin",
+          "question": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+          "gold_result": {
+            "columns": [
+              "gross_margin_gbp"
+            ],
+            "rows": [
+              [
+                -6540.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "\u00a3-57,758.00",
+                "sql": "SELECT SUM(p.contract_value_gbp - CASE WHEN julianday(p.actual_end_date)>julianday(p.planned_end_date) THEN (p.contract_value_gbp*0.01*CAST(julianday(p.actual_end_date)-julianday(p.planned_end_date) AS INT)) ELSE 0 END - COALESCE(m.material_cost,0) - COALESCE(l.labour_cost,0)) AS gross_margin_gbp FROM site.projects p LEFT JOIN (SELECT project_id,SUM(quantity*unit_cost_gbp) material_cost FROM site.material_orders GROUP BY project_id) m USING(project_id) LEFT JOIN (SELECT w.project_id,SUM(w.hours*c.hourly_rate_gbp) labour_cost FROM site.work_logs w JOIN site.crew c USING(crew_id) GROUP BY w.project_id) l USING(project_id) WHERE p.status='complete' AND julianday(p.actual_end_date)>julianday(p.planned_end_date)",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Treated completed jobs with late-completion discounts as completed projects whose actual end date is later than the planned end date.",
+                  "Applied a 1% of contract value discount per late day.",
+                  "Calculated gross margin as contract value less late-completion discount, material costs, and crew labor costs."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    -57758.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "wrong_result",
+                "reason": "no agent column matches gold column 1 (gross_margin_gbp)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "The total gross margin was **\u2212\u00a36,540**.",
+                "sql": "WITH job_margin_components AS (\n SELECT p.project_id, p.contract_value_gbp AS amount_gbp\n FROM site.projects p WHERE p.status <> 'cancelled'\n UNION ALL\n SELECT p.project_id, -SUM(w.hours * c.hourly_rate_gbp)\n FROM site.work_logs w JOIN site.crew c ON c.crew_id=w.crew_id\n JOIN site.projects p ON p.project_id=w.project_id\n WHERE p.status <> 'cancelled' GROUP BY p.project_id\n UNION ALL\n SELECT p.project_id, -SUM(m.quantity * m.unit_cost_gbp)\n FROM site.material_orders m JOIN site.projects p ON p.project_id=m.project_id\n WHERE m.order_status='delivered' AND p.status <> 'cancelled'\n GROUP BY p.project_id\n)\nSELECT SUM(jmc.amount_gbp) AS gross_margin_gbp\nFROM job_margin_components jmc\nJOIN site.projects p ON p.project_id=jmc.project_id\nWHERE p.status='complete'\n AND CAST(julianday(p.actual_end_date)-julianday(p.planned_end_date) AS INTEGER)>7",
+                "used_context_ids": [
+                  "Gross Margin",
+                  "Late Jobs"
+                ],
+                "assumptions": [
+                  "Interpreted jobs incurring the late-completion discount as completed jobs handed over more than seven days after the planned end date, per the Late Jobs definition.",
+                  "Applied the Gross Margin definition: contract value minus all logged labour cost (including rework) and delivered material costs."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    -6540.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "nonbillable_paid_time_cost",
+          "question": "In total, what did labour for nonbillable time cost us?",
+          "gold_result": {
+            "columns": [
+              "nonbillable_time_cost_gbp"
+            ],
+            "rows": [
+              [
+                38705.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "regression",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "\u00a338,705",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping')",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Used the task types excluded from billable utilisation in query history as the definition of nonbillable time.",
+                  "Calculated cost as logged hours multiplied by each crew member\u2019s hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "nonbillable_labour_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    38705.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "\u00a333,800",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp FROM site.work_logs AS w JOIN site.crew AS c ON c.crew_id = w.crew_id WHERE lower(trim(w.task_type)) IN ('tea breaks', 'yard tidy', 'rework', 'sprout helping');",
+                "used_context_ids": [
+                  "Billable Utilisation"
+                ],
+                "assumptions": [
+                  "Nonbillable time means the task types excluded from billable hours in the Billable Utilisation definition.",
+                  "Labour cost is logged hours multiplied by the crew member's hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "nonbillable_labour_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    33800.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "wrong_result",
+                "reason": "no agent column matches gold column 1 (nonbillable_time_cost_gbp)"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "v3-retest",
+      "comparison_key": "d8a0973b016dbf875f3c6259b186ba64fdf7c494233169a4c7722f220789ad3c",
+      "baseline_key": "4fabd0ee55a685576354c63f3156e93f5d9611c645582f0bc10e3c902df897dd",
+      "model": "gpt-6-luna",
+      "effort": "medium",
+      "runtime_sha256": "f19ea99ff8cd3f3eca33495cf2bebddcb9b03f3590f125e60ab093075fdf508c",
+      "scorer_sha256": "5163f88c056169bde2816d6afff39cd0dd94c60de08bc7342f1979905d30a099",
+      "inputs": {
+        "cases": "29eb41006c0dd7a1addba67546bd8031cf4103bc83700e0598cafd77634608da",
+        "data": "bfa7100a48de7d1e6098bd8d8c056c6440edc97436d09d3bd2eaf1c94ce63922",
+        "gold": "48e68107e70b19c1f3354ad858a1e33162e6952e628e0498357a94082332bd47",
+        "history": "8250aae802156c04a19ba214f5568df4b347b80b219deb9babbb8f0f5c2ab760",
+        "metrics": "567a85aaaea6e6cedd14b9d49cf4c5ffc29220dda8f50b5e2e2503a1ec62beee",
+        "schema": "4b9d053ff4cbd8b87d8582b4b33d7ad867934808eeb9a84d351f0f5142988185"
+      },
+      "scores": {
+        "without_metrics": 8,
+        "with_metrics": 10
+      },
+      "questions": [
+        {
+          "id": "late_jobs_discount",
+          "question": "How many completed jobs incurred the late-completion discount?",
+          "gold_result": {
+            "columns": [
+              "late_jobs"
+            ],
+            "rows": [
+              [
+                2
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": 2,
+                "sql": "SELECT COUNT(*) AS jobs_with_late_completion_discount FROM site.projects WHERE status = 'complete' AND actual_end_date IS NOT NULL AND planned_end_date IS NOT NULL AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7",
+                "used_context_ids": [],
+                "assumptions": [
+                  "A late-completion discount applies to completed jobs more than 7 days past their planned end date, following the matching query in history."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "jobs_with_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    2
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": 2,
+                "sql": "SELECT COUNT(*) AS jobs_incurred_late_completion_discount\nFROM site.projects p\nWHERE p.status = 'complete'\n  AND CAST(julianday(p.actual_end_date) - julianday(p.planned_end_date) AS INTEGER) > 7",
+                "used_context_ids": [
+                  "Late Jobs"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "jobs_incurred_late_completion_discount"
+                ],
+                "rows": [
+                  [
+                    2
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "on_time_handover_rate",
+          "question": "What share of our finished jobs made handover on time?",
+          "gold_result": {
+            "columns": [
+              "on_time_rate"
+            ],
+            "rows": [
+              [
+                0.7142857142857143
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "5 of 7 finished jobs made handover on time, a share of 71.4%.",
+                "sql": "SELECT COUNT(*) AS finished_jobs, COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) AS on_time_jobs, COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_share FROM site.projects WHERE status = 'complete'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cfinished jobs\u201d as projects with status = 'complete'.",
+                  "Used the repeated query-history convention that on time means actual end date no more than 7 days after planned end date."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "finished_jobs",
+                  "on_time_jobs",
+                  "on_time_share"
+                ],
+                "rows": [
+                  [
+                    7,
+                    5,
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "71.4%",
+                "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / COUNT(*) AS on_time_rate FROM site.projects WHERE status = 'complete'",
+                "used_context_ids": [
+                  "On-time Completion Rate"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "on_time_rate"
+                ],
+                "rows": [
+                  [
+                    0.7142857142857143
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "material_waste_gbp",
+          "question": "What did the material we sent to the skip cost us?",
+          "gold_result": {
+            "columns": [
+              "material_waste_gbp"
+            ],
+            "rows": [
+              [
+                7646.5
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "I couldn\u2019t identify any material or supplier labeled \u201cskip\u201d in the dataset, so I can\u2019t determine what the material sent to the skip cost. The recorded material categories are bricks, cement, nails, paint, steel rebar, and timber.",
+                "sql": "SELECT material, unit, supplier, order_status, COUNT(*) AS rows, SUM(quantity) AS quantity, SUM(wasted_quantity) AS wasted_quantity, SUM(quantity * unit_cost_gbp) AS ordered_cost, SUM(COALESCE(wasted_quantity,0) * unit_cost_gbp) AS wasted_cost FROM site.material_orders GROUP BY material, unit, supplier, order_status ORDER BY material",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cmaterial we sent to the skip\u201d as material explicitly labeled skip or associated with a skip supplier; no such records were found.",
+                  "The dataset records wasted quantities by material, but does not identify which waste was sent to a skip."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "material",
+                  "unit",
+                  "supplier",
+                  "order_status",
+                  "rows",
+                  "quantity",
+                  "wasted_quantity",
+                  "ordered_cost",
+                  "wasted_cost"
+                ],
+                "rows": [
+                  [
+                    "bricks",
+                    "pallet",
+                    "Hammerton Builders' Merchant",
+                    "cancelled",
+                    2,
+                    36.0,
+                    0.0,
+                    13680.0,
+                    0.0
+                  ],
+                  [
+                    "bricks",
+                    "pallet",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    6,
+                    73.0,
+                    2.3,
+                    27740.0,
+                    874.0
+                  ],
+                  [
+                    "cement",
+                    "tonne",
+                    "Buttercup Vale Quarry",
+                    "cancelled",
+                    1,
+                    40.0,
+                    0.0,
+                    5600.0,
+                    0.0
+                  ],
+                  [
+                    "cement",
+                    "tonne",
+                    "Buttercup Vale Quarry",
+                    "delivered",
+                    7,
+                    143.0,
+                    26.6,
+                    20020.0,
+                    3724.0
+                  ],
+                  [
+                    "nails",
+                    "box",
+                    "Hammerton Builders' Merchant",
+                    "cancelled",
+                    1,
+                    10.0,
+                    0.0,
+                    90.0,
+                    0.0
+                  ],
+                  [
+                    "nails",
+                    "box",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    10,
+                    45.0,
+                    4.9,
+                    405.0,
+                    44.1
+                  ],
+                  [
+                    "paint",
+                    "tin",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    8,
+                    112.0,
+                    10.299999999999999,
+                    3136.0,
+                    288.4
+                  ],
+                  [
+                    "steel rebar",
+                    "tonne",
+                    "Buttercup Vale Quarry",
+                    "delivered",
+                    5,
+                    99.0,
+                    1.4,
+                    89100.0,
+                    1260.0
+                  ],
+                  [
+                    "timber",
+                    "m3",
+                    "Hammerton Builders' Merchant",
+                    "cancelled",
+                    2,
+                    3.0,
+                    0.0,
+                    1560.0,
+                    0.0
+                  ],
+                  [
+                    "timber",
+                    "m3",
+                    "Hammerton Builders' Merchant",
+                    "delivered",
+                    9,
+                    65.0,
+                    2.8,
+                    33800.0,
+                    1456.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 8
+                },
+                "class": "wrong_result",
+                "reason": "row count 10 vs gold 1"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "The material sent to the skip cost \u00a37,646.50.",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [
+                  "Material Waste"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "material_waste_gbp"
+                ],
+                "rows": [
+                  [
+                    7646.5
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "dig_rework_cost",
+          "question": "How much did Dig\u2019s rework cost?",
+          "gold_result": {
+            "columns": [
+              "rework_cost_gbp"
+            ],
+            "rows": [
+              [
+                5040.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT c.crew_name, SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE c.crew_name = 'Dig' AND w.task_type = 'rework'\nGROUP BY c.crew_id, c.crew_name",
+                "used_context_ids": [],
+                "assumptions": [
+                  "\u201cDig\u201d refers to the crew named Dig. Rework cost is the sum of logged rework hours multiplied by the crew member\u2019s hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "crew_name",
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    "Dig",
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "Dig\u2019s rework cost was \u00a35,040.",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id WHERE c.crew_name = 'Dig' AND UPPER(RTRIM(w.task_type)) = 'REWORK'",
+                "used_context_ids": [
+                  "Rework Cost"
+                ],
+                "assumptions": [
+                  "Interpreted Dig as the crew member/machine named Dig."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "rework_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    5040.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "jobs_losing_money",
+          "question": "Which jobs actually lost money, and what was each job\u2019s gross margin in GBP?",
+          "gold_result": {
+            "columns": [
+              "project_name",
+              "gross_margin_gbp"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Wind Turbine Base",
+                -6360.0
+              ],
+              [
+                "Kipper's Cat Flap",
+                -646.5
+              ],
+              [
+                "Sprout's Scarecrow Workshop",
+                -180.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "job": "Buttercup Vale Wind Turbine Base",
+                    "gross_margin_gbp": -6360.0
+                  },
+                  {
+                    "job": "Kipper's Cat Flap",
+                    "gross_margin_gbp": -646.5
+                  },
+                  {
+                    "job": "Sprout's Scarecrow Workshop",
+                    "gross_margin_gbp": -180.0
+                  }
+                ],
+                "sql": "WITH labour AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labour_cost\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  WHERE w.project_id IS NOT NULL\n  GROUP BY w.project_id\n), mats AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS materials_cost\n  FROM site.material_orders\n  WHERE order_status = 'delivered'\n  GROUP BY project_id\n)\nSELECT p.project_id, p.project_name,\n       ROUND(p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0), 2) AS gross_margin_gbp\nFROM site.projects p\nLEFT JOIN labour l ON l.project_id = p.project_id\nLEFT JOIN mats m ON m.project_id = p.project_id\nWHERE p.status <> 'cancelled'\n  AND p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0) < 0\nORDER BY gross_margin_gbp, p.project_id",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Gross margin is contract value minus logged labour cost and delivered material cost, following the established query pattern in query history.",
+                  "Cancelled projects are excluded."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "project_id",
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "P03",
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "P10",
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "P04",
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 1
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "job": "Buttercup Vale Wind Turbine Base",
+                    "gross_margin_gbp": -6360.0
+                  },
+                  {
+                    "job": "Kipper's Cat Flap",
+                    "gross_margin_gbp": -646.5
+                  },
+                  {
+                    "job": "Sprout's Scarecrow Workshop",
+                    "gross_margin_gbp": -180.0
+                  }
+                ],
+                "sql": "WITH components AS (\n  SELECT p.project_id, p.project_name, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n)\nSELECT project_name, SUM(amount_gbp) AS gross_margin_gbp\nFROM components\nGROUP BY project_id, project_name\nHAVING SUM(amount_gbp) < 0\nORDER BY gross_margin_gbp ASC, project_name",
+                "used_context_ids": [
+                  "Gross Margin"
+                ],
+                "assumptions": []
+              },
+              "result": {
+                "columns": [
+                  "project_name",
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Wind Turbine Base",
+                    -6360.0
+                  ],
+                  [
+                    "Kipper's Cat Flap",
+                    -646.5
+                  ],
+                  [
+                    "Sprout's Scarecrow Workshop",
+                    -180.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "skip_waste_share",
+          "question": "What share of our material spend ended up in the skip?",
+          "gold_result": {
+            "columns": [
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                0.04389469635650771
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "About 4.39% of delivered material spend ended up as waste (\u00a37,646.50 of \u00a3174,201.00).",
+                "sql": "SELECT 100.0 * SUM(wasted_quantity * unit_cost_gbp) / SUM(quantity * unit_cost_gbp) AS share_pct, SUM(wasted_quantity * unit_cost_gbp) AS wasted_spend_gbp, SUM(quantity * unit_cost_gbp) AS material_spend_gbp FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cended up in the skip\u201d as the recorded wasted_quantity.",
+                  "Calculated material spend from delivered orders as quantity \u00d7 unit_cost_gbp."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_pct",
+                  "wasted_spend_gbp",
+                  "material_spend_gbp"
+                ],
+                "rows": [
+                  [
+                    4.389469635650771,
+                    7646.5,
+                    174201.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "About 4.39% of delivered material spend ended up as waste in the skip.",
+                "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) / SUM(quantity * unit_cost_gbp) AS share_wasted FROM site.material_orders WHERE order_status = 'delivered'",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "Interpreted \u201cended up in the skip\u201d as the declared Material Waste Rate: the value of wasted quantities divided by delivered material value."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_wasted"
+                ],
+                "rows": [
+                  [
+                    0.04389469635650771
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "billable_share",
+          "question": "What share of the yard\u2019s logged time went to work we could charge clients for?",
+          "gold_result": {
+            "columns": [
+              "billable_utilisation"
+            ],
+            "rows": [
+              [
+                0.7777777777777778
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "77.8% of logged time (3,143 of 4,041 hours) went to chargeable work.",
+                "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) * 1.0 / SUM(hours) AS share_chargeable, SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END) AS chargeable_hours, SUM(hours) AS total_hours FROM site.work_logs",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Interpreted \u201cyard\u2019s logged time\u201d as all hours in site.work_logs because the schema has no separate yard field.",
+                  "Applied the prior query convention that tea_break, yard_tidy, rework, and sprout_helping are not chargeable."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "share_chargeable",
+                  "chargeable_hours",
+                  "total_hours"
+                ],
+                "rows": [
+                  [
+                    0.7777777777777778,
+                    3143.0,
+                    4041.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "77.8% (3,143 of 4,041 logged hours)",
+                "sql": "SELECT SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) * 1.0 / NULLIF(SUM(w.hours), 0) AS billable_share, SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) AS billable_hours, SUM(w.hours) AS total_logged_hours FROM site.work_logs w INNER JOIN site.crew c ON w.crew_id = c.crew_id",
+                "used_context_ids": [
+                  "Billable Utilisation"
+                ],
+                "assumptions": [
+                  "Interpreted \u201cthe yard\u201d as the metric\u2019s defined Fixit work-log population: logs matched to a crew member."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "billable_share",
+                  "billable_hours",
+                  "total_logged_hours"
+                ],
+                "rows": [
+                  [
+                    0.7777777777777778,
+                    3143.0,
+                    4041.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 2
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "supplier_skip_waste_rate",
+          "question": "What is each supplier\u2019s skip-waste percentage?",
+          "gold_result": {
+            "columns": [
+              "supplier",
+              "material_waste_rate"
+            ],
+            "rows": [
+              [
+                "Buttercup Vale Quarry",
+                0.045674486803519064
+              ],
+              [
+                "Hammerton Builders' Merchant",
+                0.04091055761282095
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.57
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.09
+                  }
+                ],
+                "sql": "SELECT supplier,\n       100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY supplier",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Used the established query-history calculation: delivered waste value (wasted_quantity \u00d7 unit_cost_gbp) divided by delivered material value (quantity \u00d7 unit_cost_gbp), expressed as a percentage."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": [
+                  {
+                    "supplier": "Buttercup Vale Quarry",
+                    "skip_waste_percentage": 4.57
+                  },
+                  {
+                    "supplier": "Hammerton Builders' Merchant",
+                    "skip_waste_percentage": 4.09
+                  }
+                ],
+                "sql": "SELECT supplier,\n       100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY supplier",
+                "used_context_ids": [
+                  "Material Waste Rate"
+                ],
+                "assumptions": [
+                  "Interpreted \u201cskip-waste percentage\u201d as the Material Waste Rate: wasted delivered-material value divided by total delivered-material value, expressed as a percentage."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "supplier",
+                  "skip_waste_percentage"
+                ],
+                "rows": [
+                  [
+                    "Buttercup Vale Quarry",
+                    4.567448680351906
+                  ],
+                  [
+                    "Hammerton Builders' Merchant",
+                    4.091055761282095
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match (percent/fraction equivalent)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "late_jobs_gross_margin",
+          "question": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+          "gold_result": {
+            "columns": [
+              "gross_margin_gbp"
+            ],
+            "rows": [
+              [
+                -6540.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "win",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "\u00a3-57,758.00",
+                "sql": "SELECT SUM(p.contract_value_gbp - CASE WHEN julianday(p.actual_end_date)>julianday(p.planned_end_date) THEN (p.contract_value_gbp*0.01*CAST(julianday(p.actual_end_date)-julianday(p.planned_end_date) AS INT)) ELSE 0 END - COALESCE(m.material_cost,0) - COALESCE(l.labour_cost,0)) AS gross_margin_gbp FROM site.projects p LEFT JOIN (SELECT project_id,SUM(quantity*unit_cost_gbp) material_cost FROM site.material_orders GROUP BY project_id) m USING(project_id) LEFT JOIN (SELECT w.project_id,SUM(w.hours*c.hourly_rate_gbp) labour_cost FROM site.work_logs w JOIN site.crew c USING(crew_id) GROUP BY w.project_id) l USING(project_id) WHERE p.status='complete' AND julianday(p.actual_end_date)>julianday(p.planned_end_date)",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Treated completed jobs with late-completion discounts as completed projects whose actual end date is later than the planned end date.",
+                  "Applied a 1% of contract value discount per late day.",
+                  "Calculated gross margin as contract value less late-completion discount, material costs, and crew labor costs."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    -57758.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 0,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "wrong_result",
+                "reason": "no agent column matches gold column 1 (gross_margin_gbp)"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "The total gross margin was \u00a3-6,540.00.",
+                "sql": "WITH late_jobs AS (\n  SELECT project_id\n  FROM site.projects\n  WHERE status = 'complete'\n    AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n),\nlabour AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labour_cost\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  GROUP BY w.project_id\n),\nmaterials AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS material_cost\n  FROM site.material_orders\n  WHERE order_status = 'delivered'\n  GROUP BY project_id\n)\nSELECT SUM(p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.material_cost, 0)) AS gross_margin_gbp\nFROM site.projects p\nJOIN late_jobs j ON j.project_id = p.project_id\nLEFT JOIN labour l ON l.project_id = p.project_id\nLEFT JOIN materials m ON m.project_id = p.project_id\nWHERE p.status <> 'cancelled'",
+                "used_context_ids": [
+                  "Gross Margin",
+                  "Late Jobs"
+                ],
+                "assumptions": [
+                  "Applied the Late Jobs definition: completed jobs more than seven days past planned end date.",
+                  "Applied Gross Margin as contract value minus all logged labor costs and delivered material costs; the schema has no separate late discount amount."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "gross_margin_gbp"
+                ],
+                "rows": [
+                  [
+                    -6540.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "controller_replay",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        },
+        {
+          "id": "nonbillable_paid_time_cost",
+          "question": "In total, what did labour for nonbillable time cost us?",
+          "gold_result": {
+            "columns": [
+              "nonbillable_time_cost_gbp"
+            ],
+            "rows": [
+              [
+                38705.0
+              ]
+            ],
+            "truncated": false
+          },
+          "outcome": "both_right",
+          "arms": {
+            "without_metrics": {
+              "answer": {
+                "answer": "\u00a338,705",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping')",
+                "used_context_ids": [],
+                "assumptions": [
+                  "Used the task types excluded from billable utilisation in query history as the definition of nonbillable time.",
+                  "Calculated cost as logged hours multiplied by each crew member\u2019s hourly rate."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "nonbillable_labour_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    38705.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            },
+            "with_metrics": {
+              "answer": {
+                "answer": "\u00a338,705.00",
+                "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp FROM site.work_logs AS w JOIN site.crew AS c ON c.crew_id = w.crew_id WHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping')",
+                "used_context_ids": [
+                  "Billable Utilisation"
+                ],
+                "assumptions": [
+                  "Labour cost is logged hours multiplied by each crew member's hourly rate.",
+                  "All task types defined as nonbillable by the Billable Utilisation metric are included."
+                ]
+              },
+              "result": {
+                "columns": [
+                  "nonbillable_labour_cost_gbp"
+                ],
+                "rows": [
+                  [
+                    38705.0
+                  ]
+                ],
+                "truncated": false
+              },
+              "score": {
+                "grade": {
+                  "pass": 1,
+                  "exec_ok": 1,
+                  "extra_cols": 0
+                },
+                "class": "pass",
+                "reason": "match"
+              },
+              "result_source": "agent_tool",
+              "isolation": "capability_allowlist_and_trace_audit"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "context_fix": {
+    "name": "Billable Utilisation",
+    "changes": [
+      {
+        "path": "description",
+        "value": "Share of Fixit work-log hours spent on billable tasks. Nonbillable task_type values are exactly 'tea_break' (tea breaks), 'yard_tidy' (yard tidy), 'rework', and 'sprout_helping' (Sprout helping). SQL filters must use these stored underscore-separated values, not their prose labels. Billable hours exclude these values; the denominator includes all logged hours."
+      }
+    ]
+  },
+  "final_summary": {
+    "cases": 10,
+    "all": {
+      "n": 10,
+      "pass_rate": 1.0,
+      "ci95": 0.1388,
+      "ci95_low": 0.7225,
+      "ci95_high": 1.0
+    },
+    "isolation_unverified": 0,
+    "agent_result_source": {
+      "transcript": 8,
+      "replay": 2
+    },
+    "models": [
+      "gpt-6-luna"
+    ],
+    "score_line": "100% accuracy: 10 of 10 answered correctly (likely between 72% and 100%; a small sample)"
+  },
+  "demo_result": {
+    "status": "ok",
+    "text": " *   .  '   *    .   '  *   .    '   *  .\n '   *   .   10 OUT OF 10 RIGHT   .   *   '\n .   *    '   .    *   '    .   *    '  .\n\nYour job profit agent has reached 100% accuracy, up from 90%, now that Billable Utilisation explicitly maps its prose labels to stored task values.\n100% accuracy: 10 of 10 answered correctly (likely between 72% and 100%; a small sample)",
+    "all_right": true,
+    "from": 90,
+    "to": 100,
+    "fixed": true
+  }
+}
