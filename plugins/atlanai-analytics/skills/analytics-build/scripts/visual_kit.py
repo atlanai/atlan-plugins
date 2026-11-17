@@ -58,7 +58,6 @@ ICONS = {
     'edit': '<path d="M16.4249 4.60509L17.4149 3.6151C18.2351 2.79497 19.5648 2.79497 20.3849 3.6151C21.205 4.43524 21.205 5.76493 20.3849 6.58507L19.3949 7.57506M16.4249 4.60509L9.76558 11.2644C9.25807 11.772 8.89804 12.4078 8.72397 13.1041L8 16L10.8959 15.276C11.5922 15.102 12.228 14.7419 12.7356 14.2344L19.3949 7.57506M16.4249 4.60509L19.3949 7.57506"/><path d="M18.9999 13.5C18.9999 16.7875 18.9999 18.4312 18.092 19.5376C17.9258 19.7401 17.7401 19.9258 17.5375 20.092C16.4312 21 14.7874 21 11.4999 21H11C7.22876 21 5.34316 21 4.17159 19.8284C3.00003 18.6569 3 16.7712 3 13V12.5C3 9.21252 3 7.56879 3.90794 6.46244C4.07417 6.2599 4.2599 6.07417 4.46244 5.90794C5.56879 5 7.21252 5 10.5 5"/>',
     'chart': '<path d="M8 9V17"/><path d="M13 5V17"/><path d="M18 13V17"/><path d="M3 3V13C3 16.7712 3 18.6569 4.17157 19.8284C5.34315 21 7.22876 21 11 21H21"/>',
     'database': '<path d="M3 12C3 7.75736 3 5.63604 4.31802 4.31802C5.63604 3 7.75736 3 12 3C16.2426 3 18.364 3 19.682 4.31802C21 5.63604 21 7.75736 21 12C21 16.2426 21 18.364 19.682 19.682C18.364 21 16.2426 21 12 21C7.75736 21 5.63604 21 4.31802 19.682C3 18.364 3 16.2426 3 12Z"/><path d="M3 12H21"/><path d="M11 7.5L17 7.5"/><path d="M7.125 7.5H7M7.25 7.5C7.25 7.63807 7.13807 7.75 7 7.75C6.86193 7.75 6.75 7.63807 6.75 7.5C6.75 7.36193 6.86193 7.25 7 7.25C7.13807 7.25 7.25 7.36193 7.25 7.5Z"/><path d="M11 16.5L17 16.5"/><path d="M7.125 16.5H7M7.25 16.5C7.25 16.6381 7.13807 16.75 7 16.75C6.86193 16.75 6.75 16.6381 6.75 16.5C6.75 16.3619 6.86193 16.25 7 16.25C7.13807 16.25 7.25 16.3619 7.25 16.5Z"/>',
-    'arrow-up-right': '<path d="M9 6.65032C9 6.65032 15.9383 6.10759 16.9154 7.08463C17.8924 8.06167 17.3496 15 17.3496 15M16.5 7.5L6.5 17.5"/>',
     'layers': '<path d="M8.64298 3.14559L6.93816 3.93362C4.31272 5.14719 3 5.75397 3 6.75C3 7.74603 4.31272 8.35281 6.93817 9.56638L8.64298 10.3544C10.2952 11.1181 11.1214 11.5 12 11.5C12.8786 11.5 13.7048 11.1181 15.357 10.3544L17.0618 9.56638C19.6873 8.35281 21 7.74603 21 6.75C21 5.75397 19.6873 5.14719 17.0618 3.93362L15.357 3.14559C13.7048 2.38186 12.8786 2 12 2C11.1214 2 10.2952 2.38186 8.64298 3.14559Z"/><path d="M20.788 11.0972C20.9293 11.2959 21 11.5031 21 11.7309C21 12.7127 19.6873 13.3109 17.0618 14.5072L15.357 15.284C13.7048 16.0368 12.8786 16.4133 12 16.4133C11.1214 16.4133 10.2952 16.0368 8.64298 15.284L6.93817 14.5072C4.31272 13.3109 3 12.7127 3 11.7309C3 11.5031 3.07067 11.2959 3.212 11.0972"/><path d="M20.3767 16.2661C20.7922 16.5971 21 16.927 21 17.3176C21 18.2995 19.6873 18.8976 17.0618 20.0939L15.357 20.8707C13.7048 21.6236 12.8786 22 12 22C11.1214 22 10.2952 21.6236 8.64298 20.8707L6.93817 20.0939C4.31272 18.8976 3 18.2995 3 17.3176C3 16.927 3.20778 16.5971 3.62334 16.2661"/>',
 }
 
@@ -90,7 +89,7 @@ CARD = (
     '.ba{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:4px 10px;align-items:baseline;font-size:12px;line-height:16px}.ba span{color:var(--ts)}'
     '.ba b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}.ba b.now{color:var(--bt)}'
     '.mf .rem{color:var(--cx)}'
-    '.mo{display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--bt);border-top:.5px solid var(--bd);padding-top:8px;margin-top:2px}'
+    '.mo{display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--ts);border-top:.5px solid var(--bd);padding-top:8px;margin-top:2px}'
 )
 
 
@@ -204,9 +203,6 @@ OPEN = (
     '.ox .ls{display:grid;font-size:13px;line-height:18px}.ox .ls>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;'
     'border-top:.5px solid var(--bd);padding:6px 0}.ox .ls span{color:var(--ts);font-variant-numeric:tabular-nums}'
     '.ox .ls em{grid-column:1/-1;font-style:normal;color:var(--ts);font-size:12px;line-height:17px}.ox .more{font-size:12px;color:var(--ts)}'
-    '.ox .mo{display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--bt);text-decoration:none;'
-    'border-top:.5px solid var(--bd);padding-top:8px}'
-    '.ox .mo svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}'
 )
 CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>'
 

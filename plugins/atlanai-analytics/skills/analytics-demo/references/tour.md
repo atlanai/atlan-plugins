@@ -73,7 +73,7 @@ no pair: its ready block says it.
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
 | Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
 | Metrics found | Listing the metrics your sources hold. | You see what the context will contain before I write each rule. |
-| Build | Writing the rule for each metric and query from the sources you chose. | `<why build them>` |
+| Build | Writing what each metric and query counts, from the sources you chose. | `<why build them>` |
 | Check | Running every metric and query on `<firm>`'s data. | One that returns nothing or nonsense would give wrong answers later; this catches it now. |
 | Sign-in | Opening the Atlan Trident sign-in in your browser. | Saving needs to know who you are and which workspaces you can save to. |
 | Workspace question | Asking which workspace to save to. | A workspace is where your team, and the agents they use, find this context. |
@@ -83,7 +83,10 @@ After a moment ends, give its result in one line with counts, in the past tense.
 first tracker right after "Start building", before reading setup's references or opening the demo.
 Never use file names, helper names or query-shape counts in these lines. After reading
 sources, add one sentence on what they revealed, such as which questions the analysts
-asked most. Never leave a minute without a line; follow [progress](../../analytics-build/references/setup/progress.md).
+asked most. Never leave a minute with nothing new on screen; follow [progress](../../analytics-build/references/setup/progress.md):
+while subagents write the build, each step's chip and the side page are what is new, and each turn ends on one
+line with something new: the step's Doing line, or the line the watch gives; never that a step is still running,
+or what will show and when.
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
 the steps, a question or an example. Use the firm's name. A name

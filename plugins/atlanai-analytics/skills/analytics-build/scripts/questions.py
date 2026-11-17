@@ -94,14 +94,14 @@ def save(run, widget=False, data=None, engine_dir=None):
             count(len(c['metrics']), 'metric'), count(c['queries'], 'query', 'queries'),
             'every one ran' if not c['need_look'] else '%d ran cleanly, %d need a look' % (c['passed'], c['need_look'])
             if c['passed'] else 'none ran cleanly yet', _where(f, demo)))
-    lines += _one_metric(run, f, demo)
+    lines += _one_metric(run, f, demo, widget)
     lines += ['', 'Where should this context live?']
     return {'header': 'Step 4 of 5' if demo or f.interaction.get('flow') == 'demo' else 'Step 5 of 7',
             'question': '\n'.join(lines), 'options': [{'label': a, 'description': b} for a, b in SAVE_OPTIONS],
             'shown': [k for k, v in (('build', card), ('context', shown)) if v], 'results': by_tool}
 
 
-def _one_metric(run, f, demo):
+def _one_metric(run, f, demo, widget=False):
     """The collection's review, in the question's own text: one checked metric in full, from the dashboard when there
     is one, with what it means, what it counts, where it came from and its check."""
     import side_page
@@ -122,7 +122,8 @@ def _one_metric(run, f, demo):
             if len(out) + 2 + len(str(x).rstrip('.')) <= 140:
                 out += '; ' + str(x).rstrip('.')
         lines += [('    ' if i else '  ') + x for i, x in enumerate(visuals._wrap(visuals._fit(out, 140), 72))]
-    page = visuals.page_link(run, 'edit', {'metric': m['name']})
+    # A terminal opens the address; in the desktop app a link opens an outside browser, not the page beside the chat.
+    page = None if widget else visuals.page_link(run, 'edit', {'metric': m['name']})
     if came:
         lines.append('  ' + came[:1].upper() + came[1:] + (': ' + page if page else '.'))
     return lines

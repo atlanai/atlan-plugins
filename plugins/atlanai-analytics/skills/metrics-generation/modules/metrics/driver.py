@@ -149,6 +149,11 @@ def supported_python():
     return None
 
 
+def _python(root):
+    """The runtime's own interpreter: every later engine command runs with it."""
+    return root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+
+
 def _setup(root, features):
     if sys.version_info[:2] not in SUPPORTED_PYTHON:
         raise ValueError('Use Python 3.11 or 3.12 for the pinned metrics runtime: install one '
@@ -163,7 +168,7 @@ def _setup(root, features):
         if receipt.get('source_sha256') != sha or receipt.get('features') != selected:
             raise RuntimeMismatch('Runtime selection changed; use a new runtime directory.',
                                   root, data['commit'])
-        return {'status': 'ready', 'runtime': str(root), 'commit': data['commit'], 'reused': True}
+        return {'status': 'ready', 'runtime': str(root), 'python': str(_python(root)), 'commit': data['commit'], 'reused': True}
     source = root / 'source'
     unpack(source)
     # Standalone Python builds can resolve libpython relative to their executable.
@@ -179,7 +184,7 @@ def _setup(root, features):
                 'runtime': str(root),
                 'fix': 'Use another approved Python 3.11 or 3.12 interpreter and a new durable runtime directory. '
                        'The failed directory is preserved.'}
-    python = root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    python = _python(root)
     constraints = str(source / 'constraints.txt')
     commands = [[str(python), '-m', 'pip', '--quiet', '--disable-pip-version-check', 'install', '-c', constraints, '--only-binary=:all:',
                  'setuptools', 'wheel'],
@@ -202,7 +207,7 @@ def _setup(root, features):
                         'log': str(log)}
     write(root / 'runtime.json', {'module': 'metrics', 'commit': data['commit'],
                                 'source_sha256': sha, 'features': selected})
-    return {'status': 'ready', 'runtime': str(root), 'commit': data['commit'], 'reused': False}
+    return {'status': 'ready', 'runtime': str(root), 'python': str(python), 'commit': data['commit'], 'reused': False}
 
 
 def invoke(root, command, args):
@@ -220,7 +225,7 @@ def _invoke(root, command, args):
     # Gate instructions are part of the pinned implementation too, not mutable runtime
     # prompts that can drift independently from the validators.
     unpack(root / 'source')
-    python = root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    python = _python(root)
     if not python.is_file() or not (root / 'venv/pyvenv.cfg').is_file():
         raise ValueError('Set up this module runtime first.')
     # Do not inherit Python import overrides from the host or another project.

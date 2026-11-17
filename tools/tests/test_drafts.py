@@ -167,6 +167,31 @@ class Drafts(unittest.TestCase):
         self.assertEqual([('`visual progress`' in l, '`visual next`' in l) for l in lines],
                          [(True, False), (True, False), (False, True)], lines)
 
+    def test_each_so_far_line_hands_the_chat_the_newest_thing_by_name(self):
+        # In the desktop app a turn that ends on a widget alone is sent back for words. Live, each so-far chip then ended
+        # on "Still writing the rules", so the watch gives the words: the newest thing that landed.
+        import time
+        watch, out = self.follow(so_far_every=0.3)
+        time.sleep(0.1)
+        self.answer('x1', '01.json', {'statements': [{'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}]}]})
+        time.sleep(0.8)
+        self.answer('x3', '001.json', {'metrics': [{'name': 'Gross margin', 'description': 'What the jobs kept: contract '
+                                                    'value less labour and materials. The headline.'}]})
+        time.sleep(0.8)
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x3_ingest', 'verdict': 'ok'}]})
+        watch.join(5)
+        lines = [l for l in out.getvalue().splitlines() if '`visual progress`' in l]
+        self.assertEqual(len(lines), 2, out.getvalue())
+        self.assertTrue(lines[0].endswith('then end the turn on this line, unchanged: Newest possible metric: Win rate.'), lines[0])
+        self.assertTrue(lines[1].endswith('unchanged: Newest rule: Gross margin. What the jobs kept: contract value less '
+                                          'labour and materials.'), lines[1])
+
+    def test_the_so_far_interval_leaves_no_wait_over_three_and_a_half_minutes(self):
+        # Live, the chat took about a minute from the watch's line to the chip: at three minutes the longest wait was 4.0.
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        self.assertLessEqual(drafts.SO_FAR_SECONDS + 60, 210)
+
     def test_a_step_ending_starts_the_quiet_interval_again(self):
         # The step's own chip has just been shown: the next so-far line waits for a batch that lands after it.
         import time
@@ -182,6 +207,21 @@ class Drafts(unittest.TestCase):
         lines = [l for l in out.getvalue().splitlines() if l.startswith('Due:')]
         self.assertEqual(len(lines), 2, lines)
         self.assertFalse([l for l in lines if '`visual progress`' in l], lines)
+
+    def test_a_step_already_accepted_has_nothing_so_far_to_show(self):
+        # A desktop run drew "30 of 30 queries · finding the numbers they measure" after that step had ended and the
+        # merge had begun: its last batches had landed inside the interval, and the step has no chip of its own.
+        import time
+        watch, out = self.follow(so_far_every=0.4)
+        time.sleep(0.1)
+        self.answer('x1', '01.json', {'statements': [{'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}]}]})
+        time.sleep(0.1)
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x1_ingest', 'verdict': 'ok'}]})
+        time.sleep(1.0)
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x1_ingest', 'verdict': 'ok'},
+                                                                   {'stage': 'x3_ingest', 'verdict': 'ok'}]})
+        watch.join(5)
+        self.assertFalse([l for l in out.getvalue().splitlines() if '`visual progress`' in l], out.getvalue())
 
 if __name__ == '__main__':
     unittest.main()

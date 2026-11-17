@@ -230,6 +230,9 @@ def answer_contract(run, gate):
 
 
 BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
+# Each step as the side page names it: the app shows a subagent's name to the person, so it is never a gate's.
+STEP_NAMES = {'m2': 'Put each query in plain words', 'x1': 'Find the numbers each query measures',
+              'x2': 'Combine possible metrics, one per number', 'x3': 'Write what each metric counts and leaves out'}
 
 
 def batch_progress(run, gate):
@@ -239,14 +242,24 @@ def batch_progress(run, gate):
     if gate not in BATCHED_GATES or not project.is_file() or not (run.parent / 'run.json').is_file():
         return None
     command = f'python3 "{project}" --run-dir "{run.parent}" drafts --engine-dir "{run.name}"'
+    shares = ({'split': f'python3 "{project}" --run-dir "{run.parent}" split --engine-dir "{run.name}"'}
+              if gate == 'x3' else {})
     return {'command': command,
             'follow': command + ' --follow',
-            'say': ('One subagent writes this gate in numbered batch files and runs no drafts command. '
-                    'The session that talks to the person runs `follow` as a background watch: each line '
+            'name': STEP_NAMES[gate],
+            **shares,
+            'say': (f'A fresh subagent named `{STEP_NAMES[gate]}` writes this gate in numbered batch files and runs '
+                    'no drafts command'
+                    + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
+                       'brief. ' if shares else '. ') +
+                    'The session that talks to the person runs `follow` as a background watch named `Following the '
+                    'build` (the app shows both names to the person): each line '
                     'it prints names the `visual` call that is due: the step\'s chip when a step ends, and '
                     'how far it has got every few minutes while batches land; run it and show what it gives, '
-                    'with no words of your own. The side page shows each batch as it lands, so no batch goes '
-                    'in the chat. With no background subagent or watch, write the gate in '
+                    'with no words of your own. Every turn ends on one line with something new: a step\'s start on '
+                    'its Doing line, with nothing about what will show or when; a so-far turn on the line the watch '
+                    'gives, unchanged; never that the step is still running. The side page shows each batch as it lands, so '
+                    'no batch goes in the chat. With no background subagent or watch, write the gate in '
                     'that session and run `visual next` once the gate is accepted.')}
 
 

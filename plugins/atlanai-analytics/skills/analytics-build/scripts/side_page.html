@@ -209,9 +209,13 @@ button { font: inherit; color: inherit; }
 .lk .li .e { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
 .qb { margin: 8px 2px 0; display: grid; gap: 8px; }
 .ql { overflow: hidden; }
-.qr { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 9px 12px; border-top: 0.5px solid var(--border-subtle); align-items: start;
-  font-size: 13px; line-height: 18px; }
+.qr { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 9px 12px;
+  border-top: 0.5px solid var(--border-subtle); align-items: start; font-size: 13px; line-height: 18px; }
 .qr:first-child { border-top: 0; }
+.qr:hover { background: var(--bg-surface-hover); }
+.qr[aria-pressed="true"] { background: var(--bg-surface-selected); }
+.qr:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.qr .vs .v { font-size: 12px; }
 .qr .q { overflow-wrap: anywhere; }
 
 /* Folds */
@@ -234,6 +238,8 @@ button { font: inherit; color: inherit; }
 .ei:first-child { border-top: 0; }
 .ei .q { font-weight: 500; overflow-wrap: anywhere; }
 .ei .mm { gap: 3px; }
+.fx0 { margin: 0 0 10px; }
+.fx0:last-child { margin: 0; }
 .sql { font-size: 12px; line-height: 18px; background: var(--bg-subtle); border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; word-break: break-word;
   margin: 6px 0 0; border: 0.5px solid var(--border-subtle); }
 .rs { padding: 12px 14px; border-radius: 12px; background: var(--bg-ai-subtle); border: 0.5px solid var(--border-ai); font-size: 13px; line-height: 18px;
@@ -439,6 +445,7 @@ const metricsOf = S => arr(S.metrics).filter(m => obj(m) && txt(m.name));
 const queriesOf = S => arr(S.queries).filter(obj);
 const nowOf = S => obj(S.now) || {};
 const findMetric = (S, name) => metricsOf(S).find(m => lc(m.name) === lc(name)) || null;
+const findQuery = (S, id) => txt(id) ? queriesOf(S).find(q => txt(q.id) === txt(id)) || null : null;
 const sourcesOf = m => arr(m.sources).filter(obj);
 function srcCounts(m) { const s = sourcesOf(m), t = s.filter(x => x.kind === 'tile').length; return {t, q: s.length - t}; }
 function editFor(S, m) { const e = obj(S.edit); return e && lc(e.metric) === lc(m.name) ? e : null; }
@@ -588,7 +595,9 @@ function queriesBlock(S, UI) {
     : c('checked') + c('checking') + c('look') ? `${c('checked')} of ${qs.length} checked` + (c('look') ? ` · ${c('look')} need a look` : '') : 'checked after the metrics';
   const open = UI.tog.has('queries');
   return `<div class="qb"><button type="button" class="fold" data-tog="queries" data-k="t:queries" aria-expanded="${open}">Plus ${esc(pl(qs.length, 'query', 'queries'))}: ${esc(line)}${ic('chev', 'xs')}</button>`
-    + (open ? `<div class="card ql">${qs.map(q => `<div class="qr">${kindS('query')}<span class="mm"><span class="q">${esc(txt(q.question) || txt(q.name))}</span>${q.status === 'look' && txt(q.why) ? `<span class="u">${esc(q.why)}</span>` : ''}</span>${statusBadge(q.status, UI)}</div>`).join('')}</div>` : '')
+    + (open ? `<div class="card ql">${qs.map(q => `<button type="button" class="qr" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}"${UI.wide ? ` aria-pressed="${txt(q.id) === txt(UI.query)}"` : ''}>`
+      + `${kindS(q.kind)}<span class="mm"><span class="q">${esc(txt(q.question) || txt(q.name))}</span>${q.status === 'look' && txt(q.why) ? `<span class="u">${esc(q.why)}</span>` : ''}</span>`
+      + `<span class="vs">${statusBadge(q.status, UI)}${statusOf(q.status) === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}</span></button>`).join('')}</div>` : '')
     + '</div>';
 }
 function listBlock(S, UI) {
@@ -604,6 +613,7 @@ function listBlock(S, UI) {
   return `<div class="ml">${lookBlock(S)}${listHead(ms)}${body}${queriesBlock(S, UI)}</div>`;
 }
 function selectedName(S, UI) {
+  if (UI.query) return '';
   if (UI.metric) return UI.metric;
   return UI.wide ? txt((metricsOf(S)[0] || {}).name) : '';
 }
@@ -618,7 +628,7 @@ function sqlFold(UI, sql, key) {
   return `<button type="button" class="fold" data-tog="${esc(k)}" data-k="t:${esc(k)}" aria-expanded="${open}">${open ? 'Hide SQL' : 'Show SQL'}${ic('chev', 'xs')}</button>`
     + (open ? `<pre class="sql mono">${esc(prettySql(sql))}</pre>` : '');
 }
-function srcItem(UI, s, key) {
+function srcItem(S, UI, s, key) {
   const tile = s.kind === 'tile';
   const where = tile
     ? 'Dashboard tile' + (txt(s.visual) ? ` “${txt(s.visual)}”` : '') + (txt(s.page) ? ' on ' + txt(s.page) : '') + (txt(s.report) && s.report !== s.page ? ', in ' + txt(s.report) : '')
@@ -627,7 +637,8 @@ function srcItem(UI, s, key) {
   return `<div class="ei">${kindS(s.kind)}<div class="mm">${txt(s.question) ? `<span class="q">${esc(s.question)}</span>` : ''}`
     + (txt(s.description) ? `<span class="u">${esc(s.description)}</span>` : '')
     + `<span class="u">${esc(where)}</span>` + (part.length ? `<span class="u">Its part: ${esc(part.join('; '))}</span>` : '')
-    + (txt(s.sql) ? sqlFold(UI, s.sql, key) : '') + '</div></div>';
+    + (txt(s.sql) ? sqlFold(UI, s.sql, key) : '')
+    + (findQuery(S, s.id) ? `<button type="button" class="lnk" data-act="q" data-q="${esc(s.id)}" data-k="sq:${esc(key)}">Open this query${ic('arrow', 'xs')}</button>` : '') + '</div></div>';
 }
 function reasonBlock(m, n) {
   if (!txt(m.reasoning)) return '';
@@ -655,7 +666,7 @@ function checkBody(S, UI, m) {
   if (s === 'look') return `<div class="warnline">${ic('alert', 's')}<span>Needs a look</span></div>${txt(m.why) ? `<div class="u">${esc(m.why)}</div>` : ''}`;
   if (s === 'checking') return `<div class="ckrun"><i class="sd${moving(UI) ? ' pl' : ''}"></i>Running on the data now</div>`;
   if (s === 'tool') return '<div class="u">Its check runs on your warehouse with its own read-only tool. The result is in the chat, not on this page.</div>';
-  return '<div class="u">Not checked yet. Every metric runs on the data once the build finishes.</div>';
+  return '<div class="u">Not checked yet. Every metric and query runs on the data once the build finishes.</div>';
 }
 function detail(S, UI, name) {
   const m = findMetric(S, name);
@@ -665,8 +676,25 @@ function detail(S, UI, name) {
   const head = `<div class="dth"><span class="kind metric lg">${ic('metric')}</span><div class="mm"><h2 class="dn">${esc(m.name)}</h2>${from.length ? `<span class="u">From ${esc(from.join(' and '))}</span>` : ''}</div>`
     + `<div class="vs">${s === 'checked' && txt(m.value) ? `<span class="dv">${esc(fixMinus(m.value))}</span>` : ''}${statusBadge(s, UI)}</div></div>`;
   const desc = m.rule && txt(m.description) ? `<p class="dd">${esc(m.description)}</p>` : '';
-  const ev = srcs.length ? `<div class="dsec"><h3 class="sl">Where it came from</h3><div class="card ev">${srcs.map((x, j) => srcItem(UI, x, lc(m.name) + ':' + j)).join('')}</div></div>` : '';
+  const ev = srcs.length ? `<div class="dsec"><h3 class="sl">Where it came from</h3><div class="card ev">${srcs.map((x, j) => srcItem(S, UI, x, lc(m.name) + ':' + j)).join('')}</div></div>` : '';
   return `<div class="dt">${head}${desc}${ev}${reasonBlock(m, srcs.length)}${ruleBlock(S, m)}<div class="dsec"><h3 class="sl">Checked on the data</h3><div class="card pad ck">${checkBody(S, UI, m)}</div></div></div>`;
+}
+
+function queryFrom(q) {
+  if (q.kind === 'tile') return 'From the dashboard tile' + (txt(q.visual) ? ` “${txt(q.visual)}”` : '') + (txt(q.page) ? ' on ' + txt(q.page) : '');
+  return isNum(q.runs) ? `From a past query, run ${pl(q.runs, 'time')}` + (isNum(q.analysts) ? ' by ' + pl(q.analysts, 'analyst') : '') : 'From a past query';
+}
+function queryDetail(S, UI, id) {
+  const q = findQuery(S, id);
+  if (!q) return `<div class="card empty">${ic('query')}<span>This query is not made yet. It opens here once the build makes it.</span></div>`;
+  const s = statusOf(q.status), tables = arr(q.tables).map(txt).filter(Boolean), built = arr(q.metrics).map(txt).filter(Boolean);
+  const head = `<div class="dth"><span class="kind source lg">${ic(q.kind === 'tile' ? 'tile' : 'query')}</span><div class="mm"><h2 class="dn">${esc(txt(q.question) || txt(q.name))}</h2><span class="u">${esc(queryFrom(q))}</span></div>`
+    + `<div class="vs">${s === 'checked' && txt(q.value) ? `<span class="dv">${esc(fixMinus(q.value))}</span>` : ''}${statusBadge(s, UI)}</div></div>`;
+  const desc = txt(q.description) ? `<p class="dd">${esc(q.description)}</p>` : '';
+  const sql = txt(q.sql) ? `<div class="dsec"><h3 class="sl">The query</h3><div class="card pad"><pre class="sql mono fx0">${esc(prettySql(q.sql))}</pre>`
+    + (tables.length ? `<dl class="kv"><dt>Reads</dt><dd>${tables.map(x => `<code class="mono">${esc(x)}</code>`).join('<br>')}</dd></dl>` : '') + '</div></div>' : '';
+  const metrics = built.length ? `<div class="dsec"><h3 class="sl">${built.length === 1 ? 'The metric built on it' : `The ${built.length} metrics built on it`}</h3><div class="ap">${built.map(n => proofChip(S, n)).join('')}</div></div>` : '';
+  return `<div class="dt">${head}${desc}${sql}${metrics}<div class="dsec"><h3 class="sl">Checked on the data</h3><div class="card pad ck">${checkBody(S, UI, q)}</div></div></div>`;
 }
 
 /* End states */
@@ -809,6 +837,7 @@ function followBody(S, UI) {
   return main + doneSoFar(S, UI);
 }
 function rightColumn(S, UI) {
+  if (UI.query) return `<h2 class="sh" style="margin-bottom:0">How we got here</h2>${queryDetail(S, UI, UI.query)}`;
   if (metricsOf(S).length || UI.metric) return `<h2 class="sh" style="margin-bottom:0">How we got here</h2>${detail(S, UI, selectedName(S, UI))}`;
   const now = stepsOf(S).find(s => s.status === 'now');
   if (now && !UI.view) return pieces(S, UI, now, false);
@@ -825,9 +854,9 @@ function view(S, UI) {
   const top = `<div class="top">${toolbar(S, UI)}${UI.link === 'off' ? offNote(S) : ''}${topBlock(S)}${rail(S, UI, at)}</div>`;
   const status = at ? strip(S, UI) : header(S, UI);
   let main;
-  if (!UI.wide && UI.metric) {
-    main = `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${at && at !== 'metrics' ? 'Back' : 'All metrics'}</button>`
-      + `<h2 class="sh" style="margin-bottom:-8px">How we got here</h2>${detail(S, UI, UI.metric)}`;
+  if (!UI.wide && (UI.metric || UI.query)) {
+    main = `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${UI.query ? (UI.from ? 'Back to the metric' : 'Back') : at && at !== 'metrics' ? 'Back' : 'All metrics'}</button>`
+      + `<h2 class="sh" style="margin-bottom:-8px">How we got here</h2>${UI.query ? queryDetail(S, UI, UI.query) : detail(S, UI, UI.metric)}`;
   } else {
     main = at ? stepPanel(S, UI, at) : followBody(S, UI);
   }
@@ -837,7 +866,7 @@ function view(S, UI) {
 
 /* State, painting and the live feed */
 const THEME_KEY = 'atlan-analytics-side-page-theme';
-const UI = {view: null, metric: null, tog: new Set(), wide: false, link: 'wait', theme: 'system'};
+const UI = {view: null, metric: null, query: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system'};
 const app = document.getElementById('app');
 const WID = {}, STA = {};
 let S = null, raw = '', said = '';
@@ -847,11 +876,13 @@ function readHash() {
   try { p = new URLSearchParams(location.hash.replace(/^#/, '')); } catch (e) { return; }
   UI.view = p.get('step') || null;
   UI.metric = p.get('m') || null;
+  UI.query = p.get('q') || null;
 }
 function writeHash() {
   const p = new URLSearchParams();
   if (UI.view) p.set('step', UI.view);
   if (UI.metric) p.set('m', UI.metric);
+  if (UI.query) p.set('q', UI.query);
   const want = p.toString() ? '#' + p.toString() : '';
   if (location.hash === want) return;
   try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
@@ -939,13 +970,21 @@ document.addEventListener('click', e => {
   if (act === 'step' || act === 'now') {
     UI.view = act === 'step' ? a.dataset.id : null;
     if (!UI.wide) UI.metric = null;
+    UI.query = null; UI.from = null;
     paint();
     window.scrollTo(0, 0);
-  } else if (act === 'm') {
-    UI.metric = a.dataset.m;
+  } else if (act === 'm' || act === 'q') {
+    if (act === 'm') { UI.metric = a.dataset.m; UI.query = null; UI.from = null; }
+    else { UI.from = UI.query ? UI.from : UI.metric; UI.metric = null; UI.query = a.dataset.q; }
     paint();
     if (!UI.wide) { const b = app.querySelector('.back'); if (b) { const y = b.getBoundingClientRect().top + window.scrollY - 12; if (window.scrollY > y) window.scrollTo(0, y); } }
     else { const wr = app.querySelector('.wr'); if (wr) wr.scrollTop = 0; }
+  } else if (act === 'back' && UI.query) {
+    const was = UI.query;
+    UI.query = null; UI.metric = UI.from; UI.from = null;
+    paint();
+    const r = UI.metric ? null : [...app.querySelectorAll('.qr')].find(x => x.dataset.q === was);
+    if (r) { r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
   } else if (act === 'back') {
     const was = lc(UI.metric);
     UI.metric = null;
@@ -956,7 +995,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (UI.metric && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
+  if ((UI.metric || UI.query) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
+  else if (UI.query) { UI.query = null; UI.metric = UI.from; UI.from = null; paint(); }
   else if (UI.view) { UI.view = null; paint(); }
 });
 window.addEventListener('hashchange', () => { readHash(); paint(); window.scrollTo(0, 0); });
@@ -975,7 +1015,7 @@ connect();
 setInterval(health, 1000);
 
 window.SidePage = Object.freeze({
-  view: (snapshot, ui) => view(snapshot, Object.assign({view: null, metric: null, tog: new Set(), wide: false, link: 'live', theme: 'system'}, ui || {})),
+  view: (snapshot, ui) => view(snapshot, Object.assign({view: null, metric: null, query: null, from: null, tog: new Set(), wide: false, link: 'live', theme: 'system'}, ui || {})),
 });
 })();
 </script>

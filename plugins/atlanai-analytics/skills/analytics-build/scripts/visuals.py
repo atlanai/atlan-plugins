@@ -189,9 +189,12 @@ def collect(kind, facts):
         tiles = [o for o in facts.engine_file('verified_queries.bi.json').get('objects') or [] if isinstance(o, dict)]
         bi = [((o.get('provenance') if isinstance(o.get('provenance'), dict) else {}).get('bi') or {}) for o in tiles]
         if tiles:
-            # Its page in the dashboard, kept apart from `page`, which is the side page's own address.
+            # Its page in the dashboard, kept apart from `page`, which is the side page's own address. Each tile opens to
+            # its question: in the build's plain words once described, else its own when it already reads as one.
+            asked = [first_question((facts.descriptions.get(o.get('vq_id')) or {}).get('question') or o.get('question')) for o in tiles]
             return {'tiles': len(tiles), 'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None),
-                    'rows': [[str(b['visual']), ''] for b in bi if isinstance(b, dict) and b.get('visual')]}
+                    'rows': [[str(b['visual']), '', q if q.endswith('?') else ''] for b, q in zip(bi, asked)
+                             if isinstance(b, dict) and b.get('visual')]}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
     if kind == 'metrics' and 'x2_ingest' in facts.stages and facts.merged:
@@ -239,21 +242,43 @@ def _ran(n):
 WORDS = re.compile(r"[A-Za-z][A-Za-z0-9 '’,&()%/-]*")
 
 
+# A query's own name for its number that says nothing about it: such a query is named by its tables instead.
+VAGUE = {'measure', 'value', 'metric', 'result', 'total', 'amount', 'number', 'count', 'cnt', 'val', 'num', 'n', 'x'}
+
+
+def _words(names):
+    return ' and '.join(filter(None, [', '.join(names[:-1]), names[-1]])) if names else ''
+
+
+def _before_described(o):
+    """A past query in words before the build describes it: the name it gives its number and what it groups by, or,
+    for a name that says nothing, the tables it reads. Empty for an engine shorthand or an id."""
+    name = ' '.join(str(o.get('question') or o.get('name') or '').replace('_', ' ').split())
+    if not WORDS.fullmatch(name) or name.lower().startswith('vq'):
+        return ''
+    by = _words([' '.join(str(c).replace('_', ' ').split()) for c in o.get('group_by') or [] if isinstance(c, str)])
+    if name.lower() in VAGUE:
+        tables = _words(list(dict.fromkeys(table_name(t).lower() for t in o.get('tables') or [] if isinstance(t, str)))[:3])
+        return ('A number' + (' by ' + by if by else '') + ', from ' + tables) if tables else ''
+    return name[:1].upper() + name[1:] + (' by ' + by if by else '')
+
+
 def _asked(facts):
-    """The questions past queries ask, most run first: in plain words once described, else the engine's short name
-    when it reads as words."""
+    """The questions past queries ask, most run first: in plain words once described, else in the query's own words
+    (its number's name and what it groups by); queries that read the same are one row."""
     hist, runs = _runs(facts)
-    rows, short = [], False
+    rows, short = {}, False
     for vid, o in hist.items():
         said = first_question((facts.descriptions.get(vid) or {}).get('question'))
         if not said:
-            name = ' '.join(str(o.get('question') or o.get('name') or '').split())
-            if not WORDS.fullmatch(name) or name.lower().startswith('vq'):
+            said, short = _before_described(o), True
+            if not said:
                 continue
-            said, short = name[:1].upper() + name[1:], True
-        rows.append([said, _ran(runs(vid)), runs(vid)])
-    rows.sort(key=lambda r: -r[2])
-    return {'rows': [r[:2] for r in rows], 'short': short}
+        row = rows.setdefault(said, [said, 0, 0])
+        row[1], row[2] = row[1] + 1, row[2] + runs(vid)
+    ordered = sorted(rows.values(), key=lambda r: -r[2])
+    return {'rows': [[said, ('%d queries, %s' % (n, _ran(ran)) if n > 1 else _ran(ran))] for said, n, ran in ordered],
+            'short': short}
 
 
 def _described(facts):
@@ -427,16 +452,16 @@ def _chip(glyph, num, what, tail=''):
 OPENED_ROWS = 8
 
 
-def _opened(o, page):
-    """An opened chip: one sentence on what the step did, then what it produced, then the way to the side page."""
+def _opened(o):
+    """An opened chip: one sentence on what the step did, then what it produced. The side page is named, never linked:
+    a widget's link opens the host's link dialog and then a browser, never the side panel."""
     e = k.e
     rows = o['rows'][:OPENED_ROWS]
     listed = ''.join('<div><b style="font-weight:400">%s</b><span>%s</span>%s</div>'
                      % (e(r[0]), e(r[1]) if len(r) > 1 else '', '<em>%s</em>' % e(r[2]) if len(r) > 2 and r[2] else '') for r in rows)
     more = len(o['rows']) - len(rows)
     return (('<div class="mt">%s</div>' % e(o['what']) if o['what'] else '') + '<div class="ls">%s</div>' % listed
-            + ('<div class="more">%d more on the side page</div>' % more if more > 0 else '')
-            + ('<a class="mo" href="%s">%s Open on the side page</a>' % (e(page), k.icon('arrow-up-right')) if page else ''))
+            + ('<div class="more">%d more on the side page</div>' % more if more > 0 else ''))
 
 
 def chip_html(kind, s):
@@ -448,7 +473,7 @@ def chip_html(kind, s):
         row = o['mark'] + '<span class="h">%s</span>%s' % (hero, '<span class="t">%s</span>' % e(o['tail']) if o['tail'] else '')
         said = ' '.join(x for x in (o['bold'], o['rest'], o['tail'], o['sub']) if x)
         if o['rows']:
-            return k.opening(row, _opened(o, s.get('page')), said, o['sub'])
+            return k.opening(row, _opened(o), said, o['sub'])
         return k.outcome(row, said, o['sub'])
     t = _ticker(kind, s)
     if not t:
@@ -773,7 +798,7 @@ def card_html(p):
         + ('<div class="mf">%s</div>' % ' · '.join('<span class="add">%s</span>' % e(c) if c.startswith('+ ') else '<span class="rem">%s</span>' % e(c)
                                                    if c.startswith('- ') else e(c) for c in p['chips']) if p.get('chips') else '')
         + ('<div class="mw">%s<span>%s</span></div>' % (k.icon('alert-circle'), e(p['warn'])) if p.get('warn') else '')
-        + ('<div class="mo">%s<span>%s: on the side page beside the chat</span></div>' % (k.icon('arrow-up-right'), e(more[0])) if more else ''),
+        + ('<div class="mo"><span>%s: on the side page beside the chat</span></div>' % e(more[0]) if more else ''),
         '%s: %s' % (p['title'], _minus(p['value'])))
 
 

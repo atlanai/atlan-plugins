@@ -65,6 +65,43 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('side page', say)
         self.assertNotIn('exactly as printed', say)
 
+    def test_each_gate_gets_a_fresh_subagent_and_the_card_gate_shares_its_metrics_first(self):
+        # Measured: a fresh subagent per gate matched one carrying every earlier step, and above 20 metrics shares of 12
+        # or more matched one subagent number for number in about two-thirds of the time.
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / 'run'
+            (run / 'engine').mkdir(parents=True)
+            (run / 'run.json').write_text('{}')
+            describe = self.worker().batch_progress(run / 'engine', 'm2')
+            cards = self.worker().batch_progress(run / 'engine', 'x3')
+        self.assertIn('A fresh subagent named `Put each query in plain words` writes this gate', describe['say'])
+        self.assertNotIn('split', describe)
+        self.assertTrue(cards['split'].endswith('split --engine-dir "engine"'), cards['split'])
+        self.assertIn('`split`', cards['say'])
+        # A live run said "still being written in the background" at every wake-up: 11 of its 22 lines. The desktop app
+        # sends a turn that ends without words back for words, so each turn ends on a line with something new.
+        self.assertIn('the line the watch gives, unchanged', describe['say'])
+        self.assertIn('never that the step is still running', describe['say'])
+        # The app shows a subagent's name to the person: live ones were "Describe past queries gate", "noop placeholder".
+        import side_page
+        self.assertEqual(describe['name'], side_page.WORK_NAME['describe'])
+        self.assertEqual(cards['name'], side_page.WORK_NAME['rules'])
+        self.assertIn('`%s`' % cards['name'], cards['say'])
+        self.assertIn('`Following the build`', cards['say'])
+
+    def test_a_ready_runtime_names_its_own_python(self):
+        # Live, the agent guessed the runtime's Python, guessed wrong, and the failed call stopped the side page.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve() / 'runtime'
+            root.mkdir()
+            data, sha = driver.snapshot()
+            (root / 'runtime.json').write_text(json.dumps({'module': 'metrics', 'commit': data['commit'],
+                                                           'source_sha256': sha, 'features': []}))
+            with mock.patch.object(driver.sys, 'version_info', (3, 12, 0)):
+                ready = driver._setup(root, [])
+        self.assertTrue(ready['reused'])
+        self.assertEqual(ready['python'], str(root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')))
+
     def test_capture_is_immutable_when_files_are_added_removed_or_changed(self):
         worker = self.worker()
         for change in ('add', 'remove', 'change', 'extra_capture'):

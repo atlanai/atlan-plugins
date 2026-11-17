@@ -213,15 +213,27 @@ def _items(engine, gate, files):
     return list(first.values())
 
 
-def so_far(root, engine_dir=None):
-    """The furthest step with saved batches: its counts over all of them, as the side page counts them, and what they
-    hold so far. Nothing is recorded."""
-    engine = _Engine(root, engine_dir)
+def _under_way(engine):
+    """The furthest step with saved batches while its gate is not yet accepted, as (gate, step, describe, files); None
+    before any batch and once that step has ended, when it has nothing left to show so far."""
+    stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
+    accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
     for gate, step, describe in GATES:
         files = _saved(engine, gate)
         if files:
-            return {'step': step, **describe(engine, files, files)[1], 'items': _items(engine, gate, files)}
-    return {}
+            return None if gate + '_ingest' in accepted else (gate, step, describe, files)
+    return None
+
+
+def so_far(root, engine_dir=None):
+    """The step under way: its counts over all its batches, as the side page counts them, and what they hold so far.
+    Nothing once it has ended. Nothing is recorded."""
+    engine = _Engine(root, engine_dir)
+    under = _under_way(engine)
+    if not under:
+        return {}
+    gate, step, describe, files = under
+    return {'step': step, **describe(engine, files, files)[1], 'items': _items(engine, gate, files)}
 
 
 GATES_BY_ID = {gate: describe for gate, _, describe in GATES}
@@ -270,9 +282,24 @@ WAKES = ('m2_ingest', 'x2_ingest', 'x3_ingest')
 DUE = ("Due: run this helper's `visual next` before going on, with the flags of every `visual` call (`--data` for a demo, "
        "`--widget` where you have `show_widget`).")
 # A step can run for many minutes: while its batches land, the chat hears how far it has got this often.
-SO_FAR_SECONDS = 180
+SO_FAR_SECONDS = 150
 SO_FAR = ("Due: run this helper's `visual progress` before going on, with the flags of every `visual` call (`--data` for a "
-          "demo, `--widget` where you have `show_widget`).")
+          "demo, `--widget` where you have `show_widget`)")
+NEWS = {'x3': 'Newest rule: ', 'x2': 'Newest metric: ', 'x1': 'Newest possible metric: ', 'm2': 'Newest in plain words: '}
+
+
+def _news(engine):
+    """The words a so-far turn ends on: the desktop app sends a turn that ends on a widget alone back for words, so they
+    name the newest thing that landed, and a rule's first sentence, instead of saying the step is still running."""
+    import re
+    under = _under_way(engine)
+    items = _items(engine, under[0], under[3]) if under else []
+    if not items:
+        return ''
+    name, said = items[-1]
+    first = re.split(r'(?<=[.!?])\s', str(said or '').strip(), maxsplit=1)[0] if under[0] == 'x3' else ''
+    line = NEWS[under[0]] + name.rstrip('.') + '.' + (' ' + first if first else '')
+    return line if len(line) <= 240 else line[:237].rsplit(' ', 1)[0] + '...'
 
 
 def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_every=SO_FAR_SECONDS, out=None):
@@ -304,8 +331,9 @@ def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_
                 printed += 1
                 last = spoke = time.monotonic()
                 told = now
-        if now > told and time.monotonic() - spoke >= so_far_every:
-            print(SO_FAR, file=out, flush=True)
+        if now > told and time.monotonic() - spoke >= so_far_every and _under_way(engine):
+            news = _news(engine)
+            print(SO_FAR + (', then end the turn on this line, unchanged: ' + news if news else '.'), file=out, flush=True)
             printed += 1
             spoke, told = time.monotonic(), now
         if 'x3_ingest' in accepted:

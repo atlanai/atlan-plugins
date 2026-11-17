@@ -642,6 +642,8 @@ def main():
     drafts.add_argument('--engine-dir', type=Path)
     drafts.add_argument('--follow', action='store_true',
                         help='Print a line each time a step the chat shows ends, until the metric definitions are accepted')
+    shared = sub.add_parser('split', help="How the metric definitions are shared among helpers, with each helper's brief")
+    shared.add_argument('--engine-dir', type=Path)
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
@@ -783,6 +785,10 @@ def main():
                 steps.append("In a terminal these lines are part of the next question: run `PROJECT question %s` now and "
                              "ask exactly what it prints. Print nothing before it. If you have a `show_widget` tool, run "
                              "this again with `--widget` and draw it instead." % deferred)
+            if shown and args.kind == 'progress':
+                # A watch wakes the chat only to draw this: closed on a status line of its own, every chip got one.
+                steps.append("This chip is the whole update while the step runs: end your turn on it, with no line after "
+                             "it. The watch wakes you when more has landed, and again when the step ends.")
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
             # A moment deferred to its question is recorded when that question is composed, so a skipped question
             # is named again by the next helper result. A step's so-far chip is drawn as often as the watch asks, and
@@ -862,6 +868,12 @@ def main():
                 # Command output is folded away in most hosts; the person sees only messages.
                 print('The person cannot see this output. Send the block above as your next chat message, '
                       'exactly as printed, before any other tool call.', file=sys.stderr)
+        elif args.command == 'split':
+            import define_split
+            try:
+                result = define_split.split(project.root, args.engine_dir)
+            except define_split.SplitError as e:
+                raise ProjectError(str(e)) from e
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage
                       else project.read(project.root / 'progress.json'))

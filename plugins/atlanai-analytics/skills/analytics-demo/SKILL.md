@@ -73,7 +73,7 @@ After "Start building", show the tracker, then do all of step 1's work:
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
    `database` and `schema`. Use these as given; do not work them out again.
-3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
+3. **Load the data.** With setup's `python`, run `PROJECT prepare "<prepare>"`, as
    [build and check](../analytics-build/references/setup/build-check.md) describes; `prepare`
    is null when the database is already loaded. Then bind it once with
    `PROJECT bind "<database>" --schema <schema>`. Every later check runs on these rows.

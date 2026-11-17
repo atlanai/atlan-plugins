@@ -186,7 +186,55 @@ class Chips(unittest.TestCase):
         self.assertEqual(self.show('tiles'), '▦ **2 dashboard tiles read** · each turned into a query')
         html = self.show('tiles', widget=True)
         self.assertIn('Each tile on the Site dashboard', html)
-        self.assertIn('href="http://127.0.0.1:8123/k/"', html, 'its link opens the side page')
+        self.assertNotIn('127.0.0.1', html, 'the side page is never linked from a widget')
+
+    def test_a_widget_names_the_side_page_in_words_and_links_nowhere(self):
+        # Live, "Open on the side page" did nothing: a widget's link opens the host's link dialog and then a browser,
+        # never the side panel. The words stay; the link goes.
+        write(self.run / 'view' / 'server.json', {'url': 'http://127.0.0.1:8123/k/', 'pid': 0})
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {
+            'h-%d' % i: {'question': 'How much did job %d make?' % i} for i in range(12)}})
+        for kind in BUILD_STEPS:
+            self.assertNotIn('<a ', self.show(kind, widget=True), kind)
+        self.assertIn('4 more on the side page', self.show('described', widget=True))
+
+    def test_a_card_names_the_side_page_without_looking_like_a_link(self):
+        # Link blue and an outward arrow on a line that opens nothing read as a broken link.
+        write(self.run / 'view' / 'server.json', {'url': 'http://127.0.0.1:8123/k/', 'pid': 0})
+        html = self.show('build', widget=True)
+        self.assertIn('on the side page beside the chat', html)
+        self.assertNotIn('M9 6.65032C9 6.65032 15.9383', html, 'no outward arrow')
+        self.assertNotIn('.mo{display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--bt)', html)
+
+    def test_the_tiles_chip_opens_to_each_tile_with_its_question(self):
+        detail = self.show('tiles', widget=True).split('</summary>', 1)[1]
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span></span><em>What is the gross margin in pounds?</em>', detail)
+        # Live, the chip comes before the queries are described: the tile's own question is there, its short name never shows.
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {}})
+        write(self.run / 'engine' / 'verified_queries.bi.json', {'objects': [
+            {'vq_id': 'bi-q1', 'question': 'What gross margin did Fixit make?', 'provenance': {'lane': 'bi', 'bi': {'visual': 'Gross margin', 'page': 'Site'}}},
+            {'vq_id': 'bi-q2', 'question': 'margin_by_job', 'provenance': {'lane': 'bi', 'bi': {'visual': 'Margin by job', 'page': 'Site'}}}]})
+        detail = self.show('tiles', widget=True).split('</summary>', 1)[1]
+        self.assertIn('<em>What gross margin did Fixit make?</em>', detail)
+        self.assertIn('Margin by job', detail)
+        self.assertNotIn('margin_by_job', detail)
+
+    def test_before_the_queries_are_described_each_group_reads_as_words(self):
+        # Live, the list opened to "On time rate", "Measure", "On time rate": each query's column name, two alike.
+        def query(vid, name, by, tables, runs):
+            return {'vq_id': vid, 'question': name, 'group_by': by, 'tables': tables,
+                    'provenance': {'lane': 'history', 'history': {'n_exec': runs, 'n_distinct_users': 1}}}
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {}})
+        write(self.run / 'engine' / 'verified_queries.history.json', {'objects': [
+            query('h-1', 'on time rate', [], ['SITE.SITE.PROJECTS'], 36),
+            query('h-2', 'on time rate', ['project_type'], ['SITE.SITE.PROJECTS'], 14),
+            query('h-3', 'measure', ['project_id'], ['SITE.SITE.PROJECTS', 'SITE.SITE.WORK_LOGS'], 34),
+            query('h-4', 'on time rate', [], ['SITE.SITE.PROJECTS'], 3)]})
+        detail = self.show('group', widget=True).split('</summary>', 1)[1]
+        rows = re.findall(r'<b style="font-weight:400">([^<]*)</b><span>([^<]*)</span>', detail)
+        self.assertEqual(rows, [('On time rate', '2 queries, run 39 times'),
+                                ('A number by project id, from projects and work logs', 'run 34 times'),
+                                ('On time rate by project type', 'run 14 times')])
 
     def test_a_step_the_engine_refused_has_not_finished(self):
         manifest = self.run / 'engine' / 'manifest.json'
@@ -404,6 +452,24 @@ class SoFar(unittest.TestCase):
             self.assertIn(name, html)
             for internal in ('vq_id', 'h-1', 'bi-q1', 'x1', 'm2', 'proposal', 'draft'):
                 self.assertNotIn(internal, html, (reason, internal))
+
+    def test_a_so_far_chip_is_the_whole_turn(self):
+        # Live, every so-far chip was followed by "The merge is still running in the background.": the woken turn closed
+        # on a status line of its own. The chip is the update, and the watch wakes the chat again.
+        self.describe()
+        for flags in (['--widget'], []):
+            done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress']
+                                  + flags, capture_output=True, text=True, encoding='utf-8', timeout=60,
+                                  env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
+            self.assertIn('end your turn on it', done.stdout, flags)
+            self.assertIn('watch wakes you', done.stdout, flags)
+
+    def test_a_step_already_accepted_draws_no_so_far_chip(self):
+        # Drawn after its step ended, a so-far chip said a finished step was still "finding the numbers".
+        self.describe()
+        write(self.run / 'engine' / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        self.assertEqual(self.show(), '')
+        self.assertEqual(self.show(widget=True), '')
 
     def test_its_list_adds_up_to_its_count(self):
         # Rendered from a real run, "41 possible metrics found" opened to 30 names: a metric found in several queries

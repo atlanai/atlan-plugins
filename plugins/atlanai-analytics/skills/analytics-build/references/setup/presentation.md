@@ -61,4 +61,4 @@ The look at what is connected before the interview has no line: it is silent, as
 | --- | --- | --- |
 | Discovery | Looking at what `<warehouse>` is used for: its schemas, the most used tables and their columns. | The tables people already query are the ones worth building context on. |
 | Reading a BI source | Reading the report's pages and measures, and the tables behind them. | The report already says how your team measures this, so the context starts from it. |
-| Build and check | Writing the rule for each metric, then running each one on `<warehouse>`. | A rule that returns nothing or nonsense would give wrong answers later; this catches it now. |
+| Build and check | Writing what each metric counts and leaves out, then running each one on `<warehouse>`. | A rule that returns nothing or nonsense would give wrong answers later; this catches it now. |

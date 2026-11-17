@@ -76,8 +76,8 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    interview's confirmation, "Build it?", whose text opens with the `found` visual's line in a
    terminal. A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
-   and the whole survey, through [build and check](references/setup/build-check.md). One
-   subagent writes the metric gates while the side page shows each saved batch and this session
+   and the whole survey, through [build and check](references/setup/build-check.md). A fresh
+   subagent writes each metric gate while the side page shows each saved batch and this session
    draws each step's chip ([drafts as they land](references/setup/progress.md#drafts-as-they-land)). The
    review of the completed collection is the save question's own text (step 5).
 5. **Keep local or save to Atlan Trident.** Read

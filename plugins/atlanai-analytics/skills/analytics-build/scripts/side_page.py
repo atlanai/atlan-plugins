@@ -106,13 +106,48 @@ def _source(src, known, said):
     hist = prov.get('history') if isinstance(prov.get('history'), dict) else {}
     tile = prov.get('lane') == 'bi' or str(vid or '').startswith('bi-')
     return {k: v for k, v in (
-        ('kind', 'tile' if tile else 'query'),
+        ('id', vid), ('kind', 'tile' if tile else 'query'),
         ('question', _cut(first_question(words.get('question') or vq.get('question') or src.get('name_as_proposed')), 200)),
         ('description', _cut(words.get('description'), 320)),
         ('part', [_cut(_plain(str(c)), 160) for c in src.get('contributed') or []]),
         ('sql', _cut(vq.get('sql'), 1600)),
         ('runs', hist.get('n_exec')), ('analysts', hist.get('n_distinct_users')),
         ('visual', bi.get('visual')), ('page', bi.get('page')), ('report', bi.get('report'))) if v not in (None, '', [])}
+
+
+def _checked_value(v, unit=None):
+    """What a passed check returned: its one number, or how many rows."""
+    rows = v['rows'] if v and v['ok'] else []
+    if not rows:
+        return None
+    first = rows[0] if isinstance(rows[0], list) else [rows[0]]
+    return number(first[0], unit) if len(rows) == 1 and first else count(len(rows), 'row')
+
+
+def _table_names(tables):
+    """Each table once: a local database's tables come back as SITE.SITE.JOBS beside site.jobs, so a repeated first part
+    goes, and a second spelling of the same table is left out."""
+    out, seen = [], set()
+    for name in tables:
+        parts = str(name).split('.')
+        while len(parts) > 2 and parts[0].lower() == parts[1].lower():
+            parts.pop(0)
+        name = '.'.join(parts)
+        if name.lower() not in seen:
+            seen.add(name.lower())
+            out.append(name)
+    return out[:12]
+
+
+def _query_profile(vid, known, said, built_on, description=None, sql=None, tables=None):
+    """A saved query's profile, as a metric's: where it came from, what it reads, and the metrics built on it."""
+    source = _source({'vq_id': vid}, known, said) if vid else {}
+    vq = (known.get(vid) or ({},))[0]
+    tables = tables if isinstance(tables, list) else vq.get('tables') if isinstance(vq.get('tables'), list) else []
+    return (('kind', source.get('kind')), ('description', _cut(description, 600) or source.get('description')),
+            ('sql', _cut(sql, 1600) or source.get('sql')), ('tables', _table_names(tables)),
+            ('metrics', list(dict.fromkeys(built_on.get(vid) or []))),
+            *((k, source.get(k)) for k in ('runs', 'analysts', 'visual', 'page', 'report')))
 
 
 def _verdicts(f):
@@ -211,7 +246,7 @@ def details(f):
     merged = f.engine_file('merged_metrics.json').get('metrics') or []
     pending = not merged  # until the merge step is accepted, its saved batches are the merges so far
     merged = merged or _batches(f, 'x2', 'metrics')
-    claimed = set()
+    claimed, built_on = set(), {}
     for m in merged:
         if not isinstance(m, dict) or not m.get('name'):
             continue
@@ -222,11 +257,7 @@ def details(f):
         d = ctx.get('definition') if isinstance(ctx.get('definition'), dict) else {}
         unit = RunFacts.unit_of(ctx) if ctx else str(m.get('unit') or '')
         v = verdicts.get('metric:' + str(ctx.get('name') or m['name']))
-        rows = v['rows'] if v else []
-        value = None
-        if v and v['ok'] and rows:
-            first = rows[0] if isinstance(rows[0], list) else [rows[0]]
-            value = number(first[0], unit) if len(rows) == 1 and first else count(len(rows), 'row')
+        value = _checked_value(v, unit)
         description = ctx.get('description') or card.get('description')
         metrics.append({k: x for k, x in (
             ('name', sentence(ctx.get('display_name') or card.get('display_name') or m['name'])),
@@ -245,6 +276,8 @@ def details(f):
             ('value', value), ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and ctx and not v else None))
             if x not in (None, '', [])}
                        )
+        for s in sources:
+            built_on.setdefault(s.get('vq_id'), []).append(metrics[-1]['name'])
     if pending:
         # Drafts no merge has claimed yet: one row per name, from every query that proposed it.
         rows, shown = {}, {m['name'].lower() for m in metrics}
@@ -255,6 +288,8 @@ def details(f):
             metrics.append({k: x for k, x in (
                 ('name', sentence(d['name'])), ('description', _cut(d['meaning'], 320)), ('rule', False),
                 ('sources', [_source(s, known, said) for s in sources]), ('status', 'draft')) if x not in (None, '', [])})
+            for s in sources:
+                built_on.setdefault(s.get('vq_id'), []).append(metrics[-1]['name'])
     for m in metrics:
         # Every metric carries its sources, an empty list when the engine named none.
         m.setdefault('sources', [])
@@ -264,18 +299,26 @@ def details(f):
     for q in f.file('context', 'queries.json', kind=list):
         if isinstance(q, dict) and q.get('name'):
             d = q.get('definition') if isinstance(q.get('definition'), dict) else {}
+            ext = ((d.get('extensions') or {}).get('metrics_agent') or {}) if isinstance(d.get('extensions'), dict) else {}
+            vid = ext.get('vq_id') if isinstance(ext, dict) else None
             v = verdicts.get('sql_query:' + q['name'])
+            evidence = ext.get('evidence') if isinstance(ext, dict) and isinstance(ext.get('evidence'), dict) else {}
             queries.append({k: x for k, x in (
+                ('id', vid or q['name']),
                 ('name', sentence(first_question(q.get('display_name') or q['name']))),
                 ('question', _cut(first_question(d.get('question') or q.get('display_name')), 200)),
                 ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over else waiting if checking else 'drafted'),
-                ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and not v else None)) if x})
+                ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and not v else None),
+                ('value', _checked_value(v)),
+                *_query_profile(vid, known, said, built_on, description=q.get('description'), sql=d.get('sql'),
+                                tables=evidence.get('tables'))) if x})
     if not queries:
         # Before the checks, the engine's own queries as it writes them, named as the checked context names them.
-        for o, words in known.values():
+        for vid, (o, words) in known.items():
             question = _cut(first_question(words.get('question') or o.get('question')), 200)
             if question:
-                queries.append({'name': sentence(question), 'question': question, 'status': 'drafted'})
+                queries.append({k: x for k, x in (('id', vid), ('name', sentence(question)), ('question', question),
+                                                  ('status', 'drafted'), *_query_profile(vid, known, said, built_on)) if x})
     def bi_of(o):
         prov = o.get('provenance') if isinstance(o.get('provenance'), dict) else {}
         return prov.get('bi') if isinstance(prov.get('bi'), dict) else {}

@@ -37,22 +37,34 @@ Report schema checks, executed examples and parity separately; diagnostics stay 
 The describe, propose, merge and card gates save their answers in numbered batch files. The side
 page shows each batch as it lands; the chat shows each step's chip when the step ends:
 
-1. **One subagent writes the gates.** Hand every authored gate, from describe to cards, to a single
-   background subagent: the engine directory, `ENGINE advance` until the cards are accepted,
-   each gate's instructions, numbered batch files, and no `PROJECT drafts` and no chat of its
-   own, saving each batch with its own write as soon as it is ready, never several in one
-   script. It returns when the cards are accepted or a gate needs the person.
+1. **A fresh subagent writes each gate.** Hand each authored gate, from describe to cards, to its
+   own background subagent, started when the gate before it is accepted: the engine directory,
+   `ENGINE advance` until that gate is accepted, the gate's instructions, numbered batch files,
+   and no `PROJECT drafts` and no chat of its own, saving each batch with its own write as soon as
+   it is ready, never several in one script. The engine's refusal names each field to fix, so the
+   subagent never reads the engine's code to check its answers first. It returns when its gate is accepted or the gate
+   needs the person; then start the next gate's subagent. The app shows each subagent's and
+   watch's name to the person: name each for what it does, as the side page names its step
+   ("Put each query in plain words", "Following the build"), never a gate's name. For the card gate, run the gate
+   result's `after_each_batch.split` (`PROJECT split`) first: up to 20 metrics it gives one
+   brief, above that one per share, at most five. Start every share's subagent at once with its
+   brief as the whole prompt; none advances the engine. When every share is back, run
+   `ENGINE advance` once, and send each refused card to the subagent whose share holds its task
+   number.
 2. **This session draws each step's chip.** While it works, run the gate result's
    `after_each_batch.follow` (`PROJECT drafts --follow`) as a background watch that hands you
    each printed line (in Claude Code, the Monitor tool). It prints a line when a step the chat
-   shows ends, naming the `visual next` that is due, and every three minutes while batches land,
+   shows ends, naming the `visual next` that is due, and every two and a half minutes while batches land,
    naming `visual progress`, the chip with how far the step has got: run what it names and show
-   what it gives, with no words of your own. Re-arm the watch if it stops before the subagent
-   returns; it never repeats or skips a step.
+   what it gives, with no words of your own. Re-arm the watch if it stops before the cards are
+   accepted; it never repeats or skips a step. The desktop app sends a turn that ends without words
+   back for words, so every turn ends on one line with something new: a step's start on its Doing
+   line, with nothing about what will show or when; a so-far turn on the line the watch gives,
+   unchanged; never that a step is still running.
 
 A host with no background subagent or no line-by-line watch writes the gates in this session
 instead and runs `visual next` once each gate is accepted. On every host the batches stay on the
-side page, never in the chat. When a gate refuses a batch, the subagent fixes it. Never show a
+side page, never in the chat. When a gate refuses a batch, the subagent that wrote it fixes it. Never show a
 value before its check.
 
 Use native chat, its choice controls and [the setup checklist](checklist.md) in chat and

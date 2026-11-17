@@ -411,6 +411,16 @@ class Questions(unittest.TestCase):
         self.assertIn('One metric in full: Gross margin, £118,681 on your data', text)
         self.assertLess(text.index('One metric in full'), text.index('Where should this context live?'), 'the question comes last')
 
+    def test_the_save_question_carries_the_page_address_only_in_a_terminal(self):
+        # In the desktop app a link in the question opens an outside browser, never the page beside the chat.
+        run = make_run(self.root, saved=False)
+        (run / 'view').mkdir(exist_ok=True)
+        (run / 'view' / 'server.json').write_text(json.dumps({'url': 'http://127.0.0.1:5/key/'}), encoding='utf-8')
+        self.assertIn('http://127.0.0.1:5/key/#m=', questions.save(run)['question'])
+        desktop = questions.save(run, widget=True)['question']
+        self.assertNotIn('http', desktop)
+        self.assertIn('From 1 dashboard tile and 1 past query.', desktop)
+
     def test_once_the_flow_moves_on_an_item_never_run_needs_a_look(self):
         # The ready chip read "2/4 kept" while its rows named one item to look at, and the page showed the other as
         # "checking" for good.
@@ -426,6 +436,37 @@ class Questions(unittest.TestCase):
         self.assertEqual((never['status'], never['why']), ('look', 'Its check never ran.'))
         text = ' '.join(questions.ready(run)['question'].split())
         self.assertIn('1 metric and 1 query did not pass their check', text)
+
+    def test_each_saved_query_carries_its_profile_like_a_metric(self):
+        # A query row on the page opened nothing, while each metric opened where it came from, its rule and its check.
+        run = make_run(self.root, saved=False, local=True)
+        (run / 'context' / 'queries.json').write_text(json.dumps([
+            {'name': 'q-margin', 'display_name': 'What gross margin have we made?',
+             'description': 'Contract value less labour and materials, for jobs not cancelled.',
+             'definition': {'question': 'What gross margin have we made?', 'sql': 'SELECT SUM(margin) FROM site.jobs',
+                            'extensions': {'metrics_agent': {'vq_id': 'bi-q1', 'evidence': {'tables': ['SITE.SITE.JOBS', 'site.jobs', 'site.crew']}}}}},
+            {'name': 'q-jobs', 'definition': {'question': 'How much went on rework?',
+                                              'extensions': {'metrics_agent': {'vq_id': 'h-2'}}}}]), encoding='utf-8')
+        checks = run / 'context' / 'candidate-checks.json'
+        entries = json.loads(checks.read_text(encoding='utf-8'))
+        entries['sql_query:q-margin'] = {'status': 'executed', 'errors': [], 'composition': {'status': 'executed', 'rows': [[118681.0]]}}
+        entries['sql_query:q-jobs'] = {'status': 'executed', 'errors': [], 'composition': {'status': 'executed', 'rows': [[1], [2], [3]]}}
+        checks.write_text(json.dumps(entries), encoding='utf-8')
+        at(run, 'preview')
+        made = side_page.snapshot(run)
+        margin = next(q for q in made['queries'] if q.get('id') == 'bi-q1')
+        self.assertEqual(margin['description'], 'Contract value less labour and materials, for jobs not cancelled.')
+        self.assertEqual((margin['kind'], margin['visual'], margin['page']), ('tile', 'Gross margin', 'Site'))
+        self.assertEqual(margin['sql'], 'SELECT SUM(margin) FROM site.jobs')
+        # A local database's tables come back as SITE.SITE.JOBS beside site.jobs: one table, named once.
+        self.assertEqual(margin['tables'], ['SITE.JOBS', 'site.crew'])
+        self.assertEqual(margin['metrics'], ['Gross margin'], 'the metrics built on it, by the names the page shows')
+        self.assertEqual((margin['status'], margin['value']), ('checked', '118,681'))
+        jobs = next(q for q in made['queries'] if q.get('id') == 'h-2')
+        self.assertEqual((jobs['kind'], jobs['runs'], jobs['analysts']), ('query', 5, 1))
+        self.assertEqual((jobs['metrics'], jobs['value']), (['Rework cost'], '3 rows'))
+        margin_metric = next(m for m in made['metrics'] if m['name'] == 'Gross margin')
+        self.assertIn('bi-q1', [s.get('id') for s in margin_metric['sources']], 'a metric opens the query it came from')
 
     def test_a_warehouse_run_is_asked_where_its_context_lives(self):
         # A warehouse's checks run with its own read-only tool, so no verdict reaches the run's files: the save question
