@@ -57,6 +57,13 @@ also hands you `answer_schema`, the full schema this card validates against.
 }]}
 ```
 
+Save the cards five at a time in the gate's answers folder, as numbered files (`01.json`,
+`02.json`, …) with the same `{"metrics": [...]}` shape, in the prompt's task order. Review each
+batch against the whole-card review before saving it. Each card appears in exactly one file;
+a repair rewrites the card in the file that holds it. Save each file when its cards are
+written, one write per file, never several in one script: a person watches each batch land.
+The gate still reads every file together.
+
 Two things are refused most often: a key the schema does not list (the task's `metric_id`,
 for one), and a `grain` written as a sentence. `grain` is columns and nothing else, with no
 words in brackets after them.
