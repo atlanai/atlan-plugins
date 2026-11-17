@@ -44,7 +44,7 @@ Your <agent> is built: <N> metrics and <N> queries, <where it lives>.
 Before you ask it anything, I can test how accurate it is. I take <N>
 questions <firm>'s <dashboard and analysts> already answer and ask each
 twice: to a fresh agent that sees only this context, and to one that sees
-only the raw tables (schema only, no additional context). I score both against the trusted answer and show them
+schema only. I score both against the trusted answer and show them
 side by side. About 8 minutes. Nothing changes unless you approve a fix.
 
 Check how accurate it is first?
@@ -102,7 +102,7 @@ its ready block, adding one row after What it can answer:
 
 ```
   How accurate          <p>% on <N> questions <firm>'s analysts ask
-                        <q>% on the raw tables alone
+                        <q>% with schema only
                         <, up from <p>% after one fix>
 ```
 

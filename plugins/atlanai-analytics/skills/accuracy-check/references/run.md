@@ -169,7 +169,7 @@ again, each to a fresh agent with only the source tables' schema and no addition
 2. `EVAL summary --variant raw --require-isolation` must show one row per question.
 3. `EVAL before-after --before raw --after baseline` returns the comparison, the moment the
    person sees what their context is worth, in two parts:
-   - `report`, the card: a headline ("With your context, 11 of 14 right. On the raw tables, 1 of
+   - `report`, the card: a headline ("With your context, 11 of 14 right. With schema only, 1 of
      14."), one bar per pass with a block per question, and one line on what changed.
    - `changes`, a markdown table of the questions that went from wrong to right, and any that
      went the other way, each under its number. Empty when nothing changed.
@@ -268,8 +268,7 @@ per-question sessions, which Atlan ties to an agent, are left out.
    `registry__search_artifacts` (`kind` `scorer`, that workspace) and pass its id with `--ids`.
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
-the run as an experiment, each answer with its SQL and score. The raw-source pass is named "raw
-tables, no context" and the context pass "with your context", so the two read as a comparison. Never the answering agents'
+the run as an experiment, each answer with its SQL and score. The raw-source pass is named "schema only" and the context pass "with your context", so the two read as a comparison. Never the answering agents'
 transcripts: they hold this machine's commands and paths. Each later run is an experiment
 linked to the one before it, so the workspace shows the score move. Then `CHECK link --evals
 <evals-run> --org <organization slug>` gives the Atlan pages: `runs` (every run of the check) and

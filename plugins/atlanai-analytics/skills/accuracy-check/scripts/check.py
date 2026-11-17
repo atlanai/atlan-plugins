@@ -135,7 +135,7 @@ def cmd_start(a) -> dict:
         "question": "Which questions should I test with?",
         "text": (f"This folder has {len(found)} eval set{'s' if len(found) != 1 else ''}: {names}, with their "
                  "trusted answers.\nNext I ask each question to a fresh agent that sees only your context, "
-                 + ("and to one that sees only the raw tables (schema only, no additional context), and compare both answers with the trusted one. "
+                 + ("and to one that sees schema only, and compare both answers with the trusted one. "
                     if before_after else "and compare its answer with the trusted one. ")
                  + "Which questions should I test with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",

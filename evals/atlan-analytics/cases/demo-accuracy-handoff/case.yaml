@@ -29,7 +29,7 @@ graders:
     criteria: |
       PASS if the reply says it will pick 8 questions from Ticketfuddle's dashboard and past
       queries, show each with where it came from and its expected answer, and ask once whether to
-      run them; that each question is also asked on the raw tables, so the score is shown beside
+      run them; that each question is also asked with schema only, so the score is shown beside
       that comparison; and that where the questions live is asked after the score. Rewording or
       leaving out some questions before the run is allowed.
       FAIL if it asks the person to write questions or SQL, starts
