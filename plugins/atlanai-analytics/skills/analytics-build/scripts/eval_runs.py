@@ -44,6 +44,17 @@ def built_runs(project: pathlib.Path) -> list:
     return sorted(runs, key=lambda r: (r / "context" / "metrics.json").stat().st_mtime, reverse=True)
 
 
+def outside(project: pathlib.Path, run: pathlib.Path) -> pathlib.Path:
+    """Refuse a project that is the run or sits inside it: eval sets and trusted answers are written
+    under the project, and the agents that answer read the run."""
+    proj, r = project.expanduser().resolve(), run.resolve()
+    if proj == r or r in proj.parents:
+        raise Blocked(f"--project is inside the run at {r}. Use the folder that holds the run's "
+                      f".atlan-metrics or .atlan-analytics folder ({r.parent.parent}), so eval files stay "
+                      "outside what answering agents read.")
+    return run
+
+
 def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
     """The run to use: the one named, else the project's only built run. Several ask which."""
     if run:
@@ -53,10 +64,12 @@ def find_run(project: pathlib.Path, run=None) -> pathlib.Path:
         if not is_built(named):
             raise Blocked(f"No built context at {named}: it has no context/metrics.json. Name the run folder "
                           "the build wrote, or build the context first.")
-        return named
+        return outside(project, named)
     ready = built_runs(project)
     if not ready:
-        raise Blocked("No built analytics run in this project. Build the context first.")
+        raise Blocked("This folder holds no context built with Atlan Analytics, so there is nothing to check "
+                      "here. Open the folder where it was built, or build one with analytics-build. This "
+                      "check scores a built context; it does not score a registry agent's own eval set.")
     if len(ready) > 1:
         cases = [f"{r.relative_to(project)}: {purpose(r)}" for r in ready]
         raise Blocked("Several built runs; name one with --run <folder>: " + "; ".join(cases))
@@ -93,8 +106,16 @@ def _yaml_value(path: pathlib.Path, key: str):
     return m.group(1) if m else None
 
 
+def tables(run: pathlib.Path) -> list:
+    """The source tables this run's metrics read: what a raw-source agent is told to work from."""
+    rows = load(run / "context" / "metrics.json", []) or []
+    rows = rows.get("metrics") or [] if isinstance(rows, dict) else rows
+    found = {((m.get("definition") or {}).get("source") or {}).get("entity") for m in rows if isinstance(m, dict)}
+    return sorted(t for t in found if t)
+
+
 def execution(run: pathlib.Path) -> dict:
-    """Where this run's SQL executes.
+    """Where this run's SQL executes, and `tables`, the source tables its metrics read.
 
     `{"via": "local", "kind": "sqlite" | "duckdb"}`: the run is bound to a local database, and
     `project.py execute` runs a statement on it.
@@ -104,7 +125,7 @@ def execution(run: pathlib.Path) -> dict:
     """
     bound = (load(run / "run.json", {}) or {}).get("execution") or {}
     if bound.get("kind") in LOCAL:
-        return {"via": "local", "kind": bound["kind"]}
+        return {"via": "local", "kind": bound["kind"], "tables": tables(run)}
     warehouse = (load(run / "state.json", {}) or {}).get("warehouse") or None
     dialect = (warehouse or {}).get("dialect")
     if not dialect:
@@ -115,4 +136,4 @@ def execution(run: pathlib.Path) -> dict:
     if not dialect:
         eng = engine_dir(run)
         dialect = _yaml_value(run / "run.yml", "dialect") or (_yaml_value(eng / "run.yml", "dialect") if eng else None)
-    return {"via": "host", "dialect": dialect, "warehouse": warehouse}
+    return {"via": "host", "dialect": dialect, "warehouse": warehouse, "tables": tables(run)}

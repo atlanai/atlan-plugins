@@ -8,7 +8,7 @@ tile and history shape the engine verified, each linked to the metrics it comput
 input, picks the set (the focus metric first, then breadth) and writes it. Standard library only.
 
     python3 scope.py inputs --project <project> [--run <run-dir>] [--use-case "<text>"]
-    python3 scope.py pick --gen <gen-dir> [--limit 8] [--focus-count 2]
+    python3 scope.py pick --gen <gen-dir> [--limit 20] [--spare 4] [--focus-count 2]
     python3 scope.py emit --gen <gen-dir> --name <set name>
     python3 scope.py ready --set <set.jsonl>
 
@@ -132,6 +132,35 @@ def _related(engine: pathlib.Path, focus_ref) -> list:
     return out
 
 
+_SQL_NOISE = re.compile(r"""'(?:[^']|'')*'|--[^\n]*|/\*[\s\S]*?\*/""")
+_AGGREGATE = re.compile(r"\b(count|count_if|sum|avg|min|max|median|mode|stddev\w*|var\w*|approx_\w+|percentile_\w+|"
+                        r"listagg|array_agg|string_agg|any_value|div0)\s*\(|\bgroup\s+by\b|\bdistinct\b", re.I)
+_PROBE = re.compile(r"\bwhere\s+(false|1\s*=\s*0)\b|\blimit\s+0\b", re.I)
+# A data test (dbt's wrapper names its result `failures` and `should_warn`) and a freshness check
+# (the latest load time of a table) watch the pipeline, not the business: no person asks them.
+_DATA_TEST = re.compile(r"\bshould_(warn|error)\b|\bas\s+failures\b", re.I)
+_FRESHNESS = re.compile(r"\bmax\s*\(\s*(\w+\.)?(_loaded_at|_fivetran_synced|_airbyte_extracted_at|_sdc_batched_at|"
+                        r"_etl_loaded_at|_dbt_updated_at|loaded_at|inserted_at)\s*\)", re.I)
+
+
+def unfit(sql: str):
+    """Why a query cannot anchor a question, or None. A statement that returns no row by design
+    is a probe; one with no aggregate lists records, and no one-line question reproduces a list;
+    a data test or a freshness check watches the pipeline, and no person asks it."""
+    if not (sql or "").strip():
+        return None  # nothing to read: the engine's own gate decides
+    bare = _SQL_NOISE.sub(" ", sql or "")
+    if _PROBE.search(bare):
+        return "a probe that returns no rows"
+    if _DATA_TEST.search(bare):
+        return "a data test, not a business question"
+    if _FRESHNESS.search(bare):
+        return "a freshness check on when tables last loaded"
+    if not _AGGREGATE.search(bare):
+        return "lists records, with no total or count"
+    return None
+
+
 def cmd_pick(a) -> dict:
     ev = pathlib.Path(a.gen)
     work = ev / "work"
@@ -139,6 +168,9 @@ def cmd_pick(a) -> dict:
     cands = load(work / "candidates.json")
     if not scope or cands is None:
         raise Blocked("Run `inputs`, then eval-builder `build`, before `pick`.")
+    skipped = [{"id": c["id"], "why": unfit(c.get("sql"))} for c in cands if unfit(c.get("sql"))]
+    cands = [c for c in cands if not unfit(c.get("sql"))]
+    want = a.limit + max(0, a.spare)  # spares: a draft can find a question unanswerable
     pool = scope["pool"]
     names = {m["ref"]: m["name"] for m in scope["metrics"]}
 
@@ -169,30 +201,40 @@ def cmd_pick(a) -> dict:
             chosen.append((focus, c))
             taken[focus] += 1
     breadth = [m for m in order if m != focus] + ([focus] if focus in by_metric else [])
-    while len(chosen) < a.limit:  # breadth: one per metric per pass, the focus metric last
+    while len(chosen) < want:  # breadth: one per metric per pass, the focus metric last
         added = False
         for m in breadth:
-            if len(chosen) < a.limit and taken[m] < len(by_metric[m]):
+            if len(chosen) < want and taken[m] < len(by_metric[m]):
                 chosen.append((m, by_metric[m][taken[m]]))
                 taken[m] += 1
                 added = True
         if not added:
             break
+    # Still short: queries the analysts run that no metric computes yet, the most run first. They
+    # test what the context does not define, so a set is not only what it was built from.
+    loose = sorted((c for c in cands if not metric_of(c)), key=strength)
+    chosen += [(None, c) for c in loose[:max(0, want - len(chosen))]]
 
     keep = {c["id"] for _, c in chosen}
-    dump(work / "candidates.json", [c for c in cands if c["id"] in keep])
     answers = load(work / "answers.json", {}) or {}
+    missing = sorted(keep - set(answers)) if answers else []
+    if missing:
+        # An earlier, smaller pick pruned the draft slots: drafting now would leave these unanswered.
+        raise Blocked(f"{len(missing)} picked question(s) have no draft slot. Run eval-builder `build` again, then `pick`.")
+    dump(work / "candidates.json", [c for c in cands if c["id"] in keep])
     dump(work / "answers.json", {k: v for k, v in answers.items() if k in keep})
     for p in (work / "prompts").glob("*.txt") if (work / "prompts").exists() else []:
         if p.stem not in keep:
             p.unlink()
-    selection = [{"id": c["id"], "metric": names.get(m, m), "focus": m == focus,
+    selection = [{"id": c["id"], "metric": names.get(m, m) or "", "focus": bool(m) and m == focus,
                   "from": "dashboard tile" if (pool.get(c["query_id"]) or {}).get("source") == "tile" else
                   f"past query, run {(pool.get(c['query_id']) or {}).get('runs') or 1} times"}
                  for m, c in chosen]
     dump(work / "selection.json", selection)
-    return {"status": "ok", "picked": len(selection), "of": len(cands),
-            "metrics_covered": len({s["metric"] for s in selection}), "selection": selection}
+    dump(work / "pick.json", {"limit": a.limit})
+    return {"status": "ok", "picked": len(selection), "limit": a.limit, "of": len(cands), "skipped": skipped,
+            "metrics_covered": len({s["metric"] for s in selection if s["metric"]}),
+            "no_metric": sum(1 for s in selection if not s["metric"]), "selection": selection}
 
 
 def cmd_emit(a) -> dict:
@@ -209,11 +251,18 @@ def cmd_emit(a) -> dict:
             if r.get("review_status") != "rejected" and r.get("question") and r.get("golden_sql")]
     if not rows:
         raise Blocked("The draft kept no question with its SQL.")
+    # In the order they were picked, and no more than asked for: the spares fill in for a draft
+    # that found a question unanswerable.
+    order = {i: n for n, i in enumerate(selection)}
+    rows.sort(key=lambda r: order.get(r["id"], len(order)))
+    limit = (load(gen / "work" / "pick.json", {}) or {}).get("limit")
+    spare = len(rows) - limit if limit and len(rows) > limit else 0
+    rows = rows[:limit] if limit else rows
     name = re.sub(r"[^a-z0-9]+", "-", a.name.lower()).strip("-") or "eval-set"
     out = gen.parents[1] / "sets" / f"{name}.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    return {"status": "ok", "set": str(out), "questions": len(rows),
+    return {"status": "ok", "set": str(out), "questions": len(rows), "spares_unused": spare,
             "metrics": sorted({r["tests"] for r in rows if r["tests"]})}
 
 
@@ -243,7 +292,8 @@ def main(argv=None) -> int:
     c.set_defaults(func=cmd_inputs)
     c = s.add_parser("pick", help="the set: the focus metric first, then breadth")
     c.add_argument("--gen", required=True)
-    c.add_argument("--limit", type=int, default=8)
+    c.add_argument("--limit", type=int, default=20)
+    c.add_argument("--spare", type=int, default=4, help="extra questions drafted in case a draft drops some")
     c.add_argument("--focus-count", type=int, default=2)
     c.set_defaults(func=cmd_pick)
     c = s.add_parser("emit", help="write the drafted set to .atlan-evals/sets/<name>.jsonl")
