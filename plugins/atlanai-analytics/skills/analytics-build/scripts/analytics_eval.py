@@ -1470,7 +1470,9 @@ def cmd_before_after(a) -> dict:
         lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
                      f"{judged['before']} raw.")
     if left_out:
-        lines.append(f"  Left out, not scored in both runs: {len(left_out)}.")
+        k = len(left_out)
+        lines.append(f"  {k} {'question was' if k == 1 else 'questions were'} not scored both ways, "
+                     f"so this compares {n}.")
     text = {c["case_id"]: c["question"] for c in pr.cases()}
     number = {i: k for k, i in enumerate(order, 1)}
     mark = lambda m, i: "right" if m[i] == 1 else "wrong"  # noqa: E731
