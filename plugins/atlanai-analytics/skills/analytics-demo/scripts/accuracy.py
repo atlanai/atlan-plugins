@@ -200,7 +200,7 @@ def cmd_saved(a) -> dict:
     first, last = _score(ev, runs[0]), _score(ev, runs[-1])
     scored = (f"1 run scored {last['pct']}%" if len(runs) == 1
               else f"{len(runs)} runs scored from {first['pct']}% to {last['pct']}%")
-    lines = [f"Saved to {a.workspace}:", f"  {a.agent}, with {last['n']} questions and {scored}"]
+    lines = [f"Saved to {a.workspace}:", f"  {a.agent or 'This check'}, with {last['n']} questions and {scored}"]
     if (ev / "hillclimb" / "raw" / "results.jsonl").is_file():
         lines.append(f"  Raw tables, no context: {_score(ev, 'raw')['pct']}%")
     for state, given in (("released", a.released), ("withdrawn", a.withdrawn)):
@@ -209,10 +209,14 @@ def cmd_saved(a) -> dict:
             if not name or not version.isdigit():
                 raise Blocked(f"--{state} takes <metric>:<version>, not {r!r}.")
             lines.append(f"  {name} version {version}, {state}")
-    agent = ((load(ev / "state.json", {}) or {}).get("ids") or {}).get("agent_id")
-    if not str(agent).startswith("agent_") or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", a.org):
+    ids = (load(ev / "state.json", {}) or {}).get("ids") or {}
+    agent, exps = ids.get("agent_id"), ids.get("experiments") or {}
+    if not exps or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", a.org):
         raise Blocked("Save the check first, and pass the organization's URL slug (--org).")
-    lines.append(f"See the runs in Atlan: {a.origin}/{a.org}/registry/evals/experiments/agent/{agent}?ws=all")
+    base = f"{a.origin}/{a.org}/registry/evals/experiments"
+    # The last run's page compares it with the run before it; a saved agent has a page of its own.
+    page = f"{base}/agent/{agent}?ws=all" if str(agent).startswith("agent_") else f"{base}/{list(exps.values())[-1]}?ws=all"
+    lines.append(f"See the runs in Atlan: {page}")
     return {"status": "ok", "text": "\n".join(lines)}
 
 

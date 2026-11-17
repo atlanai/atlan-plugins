@@ -229,9 +229,12 @@ compare runs graded on different questions.
 
 Offered after every check's result, on every path, as the demo's
 [the result](../../analytics-demo/references/accuracy.md#5-the-result) step words the question.
-The caller gives the workspace and the agent's id (`agent_...`); this skill registers nothing.
+The caller gives the workspace; this skill registers nothing, and no agent is needed. Atlan
+holds a run without a subject: the set, each run and its scored answers are saved, and only the
+per-question sessions, which Atlan ties to an agent, are left out.
 
-1. `EVAL init --agent-id <id> --workspace-id <workspace>` records them on the eval folder.
+1. `EVAL init --workspace-id <workspace>` records it on the eval folder. When the check's agent is
+   already registered, add `--agent-id <id>` and its runs are listed under it.
 2. Publish each run in this order, so Atlan shows what the context changed and then what each
    fix changed: the raw-source pass first, `EVAL publish --variant raw --no-transcripts`; then the
    context pass against it, `EVAL publish --variant baseline --baseline raw --no-transcripts`;
@@ -243,6 +246,8 @@ The caller gives the workspace and the agent's id (`agent_...`); this skill regi
    checks each saved score against the run's. Send each
    call's arguments exactly as `publish` printed them. When `publish-ack` returns `MISMATCH`, a
    saved score differs from the run's: stop and follow its `fix` before publishing anything else.
+   A refused create of the scorer means the workspace already holds `result-match`: find it with
+   `registry__search_artifacts` (`kind` `scorer`, that workspace) and pass its id with `--ids`.
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
 the run as an experiment, each answer with its SQL and score. The raw-source pass is named "raw
@@ -250,6 +255,6 @@ tables, no context" and the context pass "with your context", so the two read as
 transcripts: they hold this machine's commands and paths. Each later run is an experiment
 linked to the one before it, so the workspace shows the score move. Then `CHECK link --evals
 <evals-run> --org <organization slug>` gives the Atlan pages: `runs` (every run of the check) and
-`last_run` (the last one against its baseline). The slug is the one the context's proof links use
+`last_run` (the last one against its baseline, the page to give the person). The slug is the one the context's proof links use
 ([definition links](../../analytics-ask/references/definition-links.md)). Return each run's
 `experiment_id`, the workspace and both links.

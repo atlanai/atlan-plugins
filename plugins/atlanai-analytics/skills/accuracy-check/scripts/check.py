@@ -434,7 +434,7 @@ def cmd_drop(a) -> dict:
 
 
 def cmd_link(a) -> dict:
-    """The Atlan pages of a check saved to Trident: the agent's runs, and the last run against its baseline."""
+    """The Atlan pages of a check saved to Trident: its runs, and the last run against its baseline."""
     from urllib.parse import quote
     if not re.fullmatch(r"https://[A-Za-z0-9.-]+", a.origin):
         raise Blocked("Use the HTTPS app origin, without a path, e.g. https://app.atlan.com.")
@@ -442,11 +442,14 @@ def cmd_link(a) -> dict:
         raise Blocked("Use the organization's URL slug, the one the context's proof links use.")
     ids = (load(pathlib.Path(a.evals) / "state.json", {}) or {}).get("ids") or {}
     agent, runs = ids.get("agent_id"), ids.get("experiments") or {}
-    if not str(agent).startswith("agent_") or not runs:
-        raise Blocked("This check is not saved to Atlan Trident yet: no agent or run is recorded.")
-    base = f"{a.origin}/{quote(a.org, safe='')}/registry/evals/experiments/agent/{agent}"
+    if not runs:
+        raise Blocked("This check is not saved to Atlan Trident yet: no run is recorded.")
+    base = f"{a.origin}/{quote(a.org, safe='')}/registry/evals/experiments"
     last = list(runs.values())[-1]
-    return {"status": "ok", "runs": f"{base}?ws=all", "last_run": f"{base}/{last}?ws=all"}
+    # A check saved without an agent has no agent page: its runs list under All runs.
+    if str(agent).startswith("agent_"):
+        return {"status": "ok", "runs": f"{base}/agent/{agent}?ws=all", "last_run": f"{base}/agent/{agent}/{last}?ws=all"}
+    return {"status": "ok", "runs": f"{base}?ws=all&mode=runs", "last_run": f"{base}/{last}?ws=all"}
 
 
 def main(argv=None) -> int:

@@ -82,7 +82,7 @@ pinned to a metric version when the caller names one.
 After every check's result, offer to [save the check](references/run.md#save-to-atlan-trident):
 the set, the raw-tables run and every run with the context, each linked to the run before it.
 When a person called this skill directly, ask the demo's "Save this check to Atlan Trident?"
-yourself, register the agent as that step says, and save on Save. A skill that called this one
+yourself, and save on Save. No agent is registered: the runs save without one. A skill that called this one
 asks it instead.
 
 ## What comes back

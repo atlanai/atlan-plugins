@@ -1619,8 +1619,10 @@ def _context(pr: Proj, a) -> dict:
     ws = getattr(a, "workspace", None) or ids.get("eval_workspace_id") or ids.get("workspace_id")
     agent_id = getattr(a, "agent_id", None) or ids.get("agent_id")
     dataset_only = getattr(a, "dataset_only", False)
-    if not ws or not (agent_id or dataset_only):
-        raise Blocked("state.json has no workspace_id / agent_id.", "Register the agent first (build phase 5).")
+    # An experiment's subject is optional, so a check saves without an agent: its runs and scores
+    # go up, and only the per-question sessions, which the registry ties to an agent, are left out.
+    if not ws:
+        raise Blocked("state.json has no workspace_id.", "Run `analytics_eval.py init --workspace-id <id>` first.")
     rows = [] if dataset_only else read_results(pr.vdir(a.variant) / "results.jsonl")
     if not rows and not dataset_only:
         raise Blocked(f"No recorded results for {a.variant}.", "Record cases with `analytics_eval.py record` first.")
@@ -1677,16 +1679,19 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
         shown = {"raw": "raw tables, no context", "baseline": "with your context"}.get(V, V)
         body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
                 "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
-                "dataset_id": ids["eval_dataset_id"], "subject_kind": "agent", "subject_id": c["agent_id"],
+                "dataset_id": ids["eval_dataset_id"],
+                **({"subject_kind": "agent", "subject_id": c["agent_id"]} if c["agent_id"] else {}),
                 "experiment_status": "running",
                 "config": {"variant": V, "runner": "atlan-analytics-eval", "grader": SCORER_NAME,
-                           "harness_sha": harness_sha(), "traces": "sessions only"}}
+                           "harness_sha": harness_sha(),
+                           "traces": "sessions only" if c["agent_id"] else "none: saved without an agent"}}
         if a.baseline and exps.get(a.baseline):
             body["baseline_experiment_id"] = exps[a.baseline]
         return "experiment", [_create("experiment", body, _idem_key(ws, "experiment", name))], [name]
     # Every session in one create_artifacts call (the session batch hook takes 100), so a
     # 64-run variant takes one step here rather than 64 single creates.
-    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:BATCH]
+    # A session needs an agent (or harness) as its subject: without one, no sessions or transcripts.
+    todo = [r for r in rows if _tag(r) not in pub.s["sessions"]][:BATCH] if c["agent_id"] else []
     if todo:
         items, names = [], []
         for r in todo:
@@ -1709,7 +1714,7 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     # takes a handful of steps rather than one step per session.
     items, names, size = [], [], 0
     # Transcripts hold the answering agents' commands and local paths; a save can leave them out.
-    for r in [] if getattr(a, "no_transcripts", False) else rows:
+    for r in [] if getattr(a, "no_transcripts", False) or not c["agent_id"] else rows:
         tag = _tag(r)
         sent = set(pub.s["messages"].get(tag) or [])
         turns = load_json(pr.vdir(V) / "traces" / f"{tag}.json", []) or []
@@ -1738,7 +1743,7 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
             cid = _case_id(r)
             items.append({"name": f"{slug}-{V}-{cid}", "workspace_id": ws, "experiment_id": eid, "case_id": cid,
                           **({"dataset_record_id": records[r["prompt_id"]]} if records.get(r["prompt_id"]) else {}),
-                          "session_id": pub.s["sessions"][_tag(r)]["id"],
+                          **({"session_id": pub.s["sessions"][_tag(r)]["id"]} if _tag(r) in pub.s["sessions"] else {}),
                           "input": {"question": r["prompt"]},
                           "output": {"answer": r.get("answer"), "sql": r.get("sql"), "class": r.get("class"),
                                      "used_context_ids": r.get("used_context_ids") or [],
@@ -2142,6 +2147,24 @@ def _selftest_publish(pr: pathlib.Path, no_transcripts: bool = False) -> bool:
             and len(pub["results"]) == 1 and len(pub["sessions"]) == 1
             and all(t.startswith("registry__") for t in calls_seen))
 
+def _selftest_no_agent(d: pathlib.Path) -> bool:
+    """With no agent, the experiment has no subject and its results skip straight past the sessions."""
+    pr = Proj(str(d))
+    rows = [{"prompt_id": "c1", "rep": 0, "prompt": "q1", "answer": "1", "sql": "select 1", "grade": {"pass": 1}}]
+    a = argparse.Namespace(variant="raw", baseline=None, sessions_only=False, no_transcripts=False)
+    c = {"ids": {"scorer_id": "scorer_t", "eval_dataset_id": "dataset_t"}, "ws": "workspace_t", "slug": "t",
+         "rows": rows, "agent_id": None}
+    dump_json(pr.p("eval", "records.json"), {"c1": "dataset_record_t"})
+    pr.p("eval", "cases.jsonl").write_text(json.dumps({"case_id": "c1", "question": "q1", "tags": []}) + "\n")
+    step, calls, _ = _next_step(pr, Publication(pr, "raw"), c, a)
+    meta = calls[0]["arguments"]["metadata"] if calls else {}
+    made = step == "experiment" and "subject_kind" not in meta and "subject_id" not in meta
+    c["ids"]["experiments"] = {"raw": "experiment_t"}
+    step, calls, _ = _next_step(pr, Publication(pr, "raw"), c, a)
+    items = calls[0]["arguments"]["items"] if calls else []
+    return made and step == "results" and len(items) == 1 and "session_id" not in items[0]
+
+
 def _selftest_message_fill(d: pathlib.Path) -> tuple:
     """(filled, capped): one messages step carries several sessions' messages, and splits at the byte cap."""
     pr = Proj(str(d))
@@ -2313,6 +2336,10 @@ def selftest() -> dict:
            _score_drift(Proj(str(pr)), "cited", [cid], typo) == {cid: {"used_context_ids": "differs from the run"}})
         ok("a publish without transcripts saves the sessions and scores, never the messages",
            _selftest_publish(bare, no_transcripts=True))
+        no_agent = pathlib.Path(d) / "no-agent"
+        no_agent.mkdir()
+        ok("a check saves without an agent: no subject, no sessions, results without a session",
+           _selftest_no_agent(no_agent))
         proj_ids = Proj(str(by_ids))
         proj_ids.set_id("workspace_id", "workspace_t")
         proj_ids.set_id("agent_id", "agent_t")

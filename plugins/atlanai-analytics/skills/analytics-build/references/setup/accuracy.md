@@ -90,8 +90,8 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
   workspace that releases on its own needs no question; withdrawing a release that made a
   question worse follows the demo's rule.
 - **Saving the check.** The demo's step 5 save question is asked on every check, whether the
-  context is in Atlan Trident or on this machine (then the person's personal workspace), with
-  `<agent>` registered under the agent name from the offer.
+  context is in Atlan Trident or on this machine (then the person's personal workspace). No agent
+  is registered; `<agent>` is the name from the offer, used only in the saved summary.
 
 ## The ending
 

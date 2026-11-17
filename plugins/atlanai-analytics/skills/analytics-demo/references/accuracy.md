@@ -244,13 +244,10 @@ Save, never before: the result has already been shown.
 | Save to `<workspace>` (Recommended) | The questions, the raw-tables run and every run with your context, with their scores, so your team sees accuracy go from `<r>`% on the raw tables to `<q>`% with your context. A digest of each trusted SQL, never the SQL. |
 | Keep on this machine | The set and its runs stay in this folder. |
 
-On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
-(`kind` `agent`; `metadata` holds only `name`, `workspace_id` and a one-line `description`). A
-refusal because that name exists means it is registered: find it with
-`registry__search_artifacts` (`kind` `agent`) and use its id. Saving the check never saves the
-context: a context kept on this machine stays there. Then have `accuracy-check`
-[save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
-id and workspace. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
+On Save: have `accuracy-check`
+[save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) to that
+workspace. No agent is registered: the runs save without one. Saving the check never saves the
+context: a context kept on this machine stays there. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
 --org <organization slug> --released "<metric>:<version>"` (once per released version; `--withdrawn`
 for one the test again withdrew) prints the summary
 below. End with the demo's "What would you like to do next?" ([step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)), whose text is what was saved and where,

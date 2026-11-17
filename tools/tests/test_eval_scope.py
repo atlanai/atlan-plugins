@@ -287,7 +287,8 @@ class ScopeTest(unittest.TestCase):
             self.assertEqual(compared, ["v1"])
             with self.assertRaises(acc.Blocked):
                 acc.cmd_result(ns())
-            (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a"}}))
+            (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a", "experiments": {
+                "baseline": "experiment_01b", "v1": "experiment_01c"}}}))
             saved = acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
                                                                      org="acme", origin="https://app.atlan.com",
                                                                      released=["Cost:2"], withdrawn=None))["text"]
@@ -298,6 +299,19 @@ class ScopeTest(unittest.TestCase):
                                                                          org="acme", origin="https://app.atlan.com",
                                                                          released=None, withdrawn=["Cost:2"]))["text"]
             self.assertIn("  Cost version 2, withdrawn", withdrawn.splitlines())
+            # Saved without an agent: the link is the last run's page, compared with the run before it.
+            (ev / "state.json").write_text(json.dumps({"ids": {"experiments": {
+                "baseline": "experiment_01b", "v1": "experiment_01c"}}}))
+            bare = acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
+                                                                    org="acme", origin="https://app.atlan.com",
+                                                                    released=None, withdrawn=None))["text"]
+            self.assertEqual(bare.splitlines()[-1], "See the runs in Atlan: "
+                             "https://app.atlan.com/acme/registry/evals/experiments/experiment_01c?ws=all")
+            (ev / "state.json").write_text(json.dumps({"ids": {}}))
+            with self.assertRaises(acc.Blocked):
+                acc.cmd_saved(__import__("argparse").Namespace(evals=str(ev), agent="job agent", workspace="WS",
+                                                               org="acme", origin="https://app.atlan.com",
+                                                               released=None, withdrawn=None))
 
     def test_link_names_the_agents_runs_and_the_last_run(self) -> None:
         ev = self.tmp / ".atlan-evals" / "saved"
@@ -307,6 +321,13 @@ class ScopeTest(unittest.TestCase):
         res = self.check("link", "--evals", str(ev), "--org", "acme")
         base = "https://app.atlan.com/acme/registry/evals/experiments/agent/agent_01a"
         self.assertEqual((res["runs"], res["last_run"]), (base + "?ws=all", base + "/experiment_01c?ws=all"))
+        # Without an agent, the runs list under All runs and the last run has its own page.
+        (ev / "state.json").write_text(json.dumps({"ids": {"experiments": {
+            "raw": "experiment_01a", "baseline": "experiment_01b"}}}))
+        res = self.check("link", "--evals", str(ev), "--org", "acme")
+        base = "https://app.atlan.com/acme/registry/evals/experiments"
+        self.assertEqual((res["runs"], res["last_run"]),
+                         (base + "?ws=all&mode=runs", base + "/experiment_01b?ws=all"))
 
     def test_a_set_loads_as_approved_and_drops_a_question_whose_sql_does_not_run(self) -> None:
         sets = self.tmp / ".atlan-evals" / "sets"
