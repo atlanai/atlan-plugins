@@ -17,12 +17,14 @@ the first question, asks before a release and replaces step 5's ending.
 
 When the host keeps a task list, its items are these, in the person's words, whichever questions
 are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**.
-When the person picks Improve it, add **Find what to fix**, **Apply the fix** and **Test again**
+When the person replies "fix", add **Find what to fix**, **Apply the fix** and **Test again**
 to the list before diagnosing, and mark each done as it finishes.
 
 Every step follows [text before a native question is lost](../../analytics-build/references/conventions.md#text-before-a-native-question-is-lost):
 a block to read before choosing is the question's own text, as plain lines with no Markdown, with
-no Doing or Why lines. Every step that leads to a choice ends on a native question.
+no Doing or Why lines. Every step that leads to a choice ends on a native question, except the
+score (step 3) and the result (step 5): each is the turn's last chat message, ending on a plain
+reply line, so the before and after prints whole.
 
 An eval set lives in the project (`.atlan-evals/sets/`), never fetched from Atlan Trident: never
 look up Trident, a workspace or saved evals for the questions, the run or the score. Only step
@@ -103,10 +105,13 @@ Reply "run", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no perso
 
 Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
 [before and after](../../accuracy-check/references/run.md#before-and-after) pass started with the
-context pass. The before and after is the moment the person sees what their context is worth,
-so it leads, in two places:
+context pass. With every question right, go to step 5: the result carries the comparison.
 
-**First, in the chat.** One message, filled in, with nothing before it:
+**With misses, the turn ends on the score, in the chat.** The before and after is the moment the
+person sees what their context is worth, so it is the turn's last message, which always prints
+whole, with no native question after it: text written just before a question can be cut to a
+short note, and a question's own text is rewritten into one line. Send one message, filled in,
+with nothing before it and nothing after it:
 
 ````
 **<`headline`>**
@@ -118,20 +123,13 @@ so it leads, in two places:
 <`changes`, the table as printed>
 
 <the run report: the score line, the runs and the misses, as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes>
+
+<M> still wrong. Want me to work out what would fix them? Reply "fix" and I'll find the change behind each miss, or "keep" to keep this score as the bar to beat.
 ````
 
-With every question right, go to step 5. With misses, **then, in the same turn, one native
-question**, "Does the score look good?", whose text is the card, `report`, word for word as
-plain lines, and then one line, "<M> still wrong, listed above." Never the change table or the
-misses: a table in a question's text breaks, and the card carries the result if the chat message
-is cut short.
-
-| Option | Description |
-| --- | --- |
-| Improve it (Recommended) | I look at why each miss failed and what would fix it. |
-| Looks good | Keep this score as the bar to beat. |
-
-Name no fix in the question's text: the fixes come from the diagnosis.
+Then stop and wait for the reply. "fix", or any reply that asks to improve the score, is step 4.
+"keep", or any reply that accepts the score, is step 5. Name no fix in this message: the fixes
+come from the diagnosis.
 
 ## 4. Improve it: find the fix, apply it, test again
 
@@ -217,8 +215,8 @@ gets worse, withdraw that release with `registry__withdraw_release`, which puts 
 previous version, and say so. A question on another metric that gets worse is a miss for the next
 fix, never a reason to undo this one.
 
-With every question right after the test again, go to step 5. With a miss left, ask "Does the
-score look good?" again as step 3 describes, with the new score; Improve it finds the next fix.
+With every question right after the test again, go to step 5. With a miss left, end the turn on
+the score again as step 3 describes, with the new score; "fix" finds the next fix.
 
 ## 5. The result
 
@@ -242,29 +240,39 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
 3. The score line, word for word, which carries the range.
 4. The before-and-after card, word for word: the raw tables against your context on the same
    questions, a bar each. `ACC result` adds it from the check's `raw` run; it is never left out.
-   The change table stays in the chat (step 3): this block becomes a question's text.
 5. Only when `CHECK load` returned `generated: true`: the source line.
 
 No other line: not a significance test, an open question, a note on saved queries or past
 queries that still follow the old rule, or an offer to change a saved query, another metric
 or the set.
 
-**Save the check, on every check.** The result is the moment to save, whether the context is in
-Atlan Trident or on this machine, so ask one native question, "Save this check to Atlan
-Trident?", whose text is the result block, one line per version a fix released ("<metric>
-version <v> is released in <workspace>."), then the question. Nothing else: no notes on
-proposals, files or cleanup. `<workspace>` is the one the context was saved to
-(`context_saved_to`); for a context on this machine it is the person's personal workspace, the
-`user_default` one `registry__list_workspaces` returns. When that read needs sign-in, follow
-[connection recovery](../../analytics-build/references/auth-recovery.md) after the person picks
-Save, never before: the result has already been shown.
+**The turn ends on the result, in the chat, with the save offer as its last line.** The result
+is the moment to save, whether the context is in Atlan Trident or on this machine, and like the
+score it is the turn's last message, never a native question's text. Send one message, filled
+in, with nothing before it and nothing after it:
 
-| Option | Description |
-| --- | --- |
-| Save to `<workspace>` (Recommended) | The questions, the raw-tables run and every run with your context, with their scores, so your team sees accuracy go from `<r>`% on the raw tables to `<q>`% with your context. A digest of each trusted SQL, never the SQL. |
-| Keep on this machine | The set and its runs stay in this folder. |
+````
+```
+<the result block, `ACC result`'s text, word for word: banner, result line, score line, card>
+```
 
-On Save: have `accuracy-check`
+<`changes` from the comparison, the table as printed>
+
+<one line per version a fix released: "<metric> version <v> is released in <workspace>.">
+
+Save this check to Atlan Trident? Reply "save" to put it in <workspace>: the questions, the raw-tables run and every run with your context, with their scores, so your team sees accuracy go from <r>% on the raw tables to <q>% with your context, and a digest of each trusted SQL, never the SQL. Reply "keep" to leave it on this machine.
+````
+
+When the person just replied "keep" to a score message, they have seen the score: the message
+is only the released lines and the save offer. Nothing else in either form: no notes on
+proposals, files or cleanup. Then stop and wait for the reply: "save", or any reply that asks
+to save, saves; "keep", or any reply that declines, keeps. `<workspace>` is the one the context
+was saved to (`context_saved_to`); for a context on this machine it is the person's personal
+workspace, the `user_default` one `registry__list_workspaces` returns. When that read needs
+sign-in, follow [connection recovery](../../analytics-build/references/auth-recovery.md) after
+the person replies "save", never before: the result has already been shown.
+
+On "save": have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) to that
 workspace. No agent is registered: the runs save without one. Saving the check never saves the
 context: a context kept on this machine stays there. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
@@ -281,7 +289,7 @@ Saved to <workspace>:
 See the runs in Atlan: <runs link>
 ```
 
-On Keep: the same question, whose text is one line: "The check stays on this machine."
+On "keep": the same question, whose text is one line: "The check stays on this machine."
 
 A run with no person to answer (a scheduled or headless check) saves nothing and says the
 check stays on this machine.
