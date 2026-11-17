@@ -1470,7 +1470,9 @@ def cmd_before_after(a) -> dict:
         lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
                      f"{judged['before']} raw.")
     if left_out:
-        lines.append(f"  Left out, not scored in both runs: {len(left_out)}.")
+        k = len(left_out)
+        lines.append(f"  {k} {'question was' if k == 1 else 'questions were'} not scored both ways, "
+                     f"so this compares {n}.")
     text = {c["case_id"]: c["question"] for c in pr.cases()}
     number = {i: k for k, i in enumerate(order, 1)}
     mark = lambda m, i: "right" if m[i] == 1 else "wrong"  # noqa: E731
@@ -1676,7 +1678,10 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
         new = [cs for cs in pr.cases() if cs["case_id"] not in records][:BATCH]
         if new:
             gold = pr.answers()
-            items = [{"name": cs["case_id"], "workspace_id": ws, "dataset_id": ids["eval_dataset_id"],
+            # A record's name is unique per workspace, and every generated set numbers its cases
+            # mined-01, mined-02...: name it by the set too, or a second set in one workspace collides.
+            items = [{"name": _record_name(slug, cs["case_id"]), "display_name": cs["case_id"],
+                      "workspace_id": ws, "dataset_id": ids["eval_dataset_id"],
                       "input": {"question": cs["question"], "tags": cs.get("tags") or []},
                       "expected": {"gold_sql_sha256": hashlib.sha256(
                           ((gold.get(cs["case_id"]) or {}).get("gold_sql") or "").strip().encode()).hexdigest(),
@@ -1928,7 +1933,14 @@ def _reconcile_name(pr: Proj, a, step: str, n: str) -> str:
         return f"analytics-eval-{slug}-{a.variant}-{tag}-msg-{seq}"
     if step == "results":
         return f"{slug}-{a.variant}-{n}"
+    if step == "records":
+        return _record_name(slug, n)
     return n
+
+
+def _record_name(slug: str, case_id: str) -> str:
+    """A dataset record's `name`: the set's slug and the case id, unique across sets in one workspace."""
+    return f"{slug}-{case_id}"
 
 
 def _apply(pr: Proj, pub: Publication, V: str, step: str, got: dict) -> None:
@@ -2078,7 +2090,7 @@ def _selftest_generated_set(pr: pathlib.Path) -> tuple:
     imported = out["cases"] == 1 and proj.cases()[0]["tags"] == ["query_history", "grain"] \
         and proj.answers()["q1"]["gold_sql"] == "select count(*) from t"
     proj.set_id("workspace_id", "workspace_t")
-    steps = []
+    steps, record_names = [], []
     for _ in range(6):
         res = cmd_publish(argparse.Namespace(dir=str(pr), variant="baseline", baseline=None, agent_id=None,
                                              workspace=None, sessions_only=False, resend=False,
@@ -2086,13 +2098,44 @@ def _selftest_generated_set(pr: pathlib.Path) -> tuple:
         if res.get("step") == "done" or res.get("status") != "ok":
             break
         steps.append(res["step"])
+        if res["step"] == "records":
+            record_names += [(it["name"], it.get("display_name")) for c in res["calls"]
+                             for it in c["arguments"].get("items", [])]
         resps = [{"items": [{"status": 201, "artifact": {"id": f"dataset_record_{i}", "name": it["name"]}}
                             for i, it in enumerate(c["arguments"]["items"])]} if "items" in c["arguments"]
                  else {"artifact": {"id": f"{c['arguments']['kind']}_1", "name": "x"}} for c in res["calls"]]
         dump_json(pr / "resp.json", resps)
         cmd_publish_ack(argparse.Namespace(dir=str(pr), variant="baseline", step=res["step"],
                                            responses=str(pr / "resp.json"), reconcile=False))
-    return imported, steps == ["scorer", "dataset", "records"] and res.get("records") == 1
+    slug = proj.state().get("slug") or pr.name
+    named = record_names == [(f"{slug}-q1", "q1")]
+    return imported, steps == ["scorer", "dataset", "records"] and res.get("records") == 1, named
+
+
+def _selftest_records_reconcile(pr: pathlib.Path) -> bool:
+    """A lost records batch reconciles by the set's record names, never by another set's record that
+    shares the bare case id."""
+    pr.mkdir(parents=True)
+    dump_json(pr / "spec.json", {"name": "s", "records": [
+        {"id": "mined-01", "question": "How many?", "golden_sql": "select 1", "review_status": "approved"}]})
+    cmd_import_spec(argparse.Namespace(dir=str(pr), spec=str(pr / "spec.json")))
+    proj = Proj(str(pr))
+    proj.set_id("workspace_id", "workspace_t")
+    proj.set_id("scorer_id", "scorer_t")
+    proj.set_id("eval_dataset_id", "dataset_t")
+    args = dict(dir=str(pr), variant="baseline", baseline=None, agent_id=None, workspace=None,
+                sessions_only=False, resend=False, dataset_only=True)
+    out = cmd_publish(argparse.Namespace(**args))
+    if out.get("step") != "records":
+        return False
+    mine = out["calls"][0]["arguments"]["items"][0]["name"]
+    listing = {"items": [{"name": "mined-01", "id": "dataset_record_other_set"},
+                         {"name": mine, "id": "dataset_record_this_set"}]}
+    dump_json(pr / "resp.json", [listing])
+    cmd_publish_ack(argparse.Namespace(dir=str(pr), variant="baseline", step="records",
+                                       responses=str(pr / "resp.json"), reconcile=True))
+    got = load_json(pr / "eval" / "records.json", {}) or {}
+    return mine != "mined-01" and got == {"mined-01": "dataset_record_this_set"}
 
 
 def _selftest_publish(pr: pathlib.Path, no_transcripts: bool = False) -> bool:
@@ -2378,9 +2421,12 @@ def selftest() -> dict:
         ok("publish-ack takes the returned ids in place of whole responses, but never for results",
            first["step"] == "scorer" and acked["landed"] == 1
            and proj_ids.state()["ids"].get("scorer_id") == "scorer_by_ids" and refused)
-        imported, dataset_only = _selftest_generated_set(pathlib.Path(d) / "generated")
+        imported, dataset_only, named = _selftest_generated_set(pathlib.Path(d) / "generated")
         ok("import-spec keeps only approved records with SQL", imported)
         ok("a dataset-only publish needs no agent and stops after the records", dataset_only)
+        ok("a record is named by its set and case, and shown by its case", named)
+        ok("a lost records batch reconciles to this set's records, not another set's",
+           _selftest_records_reconcile(pathlib.Path(d) / "reconcile-records"))
         filled, capped = _selftest_message_fill(pathlib.Path(d) / "fill")
         ok("one messages step fills its batch across sessions", filled)
         ok("a messages step stops at the byte cap", capped)

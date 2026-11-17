@@ -64,7 +64,7 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
 ## Differences from the demo
 
 - **Tracker.** Keep the seven steps. While the check runs, add its items (Choose the questions,
-  Ask each one to a fresh agent, Score the answers, and the Improve it items when picked) to the
+  Ask each one to a fresh agent, Score the answers, and the fix items when the person replies "fix") to the
   host task list between steps 5 and 6. The check ticks none of the seven steps.
 - **Size.** 20 questions, not the demo's 8: `CHECK start` without `--questions`, and
   `eval-generation`'s `SCOPE pick` without `--limit`.
@@ -89,15 +89,15 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
   `registry__release_artifact`. Options: Release it (Recommended), and Keep it unreleased. A
   workspace that releases on its own needs no question; withdrawing a release that made a
   question worse follows the demo's rule.
-- **Saving the check.** The demo's step 5 save question is asked on every check, whether the
+- **Saving the check.** The demo's step 5 save offer, a plain reply line, ends every check, whether the
   context is in Atlan Trident or on this machine (then the person's personal workspace). No agent
   is registered; `<agent>` is the name from the offer, used only in the saved summary.
 
 ## The ending
 
-The check ends on the question step, not on the demo's next-step question. After the demo's
-step 5 save question, when it applies, read [ready](ready.md) and ask "What would you like to
-ask?" with its ready block, adding one row after What it can answer:
+The check ends on the question step, not on the demo's next-step question. After the reply to
+the demo's step 5 save offer, read [ready](ready.md) and ask "What would you like to ask?" with
+its ready block, adding one row after What it can answer:
 
 ```
   How accurate          <p>% on <N> questions <firm>'s analysts ask
@@ -105,9 +105,8 @@ ask?" with its ready block, adding one row after What it can answer:
                         <, up from <p>% after one fix>
 ```
 
-`<q>` is the raw-source accuracy from `EVAL before-after`. When every question was right the
-score question was never asked, so the `report` goes above this block, word for word, in the
-same question's text. Every question right puts the demo's banner above "Your <agent> is ready."
+`<q>` is the raw-source accuracy from `EVAL before-after`. The result message already showed the
+card, so it does not go in this question's text. Every question right puts the demo's banner above "Your <agent> is ready."
 Leave the score line, the source line and the misses out of the block: the rows carry the result. When the person
 picked **Check how accurate it is** after answers instead, end on the demo's result block
 (`ACC result`) and ready's `Next:` line, without that option.
