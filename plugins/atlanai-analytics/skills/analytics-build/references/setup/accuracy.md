@@ -44,7 +44,7 @@ Your <agent> is built: <N> metrics and <N> queries, <where it lives>.
 Before you ask it anything, I can test how accurate it is. I take <N>
 questions <firm>'s <dashboard and analysts> already answer and ask each
 twice: to a fresh agent that sees only this context, and to one that sees
-only the raw tables. I score both against the trusted answer and show them
+schema only. I score both against the trusted answer and show them
 side by side. About 8 minutes. Nothing changes unless you approve a fix.
 
 Check how accurate it is first?
@@ -73,7 +73,8 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
   let them pick a run, and never ask the person which run: this build knows its own.
 - **Before and after.** Every check here also runs accuracy-check's
   [before and after](../../../accuracy-check/references/run.md#before-and-after) pass, started
-  with the context pass so both finish together. The score question's text opens with its
+  with the context pass so both finish together. The raw pass receives schema only, with
+  no additional context or exploratory data queries; only its final answer SQL reads data. The score question's text opens with its
   `report`, word for word, above the score line and the misses. The Test again step runs the
   context pass only, and its result names the raw-source score beside the new one.
 - **A warehouse build.** `CHECK load` returns `pending_gold` and the answering agents run their
@@ -101,7 +102,7 @@ its ready block, adding one row after What it can answer:
 
 ```
   How accurate          <p>% on <N> questions <firm>'s analysts ask
-                        <q>% on the raw tables alone
+                        <q>% with schema only
                         <, up from <p>% after one fix>
 ```
 

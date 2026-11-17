@@ -1458,17 +1458,17 @@ def cmd_before_after(a) -> dict:
     # where markdown tables break. One block per question (scaled to 20 past that), right filled.
     width = min(n, 20)
     bar = lambda k: ("\u2588" * round(k / n * width)).ljust(width, "\u2591")  # noqa: E731
-    lines = [f"With your context, {kb} of {n} right. On the raw tables, {ka} of {n}.", ""]
-    for label, k, c in (("Raw tables", ka, ca), ("With your context", kb, cb)):
+    lines = [f"With your context, {kb} of {n} right. With schema only, {ka} of {n}.", ""]
+    for label, k, c in (("schema only", ka, ca), ("With your context", kb, cb)):
         t = secs(c)
         lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
     # Every line stays under 76 characters, so an 80-column terminal never wraps one mid-sentence.
-    lines += ["", f"  {len(only_after)} now right that were wrong on the raw tables.",
+    lines += ["", f"  {len(only_after)} now right that were wrong with schema only.",
               f"  {both} right both ways. {neither} still wrong."
-              + (f" {len(only_before)} right only on the raw tables." if only_before else "")]
+              + (f" {len(only_before)} right only with schema only." if only_before else "")]
     if judged["before"] or judged["after"]:
         lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
-                     f"{judged['before']} raw.")
+                     f"{judged['before']} schema only.")
     if left_out:
         k = len(left_out)
         lines.append(f"  {k} {'question was' if k == 1 else 'questions were'} not scored both ways, "
@@ -1479,8 +1479,8 @@ def cmd_before_after(a) -> dict:
     cell = lambda t: " ".join(str(t).split()).replace("|", "\\|")  # noqa: E731
     # The changes, for the chat: the questions the context turned around, then any it lost.
     changes = []
-    for picked, what in ((only_after, "wrong on the raw tables, right with your context"),
-                         (only_before, "right on the raw tables, wrong with your context")):
+    for picked, what in ((only_after, "wrong with schema only, right with your context"),
+                         (only_before, "right with schema only, wrong with your context")):
         if picked:
             changes += [f"**{len(picked)} {'question' if len(picked) == 1 else 'questions'} {what}**", "",
                         "| # | Question |", "| --- | --- |"]
@@ -1695,7 +1695,7 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     if full and not exps.get(V):
         name = f"{slug}-{V}"
         # The raw-source pass is the run the context is compared with: name it so in Atlan.
-        shown = {"raw": "raw tables, no context", "baseline": "with your context"}.get(V, V)
+        shown = {"raw": "schema only", "baseline": "with your context"}.get(V, V)
         body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
                 "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
                 "dataset_id": ids["eval_dataset_id"],
@@ -2691,10 +2691,10 @@ def _selftest_inputs(ok) -> None:
            "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
         card = ba["report"].splitlines()
         ok("the card leads with both scores and draws a block per question",
-           card[0] == "With your context, 1 of 2 right. On the raw tables, 0 of 2."
+           card[0] == "With your context, 1 of 2 right. With schema only, 0 of 2."
            and "░░" in card[2] and "█░" in card[3] and "| " not in ba["report"])
         ok("the change table names the question the context turned around, under its number",
-           ba["changes"].startswith("**1 question wrong on the raw tables, right with your context**")
+           ba["changes"].startswith("**1 question wrong with schema only, right with your context**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
