@@ -405,12 +405,12 @@ def judge_brief(question: str, gold_res, agent_res, gold_sql: str, answer: dict,
 
 
 _RAW_TOOL = re.compile(r"^Skill$|registry__|extension__|__search_tools$|__call_(read_)?tool$", re.I)
-_WAREHOUSE_TOOL = re.compile(r"sql|query|statement|execute", re.I)  # the one MCP kind a raw-source agent may use
+_WAREHOUSE_TOOL = re.compile(r"sql|query|statement|execute", re.I)  # the one MCP kind a bare-schema agent may use
 _HOST_UI = ("mcp__ccd_",)  # the desktop app's own session and pane tools: they carry no data definitions
 
 
 def raw_hits(turns: list, run: str) -> list:
-    """Tool calls that could give a raw-source agent prepared context: a skill, an Atlan tool, any
+    """Tool calls that could give a bare-schema agent prepared context: a skill, an Atlan tool, any
     other MCP server than the warehouse's (another agent or catalog on the machine carries its own
     definitions), or anything naming the run's context folder. A before pass that read context is
     no before. An attempt counts: a refused call shows where the agent was reaching."""
@@ -423,7 +423,7 @@ def raw_hits(turns: list, run: str) -> list:
         other_mcp = name.startswith("mcp__") and not name.startswith(_HOST_UI) \
             and not _WAREHOUSE_TOOL.search(name.split("__")[-1])
         if _RAW_TOOL.search(name) or other_mcp:
-            hits.append(f"{name}: prepared context is not part of a raw-source run")
+            hits.append(f"{name}: prepared context is not part of a bare-schema run")
         elif any(m in blob for m in marks):
             hits.append(f"{name}: read the run's context folder")
     return hits
@@ -1045,7 +1045,7 @@ def cmd_record(a) -> dict:
     elif raw_seen:
         g = {"grade": {"pass": 0, "exec_ok": g["grade"]["exec_ok"], "extra_cols": 0},
              "class": RAW_USED_CONTEXT,
-             "reason": "a raw-source run reached for prepared context, so it leaves the score: " + "; ".join(raw_seen[:3])}
+             "reason": "a bare-schema run reached for prepared context, so it leaves the score: " + "; ".join(raw_seen[:3])}
     turns = tr["turns"] or [{"role": "user", "content": cases[a.case]["question"]},
                             {"role": "assistant", "content": ans.get("answer", "")}]
     dump_json(vd / "traces" / f"{tag}.json", turns)
@@ -1235,7 +1235,7 @@ def cmd_agent_result(a) -> dict:
 
 
 RAW_USED_CONTEXT = "raw_used_context"
-# A raw-source answer that reached for prepared context leaves the score rather than failing it:
+# A bare-schema answer that reached for prepared context leaves the score rather than failing it:
 # counted as a miss, it would lower the before score and flatter the context.
 UNSCORED = ("harness_error", "gold_error", "incomplete", RAW_USED_CONTEXT)
 JUDGED = "judged"  # a fuzzy case the grader agent judged: its own rate, never mixed into the result-set rate
@@ -1430,7 +1430,7 @@ def _same_gold(a_name: str, b_name: str, ra: list, rb: list) -> None:
 
 
 def cmd_before_after(a) -> dict:
-    """The same questions answered from the raw source and from the context, side by side. Only
+    """The same questions answered from the bare schema and from the context, side by side. Only
     questions scored in both runs count, so the two rates share one denominator."""
     pr = Proj(a.dir)
     ra, rb = read_results(pr.vdir(a.before) / "results.jsonl"), read_results(pr.vdir(a.after) / "results.jsonl")
@@ -1458,17 +1458,17 @@ def cmd_before_after(a) -> dict:
     # where markdown tables break. One block per question (scaled to 20 past that), right filled.
     width = min(n, 20)
     bar = lambda k: ("\u2588" * round(k / n * width)).ljust(width, "\u2591")  # noqa: E731
-    lines = [f"With your context, {kb} of {n} right. On the raw tables, {ka} of {n}.", ""]
-    for label, k, c in (("Raw tables", ka, ca), ("With your context", kb, cb)):
+    lines = [f"With your context, {kb} of {n} right. On the bare schema, {ka} of {n}.", ""]
+    for label, k, c in (("Bare schema", ka, ca), ("With your context", kb, cb)):
         t = secs(c)
         lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
     # Every line stays under 76 characters, so an 80-column terminal never wraps one mid-sentence.
-    lines += ["", f"  {len(only_after)} now right that were wrong on the raw tables.",
+    lines += ["", f"  {len(only_after)} now right that were wrong on the bare schema.",
               f"  {both} right both ways. {neither} still wrong."
-              + (f" {len(only_before)} right only on the raw tables." if only_before else "")]
+              + (f" {len(only_before)} right only on the bare schema." if only_before else "")]
     if judged["before"] or judged["after"]:
         lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
-                     f"{judged['before']} raw.")
+                     f"{judged['before']} on the bare schema.")
     if left_out:
         k = len(left_out)
         lines.append(f"  {k} {'question was' if k == 1 else 'questions were'} not scored both ways, "
@@ -1479,8 +1479,8 @@ def cmd_before_after(a) -> dict:
     cell = lambda t: " ".join(str(t).split()).replace("|", "\\|")  # noqa: E731
     # The changes, for the chat: the questions the context turned around, then any it lost.
     changes = []
-    for picked, what in ((only_after, "wrong on the raw tables, right with your context"),
-                         (only_before, "right on the raw tables, wrong with your context")):
+    for picked, what in ((only_after, "wrong on the bare schema, right with your context"),
+                         (only_before, "right on the bare schema, wrong with your context")):
         if picked:
             changes += [f"**{len(picked)} {'question' if len(picked) == 1 else 'questions'} {what}**", "",
                         "| # | Question |", "| --- | --- |"]
@@ -1691,8 +1691,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     exps = ids.get("experiments") or {}
     if full and not exps.get(V):
         name = f"{slug}-{V}"
-        # The raw-source pass is the run the context is compared with: name it so in Atlan.
-        shown = {"raw": "raw tables, no context", "baseline": "with your context"}.get(V, V)
+        # The bare-schema pass is the run the context is compared with: name it so in Atlan.
+        shown = {"raw": "bare schema, no context", "baseline": "with your context"}.get(V, V)
         body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
                 "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
                 "dataset_id": ids["eval_dataset_id"],
@@ -2565,7 +2565,7 @@ def _selftest_inputs(ok) -> None:
         summ = summarize(Proj(d), "v")
         ok("judged cases are reported apart from the result-set rate",
            summ["judged"]["n"] == 1 and summ["judged"]["pass_rate"] == 1.0 and summ["validation"]["n"] == 1)
-    # The judge rules only where the exact comparison refuses an answer that ran, and the raw-source
+    # The judge rules only where the exact comparison refuses an answer that ran, and the bare-schema
     # pass is scored on the same questions for the before-and-after report.
     with tempfile.TemporaryDirectory() as d:
         pr = pathlib.Path(d)
@@ -2620,8 +2620,8 @@ def _selftest_inputs(ok) -> None:
         ok("without --judge a refused answer is a wrong result at once",
            rec2("raw", "c2", judge=False)["class"] == "wrong_result")
         peeked = rec2("raw", "c1", transcript=str(pr / "skill.jsonl"), raw=str(pr / "run"))
-        ok("a raw-source answer that used a skill leaves the score", peeked["class"] == RAW_USED_CONTEXT)
-        ok("a raw-source run may use the warehouse tool and nothing else from MCP",
+        ok("a bare-schema answer that used a skill leaves the score", peeked["class"] == RAW_USED_CONTEXT)
+        ok("a bare-schema run may use the warehouse tool and nothing else from MCP",
            raw_hits([{"role": "tool_call", "name": "mcp__wh__sql_exec_tool", "content": "{}"}], "") == []
            and len(raw_hits([{"role": "tool_call", "name": "mcp__other__ask_analyst", "content": "{}"}], "")) == 1)
         put("raw", "c3", [[12.0]])
@@ -2647,10 +2647,10 @@ def _selftest_inputs(ok) -> None:
            "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
         card = ba["report"].splitlines()
         ok("the card leads with both scores and draws a block per question",
-           card[0] == "With your context, 1 of 2 right. On the raw tables, 0 of 2."
+           card[0] == "With your context, 1 of 2 right. On the bare schema, 0 of 2."
            and "░░" in card[2] and "█░" in card[3] and "| " not in ba["report"])
         ok("the change table names the question the context turned around, under its number",
-           ba["changes"].startswith("**1 question wrong on the raw tables, right with your context**")
+           ba["changes"].startswith("**1 question wrong on the bare schema, right with your context**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
@@ -2900,7 +2900,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="where the exact comparison refuses an answer that ran, ask a judge: the reply names its "
                         "prompt and verdict file, and no row is written until --verdict is given")
     c.add_argument("--raw", metavar="RUN_DIR",
-                   help="a raw-source run: the answer fails as contaminated if its agent used a skill, an Atlan "
+                   help="a bare-schema run: the answer fails as contaminated if its agent used a skill, an Atlan "
                         "tool or this run's context folder")
     c.add_argument("--model")
     c.add_argument("--latency-s", type=float, default=None)
@@ -2921,9 +2921,9 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--final", action="store_true", help="also the holdout: once, at hand-back")
     c.set_defaults(func=cmd_compare)
 
-    c = s.add_parser("before-after", help="the same questions on the raw source and with the context, side by side")
+    c = s.add_parser("before-after", help="the same questions on the bare schema and with the context, side by side")
     c.add_argument("--dir", required=True)
-    c.add_argument("--before", default="raw", help="the raw-source variant")
+    c.add_argument("--before", default="raw", help="the bare-schema variant")
     c.add_argument("--after", default="baseline", help="the variant that answered from the context")
     c.set_defaults(func=cmd_before_after)
 
@@ -2931,7 +2931,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--dir", required=True)
     c.add_argument("--variant", help="the run to report; the latest by default")
     c.add_argument("--why", help='JSON {"<id>": {"why": "<cause>", "detail": "<one sentence>"}} for the misses')
-    c.add_argument("--raw", default="raw", help="the raw-source variant, which is not a run of the context")
+    c.add_argument("--raw", default="raw", help="the bare-schema variant, which is not a run of the context")
     c.set_defaults(func=cmd_report)
 
     c = s.add_parser("refreeze", help="accept a deliberate change to cases, gold, split or grader; re-baseline after")

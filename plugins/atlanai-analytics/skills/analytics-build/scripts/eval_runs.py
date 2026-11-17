@@ -107,7 +107,7 @@ def _yaml_value(path: pathlib.Path, key: str):
 
 
 def tables(run: pathlib.Path) -> list:
-    """The source tables this run's metrics read: what a raw-source agent is told to work from."""
+    """The source tables this run's metrics read: what a bare-schema agent is told to work from."""
     rows = load(run / "context" / "metrics.json", []) or []
     rows = rows.get("metrics") or [] if isinstance(rows, dict) else rows
     found = {((m.get("definition") or {}).get("source") or {}).get("entity") for m in rows if isinstance(m, dict)}

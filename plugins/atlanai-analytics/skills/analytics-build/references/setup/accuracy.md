@@ -44,7 +44,7 @@ Your <agent> is built: <N> metrics and <N> queries, <where it lives>.
 Before you ask it anything, I can test how accurate it is. I take <N>
 questions <firm>'s <dashboard and analysts> already answer and ask each
 twice: to a fresh agent that sees only this context, and to one that sees
-only the raw tables. I score both against the trusted answer and show them
+only the bare schema. I score both against the trusted answer and show them
 side by side. About 8 minutes. Nothing changes unless you approve a fix.
 
 Check how accurate it is first?
@@ -75,7 +75,7 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
   [before and after](../../../accuracy-check/references/run.md#before-and-after) pass, started
   with the context pass so both finish together. The score question's text opens with its
   `report`, word for word, above the score line and the misses. The Test again step runs the
-  context pass only, and its result names the raw-source score beside the new one.
+  context pass only, and its result names the bare-schema score beside the new one.
 - **A warehouse build.** `CHECK load` returns `pending_gold` and the answering agents run their
   SQL on the warehouse, as accuracy-check's run procedure describes. Use the warehouse query
   tool this build already used. The time in the offer stays about 8 minutes.
@@ -101,11 +101,11 @@ its ready block, adding one row after What it can answer:
 
 ```
   How accurate          <p>% on <N> questions <firm>'s analysts ask
-                        <q>% on the raw tables alone
+                        <q>% on the bare schema alone
                         <, up from <p>% after one fix>
 ```
 
-`<q>` is the raw-source accuracy from `EVAL before-after`. The result message already showed the
+`<q>` is the bare-schema accuracy from `EVAL before-after`. The result message already showed the
 card, so it does not go in this question's text. Every question right puts the demo's banner above "Your <agent> is ready."
 Leave the score line, the source line and the misses out of the block: the rows carry the result. When the person
 picked **Check how accurate it is** after answers instead, end on the demo's result block

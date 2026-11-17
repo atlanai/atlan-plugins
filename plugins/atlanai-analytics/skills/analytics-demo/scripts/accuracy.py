@@ -151,7 +151,7 @@ def _score(ev: pathlib.Path, variant: str) -> dict:
 
 
 def _compare(ev: pathlib.Path, after: str) -> str:
-    """The before-and-after report: the raw tables against the context, on the same questions."""
+    """The before-and-after report: the bare schema against the context, on the same questions."""
     out = subprocess.run([sys.executable, str(HARNESS), "before-after", "--dir", str(ev),
                           "--before", "raw", "--after", after], capture_output=True, text=True)
     try:
@@ -159,7 +159,7 @@ def _compare(ev: pathlib.Path, after: str) -> str:
     except json.JSONDecodeError:
         report = None
     if not report:
-        raise Blocked("This check has no raw-source pass to compare with. Run the before-and-after pass, "
+        raise Blocked("This check has no bare-schema pass to compare with. Run the before-and-after pass, "
                       "then ask for the result again.")
     return report
 
@@ -184,7 +184,7 @@ def cmd_result(a) -> dict:
             raise Blocked("With misses left, say what they share (--misses), in plain words.")
         lines.append(f"Your {a.agent} misses {a.misses}.")
     lines.append(last["line"])
-    # Every check runs the raw-source pass, so every result carries the comparison.
+    # Every check runs the bare-schema pass, so every result carries the comparison.
     lines += ["", _compare(ev, runs[-1])]
     if a.generated:
         lines.append(SOURCE)
@@ -202,7 +202,7 @@ def cmd_saved(a) -> dict:
               else f"{len(runs)} runs scored from {first['pct']}% to {last['pct']}%")
     lines = [f"Saved to {a.workspace}:", f"  {a.agent or 'This check'}, with {last['n']} questions and {scored}"]
     if (ev / "hillclimb" / "raw" / "results.jsonl").is_file():
-        lines.append(f"  Raw tables, no context: {_score(ev, 'raw')['pct']}%")
+        lines.append(f"  Bare schema, no context: {_score(ev, 'raw')['pct']}%")
     for state, given in (("released", a.released), ("withdrawn", a.withdrawn)):
         for r in given or []:
             name, _, version = r.rpartition(":")

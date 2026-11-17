@@ -221,14 +221,14 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
         self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Generate 20 new questions"])
-        # Every check runs the raw-source pass too, whoever starts it and whatever its size.
+        # Every check runs the bare-schema pass too, whoever starts it and whatever its size.
         self.assertTrue(res["before_after"])
-        self.assertIn("only the raw tables", res["ask"]["text"])
+        self.assertIn("only the bare schema", res["ask"]["text"])
         self.assertEqual(res["ask"]["options"][-1]["label"], "Generate 20 new questions")  # a direct check: 20
         demo = self.check("start", "--project", str(self.tmp), "--run", str(self.run), "--questions", "8")
         self.assertEqual(demo["ask"]["options"][-1]["label"], "Generate 8 new questions")
         self.assertTrue(demo["before_after"])
-        self.assertIn("only the raw tables", demo["ask"]["text"])
+        self.assertIn("only the bare schema", demo["ask"]["text"])
         self.assertNotIn("--context-only", CHECK.read_text())  # no caller can leave the comparison out
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
@@ -361,7 +361,7 @@ class ScopeTest(unittest.TestCase):
                           res["execution"]["warehouse"]["tool"]), (str(wh), "host", "snowflake", "mcp__wh__sql_exec_tool"))
         self.assertEqual(self.check("start", "--project", str(self.tmp), "--run", str(self.run))["execution"],
                          {"via": "local", "kind": "sqlite", "tables": ["s.orders"]})
-        # The raw-source pass is told which tables to work from: the ones the run's metrics read.
+        # The bare-schema pass is told which tables to work from: the ones the run's metrics read.
         self.assertEqual(res["execution"]["tables"], ["L.Z.TICKET"])
         self.assertEqual(self.check("start", "--project", str(self.tmp), "--run", str(self.tmp / "nope"))["status"], "BLOCKED")
         # Eval files never go inside the run that answering agents read.

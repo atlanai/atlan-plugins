@@ -8,7 +8,7 @@ description: "Atlan Analytics: run an eval set against a project's context and s
 A capability. It works on any built run: a local SQLite or DuckDB one, or a warehouse build
 (Snowflake, Databricks or another) whose SQL runs through this host's warehouse query tool. It
 takes an eval set, asks each question to a fresh agent that sees only the context, compares each answer's result with the trusted result (by script, with a judge where the script refuses an answer that ran), and says why each
-miss failed. Every check also asks the same questions on the raw source, so the result shows
+miss failed. Every check also asks the same questions on the bare schema, so the result shows
 what the context changed. It generates no questions and changes nothing: a metric, a saved query and the set
 stay as they are. A person can call it directly, and another skill can call it as a step; it
 behaves the same either way.
@@ -56,7 +56,7 @@ command as separate argv entries; zsh does not split a string holding one.
    step words it. The questions never go in the question's text. `CHECK edit` rewords a question
    and `CHECK drop` takes questions out. This holds when a person calls this skill directly too.
    A set the person brought and picked runs as it is.
-4. **Run and score it** as [run it](references/run.md#run-it) describes, with the raw-source
+4. **Run and score it** as [run it](references/run.md#run-it) describes, with the bare-schema
    pass of [before and after](references/run.md#before-and-after) on every check, started with
    the context pass, whatever the size of the set and whoever started the check,
    then show the score as [show the score](references/run.md#show-the-score) describes.
@@ -80,7 +80,7 @@ pinned to a metric version when the caller names one.
 ## Save to Atlan Trident
 
 After every check's result, offer to [save the check](references/run.md#save-to-atlan-trident):
-the set, the raw-tables run and every run with the context, each linked to the run before it.
+the set, the bare-schema run and every run with the context, each linked to the run before it.
 When a person called this skill directly, end on the demo's result message and its plain save
 offer yourself, and save on "save". No agent is registered: the runs save without one. A skill that called this one
 asks it instead.

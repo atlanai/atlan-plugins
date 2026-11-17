@@ -71,7 +71,7 @@ query its analysts already run; the expected answer is what that query returns.
 
 <the table, as CHECK show printed it>
 
-Each question goes to a fresh agent with your context, and again to one with only the raw tables, about <4 or 8> minutes.
+Each question goes to a fresh agent with your context, and again to one with only the bare schema, about <4 or 8> minutes.
 ```
 
 Never rebuild the table, add SQL, or shorten it.
@@ -81,7 +81,7 @@ one line and nothing else:
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Test all <N>, with your context and on the raw tables. |
+| Run them (Recommended) | Test all <N>, with your context and on the bare schema. |
 | Edit questions | Change a question's wording, or leave some out, before anything runs. |
 | Skip for now | Keep the questions on this machine and run them later. |
 
@@ -238,7 +238,7 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
    accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
    <what the misses share>."
 3. The score line, word for word, which carries the range.
-4. The before-and-after card, word for word: the raw tables against your context on the same
+4. The before-and-after card, word for word: the bare schema against your context on the same
    questions, a bar each. `ACC result` adds it from the check's `raw` run; it is never left out.
 5. Only when `CHECK load` returned `generated: true`: the source line.
 
@@ -260,7 +260,7 @@ in, with nothing before it and nothing after it:
 
 <one line per version a fix released: "<metric> version <v> is released in <workspace>.">
 
-Save this check to Atlan Trident? Reply "save" to put it in <workspace>: the questions, the raw-tables run and every run with your context, with their scores, so your team sees accuracy go from <r>% on the raw tables to <q>% with your context, and a digest of each trusted SQL, never the SQL. Reply "keep" to leave it on this machine.
+Save this check to Atlan Trident? Reply "save" to put it in <workspace>: the questions, the bare-schema run and every run with your context, with their scores, so your team sees accuracy go from <r>% on the bare schema to <q>% with your context, and a digest of each trusted SQL, never the SQL. Reply "keep" to leave it on this machine.
 ````
 
 When the person just replied "keep" to a score message, they have seen the score: the message
@@ -284,7 +284,7 @@ as that `text`, put as it is, and no banner (the result was just shown):
 ```
 Saved to <workspace>:
   <agent>, with <N> questions and <runs> runs scored from <p>% to <q>%
-  Raw tables, no context: <r>%
+  Bare schema, no context: <r>%
   <metric> version <v>, released            (one line per released or withdrawn version)
 See the runs in Atlan: <runs link>
 ```
