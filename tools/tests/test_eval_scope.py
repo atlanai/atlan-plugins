@@ -152,11 +152,15 @@ class ScopeTest(unittest.TestCase):
                  {"id": "m1", "query_id": "h-rev2", "sql": "select id, name, stage from s.orders where region = 'count(x)'"},
                  {"id": "m2", "query_id": "h-head", "sql": "select count(*) from s.orders where false limit 0"},
                  {"id": "m3", "query_id": "h-refund", "sql": "select region, count(*) from s.orders group by 1"},
-                 {"id": "m4", "query_id": "h-mix", "sql": "select count(distinct id) from s.orders"}]
+                 {"id": "m4", "query_id": "h-mix", "sql": "select count(distinct id) from s.orders"},
+                 {"id": "m5", "query_id": "h-mix", "sql": "select count(*) as failures, count(*) <> 0 as should_warn from (select 1)"},
+                 {"id": "m6", "query_id": "h-mix", "sql": "select 'orders' as tbl, max(_LOADED_AT) as latest from s.orders"}]
         (work / "candidates.json").write_text(json.dumps(cands))
         res = self.scope("pick", "--gen", str(self.ev), "--limit", "2", "--spare", "1")
         self.assertEqual({s["id"]: s["why"] for s in res["skipped"]},
-                         {"m1": "lists records, with no total or count", "m2": "a probe that returns no rows"})
+                         {"m1": "lists records, with no total or count", "m2": "a probe that returns no rows",
+                          "m5": "a data test, not a business question",
+                          "m6": "a freshness check on when tables last loaded"})
         self.assertEqual((res["picked"], res["limit"]), (3, 2))  # two asked for, one spare
         picked = [s["id"] for s in res["selection"]]
         # The draft found the first question unanswerable: the spare takes its place, in pick order.

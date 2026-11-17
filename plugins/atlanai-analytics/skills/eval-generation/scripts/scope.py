@@ -136,16 +136,26 @@ _SQL_NOISE = re.compile(r"""'(?:[^']|'')*'|--[^\n]*|/\*[\s\S]*?\*/""")
 _AGGREGATE = re.compile(r"\b(count|count_if|sum|avg|min|max|median|mode|stddev\w*|var\w*|approx_\w+|percentile_\w+|"
                         r"listagg|array_agg|string_agg|any_value|div0)\s*\(|\bgroup\s+by\b|\bdistinct\b", re.I)
 _PROBE = re.compile(r"\bwhere\s+(false|1\s*=\s*0)\b|\blimit\s+0\b", re.I)
+# A data test (dbt's wrapper names its result `failures` and `should_warn`) and a freshness check
+# (the latest load time of a table) watch the pipeline, not the business: no person asks them.
+_DATA_TEST = re.compile(r"\bshould_(warn|error)\b|\bas\s+failures\b", re.I)
+_FRESHNESS = re.compile(r"\bmax\s*\(\s*(\w+\.)?(_loaded_at|_fivetran_synced|_airbyte_extracted_at|_sdc_batched_at|"
+                        r"_etl_loaded_at|_dbt_updated_at|loaded_at|inserted_at)\s*\)", re.I)
 
 
 def unfit(sql: str):
     """Why a query cannot anchor a question, or None. A statement that returns no row by design
-    is a probe; one with no aggregate lists records, and no one-line question reproduces a list."""
+    is a probe; one with no aggregate lists records, and no one-line question reproduces a list;
+    a data test or a freshness check watches the pipeline, and no person asks it."""
     if not (sql or "").strip():
         return None  # nothing to read: the engine's own gate decides
     bare = _SQL_NOISE.sub(" ", sql or "")
     if _PROBE.search(bare):
         return "a probe that returns no rows"
+    if _DATA_TEST.search(bare):
+        return "a data test, not a business question"
+    if _FRESHNESS.search(bare):
+        return "a freshness check on when tables last loaded"
     if not _AGGREGATE.search(bare):
         return "lists records, with no total or count"
     return None

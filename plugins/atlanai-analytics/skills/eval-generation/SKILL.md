@@ -51,8 +51,8 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    pinned to one record and withholds personal data. Do not reopen its JSON.
 3. **Pick 20.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
    the metrics nearest the use case, round after round, then past queries no metric computes yet (`no_metric`). It leaves out
-   (`skipped`) a query that lists records with no total or count, and a probe that returns no
-   rows: no one-line question reproduces either. It picks 4 spares beyond the 20, for a draft
+   (`skipped`) a query that lists records with no total or count, a probe that returns no rows,
+   a data test and a freshness check: no person asks them as a question. It picks 4 spares beyond the 20, for a draft
    that finds a question unanswerable, and keeps only those prompts. Say so when it picked
    fewer than 20.
 4. **Draft, in a subagent.** Give one subagent the paths of `work/prompts/` and
