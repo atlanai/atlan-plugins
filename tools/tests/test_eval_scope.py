@@ -536,6 +536,26 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(table[4], "| 3 | Question c? | Net Revenue | no rows |")
         self.assertNotIn("cnt", "\n".join(table))  # a query's aliases never reach the person
 
+    def test_the_person_can_reword_a_question_before_anything_is_scored(self) -> None:
+        sys.path.insert(0, str(check.BUILD))
+        ev = self.scored_check()
+        sets = ev.parent / "sets"
+        sets.mkdir(parents=True, exist_ok=True)
+        (sets / "finance.jsonl").write_text("".join(json.dumps({"id": i, "question": f"Question {i}?", "sql": "SELECT 1"}) + "\n"
+                                                    for i in "abc"))
+        self.assertEqual(self.check("edit", "--evals", str(ev), "--question", "2", "--text", "New?")["status"], "BLOCKED")
+        import shutil
+        shutil.rmtree(ev / "hillclimb")
+        self.assertEqual(self.check("edit", "--evals", str(ev), "--question", "9", "--text", "What was revenue in June?")["status"], "BLOCKED")
+        self.assertEqual(self.check("edit", "--evals", str(ev), "--question", "2", "--text", "no question mark")["status"], "BLOCKED")
+        res = self.check("edit", "--evals", str(ev), "--question", "2", "--text", "  What was net revenue in June 2026?  ")
+        self.assertEqual((res["question"], res["id"], res["to"]), (2, "b", "What was net revenue in June 2026?"))
+        cases = [json.loads(l) for l in (ev / "eval" / "cases.jsonl").read_text().splitlines()]
+        self.assertEqual(cases[1]["question"], "What was net revenue in June 2026?")
+        self.assertEqual(json.loads((sets / "finance.jsonl").read_text().splitlines()[1])["question"],
+                         "What was net revenue in June 2026?")
+        self.assertIn("What was net revenue in June 2026?", self.check("show", "--evals", str(ev))["table"])
+
     def test_a_set_line_without_sql_is_refused(self) -> None:
         bad = self.tmp / "bad.jsonl"
         bad.write_text('{"question": "Total net revenue?"}\n')

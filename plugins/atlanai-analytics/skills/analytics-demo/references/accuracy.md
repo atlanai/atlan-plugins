@@ -54,14 +54,14 @@ questions are shown with their expected answers, in step 2, because the person h
 
 ## 2. Generated questions: show them, then ask to run them
 
-The person has not seen these, so show them before running, as the last message of the turn and
-never in a native question: a list this long wraps and breaks inside a question's text, and the
-last message of a turn renders in full, tables included. Call no tool after it.
+The person has not seen these, so show them before running: the questions in the chat, then one
+short native question to choose. The questions never go in the question's text, where a list this
+long wraps and breaks.
 
-`CHECK show --evals <evals-run>` prints the set as one markdown table: the number each question
-keeps in the score, the misses and any fix, the question, the metric it tests, and the trusted
-answer (a single value, or the result's size and first values). Send this message, filled in, with
-the table exactly as printed, and nothing before or after it:
+**First, the questions in the chat.** `CHECK show --evals <evals-run>` prints the set as one
+markdown table: the number each question keeps in the score, the misses and any fix, the
+question, the metric it tests, and the trusted answer (a single value, or the result's size and
+first values). Send this as a chat message, filled in, with the table exactly as printed:
 
 ```
 <N> questions to test your <agent> on <the use case>. Each comes from <firm>'s dashboard or a
@@ -70,17 +70,34 @@ query its analysts already run; the expected answer is what that query returns.
 <the table, as CHECK show printed it>
 
 Each question goes to a fresh agent with your context, and again to one with only the raw tables, about <4 or 8> minutes.
-Reply "run" to test all <N>, "drop 3, 7" to leave some out first, or "not now".
 ```
 
-Never rebuild the table, add SQL, or move it into a question. Read the person's reply as the
-answer: "run" (or any yes) runs them; numbers to drop run `CHECK drop --evals <evals-run>
---questions <numbers>`, then the rest run without asking again, and the score says how many were
-left out; "not now" keeps the set on this machine and ends with "What would you like to do
-next?", whose text is one line: "The questions stay on this machine." The set file keeps dropped
-questions. Rewording a question is not offered here: a reworded question needs its trusted SQL
-checked again, so the person edits the set file and runs a new check. Where the host has no way
-to end a turn and wait (a run with no person to answer), run them.
+Never rebuild the table, add SQL, or shorten it.
+
+**Then, in the same turn, one native question**, "Run these <N> questions?", whose text is that
+one line and nothing else:
+
+| Option | Description |
+| --- | --- |
+| Run them (Recommended) | Test all <N>, with your context and on the raw tables. |
+| Edit questions | Change a question's wording, or leave some out, before anything runs. |
+| Skip for now | Keep the questions on this machine and run them later. |
+
+- **Run them** runs the set (step 3).
+- **Edit questions:** ask in plain chat which questions to change and how: "reword 3 to: <new
+  wording>" or "drop 2, 7". Run `CHECK edit --evals <evals-run> --question <n> --text "<new
+  wording>"` for each reworded question and `CHECK drop --evals <evals-run> --questions
+  <numbers>` for those left out. A reworded question keeps its trusted SQL and expected answer, so
+  it must still ask for exactly what that SQL returns: when the new wording asks for something
+  else (another period, another measure), say so in one line and keep the old wording. Then
+  print `CHECK show` again in the chat and ask "Run these <N> questions?" again. The set file
+  keeps the new wording and the dropped questions.
+- **Skip for now** keeps the set on this machine and ends with "What would you like to do next?",
+  whose text is one line: "The questions stay on this machine."
+
+Where the host has no native question tool, end the turn on the table, with one last line:
+Reply "run", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no person can answer
+(a scheduled or headless run), run them.
 
 ## 3. Run and score
 

@@ -9,6 +9,7 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
     python3 check.py load --project <project> --file <set.jsonl> [--run <run-dir>]
     python3 check.py gold --evals <eval-dir> [--transcript <file> ...]
     python3 check.py show --evals <eval-dir>
+    python3 check.py edit --evals <eval-dir> --question <number> --text "<new wording>"
     python3 check.py drop --evals <eval-dir> --questions <numbers or ids>
     python3 check.py link --evals <eval folder> --org <organization slug>
 
@@ -364,6 +365,42 @@ def cmd_show(a) -> dict:
     return {"status": "ok", "questions": len(spec["records"]), "table": "\n".join(lines)}
 
 
+def cmd_edit(a) -> dict:
+    """Reword one question of a loaded set before anything is scored. The trusted SQL and its
+    answer stay as they are, so a new wording must still ask for exactly what that SQL returns.
+    The set file is changed too, so the next check asks the same words."""
+    ev = pathlib.Path(a.evals)
+    spec = load(ev / "work" / "spec.json")
+    if not spec:
+        raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
+    if any((d / "results.jsonl").is_file() for d in (ev / "hillclimb").glob("*")):
+        raise Blocked("This set already has a scored run. A scored set never changes: edit the set file, "
+                      "then run a new check.")
+    records = spec["records"]
+    rec = next((r for n, r in enumerate(records, 1) if a.question in (str(n), r["id"])), None)
+    if rec is None:
+        raise Blocked(f"No question {a.question} in this set. Name it by its number, 1 to {len(records)}.")
+    text = " ".join((a.text or "").split())
+    if len(text) < 8 or not text.endswith("?"):
+        raise Blocked("Give the new wording as one full question, ending with a question mark.")
+    before = rec["question"]
+    rec["question"] = text
+    dump(ev / "work" / "spec.json", spec)
+    dump(ev / "work" / "edited-by-person.json",
+         (load(ev / "work" / "edited-by-person.json", []) or []) + [{"id": rec["id"], "from": before, "to": text}])
+    set_file = ev.parent / "sets" / f"{spec.get('name')}.jsonl"
+    if set_file.is_file():
+        rows = [json.loads(l) for l in set_file.read_text().splitlines() if l.strip()]
+        for n, r in enumerate(rows, 1):
+            if str(r.get("id") or f"q{n}") == rec["id"]:
+                r["question"] = text
+        set_file.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    stage(ev, re.sub(r"[^a-z0-9]+", "-", str(spec.get("name") or "eval-set").lower()).strip("-") or "eval-set")
+    number = next(n for n, r in enumerate(records, 1) if r is rec)
+    return {"status": "ok", "evals": str(ev), "question": number, "id": rec["id"], "from": before, "to": text,
+            "set_file": str(set_file) if set_file.is_file() else None}
+
+
 def cmd_drop(a) -> dict:
     """Take questions the person does not want out of a loaded set, before anything is scored.
     The set file keeps them: a set is the person's own, and the next check can use them again."""
@@ -435,6 +472,11 @@ def main(argv=None) -> int:
     c = s.add_parser("show", help="the loaded set as one markdown table, to read before it runs")
     c.add_argument("--evals", required=True)
     c.set_defaults(func=cmd_show)
+    c = s.add_parser("edit", help="reword one question of a loaded set before it is scored")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--question", required=True, help="its number in the shown table, or its id")
+    c.add_argument("--text", required=True, help="the new wording, one full question")
+    c.set_defaults(func=cmd_edit)
     c = s.add_parser("drop", help="take questions out of a loaded set before it is scored")
     c.add_argument("--evals", required=True)
     c.add_argument("--questions", required=True, help="numbers in the shown list, or ids, comma separated")
