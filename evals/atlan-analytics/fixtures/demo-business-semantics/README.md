@@ -6,8 +6,8 @@ in PRs #190, #191, #193 and #194. They do not add a second comparison implementa
 scorer. Load a set with the ordinary `accuracy-check` flow after building that demo.
 
 The intended trajectory is about **4/10 with schema only, 8/10 with the initial context, then
-10/10 after repairs**. These are design targets until validated, not scores promised by the
-fixtures. Keep all cases, passing controls and unsuccessful attempts in the measured report.
+10/10 after repairs**. The revised Fixit set measured **4/8/10**; Ticketfuddle measured **3/8/10 semantic accuracy**,
+with a repaired-response formatting caveat below. These are observed development-set scores, not guarantees. Keep all cases, passing controls and unsuccessful attempts in the measured report.
 The original Fixit experiment gave the baseline query history as well as tables. An intermediate
 run allowed table-value exploration. Main's current `raw` variant permits schema inspection and
 execution of the final answer SQL only: no sample rows, distinct values or intermediate data
@@ -91,7 +91,7 @@ and **10/10** after adding the complete source crew name/ID/type mapping. That m
 all eight crew members, both people and machines, and contains no costs or expected answers.
 The unchanged 8/10 context arm was retained from its completed run, with native answers/results
 and identical judge briefs verified; it was not resampled. The 1/10 baseline is below the
-roughly 4/10 target, so the intended SQL-control cohort is being reviewed against the stricter
+roughly 4/10 target, so the SQL-control cohort was revised against the stricter
 schema-only protocol. No score or question has been silently replaced.
 
 Ticketfuddle measured **3/10 schema-only, 8/10 injected context and 10/10 repaired semantic
@@ -99,8 +99,8 @@ answers**. The two seeded misses matched the predicted gross-sales and facility-
 One repaired response (TF07) appended two stray characters after a complete JSON object. Its
 semantic score uses that exact object with only the suffix removed; SQL, answer and transcript
 are unchanged, and the model was not rerun. Strict JSON format compliance is **9/10**, so this
-is not an unqualified end-to-end 10/10. [Review evidence](validation-in-progress.json) records SQL, observed results, grading
-and earlier iterations without private session transcripts. The two-demo goal is not complete.
+is not an unqualified end-to-end 10/10. [Review evidence](validation-results.json) records SQL, observed results, grading
+and earlier iterations without private session transcripts. All six current-cohort stages contain ten isolated answers. The full repository checks pass: 664 tests (99 skipped), 151 scoring checks and 47 context checks.
 
 ## Fixit control-cohort revision
 
@@ -115,4 +115,4 @@ The new experiment forks the corrected context, holds the entity/vocabulary clar
 and seeds only the declared missing-task classification. Both arms are rerun on all ten questions;
 no score is transferred from the previous question set. Earlier questions, SQL and measured
 1/8/10 results remain in the review evidence. A fresh baseline near four is a hypothesis, not a
-guarantee or a reason to change grading. Revision 2 measured **4/10 schema-only and 8/10 injected context**. Its full repaired-context run is in progress.
+guarantee or a reason to change grading. Revision 2 measured **4/10 schema-only, 8/10 injected context and 10/10 repaired context**. All four ordinary controls passed raw; all six rule cases failed raw. The two initial-context misses exactly match the declared missing-task classification. All ten questions were retested after the normal metric edit restored the rule.

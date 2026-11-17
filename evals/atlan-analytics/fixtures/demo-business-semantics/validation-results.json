@@ -1,5 +1,5 @@
 {
-  "status": "in_progress",
+  "status": "complete_with_format_caveat",
   "fixture_revision_note": "Fixit scores in this section belong to the original cohort; current canonical controls-v2 is a separate frozen experiment.",
   "excluded_harness_attempts": [
     {
@@ -4019,9 +4019,9 @@
       },
       {
         "stage": "classification_repaired",
-        "status": "partial",
-        "count": 4,
-        "passed": 4,
+        "status": "complete",
+        "count": 10,
+        "passed": 10,
         "results": [
           {
             "prompt_id": "delivered_material_spend",
@@ -4130,6 +4130,178 @@
                 [
                   "Dig",
                   5040.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "-£6,540 gross margin across completed jobs more than seven days past their planned end date (the late-completion threshold).",
+            "sql": "WITH late_completed AS (\n  SELECT project_id\n  FROM site.projects\n  WHERE status = 'complete'\n    AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n),\nledger AS (\n  SELECT p.project_id, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, 'labour', -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id\n  UNION ALL\n  SELECT p.project_id, 'materials', -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id\n)\nSELECT SUM(l.amount_gbp) AS gross_margin_gbp\nFROM ledger l\nJOIN late_completed lc ON lc.project_id = l.project_id\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "metric:yard:f5f9243ca485",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "gross_margin_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  -6540.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The delivered material we sent to the skip cost Fixit £7,646.50, counting wasted quantity at unit cost and excluding undelivered or cancelled orders.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_gbp"
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£38,705.00 in total nonbillable labour cost, using the four nonbillable task types defined in the local metric context.",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id WHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "nonbillable_labour_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  38705.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "71.4% of finished jobs were handed over on time (no more than 7 days after the planned end date).",
+            "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) AS on_time_rate FROM site.projects WHERE status = 'complete' AND actual_end_date IS NOT NULL AND planned_end_date IS NOT NULL LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:04bb02961603"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "on_time_rate"
+              ],
+              "rows": [
+                [
+                  0.7142857142857143
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "total_rework_labour_cost",
+            "prompt": "How much did rework labour cost in total?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£33,800.00",
+            "sql": "SELECT SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "rework_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  33800.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "pass",
+            "reason": "Both rows give each supplier’s cost-weighted delivered material waste share: 4.57% for Buttercup Vale Quarry and 4.09% for Hammerton Builders' Merchant.",
+            "model": "gpt-6-luna",
+            "answer": "Buttercup Vale Quarry: 4.57%; Hammerton Builders' Merchant: 4.09%. Percentages are the cost-weighted share of delivered material value wasted; undelivered and cancelled orders are excluded.",
+            "sql": "SELECT\n  supplier,\n  100.0 * SUM(wasted_quantity * unit_cost_gbp)\n    / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY supplier\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  4.567448680351906
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  4.091055761282095
                 ]
               ],
               "error": null
