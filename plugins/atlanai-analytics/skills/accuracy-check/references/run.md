@@ -11,7 +11,8 @@ load's `evals`. Every case needs its trusted result in `<evals-run>/eval/gold/`,
 ## Where the SQL runs
 
 `CHECK start` and `CHECK load` return `execution`. Read it before running anything: it decides
-how every statement in this file is executed, and the two ways are never mixed.
+how every statement in this file is executed, and the two ways are never mixed. Its `tables` are
+the source tables the run's metrics read.
 
 | `execution.via` | The run | SQL runs through |
 | --- | --- | --- |
@@ -40,8 +41,8 @@ trusted results come from the warehouse, and no model copies a value:
    Keep the Agent tool's `output_file`: it is the runner's transcript.
 2. `CHECK gold --evals <evals-run> --transcript <output_file>` reads each result from the tool
    call that ran exactly that SQL, following the path when the host saved a large result to a
-   file. It drops a question whose trusted SQL failed, returned nothing, or returned more rows
-   than one response holds (`dropped`, each with its reason), and sets the rest up for scoring.
+   file. It drops a question whose trusted SQL failed, returned nothing, returned over 100 rows
+   (a list of records, not an answer), or returned more rows than one response holds (`dropped`, each with its reason), and sets the rest up for scoring.
    It returns what `CHECK load` returns on a local run. Say how many were dropped and why: a set
    of 5 can come back as 3.
 3. A `BLOCKED` reply names each SQL with no result: it was changed on the way. Run that file
@@ -55,16 +56,22 @@ trusted results come from the warehouse, and no model copies a value:
   below, nothing else: no case id, tags, SQL, expected value or other question.
 - The agent answers the way a person's question is answered, through `analytics-ask` on the
   same context. A score therefore measures the context the person built.
-- **The script** compares the two results, each as the database returned it. No model grades a
-  result or copies one. A transcript that opens anything under `.atlan-evals/` or names an eval artifact is
-  marked contaminated and fails.
+- **The script** compares the two results, each as the database returned it, and passes every
+  exact match. No model copies a result. Where the script refuses an answer whose SQL ran (other
+  rounding, a percent for a share, an extra or missing label column), **a judge** rules: a fresh
+  agent with fixed instructions that reads only the question and the two results, never the
+  answering agent's conversation. An answer with no result fails without a judge. The summary
+  says how many answers the judge decided.
+- A transcript that opens anything under `.atlan-evals/` or names an eval artifact is marked
+  contaminated and fails.
 
 ## Run it
 
 1. `EVAL todo --variant baseline --reps 1` lists the questions not yet run. A stopped run
    resumes here.
-2. Start one subagent per question, all in one message and in the foreground (a generated set has 8),
-   so the test takes as long as its slowest question and every answer comes back together. For each:
+2. Start one subagent per question, 10 at a time, each 10 in one message and in the foreground (a
+   generated set has 20), so a batch comes back together: start the next 10 when a batch has replied.
+   For each:
    1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
       cost down, with this prompt, filled in:
       ```
@@ -93,7 +100,9 @@ trusted results come from the warehouse, and no model copies a value:
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
-   2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`.
+   2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`. An agent
+      that ends without the JSON object is asked once, in the same subagent, for that object
+      alone. With none still, save its last message there as it is.
    3. Get the result of its `sql` as
       `<evals-run>/hillclimb/baseline/agent_results/<id>_rep0.json`. Never edit the agent's SQL,
       not even a table prefix: a query that fails as given is `agent_sql_error`. An empty `sql`
@@ -101,30 +110,97 @@ trusted results come from the warehouse, and no model copies a value:
       - **Local:** run it exactly as given with `PROJECT execute` and save the output there.
       - **A warehouse:** the agent already ran it. `EVAL agent-result --transcript <output_file>
         --answer-file <answer> --out <that file>` reads the result from the agent's own tool
-        call. When it returns `source: replay`, the result could not be read whole, or the
+        call. An agent that states no SQL, or a stand-in such as "the SQL above", is
+        graded on the last read it ran (`source: transcript_last_call`); one that ran nothing
+        returns `source: none`, and is recorded without `--agent-result`. When it returns `source: replay`, the result could not be read whole, or the
         agent stated a statement it did not run: have a runner subagent run the `sql_file` it
         names exactly as written, as above, then `EVAL agent-result` again with the runner's
         transcript. A statement the warehouse rejects in the replay too is saved as
         `{"error": "<the tool's message>"}`. A tool timeout is not the agent's miss: record it
         as `--class harness_error`.
-   4. `EVAL record --variant baseline --case <id> --rep 0 --answer-file <answer> --agent-result <agent result> --gold-result <evals-run>/eval/gold/<id>.json --transcript <output_file>`.
+   4. `EVAL record --variant baseline --case <id> --rep 0 --judge --answer-file <answer> --agent-result <agent result> --gold-result <evals-run>/eval/gold/<id>.json --transcript <output_file>`.
       A run that failed outside the agent (a timeout, a tool error) is
-      `record --class harness_error --reason "<what failed>"` with no answer file.
+      `record --class harness_error --reason "<what failed>"` with no answer file. `record`
+      refuses an answer that states SQL with no `--agent-result`: finish the replay first.
+   5. When `record` returns `status: judge`, it wrote no row: the exact comparison refused an
+      answer that ran. Start one subagent on its `model` with its `prompt` as the whole prompt,
+      unchanged, save the JSON it replies with to `verdict_file`, and run the same `record` again
+      with `--verdict <verdict_file>`. Start every judge a batch needs at once. Never rule
+      yourself, and never tell a judge what you expect.
 3. `EVAL summary --variant baseline --require-isolation` must show one row per question. It
    refuses a score while a row lacks its agent's transcript: re-record that row with
    `--transcript`. Never quote a partial run.
 
+## Before and after
+
+Run on every check: whether a person asked here directly, the build offered it or the demo
+started it, and whatever the size of the set. Never skip it because nobody asked for it. The
+same questions
+again, each to a fresh agent that has only the source's tables and no context, as the variant
+`raw`. It shows what the context changed, on the same questions and the same trusted results.
+
+1. `EVAL todo --variant raw --reps 1` lists the questions. Run them as [run it](#run-it) does,
+   in the same batches as the context pass, with three differences:
+   - The prompt, filled in, with `<tables>` from `execution.tables` and `<how to run SQL>` as above:
+     ```
+     <question>
+
+     Answer this question about <firm or project>'s data. You have no prepared definitions:
+     work from the source itself. Its data is in these tables: <tables>. You may look at their
+     columns and values with read-only SQL first. Use no skill and no Atlan tool, and open
+     nothing in the run folder. <how to run SQL>
+     End with one JSON object and nothing after it:
+     {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>"}
+     ```
+   - Its files go under `<evals-run>/hillclimb/raw/` and every `EVAL` call names `--variant raw`.
+   - `EVAL record` adds `--raw <run>`: an answer whose agent reached for a skill, an Atlan tool,
+     any MCP server other than the warehouse's, or the run's context folder is `raw_used_context`
+     and leaves both scores, as `report` says. Counted as a miss, it would flatter the context. It keeps `--judge`: both passes are graded the
+     same way.
+2. `EVAL summary --variant raw --require-isolation` must show one row per question.
+3. `EVAL before-after --before raw --after baseline` returns the comparison, the moment the
+   person sees what their context is worth, in two parts:
+   - `report`, the card: a headline ("With your context, 11 of 14 right. On the raw tables, 1 of
+     14."), one bar per pass with a block per question, and one line on what changed.
+   - `changes`, a markdown table of the questions that went from wrong to right, and any that
+     went the other way, each under its number. Empty when nothing changed.
+   Show both word for word, as [show the score](#show-the-score) places them. Never rebuild their
+   numbers, never redraw the bars, and never show one pass's score without the other. When the
+   context pass scores no higher than the raw source, say so in one plain line: these questions
+   are ones the tables answer on their own. Never explain it away.
+
 ## Show the score
 
-Lead with the summary's `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
-line: the questions came from the past queries and tiles the context was built from, so the score
-shows the context reproduces what the analysts asked, not how it handles a new question. With
-`generated: false` (a set the person brought) there is no such line: say nothing about where its
-questions came from, not even that you are leaving it out.
+The result comes first and nothing is written around it: no setup recap, no list of commands,
+no closing summary. A person who asked how accurate the agent is reads the score in the first
+line, and a result buried under process is a result they miss.
 
-Then one line per miss: the question, the metric it tests, the expected value, the agent's
-value, and **why it failed**, read from the agent's answer and SQL against the trusted SQL.
-These are plain lines, no table: they become a question's text.
+With a before pass, the comparison comes first, in this order: the card (`report`), then
+`changes` under it: `headline` in bold, then `bars` (the card below its headline) in a fenced
+block with no language, so the bars line up. They go in a chat message that ends the turn, never
+in a native question's text, which is rewritten into one line. Then show the run report as
+printed: `EVAL report --why <why file>` gives the same sections for every run of a check, the
+first or the tenth, so a later run never reads thinner than the first. It holds the
+`score_line`, word for word ("67% accuracy: 2 of 3 answered correctly"), every run on this set, which run it is compared with and where that
+run lives, the questions that changed since, and the misses grouped by cause. Never count the
+passes yourself, never drop a section and never rebuild its numbers.
+
+Only when `CHECK load` returned `generated: true`, add these lines after the score, as they are:
+"These questions were written from your own dashboards and past queries. So this score says
+the agent can answer what your team already asks. It does not say how it will do on a question
+nobody has asked before." With `generated: false` (a set the person brought) there is no such
+line: say nothing about where its questions came from, not even that you are leaving it out.
+
+**Every miss has a number, and keeps it.** A question's number is its place in the set, the
+same in the list the person confirmed, in every run's report and in a fix. Each miss is four
+plain lines under its number: the question; `Tests <metric>`; `Expected <value>. Got <value>.`;
+`Why: <one plain sentence>`. No table: they become a question's text.
+
+Before the report, write the why file, `<evals-run>/hillclimb/<variant>/why.json`: for each
+missed question id, `{"why": "<one cause from the table below>", "detail": "<one plain
+sentence>"}`, read from the agent's answer and SQL against the trusted SQL. The report groups
+the misses by that cause. A miss you leave out is printed as "Not yet explained", and the
+report's `unexplained` names it: explain it and print the report again.
 
 | Why | Means |
 | --- | --- |
@@ -135,7 +211,8 @@ These are plain lines, no table: they become a question's text.
 | Question asks the opposite | The answer is the trusted result's complement (the share rejected where the SQL counts the share approved), and both rank the same. The question's wording, not the context, is wrong |
 
 Report the miss as the set states it, without doubting the set. Name the metric involved when there is one. `harness_error` and `incomplete` questions leave
-the count; name how many.
+the count; name how many. When the summary's `judge_passed` is above zero, say in one line how
+many answers a judge accepted after the exact comparison refused them.
 
 ## Test again
 
@@ -144,30 +221,48 @@ on the same eval folder as the next variant (`v1`, then `v2`) on the same questi
 question first. When the caller names a metric version, add one line to
 each answering agent's prompt: "If you use <metric>, read it at version <N>; read every other
 metric at its released version." Never list only the changed metrics: an agent told to read
-those reads nothing else. Show `EVAL compare --a baseline --b v1` as one line
-per question that changed, with the new score line.
+those reads nothing else. Show `EVAL report` as printed: it names the run this one is compared
+with, when that run was scored and where it lives (the folder on this machine, or the
+experiment in Atlan Trident once the check is saved), then the questions that changed, by
+number. A comparison whose other run the person cannot find is no comparison. `EVAL compare
+--a baseline --b v1` gives the same change as numbers when asked. The raw-source pass is not
+run again: the source did not change.
+
+A comparison is only ever with a run of this same eval folder. When the person asks to compare
+with another run (an older check, another set), `CHECK start` lists the project's eval folders
+under `checks`: ask which one, once, and say which you used. Never pick one silently, and never
+compare runs graded on different questions.
 
 ## Save to Atlan Trident
 
-Called when the caller asks to save a check. The caller gives the workspace and the agent's id
-(`agent_...`); this skill registers nothing.
+Offered after every check's result, on every path, as the demo's
+[the result](../../analytics-demo/references/accuracy.md#5-the-result) step words the question.
+The caller gives the workspace; this skill registers nothing, and no agent is needed. Atlan
+holds a run without a subject: the set, each run and its scored answers are saved, and only the
+per-question sessions, which Atlan ties to an agent, are left out.
 
-1. `EVAL init --agent-id <id> --workspace-id <workspace>` records them on the eval folder.
-2. Publish each run in order, the first one first: `EVAL publish --variant baseline
-   --no-transcripts`, then for each test again `EVAL publish --variant <vN> --baseline <the run
-   before it> --no-transcripts`, each with
+1. `EVAL init --workspace-id <workspace>` records it on the eval folder. When the check's agent is
+   already registered, add `--agent-id <id>` and its runs are listed under it.
+2. Publish each run in this order, so Atlan shows what the context changed and then what each
+   fix changed: the raw-source pass first, `EVAL publish --variant raw --no-transcripts`; then the
+   context pass against it, `EVAL publish --variant baseline --baseline raw --no-transcripts`;
+   then for each test again `EVAL publish --variant <vN> --baseline <the run before it>
+   --no-transcripts`. Each with
    `EVAL publish-ack` until `"step": "done"`, as
    [publish](../../eval-generation/references/publish.md) describes: `--ids` for every step but
    `results`, which this skill acknowledges with its tool result (`--responses`), so publish-ack
    checks each saved score against the run's. Send each
    call's arguments exactly as `publish` printed them. When `publish-ack` returns `MISMATCH`, a
    saved score differs from the run's: stop and follow its `fix` before publishing anything else.
+   A refused create of the scorer means the workspace already holds `result-match`: find it with
+   `registry__search_artifacts` (`kind` `scorer`, that workspace) and pass its id with `--ids`.
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
-the run as an experiment, each answer with its SQL and score. Never the answering agents'
+the run as an experiment, each answer with its SQL and score. The raw-source pass is named "raw
+tables, no context" and the context pass "with your context", so the two read as a comparison. Never the answering agents'
 transcripts: they hold this machine's commands and paths. Each later run is an experiment
 linked to the one before it, so the workspace shows the score move. Then `CHECK link --evals
 <evals-run> --org <organization slug>` gives the Atlan pages: `runs` (every run of the check) and
-`last_run` (the last one against its baseline). The slug is the one the context's proof links use
+`last_run` (the last one against its baseline, the page to give the person). The slug is the one the context's proof links use
 ([definition links](../../analytics-ask/references/definition-links.md)). Return each run's
 `experiment_id`, the workspace and both links.
