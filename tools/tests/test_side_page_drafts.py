@@ -84,6 +84,66 @@ class Batches(unittest.TestCase):
         self.save('x2', '01.json', {'metrics': [{'name': 'Win rate', 'sources': ['h-1#0']}]})
         self.assertNotEqual(side_page._fingerprint(self.run), before)
 
+    def test_a_described_batch_changes_what_the_page_follows(self):
+        # The describe step's batches never reached the page: its count stood still while the chat posted each one.
+        before = side_page._fingerprint(self.run)
+        time.sleep(0.01)
+        self.save('m2', '001.json', {'queries': [{'vq_id': 'h-1', 'name': 'Win rate by month'}]})
+        self.assertNotEqual(side_page._fingerprint(self.run), before)
+
+    # The count at the top is the same fact as the list under it and the chat's batch line: a desktop run's top read
+    # "0 of 10 rules written" for four minutes while the list showed 5 written.
+
+    def at(self, *stages, **counts):
+        (self.engine / 'manifest.json').write_text(json.dumps({'stages': [
+            {'stage': s, 'counts': counts.get(s, {})} for s in ('s0_inputs',) + stages]}))
+        f = RunFacts(self.run)
+        return side_page.header(f, [{'id': 'metrics', 'status': 'now', 'purpose': 'Build and check metrics'}],
+                                side_page.details(f), True)['count']
+
+    def test_the_top_counts_the_queries_each_batch_described(self):
+        self.save('m2', '001.json', {'queries': [{'vq_id': 'h-1', 'name': 'Win rate by month'},
+                                                 {'vq_id': 'h-2', 'name': 'Win share'}]})
+        self.assertEqual(self.at('m2_emit', m2_emit={'queries': 4}), {'n': 2, 'of': 4, 'unit': 'queries'})
+
+    def test_the_top_counts_the_queries_each_batch_read(self):
+        self.assertEqual(self.at('m2_ingest', 'x1_emit', x1_emit={'queries': 6}), {'n': 3, 'of': 6, 'unit': 'queries'})
+
+    def test_the_top_counts_the_metrics_each_merge_made(self):
+        self.save('x2', '01.json', {'metrics': [{'name': 'Win rate', 'sources': ['h-1#0', 'h-2#0']}]})
+        self.assertEqual(self.at('x1_ingest', 'x2_emit'), {'n': 1, 'unit': 'metric so far'})
+
+    def test_the_top_counts_the_metrics_each_batch_defined(self):
+        self.save('x2', '01.json', {'metrics': [{'name': 'Win rate', 'sources': ['h-1#0', 'h-2#0']},
+                                                {'name': 'Pipeline', 'sources': ['h-2#1', 'h-3#0']}]})
+        self.save('x3', '01.json', {'metrics': [{'name': 'Win rate', 'description': 'Share of closed deals won.'}]})
+        self.assertEqual(self.at('x2_ingest', 'x3_emit'), {'n': 1, 'of': 2, 'unit': 'metrics'})
+
+    def test_the_queries_show_while_the_build_runs(self):
+        # A desktop run's Queries list stayed empty for 20 minutes: it read only the checked context.
+        (self.engine / 'verified_queries.json').write_text(json.dumps({'objects': [
+            {'vq_id': 'h-1', 'question': 'What is the win rate by month?', 'sql': 'SELECT 1'},
+            {'vq_id': 'bi-1', 'question': 'What is the pipeline?', 'sql': 'SELECT 2'}]}))
+        queries = side_page.details(RunFacts(self.run))['queries']
+        self.assertEqual([q['question'] for q in queries], ['What is the win rate by month?', 'What is the pipeline?'])
+        self.assertEqual({q['status'] for q in queries}, {'drafted'})
+
+    def test_the_rail_names_the_step_the_top_names(self):
+        # The rail read "Checking metric cards" while the top read "Writing each metric's rule" and the chat said it was
+        # writing them: the card step writes each metric's definition, and checks nothing.
+        import experience
+        self.assertEqual([experience.ENGINE_PHASES[g] for g in ('m2', 'x1', 'x2', 'x3')],
+                         ['Putting each query in plain words', 'Finding the numbers each query measures',
+                          'Combining possible metrics, one per number', 'Writing what each metric counts and leaves out'])
+
+    def test_each_state_a_metric_passes_has_its_own_plain_name(self):
+        # "Final" came before "Checked": a person could not tell which metrics had run on the data.
+        import re
+        page = side_page.PAGE.read_text(encoding='utf-8')
+        labels = dict(re.findall(r"(\w+): \['([^']+)'", re.search(r'const STATUS = \{(.*?)\};', page).group(1)))
+        names = [labels[s] for s in ('draft', 'merged', 'final', 'checking', 'checked', 'look')]
+        self.assertEqual(names, ['Found', 'Being defined', 'Not checked yet', 'Checking', 'Checked', 'Needs a look'])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -450,7 +450,7 @@ function stepLabel(S) {
   return `Step ${n.at + 1} of ${M} · ${txt(n.step)}`;
 }
 
-const STATUS = {draft: ['Draft', ''], merged: ['Merged', ''], final: ['Final', ''], drafted: ['Drafted', ''], checking: ['Checking', 'brand'], tool: ['Warehouse check', ''], checked: ['Checked', 'ok'], look: ['Needs a look', 'warn']};
+const STATUS = {draft: ['Found', ''], merged: ['Being defined', ''], final: ['Not checked yet', ''], drafted: ['Not checked yet', ''], checking: ['Checking', 'brand'], tool: ['Warehouse check', ''], checked: ['Checked', 'ok'], look: ['Needs a look', 'warn']};
 const statusOf = s => STATUS[s] ? s : 'drafted';
 function statusBadge(s, UI) {
   s = statusOf(s);
@@ -556,7 +556,7 @@ function row(S, UI, m, sel) {
   const desc = m.rule ? esc(m.description)
     : from.length ? `<span class="wt">Merged from ${esc(from.join(' + '))}</span>`
     : m.status === 'draft' && txt(m.description) ? `<span class="wt">${esc(m.description)}</span>`
-    : '<span class="wt">Rule not written yet</span>';
+    : '<span class="wt">Being defined</span>';
   return `<button type="button" class="mr" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(lc(m.name))}" data-f="${esc(lc(m.name))}" data-s="${s}${m.rule ? 'r' : ''}"${UI.wide ? ` aria-pressed="${sel}"` : ''}>`
     + kindM() + `<span class="mm"><span class="nm">${esc(m.name)}</span>${desc ? `<span class="ds ell">${desc}</span>` : ''}<span class="src n">${srcBadges(m)}</span></span>`
     + `<span class="src w">${srcBadges(m)}</span><span class="w">${statusBadge(s, UI)}</span>`

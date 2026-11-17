@@ -233,8 +233,8 @@ BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
 
 
 def batch_progress(run, gate):
-    """What the person sees while a batched gate is answered: after each saved file, the setup
-    helper prints the metrics in it, and the assistant posts that text in chat."""
+    """What the person sees while a batched gate is answered: each saved file on the side page as it lands, and
+    in the chat, the step's chip when the step ends."""
     project = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts' / 'project.py'
     if gate not in BATCHED_GATES or not project.is_file() or not (run.parent / 'run.json').is_file():
         return None
@@ -242,10 +242,12 @@ def batch_progress(run, gate):
     return {'command': command,
             'follow': command + ' --follow',
             'say': ('One subagent writes this gate in numbered batch files and runs no drafts command. '
-                    'The session that talks to the person runs `follow` as a background watch and sends '
-                    'each line it prints as its own chat message, exactly as printed: the person does not '
-                    'see command output. With no background subagent or watch, write the gate in that '
-                    'session and run `command` after each file instead.')}
+                    'The session that talks to the person runs `follow` as a background watch: each line '
+                    'it prints names the `visual` call that is due: the step\'s chip when a step ends, and '
+                    'how far it has got every few minutes while batches land; run it and show what it gives, '
+                    'with no words of your own. The side page shows each batch as it lands, so no batch goes '
+                    'in the chat. With no background subagent or watch, write the gate in '
+                    'that session and run `visual next` once the gate is accepted.')}
 
 
 def last_stage_output(text):

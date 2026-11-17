@@ -108,10 +108,11 @@ TICKER = (
 
 # The outcome chip: what a step produced, on one line as tall as the ticker. Each step leads with its own mark.
 OUTCOME = (
-    '.oc{display:inline-flex;align-items:center;gap:9px;padding:6px 12px;border-radius:12px;background:var(--sb);outline:.5px solid var(--bd);'
+    '.oc{display:inline-grid;grid-auto-flow:column;grid-template-columns:auto minmax(0,max-content);grid-auto-columns:minmax(0,1fr);'
+    'align-items:center;gap:9px;padding:6px 12px;border-radius:12px;background:var(--sb);outline:.5px solid var(--bd);'
     'color:var(--tx);font:13px/18px Geist,system-ui,-apple-system,sans-serif;max-width:100%;box-sizing:border-box;white-space:nowrap;min-width:0;overflow:hidden}'
-    '.oc .h{flex:0 0 auto;max-width:calc(100% - 26px);min-width:0;overflow:hidden;text-overflow:ellipsis}.oc .h b{font-weight:600;font-size:14px}.oc .h em{font-style:italic}'
-    '.oc .t{flex:0 100 auto;color:var(--ts);overflow:hidden;text-overflow:ellipsis;min-width:0}'
+    '.oc .h{min-width:0;overflow:hidden;text-overflow:ellipsis}.oc .h b{font-weight:600;font-size:14px}.oc .h em{font-style:italic}'
+    '.oc .t{color:var(--ts);overflow:hidden;text-overflow:ellipsis;min-width:0}'
     '.oc .t::before{content:"\\00b7  "}.oc .m{display:inline-flex;align-items:center;flex:none;font-style:normal;color:var(--c1)}'
     '.oc .m svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}'
     '.oc .m.found svg{width:15px;height:15px;margin-right:-3px}.oc .m.sources{color:var(--ts)}.oc .m.ok{color:var(--sk)}.oc .m.look{color:var(--wx)}'
@@ -119,6 +120,11 @@ OUTCOME = (
     '.oc .m.rules{font-weight:700;font-size:15px;line-height:1;width:17px;justify-content:center}'
     '.oc .m.tiles{display:inline-grid;gap:2px}.oc .m.tiles b{width:5px;height:5px;border-radius:1px;background:var(--kx)}'
 )
+# A chip with a line under it, shown closed: each part keeps its place and the line wraps under the words. Only the chips
+# that carry one pay for these rules.
+TWO = ('.oc.two{grid-template-rows:auto auto}.oc.two>.m{grid-area:1/1}.oc.two>.h{grid-area:1/2}.oc.two>.t{grid-area:1/3}'
+       '.oc.two>.cv{grid-area:1/4}.oc .ws{grid-area:2/2/3/span 2;min-width:0;white-space:normal;font-size:12px;line-height:17px;'
+       'color:var(--ts)}')
 MARKS = {
     'sources': '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 10h17M3.5 14.5h17M9.5 10v9"/>',
     'group': '<path d="M5 5c4 0 5 7 9 7h5M5 19c4 0 5-7 9-7"/><path d="m16 9 3 3-3 3"/>',
@@ -170,10 +176,49 @@ def ticker(body, summary):
     return '<style>%s%s</style><div class="a c3" role="note" aria-label="%s">%s</div>' % (themes(names), TICKER, e(summary), body)
 
 
-def outcome(body, summary):
-    """An outcome chip widget with only the tokens its rules and markup use."""
-    names = sorted({t for t in re.findall(r'var\(--(\w\w)\)', OUTCOME + body) if t in TOKENS})
-    return '<style>%s%s</style><div class="a oc" role="note" aria-label="%s">%s</div>' % (themes(names), OUTCOME, e(summary), body)
+def _under(sub):
+    """A chip's line under it: its class, its markup and the rules that lay it out, or nothing."""
+    return (' two', '<span class="ws">%s</span>' % e(sub), TWO) if sub else ('', '', '')
+
+
+def outcome(body, summary, sub=''):
+    """An outcome chip widget with only the tokens its rules and markup use, and a line under it when there is one."""
+    two, line, css = _under(sub)
+    css = OUTCOME + css
+    names = sorted({t for t in re.findall(r'var\(--(\w\w)\)', css + body) if t in TOKENS})
+    return '<style>%s%s</style><div class="a oc%s" role="note" aria-label="%s">%s%s</div>' % (
+        themes(names), css, two, e(summary), body, line)
+
+
+# A chip that opens: its row is the chip, mark, outcome, tail and an arrow; opened, it is a card holding one sentence on
+# what the step did and the list it produced. A <details> element, so it opens in any host, with or without script.
+OPEN = (
+    '.ox{display:inline-block;max-width:100%;vertical-align:top;color:var(--tx);font:13px/18px Geist,system-ui,-apple-system,sans-serif}'
+    '.ox>summary{list-style:none;cursor:pointer;grid-template-columns:auto minmax(0,max-content) minmax(0,1fr) auto}'
+    '.ox>summary::-webkit-details-marker{display:none}.ox>summary:focus-visible{outline:2px solid var(--bt);outline-offset:1px}'
+    '.ox .cv{display:inline-flex;grid-column:4;color:var(--ts);transition:transform .15s}.ox[open] .cv{transform:rotate(180deg)}'
+    '.ox .cv svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}'
+    '.ox[open]{display:block;border-radius:14px;outline:1px solid var(--bc);background:var(--bg)}'
+    '.ox[open]>summary.oc{display:grid;outline:none;background:none;border-radius:14px 14px 0 0}'
+    '.ox .xb{display:grid;gap:8px;padding:2px 16px 14px}.ox .mt{font-size:13px;line-height:18px;color:var(--ts)}'
+    '.ox .ls{display:grid;font-size:13px;line-height:18px}.ox .ls>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;'
+    'border-top:.5px solid var(--bd);padding:6px 0}.ox .ls span{color:var(--ts);font-variant-numeric:tabular-nums}'
+    '.ox .ls em{grid-column:1/-1;font-style:normal;color:var(--ts);font-size:12px;line-height:17px}.ox .more{font-size:12px;color:var(--ts)}'
+    '.ox .mo{display:flex;gap:6px;align-items:center;font-size:12px;line-height:16px;color:var(--bt);text-decoration:none;'
+    'border-top:.5px solid var(--bd);padding-top:8px}'
+    '.ox .mo svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}'
+)
+CHEVRON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>'
+
+
+def opening(row, detail, summary, sub=''):
+    """A chip that opens into a card, with only the tokens its rules and markup use, and a line under it, shown closed,
+    when there is one."""
+    two, line, css = _under(sub)
+    css = OUTCOME + OPEN + css
+    names = sorted({t for t in re.findall(r'var\(--(\w\w)\)', css + row + detail) if t in TOKENS})
+    return ('<style>%s%s</style><details class="a ox" aria-label="%s"><summary class="oc%s">%s<i class="cv">%s</i>%s</summary>'
+            '<div class="xb">%s</div></details>' % (themes(names), css, e(summary), two, row, CHEVRON, line, detail))
 
 
 def card(body, summary):

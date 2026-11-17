@@ -103,8 +103,14 @@ def first_question(text):
     return found.group(1) if found else text
 
 
+# Names of months and days keep their capital wherever they fall in a name.
+CALENDAR = {'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november',
+            'december', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'}
+
+
 def sentence(name):
-    """'On-Time Rate' reads as 'On-time rate'; words in capitals, such as SQL, stay; 'margin-by-job' reads as words."""
+    """'On-Time Rate' reads as 'On-time rate'; words in capitals, such as SQL, and months and days stay; 'margin-by-job'
+    reads as words."""
     name = str(name).strip()
     if re.fullmatch(r'[a-z0-9]+(?:[-_][a-z0-9]+)+', name):
         name = re.sub(r'[-_]', ' ', name).capitalize()
@@ -112,7 +118,7 @@ def sentence(name):
     out, first = [], True
     for w in words:
         if w and not w.isspace() and w != '-':
-            if not first and w[:1].isupper() and w[1:].islower():
+            if not first and w[:1].isupper() and w[1:].islower() and re.sub(r'\W', '', w).lower() not in CALENDAR:
                 w = w.lower()
             first = False
         out.append(w)

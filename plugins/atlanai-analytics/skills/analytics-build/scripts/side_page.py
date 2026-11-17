@@ -53,9 +53,9 @@ GROUP_OF = {stage: group for group, stages in WORK for stage in stages}
 # What each piece of the build is, for the line under the step and the Next line.
 WORK_NAME = {
     'tables': 'Load the tables on this machine', 'group': 'Group past queries into questions',
-    'translate': "Translate the dashboard's tiles into queries", 'describe': 'Describe each query in plain words',
-    'read': 'Read each query for the number it measures', 'merge': 'Merge them into metrics',
-    'rules': "Write each metric's rule", 'link': 'Link metrics that build on each other',
+    'translate': "Translate the dashboard's tiles into queries", 'describe': 'Put each query in plain words',
+    'read': 'Find the numbers each query measures', 'merge': 'Combine possible metrics, one per number',
+    'rules': 'Write what each metric counts and leaves out', 'link': 'Link metrics that build on each other',
     'check': 'Check each metric and query on the data',
 }
 
@@ -129,7 +129,7 @@ def _verdicts(f):
     return out, bool(checks)
 
 
-BATCHED = ('x1', 'x2', 'x3')  # the propose, merge and card steps save their answers in numbered batches
+BATCHED = ('m2', 'x1', 'x2', 'x3')  # the describe, propose, merge and card steps save their answers in numbered batches
 
 
 def _batches(f, gate, key):
@@ -270,6 +270,12 @@ def details(f):
                 ('question', _cut(first_question(d.get('question') or q.get('display_name')), 200)),
                 ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over else waiting if checking else 'drafted'),
                 ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and not v else None)) if x})
+    if not queries:
+        # Before the checks, the engine's own queries as it writes them, named as the checked context names them.
+        for o, words in known.values():
+            question = _cut(first_question(words.get('question') or o.get('question')), 200)
+            if question:
+                queries.append({'name': sentence(question), 'question': question, 'status': 'drafted'})
     def bi_of(o):
         prov = o.get('provenance') if isinstance(o.get('provenance'), dict) else {}
         return prov.get('bi') if isinstance(prov.get('bi'), dict) else {}
@@ -332,6 +338,16 @@ def _work(f):
     return GROUP_OF[passed[-1]] if passed else None
 
 
+def _batch_counts(f, gate):
+    """A step's counts over the batches it has saved, as its chat lines count them: before the step is accepted, the
+    batches are the build's progress."""
+    import drafts
+    try:
+        return drafts.counts(f.dir, gate, f.engine)
+    except (OSError, ValueError):
+        return {}
+
+
 def _offer(f, d, demo):
     parts = [] if demo else [count(len(f.tables), 'table')] if f.tables else []
     if d['tiles']:
@@ -388,24 +404,31 @@ def header(f, steps, d, demo):
                      bar=done / tiles if tiles else 0, note=('%d of %d ran on the data' % (st('a4_witness_bi', 'verdict_pass') or 0, ran))
                      if ran else None)
         elif work == 'describe':
-            total = st('m2_emit', 'queries') or st('m1_merge_pre', 'merged')
-            done = st('m2_ingest', 'described') or st('c3_ingest', 'candidates') or 0
+            batch = _batch_counts(f, 'm2')
+            total = st('m2_emit', 'queries') or batch.get('total') or st('m1_merge_pre', 'merged')
+            done = st('m2_ingest', 'described') or batch.get('described') or st('c3_ingest', 'candidates') or 0
             # Before the total is known (the dashboard's tiles are described first), the bar moves with no end to fill to.
-            h.update(title='Describing each query in plain words', n=done, of=total, unit='queries described',
+            h.update(title='Putting each query in plain words', n=done, of=total, unit='queries',
                      bar=done / total if total else None)
         elif work == 'read':
-            total, done = st('x1_emit', 'queries'), st('x1_ingest', 'answered') or 0
-            h.update(title='Reading each query for the number it measures', n=done, of=total, unit='queries read',
-                     bar=done / total if total else 0,
-                     note=('%s found' % count(st('x1_ingest', 'proposals'), 'possible metric')) if st('x1_ingest', 'proposals') else None)
+            batch = _batch_counts(f, 'x1')
+            total = st('x1_emit', 'queries') or batch.get('queries_total')
+            done = st('x1_ingest', 'answered') or batch.get('queries_read') or 0
+            found = st('x1_ingest', 'proposals') or batch.get('drafts')
+            h.update(title='Finding the numbers each query measures', n=done, of=total, unit='queries',
+                     bar=done / total if total else 0, note=('%s found' % count(found, 'possible metric')) if found else None)
         elif work == 'merge':
-            made, proposed = st('x2_ingest', 'metrics_out'), st('x2_emit', 'proposals') or st('x1_ingest', 'proposals')
-            h.update(title='Merging different ways of asking into metrics', n=made or 0, unit='metric made' if made == 1 else 'metrics made',
-                     bar=1 if made is not None else 0, note='From %s' % count(proposed, 'possible metric') if proposed else None)
+            batch = _batch_counts(f, 'x2')
+            made, proposed = st('x2_ingest', 'metrics_out'), st('x2_emit', 'proposals') or st('x1_ingest', 'proposals') or batch.get('drafts')
+            # Until the step is accepted, each saved merge counts, and the bar fills with the drafts merged so far.
+            bar = 1 if made is not None else batch['drafts_merged'] / batch['drafts'] if batch.get('drafts') else 0
+            made = made if made is not None else batch.get('metrics', 0)
+            h.update(title='Combining possible metrics, one per number', n=made, unit='metric so far' if made == 1 else 'metrics so far',
+                     bar=bar, note='From %s' % count(proposed, 'possible metric') if proposed else None)
         elif work == 'rules':
             n = len(metrics)
-            written = n if 'x3_ingest' in f.stages else 0
-            h.update(title="Writing each metric's rule", n=written, of=n, unit='rules written', bar=written / n if n else 0)
+            written = n if 'x3_ingest' in f.stages else min(_batch_counts(f, 'x3').get('defined', 0), n)
+            h.update(title='Writing what each metric counts and leaves out', n=written, of=n, unit='metrics', bar=written / n if n else 0)
         elif work == 'link':
             # The links are counted once the step has finished; while it runs, the bar moves with no count.
             edges = st('x4_ingest', 'edges')
@@ -560,13 +583,18 @@ def _fingerprint(run):
     except OSError:  # removed while the run was read
         listed = []
     if listed:
-        for e in listed:
+        for folder in (engine, *(engine / 'answers' / g for g in BATCHED)):
             try:
-                if e.is_file():
-                    st = e.stat()
-                    h.update(('%s %d %d\n' % (e.name, st.st_size, st.st_mtime_ns)).encode())
+                entries = listed if folder == engine else sorted(os.scandir(folder), key=lambda e: e.name)
             except OSError:
                 continue
+            for e in entries:
+                try:
+                    if e.is_file():
+                        st = e.stat()
+                        h.update(('%s/%s %d %d\n' % (folder.name, e.name, st.st_size, st.st_mtime_ns)).encode())
+                except OSError:
+                    continue
     return h.hexdigest()
 
 

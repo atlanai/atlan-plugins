@@ -14,10 +14,10 @@ import re
 import sys
 
 import visual_kit as k
-from run_facts import RunFacts, count, first_question, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
+from run_facts import RunFacts, count, first_question, from_dashboard, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
-KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'build', 'context', 'saved',
-         'answer', 'layout', 'edit')
+KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'progress', 'build', 'context',
+         'saved', 'answer', 'layout', 'edit')
 # The moments big enough for a mini card. A later answer gets a chip. A context kept on this machine and a dashboard layout
 # show nothing: the person has just chosen the one, and the layout's own question proposes the other.
 CARDS = ('build', 'saved', 'answer', 'edit')
@@ -182,25 +182,35 @@ def collect(kind, facts):
         return {'evidence': facts.merged}
     chosen = facts.inputs or {'bi': True, 'history': True}
     if kind == 'group' and chosen['history'] and facts.stage('h1_shapes', 'canonical_shapes'):
-        return {'questions': facts.stage('h1_shapes', 'canonical_shapes'), 'read': facts.stage('h0_corpus', 'kept')}
+        return {'questions': facts.stage('h1_shapes', 'canonical_shapes'), 'read': facts.stage('h0_corpus', 'kept'),
+                'total': (facts.history or {}).get('statements') or facts.query_log, **_asked(facts)}
     if kind == 'tiles' and chosen['bi']:
         # The dashboard's tiles, each written up as a question: the engine's file for them appears once they are.
         tiles = [o for o in facts.engine_file('verified_queries.bi.json').get('objects') or [] if isinstance(o, dict)]
         bi = [((o.get('provenance') if isinstance(o.get('provenance'), dict) else {}).get('bi') or {}) for o in tiles]
         if tiles:
             # Its page in the dashboard, kept apart from `page`, which is the side page's own address.
-            return {'tiles': len(tiles), 'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None)}
+            return {'tiles': len(tiles), 'bi_page': next((str(b['page']) for b in bi if isinstance(b, dict) and b.get('page')), None),
+                    'rows': [[str(b['visual']), ''] for b in bi if isinstance(b, dict) and b.get('visual')]}
     if kind == 'described' and 'm2_ingest' in facts.stages:
         return _described(facts)
     if kind == 'metrics' and 'x2_ingest' in facts.stages and facts.merged:
-        return {'metrics': [m['name'] for m in facts.merged]}
+        return {'metrics': [m['name'] for m in facts.merged], 'rows': [[m['name'], _from(m)] for m in facts.merged]}
     if kind == 'rules' and 'x3_ingest' in facts.stages:
-        rule = next(((m['name'], r) for m in facts.merged for r in [_rule(facts, m['name'])] if r), None)
-        return {'metric': rule[0], 'rule': rule[1]} if rule else {}
+        rows = [[m['name'], '', d] for m in facts.merged for d in [_definition(facts, m['name'])] if d]
+        return {'defined': len(facts.merged), 'rows': rows} if rows else {}
     if kind == 'links' and 'x4_ingest' in facts.stages:
         edges = [x for x in facts.engine_file('metric_relationships.json').get('edges') or []
                  if isinstance(x, dict) and x.get('from') and x.get('to')]
-        return {'links': len(edges), 'example': _link(edges)} if edges else {}
+        pairs = list(dict.fromkeys('%s uses %s' % (sentence(str(x['from'])), sentence(str(x['to']))) for x in edges))
+        return {'links': len(edges), 'example': _link(edges), 'rows': [[pair, ''] for pair in pairs]} if edges else {}
+    if kind == 'progress':
+        # The step under way, from the batches it has saved: the side page counts the same files.
+        import drafts
+        try:
+            return drafts.so_far(facts.dir, facts.engine)
+        except (OSError, ValueError):
+            return {}
     return {}
 
 
@@ -210,22 +220,66 @@ def _checked(facts):
     return facts.checks_over or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready')
 
 
-def _described(facts):
-    """The question past queries asked most, in the build's own plain words, and how many it wrote."""
-    words = [(vid, first_question(v.get('question'))) for vid, v in facts.descriptions.items()]
-    asked = [(vid, q) for vid, q in words if q.endswith('?')]
-    if not asked:
-        return {}
+def _runs(facts):
+    """How often each past query ran, by its id, from the engine's own record of the history it read."""
     hist = {o.get('vq_id'): o for o in facts.engine_file('verified_queries.history.json').get('objects') or [] if isinstance(o, dict)}
     def runs(vid):
         prov = (hist.get(vid) or {}).get('provenance')
         history = prov.get('history') if isinstance(prov, dict) else None
         return whole(history.get('n_exec'), 0) if isinstance(history, dict) else 0
+    return hist, runs
 
-    # A chip's one line holds a question of about 46 characters with its count, 70 alone: the one shown fits whole,
-    # the most asked among those that do.
-    pick = max(asked, key=lambda x: (len(x[1]) <= 46, len(x[1]) <= 70, runs(x[0]), -len(x[1])))
-    return {'question': pick[1], 'described': len(words)}
+
+def _ran(n):
+    return 'run %s' % ('once' if n == 1 else '%d times' % n) if n else ''
+
+
+# A short name the engine gives a question before it is described is shown only when it reads as words: never one
+# like "sum:margin" or an id.
+WORDS = re.compile(r"[A-Za-z][A-Za-z0-9 '’,&()%/-]*")
+
+
+def _asked(facts):
+    """The questions past queries ask, most run first: in plain words once described, else the engine's short name
+    when it reads as words."""
+    hist, runs = _runs(facts)
+    rows, short = [], False
+    for vid, o in hist.items():
+        said = first_question((facts.descriptions.get(vid) or {}).get('question'))
+        if not said:
+            name = ' '.join(str(o.get('question') or o.get('name') or '').split())
+            if not WORDS.fullmatch(name) or name.lower().startswith('vq'):
+                continue
+            said, short = name[:1].upper() + name[1:], True
+        rows.append([said, _ran(runs(vid)), runs(vid)])
+    rows.sort(key=lambda r: -r[2])
+    return {'rows': [r[:2] for r in rows], 'short': short}
+
+
+def _described(facts):
+    """Every query in the build's own plain words: past queries most run first, then the dashboard's tiles."""
+    words = [(vid, first_question(v.get('question'))) for vid, v in facts.descriptions.items()]
+    asked = [(vid, q) for vid, q in words if q.endswith('?')]
+    if not asked:
+        return {}
+    _, runs = _runs(facts)
+    tiles = [[q, 'dashboard tile'] for vid, q in asked if from_dashboard(vid)]
+    past = sorted(([q, _ran(runs(vid)), runs(vid)] for vid, q in asked if not from_dashboard(vid)), key=lambda r: -r[2])
+    return {'described': len(words), 'rows': [r[:2] for r in past] + tiles}
+
+
+def _definition(facts, name):
+    """A metric's definition in plain words: the first sentence its card says, whole."""
+    cards = facts.engine_file('metric_cards.json')
+    cards = cards.get('cards') or cards.get('metrics') or [] if isinstance(cards, dict) else []
+    texts = [(c.get('name'), c.get('description')) for c in cards if isinstance(c, dict)]
+    texts += [(c.get('metric'), c.get('description')) for c in facts.engine_file('x4_prompt.json').get('all_metrics') or [] if isinstance(c, dict)]
+    return _first_sentence(next((str(d) for n, d in texts if str(n or '').lower() == name.lower() and d), ''))
+
+
+def _first_sentence(text):
+    first = re.split(r'(?<=[.!?])\s+(?=[A-Z])', ' '.join(text.split()), maxsplit=1)[0]
+    return first if not first or first[-1] in '.!?' else first + '.'
 
 
 def _rule(facts, name):
@@ -369,14 +423,33 @@ def _chip(glyph, num, what, tail=''):
     return '%s **%s**%s%s' % (glyph, num, ' ' + what if what else '', ' · ' + tail if tail else '')
 
 
+# Rows an opened chip shows; the rest are on the side page.
+OPENED_ROWS = 8
+
+
+def _opened(o, page):
+    """An opened chip: one sentence on what the step did, then what it produced, then the way to the side page."""
+    e = k.e
+    rows = o['rows'][:OPENED_ROWS]
+    listed = ''.join('<div><b style="font-weight:400">%s</b><span>%s</span>%s</div>'
+                     % (e(r[0]), e(r[1]) if len(r) > 1 else '', '<em>%s</em>' % e(r[2]) if len(r) > 2 and r[2] else '') for r in rows)
+    more = len(o['rows']) - len(rows)
+    return (('<div class="mt">%s</div>' % e(o['what']) if o['what'] else '') + '<div class="ls">%s</div>' % listed
+            + ('<div class="more">%d more on the side page</div>' % more if more > 0 else '')
+            + ('<a class="mo" href="%s">%s Open on the side page</a>' % (e(page), k.icon('arrow-up-right')) if page else ''))
+
+
 def chip_html(kind, s):
     """The chip as a small widget for a host that draws one: the same mark, outcome and words."""
     o = _outcome(kind, s)
     if o:
         e = k.e
         hero = ('<b>%s</b>' % e(o['bold']) if o['bold'] else '') + (e(o['rest']) if not o.get('quote') else '<em>%s</em>' % e(o['rest']))
-        return k.outcome(o['mark'] + '<span class="h">%s</span>%s' % (hero, '<span class="t">%s</span>' % e(o['tail']) if o['tail'] else ''),
-                         ' '.join(x for x in (o['bold'], o['rest'], o['tail']) if x))
+        row = o['mark'] + '<span class="h">%s</span>%s' % (hero, '<span class="t">%s</span>' % e(o['tail']) if o['tail'] else '')
+        said = ' '.join(x for x in (o['bold'], o['rest'], o['tail'], o['sub']) if x)
+        if o['rows']:
+            return k.opening(row, _opened(o, s.get('page')), said, o['sub'])
+        return k.outcome(row, said, o['sub'])
     t = _ticker(kind, s)
     if not t:
         return ''
@@ -408,11 +481,46 @@ def _ticker(kind, s):
 MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'described': '❝', 'metrics': '◆', 'rules': '=', 'links': '⋈',
          'ok': '✓', 'look': '△'}
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
+# A step under way: its mark, and why it matters, the line shown under the chip without opening it. The chip lands
+# mid-step, after minutes of quiet, so it says how far, what the step is doing and why, in the side page's words.
+UNDER_WAY = {'describe': ('described', 'Each query gets the question it answers, so the agent finds it when asked.'),
+             'propose': ('metrics', 'Every number a query works out could become a metric your team asks for.'),
+             'merge': ('metrics', 'The same number found in many queries becomes one metric, with one rule.'),
+             'define': ('rules', 'So the agent works out each number the same way every time you ask.')}
+
+
+def _so_far(s):
+    """How far a step's batches have got, what the step is doing, and why; opened, the newest of what they hold first.
+    None before its first count."""
+    step, items = s.get('step'), [[sentence(n), d] for n, d in s.get('items') or []][::-1]
+    of = lambda n, total, word, many: '{:,} of {}'.format(n, count(total, word, many)) if total else count(n, word, many)
+    if step == 'describe' and s.get('described'):
+        bold, tail = of(s['described'], s.get('total'), 'query', 'queries'), 'putting them in plain words'
+    elif step == 'propose' and s.get('queries_read'):
+        bold, tail = of(s['queries_read'], s.get('queries_total'), 'query', 'queries'), 'finding the numbers they measure'
+    elif step == 'merge' and s.get('metrics'):
+        bold = count(s['metrics'], 'metric') + ' so far'
+        tail = 'combining %s possible ones, one per number' % '{:,}'.format(s['drafts']) if s.get('drafts') else \
+            'combining matching ones, one per number'
+    elif step == 'define' and s.get('defined'):
+        bold, tail = of(s['defined'], s.get('total'), 'metric', 'metrics'), 'writing what each one counts and leaves out'
+    else:
+        return None
+    mark, why = UNDER_WAY[step]
+    what = ''
+    if step == 'propose':
+        # Opened, the list adds up to this count: a number found in several queries is one row, marked how often.
+        what = count(s['drafts'], 'possible metric') + ' found so far' if s.get('drafts') else ''
+        rows = [[n, 'found %d times' % d if d > 1 else ''] for n, d in items]
+    else:
+        rows = [[n, '', _first_sentence(d)] if d else [n] for n, d in items]
+    return {'mark': mark, 'bold': bold, 'tail': tail, 'sub': why, 'what': what, 'rows': rows}
 
 
 def _outcome(kind, s):
-    """What a step produced, as its mark, the outcome in bold, the rest of it, and a short tail. Never progress: the side
-    page shows how far the run has got. None when the step has produced nothing yet."""
+    """What a step produced, as its mark, the outcome in bold, the rest of it, and a short tail. Never progress, but for
+    the so-far chip the build's watch asks for while a step runs: the side page shows how far the run has got. None
+    when the step has produced nothing yet."""
     o = None
     if kind == 'found' and s.get('found'):
         kinds = s.get('kinds') or []
@@ -432,23 +540,42 @@ def _outcome(kind, s):
         else:
             o = {'mark': 'sources', 'bold': count(len(tables), 'table'), 'rest': ' loaded', 'tail': ', '.join(read[1:])}
     elif kind == 'group' and s.get('questions'):
-        o = {'mark': 'group', 'bold': count(s['questions'], 'different question'),
-             'tail': 'from %s' % count(s['read'], 'past query', 'past queries') if s.get('read') else ''}
+        kept, total = s.get('read'), s.get('total')
+        tail = ('found in %d of your %s' % (kept, count(total, 'past query', 'past queries')) if kept and total and kept < total
+                else 'from your %s' % count(kept or total, 'past query', 'past queries') if kept or total else '')
+        what = ('Many past queries ask the same thing in different SQL. Grouping them gives the distinct questions, most run first'
+                + ('; their plain words come once each query is described.' if s.get('short') else '.')
+                + (' The other %d were set aside before grouping.' % (total - kept) if kept and total and kept < total else ''))
+        o = {'mark': 'group', 'bold': count(s['questions'], 'question') + ' your team asks', 'tail': tail, 'what': what,
+             'rows': s.get('rows')}
     elif kind == 'tiles' and s.get('tiles'):
-        o = {'mark': k.mark('tiles', min(s['tiles'], 9), min(s['tiles'], 3)), 'bold': count(s['tiles'], 'dashboard tile'),
-             'tail': ', '.join(x for x in (s.get('bi_page'), 'each now a question') if x)}
-    elif kind == 'described' and s.get('question'):
-        more = s.get('described', 1) - 1
-        o = {'mark': 'described', 'bold': '', 'rest': '“%s”' % s['question'], 'quote': True,
-             'tail': '+%d more in plain words' % more if more > 0 else 'in plain words'}
+        on = 'on the %s dashboard' % s['bi_page'] if s.get('bi_page') else 'on the dashboard'
+        o = {'mark': k.mark('tiles', min(s['tiles'], 9), min(s['tiles'], 3)), 'bold': count(s['tiles'], 'dashboard tile') + ' read',
+             'tail': 'each turned into a query', 'rows': s.get('rows'),
+             'what': 'Each tile %s became a query that returns the same number, so the agent answers the way the dashboard '
+                     'does.' % on}
+    elif kind == 'described' and s.get('described'):
+        o = {'mark': 'described', 'bold': count(s['described'], 'query', 'queries') + ' in plain words',
+             'tail': 'so a question finds the right one', 'rows': s.get('rows'),
+             'what': 'Each query now carries the question it answers, in your team\u2019s words. That is how the agent matches '
+                     'what you ask to the query that answers it.'}
     elif kind == 'metrics' and s.get('metrics'):
-        names = s['metrics']
-        o = {'mark': 'metrics', 'bold': count(len(names), 'metric'),
-             'tail': ', '.join(names[:3]) + (' +%d' % (len(names) - 3) if len(names) > 3 else '')}
-    elif kind == 'rules' and s.get('rule'):
-        o = {'mark': 'rules', 'bold': s['metric'], 'tail': _fit(s['rule'], 100)}
+        o = {'mark': 'metrics', 'bold': count(len(s['metrics']), 'metric') + ' found', 'tail': 'one number, one rule',
+             'rows': s.get('rows'),
+             'what': 'Reading the queries found the same measure many times over. Those were merged, so each number your team '
+                     'uses has one rule. The checks next can still hold one back.'}
+    elif kind == 'rules' and s.get('rows'):
+        o = {'mark': 'rules', 'bold': count(s['defined'], 'metric') + ' defined', 'tail': 'what each number counts and leaves out',
+             'rows': s['rows'],
+             'what': 'A metric\u2019s definition is how its number is worked out: what it counts, what it leaves out and the SQL '
+                     'behind it. The agent uses the same definition every time.'}
     elif kind == 'links' and s.get('links'):
-        o = {'mark': 'links', 'bold': count(s['links'], 'link'), 'tail': s.get('example') or ''}
+        o = {'mark': 'links', 'bold': count(s['links'], 'link') + ' between metrics', 'tail': s.get('example') or '',
+             'rows': s.get('rows'),
+             'what': 'Some metrics are built from others. Linking them keeps the numbers in step: change one definition and the '
+                     'ones built on it follow.'}
+    elif kind == 'progress':
+        o = _so_far(s)
     elif kind == 'context' and s.get('total'):
         where = 'on %s data' % their(s.get('firm')) if s.get('firm') or not s.get('warehouse') else 'on your %s data' % s['warehouse']
         if s.get('need_look') and s.get('ran'):
@@ -464,7 +591,7 @@ def _outcome(kind, s):
     name = o['mark'] if o['mark'] in MARKS else None
     return {'text_mark': MARKS[name] if name else MARKS[kind if kind in MARKS else 'found'],
             'mark': k.mark(name) if name else o['mark'], 'bold': o['bold'], 'rest': o.get('rest', ''), 'tail': o.get('tail', ''),
-            'quote': o.get('quote', False)}
+            'quote': o.get('quote', False), 'what': o.get('what', ''), 'rows': o.get('rows') or [], 'sub': o.get('sub', '')}
 
 
 # A chip's line in a terminal, as wide as a card: one line in an 80-column window.
@@ -503,7 +630,8 @@ def chip(kind, s):
     o = _outcome(kind, s)
     if o:
         bold, rest, tail = _fit_line(o)
-        return '%s %s%s%s' % (o['text_mark'], '**%s**' % bold if bold else '', rest, ' · ' + tail if tail else '')
+        line = '%s %s%s%s' % (o['text_mark'], '**%s**' % bold if bold else '', rest, ' · ' + tail if tail else '')
+        return line + ('\n  ' + _fit_words(o['sub'], LINE - 2) if o['sub'] else '')
     t = _ticker(kind, s)
     if not t:
         return ''

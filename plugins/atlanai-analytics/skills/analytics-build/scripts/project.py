@@ -641,7 +641,7 @@ def main():
     drafts = sub.add_parser('drafts', help='The progress line for the batch of metrics the build just saved')
     drafts.add_argument('--engine-dir', type=Path)
     drafts.add_argument('--follow', action='store_true',
-                        help='Print a line per batch as it is saved, until the metric definitions are accepted')
+                        help='Print a line each time a step the chat shows ends, until the metric definitions are accepted')
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
@@ -785,8 +785,9 @@ def main():
                              "this again with `--widget` and draw it instead." % deferred)
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
             # A moment deferred to its question is recorded when that question is composed, so a skipped question
-            # is named again by the next helper result.
-            if shown or held:
+            # is named again by the next helper result. A step's so-far chip is drawn as often as the watch asks, and
+            # settles nothing.
+            if (shown or held) and args.kind != 'progress':
                 try:
                     side_view.note(run, args.kind, spec)
                 except Exception:  # noqa: BLE001 - the moment's own result still shows

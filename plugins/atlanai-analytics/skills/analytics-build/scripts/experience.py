@@ -32,9 +32,9 @@ ENGINE_PHASES = {'s0': 'Reading the selected inputs', 'a1': 'Reading dashboard d
                  'c1': 'Combining source evidence', 'c2': 'Combining matching queries',
                  'c3': 'Writing useful questions', 'c4': 'Checking source coverage',
                  'c5': 'Saving the checked query layer', 'm1': 'Combining source evidence',
-                 'm2': 'Describing useful queries', 'd1': 'Finding potential measures',
-                 'x1': 'Finding useful metrics', 'x2': 'Combining matching metrics',
-                 'x3': 'Checking metric cards', 'x4': 'Connecting related metrics'}
+                 'm2': 'Putting each query in plain words', 'd1': 'Finding potential measures',
+                 'x1': 'Finding the numbers each query measures', 'x2': 'Combining possible metrics, one per number',
+                 'x3': 'Writing what each metric counts and leaves out', 'x4': 'Connecting related metrics'}
 
 
 class _Reader:

@@ -236,7 +236,7 @@ class Page(unittest.TestCase):
         cut = next(i for i, x in enumerate(stages) if x['stage'].startswith('a3'))
         manifest.write_text(json.dumps({'stages': stages[:cut + 1]}), encoding='utf-8')
         now = side_page.snapshot(run)['now']
-        self.assertEqual((now['title'], now['next']), ("Translating the dashboard's tiles into queries", 'Describe each query in plain words'))
+        self.assertEqual((now['title'], now['next']), ("Translating the dashboard's tiles into queries", 'Put each query in plain words'))
 
     def test_a_survey_under_way_shows_the_survey(self):
         run = make_run(self.root, saved=False)

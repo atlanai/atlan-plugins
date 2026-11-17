@@ -1,10 +1,11 @@
 """The progress line for the batches the build saved since the last report.
 
 The describe, propose, merge and card gates save their answers as numbered batch files. This
-reads the furthest gate that has any and writes one plain line for the chat: the queries
-described, the metrics drafted, the drafts a merge combined, or the definitions written, with
-real counts. It reads only the run's own files and records which batches it reported; the
-engine still validates every file at its gate.
+reads the furthest gate that has any and writes one plain line: the queries described, the
+metrics drafted, the drafts a merge combined, or the definitions written, with real counts; the
+side page counts from the same files. `follow` wakes the chat when a step it shows ends, and every
+few minutes while batches land, for the step's so-far chip. It reads only the run's own files and
+records what it reported; the engine still validates every file at its gate.
 """
 import json
 from pathlib import Path
@@ -188,6 +189,42 @@ def _saved(engine, gate):
     return sorted(files, key=lambda f: (f.stat().st_mtime_ns, f.name))
 
 
+def counts(root, gate, engine_dir=None):
+    """A gate's counts over every batch it has saved, the numbers its chat lines carry, with nothing recorded:
+    the side page counts from the same files as the chat."""
+    engine = _Engine(root, engine_dir)
+    files = _saved(engine, gate)
+    return dict(GATES_BY_ID[gate](engine, files, files)[1]) if files else {}
+
+
+def _items(engine, gate, files):
+    """What a gate's batches hold, in the order they were saved, so a list of them adds up to the step's count: each
+    query described, each possible metric once with how many times it was found, each metric with a definition's text."""
+    first = {}
+    if gate == 'x1':
+        for name in [n for p in files for n in _metric_names(engine, p) if n]:
+            first.setdefault(name.lower(), [name, 0])[1] += 1
+        return list(first.values())
+    for r in [r for p in files for r in engine.rows(p, 'queries' if gate == 'm2' else 'metrics')]:
+        name = _text(r.get('name'), NAME_CHARS)
+        key = r.get('vq_id') if gate == 'm2' and isinstance(r.get('vq_id'), str) else name.lower()
+        if name:
+            first.setdefault(key, [name, _text(r.get('description'), 600) if gate == 'x3' else ''])
+    return list(first.values())
+
+
+def so_far(root, engine_dir=None):
+    """The furthest step with saved batches: its counts over all of them, as the side page counts them, and what they
+    hold so far. Nothing is recorded."""
+    engine = _Engine(root, engine_dir)
+    for gate, step, describe in GATES:
+        files = _saved(engine, gate)
+        if files:
+            return {'step': step, **describe(engine, files, files)[1], 'items': _items(engine, gate, files)}
+    return {}
+
+
+GATES_BY_ID = {gate: describe for gate, _, describe in GATES}
 REPORTED = 'drafts-reported.json'
 
 
@@ -227,29 +264,51 @@ def latest(root, engine_dir=None):
     return {'status': 'ok', 'step': None, 'line': '', 'counts': {}}
 
 
-def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, out=None):
-    """Print one line per newly saved batch, as it lands, for the session that talks to the
-    person while a subagent writes the gates. Stops when the card gate is accepted, after
-    `idle` seconds with no new batch, or after `seconds`; run it again to carry on. It shares
-    the record with `latest`, so a restart neither repeats nor skips a batch."""
+# The steps whose end the chat shows as a chip: queries described, drafts merged, metrics defined. Their batches show on
+# the side page as they land, never in the chat.
+WAKES = ('m2_ingest', 'x2_ingest', 'x3_ingest')
+DUE = ("Due: run this helper's `visual next` before going on, with the flags of every `visual` call (`--data` for a demo, "
+       "`--widget` where you have `show_widget`).")
+# A step can run for many minutes: while its batches land, the chat hears how far it has got this often.
+SO_FAR_SECONDS = 180
+SO_FAR = ("Due: run this helper's `visual progress` before going on, with the flags of every `visual` call (`--data` for a "
+          "demo, `--widget` where you have `show_widget`).")
+
+
+def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_every=SO_FAR_SECONDS, out=None):
+    """Print one line each time a step the chat shows ends, for the session that talks to the person while a subagent
+    writes the gates: the line names the chip to draw, and nothing else reaches the chat. While a step runs, a line
+    names the so-far chip once `so_far_every` seconds have passed since the last line and a batch has landed since. Stops
+    once the definitions are accepted, after `idle` seconds with no batch or step, or after `seconds`; run it again to
+    carry on. The record of reported steps is shared, so a restart neither repeats nor skips one."""
     import sys
     import time
     out = out or sys.stdout
     engine = _Engine(root, engine_dir)
-    start = last = time.monotonic()
-    printed = 0
+    start = last = spoke = time.monotonic()
+    printed, saved, told = 0, None, None
     while time.monotonic() - start < seconds and time.monotonic() - last < idle:
         record = engine.json(engine.root / REPORTED)
-        for gate, step, describe in reversed(GATES):  # describe, propose, merge, cards: build order
-            files, targets, stamp = _unreported(engine, record, gate)
-            if targets:
-                print(describe(engine, files, targets)[0], file=out, flush=True)
-                record[gate] = stamp
-                _save_record(engine, record)
-                printed += 1
-                last = time.monotonic()
+        done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
         stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
-        if any(isinstance(s, dict) and s.get('stage') == 'x3_ingest' and s.get('verdict') == 'ok' for s in stages):
+        accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
+        now = sum(len(_saved(engine, gate)) for gate, _, _ in GATES)
+        if now != saved:  # a batch landing is the build working: it keeps the watch going without a line
+            saved, last = now, time.monotonic()
+        told = now if told is None else told
+        for stage in WAKES:
+            if stage in accepted and stage not in done:
+                print(DUE, file=out, flush=True)
+                done.add(stage)
+                _save_record(engine, dict(record, steps=sorted(done)))
+                printed += 1
+                last = spoke = time.monotonic()
+                told = now
+        if now > told and time.monotonic() - spoke >= so_far_every:
+            print(SO_FAR, file=out, flush=True)
+            printed += 1
+            spoke, told = time.monotonic(), now
+        if 'x3_ingest' in accepted:
             break
         time.sleep(interval)
-    return f"Stopped watching after {_plural(printed, 'line')}." if printed else 'No new batches were saved.'
+    return f"Stopped watching after {_plural(printed, 'line')}." if printed else 'No step finished while watching.'

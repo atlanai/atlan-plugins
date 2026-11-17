@@ -3,8 +3,9 @@
 Read before the opening or the welcome, and again when a moment below is reached. The flow,
 its questions and its words do not change. At each moment the helper reads the run's own files
 and prints what the chat shows: a chip saying what that step produced, each step with its own
-mark, or a mini card at a big moment. Chips never show progress: the side page, a page on this
-machine beside the chat, follows the whole build by itself and shows every metric with how it
+mark, or a mini card at a big moment. Chips never show progress, apart from the so-far chip the
+build's watch names while a step runs: the side page, a page on this machine beside the chat,
+follows the whole build by itself and shows every metric with how it
 was reached. Never draw, design or retype a visual, and never put a number in
 one by hand.
 
@@ -69,9 +70,9 @@ there: never write that you are drawing, recording or checking for a visual, and
 moment, chip, card or the helper. A moment that shows nothing gets no words either. While the
 engine builds, the chip after each gate is the update: add no line of your own about the
 engine's steps, its files or its terms (cards, gates, the export and its install, assembled
-rules) unless one is blocked or needs the person. Within a step, the helper's
-[drafts lines](progress.md#drafts-as-they-land) are posted as printed, one per saved batch:
-they are the helper's lines, not yours, and the step's chip still closes it.
+rules) unless one is blocked or needs the person. Within a step, its batches show on the side
+page as they land, never in the chat ([drafts as they land](progress.md#drafts-as-they-land)),
+and the step's chip closes it.
 
 ## The side page
 

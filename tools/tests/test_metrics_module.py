@@ -53,6 +53,18 @@ class InputStagingTests(unittest.TestCase):
             spec.loader.exec_module(worker)
         return worker
 
+    def test_a_batched_gate_tells_the_chat_to_draw_the_step_chip_not_to_post_batches(self):
+        # A desktop run posted every batch as its own line and talked about the helper between them; the side page shows
+        # the batches, and the chat wakes only to draw a step's chip.
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / 'run'
+            (run / 'engine').mkdir(parents=True)
+            (run / 'run.json').write_text('{}')
+            say = self.worker().batch_progress(run / 'engine', 'x1')['say']
+        self.assertIn('`visual`', say)
+        self.assertIn('side page', say)
+        self.assertNotIn('exactly as printed', say)
+
     def test_capture_is_immutable_when_files_are_added_removed_or_changed(self):
         worker = self.worker()
         for change in ('add', 'remove', 'change', 'extra_capture'):

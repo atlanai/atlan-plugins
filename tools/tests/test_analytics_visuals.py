@@ -48,6 +48,12 @@ class Numbers(unittest.TestCase):
         self.assertEqual(visuals.sentence('On-Time Rate'), 'On-time rate')
         self.assertEqual(visuals.table_name('site.work_logs'), 'work logs')
 
+    def test_month_and_day_names_keep_their_capital(self):
+        # A chip read 'On-time handover rate, october 2026'.
+        self.assertEqual(visuals.sentence('Rework Cost, September 2026'), 'Rework cost, September 2026')
+        self.assertEqual(visuals.sentence('Hours In August, By Crew'), 'Hours in August, by crew')
+        self.assertEqual(visuals.sentence('Late Jobs On Monday'), 'Late jobs on Monday')
+
     def test_a_multiple_reads_as_a_multiple(self):
         self.assertEqual(visuals.number(2.21, 'times face value'), '2.2×')
 

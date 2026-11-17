@@ -106,26 +106,82 @@ class Drafts(unittest.TestCase):
         self.assertEqual(self.drafts(), 'This metric is complete: Win rate (1 of 2).')
 
 
-    def test_follow_prints_each_batch_as_it_lands_and_stops_when_the_cards_are_accepted(self):
+    def test_follow_wakes_the_chat_only_when_a_step_with_a_chip_finishes(self):
+        # A desktop run posted 17 batch lines and talked about the helper between them. The batches belong on the side
+        # page; the chat hears only that a step finished, to draw that step's chip.
         import io, threading, time
         sys.path.insert(0, str(fixtures.SCRIPTS))
         import drafts
-        self.propose()  # saved before the watch: reported once, together
         out = io.StringIO()
         watch = threading.Thread(target=lambda: out.write(drafts.follow(
             self.run.root, 'engine', seconds=20, idle=10, interval=0.05, out=out)))
         watch.start()
-        time.sleep(0.4)
+        stages = []
+
+        def finish(stage):
+            stages.append({'stage': stage, 'verdict': 'ok'})
+            self.run.write(self.engine / 'manifest.json', {'stages': stages})
+            time.sleep(0.3)
+
+        self.propose()
+        time.sleep(0.3)
+        finish('m2_ingest')
+        finish('x1_ingest')
         self.answer('x2', '01.json', {'metrics': [{'name': 'Win rate', 'sources': ['q1#0', 'q3#0']}]})
-        time.sleep(0.4)
+        time.sleep(0.3)
+        finish('x2_ingest')
+        finish('x3_ingest')
+        watch.join(5)
+        self.assertFalse(watch.is_alive())
+        lines = out.getvalue().splitlines()
+        self.assertEqual(len([l for l in lines if l.startswith('Due:')]), 3, lines)  # described, merged, defined
+        self.assertTrue(all('`visual next`' in l for l in lines if l.startswith('Due:')), lines)
+        self.assertFalse([l for l in lines if 'drafted' in l or '→' in l], 'no batch line reaches the chat')
+
+    def follow(self, so_far_every):
+        import io, threading
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        out = io.StringIO()
+        watch = threading.Thread(target=lambda: out.write(drafts.follow(
+            self.run.root, 'engine', seconds=20, idle=10, interval=0.05, so_far_every=so_far_every, out=out)))
+        watch.start()
+        return watch, out
+
+    def test_follow_says_how_far_a_step_has_got_once_a_quiet_interval_has_passed_with_a_new_batch(self):
+        # A step can run for minutes with nothing in the chat. While its batches land, the watch wakes the chat every few
+        # minutes to show what the step holds so far, and never twice without a new batch.
+        import time
+        watch, out = self.follow(so_far_every=0.3)
+        time.sleep(0.8)
+        self.assertEqual(out.getvalue(), '', 'nothing has landed yet')
+        self.answer('x1', '01.json', {'statements': [{'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}]}]})
+        time.sleep(0.8)
+        self.assertEqual(len(out.getvalue().splitlines()), 1, 'one line, though the interval passed twice')
+        self.answer('x1', '02.json', {'statements': [{'vq_id': 'q2', 'verdict': 'metrics', 'metrics': [{'name': 'Pipeline'}]}]})
+        time.sleep(0.8)
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x3_ingest', 'verdict': 'ok'}]})
         watch.join(5)
         self.assertFalse(watch.is_alive())
-        self.assertEqual(out.getvalue().splitlines(), [
-            'These metrics are drafted: Win rate, Win %, Pipeline (3 of 4 queries read).',
-            'Win rate + Win % → Win rate.',
-            'Stopped watching after 2 lines.'])
-        self.assertEqual(self.drafts(), 'Win rate + Win % → Win rate.')  # nothing new: the last line again
+        lines = [l for l in out.getvalue().splitlines() if l.startswith('Due:')]
+        self.assertEqual([('`visual progress`' in l, '`visual next`' in l) for l in lines],
+                         [(True, False), (True, False), (False, True)], lines)
+
+    def test_a_step_ending_starts_the_quiet_interval_again(self):
+        # The step's own chip has just been shown: the next so-far line waits for a batch that lands after it.
+        import time
+        watch, out = self.follow(so_far_every=0.6)
+        time.sleep(0.1)
+        self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1', 'name': 'Win rate by month'}]})
+        time.sleep(0.15)
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
+        time.sleep(1.4)
+        self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'},
+                                                                   {'stage': 'x3_ingest', 'verdict': 'ok'}]})
+        watch.join(5)
+        lines = [l for l in out.getvalue().splitlines() if l.startswith('Due:')]
+        self.assertEqual(len(lines), 2, lines)
+        self.assertFalse([l for l in lines if '`visual progress`' in l], lines)
 
 if __name__ == '__main__':
     unittest.main()

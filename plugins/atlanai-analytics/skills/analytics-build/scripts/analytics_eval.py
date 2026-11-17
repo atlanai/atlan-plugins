@@ -1495,7 +1495,45 @@ def cmd_before_after(a) -> dict:
             "per_question": [{"id": i, "question": text.get(i, ""), "before": mark(ma, i), "after": mark(mb, i)}
                              for i in ids],
             "report": "\n".join(lines), "headline": lines[0], "bars": "\n".join(lines[2:]),
-            "changes": "\n".join(changes).rstrip()}
+            "changes": "\n".join(changes).rstrip(),
+            "widget": _before_after_widget(ids, number, text, ma, mb, (ka, kb), (secs(ca), secs(cb)), only_after, only_before)}
+
+
+TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg>'
+CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>'
+WIDGET_CSS = ('<style>.st{display:grid;grid-template-columns:112px repeat(var(--n),minmax(0,1fr));gap:3px;align-items:center;'
+              'font-size:11px;color:var(--ts);margin:4px 0}.st .hd{text-align:center;font-variant-numeric:tabular-nums}'
+              '.st i{display:flex;align-items:center;justify-content:center;height:18px;border-radius:4px}'
+              '.st i.y{background:var(--sm)}.st i.n{background:var(--mu)}.mc .st i svg{width:12px;height:12px;stroke-width:2.2}'
+              '.mc .st i.y svg{stroke:var(--sx)}.mc .st i.n svg{stroke:var(--cx)}'
+              '.ls{display:grid;font-size:13px;line-height:18px}.ls div{display:grid;grid-template-columns:minmax(0,1fr) auto;'
+              'gap:12px;border-top:.5px solid var(--bd);padding:5px 0}.ls b{font-weight:500;font-size:12px}'
+              '.ls b.vy{color:var(--ts)}.ls b.vn{color:var(--cx)}</style>')
+
+
+def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, only_before) -> str:
+    """The before-and-after card for a host that draws widgets: both scores, every question as a mark in each pass, and
+    the questions that changed, from the same numbers as the text card. No script: it draws in any widget host."""
+    import visual_kit as k
+    e, n = k.e, len(ids)
+    rows = [("Raw tables", right[0], times[0]), ("With your context", right[1], times[1])]
+    ba = ''.join('<span>%s</span><b%s>%d%%</b><span>%d of %d right%s</span>'
+                 % (e(label), ' class="now"' if label != "Raw tables" else '', round(100 * kk / n), kk, n,
+                    ', ' + e(t) if t else '') for label, kk, t in rows)
+    strip = ''
+    if n <= 30:
+        marks = lambda m: ''.join('<i class="%s">%s</i>' % ('y' if m[i] == 1 else 'n', TICK if m[i] == 1 else CROSS)
+                                  for i in ids)  # noqa: E731
+        strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Raw tables</span>%s<span>With your context</span>%s</div>'
+                 % (n, ''.join('<span class="hd">%d</span>' % number[i] for i in ids), marks(ma), marks(mb)))
+    changed = [(i, 'Now right with your context', 'vy') for i in only_after] + \
+              [(i, 'Right only on the raw tables', 'vn') for i in only_before]
+    listed = ('<div class="mt">What changed</div><div class="ls">%s</div>' % ''.join(
+        '<div><span>%d. %s</span><b class="%s">%s</b></div>' % (number[i], e(text.get(i, '')), c, e(v)) for i, v, c in changed)
+              if changed else '<div class="mt">No question changed between the two.</div>')
+    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: the raw tables and your context</b></div><div class="ba">%s</div>%s%s'
+            % (k.icon('check-circle'), ba, strip, listed))
+    return k.card(body, 'With your context, %d of %d right. On the raw tables, %d of %d.' % (right[1], n, right[0], n))
 
 
 # ====================================================================== publishing (registry MCP)
@@ -2696,6 +2734,10 @@ def _selftest_inputs(ok) -> None:
         ok("the change table names the question the context turned around, under its number",
            ba["changes"].startswith("**1 question wrong on the raw tables, right with your context**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
+        w = ba.get("widget") or ""
+        ok("the desktop widget draws the same card: both scores, a mark per question, what changed",
+           'class="a mc"' in w and "0 of 2" in w and "1 of 2" in w and w.count('class="y"') + w.count('class="n"') == 4
+           and "Now right with your context" in w and "<script" not in w)
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)
