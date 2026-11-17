@@ -62,6 +62,8 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
 - **Tracker.** Keep the seven steps. While the check runs, add its items (Choose the questions,
   Ask each one to a fresh agent, Score the answers, and the Improve it items when picked) to the
   host task list between steps 5 and 6. The check ticks none of the seven steps.
+- **Size.** 20 questions, not the demo's 8: `CHECK start` without `--questions`, and
+  `eval-generation`'s `SCOPE pick` without `--limit`.
 - **The run.** Pass `--run <run-dir>` to every `CHECK start`, `CHECK load` and `SCOPE inputs`,
   and `--use-case "<agent>: <what it answers>"` to `SCOPE inputs`, from the interview. Never
   let them pick a run, and never ask the person which run: this build knows its own.

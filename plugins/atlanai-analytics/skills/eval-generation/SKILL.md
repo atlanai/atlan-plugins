@@ -49,7 +49,8 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
 2. **Gate and rank.** `EVALGEN init --local`, then
    `EVALGEN build --from-files "<gen>/src" --dialect <the dialect `SCOPE inputs` returned> --limit 100`. It drops a query
    pinned to one record and withholds personal data. Do not reopen its JSON.
-3. **Pick 20.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
+3. **Pick 20.** `SCOPE pick --gen <gen>`, with `--limit <n>` when the caller names another size
+   (the demo asks for 8): two questions on the focus metric, then one each on
    the metrics nearest the use case, round after round, then past queries no metric computes yet (`no_metric`). It leaves out
    (`skipped`) a query that lists records with no total or count, a probe that returns no rows,
    a data test and a freshness check: no person asks them as a question. It picks 4 spares beyond the 20, for a draft

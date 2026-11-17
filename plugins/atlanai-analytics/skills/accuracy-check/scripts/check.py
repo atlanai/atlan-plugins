@@ -112,7 +112,7 @@ def cmd_start(a) -> dict:
                  "compare its answer with the trusted one. Which questions should I test with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",
                      "description": "The eval set you already have."} for s in found]
-                   + [{"label": "Generate 20 new questions",
+                   + [{"label": f"Generate {a.questions} new questions",
                        "description": "From your dashboard and the queries your analysts run most."}]}
     return out
 
@@ -313,6 +313,8 @@ def main(argv=None) -> int:
     c = s.add_parser("start", help="the built run, where its context lives and the project's eval sets")
     c.add_argument("--project", required=True)
     c.add_argument("--run", help="the run folder to test, when the project holds several")
+    c.add_argument("--questions", type=int, default=20,
+                   help="how many questions a new set holds, as the generate option names it (the demo uses 8)")
     c.set_defaults(func=cmd_start)
     c = s.add_parser("load", help="a set in a fresh eval folder, trusted answers run or pending")
     c.add_argument("--project", required=True)

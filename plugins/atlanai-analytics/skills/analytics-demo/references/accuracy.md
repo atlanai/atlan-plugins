@@ -33,7 +33,7 @@ this machine only.
 ## 1. Choose the questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
-context lives can change, so never reuse an earlier answer. `CHECK start --project <project>` returns the built run, `context_saved_to`, `execution`, the project's
+context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8` returns the built run, `context_saved_to`, `execution`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
 `text` and `options`). Add `--run <run-dir>`, here and on `CHECK load` and `SCOPE inputs`,
 whenever the run is known: the demo's own run, or the build's. With no sets, or the person asking for new questions, generate. Otherwise,
@@ -46,8 +46,9 @@ questions are shown with their expected answers, in step 2, because the person h
 
 - **A set:** picking it is the approval to run it. `CHECK load --project <project> --file <set>`,
   then step 3, with no list to confirm.
-- **Generate:** run `eval-generation` `generate` (not its `save`), then `CHECK load` on the set it
-  wrote, then step 2.
+- **Generate:** run `eval-generation` `generate` (not its `save`) with 8 questions, passing
+  `--limit 8` to its `SCOPE pick`, then `CHECK load` on the set it wrote, then step 2. A demo
+  check stays at 8 questions, so it ends in about 2 minutes.
 
 `CHECK load` drops a question whose trusted SQL fails or returns nothing; name how many.
 
@@ -72,7 +73,7 @@ The expected answer is one value or one short phrase, never a table, and never S
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 4 minutes. |
+| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
 | Not now | Keep the questions on this machine. |
 
 There is no edit option. On Not now, end with "What would you like to do next?", whose text is one
