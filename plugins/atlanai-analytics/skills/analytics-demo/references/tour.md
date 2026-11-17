@@ -23,6 +23,10 @@ reply text or native question payload exactly as directed; never replace a momen
 a tool description or status line. This is the [presentation flow](../../analytics-build/references/setup/presentation.md) used
 throughout setup.
 
+A native question holds four options. When the demo's "What would you like to do next?" table offers
+five, leave Continue building on real data out of the options and end the question's text with one
+line: You can also type "Continue building on real data".
+
 ## The welcome: right after the demo is chosen
 
 **The welcome is the question's own text**, as

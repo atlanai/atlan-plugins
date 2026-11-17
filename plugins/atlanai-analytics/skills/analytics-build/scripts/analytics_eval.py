@@ -1199,8 +1199,7 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     if v["n"]:
         # The count a person reads, worded here so no one recounts it from the rows.
         k = sum(1 for i in validation if means.get(i) == 1)
-        out["score_line"] = (f"{k / v['n']:.0%} accuracy: {k} of {v['n']} answered correctly "
-                             f"(likely between {v['ci95_low']:.0%} and {v['ci95_high']:.0%}; a small sample)")
+        out["score_line"] = f"{k / v['n']:.0%} accuracy: {k} of {v['n']} answered correctly"
     if final:
         out["holdout"] = rate(means, holdout)
     elif holdout and any(r.get("prompt_id") in holdout for r in all_rows):
@@ -2131,6 +2130,7 @@ def _selftest_integrity(ok) -> None:
         k = sum(1 for c in split["test_ids"] if case_means(read_results(Proj(d).vdir("base") / "results.jsonl")).get(c) == 1)
         ok("the score line states the scripted count", f": {k} of {len(split['test_ids'])} answered" in summ["score_line"]
            and summ["score_line"].startswith(f"{k / len(split['test_ids']):.0%} accuracy"))
+        ok("the score line is the count alone, with no interval", summ["score_line"].endswith("answered correctly"))
         ok("context engagement is measured from cited definitions", summ["context_engagement"] == 1.0)
         try:
             cmd_split(argparse.Namespace(dir=d, test_frac=0.5, seed=8, holdout_frac=0.2, redraw=True))

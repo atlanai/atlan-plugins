@@ -571,6 +571,7 @@ class Helper(unittest.TestCase):
     def test_the_build_moment_waits_for_the_engine_to_finish(self):
         # A live desktop run drew the build card 18 minutes in, while the engine was still linking metrics (22 in all).
         import side_view
+        at(self.run, 'build', 'running')
         for name in ('candidate-checks.json', 'metrics.json', 'queries.json'):
             (self.run / 'context' / name).unlink()
         manifest = self.run / 'engine' / 'manifest.json'
@@ -578,7 +579,25 @@ class Helper(unittest.TestCase):
         manifest.write_text(json.dumps({'stages': [x for x in full['stages'] if x['stage'] != 'x4_ingest']}), encoding='utf-8')
         self.assertNotIn('build', side_view.due(self.run), 'metrics merged is not the build finished')
         manifest.write_text(json.dumps(full), encoding='utf-8')
+        self.assertNotIn('build', side_view.due(self.run), 'linked is not checked: the card waits for the checks')
+
+    def test_the_build_card_counts_what_the_checks_kept(self):
+        # A tester saw the card say 123 metrics, then watched the checks and fixes leave 118.
+        import side_view
+        merged = self.run / 'engine' / 'merged_metrics.json'
+        doc = json.loads(merged.read_text(encoding='utf-8'))
+        kept = len(json.loads((self.run / 'context' / 'metrics.json').read_text(encoding='utf-8')))
+        doc['n_metrics_out'] = kept + 3
+        merged.write_text(json.dumps(doc), encoding='utf-8')
+        checks = self.run / 'context' / 'candidate-checks.json'
+        verdicts = checks.read_text(encoding='utf-8')
+        checks.unlink()
+        at(self.run, 'check', 'running')
+        self.assertNotIn('build', side_view.due(self.run), 'no card before the checks')
+        checks.write_text(verdicts, encoding='utf-8')
         self.assertIn('build', side_view.due(self.run))
+        card = visuals.render('build', visuals.build_spec('build', self.run), plain=True)
+        self.assertTrue(card.startswith('%d metrics ·' % kept), card.split('\n', 1)[0])
 
     def test_the_checks_chip_waits_for_every_verdict(self):
         # A desktop chip drawn mid-checks read "24/81 checked, 57 need a look" and the final one was never drawn.

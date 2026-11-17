@@ -51,7 +51,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    pinned to one record and withholds personal data. Do not reopen its JSON.
 3. **Pick 8.** `SCOPE pick --gen <gen>`: two questions on the focus metric, then one each on
    the metrics nearest the use case. It keeps only those prompts.
-4. **Draft, in a subagent.** Give one subagent the paths of `work/prompts/` and
+4. **Draft, in a subagent.** Give one subagent, in the foreground, the paths of `work/prompts/` and
    `work/answers.json` and this instruction: follow each prompt and fill its key in
    `answers.json` with the JSON it asks for, and ask for what the SQL measures, in its direction:
    SQL that returns a share approved gets a question about the share approved, never one about

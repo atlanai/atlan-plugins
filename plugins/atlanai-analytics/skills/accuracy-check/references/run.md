@@ -30,7 +30,7 @@ its SQL has no score.
 `CHECK load` returns `status: pending_gold` and `pending`, one `sql_file` per question. The
 trusted results come from the warehouse, and no model copies a value:
 
-1. Start one subagent, the runner, with this prompt, filled in:
+1. Start one subagent, the runner, in the foreground, with this prompt, filled in:
    ```
    Run each SQL file below on <warehouse> with <the warehouse query tool>, one call per file.
    Send the statement exactly as the file holds it: no edit, no added LIMIT, no comment.
@@ -63,8 +63,8 @@ trusted results come from the warehouse, and no model copies a value:
 
 1. `EVAL todo --variant baseline --reps 1` lists the questions not yet run. A stopped run
    resumes here.
-2. Start one subagent per question, all at once (a generated set has 8), so the test takes as
-   long as its slowest question. For each:
+2. Start one subagent per question, all in one message and in the foreground (a generated set has 8),
+   so the test takes as long as its slowest question and every answer comes back together. For each:
    1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
       cost down, with this prompt, filled in:
       ```
@@ -116,8 +116,7 @@ trusted results come from the warehouse, and no model copies a value:
 
 ## Show the score
 
-Lead with the summary's `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly
-(likely between 21% and 94%; a small sample)"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
+Lead with the summary's `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly"). Never count the passes yourself. Only when `CHECK load` returned `generated: true`, say so in one
 line: the questions came from the past queries and tiles the context was built from, so the score
 shows the context reproduces what the analysts asked, not how it handles a new question. With
 `generated: false` (a set the person brought) there is no such line: say nothing about where its

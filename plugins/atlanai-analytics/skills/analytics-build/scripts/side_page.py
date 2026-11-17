@@ -231,7 +231,8 @@ def details(f):
         metrics.append({k: x for k, x in (
             ('name', sentence(ctx.get('display_name') or card.get('display_name') or m['name'])),
             ('unit', unit),
-            ('description', _cut(description, 320)),
+            # Whole: a fix adds its rule to the end of the meaning, and the list's rows clip it on screen anyway.
+            ('description', _cut(description, 2000)),
             ('rule', bool(ruled or description)),
             ('formula', _cut(d.get('formula') or card.get('formula'), 300)),
             ('population', _cut(card.get('population'), 300)),

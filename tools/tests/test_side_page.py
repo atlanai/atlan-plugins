@@ -522,6 +522,17 @@ class Questions(unittest.TestCase):
                                                               encoding='utf-8')
         self.assertIn('metrics', side_page.snapshot(run))
 
+    def test_a_metric_shows_its_whole_meaning(self):
+        # A fix appended "A breakdown lists only those with rework hours" to a 400-character meaning, and the page cut it off.
+        run = make_run(self.root / 'long')
+        metrics = run / 'context' / 'metrics.json'
+        listed = json.loads(metrics.read_text(encoding='utf-8'))
+        last = 'A breakdown lists only the jobs with a margin, never one at zero.'
+        listed[0]['description'] = ' '.join(['What the firm keeps from each job once labour and materials are paid for.'] * 6 + [last])
+        metrics.write_text(json.dumps(listed), encoding='utf-8')
+        shown = next(m for m in side_page.snapshot(run)['metrics'] if m['name'] == side_page.sentence(listed[0]['name']))
+        self.assertTrue(shown['description'].endswith(last), shown['description'][-80:])
+
     def test_a_metric_named_nothing_has_no_unit(self):
         from run_facts import RunFacts
         run = make_run(self.root / 'unnamed')

@@ -153,10 +153,15 @@ def collect(kind, facts):
     if kind == 'sources' and facts.warehouse and facts.history and facts.scoped_tables and (facts.inputs or {'history': True})['history']:
         # A warehouse is read in place: its past queries and the chosen tables, nothing loaded here.
         return {'warehouse': facts.warehouse, 'history': facts.history, 'scoped': facts.scoped_tables}
-    # Built means the engine has finished, its last stage recorded or the checks begun: metrics merged mid-build are
-    # not the build's result yet, and its time would be short.
-    if kind == 'build' and facts.funnel.get('metrics') and ('x4_ingest' in facts.stages or facts.context):
-        return {'funnel': facts.funnel, 'merged': [m['name'] for m in facts.merged], 'evidence': facts.merged, 'took': _took(facts)}
+    # Built means checked: metrics merged mid-build are not the build's result, and the checks can still hold some back.
+    # The card counts the context the checks left, the list the save question counts too.
+    if kind == 'build' and facts.funnel.get('metrics') and _checked(facts):
+        kept = [sentence(m.get('display_name') or m['name']) for m in facts.file('context', 'metrics.json', kind=list)
+                if isinstance(m, dict) and m.get('name')]
+        names = {n.lower() for n in kept}
+        return {'funnel': dict(facts.funnel, metrics=len(kept)) if kept else facts.funnel,
+                'merged': kept or [m['name'] for m in facts.merged],
+                'evidence': [m for m in facts.merged if m['name'].lower() in names] if kept else facts.merged, 'took': _took(facts)}
     # The checks are over only when every item has its verdict: a chip before that would count unrun items as needing a look.
     if kind == 'context' and facts.checks_over:
         c = facts.context
@@ -197,6 +202,12 @@ def collect(kind, facts):
                  if isinstance(x, dict) and x.get('from') and x.get('to')]
         return {'links': len(edges), 'example': _link(edges)} if edges else {}
     return {}
+
+
+def _checked(facts):
+    """Whether the checks are behind the build: every verdict in, or the flow moved on past them, as it does on a
+    warehouse, whose verdicts never reach the run's files."""
+    return facts.checks_over or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready')
 
 
 def _described(facts):
