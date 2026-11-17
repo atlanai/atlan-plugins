@@ -2,14 +2,16 @@
 
 These are supplied ten-question eval sets for Fixit and Ticketfuddle, grounded in the bundled
 BI definitions and analyst history. They exercise the before/after and repair workflow merged
-in PRs #190, #191 and #193. They do not add a second comparison implementation or change the
+in PRs #190, #191, #193 and #194. They do not add a second comparison implementation or change the
 scorer. Load a set with the ordinary `accuracy-check` flow after building that demo.
 
-The intended trajectory is about **4/10 on raw tables, 8/10 with the initial context, then
+The intended trajectory is about **4/10 with schema only, 8/10 with the initial context, then
 10/10 after repairs**. These are design targets until validated, not scores promised by the
 fixtures. Keep all cases, passing controls and unsuccessful attempts in the measured report.
-The original Fixit experiment gave the baseline query history as well as tables; main's `raw`
-variant receives only the tables. Those baselines measure different information access.
+The original Fixit experiment gave the baseline query history as well as tables. An intermediate
+run allowed table-value exploration. Main's current `raw` variant permits schema inspection and
+execution of the final answer SQL only: no sample rows, distinct values or intermediate data
+queries. These baselines measure different information access; their scores are not interchangeable.
 
 ## Why these questions
 
@@ -71,7 +73,19 @@ differences such as fractions versus percentages for both arms.
 
 ## Validation status
 
-Candidate gold: all twenty questions executed successfully on freshly loaded local demo data.
-The offline regression rebuilds both databases and verifies all twenty trusted answers and four
-affected-question SQL counterexamples for the three planned defects. Model validation and the
-final repair runs are pending. No measured 4/8/10 claim is made yet.
+All twenty trusted answers and four affected-question SQL counterexamples pass the offline
+regression on freshly rebuilt demo data. The three injected defects change the intended results.
+
+Fixit's intermediate protocol, which allowed table-value exploration, scored 5/10 without context
+and 6/10 with the injected context. Two additional natural failures occurred: a crew name was
+mistaken for a job, and the agent did not retrieve the value-weighted waste-rate definition for
+"skip-waste percentage". A name-resolution clarification passed its targeted check; a separate
+vocabulary clarification was then applied and all ten questions were rerun, scoring 8/10. Those
+iterations remain evidence; 8/10 is not claimed as the untouched build's first score. The
+classification restoration also makes the stored nonbillable task values explicit, because one
+later answer guessed a literal `nonbillable` task value.
+
+Main #194 merged during validation. The schema-only baseline is being run afresh under that
+protocol; the unchanged context arm is retained from its completed ten-question run. Final repair
+runs and Ticketfuddle model validation remain pending. No measured 4/8/10 claim for both demos is
+made yet.
