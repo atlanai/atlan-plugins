@@ -71,7 +71,7 @@ query its analysts already run; the expected answer is what that query returns.
 
 <the table, as CHECK show printed it>
 
-Each question goes to a fresh agent with your context, and again to one with only the raw tables, about <4 or 8> minutes.
+Each question goes to a fresh agent with your context, and again to one with only the raw tables (schema only, no additional context), about <4 or 8> minutes.
 ```
 
 Never rebuild the table, add SQL, or shorten it.
@@ -104,7 +104,9 @@ Reply "run", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no perso
 ## 3. Run and score
 
 Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
-[before and after](../../accuracy-check/references/run.md#before-and-after) pass started with the
+[before and after](../../accuracy-check/references/run.md#before-and-after) pass using schema only,
+with no additional context or exploratory data queries; only its final answer SQL reads data.
+The raw pass is started with the
 context pass. With every question right, go to step 5: the result carries the comparison.
 
 **With misses, the turn ends on the score, in the chat.** The before and after is the moment the

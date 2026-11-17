@@ -8,7 +8,7 @@ description: "Atlan Analytics: run an eval set against a project's context and s
 A capability. It works on any built run: a local SQLite or DuckDB one, or a warehouse build
 (Snowflake, Databricks or another) whose SQL runs through this host's warehouse query tool. It
 takes an eval set, asks each question to a fresh agent that sees only the context, compares each answer's result with the trusted result (by script, with a judge where the script refuses an answer that ran), and says why each
-miss failed. Every check also asks the same questions on the raw source, so the result shows
+miss failed. Every check also asks the same questions with only the raw tables' schema and no additional context, so the result shows
 what the context changed. It generates no questions and changes nothing: a metric, a saved query and the set
 stay as they are. A person can call it directly, and another skill can call it as a step; it
 behaves the same either way.
