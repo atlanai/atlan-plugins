@@ -617,6 +617,10 @@ def main():
     steps.add_argument('--flow', choices=('build', 'demo'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
+    drafts = sub.add_parser('drafts', help='The progress line for the batch of metrics the build just saved')
+    drafts.add_argument('--engine-dir', type=Path)
+    drafts.add_argument('--follow', action='store_true',
+                        help='Print a line per batch as it is saved, until the metric definitions are accepted')
     step = sub.add_parser('progress')
     step.add_argument('--stage', choices=progress.STAGES)
     step.add_argument('--status', choices=progress.STATES, default='running')
@@ -660,6 +664,15 @@ def main():
             model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
             result = {**checklist.build(model, args.flow), 'remote_writes': False}
         elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
+        elif args.command == 'drafts':
+            import drafts
+            # Plain text, never a result file: the person reads these lines as they are.
+            result = (drafts.follow(project.root, args.engine_dir) if args.follow
+                      else drafts.latest(project.root, args.engine_dir)['line'])
+            if result and not args.follow:
+                # Command output is folded away in most hosts; the person sees only messages.
+                print('The person cannot see this output. Send the block above as your next chat message, '
+                      'exactly as printed, before any other tool call.', file=sys.stderr)
         elif args.command == 'progress':
             result = (progress.update(project, args.stage, args.status, args.action) if args.stage
                       else project.read(project.root / 'progress.json'))
