@@ -89,8 +89,9 @@ to choose the questions; it runs the demo's accuracy steps 1 to 4.
   `registry__release_artifact`. Options: Release it (Recommended), and Keep it unreleased. A
   workspace that releases on its own needs no question; withdrawing a release that made a
   question worse follows the demo's rule.
-- **Saving the check.** The demo's step 5 save question applies when the context is in Atlan
-  Trident, with `<agent>` registered under the agent name from the offer.
+- **Saving the check.** The demo's step 5 save question is asked on every check, whether the
+  context is in Atlan Trident or on this machine (then the person's personal workspace), with
+  `<agent>` registered under the agent name from the offer.
 
 ## The ending
 

@@ -1673,7 +1673,9 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     exps = ids.get("experiments") or {}
     if full and not exps.get(V):
         name = f"{slug}-{V}"
-        body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {V}",
+        # The raw-source pass is the run the context is compared with: name it so in Atlan.
+        shown = {"raw": "raw tables, no context", "baseline": "with your context"}.get(V, V)
+        body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
                 "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
                 "dataset_id": ids["eval_dataset_id"], "subject_kind": "agent", "subject_id": c["agent_id"],
                 "experiment_status": "running",

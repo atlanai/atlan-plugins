@@ -201,6 +201,8 @@ def cmd_saved(a) -> dict:
     scored = (f"1 run scored {last['pct']}%" if len(runs) == 1
               else f"{len(runs)} runs scored from {first['pct']}% to {last['pct']}%")
     lines = [f"Saved to {a.workspace}:", f"  {a.agent}, with {last['n']} questions and {scored}"]
+    if (ev / "hillclimb" / "raw" / "results.jsonl").is_file():
+        lines.append(f"  Raw tables, no context: {_score(ev, 'raw')['pct']}%")
     for state, given in (("released", a.released), ("withdrawn", a.withdrawn)):
         for r in given or []:
             name, _, version = r.rpartition(":")

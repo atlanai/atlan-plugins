@@ -227,13 +227,16 @@ compare runs graded on different questions.
 
 ## Save to Atlan Trident
 
-Called when the caller asks to save a check. The caller gives the workspace and the agent's id
-(`agent_...`); this skill registers nothing.
+Offered after every check's result, on every path, as the demo's
+[the result](../../analytics-demo/references/accuracy.md#5-the-result) step words the question.
+The caller gives the workspace and the agent's id (`agent_...`); this skill registers nothing.
 
 1. `EVAL init --agent-id <id> --workspace-id <workspace>` records them on the eval folder.
-2. Publish each run in order, the first one first: `EVAL publish --variant baseline
-   --no-transcripts`, then for each test again `EVAL publish --variant <vN> --baseline <the run
-   before it> --no-transcripts`, each with
+2. Publish each run in this order, so Atlan shows what the context changed and then what each
+   fix changed: the raw-source pass first, `EVAL publish --variant raw --no-transcripts`; then the
+   context pass against it, `EVAL publish --variant baseline --baseline raw --no-transcripts`;
+   then for each test again `EVAL publish --variant <vN> --baseline <the run before it>
+   --no-transcripts`. Each with
    `EVAL publish-ack` until `"step": "done"`, as
    [publish](../../eval-generation/references/publish.md) describes: `--ids` for every step but
    `results`, which this skill acknowledges with its tool result (`--responses`), so publish-ack
@@ -242,7 +245,8 @@ Called when the caller asks to save a check. The caller gives the workspace and 
    saved score differs from the run's: stop and follow its `fix` before publishing anything else.
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
-the run as an experiment, each answer with its SQL and score. Never the answering agents'
+the run as an experiment, each answer with its SQL and score. The raw-source pass is named "raw
+tables, no context" and the context pass "with your context", so the two read as a comparison. Never the answering agents'
 transcripts: they hold this machine's commands and paths. Each later run is an experiment
 linked to the one before it, so the workspace shows the score move. Then `CHECK link --evals
 <evals-run> --org <organization slug>` gives the Atlan pages: `runs` (every run of the check) and

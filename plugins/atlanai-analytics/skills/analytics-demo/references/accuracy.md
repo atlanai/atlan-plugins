@@ -212,20 +212,26 @@ No other line: not a significance test, an open question, a note on saved querie
 queries that still follow the old rule, or an offer to change a saved query, another metric
 or the set.
 
-**Context in Atlan Trident** (`context_saved_to`). The result is the moment to save, so ask one
-native question, "Save this check to Atlan Trident?", whose text is the result block, one line
-per version a fix released ("<metric> version <v> is released in <workspace>."), then the
-question. Nothing else: no notes on proposals, files or cleanup.
+**Save the check, on every check.** The result is the moment to save, whether the context is in
+Atlan Trident or on this machine, so ask one native question, "Save this check to Atlan
+Trident?", whose text is the result block, one line per version a fix released ("<metric>
+version <v> is released in <workspace>."), then the question. Nothing else: no notes on
+proposals, files or cleanup. `<workspace>` is the one the context was saved to
+(`context_saved_to`); for a context on this machine it is the person's personal workspace, the
+`user_default` one `registry__list_workspaces` returns. When that read needs sign-in, follow
+[connection recovery](../../analytics-build/references/auth-recovery.md) after the person picks
+Save, never before: the result has already been shown.
 
 | Option | Description |
 | --- | --- |
-| Save to `<workspace>` (Recommended) | The questions and every run with its score, so your team sees accuracy go from `<p>`% to `<q>`% (one run: sees it at `<q>`%). A digest of each trusted SQL, never the SQL. |
+| Save to `<workspace>` (Recommended) | The questions, the raw-tables run and every run with your context, with their scores, so your team sees accuracy go from `<r>`% on the raw tables to `<q>`% with your context. A digest of each trusted SQL, never the SQL. |
 | Keep on this machine | The set and its runs stay in this folder. |
 
 On Save: register `<agent>` in the context's workspace once, with `registry__create_artifact`
 (`kind` `agent`; `metadata` holds only `name`, `workspace_id` and a one-line `description`). A
 refusal because that name exists means it is registered: find it with
-`registry__search_artifacts` (`kind` `agent`) and use its id. Then have `accuracy-check`
+`registry__search_artifacts` (`kind` `agent`) and use its id. Saving the check never saves the
+context: a context kept on this machine stays there. Then have `accuracy-check`
 [save the check](../../accuracy-check/references/run.md#save-to-atlan-trident) with that agent
 id and workspace. `ACC saved --evals <evals-run> --agent <agent> --workspace <workspace>
 --org <organization slug> --released "<metric>:<version>"` (once per released version; `--withdrawn`
@@ -236,12 +242,12 @@ as that `text`, put as it is, and no banner (the result was just shown):
 ```
 Saved to <workspace>:
   <agent>, with <N> questions and <runs> runs scored from <p>% to <q>%
+  Raw tables, no context: <r>%
   <metric> version <v>, released            (one line per released or withdrawn version)
 See the runs in Atlan: <runs link>
 ```
 
 On Keep: the same question, whose text is one line: "The check stays on this machine."
 
-**Context on this machine:** ask nothing about saving;
-the set and its runs stay in the project. End with "What would you like to do next?", whose
-text is the result block.
+A run with no person to answer (a scheduled or headless check) saves nothing and says the
+check stays on this machine.

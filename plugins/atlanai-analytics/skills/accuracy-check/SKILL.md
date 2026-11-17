@@ -78,9 +78,11 @@ pinned to a metric version when the caller names one.
 
 ## Save to Atlan Trident
 
-When the caller asks, [save the check](references/run.md#save-to-atlan-trident): the set and
-every run of it on that eval folder, each linked to the run before it, to the workspace and agent
-the caller names.
+After every check's result, offer to [save the check](references/run.md#save-to-atlan-trident):
+the set, the raw-tables run and every run with the context, each linked to the run before it.
+When a person called this skill directly, ask the demo's "Save this check to Atlan Trident?"
+yourself, register the agent as that step says, and save on Save. A skill that called this one
+asks it instead.
 
 ## What comes back
 
