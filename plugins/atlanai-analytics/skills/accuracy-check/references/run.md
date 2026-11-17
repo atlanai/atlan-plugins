@@ -157,11 +157,17 @@ again, each to a fresh agent that has only the source's tables and no context, a
      and leaves both scores, as `report` says. Counted as a miss, it would flatter the context. It keeps `--judge`: both passes are graded the
      same way.
 2. `EVAL summary --variant raw --require-isolation` must show one row per question.
-3. `EVAL before-after --before raw --after baseline` returns `report`: both scores, the time per
-   question and how many questions each pass alone got right. Show `report` word for word, as
-   plain lines. Never rebuild its numbers, and never show one pass's score without the other.
-   When the context pass scores no higher than the raw source, say so in one plain line: these
-   questions are ones the tables answer on their own. Never explain it away.
+3. `EVAL before-after --before raw --after baseline` returns the comparison, the moment the
+   person sees what their context is worth, in two parts:
+   - `report`, the card: a headline ("With your context, 11 of 14 right. On the raw tables, 1 of
+     14."), one bar per pass with a block per question, and one line on what changed. Plain lines
+     that read the same in a chat message and in a native question's text.
+   - `changes`, a markdown table of the questions that went from wrong to right, and any that
+     went the other way, each under its number. Empty when nothing changed.
+   Show both word for word, as [show the score](#show-the-score) places them. Never rebuild their
+   numbers, never redraw the bars, and never show one pass's score without the other. When the
+   context pass scores no higher than the raw source, say so in one plain line: these questions
+   are ones the tables answer on their own. Never explain it away.
 
 ## Show the score
 
@@ -169,7 +175,9 @@ The result comes first and nothing is written around it: no setup recap, no list
 no closing summary. A person who asked how accurate the agent is reads the score in the first
 line, and a result buried under process is a result they miss.
 
-With a before pass, the before-and-after `report` comes first. Then show the run report as
+With a before pass, the comparison comes first, in this order: the card (`report`), then
+`changes` under it. In a chat message the card goes in a fenced block with no language, so its
+bars line up; in a native question's text it goes as plain lines. Then show the run report as
 printed: `EVAL report --why <why file>` gives the same sections for every run of a check, the
 first or the tenth, so a later run never reads thinner than the first. It holds the
 `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly (likely between 21% and

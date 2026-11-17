@@ -1453,24 +1453,38 @@ def cmd_before_after(a) -> dict:
                         and (r.get("grade") or {}).get("pass"))
               for name, rows in (("before", ra), ("after", rb))}
     left_out = sorted((set(ma) | set(mb) | set(order)) - seen)
-    secs = lambda c: "not timed" if c["latency_s"]["p50"] is None else f"{c['latency_s']['p50']:.0f} s"  # noqa: E731
-    q = "question" if n == 1 else "questions"
-    table = [("", "Raw source", "With your context"),
-             ("Answered correctly", f"{ka} of {n}", f"{kb} of {n}"),
-             ("Accuracy", f"{ka / n:.0%}", f"{kb / n:.0%}"),
-             ("Time per question", secs(ca), secs(cb))]
-    w = [max(len(r[k]) for r in table) for k in range(3)]
-    lines = [f"Before and after, on the same {n} {q}", ""]
-    lines += ["  " + "   ".join(cell.ljust(w[k]) for k, cell in enumerate(r)).rstrip() for r in table]
-    lines += ["", f"  Right both ways: {both}. Right only with your context: {len(only_after)}. "
-                  f"Right only on the raw source: {len(only_before)}. Wrong both ways: {neither}."]
+    secs = lambda c: "" if c["latency_s"]["p50"] is None else f"{c['latency_s']['p50']:.0f} s a question"  # noqa: E731
+    # The card: plain lines that read the same in a chat message and in a native question's text,
+    # where markdown tables break. One block per question (scaled to 20 past that), right filled.
+    width = min(n, 20)
+    bar = lambda k: ("\u2588" * round(k / n * width)).ljust(width, "\u2591")  # noqa: E731
+    lines = [f"With your context, {kb} of {n} right. On the raw tables, {ka} of {n}.", ""]
+    for label, k, c in (("Raw tables", ka, ca), ("With your context", kb, cb)):
+        t = secs(c)
+        lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
+    change = [f"{len(only_after)} now right that were wrong on the raw tables", f"{both} right both ways",
+              f"{neither} still wrong"]
+    if only_before:
+        change.append(f"{len(only_before)} right only on the raw tables")
+    lines += ["", "  " + ". ".join(x[0].upper() + x[1:] for x in change) + "."]
     if judged["before"] or judged["after"]:
-        lines.append(f"  A judge accepted answers the exact comparison refused: {judged['before']} on the raw source, "
-                     f"{judged['after']} with your context.")
+        lines.append(f"  Passed on a judge's reading, not an exact match: {judged['after']} with your context, "
+                     f"{judged['before']} on the raw tables.")
     if left_out:
         lines.append(f"  Left out, not scored in both runs: {len(left_out)}.")
     text = {c["case_id"]: c["question"] for c in pr.cases()}
+    number = {i: k for k, i in enumerate(order, 1)}
     mark = lambda m, i: "right" if m[i] == 1 else "wrong"  # noqa: E731
+    cell = lambda t: " ".join(str(t).split()).replace("|", "\\|")  # noqa: E731
+    # The changes, for the chat: the questions the context turned around, then any it lost.
+    changes = []
+    for picked, what in ((only_after, "wrong on the raw tables, right with your context"),
+                         (only_before, "right on the raw tables, wrong with your context")):
+        if picked:
+            changes += [f"**{len(picked)} {'question' if len(picked) == 1 else 'questions'} {what}**", "",
+                        "| # | Question |", "| --- | --- |"]
+            changes += [f"| {number[i]} | {cell(text.get(i, ''))} |" for i in picked]
+            changes.append("")
     return {"status": "ok", "before": a.before, "after": a.after, "questions": n,
             "correct": {"before": ka, "after": kb},
             "accuracy": {"before": round(ka / n, 4), "after": round(kb / n, 4)},
@@ -1480,7 +1494,7 @@ def cmd_before_after(a) -> dict:
             "wrong_both": neither, "judge_passed": judged, "left_out": left_out,
             "per_question": [{"id": i, "question": text.get(i, ""), "before": mark(ma, i), "after": mark(mb, i)}
                              for i in ids],
-            "report": "\n".join(lines)}
+            "report": "\n".join(lines), "headline": lines[0], "changes": "\n".join(changes).rstrip()}
 
 
 # ====================================================================== publishing (registry MCP)
@@ -2628,6 +2642,13 @@ def _selftest_inputs(ok) -> None:
            and ba["wrong_both"] == 1 and ba["judge_passed"] == {"before": 0, "after": 1} and ba["left_out"] == ["c1"])
         ok("the report states both scores and both times",
            "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
+        card = ba["report"].splitlines()
+        ok("the card leads with both scores and draws a block per question",
+           card[0] == "With your context, 1 of 2 right. On the raw tables, 0 of 2."
+           and "░░" in card[2] and "█░" in card[3] and "| " not in ba["report"])
+        ok("the change table names the question the context turned around, under its number",
+           ba["changes"].startswith("**1 question wrong on the raw tables, right with your context**")
+           and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)

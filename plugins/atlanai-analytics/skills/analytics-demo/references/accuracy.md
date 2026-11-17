@@ -103,9 +103,28 @@ Reply "run", "reword 3 to: <new wording>", "drop 2, 7" or "skip". Where no perso
 
 Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
 [before and after](../../accuracy-check/references/run.md#before-and-after) pass started with the
-context pass. With every question right, go to step 5. With misses, ask one native question,
-"Does the score look good?", whose text opens with the before-and-after `report`, word for
-word, then the score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
+context pass. The before and after is the moment the person sees what their context is worth,
+so it leads, in two places:
+
+**First, in the chat.** One message, filled in, with nothing before it:
+
+````
+**<the card's headline, its first line>**
+
+```
+<the card, `report`, word for word>
+```
+
+<`changes`, the table as printed>
+
+<the run report: the score line, the runs and the misses, as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes>
+````
+
+With every question right, go to step 5. With misses, **then, in the same turn, one native
+question**, "Does the score look good?", whose text is the card, `report`, word for word as
+plain lines, and then one line, "<M> still wrong, listed above." Never the change table or the
+misses: a table in a question's text breaks, and the card carries the result if the chat message
+is cut short.
 
 | Option | Description |
 | --- | --- |
@@ -221,8 +240,9 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
    accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
    <what the misses share>."
 3. The score line, word for word, which carries the range.
-4. The before-and-after comparison, word for word: the raw tables against your context on the
-   same questions. `ACC result` adds it from the check's `raw` run; it is never left out.
+4. The before-and-after card, word for word: the raw tables against your context on the same
+   questions, a bar each. `ACC result` adds it from the check's `raw` run; it is never left out.
+   The change table stays in the chat (step 3): this block becomes a question's text.
 5. Only when `CHECK load` returned `generated: true`: the source line.
 
 No other line: not a significance test, an open question, a note on saved queries or past
