@@ -132,7 +132,9 @@ trusted results come from the warehouse, and no model copies a value:
 
 ## Before and after
 
-Run when the caller asks for it (`analytics-build` does, on every check): the same questions
+Run on every check: whether a person asked here directly, the build offered it or the demo
+started it, and whatever the size of the set. Never skip it because nobody asked for it. The
+same questions
 again, each to a fresh agent that has only the source's tables and no context, as the variant
 `raw`. It shows what the context changed, on the same questions and the same trusted results.
 

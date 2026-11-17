@@ -8,7 +8,8 @@ description: "Atlan Analytics: run an eval set against a project's context and s
 A capability. It works on any built run: a local SQLite or DuckDB one, or a warehouse build
 (Snowflake, Databricks or another) whose SQL runs through this host's warehouse query tool. It
 takes an eval set, asks each question to a fresh agent that sees only the context, compares each answer's result with the trusted result (by script, with a judge where the script refuses an answer that ran), and says why each
-miss failed. Asked for a before and after, it also runs the questions on the raw source. It generates no questions and changes nothing: a metric, a saved query and the set
+miss failed. Every check also asks the same questions on the raw source, so the result shows
+what the context changed. It generates no questions and changes nothing: a metric, a saved query and the set
 stay as they are. A person can call it directly, and another skill can call it as a step; it
 behaves the same either way.
 
@@ -34,8 +35,13 @@ command as separate argv entries; zsh does not split a string holding one.
 
 1. **Find the run.** `CHECK start --project <project>` returns the built run, `context_saved_to`
    (where the context lives; `null` means this machine only), `execution` (where its SQL runs)
-   and the project's sets. A caller that knows the run passes `--run <run-dir>` here and to
-   `load`. With several built runs and none named, the reply lists them: ask which one once.
+   and the project's sets, and `before_after`, always true. A caller that knows the run passes
+   `--run <run-dir>` here and to `load`. With several built runs and none named, the reply lists
+   them: ask which one once.
+   With no set in the project, or the person asking for new questions, generate one: run
+   `eval-generation` `generate` with its default of 20 questions, then load the set it wrote. A
+   caller that wants another size passes `--questions <n>` here and `--limit <n>` to its
+   `SCOPE pick` (the demo passes 8).
 2. **Load the set.** `CHECK load --project <project> --file <set>` puts it in a fresh eval folder
    in `.atlan-evals/`. On a local run it runs each trusted SQL on the run's data, drops a question
    whose trusted SQL fails or returns nothing (`dropped`), and sets the rest up for scoring. On a
@@ -50,7 +56,8 @@ command as separate argv entries; zsh does not split a string holding one.
    step words it. `CHECK drop` takes out the ones the person names. This holds when a person
    calls this skill directly too. A set the person brought and picked runs as it is.
 4. **Run and score it** as [run it](references/run.md#run-it) describes, with the raw-source
-   pass of [before and after](references/run.md#before-and-after) when the caller asks for one,
+   pass of [before and after](references/run.md#before-and-after) on every check, started with
+   the context pass, whatever the size of the set and whoever started the check,
    then show the score as [show the score](references/run.md#show-the-score) describes.
 
 ## A new check is a new check

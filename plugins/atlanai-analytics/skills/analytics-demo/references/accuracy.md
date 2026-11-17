@@ -48,7 +48,7 @@ questions are shown with their expected answers, in step 2, because the person h
   then step 3, with no list to confirm.
 - **Generate:** run `eval-generation` `generate` (not its `save`) with 8 questions, passing
   `--limit 8` to its `SCOPE pick`, then `CHECK load` on the set it wrote, then step 2. A demo
-  check stays at 8 questions, so it ends in about 2 minutes.
+  check stays at 8 questions, so it ends in about 4 minutes with both passes.
 
 `CHECK load` drops a question whose trusted SQL fails or returns nothing; name how many.
 
@@ -75,7 +75,7 @@ each question is the one it keeps in the score, the misses and any fix.
 
 | Option | Description |
 | --- | --- |
-| Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
+| Run them (Recommended) | Each goes to a fresh agent that sees only your context, and to one that sees only the raw tables, about 4 minutes. |
 | Drop some | Tell me the numbers to leave out, and I run the rest. |
 | Not now | Keep the questions on this machine. |
 
@@ -87,9 +87,11 @@ you like to do next?", whose text is one line: "The questions stay on this machi
 
 ## 3. Run and score
 
-Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes. With every question right, go to
-step 5. With misses, ask one native question, "Does the score look good?", whose text is the
-score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
+Run the set with `accuracy-check`, as its [run it](../../accuracy-check/references/run.md#run-it) describes, with its
+[before and after](../../accuracy-check/references/run.md#before-and-after) pass started with the
+context pass. With every question right, go to step 5. With misses, ask one native question,
+"Does the score look good?", whose text opens with the before-and-after `report`, word for
+word, then the score and the misses as its [show the score](../../accuracy-check/references/run.md#show-the-score) describes, as plain lines:
 
 | Option | Description |
 | --- | --- |
@@ -205,7 +207,9 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
    accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
    <what the misses share>."
 3. The score line, word for word, which carries the range.
-4. Only when `CHECK load` returned `generated: true`: the source line.
+4. The before-and-after comparison, word for word: the raw tables against your context on the
+   same questions. `ACC result` adds it from the check's `raw` run; it is never left out.
+5. Only when `CHECK load` returned `generated: true`: the source line.
 
 No other line: not a significance test, an open question, a note on saved queries or past
 queries that still follow the old rule, or an offer to change a saved query, another metric

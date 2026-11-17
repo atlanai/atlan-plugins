@@ -29,8 +29,10 @@ graders:
     criteria: |
       PASS if the reply says it will pick 8 questions from Ticketfuddle's dashboard and past
       queries, show each with where it came from and its expected answer, and ask once whether to
-      run them; and that where the questions live is asked after the score.
-      FAIL if it offers to edit the questions, asks the person to write questions or SQL, starts
+      run them; that each question is also asked on the raw tables, so the score is shown beside
+      that comparison; and that where the questions live is asked after the score. Leaving some
+      questions out before the run is allowed.
+      FAIL if it offers to reword the questions, asks the person to write questions or SQL, starts
       testing before the person chooses to run, asks where to save before the test, registers an
       agent, or splits the set into train, validation and holdout.
   - name: plain-reply

@@ -221,8 +221,15 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
         self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Generate 20 new questions"])
+        # Every check runs the raw-source pass too, whoever starts it and whatever its size.
+        self.assertTrue(res["before_after"])
+        self.assertIn("only the raw tables", res["ask"]["text"])
+        self.assertEqual(res["ask"]["options"][-1]["label"], "Generate 20 new questions")  # a direct check: 20
         demo = self.check("start", "--project", str(self.tmp), "--run", str(self.run), "--questions", "8")
         self.assertEqual(demo["ask"]["options"][-1]["label"], "Generate 8 new questions")
+        self.assertTrue(demo["before_after"])
+        self.assertIn("only the raw tables", demo["ask"]["text"])
+        self.assertNotIn("--context-only", CHECK.read_text())  # no caller can leave the comparison out
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")
@@ -267,13 +274,17 @@ class ScopeTest(unittest.TestCase):
             (ev / "hillclimb" / v / "results.jsonl").write_text("{}\n")
         scores = {"baseline": {"line": "71% accuracy: 5 of 7", "n": 7, "pct": 71},
                   "v1": {"line": "100% accuracy: 7 of 7", "n": 7, "pct": 100}}
-        with mock.patch.object(acc, "_score", lambda e, v: scores[v]):
+        compared = []
+        with mock.patch.object(acc, "_score", lambda e, v: scores[v]), \
+                mock.patch.object(acc, "_compare", lambda e, after: compared.append(after) or "Before and after, on the same 7 questions"):
             ns = lambda **kw: __import__("argparse").Namespace(**{**dict(evals=str(ev), agent="job agent", firm="Acme",
                                                                          changed=None, misses=None, generated=False), **kw})
             text = acc.cmd_result(ns(changed="the rule changed"))["text"]
             self.assertIn("7 OUT OF 7 RIGHT", text)
             self.assertIn("Your job agent has reached 100% accuracy, up from 71%, now that the rule changed.", text)
-            self.assertTrue(text.endswith("100% accuracy: 7 of 7"))
+            # The comparison is always in the result, against the latest run.
+            self.assertTrue(text.endswith("100% accuracy: 7 of 7\n\nBefore and after, on the same 7 questions"))
+            self.assertEqual(compared, ["v1"])
             with self.assertRaises(acc.Blocked):
                 acc.cmd_result(ns())
             (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a"}}))
