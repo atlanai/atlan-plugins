@@ -94,8 +94,12 @@ and identical judge briefs verified; it was not resampled. The 1/10 baseline is 
 roughly 4/10 target, so the intended SQL-control cohort is being reviewed against the stricter
 schema-only protocol. No score or question has been silently replaced.
 
-Ticketfuddle's schema-only run measured **3/10**. Its injected and repaired context runs are
-pending. [Review evidence](validation-in-progress.json) records SQL, observed results, grading
+Ticketfuddle measured **3/10 schema-only, 8/10 injected context and 10/10 repaired semantic
+answers**. The two seeded misses matched the predicted gross-sales and facility-fee errors.
+One repaired response (TF07) appended two stray characters after a complete JSON object. Its
+semantic score uses that exact object with only the suffix removed; SQL, answer and transcript
+are unchanged, and the model was not rerun. Strict JSON format compliance is **9/10**, so this
+is not an unqualified end-to-end 10/10. [Review evidence](validation-in-progress.json) records SQL, observed results, grading
 and earlier iterations without private session transcripts. The two-demo goal is not complete.
 
 ## Fixit control-cohort revision
@@ -111,4 +115,4 @@ The new experiment forks the corrected context, holds the entity/vocabulary clar
 and seeds only the declared missing-task classification. Both arms are rerun on all ten questions;
 no score is transferred from the previous question set. Earlier questions, SQL and measured
 1/8/10 results remain in the review evidence. A fresh baseline near four is a hypothesis, not a
-guarantee or a reason to change grading. Revision 2 model validation is in progress.
+guarantee or a reason to change grading. Revision 2 measured **4/10 schema-only and 8/10 injected context**. Its full repaired-context run is in progress.
