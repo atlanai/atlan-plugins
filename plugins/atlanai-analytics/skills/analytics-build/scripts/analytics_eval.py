@@ -1462,14 +1462,13 @@ def cmd_before_after(a) -> dict:
     for label, k, c in (("Raw tables", ka, ca), ("With your context", kb, cb)):
         t = secs(c)
         lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
-    change = [f"{len(only_after)} now right that were wrong on the raw tables", f"{both} right both ways",
-              f"{neither} still wrong"]
-    if only_before:
-        change.append(f"{len(only_before)} right only on the raw tables")
-    lines += ["", "  " + ". ".join(x[0].upper() + x[1:] for x in change) + "."]
+    # Every line stays under 76 characters, so an 80-column terminal never wraps one mid-sentence.
+    lines += ["", f"  {len(only_after)} now right that were wrong on the raw tables.",
+              f"  {both} right both ways. {neither} still wrong."
+              + (f" {len(only_before)} right only on the raw tables." if only_before else "")]
     if judged["before"] or judged["after"]:
-        lines.append(f"  Passed on a judge's reading, not an exact match: {judged['after']} with your context, "
-                     f"{judged['before']} on the raw tables.")
+        lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
+                     f"{judged['before']} raw.")
     if left_out:
         lines.append(f"  Left out, not scored in both runs: {len(left_out)}.")
     text = {c["case_id"]: c["question"] for c in pr.cases()}
@@ -1494,7 +1493,8 @@ def cmd_before_after(a) -> dict:
             "wrong_both": neither, "judge_passed": judged, "left_out": left_out,
             "per_question": [{"id": i, "question": text.get(i, ""), "before": mark(ma, i), "after": mark(mb, i)}
                              for i in ids],
-            "report": "\n".join(lines), "headline": lines[0], "changes": "\n".join(changes).rstrip()}
+            "report": "\n".join(lines), "headline": lines[0], "bars": "\n".join(lines[2:]),
+            "changes": "\n".join(changes).rstrip()}
 
 
 # ====================================================================== publishing (registry MCP)
@@ -2056,7 +2056,8 @@ def cmd_report(a) -> dict:
     if left:
         lines += ["", f"Left out of the score: {len(left)} (question {', '.join(str(n) for n in left)}); the run failed there, not the answer."]
     if summ.get("judge_passed"):
-        lines.append(f"A judge accepted {summ['judge_passed']} answer(s) the exact comparison refused.")
+        n_j = summ["judge_passed"]
+        lines.append(f"{n_j} {'answer was' if n_j == 1 else 'answers were'} judged right without an exact match.")
     return {"status": "ok", "variant": last, "runs": runs, "compared_with": prev, "misses": [number.get(i) for i in misses],
             "unexplained": [i for i in misses if not isinstance(whys.get(i), dict) or whys[i].get("why") not in REPORT_WHYS],
             "report": "\n".join(lines)}

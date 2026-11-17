@@ -109,10 +109,10 @@ so it leads, in two places:
 **First, in the chat.** One message, filled in, with nothing before it:
 
 ````
-**<the card's headline, its first line>**
+**<`headline`>**
 
 ```
-<the card, `report`, word for word>
+<`bars`: the card below its headline, word for word>
 ```
 
 <`changes`, the table as printed>

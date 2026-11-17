@@ -176,8 +176,9 @@ no closing summary. A person who asked how accurate the agent is reads the score
 line, and a result buried under process is a result they miss.
 
 With a before pass, the comparison comes first, in this order: the card (`report`), then
-`changes` under it. In a chat message the card goes in a fenced block with no language, so its
-bars line up; in a native question's text it goes as plain lines. Then show the run report as
+`changes` under it. In a chat message `headline` goes in bold, then `bars` (the card below its
+headline) in a fenced block with no language, so the bars line up; in a native question's text
+the whole card, `report`, goes as plain lines. Then show the run report as
 printed: `EVAL report --why <why file>` gives the same sections for every run of a check, the
 first or the tenth, so a later run never reads thinner than the first. It holds the
 `score_line`, word for word ("67% accuracy: 2 of 3 answered correctly (likely between 21% and
