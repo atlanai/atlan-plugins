@@ -39,36 +39,6 @@
       ]
     ]
   },
-  "jobs_losing_money": {
-    "columns": [
-      "project_name",
-      "gross_margin_gbp"
-    ],
-    "rows": [
-      [
-        "Buttercup Vale Wind Turbine Base",
-        -6360.0
-      ],
-      [
-        "Kipper's Cat Flap",
-        -646.5
-      ],
-      [
-        "Sprout's Scarecrow Workshop",
-        -180.0
-      ]
-    ]
-  },
-  "skip_waste_share": {
-    "columns": [
-      "material_waste_rate"
-    ],
-    "rows": [
-      [
-        0.04389469635650771
-      ]
-    ]
-  },
   "billable_share": {
     "columns": [
       "billable_utilisation"
@@ -112,6 +82,26 @@
     "rows": [
       [
         38705.0
+      ]
+    ]
+  },
+  "total_rework_labour_cost": {
+    "columns": [
+      "total_rework_labour_cost_gbp"
+    ],
+    "rows": [
+      [
+        33800.0
+      ]
+    ]
+  },
+  "delivered_material_spend": {
+    "columns": [
+      "delivered_material_spend_gbp"
+    ],
+    "rows": [
+      [
+        174201.0
       ]
     ]
   }

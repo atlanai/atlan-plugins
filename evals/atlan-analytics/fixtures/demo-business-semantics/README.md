@@ -22,7 +22,7 @@ queries. These baselines measure different information access; their scores are 
 | Fixit: supplier skip-waste percentage | Delivered value weighting | Quantities mix units; averaging order percentages changes the weighting. |
 | Fixit: billable share and nonbillable labour cost | Task classification including Sprout helping | A task label alone does not decide billability. The two cases combine one classification with hours and money respectively. |
 | Fixit: margin of discount-triggering jobs | Composition of two business definitions | Combining lateness and margin must not invent a discount amount. |
-| Fixit controls: Dig rework, losing-job margins, waste spend share | Entity mapping, cost aggregation and a clearly named monetary share | Retain cases the raw agent can reasonably solve. |
+| Fixit controls: named-crew rework, total rework labour, delivered-material spend, material-waste cost | Explicit entity scope, ordinary joins and monetary aggregation | Keep ordinary SQL checks distinct from the six business-rule cases. |
 | Ticketfuddle: gross sales | Primary-ticket eligibility and allocation of order fees | Joining tickets to orders can omit or multiply order fees. |
 | Ticketfuddle: fee take rate | Finance uses fees divided by face value | A share of total fan spend has a different denominator. |
 | Ticketfuddle: fee refunds and income categories | Company-owned fees, ledger categories and refund date basis | Facility fees belong to venues; refunds are separate dated ledger entries. |
@@ -76,7 +76,7 @@ differences such as fractions versus percentages for both arms.
 All twenty trusted answers and four affected-question SQL counterexamples pass the offline
 regression on freshly rebuilt demo data. The three injected defects change the intended results.
 
-Fixit's intermediate protocol, which allowed table-value exploration, scored 5/10 without context
+The original Fixit cohort under the intermediate protocol, which allowed table-value exploration, scored 5/10 without context
 and 6/10 with the injected context. Two additional natural failures occurred: a crew name was
 mistaken for a job, and the agent did not retrieve the value-weighted waste-rate definition for
 "skip-waste percentage". A name-resolution clarification passed its targeted check; a separate
@@ -85,7 +85,7 @@ iterations remain evidence; 8/10 is not claimed as the untouched build's first s
 classification restoration also makes the stored nonbillable task values explicit, because one
 later answer guessed a literal `nonbillable` task value.
 
-Main #194 merged during validation. Under its schema-only protocol, Fixit measured **1/10**
+Main #194 merged during validation. Under its schema-only protocol, the original Fixit cohort measured **1/10**
 without context, **8/10** with the prepared context, **9/10** after classification restoration,
 and **10/10** after adding the complete source crew name/ID/type mapping. That mapping includes
 all eight crew members, both people and machines, and contains no costs or expected answers.
@@ -97,3 +97,18 @@ schema-only protocol. No score or question has been silently replaced.
 Ticketfuddle's schema-only run measured **3/10**. Its injected and repaired context runs are
 pending. [Review evidence](validation-in-progress.json) records SQL, observed results, grading
 and earlier iterations without private session transcripts. The two-demo goal is not complete.
+
+## Fixit control-cohort revision
+
+The current Fixit JSONL is revision 2. Its six business-rule questions are unchanged. Two proposed
+controls in the original set also required business definitions: losing-job margin combines cost
+streams and a job-status population, while waste spend share overlaps the weighted-waste cases.
+They are replaced with source-backed totals for rework labour and delivered material spend. Dig
+is explicitly identified as a crew member so that control tests a named-crew slice rather than
+an unspecified entity type. The replacements' gold SQL was executed before any revised model run.
+
+The new experiment forks the corrected context, holds the entity/vocabulary clarifications fixed,
+and seeds only the declared missing-task classification. Both arms are rerun on all ten questions;
+no score is transferred from the previous question set. Earlier questions, SQL and measured
+1/8/10 results remain in the review evidence. A fresh baseline near four is a hypothesis, not a
+guarantee or a reason to change grading. Revision 2 model validation is in progress.
