@@ -1,0 +1,2623 @@
+{
+  "status": "in_progress",
+  "date": "2026-11-17",
+  "protocol": "Main PR194: raw receives structural schema only, no values or intermediate data queries; final SQL executes through the project runner. Metrics agents read local context and analytics-ask. Existing evaluator and independent judge are unchanged.",
+  "model": {
+    "answer": "gpt-6-luna",
+    "judge": "gpt-6-luna",
+    "reasoning_effort": "medium"
+  },
+  "limitations": [
+    "Fictional bundled demo data; development set, not held-out production accuracy.",
+    "Initial context defects are explicitly synthetic. Source-built context is separately checkpointed.",
+    "Fixit initial context needed additional vocabulary and entity-resolution repairs; all observed stages remain reported.",
+    "The context arm retained across the main194 protocol update uses exactly the same native answers and results, with judge briefs checked for equality."
+  ],
+  "fixit": {
+    "set": {
+      "sha256": "3613b6763f0794d2f330b68c8737cdb35729791209346657ea7b542942183a8b",
+      "questions": [
+        {
+          "id": "late_jobs_discount",
+          "question": "How many completed jobs incurred the late-completion discount?",
+          "sql": "SELECT COUNT(*) AS late_jobs FROM projects WHERE status='complete' AND CAST(julianday(actual_end_date)-julianday(planned_end_date) AS INTEGER)>7",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit"
+          ]
+        },
+        {
+          "id": "on_time_handover_rate",
+          "question": "What share of our finished jobs made handover on time?",
+          "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date)-julianday(planned_end_date) AS INTEGER)<=7 THEN 1 END)*1.0/COUNT(*) AS on_time_rate FROM projects WHERE status='complete'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/history/querylog.jsonl"
+          ]
+        },
+        {
+          "id": "material_waste_gbp",
+          "question": "What did the material we sent to the skip cost us?",
+          "sql": "SELECT SUM(wasted_quantity*unit_cost_gbp) AS material_waste_gbp FROM material_orders WHERE order_status='delivered'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit"
+          ]
+        },
+        {
+          "id": "dig_rework_cost",
+          "question": "How much did Dig’s rework cost?",
+          "sql": "SELECT SUM(w.hours*c.hourly_rate_gbp) AS rework_cost_gbp FROM work_logs w JOIN crew c USING(crew_id) WHERE w.task_type='rework' AND c.crew_name='Dig'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit",
+            "plugins/atlanai-analytics/skills/analytics-demo/references/yard.md"
+          ]
+        },
+        {
+          "id": "jobs_losing_money",
+          "question": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+          "sql": "WITH labour AS (SELECT w.project_id,SUM(w.hours*c.hourly_rate_gbp) AS cost FROM work_logs w JOIN crew c USING(crew_id) GROUP BY w.project_id), materials AS (SELECT project_id,SUM(quantity*unit_cost_gbp) AS cost FROM material_orders WHERE order_status='delivered' GROUP BY project_id), margins AS (SELECT p.project_id,p.project_name,p.contract_value_gbp-COALESCE(l.cost,0)-COALESCE(m.cost,0) AS gross_margin_gbp FROM projects p LEFT JOIN labour l USING(project_id) LEFT JOIN materials m USING(project_id) WHERE p.status<>'cancelled') SELECT project_name,gross_margin_gbp FROM margins WHERE gross_margin_gbp<0 ORDER BY gross_margin_gbp",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/history/querylog.jsonl",
+            "plugins/atlanai-analytics/skills/analytics-demo/references/yard.md"
+          ]
+        },
+        {
+          "id": "skip_waste_share",
+          "question": "What share of our material spend ended up in the skip?",
+          "sql": "SELECT SUM(wasted_quantity*unit_cost_gbp)*1.0/NULLIF(SUM(quantity*unit_cost_gbp),0) AS material_waste_rate FROM material_orders WHERE order_status='delivered'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/history/querylog.jsonl"
+          ]
+        },
+        {
+          "id": "billable_share",
+          "question": "What share of the yard’s logged time went to work we could charge clients for?",
+          "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break','yard_tidy','rework','sprout_helping') THEN hours ELSE 0 END)*1.0/NULLIF(SUM(hours),0) AS billable_utilisation FROM work_logs",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/history/querylog.jsonl"
+          ]
+        },
+        {
+          "id": "supplier_skip_waste_rate",
+          "question": "What is each supplier’s skip-waste percentage?",
+          "sql": "SELECT supplier,SUM(wasted_quantity*unit_cost_gbp)*1.0/NULLIF(SUM(quantity*unit_cost_gbp),0) AS material_waste_rate FROM material_orders WHERE order_status='delivered' GROUP BY supplier ORDER BY material_waste_rate DESC",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/history/querylog.jsonl"
+          ]
+        },
+        {
+          "id": "late_jobs_gross_margin",
+          "question": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+          "sql": "WITH labour AS (SELECT w.project_id,SUM(w.hours*c.hourly_rate_gbp) AS cost FROM work_logs w JOIN crew c USING(crew_id) GROUP BY w.project_id), materials AS (SELECT project_id,SUM(quantity*unit_cost_gbp) AS cost FROM material_orders WHERE order_status='delivered' GROUP BY project_id) SELECT SUM(p.contract_value_gbp-COALESCE(l.cost,0)-COALESCE(m.cost,0)) AS gross_margin_gbp FROM projects p LEFT JOIN labour l USING(project_id) LEFT JOIN materials m USING(project_id) WHERE p.status='complete' AND CAST(julianday(p.actual_end_date)-julianday(p.planned_end_date) AS INTEGER)>7",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit"
+          ]
+        },
+        {
+          "id": "nonbillable_paid_time_cost",
+          "question": "In total, what did labour for nonbillable time cost us?",
+          "sql": "SELECT SUM(w.hours*c.hourly_rate_gbp) AS nonbillable_time_cost_gbp FROM work_logs w JOIN crew c USING(crew_id) WHERE w.task_type IN ('tea_break','yard_tidy','rework','sprout_helping')",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/powerbi/hard-hat-area-site-performance.pbit",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/yard/history/querylog.jsonl",
+            "plugins/atlanai-analytics/skills/analytics-demo/references/yard.md"
+          ]
+        }
+      ]
+    },
+    "context_build": {
+      "metrics": 7,
+      "queries": 30,
+      "execution_checks": 37,
+      "holds": 0,
+      "source_reviews_pending": 5
+    },
+    "runs": [
+      {
+        "stage": "schema_only",
+        "status": "complete",
+        "count": 10,
+        "passed": 1,
+        "results": [
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "wrong_result",
+            "reason": "The question asks for the count of completed jobs with the late-completion discount; the trusted count is 2 and the agent's count is 0.",
+            "model": "gpt-6-luna",
+            "answer": "0",
+            "sql": "SELECT COUNT(*) AS completed_jobs_with_late_completion_discount FROM site.projects WHERE LOWER(status) = 'completed' AND actual_end_date > planned_end_date LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "completed_jobs_with_late_completion_discount"
+              ],
+              "rows": [
+                [
+                  0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "wrong_result",
+            "reason": "The trusted share is 77.78%, while the agent reports 98.52% of logged time.",
+            "model": "gpt-6-luna",
+            "answer": "98.52% of logged hours were associated with a project (used as the proxy for chargeable client work).",
+            "sql": "SELECT 100.0 * SUM(CASE WHEN project_id IS NOT NULL THEN hours ELSE 0 END) / NULLIF(SUM(hours), 0) AS billable_time_share_pct\nFROM site.work_logs\nLIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "billable_time_share_pct"
+              ],
+              "rows": [
+                [
+                  98.51521900519673
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "wrong_result",
+            "reason": "The question asks for Dig’s rework cost, and the agent returned £0 versus the trusted £5,040.",
+            "model": "gpt-6-luna",
+            "answer": "£0",
+            "sql": "SELECT COALESCE(SUM(w.hours * c.hourly_rate_gbp), 0) AS rework_cost_gbp FROM site.projects p JOIN site.work_logs w ON w.project_id = p.project_id JOIN site.crew c ON c.crew_id = w.crew_id WHERE p.project_name = 'Dig' AND LOWER(w.task_type) = 'rework' LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "wrong_result",
+            "reason": "The question asks for total gross margin, and the agent returned £0 while the trusted rows show -£6,540.",
+            "model": "gpt-6-luna",
+            "answer": "£0",
+            "sql": "WITH project_costs AS (\n  SELECT p.project_id,\n         p.contract_value_gbp,\n         COALESCE((SELECT SUM(w.hours * c.hourly_rate_gbp)\n                   FROM site.work_logs w\n                   JOIN site.crew c ON c.crew_id = w.crew_id\n                   WHERE w.project_id = p.project_id), 0)\n         + COALESCE((SELECT SUM(m.quantity * m.unit_cost_gbp)\n                     FROM site.material_orders m\n                     WHERE m.project_id = p.project_id\n                       AND m.order_status = 'completed'), 0) AS total_cost_gbp\n  FROM site.projects p\n  WHERE LOWER(p.status) = 'completed'\n    AND p.actual_end_date > p.planned_end_date\n)\nSELECT COALESCE(SUM(contract_value_gbp - total_cost_gbp), 0) AS gross_margin_gbp\nFROM project_costs\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "wrong_result",
+            "reason": "The job names match, but every requested gross margin differs: Buttercup Vale Wind Turbine Base is -6360 GBP in the trusted rows versus -20320 GBP in the agent rows.",
+            "model": "gpt-6-luna",
+            "answer": "Jobs with negative gross margin: P03, Buttercup Vale Wind Turbine Base: -£20,320.00; P04, Sprout's Scarecrow Workshop: -£1,220.00; P10, Kipper's Cat Flap: -£1,166.50.",
+            "sql": "WITH material_costs AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS material_cost_gbp\n  FROM site.material_orders\n  GROUP BY project_id\n),\nlabour_costs AS (\n  SELECT wl.project_id, SUM(wl.hours * c.hourly_rate_gbp) AS labour_cost_gbp\n  FROM site.work_logs AS wl\n  JOIN site.crew AS c ON c.crew_id = wl.crew_id\n  GROUP BY wl.project_id\n)\nSELECT\n  p.project_id,\n  p.project_name,\n  p.contract_value_gbp\n    - COALESCE(mc.material_cost_gbp, 0)\n    - COALESCE(lc.labour_cost_gbp, 0) AS gross_margin_gbp\nFROM site.projects AS p\nLEFT JOIN material_costs AS mc ON mc.project_id = p.project_id\nLEFT JOIN labour_costs AS lc ON lc.project_id = p.project_id\nWHERE p.contract_value_gbp\n    - COALESCE(mc.material_cost_gbp, 0)\n    - COALESCE(lc.labour_cost_gbp, 0) < 0\nORDER BY gross_margin_gbp, p.project_id\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "project_id",
+                "project_name",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "P03",
+                  "Buttercup Vale Wind Turbine Base",
+                  -20320.0
+                ],
+                [
+                  "P04",
+                  "Sprout's Scarecrow Workshop",
+                  -1220.0
+                ],
+                [
+                  "P10",
+                  "Kipper's Cat Flap",
+                  -1166.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£7,646.50",
+            "sql": "SELECT ROUND(SUM(COALESCE(wasted_quantity, 0) * COALESCE(unit_cost_gbp, 0)), 2) AS wasted_material_cost_gbp FROM site.material_orders LIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "wasted_material_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "wrong_result",
+            "reason": "The question asks for total nonbillable labour cost; the trusted result is 38705.0, while the agent returned null.",
+            "model": "gpt-6-luna",
+            "answer": "null",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp FROM site.work_logs AS w JOIN site.crew AS c ON w.crew_id = c.crew_id WHERE LOWER(w.task_type) = 'nonbillable' LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "nonbillable_labour_cost_gbp"
+              ],
+              "rows": [
+                [
+                  null
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "wrong_result",
+            "reason": "The agent reports 57.14%, while the trusted on-time share is 71.43%.",
+            "model": "gpt-6-luna",
+            "answer": "57.14%",
+            "sql": "SELECT 100.0 * SUM(CASE WHEN actual_end_date <= planned_end_date THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS share_finished_jobs_handed_over_on_time_pct FROM site.projects WHERE actual_end_date IS NOT NULL LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "share_finished_jobs_handed_over_on_time_pct"
+              ],
+              "rows": [
+                [
+                  57.142857142857146
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "wrong_result",
+            "reason": "The agent reports 3.92% of material spend, while the trusted rows give 4.389% for the share ending up in the skip.",
+            "model": "gpt-6-luna",
+            "answer": "3.92%",
+            "sql": "SELECT 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS share_of_material_spend_in_skip_pct FROM site.material_orders",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "share_of_material_spend_in_skip_pct"
+              ],
+              "rows": [
+                [
+                  3.918649522628388
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "wrong_result",
+            "reason": "The requested skip-waste percentages differ: Buttercup Vale Quarry is 4.57% in the trusted rows and 9.93% in the agent rows.",
+            "model": "gpt-6-luna",
+            "answer": "Buttercup Vale Quarry: 9.93%; Hammerton Builders' Merchant: 5.90%.",
+            "sql": "SELECT supplier,\n       100.0 * SUM(wasted_quantity) / NULLIF(SUM(quantity), 0) AS skip_waste_percentage\nFROM site.material_orders\nGROUP BY supplier\nORDER BY supplier\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  9.929078014184396
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  5.901162790697675
+                ]
+              ],
+              "error": null
+            }
+          }
+        ]
+      },
+      {
+        "stage": "prepared_context_with_classification_fault",
+        "status": "complete",
+        "count": 10,
+        "passed": 8,
+        "results": [
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "pass",
+            "reason": "Both suppliers have the same skip-waste percentages: Buttercup Vale Quarry 4.57% and Hammerton Builders' Merchant 4.09%.",
+            "model": "gpt-6-luna",
+            "answer": "Using the supplied Material Waste Rate definition (version 2), skip-waste percentage is the value of wasted quantities divided by the value of all delivered quantities, weighted by unit cost. Buttercup Vale Quarry: 4.57%; Hammerton Builders' Merchant: 4.09%.",
+            "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  4.567448680351906
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  4.091055761282095
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "wrong_result",
+            "reason": "The trusted billable share is 77.78%, while the agent’s is 78.57%, so the shares differ.",
+            "model": "gpt-6-luna",
+            "answer": "78.57% of the yard’s logged time was billable, excluding tea breaks, yard tidy, and rework.",
+            "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework') THEN hours ELSE 0 END) / NULLIF(SUM(hours), 0) AS billable_share FROM site.work_logs LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e",
+              "vq:yard:8ea7a02e0a3ec04b"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "billable_share",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  0.7856966097500618
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "2",
+            "sql": "SELECT NULLIF(COUNT(CASE WHEN CAST(julianday(p.actual_end_date) - julianday(p.planned_end_date) AS INTEGER) > 7 THEN 1 END), 0) AS late_jobs\nFROM site.projects p\nWHERE p.status = 'complete'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:f5f9243ca485",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "late_jobs"
+              ],
+              "rows": [
+                [
+                  2
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "4.39% of delivered material spend ended up in the skip, measured as the value of wasted quantities divided by the value of all delivered quantities.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) * 1.0 / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS material_waste_rate FROM site.material_orders WHERE order_status = 'delivered' LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_rate"
+              ],
+              "rows": [
+                [
+                  0.04389469635650771
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "71.4% of finished jobs made handover on time, counting jobs completed within seven days after their planned end date.",
+            "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) AS on_time_handover_share FROM site.projects WHERE status = 'complete' LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:f5f9243ca485",
+              "metric:yard:04bb02961603"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "on_time_handover_share",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  0.7142857142857143
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Three non-cancelled jobs had negative gross margin: Buttercup Vale Wind Turbine Base (P03), −£6,360.00; Kipper's Cat Flap (P10), −£646.50; and Sprout's Scarecrow Workshop (P04), −£180.00. Gross margin is contract value less labour and delivered material costs.",
+            "sql": "WITH ledger AS (\n  SELECT p.project_id, p.project_name, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(w.hours * c.hourly_rate_gbp) AS amount_gbp\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(o.quantity * o.unit_cost_gbp) AS amount_gbp\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n)\nSELECT project_id, project_name, SUM(amount_gbp) AS gross_margin_gbp\nFROM ledger\nGROUP BY project_id, project_name\nHAVING SUM(amount_gbp) < 0\nORDER BY gross_margin_gbp\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "project_id",
+                "project_name",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "P03",
+                  "Buttercup Vale Wind Turbine Base",
+                  -6360.0
+                ],
+                [
+                  "P10",
+                  "Kipper's Cat Flap",
+                  -646.5
+                ],
+                [
+                  "P04",
+                  "Sprout's Scarecrow Workshop",
+                  -180.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The delivered material that ended up in a skip cost Fixit £7,646.50, valued as wasted quantity × unit cost; only delivered orders are included.",
+            "sql": "SELECT SUM(t.wasted_value_gbp) AS material_waste\nFROM (\n  SELECT o.order_id, o.project_id, o.material, o.supplier, o.order_date,\n         o.quantity * o.unit_cost_gbp AS delivered_value_gbp,\n         o.wasted_quantity * o.unit_cost_gbp AS wasted_value_gbp\n  FROM site.material_orders o\n  WHERE o.order_status = 'delivered'\n) t\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste"
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Dig’s rework cost was £5,040, calculated as logged rework hours multiplied by Dig’s hourly rate.",
+            "sql": "SELECT 'job' AS entity_type, p.project_name AS entity_name, SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nJOIN site.projects p ON p.project_id = w.project_id\nWHERE UPPER(p.project_name) LIKE '%DIG%'\nGROUP BY p.project_name\nUNION ALL\nSELECT 'crew' AS entity_type, c.crew_name AS entity_name, SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE UPPER(c.crew_name) LIKE '%DIG%'\nGROUP BY c.crew_name\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "entity_type",
+                "entity_name",
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  "crew",
+                  "Dig",
+                  5040.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "wrong_result",
+            "reason": "The question asks for total labour cost, which is £38,705.0 in the trusted rows; the agent returned NULL.",
+            "model": "gpt-6-luna",
+            "answer": "The query returned NULL, so it found no work logs with task_type exactly “nonbillable”; the total is not available from that filter.",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE lower(w.task_type) = 'nonbillable'\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "nonbillable_labour_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  null
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "-£6,540 gross margin across completed jobs more than seven days late, the threshold for the late-completion discount. This uses gross margin as contract value less labour and delivered materials; the supplied definition does not specify subtracting the discount amount itself.",
+            "sql": "WITH late_jobs AS (\n  SELECT project_id\n  FROM site.projects\n  WHERE status = 'complete'\n    AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n),\nledger AS (\n  SELECT p.project_id, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, 'labour', -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id\n  UNION ALL\n  SELECT p.project_id, 'materials', -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id\n)\nSELECT SUM(l.amount_gbp) AS gross_margin_gbp\nFROM ledger l\nJOIN late_jobs j ON j.project_id = l.project_id\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "metric:yard:f5f9243ca485"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "gross_margin_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  -6540.0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "stage": "classification_restored_and_stored_values_explicit",
+        "status": "complete",
+        "count": 10,
+        "passed": 9,
+        "results": [
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "77.8% of the yard’s logged hours were billable, using the local definition that excludes tea breaks, yard tidy, rework, and sprout helping.",
+            "sql": "SELECT\n  1.0 * SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN hours ELSE 0 END)\n    / NULLIF(SUM(hours), 0) AS billable_share\nFROM site.work_logs\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e",
+              "vq:yard:1615df7b69e02dea",
+              "vq:yard:5e0c33b561b6fef7",
+              "vq:yard:8ea7a02e0a3ec04b"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "billable_share"
+              ],
+              "rows": [
+                [
+                  0.7777777777777778
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "wrong_result",
+            "reason": "The question asks for Dig’s rework cost; the trusted rows give 5040.0 GBP, while the agent returned no rows.",
+            "model": "gpt-6-luna",
+            "answer": "No matching job named “Dig” was found, so its rework cost could not be determined.",
+            "sql": "SELECT p.project_name,\n       SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK'\n                THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nLEFT JOIN site.projects p ON p.project_id = w.project_id\nWHERE p.project_name = 'Dig'\nGROUP BY p.project_name\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "project_name",
+                "rework_cost_gbp"
+              ],
+              "rows": [],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Using gross margin as contract value less labour and delivered material costs, excluding cancelled jobs, these jobs lost money: Buttercup Vale Wind Turbine Base (P03), £-6,360.00; Kipper's Cat Flap (P10), £-646.50; Sprout's Scarecrow Workshop (P04), £-180.00.",
+            "sql": "WITH labour AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labour_cost\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  GROUP BY w.project_id\n),\nmaterials AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS materials_cost\n  FROM site.material_orders\n  WHERE order_status = 'delivered'\n  GROUP BY project_id\n)\nSELECT p.project_id, p.project_name,\n       p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0) AS gross_margin_gbp\nFROM site.projects p\nLEFT JOIN labour l ON l.project_id = p.project_id\nLEFT JOIN materials m ON m.project_id = p.project_id\nWHERE p.status <> 'cancelled'\n  AND p.contract_value_gbp - COALESCE(l.labour_cost, 0) - COALESCE(m.materials_cost, 0) < 0\nORDER BY gross_margin_gbp\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "project_id",
+                "project_name",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "P03",
+                  "Buttercup Vale Wind Turbine Base",
+                  -6360.0
+                ],
+                [
+                  "P10",
+                  "Kipper's Cat Flap",
+                  -646.5
+                ],
+                [
+                  "P04",
+                  "Sprout's Scarecrow Workshop",
+                  -180.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "2",
+            "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7 THEN 1 END) AS jobs_with_late_completion_discount\nFROM site.projects\nWHERE status = 'complete'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:f5f9243ca485"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "jobs_with_late_completion_discount"
+              ],
+              "rows": [
+                [
+                  2
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Delivered material sent to the skip cost Fixit £7,646.50. This sums wasted quantity × unit cost for delivered orders; cancelled or undelivered orders are excluded.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_gbp"
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£-6,540 gross margin across completed jobs more than seven days past their planned end date, the threshold for the late-completion discount.",
+            "sql": "WITH late_jobs AS (\n  SELECT project_id\n  FROM site.projects\n  WHERE status = 'complete'\n    AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n),\nledger AS (\n  SELECT p.project_id, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  JOIN late_jobs l ON l.project_id = p.project_id\n  UNION ALL\n  SELECT w.project_id, -SUM(w.hours * c.hourly_rate_gbp) AS amount_gbp\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN late_jobs l ON l.project_id = w.project_id\n  GROUP BY w.project_id\n  UNION ALL\n  SELECT o.project_id, -SUM(o.quantity * o.unit_cost_gbp) AS amount_gbp\n  FROM site.material_orders o\n  JOIN late_jobs l ON l.project_id = o.project_id\n  WHERE o.order_status = 'delivered'\n  GROUP BY o.project_id\n)\nSELECT SUM(amount_gbp) AS gross_margin_gbp\nFROM ledger\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "metric:yard:f5f9243ca485",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "gross_margin_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  -6540.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£38,705.00",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp\nFROM site.work_logs AS w\nJOIN site.crew AS c ON c.crew_id = w.crew_id\nWHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping')\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "nonbillable_labour_cost_gbp"
+              ],
+              "rows": [
+                [
+                  38705.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "71.43% of completed jobs made handover on time, using the local definition of on time as no more than seven days after plan.",
+            "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) AS on_time_completion_rate FROM site.projects WHERE status = 'complete' LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:04bb02961603"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "on_time_completion_rate"
+              ],
+              "rows": [
+                [
+                  0.7142857142857143
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "4.39% of delivered material spend ended up in the skip, measured by the value of wasted quantities divided by the value of all delivered quantities.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS material_waste_rate\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_rate"
+              ],
+              "rows": [
+                [
+                  0.04389469635650771
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "pass",
+            "reason": "Both suppliers match, and the agent reports the trusted waste-rate fractions as percentages: 4.57% and 4.09%.",
+            "model": "gpt-6-luna",
+            "answer": "Using delivered material value as the basis, Buttercup Vale Quarry’s skip-waste percentage is 4.57%, and Hammerton Builders' Merchant’s is 4.09%.",
+            "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY supplier\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "metric:yard:649359b95e2c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  4.567448680351906
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  4.091055761282095
+                ]
+              ],
+              "error": null
+            }
+          }
+        ]
+      },
+      {
+        "stage": "complete_crew_name_mapping_added",
+        "status": "complete",
+        "count": 10,
+        "passed": 10,
+        "results": [
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "77.8% of the yard’s logged time was billable (hours on all task types except tea breaks, yard tidy, rework, and sprout helping, divided by all logged hours).",
+            "sql": "SELECT SUM(CASE WHEN w.task_type NOT IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') THEN w.hours ELSE 0 END) * 1.0 / NULLIF(SUM(w.hours), 0) AS billable_share FROM site.work_logs w LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "billable_share"
+              ],
+              "rows": [
+                [
+                  0.7777777777777778
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Dig’s rework cost was £5,040.",
+            "sql": "SELECT SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON w.crew_id = c.crew_id\nWHERE c.crew_name = 'Dig'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  5040.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "2",
+            "sql": "SELECT NULLIF(COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7 THEN 1 END), 0) AS late_jobs FROM site.projects WHERE status = 'complete' LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:f5f9243ca485",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "late_jobs"
+              ],
+              "rows": [
+                [
+                  2
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The jobs that lost money were Buttercup Vale Wind Turbine Base (−£6,360.00), Kipper's Cat Flap (−£646.50), and Sprout's Scarecrow Workshop (−£180.00). Gross margin is contract value less labour and delivered material costs; cancelled jobs are excluded.",
+            "sql": "WITH ledger AS (\n  SELECT p.project_id, p.project_name, 'contract' AS entry_type,\n         p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, 'labour',\n         -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, 'materials',\n         -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n)\nSELECT project_id, project_name, SUM(amount_gbp) AS gross_margin_gbp\nFROM ledger\nGROUP BY project_id, project_name\nHAVING SUM(amount_gbp) < 0\nORDER BY gross_margin_gbp ASC\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "project_id",
+                "project_name",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "P03",
+                  "Buttercup Vale Wind Turbine Base",
+                  -6360.0
+                ],
+                [
+                  "P10",
+                  "Kipper's Cat Flap",
+                  -646.5
+                ],
+                [
+                  "P04",
+                  "Sprout's Scarecrow Workshop",
+                  -180.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Material sent to the skip cost Fixit £7,646.50, measured as wasted quantity × unit cost across delivered material orders. Cancelled and undelivered orders are excluded.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_gbp"
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "-£6,540 gross margin across completed jobs more than seven days past their planned end date (the late-completion discount threshold).",
+            "sql": "WITH ledger AS (\n  SELECT p.project_id, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, 'labour', -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id\n  UNION ALL\n  SELECT p.project_id, 'materials', -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id\n),\neligible AS (\n  SELECT project_id\n  FROM site.projects\n  WHERE status = 'complete'\n    AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n)\nSELECT SUM(ledger.amount_gbp) AS gross_margin_gbp\nFROM ledger\nJOIN eligible USING (project_id)\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "metric:yard:f5f9243ca485",
+              "metric:yard:04bb02961603",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "gross_margin_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  -6540.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£38,705.00 in total nonbillable labour cost, calculated as logged hours × crew hourly rate for tea_break, yard_tidy, rework, and sprout_helping entries across all dates.",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp FROM site.work_logs AS w JOIN site.crew AS c ON c.crew_id = w.crew_id WHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework', 'sprout_helping') LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "nonbillable_labour_cost_gbp"
+              ],
+              "rows": [
+                [
+                  38705.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "71.4% of finished jobs made handover on time, counting handovers within seven days after the planned end date as on time.",
+            "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) AS on_time_rate FROM site.projects WHERE status = 'complete' LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:04bb02961603"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "on_time_rate"
+              ],
+              "rows": [
+                [
+                  0.7142857142857143
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "pass",
+            "reason": "Both rows give the share of delivered material spend ending up in the skip: 0.04389 as a fraction and 4.389% as a percent.",
+            "model": "gpt-6-luna",
+            "answer": "4.39% of delivered material spend ended up in the skip, measured as the value of wasted quantities divided by the value of delivered quantities.",
+            "sql": "SELECT 100.0 * SUM(o.wasted_quantity * o.unit_cost_gbp) / NULLIF(SUM(o.quantity * o.unit_cost_gbp), 0) AS share_material_spend_in_skip_pct FROM site.material_orders o WHERE o.order_status = 'delivered' LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "share_material_spend_in_skip_pct",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  4.389469635650771
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "pass",
+            "reason": "Both rows give the same suppliers’ value-weighted skip-waste percentages: 4.57% and 4.09%.",
+            "model": "gpt-6-luna",
+            "answer": "Buttercup Vale Quarry: 4.57%; Hammerton Builders' Merchant: 4.09%. Percentages are value-weighted across delivered orders: wasted quantity × unit cost divided by ordered quantity × unit cost.",
+            "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage\nFROM site.material_orders\nWHERE order_status = 'delivered'\nGROUP BY supplier\nORDER BY supplier\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  4.567448680351906
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  4.091055761282095
+                ]
+              ],
+              "error": null
+            }
+          }
+        ]
+      }
+    ],
+    "earlier_protocol_and_diagnosis": [
+      {
+        "stage": "table_value_exploration_not_schema_only",
+        "status": "complete",
+        "count": 10,
+        "passed": 5,
+        "results": [
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "wrong_result",
+            "reason": "The question asks for the exact count of completed jobs with the late-completion discount; the trusted rows show 2 and the agent rows show 3.",
+            "model": "gpt-6-luna",
+            "answer": "3",
+            "sql": "SELECT COUNT(*) AS completed_jobs_with_late_completion_discount FROM site.projects WHERE status = 'complete' AND actual_end_date > planned_end_date LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "completed_jobs_with_late_completion_discount"
+              ],
+              "rows": [
+                [
+                  3
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "wrong_result",
+            "reason": "The supplier groups match, but both skip-waste percentages differ: Buttercup Vale Quarry is 9.93% versus 4.57%, and Hammerton Builders' Merchant is 5.90% versus 4.09%.",
+            "model": "gpt-6-luna",
+            "answer": "Buttercup Vale Quarry: 9.93%; Hammerton Builders' Merchant: 5.90%.",
+            "sql": "SELECT supplier, ROUND(100.0 * SUM(COALESCE(wasted_quantity, 0)) / NULLIF(SUM(quantity), 0), 2) AS skip_waste_percentage FROM site.material_orders GROUP BY supplier ORDER BY supplier LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  9.93
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  5.9
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "pass",
+            "reason": "Both rows give a chargeable share of about 77.78% of the logged time.",
+            "model": "gpt-6-luna",
+            "answer": "77.78% (3,143 of 4,041 logged hours), counting build, dig, haul, lift, mix, roll, and supervise as chargeable work.",
+            "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN task_type IN ('build','dig','haul','lift','mix','roll','supervise') THEN hours ELSE 0 END) / NULLIF(SUM(hours), 0), 2) AS chargeable_share_pct, SUM(CASE WHEN task_type IN ('build','dig','haul','lift','mix','roll','supervise') THEN hours ELSE 0 END) AS chargeable_hours, SUM(hours) AS total_logged_hours FROM site.work_logs LIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "chargeable_share_pct",
+                  "type": null
+                },
+                {
+                  "name": "chargeable_hours",
+                  "type": null
+                },
+                {
+                  "name": "total_logged_hours",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  77.78,
+                  3143.0,
+                  4041.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "pass",
+            "reason": "Both rows give a delivered material spend waste share of 4.389% (about 4.39%).",
+            "model": "gpt-6-luna",
+            "answer": "4.39% of delivered material spend (£7,646.50 of £174,201) ended up in the skip, based on recorded wasted quantities.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS skip_spend_gbp, SUM(quantity * unit_cost_gbp) AS material_spend_gbp, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS share_percent FROM site.material_orders WHERE order_status = 'delivered'",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "skip_spend_gbp",
+                  "type": null
+                },
+                {
+                  "name": "material_spend_gbp",
+                  "type": null
+                },
+                {
+                  "name": "share_percent",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  7646.5,
+                  174201.0,
+                  4.389469635650771
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "wrong_result",
+            "reason": "The agent reports 57.14% on time, while the trusted rows give 71.43%.",
+            "model": "gpt-6-luna",
+            "answer": "4 of 7 finished jobs made handover on time (57.14%).",
+            "sql": "SELECT COUNT(*) AS finished_jobs, SUM(CASE WHEN actual_end_date <= planned_end_date THEN 1 ELSE 0 END) AS on_time_handovers, 100.0 * SUM(CASE WHEN actual_end_date <= planned_end_date THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS share_on_time_pct FROM site.projects WHERE status = 'complete' AND actual_end_date IS NOT NULL AND planned_end_date IS NOT NULL",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "finished_jobs",
+                "on_time_handovers",
+                "share_on_time_pct"
+              ],
+              "rows": [
+                [
+                  7,
+                  4,
+                  57.142857142857146
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Three jobs had negative gross margin: Buttercup Vale Wind Turbine Base: -£6,360.00; Kipper's Cat Flap: -£646.50; Sprout's Scarecrow Workshop: -£180.00.",
+            "sql": "SELECT p.project_id, p.project_name, p.contract_value_gbp, COALESCE(l.labor_gbp,0) labor_gbp, COALESCE(m.material_gbp,0) material_gbp, p.contract_value_gbp-COALESCE(l.labor_gbp,0)-COALESCE(m.material_gbp,0) gross_margin_gbp FROM site.projects p LEFT JOIN (SELECT w.project_id,SUM(w.hours*c.hourly_rate_gbp) labor_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id=w.crew_id GROUP BY w.project_id) l ON p.project_id=l.project_id LEFT JOIN (SELECT project_id,SUM(quantity*unit_cost_gbp) material_gbp FROM site.material_orders WHERE order_status='delivered' GROUP BY project_id) m ON p.project_id=m.project_id WHERE p.contract_value_gbp-COALESCE(l.labor_gbp,0)-COALESCE(m.material_gbp,0)<0 ORDER BY gross_margin_gbp LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "project_id",
+                "project_name",
+                "contract_value_gbp",
+                "labor_gbp",
+                "material_gbp",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "P03",
+                  "Buttercup Vale Wind Turbine Base",
+                  150000.0,
+                  97620.0,
+                  58740.0,
+                  -6360.0
+                ],
+                [
+                  "P10",
+                  "Kipper's Cat Flap",
+                  150.0,
+                  787.5,
+                  9.0,
+                  -646.5
+                ],
+                [
+                  "P04",
+                  "Sprout's Scarecrow Workshop",
+                  10500.0,
+                  9482.0,
+                  1198.0,
+                  -180.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The material sent to the skip cost £7,646.50, calculated from wasted quantity × unit cost across material orders.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS skip_cost_gbp FROM site.material_orders",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "skip_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "£5,040",
+            "sql": "SELECT c.crew_name, SUM(w.hours * c.hourly_rate_gbp) AS rework_cost_gbp FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id WHERE c.crew_name = 'Dig' AND w.task_type = 'rework' GROUP BY c.crew_name LIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "crew_name",
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  "Dig",
+                  5040.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "wrong_result",
+            "reason": "The total nonbillable labour cost differs: the trusted rows show 38,705.0, while the agent rows show 22,110.0.",
+            "model": "gpt-6-luna",
+            "answer": "£22,110.00",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp FROM site.work_logs AS w JOIN site.crew AS c ON w.crew_id = c.crew_id WHERE w.task_type IN ('rework', 'sprout_helping', 'tea_break', 'yard_tidy') AND c.crew_type = 'human' LIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "nonbillable_labour_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  22110.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "wrong_result",
+            "reason": "The gross margin differs: the trusted result is -6540.0 GBP, while the agent's result is -31178.0 GBP.",
+            "model": "gpt-6-luna",
+            "answer": "-£31,178.00",
+            "sql": "WITH labor AS (SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labor_cost FROM site.work_logs w JOIN site.crew c ON c.crew_id = w.crew_id GROUP BY w.project_id), materials AS (SELECT project_id, SUM(quantity * unit_cost_gbp) AS material_cost FROM site.material_orders GROUP BY project_id) SELECT ROUND(SUM(p.contract_value_gbp * 0.90 - COALESCE(l.labor_cost, 0) - COALESCE(m.material_cost, 0)), 2) AS total_gross_margin_gbp FROM site.projects p LEFT JOIN labor l ON l.project_id = p.project_id LEFT JOIN materials m ON m.project_id = p.project_id WHERE p.status = 'complete' AND p.actual_end_date > p.planned_end_date LIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "total_gross_margin_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  -31178.0
+                ]
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "stage": "first_seeded_context_before_vocabulary_repairs",
+        "status": "complete",
+        "count": 10,
+        "passed": 6,
+        "results": [
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "wrong_result",
+            "reason": "The question asks for the share of logged time spent on chargeable work; the agent’s share (78.57%) differs from the trusted share (77.78%).",
+            "model": "gpt-6-luna",
+            "answer": "78.57% of the yard’s logged hours went to billable work. The metric counts all logged hours in the denominator and treats tea breaks, yard tidy, and rework as non-billable.",
+            "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework') THEN hours ELSE 0 END) * 1.0 / NULLIF(SUM(hours), 0) AS billable_share FROM site.work_logs LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e",
+              "vq:yard:1615df7b69e02dea",
+              "vq:yard:5e0c33b561b6fef7",
+              "vq:yard:8ea7a02e0a3ec04b"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "billable_share"
+              ],
+              "rows": [
+                [
+                  0.7856966097500618
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The jobs with negative gross margin were Buttercup Vale Wind Turbine Base (£-6,360.00), Kipper's Cat Flap (£-646.50), and Sprout's Scarecrow Workshop (£-180.00). Gross margin is contract value less labour and delivered material costs; cancelled jobs are excluded.",
+            "sql": "WITH labour AS (\n  SELECT w.project_id, SUM(w.hours * c.hourly_rate_gbp) AS labour_cost\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  GROUP BY w.project_id\n),\nmaterials AS (\n  SELECT project_id, SUM(quantity * unit_cost_gbp) AS material_cost\n  FROM site.material_orders\n  WHERE order_status = 'delivered'\n  GROUP BY project_id\n)\nSELECT p.project_name, p.project_id,\n       p.contract_value_gbp\n         - COALESCE(l.labour_cost, 0)\n         - COALESCE(m.material_cost, 0) AS gross_margin_gbp\nFROM site.projects p\nLEFT JOIN labour l ON l.project_id = p.project_id\nLEFT JOIN materials m ON m.project_id = p.project_id\nWHERE p.status <> 'cancelled'\n  AND p.contract_value_gbp\n        - COALESCE(l.labour_cost, 0)\n        - COALESCE(m.material_cost, 0) < 0\nORDER BY gross_margin_gbp, p.project_id\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "project_name",
+                "project_id",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Wind Turbine Base",
+                  "P03",
+                  -6360.0
+                ],
+                [
+                  "Kipper's Cat Flap",
+                  "P10",
+                  -646.5
+                ],
+                [
+                  "Sprout's Scarecrow Workshop",
+                  "P04",
+                  -180.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "wrong_result",
+            "reason": "The question asks for Dig’s rework cost; the trusted rows give £5,040, while the agent’s rows give NULL.",
+            "model": "gpt-6-luna",
+            "answer": "No rework cost was recorded for the job named Dig; the query returned NULL.",
+            "sql": "SELECT SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nJOIN site.projects p ON p.project_id = w.project_id\nWHERE UPPER(RTRIM(p.project_name)) = 'DIG'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  null
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "2",
+            "sql": "SELECT NULLIF(COUNT(CASE WHEN UPPER(RTRIM(t.delivery)) = 'LATE' THEN 1 END), 0) AS late_jobs\nFROM (\n  SELECT p.project_id, p.project_name, p.project_type, p.actual_end_date,\n         CASE WHEN CAST(julianday(p.actual_end_date) - julianday(p.planned_end_date) AS INTEGER) > 7 THEN 'late' ELSE 'on_time' END AS delivery\n  FROM site.projects p\n  WHERE p.status = 'complete'\n) t\nLIMIT 1000",
+            "used_context_ids": [
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "late_jobs"
+              ],
+              "rows": [
+                [
+                  2
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The materials sent to the skip cost Fixit £7,646.50, counting wasted quantities on delivered material orders at their unit cost.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) AS material_waste_gbp\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_gbp"
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The gross margin was -£6,540.00 across completed jobs more than seven days late. The available data defines those jobs as having incurred the late-completion discount, but does not provide a separate discount amount.",
+            "sql": "WITH ledger AS (\n  SELECT p.project_id, p.status, p.planned_end_date, p.actual_end_date,\n         p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.status, p.planned_end_date, p.actual_end_date,\n         -SUM(w.hours * c.hourly_rate_gbp) AS amount_gbp\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.status, p.planned_end_date, p.actual_end_date\n  UNION ALL\n  SELECT p.project_id, p.status, p.planned_end_date, p.actual_end_date,\n         -SUM(o.quantity * o.unit_cost_gbp) AS amount_gbp\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.status, p.planned_end_date, p.actual_end_date\n)\nSELECT SUM(amount_gbp) AS gross_margin_gbp\nFROM ledger\nWHERE status = 'complete'\n  AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late",
+              "metric:yard:f5f9243ca485"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  -6540.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "71.4% of finished jobs were handed over on time, counting jobs completed within seven days after plan (Fixit’s grace period) and with both planned and actual end dates.",
+            "sql": "SELECT\n  COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0\n    / NULLIF(COUNT(*), 0) AS on_time_handover_share\nFROM site.projects\nWHERE status = 'complete'\n  AND actual_end_date IS NOT NULL\n  AND planned_end_date IS NOT NULL\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:04bb02961603"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "on_time_handover_share"
+              ],
+              "rows": [
+                [
+                  0.7142857142857143
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "wrong_result",
+            "reason": "The total nonbillable labour cost differs: the trusted rows show £38,705, while the agent rows show £38,129.",
+            "model": "gpt-6-luna",
+            "answer": "£38,129.00 in nonbillable labour cost, counting tea breaks, yard tidy, and rework at each crew member’s hourly rate.",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE w.task_type IN ('tea_break', 'yard_tidy', 'rework')\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "nonbillable_labour_cost_gbp"
+              ],
+              "rows": [
+                [
+                  38129.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "pass",
+            "reason": "Both rows give the share of delivered material spend that ended up in the skip: 0.04389 as a fraction and 4.389% as a percent.",
+            "model": "gpt-6-luna",
+            "answer": "4.39% of delivered material spend ended up in the skip, calculated as the cost of wasted quantities divided by the cost of delivered quantities.",
+            "sql": "SELECT\n  100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS share_material_spend_in_skip_pct\nFROM site.material_orders\nWHERE order_status = 'delivered'\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "share_material_spend_in_skip_pct",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  4.389469635650771
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "wrong_result",
+            "reason": "The question asks for each supplier’s skip-waste percentage, and the agent reports wasted quantity divided by ordered quantity while the trusted rows measure cost-weighted waste; the percentages differ.",
+            "model": "gpt-6-luna",
+            "answer": "Among delivered material orders, skip-waste percentage is wasted quantity ÷ ordered quantity: Buttercup Vale Quarry 11.57%; Hammerton Builders' Merchant 6.88%.",
+            "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity) / NULLIF(SUM(quantity), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  11.570247933884298
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  6.88135593220339
+                ]
+              ],
+              "error": null
+            }
+          }
+        ]
+      },
+      {
+        "stage": "targeted_name_resolution_check_not_a_full_score",
+        "status": "partial",
+        "count": 1,
+        "passed": 1,
+        "results": [
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Dig’s rework cost was £5,040. Dig matches a crew member in the local data; no job named Dig was found.",
+            "sql": "SELECT 'job' AS entity_type, p.project_name AS entity_name, SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp FROM site.work_logs w JOIN site.crew c ON w.crew_id = c.crew_id LEFT JOIN site.projects p ON w.project_id = p.project_id WHERE LOWER(p.project_name) LIKE '%dig%' GROUP BY p.project_name UNION ALL SELECT 'crew' AS entity_type, c.crew_name AS entity_name, SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp FROM site.work_logs w JOIN site.crew c ON w.crew_id = c.crew_id WHERE LOWER(c.crew_name) LIKE '%dig%' GROUP BY c.crew_name LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "entity_type",
+                "entity_name",
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  "crew",
+                  "Dig",
+                  5040.0
+                ]
+              ],
+              "error": null
+            }
+          }
+        ]
+      },
+      {
+        "stage": "full_context_retest_after_vocabulary_repairs_reused_as_current_baseline",
+        "status": "complete",
+        "count": 10,
+        "passed": 8,
+        "results": [
+          {
+            "prompt_id": "billable_share",
+            "prompt": "What share of the yard’s logged time went to work we could charge clients for?",
+            "class": "wrong_result",
+            "reason": "The trusted billable share is 77.78%, while the agent’s is 78.57%, so the shares differ.",
+            "model": "gpt-6-luna",
+            "answer": "78.57% of the yard’s logged time was billable, excluding tea breaks, yard tidy, and rework.",
+            "sql": "SELECT SUM(CASE WHEN task_type NOT IN ('tea_break', 'yard_tidy', 'rework') THEN hours ELSE 0 END) / NULLIF(SUM(hours), 0) AS billable_share FROM site.work_logs LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:0fda0df0c55e",
+              "vq:yard:8ea7a02e0a3ec04b"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "billable_share",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  0.7856966097500618
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "dig_rework_cost",
+            "prompt": "How much did Dig’s rework cost?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Dig’s rework cost was £5,040, calculated as logged rework hours multiplied by Dig’s hourly rate.",
+            "sql": "SELECT 'job' AS entity_type, p.project_name AS entity_name, SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nJOIN site.projects p ON p.project_id = w.project_id\nWHERE UPPER(p.project_name) LIKE '%DIG%'\nGROUP BY p.project_name\nUNION ALL\nSELECT 'crew' AS entity_type, c.crew_name AS entity_name, SUM(CASE WHEN UPPER(RTRIM(w.task_type)) = 'REWORK' THEN w.hours * c.hourly_rate_gbp END) AS rework_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE UPPER(c.crew_name) LIKE '%DIG%'\nGROUP BY c.crew_name\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:9738af7345ef"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "entity_type",
+                "entity_name",
+                "rework_cost_gbp"
+              ],
+              "rows": [
+                [
+                  "crew",
+                  "Dig",
+                  5040.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_discount",
+            "prompt": "How many completed jobs incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "2",
+            "sql": "SELECT NULLIF(COUNT(CASE WHEN CAST(julianday(p.actual_end_date) - julianday(p.planned_end_date) AS INTEGER) > 7 THEN 1 END), 0) AS late_jobs\nFROM site.projects p\nWHERE p.status = 'complete'\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:f5f9243ca485",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-late"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "late_jobs"
+              ],
+              "rows": [
+                [
+                  2
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "jobs_losing_money",
+            "prompt": "Which jobs actually lost money, and what was each job’s gross margin in GBP?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "Three non-cancelled jobs had negative gross margin: Buttercup Vale Wind Turbine Base (P03), −£6,360.00; Kipper's Cat Flap (P10), −£646.50; and Sprout's Scarecrow Workshop (P04), −£180.00. Gross margin is contract value less labour and delivered material costs.",
+            "sql": "WITH ledger AS (\n  SELECT p.project_id, p.project_name, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(w.hours * c.hourly_rate_gbp) AS amount_gbp\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n  UNION ALL\n  SELECT p.project_id, p.project_name, -SUM(o.quantity * o.unit_cost_gbp) AS amount_gbp\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id, p.project_name\n)\nSELECT project_id, project_name, SUM(amount_gbp) AS gross_margin_gbp\nFROM ledger\nGROUP BY project_id, project_name\nHAVING SUM(amount_gbp) < 0\nORDER BY gross_margin_gbp\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros-4b7d686c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "project_id",
+                "project_name",
+                "gross_margin_gbp"
+              ],
+              "rows": [
+                [
+                  "P03",
+                  "Buttercup Vale Wind Turbine Base",
+                  -6360.0
+                ],
+                [
+                  "P10",
+                  "Kipper's Cat Flap",
+                  -646.5
+                ],
+                [
+                  "P04",
+                  "Sprout's Scarecrow Workshop",
+                  -180.0
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "material_waste_gbp",
+            "prompt": "What did the material we sent to the skip cost us?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "The delivered material that ended up in a skip cost Fixit £7,646.50, valued as wasted quantity × unit cost; only delivered orders are included.",
+            "sql": "SELECT SUM(t.wasted_value_gbp) AS material_waste\nFROM (\n  SELECT o.order_id, o.project_id, o.material, o.supplier, o.order_date,\n         o.quantity * o.unit_cost_gbp AS delivered_value_gbp,\n         o.wasted_quantity * o.unit_cost_gbp AS wasted_value_gbp\n  FROM site.material_orders o\n  WHERE o.order_status = 'delivered'\n) t\nLIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:3c0c5bf8d3f6",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-mate"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste"
+              ],
+              "rows": [
+                [
+                  7646.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "late_jobs_gross_margin",
+            "prompt": "In total, what gross margin did we make on completed jobs that incurred the late-completion discount?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "-£6,540 gross margin across completed jobs more than seven days late, the threshold for the late-completion discount. This uses gross margin as contract value less labour and delivered materials; the supplied definition does not specify subtracting the discount amount itself.",
+            "sql": "WITH late_jobs AS (\n  SELECT project_id\n  FROM site.projects\n  WHERE status = 'complete'\n    AND CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) > 7\n),\nledger AS (\n  SELECT p.project_id, 'contract' AS entry_type, p.contract_value_gbp AS amount_gbp\n  FROM site.projects p\n  WHERE p.status <> 'cancelled'\n  UNION ALL\n  SELECT p.project_id, 'labour', -SUM(w.hours * c.hourly_rate_gbp)\n  FROM site.work_logs w\n  JOIN site.crew c ON c.crew_id = w.crew_id\n  JOIN site.projects p ON p.project_id = w.project_id\n  WHERE p.status <> 'cancelled'\n  GROUP BY p.project_id\n  UNION ALL\n  SELECT p.project_id, 'materials', -SUM(o.quantity * o.unit_cost_gbp)\n  FROM site.material_orders o\n  JOIN site.projects p ON p.project_id = o.project_id\n  WHERE o.order_status = 'delivered' AND p.status <> 'cancelled'\n  GROUP BY p.project_id\n)\nSELECT SUM(l.amount_gbp) AS gross_margin_gbp\nFROM ledger l\nJOIN late_jobs j ON j.project_id = l.project_id\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "metric:yard:f5f9243ca485"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "gross_margin_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  -6540.0
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "nonbillable_paid_time_cost",
+            "prompt": "In total, what did labour for nonbillable time cost us?",
+            "class": "wrong_result",
+            "reason": "The question asks for total labour cost, which is £38,705.0 in the trusted rows; the agent returned NULL.",
+            "model": "gpt-6-luna",
+            "answer": "The query returned NULL, so it found no work logs with task_type exactly “nonbillable”; the total is not available from that filter.",
+            "sql": "SELECT SUM(w.hours * c.hourly_rate_gbp) AS nonbillable_labour_cost_gbp\nFROM site.work_logs w\nJOIN site.crew c ON c.crew_id = w.crew_id\nWHERE lower(w.task_type) = 'nonbillable'\nLIMIT 1",
+            "used_context_ids": [
+              "metric:yard:48369a1b695c",
+              "vq:yard:powerbi-hard-hat-area-site-performance-site-performance-gros"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "nonbillable_labour_cost_gbp",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  null
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "on_time_handover_rate",
+            "prompt": "What share of our finished jobs made handover on time?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "71.4% of finished jobs made handover on time, counting jobs completed within seven days after their planned end date.",
+            "sql": "SELECT COUNT(CASE WHEN CAST(julianday(actual_end_date) - julianday(planned_end_date) AS INTEGER) <= 7 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) AS on_time_handover_share FROM site.projects WHERE status = 'complete' LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:f5f9243ca485",
+              "metric:yard:04bb02961603"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "on_time_handover_share",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  0.7142857142857143
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "skip_waste_share",
+            "prompt": "What share of our material spend ended up in the skip?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "4.39% of delivered material spend ended up in the skip, measured as the value of wasted quantities divided by the value of all delivered quantities.",
+            "sql": "SELECT SUM(wasted_quantity * unit_cost_gbp) * 1.0 / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS material_waste_rate FROM site.material_orders WHERE order_status = 'delivered' LIMIT 1",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "material_waste_rate"
+              ],
+              "rows": [
+                [
+                  0.04389469635650771
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "supplier_skip_waste_rate",
+            "prompt": "What is each supplier’s skip-waste percentage?",
+            "class": "pass",
+            "reason": "Both suppliers have the same skip-waste percentages: Buttercup Vale Quarry 4.57% and Hammerton Builders' Merchant 4.09%.",
+            "model": "gpt-6-luna",
+            "answer": "Using the supplied Material Waste Rate definition (version 2), skip-waste percentage is the value of wasted quantities divided by the value of all delivered quantities, weighted by unit cost. Buttercup Vale Quarry: 4.57%; Hammerton Builders' Merchant: 4.09%.",
+            "sql": "SELECT supplier, 100.0 * SUM(wasted_quantity * unit_cost_gbp) / NULLIF(SUM(quantity * unit_cost_gbp), 0) AS skip_waste_percentage FROM site.material_orders WHERE order_status = 'delivered' GROUP BY supplier ORDER BY supplier LIMIT 1000",
+            "used_context_ids": [
+              "metric:yard:649359b95e2c"
+            ],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "supplier",
+                "skip_waste_percentage"
+              ],
+              "rows": [
+                [
+                  "Buttercup Vale Quarry",
+                  4.567448680351906
+                ],
+                [
+                  "Hammerton Builders' Merchant",
+                  4.091055761282095
+                ]
+              ],
+              "error": null
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ticketfuddle": {
+    "set": {
+      "sha256": "ccf4c39d4f200916578b869b61d4da17e98c15471dd629915a2579db273916a2",
+      "questions": [
+        {
+          "id": "TF01",
+          "question": "What were gross sales for completed shows in 2026?",
+          "sql": "SELECT SUM(t.face_value+t.service_fee+t.facility_fee+t.demand_fee + (o.order_processing_fee+o.delivery_fee)*1.0/n.ticket_count) AS gross_sales FROM tickets t JOIN orders o USING(order_id) JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id JOIN (SELECT order_id,COUNT(*) ticket_count FROM tickets GROUP BY order_id) n USING(order_id) WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND e.status='completed' AND substr(e.event_date,1,4)='2026';",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF02",
+          "question": "What was the fee take rate for primary tickets in 2026?",
+          "sql": "SELECT (SUM(t.service_fee+t.facility_fee+t.demand_fee)+SUM((o.order_processing_fee+o.delivery_fee)*1.0/n.ticket_count))/SUM(t.face_value) AS fee_take_rate FROM tickets t JOIN orders o USING(order_id) JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id JOIN (SELECT order_id,COUNT(*) ticket_count FROM tickets GROUP BY order_id) n USING(order_id) WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND substr(o.order_ts,1,4)='2026';",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF03",
+          "question": "For completed shows in 2026, what was sell-through?",
+          "sql": "SELECT SUM(tickets_issued)*1.0/SUM(capacity) AS sell_through FROM (SELECT e.event_id,e.event_date,e.status,e.capacity,COUNT(t.ticket_id) AS tickets_issued FROM events e JOIN venues v ON v.venue_id=e.venue_id LEFT JOIN orders o ON o.event_id=e.event_id AND o.status<>'chargeback' LEFT JOIN tickets t ON t.order_id=o.order_id AND t.ticket_type='primary' WHERE v.venue_type<>'test' GROUP BY e.event_id,e.event_date,e.status,e.capacity) WHERE status='completed' AND substr(event_date,1,4)='2026'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF04",
+          "question": "How much net fee revenue was paid back as fee refunds in 2026?",
+          "sql": "SELECT SUM(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) AS fee_refunds FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND substr(r.refund_ts,1,4)='2026'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF05",
+          "question": "In the 2026 Fee Income by Type breakdown, which category has the highest net amount, and what is it?",
+          "sql": "SELECT fee_type,SUM(amount) AS net_fee_revenue FROM (SELECT o.order_id,substr(o.order_ts,1,10) AS entry_date,o.event_id,CASE WHEN t.ticket_type='resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,t.service_fee AS amount FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.service_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'demand',t.demand_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.demand_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'resale_seller',t.seller_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.seller_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'order_processing',o.order_processing_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.order_processing_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'delivery',o.delivery_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.delivery_fee>0 UNION ALL SELECT r.order_id,substr(r.refund_ts,1,10),o.event_id,'refunded',-(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded>0) WHERE substr(entry_date,1,4)='2026' GROUP BY fee_type ORDER BY net_fee_revenue DESC LIMIT 1",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF06",
+          "question": "What was Ticketfuddle's net fee revenue in 2026?",
+          "sql": "SELECT SUM(amount) AS net_fee_revenue FROM (SELECT o.order_id,substr(o.order_ts,1,10) AS entry_date,o.event_id,CASE WHEN t.ticket_type='resale' THEN 'resale_buyer' ELSE 'service' END AS fee_type,t.service_fee AS amount FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.service_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'demand',t.demand_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.demand_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'resale_seller',t.seller_fee FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND t.seller_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'order_processing',o.order_processing_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.order_processing_fee>0 UNION ALL SELECT o.order_id,substr(o.order_ts,1,10),o.event_id,'delivery',o.delivery_fee FROM orders o JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND o.delivery_fee>0 UNION ALL SELECT r.order_id,substr(r.refund_ts,1,10),o.event_id,'refunded',-(r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded) FROM refunds r JOIN orders o ON o.order_id=r.order_id JOIN events e ON e.event_id=o.event_id WHERE e.venue_id<>'V99' AND r.service_fee_refunded+r.demand_fee_refunded+r.order_fees_refunded>0) WHERE substr(entry_date,1,4)='2026'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF07",
+          "question": "For non-chargeback primary tickets at non-test venues with 2026 order dates, what was the average face value after excluding comps?",
+          "sql": "SELECT SUM(CASE WHEN t.is_comp=0 THEN t.face_value ELSE 0 END)*1.0/SUM(CASE WHEN t.is_comp=0 THEN 1 ELSE 0 END) AS avg_ticket_price FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND substr(o.order_ts,1,4)='2026'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF08",
+          "question": "How many non-chargeback primary tickets were sold through web or app in 2026 at non-test venues?",
+          "sql": "SELECT COUNT(*) AS tickets FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' AND lower(replace(o.channel,' ','_')) IN ('web','app') AND substr(o.order_ts,1,4)='2026'",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF09",
+          "question": "At non-test venues, for non-chargeback primary-ticket orders, what was the average number of tickets in an order?",
+          "sql": "SELECT AVG(ticket_count)*1.0 AS tickets_per_order FROM (SELECT t.order_id,COUNT(t.ticket_id) AS ticket_count FROM tickets t JOIN orders o ON o.order_id=t.order_id JOIN events e ON e.event_id=t.event_id JOIN venues v ON v.venue_id=e.venue_id WHERE t.ticket_type='primary' AND o.status<>'chargeback' AND v.venue_type<>'test' GROUP BY t.order_id)",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        },
+        {
+          "id": "TF10",
+          "question": "Which completed event had the highest sell-through, and what was its rate?",
+          "sql": "SELECT event_name,tickets_issued*1.0/capacity AS sell_through FROM (SELECT e.event_id,e.event_name,e.status,e.capacity,COUNT(t.ticket_id) AS tickets_issued FROM events e JOIN venues v ON v.venue_id=e.venue_id LEFT JOIN orders o ON o.event_id=e.event_id AND o.status<>'chargeback' LEFT JOIN tickets t ON t.order_id=o.order_id AND t.ticket_type='primary' WHERE v.venue_type<>'test' GROUP BY e.event_id,e.event_name,e.status,e.capacity) WHERE status='completed' ORDER BY sell_through DESC LIMIT 1",
+          "source_paths": [
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/tableau/box-office-pulse.twb",
+            "plugins/atlanai-analytics/skills/analytics-demo/assets/box-office/history/query_history.jsonl"
+          ]
+        }
+      ]
+    },
+    "context_build": {
+      "metrics": 43,
+      "queries": 46,
+      "execution_checks": 89,
+      "holds": 0,
+      "source_reviews_pending": 1
+    },
+    "runs": [
+      {
+        "stage": "schema_only",
+        "status": "complete",
+        "count": 10,
+        "passed": 3,
+        "results": [
+          {
+            "prompt_id": "TF03",
+            "prompt": "For completed shows in 2026, what was sell-through?",
+            "class": "wrong_result",
+            "reason": "The trusted sell-through is 84.3%, while the agent reports 0.16%, so the requested value differs.",
+            "model": "gpt-6-luna",
+            "answer": "Sell-through was 0.16%.",
+            "sql": "SELECT ROUND(100.0 * COUNT(t.ticket_id) / NULLIF(SUM(e.capacity), 0), 2) AS sell_through_pct\nFROM tix.events AS e\nLEFT JOIN tix.tickets AS t ON t.event_id = e.event_id\nWHERE e.status = 'completed'\n  AND e.event_date >= '2026-01-01'\n  AND e.event_date < '2027-01-01'\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "sell_through_pct"
+              ],
+              "rows": [
+                [
+                  0.16
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "TF01",
+            "prompt": "What were gross sales for completed shows in 2026?",
+            "class": "wrong_result",
+            "reason": "Gross sales differ: the agent returned 948133.5, while the trusted rows returned 911689.4.",
+            "model": "gpt-6-luna",
+            "answer": "948133.5",
+            "sql": "SELECT COALESCE(SUM(COALESCE(t.face_value, 0) + COALESCE(t.resale_price, 0)), 0) AS gross_sales\nFROM tix.events e\nJOIN tix.tickets t ON t.event_id = e.event_id\nWHERE e.status = 'completed'\n  AND e.event_date >= '2026-01-01'\n  AND e.event_date < '2027-01-01'\n  AND COALESCE(t.is_comp, 0) = 0\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "gross_sales"
+              ],
+              "rows": [
+                [
+                  948133.5
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "TF02",
+            "prompt": "What was the fee take rate for primary tickets in 2026?",
+            "class": "wrong_result",
+            "reason": "The fee take rate for primary tickets in 2026 differs: trusted is 0.2852 (28.52%) and the agent’s result is 0.2673 (26.73%).",
+            "model": "gpt-6-luna",
+            "answer": "26.73%",
+            "sql": "SELECT\n  1.0 * SUM(COALESCE(t.service_fee, 0) + COALESCE(t.facility_fee, 0) + COALESCE(t.demand_fee, 0))\n    / NULLIF(SUM(t.face_value), 0) AS fee_take_rate\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nWHERE t.resale_of_ticket_id IS NULL\n  AND strftime('%Y', o.order_ts) = '2026'\nLIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "fee_take_rate",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  0.2672595634446753
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "TF04",
+            "prompt": "How much net fee revenue was paid back as fee refunds in 2026?",
+            "class": "wrong_result",
+            "reason": "The agent reports 15192.07 in fee refunds, while the trusted rows report 11987.07 for 2026.",
+            "model": "gpt-6-luna",
+            "answer": "15192.07",
+            "sql": "SELECT ROUND(SUM(COALESCE(service_fee_refunded, 0) + COALESCE(facility_fee_refunded, 0) + COALESCE(demand_fee_refunded, 0) + COALESCE(order_fees_refunded, 0)), 2) AS fee_refunds_paid_back\nFROM tix.refunds\nWHERE refund_ts >= '2026-01-01' AND refund_ts < '2027-01-01'\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "fee_refunds_paid_back"
+              ],
+              "rows": [
+                [
+                  15192.07
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "TF05",
+            "prompt": "In the 2026 Fee Income by Type breakdown, which category has the highest net amount, and what is it?",
+            "class": "wrong_result",
+            "reason": "The category label may match, but the net amount differs: the trusted result is 153580.99 and the agent reports 167588.72.",
+            "model": "gpt-6-luna",
+            "answer": "Service fee — 167588.72",
+            "sql": "WITH refund_by_order AS (\n  SELECT order_id,\n         SUM(COALESCE(service_fee_refunded, 0)) AS service_fee_refunded,\n         SUM(COALESCE(facility_fee_refunded, 0)) AS facility_fee_refunded,\n         SUM(COALESCE(demand_fee_refunded, 0)) AS demand_fee_refunded,\n         SUM(COALESCE(order_fees_refunded, 0)) AS order_fees_refunded\n  FROM tix.refunds\n  GROUP BY order_id\n),\nticket_fees AS (\n  SELECT o.order_id,\n         SUM(COALESCE(t.service_fee, 0)) AS service_fee,\n         SUM(COALESCE(t.facility_fee, 0)) AS facility_fee,\n         SUM(COALESCE(t.demand_fee, 0)) AS demand_fee,\n         SUM(COALESCE(t.seller_fee, 0)) AS seller_fee\n  FROM tix.orders o\n  JOIN tix.tickets t ON t.order_id = o.order_id\n  WHERE o.order_ts >= '2026-01-01' AND o.order_ts < '2027-01-01'\n  GROUP BY o.order_id\n),\norder_fees AS (\n  SELECT order_id,\n         COALESCE(order_processing_fee, 0) + COALESCE(delivery_fee, 0) AS order_fees\n  FROM tix.orders\n  WHERE order_ts >= '2026-01-01' AND order_ts < '2027-01-01'\n),\nfee_totals AS (\n  SELECT 'Service fee' AS category, SUM(tf.service_fee - COALESCE(r.service_fee_refunded, 0)) AS net_amount\n  FROM ticket_fees tf LEFT JOIN refund_by_order r USING (order_id)\n  UNION ALL\n  SELECT 'Facility fee', SUM(tf.facility_fee - COALESCE(r.facility_fee_refunded, 0))\n  FROM ticket_fees tf LEFT JOIN refund_by_order r USING (order_id)\n  UNION ALL\n  SELECT 'Demand fee', SUM(tf.demand_fee - COALESCE(r.demand_fee_refunded, 0))\n  FROM ticket_fees tf LEFT JOIN refund_by_order r USING (order_id)\n  UNION ALL\n  SELECT 'Seller fee', SUM(tf.seller_fee)\n  FROM ticket_fees tf\n  UNION ALL\n  SELECT 'Order fees', SUM(of.order_fees - COALESCE(r.order_fees_refunded, 0))\n  FROM order_fees of LEFT JOIN refund_by_order r USING (order_id)\n)\nSELECT category, net_amount\nFROM fee_totals\nORDER BY net_amount DESC\nLIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "category",
+                "net_amount"
+              ],
+              "rows": [
+                [
+                  "Service fee",
+                  167588.72
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "TF06",
+            "prompt": "What was Ticketfuddle's net fee revenue in 2026?",
+            "class": "wrong_result",
+            "reason": "Net fee revenue for 2026 differs: the trusted rows give 245871.92, while the agent rows give 289293.52.",
+            "model": "gpt-6-luna",
+            "answer": "289293.52",
+            "sql": "WITH ticket_fees AS (\n  SELECT order_id,\n         SUM(COALESCE(service_fee, 0) + COALESCE(facility_fee, 0) + COALESCE(demand_fee, 0) + COALESCE(seller_fee, 0)) AS fees\n  FROM tix.tickets\n  GROUP BY order_id\n),\nrefund_fees AS (\n  SELECT order_id,\n         SUM(COALESCE(service_fee_refunded, 0) + COALESCE(facility_fee_refunded, 0) + COALESCE(demand_fee_refunded, 0) + COALESCE(order_fees_refunded, 0)) AS fees\n  FROM tix.refunds\n  GROUP BY order_id\n)\nSELECT ROUND(SUM(\n  COALESCE(tf.fees, 0)\n  + COALESCE(o.order_processing_fee, 0)\n  + COALESCE(o.delivery_fee, 0)\n  - COALESCE(rf.fees, 0)\n), 2) AS net_fee_revenue\nFROM tix.orders o\nLEFT JOIN ticket_fees tf ON tf.order_id = o.order_id\nLEFT JOIN refund_fees rf ON rf.order_id = o.order_id\nWHERE o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\nLIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "net_fee_revenue",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  289293.52
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "TF07",
+            "prompt": "For non-chargeback primary tickets at non-test venues with 2026 order dates, what was the average face value after excluding comps?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "93.38876999898095",
+            "sql": "SELECT AVG(t.face_value) AS average_face_value\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nJOIN tix.events AS e ON e.event_id = t.event_id\nJOIN tix.venues AS v ON v.venue_id = e.venue_id\nWHERE t.ticket_type = 'primary'\n  AND COALESCE(t.is_comp, 0) = 0\n  AND LOWER(o.status) <> 'chargeback'\n  AND LOWER(v.venue_type) <> 'test'\n  AND o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "average_face_value"
+              ],
+              "rows": [
+                [
+                  93.38876999898095
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "TF08",
+            "prompt": "How many non-chargeback primary tickets were sold through web or app in 2026 at non-test venues?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "9254",
+            "sql": "SELECT COUNT(*) AS ticket_count\nFROM tix.tickets AS t\nJOIN tix.orders AS o ON o.order_id = t.order_id\nJOIN tix.events AS e ON e.event_id = t.event_id\nJOIN tix.venues AS v ON v.venue_id = e.venue_id\nWHERE t.resale_of_ticket_id IS NULL\n  AND o.status <> 'chargeback'\n  AND o.channel IN ('web', 'app')\n  AND o.order_ts >= '2026-01-01'\n  AND o.order_ts < '2027-01-01'\n  AND v.venue_type <> 'test'\nLIMIT 1000",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                "ticket_count"
+              ],
+              "rows": [
+                [
+                  9254
+                ]
+              ],
+              "error": null
+            }
+          },
+          {
+            "prompt_id": "TF09",
+            "prompt": "At non-test venues, for non-chargeback primary-ticket orders, what was the average number of tickets in an order?",
+            "class": "pass",
+            "reason": "match",
+            "model": "gpt-6-luna",
+            "answer": "2.297505743354119",
+            "sql": "WITH order_ticket_counts AS (\n  SELECT o.order_id, COUNT(t.ticket_id) AS ticket_count\n  FROM tix.orders AS o\n  JOIN tix.tickets AS t ON t.order_id = o.order_id\n  JOIN tix.events AS e ON e.event_id = o.event_id\n  JOIN tix.venues AS v ON v.venue_id = e.venue_id\n  WHERE LOWER(t.ticket_type) = 'primary'\n    AND LOWER(o.status) <> 'chargeback'\n    AND LOWER(v.venue_type) <> 'test'\n  GROUP BY o.order_id\n)\nSELECT AVG(ticket_count) AS average_tickets_per_order\nFROM order_ticket_counts\nLIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "script",
+            "pass": 1,
+            "observed_result": {
+              "columns": [
+                {
+                  "name": "average_tickets_per_order",
+                  "type": null
+                }
+              ],
+              "rows": [
+                [
+                  2.297505743354119
+                ]
+              ]
+            }
+          },
+          {
+            "prompt_id": "TF10",
+            "prompt": "Which completed event had the highest sell-through, and what was its rate?",
+            "class": "wrong_result",
+            "reason": "The trusted rows identify The Grumpy Moose: Antler Tour at 1.0 sell-through, while the agent returned no rows.",
+            "model": "gpt-6-luna",
+            "answer": "No completed event with completed orders was returned.",
+            "sql": "SELECT e.event_name,\n       COUNT(DISTINCT t.ticket_id) * 1.0 / NULLIF(e.capacity, 0) AS sell_through_rate\nFROM tix.events AS e\nJOIN tix.tickets AS t ON t.event_id = e.event_id\nJOIN tix.orders AS o ON o.order_id = t.order_id\nWHERE LOWER(e.status) = 'completed'\n  AND LOWER(o.status) = 'completed'\nGROUP BY e.event_id, e.event_name, e.capacity\nORDER BY sell_through_rate DESC\nLIMIT 1",
+            "used_context_ids": [],
+            "isolation": "verified",
+            "graded_by": "judge",
+            "pass": 0,
+            "observed_result": {
+              "columns": [
+                "event_name",
+                "sell_through_rate"
+              ],
+              "rows": [],
+              "error": null
+            }
+          }
+        ]
+      },
+      {
+        "stage": "injected_context",
+        "status": "pending"
+      },
+      {
+        "stage": "repaired_context",
+        "status": "pending"
+      }
+    ]
+  }
+}

@@ -85,7 +85,15 @@ iterations remain evidence; 8/10 is not claimed as the untouched build's first s
 classification restoration also makes the stored nonbillable task values explicit, because one
 later answer guessed a literal `nonbillable` task value.
 
-Main #194 merged during validation. The schema-only baseline is being run afresh under that
-protocol; the unchanged context arm is retained from its completed ten-question run. Final repair
-runs and Ticketfuddle model validation remain pending. No measured 4/8/10 claim for both demos is
-made yet.
+Main #194 merged during validation. Under its schema-only protocol, Fixit measured **1/10**
+without context, **8/10** with the prepared context, **9/10** after classification restoration,
+and **10/10** after adding the complete source crew name/ID/type mapping. That mapping includes
+all eight crew members, both people and machines, and contains no costs or expected answers.
+The unchanged 8/10 context arm was retained from its completed run, with native answers/results
+and identical judge briefs verified; it was not resampled. The 1/10 baseline is below the
+roughly 4/10 target, so the intended SQL-control cohort is being reviewed against the stricter
+schema-only protocol. No score or question has been silently replaced.
+
+Ticketfuddle's schema-only run measured **3/10**. Its injected and repaired context runs are
+pending. [Review evidence](validation-in-progress.json) records SQL, observed results, grading
+and earlier iterations without private session transcripts. The two-demo goal is not complete.
