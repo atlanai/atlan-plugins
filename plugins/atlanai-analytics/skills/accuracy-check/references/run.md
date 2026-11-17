@@ -136,7 +136,7 @@ trusted results come from the warehouse, and no model copies a value:
 Run on every check: whether a person asked here directly, the build offered it or the demo
 started it, and whatever the size of the set. Never skip it because nobody asked for it. The
 same questions
-again, each to a fresh agent that has only the source's tables and no context, as the variant
+again, each to a fresh agent with only the source tables' schema and no additional context, as the variant
 `raw`. It shows what the context changed, on the same questions and the same trusted results.
 
 1. `EVAL todo --variant raw --reps 1` lists the questions. Run them as [run it](#run-it) does,
@@ -145,13 +145,23 @@ again, each to a fresh agent that has only the source's tables and no context, a
      ```
      <question>
 
-     Answer this question about <firm or project>'s data. You have no prepared definitions:
-     work from the source itself. Its data is in these tables: <tables>. You may look at their
-     columns and values with read-only SQL first. Use no skill and no Atlan tool, and open
-     nothing in the run folder. <how to run SQL>
+     Answer this question using only the schema of these tables: <tables>.
+     You may inspect table and column names, data types and declared keys with read-only
+     schema queries. Do not read comments, descriptions, sample rows, distinct values,
+     profiles, query history, dashboards, documentation, metrics or saved queries.
+     Do not explore data values or run intermediate data queries. Write the final answer
+     SQL from the question and schema alone, then execute that statement to get the answer.
+     Use no skill or context-retrieval tool, and open no files in the run folder.
+     <how to run SQL>
      End with one JSON object and nothing after it:
      {"answer": "<the answer>", "sql": "<the one SQL statement whose result you state>"}
      ```
+   - Supply only the question, table identifiers and execution instructions, with no firm
+     background, source-survey findings or other context. Schema reads must select structural
+     fields only (never comments or descriptions). The final answer query may read data;
+     that permission does not allow sampling or profiling before writing it. Review the
+     transcript for this boundary before recording: discard a pass that reads additional
+     context and rerun it in a fresh agent with schema only. Never score that attempt.
    - Its files go under `<evals-run>/hillclimb/raw/` and every `EVAL` call names `--variant raw`.
    - `EVAL record` adds `--raw <run>`: an answer whose agent reached for a skill, an Atlan tool,
      any MCP server other than the warehouse's, or the run's context folder is `raw_used_context`
@@ -160,7 +170,7 @@ again, each to a fresh agent that has only the source's tables and no context, a
 2. `EVAL summary --variant raw --require-isolation` must show one row per question.
 3. `EVAL before-after --before raw --after baseline` returns the comparison, the moment the
    person sees what their context is worth, in two parts:
-   - `report`, the card: a headline ("With your context, 11 of 14 right. On the raw tables, 1 of
+   - `report`, the card: a headline ("With your context, 11 of 14 right. With schema only, 1 of
      14."), one bar per pass with a block per question, and one line on what changed.
    - `changes`, a markdown table of the questions that went from wrong to right, and any that
      went the other way, each under its number. Empty when nothing changed.
@@ -261,8 +271,7 @@ per-question sessions, which Atlan ties to an agent, are left out.
    `registry__search_artifacts` (`kind` `scorer`, that workspace) and pass its id with `--ids`.
 
 The first run saves the set (its questions and a digest of each trusted SQL, never the SQL) and
-the run as an experiment, each answer with its SQL and score. The raw-source pass is named "raw
-tables, no context" and the context pass "with your context", so the two read as a comparison. Never the answering agents'
+the run as an experiment, each answer with its SQL and score. The raw-source pass is named "schema only" and the context pass "with your context", so the two read as a comparison. Never the answering agents'
 transcripts: they hold this machine's commands and paths. Each later run is an experiment
 linked to the one before it, so the workspace shows the score move. Then `CHECK link --evals
 <evals-run> --org <organization slug>` gives the Atlan pages: `runs` (every run of the check) and

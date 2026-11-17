@@ -1457,17 +1457,17 @@ def cmd_before_after(a) -> dict:
     # where markdown tables break. One block per question (scaled to 20 past that), right filled.
     width = min(n, 20)
     bar = lambda k: ("\u2588" * round(k / n * width)).ljust(width, "\u2591")  # noqa: E731
-    lines = [f"With your context, {kb} of {n} right. On the raw tables, {ka} of {n}.", ""]
-    for label, k, c in (("Raw tables", ka, ca), ("With your context", kb, cb)):
+    lines = [f"With your context, {kb} of {n} right. With schema only, {ka} of {n}.", ""]
+    for label, k, c in (("schema only", ka, ca), ("With your context", kb, cb)):
         t = secs(c)
         lines.append(f"  {label:<18} {bar(k)}  {k:>{len(str(n))}} of {n}  {k / n:>4.0%}" + (f"   {t}" if t else ""))
     # Every line stays under 76 characters, so an 80-column terminal never wraps one mid-sentence.
-    lines += ["", f"  {len(only_after)} now right that were wrong on the raw tables.",
+    lines += ["", f"  {len(only_after)} now right that were wrong with schema only.",
               f"  {both} right both ways. {neither} still wrong."
-              + (f" {len(only_before)} right only on the raw tables." if only_before else "")]
+              + (f" {len(only_before)} right only with schema only." if only_before else "")]
     if judged["before"] or judged["after"]:
         lines.append(f"  Judged right, not an exact match: {judged['after']} with context, "
-                     f"{judged['before']} raw.")
+                     f"{judged['before']} schema only.")
     if left_out:
         k = len(left_out)
         lines.append(f"  {k} {'question was' if k == 1 else 'questions were'} not scored both ways, "
@@ -1478,8 +1478,8 @@ def cmd_before_after(a) -> dict:
     cell = lambda t: " ".join(str(t).split()).replace("|", "\\|")  # noqa: E731
     # The changes, for the chat: the questions the context turned around, then any it lost.
     changes = []
-    for picked, what in ((only_after, "wrong on the raw tables, right with your context"),
-                         (only_before, "right on the raw tables, wrong with your context")):
+    for picked, what in ((only_after, "wrong with schema only, right with your context"),
+                         (only_before, "right with schema only, wrong with your context")):
         if picked:
             changes += [f"**{len(picked)} {'question' if len(picked) == 1 else 'questions'} {what}**", "",
                         "| # | Question |", "| --- | --- |"]
@@ -1516,24 +1516,24 @@ def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, on
     the questions that changed, from the same numbers as the text card. No script: it draws in any widget host."""
     import visual_kit as k
     e, n = k.e, len(ids)
-    rows = [("Raw tables", right[0], times[0]), ("With your context", right[1], times[1])]
+    rows = [("Schema only", right[0], times[0]), ("With your context", right[1], times[1])]
     ba = ''.join('<span>%s</span><b%s>%d%%</b><span>%d of %d right%s</span>'
-                 % (e(label), ' class="now"' if label != "Raw tables" else '', round(100 * kk / n), kk, n,
+                 % (e(label), ' class="now"' if label != "Schema only" else '', round(100 * kk / n), kk, n,
                     ', ' + e(t) if t else '') for label, kk, t in rows)
     strip = ''
     if n <= 30:
         marks = lambda m: ''.join('<i class="%s">%s</i>' % ('y' if m[i] == 1 else 'n', TICK if m[i] == 1 else CROSS)
                                   for i in ids)  # noqa: E731
-        strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Raw tables</span>%s<span>With your context</span>%s</div>'
+        strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Schema only</span>%s<span>With your context</span>%s</div>'
                  % (n, ''.join('<span class="hd">%d</span>' % number[i] for i in ids), marks(ma), marks(mb)))
     changed = [(i, 'Now right with your context', 'vy') for i in only_after] + \
-              [(i, 'Right only on the raw tables', 'vn') for i in only_before]
+              [(i, 'Right only with schema only', 'vn') for i in only_before]
     listed = ('<div class="mt">What changed</div><div class="ls">%s</div>' % ''.join(
         '<div><span>%d. %s</span><b class="%s">%s</b></div>' % (number[i], e(text.get(i, '')), c, e(v)) for i, v, c in changed)
               if changed else '<div class="mt">No question changed between the two.</div>')
-    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: the raw tables and your context</b></div><div class="ba">%s</div>%s%s'
+    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: schema only and your context</b></div><div class="ba">%s</div>%s%s'
             % (k.icon('check-circle'), ba, strip, listed))
-    return k.card(body, 'With your context, %d of %d right. On the raw tables, %d of %d.' % (right[1], n, right[0], n))
+    return k.card(body, 'With your context, %d of %d right. With schema only, %d of %d.' % (right[1], n, right[0], n))
 
 
 # ====================================================================== publishing (registry MCP)
@@ -1732,7 +1732,7 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
     if full and not exps.get(V):
         name = f"{slug}-{V}"
         # The raw-source pass is the run the context is compared with: name it so in Atlan.
-        shown = {"raw": "raw tables, no context", "baseline": "with your context"}.get(V, V)
+        shown = {"raw": "schema only", "baseline": "with your context"}.get(V, V)
         body = {"name": name, "workspace_id": ws, "display_name": f"{slug} · {shown}",
                 "description": (load_json(pr.vdir(V) / "summary.json", {}) or {}).get("description") or f"analytics eval {V}",
                 "dataset_id": ids["eval_dataset_id"],
@@ -2729,10 +2729,10 @@ def _selftest_inputs(ok) -> None:
            "0 of 2" in ba["report"] and "1 of 2" in ba["report"] and "50%" in ba["report"] and "10 s" in ba["report"])
         card = ba["report"].splitlines()
         ok("the card leads with both scores and draws a block per question",
-           card[0] == "With your context, 1 of 2 right. On the raw tables, 0 of 2."
+           card[0] == "With your context, 1 of 2 right. With schema only, 0 of 2."
            and "░░" in card[2] and "█░" in card[3] and "| " not in ba["report"])
         ok("the change table names the question the context turned around, under its number",
-           ba["changes"].startswith("**1 question wrong on the raw tables, right with your context**")
+           ba["changes"].startswith("**1 question wrong with schema only, right with your context**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
         w = ba.get("widget") or ""
         ok("the desktop widget draws the same card: both scores, a mark per question, what changed",
