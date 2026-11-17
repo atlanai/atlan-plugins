@@ -369,6 +369,17 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(inside["status"], "BLOCKED")
         self.assertIn(str(self.tmp.resolve()), inside["reason"])
 
+    def test_local_check_exposes_bound_join_tables_to_the_raw_agent(self) -> None:
+        # A metric's base entity alone omits joined tables and tables used only by queries.
+        bound = ["s.orders", "s.customers", "s.refunds"]
+        for kind in ("sqlite", "duckdb"):
+            with self.subTest(kind=kind):
+                (self.run / "run.json").write_text(json.dumps({"execution": {
+                    "kind": kind, "path": "local.db", "tables": bound}}))
+                result = self.check("start", "--project", str(self.tmp), "--run", str(self.run))
+                self.assertEqual(result["execution"], {
+                    "via": "local", "kind": kind, "tables": sorted(bound)})
+
     def test_inputs_takes_a_named_warehouse_run_its_engine_folder_and_a_given_use_case(self) -> None:
         wh = self.warehouse_run(".atlan-metrics", "sales-pipeline")
         self.assertEqual(self.scope("inputs", "--project", str(self.tmp), "--run", str(wh))["status"], "BLOCKED")

@@ -115,7 +115,7 @@ def tables(run: pathlib.Path) -> list:
 
 
 def execution(run: pathlib.Path) -> dict:
-    """Where this run's SQL executes, and `tables`, the source tables its metrics read.
+    """Where SQL executes, and the bound local tables or warehouse metric sources.
 
     `{"via": "local", "kind": "sqlite" | "duckdb"}`: the run is bound to a local database, and
     `project.py execute` runs a statement on it.
@@ -125,7 +125,10 @@ def execution(run: pathlib.Path) -> dict:
     """
     bound = (load(run / "run.json", {}) or {}).get("execution") or {}
     if bound.get("kind") in LOCAL:
-        return {"via": "local", "kind": bound["kind"], "tables": tables(run)}
+        # Base metric entities omit join tables and sources used only by saved queries.
+        # The local binding already records the approved structural-schema scope.
+        local_tables = sorted(set(bound["tables"])) if bound.get("tables") else tables(run)
+        return {"via": "local", "kind": bound["kind"], "tables": local_tables}
     warehouse = (load(run / "state.json", {}) or {}).get("warehouse") or None
     dialect = (warehouse or {}).get("dialect")
     if not dialect:
