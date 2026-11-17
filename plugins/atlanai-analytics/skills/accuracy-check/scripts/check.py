@@ -117,6 +117,9 @@ def cmd_start(a) -> dict:
     return out
 
 
+MAX_ROWS = 100  # a trusted result longer than this is a list of records, not an answer
+
+
 def _keep(res: dict):
     """Why a trusted result cannot anchor a question, or None when it can."""
     if res.get("error"):
@@ -125,6 +128,8 @@ def _keep(res: dict):
         return "truncated"
     if not res.get("rows"):
         return "no rows"
+    if len(res["rows"]) > MAX_ROWS:
+        return f"{len(res['rows'])} rows: too long a list for one question to reproduce"
     return None
 
 

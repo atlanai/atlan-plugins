@@ -41,8 +41,8 @@ trusted results come from the warehouse, and no model copies a value:
    Keep the Agent tool's `output_file`: it is the runner's transcript.
 2. `CHECK gold --evals <evals-run> --transcript <output_file>` reads each result from the tool
    call that ran exactly that SQL, following the path when the host saved a large result to a
-   file. It drops a question whose trusted SQL failed, returned nothing, or returned more rows
-   than one response holds (`dropped`, each with its reason), and sets the rest up for scoring.
+   file. It drops a question whose trusted SQL failed, returned nothing, returned over 100 rows
+   (a list of records, not an answer), or returned more rows than one response holds (`dropped`, each with its reason), and sets the rest up for scoring.
    It returns what `CHECK load` returns on a local run. Say how many were dropped and why: a set
    of 5 can come back as 3.
 3. A `BLOCKED` reply names each SQL with no result: it was changed on the way. Run that file
@@ -99,7 +99,9 @@ trusted results come from the warehouse, and no model copies a value:
       Never name the eval folder in the prompt: an agent told to avoid it writes the name into
       its own search filters, and the audit then marks the run contaminated. Keep the Agent
       tool's `output_file`: it is the transcript.
-   2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`.
+   2. Save its final JSON as `<evals-run>/hillclimb/baseline/answers/<id>_rep0.json`. An agent
+      that ends without the JSON object is asked once, in the same subagent, for that object
+      alone. With none still, save its last message there as it is.
    3. Get the result of its `sql` as
       `<evals-run>/hillclimb/baseline/agent_results/<id>_rep0.json`. Never edit the agent's SQL,
       not even a table prefix: a query that fails as given is `agent_sql_error`. An empty `sql`
@@ -108,7 +110,8 @@ trusted results come from the warehouse, and no model copies a value:
       - **A warehouse:** the agent already ran it. `EVAL agent-result --transcript <output_file>
         --answer-file <answer> --out <that file>` reads the result from the agent's own tool
         call. An agent that states no SQL, or a stand-in such as "the SQL above", is
-        graded on the last read it ran. When it returns `source: replay`, the result could not be read whole, or the
+        graded on the last read it ran (`source: transcript_last_call`); one that ran nothing
+        returns `source: none`, and is recorded without `--agent-result`. When it returns `source: replay`, the result could not be read whole, or the
         agent stated a statement it did not run: have a runner subagent run the `sql_file` it
         names exactly as written, as above, then `EVAL agent-result` again with the runner's
         transcript. A statement the warehouse rejects in the replay too is saved as
@@ -116,8 +119,8 @@ trusted results come from the warehouse, and no model copies a value:
         as `--class harness_error`.
    4. `EVAL record --variant baseline --case <id> --rep 0 --judge --answer-file <answer> --agent-result <agent result> --gold-result <evals-run>/eval/gold/<id>.json --transcript <output_file>`.
       A run that failed outside the agent (a timeout, a tool error) is
-      `record --class harness_error --reason "<what failed>"` with no answer file. Never record
-      while `EVAL agent-result` is waiting on a replay: a row with no result is a miss for good.
+      `record --class harness_error --reason "<what failed>"` with no answer file. `record`
+      refuses an answer that states SQL with no `--agent-result`: finish the replay first.
    5. When `record` returns `status: judge`, it wrote no row: the exact comparison refused an
       answer that ran. Start one subagent on its `model` with its `prompt` as the whole prompt,
       unchanged, save the JSON it replies with to `verdict_file`, and run the same `record` again

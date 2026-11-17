@@ -125,7 +125,7 @@ class ScopeTest(unittest.TestCase):
         (work / "answers.json").write_text(json.dumps({c["id"]: {} for c in cands}))
         for c in cands:
             (work / "prompts" / f"{c['id']}.txt").write_text("p")
-        res = self.scope("pick", "--gen", str(self.ev), "--limit", "4")
+        res = self.scope("pick", "--gen", str(self.ev), "--limit", "4", "--spare", "0")
         picked = [(s["metric"], s["from"]) for s in res["selection"]]
         # Two on the focus metric (its tile, then the most-run query), then breadth by relevance:
         # the refund and region metrics speak to "why revenue fell by region"; headcount, run most, does not.
@@ -143,6 +143,33 @@ class ScopeTest(unittest.TestCase):
         res = self.scope("pick", "--gen", str(self.ev))
         self.assertEqual([(s["id"], s["metric"]) for s in res["selection"]], [("m0", "Net Revenue"), ("m1", "")])
         self.assertEqual((res["picked"], res["metrics_covered"], res["no_metric"]), (2, 1, 1))
+
+    def test_pick_skips_a_query_no_question_can_reproduce_and_drafts_spares(self) -> None:
+        self.ev = Path(self.scope("inputs", "--project", str(self.tmp))["gen"])
+        work = self.ev / "work"
+        work.mkdir(parents=True, exist_ok=True)
+        cands = [{"id": "m0", "query_id": "h-rev", "sql": "select sum(amount) from s.orders -- total"},
+                 {"id": "m1", "query_id": "h-rev2", "sql": "select id, name, stage from s.orders where region = 'count(x)'"},
+                 {"id": "m2", "query_id": "h-head", "sql": "select count(*) from s.orders where false limit 0"},
+                 {"id": "m3", "query_id": "h-refund", "sql": "select region, count(*) from s.orders group by 1"},
+                 {"id": "m4", "query_id": "h-mix", "sql": "select count(distinct id) from s.orders"}]
+        (work / "candidates.json").write_text(json.dumps(cands))
+        res = self.scope("pick", "--gen", str(self.ev), "--limit", "2", "--spare", "1")
+        self.assertEqual({s["id"]: s["why"] for s in res["skipped"]},
+                         {"m1": "lists records, with no total or count", "m2": "a probe that returns no rows"})
+        self.assertEqual((res["picked"], res["limit"]), (3, 2))  # two asked for, one spare
+        picked = [s["id"] for s in res["selection"]]
+        # The draft found the first question unanswerable: the spare takes its place, in pick order.
+        (work / "spec.json").write_text(json.dumps({"records": [
+            {"id": i, "question": f"q {i}", "golden_sql": "select 1",
+             "review_status": "rejected" if i == picked[0] else "approved"} for i in picked]}))
+        out = self.scope("emit", "--gen", str(self.ev), "--name", "spares")
+        rows = [json.loads(l)["id"] for l in Path(out["set"]).read_text().splitlines()]
+        self.assertEqual((rows, out["spares_unused"]), (picked[1:], 0))
+        # A pick that outgrows the draft slots an earlier pick left is refused, not drafted short.
+        (work / "candidates.json").write_text(json.dumps(cands))
+        (work / "answers.json").write_text(json.dumps({"m0": {}}))
+        self.assertEqual(self.scope("pick", "--gen", str(self.ev), "--limit", "2", "--spare", "0")["status"], "BLOCKED")
 
     def test_a_generated_set_asks_for_twenty_questions(self) -> None:
         sys.path.insert(0, str(ROOT / "plugins/atlanai-analytics/skills/eval-generation/scripts"))
@@ -385,6 +412,10 @@ class ScopeTest(unittest.TestCase):
         self.assertFalse(harness._EVAL_PATH.search("/p/.atlan-analytics/support-tickets/context/metrics.json"))
         self.assertTrue(harness._EVAL_PATH.search("/p/.atlan-analytics/shop/eval/answers.jsonl"))
         self.assertTrue(harness._EVAL_PATH.search("/p/.atlan-evals/support-tickets/eval/gold/a.json"))
+
+    def test_a_trusted_result_that_is_a_long_list_cannot_anchor_a_question(self) -> None:
+        self.assertIsNone(check._keep({"rows": [[1]] * check.MAX_ROWS}))
+        self.assertIn("too long a list", check._keep({"rows": [[1]] * (check.MAX_ROWS + 1)}))
 
     def test_a_set_line_without_sql_is_refused(self) -> None:
         bad = self.tmp / "bad.jsonl"
