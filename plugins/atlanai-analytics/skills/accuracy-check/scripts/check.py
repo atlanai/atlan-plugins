@@ -8,6 +8,7 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
     python3 check.py start --project <project> [--run <run-dir>]
     python3 check.py load --project <project> --file <set.jsonl> [--run <run-dir>]
     python3 check.py gold --evals <eval-dir> [--transcript <file> ...]
+    python3 check.py drop --evals <eval-dir> --questions <numbers or ids>
     python3 check.py link --evals <eval folder> --org <organization slug>
 
 `start` finds the built run, where its context lives, how its SQL is executed and the sets the
@@ -92,12 +93,31 @@ def sets(project: pathlib.Path) -> list:
     return found
 
 
+def checks(project: pathlib.Path, run: pathlib.Path) -> list:
+    """The checks already scored on this run, oldest first: read only when the person asks to
+    compare with one. A new request to check accuracy never starts from these."""
+    found = []
+    for ev in sorted((project / ".atlan-evals").glob(run.name + "*"), key=lambda p: p.stat().st_mtime):
+        runs = sorted(d.name for d in (ev / "hillclimb").glob("*") if (d / "results.jsonl").is_file())
+        if runs:
+            spec = load(ev / "work" / "spec.json", {}) or {}
+            found.append({"evals": str(ev), "set": spec.get("name"), "questions": len(spec.get("records") or []),
+                          "runs": runs,
+                          "scored_at": datetime.datetime.fromtimestamp(
+                              max((ev / "hillclimb" / r / "results.jsonl").stat().st_mtime for r in runs),
+                              datetime.timezone.utc).isoformat(timespec="minutes")})
+    return found
+
+
 def cmd_start(a) -> dict:
     project = pathlib.Path(a.project)
     run = find_run(project, a.run)
     found = sets(project)
     out = {"status": "ok", "run": str(run), "context_saved_to": saved_to(run),
-           "use_case": use_case(run), "execution": execution(run), "sets": found}
+           "use_case": use_case(run), "execution": execution(run), "sets": found,
+           "checks": checks(project, run),
+           "new_check": "Every request to check accuracy starts a new eval folder. Use `checks` only "
+                        "when the person asks to compare with an earlier run."}
     if not found:
         out["next"] = "generate"
         return out
@@ -291,6 +311,38 @@ def cmd_gold(a) -> dict:
     return finish(ev, plan, ran)
 
 
+def cmd_drop(a) -> dict:
+    """Take questions the person does not want out of a loaded set, before anything is scored.
+    The set file keeps them: a set is the person's own, and the next check can use them again."""
+    ev = pathlib.Path(a.evals)
+    spec = load(ev / "work" / "spec.json")
+    if not spec:
+        raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
+    if any((d / "results.jsonl").is_file() for d in (ev / "hillclimb").glob("*")):
+        raise Blocked("This set already has a scored run. A scored set never changes: load the set again "
+                      "for a new check, then drop.")
+    records = spec["records"]
+    # A question is named by its number in the list the person was shown, or by its id.
+    want = {s.strip() for s in a.questions.split(",") if s.strip()}
+    gone = [r for n, r in enumerate(records, 1) if str(n) in want or r["id"] in want]
+    named = {str(n) for n, r in enumerate(records, 1) if r in gone} | {r["id"] for r in gone}
+    if want - named:
+        raise Blocked(f"No such question in this set: {', '.join(sorted(want - named))}. "
+                      f"Name each by its number, 1 to {len(records)}.")
+    kept = [r for r in records if r not in gone]
+    if not kept:
+        raise Blocked("That drops every question. Keep at least one, or choose Not now.")
+    ids = {r["id"] for r in gone}
+    dump(ev / "work" / "spec.json", {**spec, "records": kept})
+    dump(ev / "work" / "selection.json",
+         [s for s in load(ev / "work" / "selection.json", []) or [] if s.get("id") not in ids])
+    dump(ev / "work" / "dropped-by-person.json", sorted(ids))
+    for i in ids:
+        (ev / "eval" / "gold" / f"{i}.json").unlink(missing_ok=True)
+    stage(ev, re.sub(r"[^a-z0-9]+", "-", str(spec.get("name") or "eval-set").lower()).strip("-") or "eval-set")
+    return {"status": "ok", "evals": str(ev), "questions": len(kept), "dropped": sorted(ids)}
+
+
 def cmd_link(a) -> dict:
     """The Atlan pages of a check saved to Trident: the agent's runs, and the last run against its baseline."""
     from urllib.parse import quote
@@ -327,6 +379,10 @@ def main(argv=None) -> int:
     c.add_argument("--allow-missing", action="store_true",
                    help="drop a question whose trusted SQL has no result, instead of stopping")
     c.set_defaults(func=cmd_gold)
+    c = s.add_parser("drop", help="take questions out of a loaded set before it is scored")
+    c.add_argument("--evals", required=True)
+    c.add_argument("--questions", required=True, help="numbers in the shown list, or ids, comma separated")
+    c.set_defaults(func=cmd_drop)
     c = s.add_parser("link", help="the Atlan pages of a check saved to Trident")
     c.add_argument("--evals", required=True)
     c.add_argument("--org", required=True)

@@ -69,15 +69,21 @@ query its analysts already run, and the expected answer is what that query retur
 Run these <N> questions?
 ```
 
-The expected answer is one value or one short phrase, never a table, and never SQL unless asked.
+The expected answer is the headline number with its label ("Reopen rate: 19.7%"), or one short
+phrase, never a row of bare values, never a table, and never SQL unless asked. The number beside
+each question is the one it keeps in the score, the misses and any fix.
 
 | Option | Description |
 | --- | --- |
 | Run them (Recommended) | Each goes to a fresh agent that sees only your context, about 2 minutes. |
+| Drop some | Tell me the numbers to leave out, and I run the rest. |
 | Not now | Keep the questions on this machine. |
 
-There is no edit option. On Not now, end with "What would you like to do next?", whose text is one
-line: "The questions stay on this machine."
+On Drop some, ask which numbers in plain chat, run `CHECK drop --evals <evals-run> --questions
+<numbers>`, and run the rest without asking again; say how many were left out. The set file keeps
+them. Rewording a question is not offered here: a reworded question needs its trusted SQL checked
+again, so the person edits the set file and runs a new check. On Not now, end with "What would
+you like to do next?", whose text is one line: "The questions stay on this machine."
 
 ## 3. Run and score
 
@@ -117,27 +123,39 @@ in `<evals-run>/work/spec.json`, name the fix:
   words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>", "value":
   <new value>}]}]`. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has
   no `changes`.
-- **Ask "Apply this fix?"**, one native question whose text is the fixes as plain lines, and
-  nothing after the options: not saved queries that follow the old rule, nor what else the fix
-  might touch. One per
-  miss, the question, why it failed, and the fix (rule now, rule proposed), the recommended one
-  first.
+- **A period that moves is never tied to a date.** When a miss comes from "last quarter", "this
+  month" or any other period that moves with the calendar, and the trusted SQL fixes its dates,
+  the context is not wrong: the question is. Never propose a rule that says what that phrase
+  means on a date ("last quarter means Q2 2026"): it would answer every later question with a
+  stale period. `ACC fixes` refuses such a fix. Write it as a redraft whose why says the period
+  is relative; it is shown with the fixes, as a question to reword, and changes nothing in the
+  context.
+- **Ask "Which fixes should I apply?"**, one native multiple-choice question whose text is the
+  fixes as plain lines, and nothing after the options: not saved queries that follow the old
+  rule, nor what else the fix might touch. One block per miss, under the miss's own number: the
+  question, why it failed, and the fix (rule now, rule proposed). A person decides each fix on
+  its own: there is one option per fix, and never an option that applies them all or a
+  recommendation for a fix that carries a caution.
 
   | Option | Description |
   | --- | --- |
-  | Apply it (Recommended) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names, then test the same questions again. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
-  | Keep the score | Keep this score as the bar to beat. |
+  | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
+  | Reword question `<n>` (one option per redraft) | The question names a period that moves, or asks the opposite of its SQL. I leave the context alone and mark the question to reword in the set. |
+  | Keep the score | Apply nothing. Keep this score as the bar to beat. |
 
-**Apply it** is the yes through the next score, so ask nothing more until the score, unless a
-Trident write is refused and the owner must act in Metric Studio. Keep the score goes to step 5.
+The fixes the person ticks are the yes through the next score, so apply only those, in order,
+then test the same questions again and ask nothing more until the score, unless a Trident write
+is refused and the owner must act in Metric Studio. A question marked to reword stays in the set
+and in the score until its wording is changed; say so in one line beside the next score. With
+nothing ticked, or Keep the score, go to step 5.
 
 - **Context on this machine:** write `{"name": "<metric>", "changes": <the fix's changes>}` to
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
   rule there no longer tests the context), and run `EDIT <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
-  keeps the old rule, so say so and ask "Apply this fix?" again with the next fix. Change only that metric,
+  keeps the old rule, so say so and ask "Which fixes should I apply?" again with the fixes left. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
-- **Context in Atlan Trident:** Apply it is the approval, so apply and release the fix here, with
+- **Context in Atlan Trident:** a ticked fix is the approval, so apply and release the fix here, with
   no second approval in Metric Studio and no proposal record: the new version is the record. For
   each metric the fix changes:
   1. Read the metric's head (`registry__get_artifact`, `properties: []`) for its `etag` and

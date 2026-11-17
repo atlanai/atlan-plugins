@@ -423,6 +423,94 @@ class ScopeTest(unittest.TestCase):
         self.assertIsNone(check._keep({"rows": [[1]] * check.MAX_ROWS}))
         self.assertIn("too long a list", check._keep({"rows": [[1]] * (check.MAX_ROWS + 1)}))
 
+    def scored_check(self) -> Path:
+        """An eval folder with three questions, a baseline run and a later run."""
+        import analytics_eval as harness
+        ev = self.tmp / ".atlan-evals" / self.run.name
+        records = [{"id": i, "question": f"Question {i}?", "question_spec": "", "golden_sql": f"SELECT {n}",
+                    "review_status": "approved", "provenance": {"source": "eval set finance"}, "modes": []}
+                   for n, i in enumerate(("a", "b", "c"), 1)]
+        check.dump(ev / "work" / "spec.json", {"name": "finance", "records": records})
+        check.dump(ev / "work" / "selection.json", [{"id": r["id"], "metric": "Net Revenue", "expected": ["June", 10]}
+                                                    for r in records])
+        for r in records:
+            check.dump(ev / "eval" / "gold" / f"{r['id']}.json", {"columns": ["n"], "rows": [[1]]})
+        check.stage(ev, "finance")
+        for variant, passed in (("baseline", {"a": 1, "b": 0, "c": 1}), ("v1", {"a": 1, "b": 1, "c": 0})):
+            vd = harness.Proj(str(ev)).vdir(variant)
+            (vd / "results.jsonl").write_text("".join(json.dumps({
+                "prompt_id": i, "rep": 0, "prompt": f"Question {i}?", "tags": [], "grade": {"pass": p, "exec_ok": 1},
+                "class": "pass" if p else "wrong_result", "reason": "single value differs", "ts": "2026-11-16T10:00:00+00:00",
+                "isolation": "verified"}) + "\n" for i, p in passed.items()))
+            check.dump(vd / "results" / "c_rep0.agent.json", {"columns": ["m", "n"], "rows": [["June", 12]]})
+        return ev
+
+    def harness(self, *args) -> dict:
+        out = subprocess.run([sys.executable, str(check.HARNESS), *args], capture_output=True, text=True)
+        return json.loads(out.stdout)
+
+    def test_every_run_gets_the_same_report_naming_the_run_it_is_compared_with(self) -> None:
+        sys.path.insert(0, str(check.BUILD))
+        ev = self.scored_check()
+        (ev / "why.json").write_text(json.dumps({"c": {"why": "Different filter", "detail": "It counted another month."}}))
+        rep = self.harness("report", "--dir", str(ev), "--why", "why.json")
+        text = rep["report"]
+        self.assertIn("run 2 of 2", text)
+        self.assertIn("Runs on this set", text)
+        self.assertIn(f"Compared with baseline, run 16 Nov 10:00 UTC, on this machine, in {ev / 'hillclimb' / 'baseline'}.", text)
+        self.assertIn("Changed since baseline: now right: 2. Now wrong: 3.", text)
+        self.assertIn("Different filter (1)\n  3. Question c?\n     Tests Net Revenue. Expected June, 10. Got June, 12.\n     Why: It counted another month.", text)
+        self.assertEqual((rep["misses"], rep["unexplained"]), ([3], []))
+        first = self.harness("report", "--dir", str(ev), "--variant", "baseline")
+        self.assertIn("run 1 of 2", first["report"])
+        self.assertNotIn("Compared with", first["report"])
+        self.assertIn("Not yet explained (1)\n  2. Question b?", first["report"])  # the same number in every run
+        self.assertEqual(first["unexplained"], ["b"])
+
+    def test_start_lists_earlier_checks_only_for_a_comparison(self) -> None:
+        sys.path.insert(0, str(check.BUILD))
+        ev = self.scored_check()
+        res = self.check("start", "--project", str(self.tmp))
+        self.assertEqual([(c["evals"], c["set"], c["runs"]) for c in res["checks"]], [(str(ev), "finance", ["baseline", "v1"])])
+        self.assertIn("starts a new eval folder", res["new_check"])
+        self.assertTrue(str(check.evals_dir(self.tmp, self.run)).endswith("-2"))  # a new check never reuses it
+
+    def test_the_person_can_drop_questions_by_number_before_anything_is_scored(self) -> None:
+        sys.path.insert(0, str(check.BUILD))
+        ev = self.scored_check()
+        self.assertEqual(self.check("drop", "--evals", str(ev), "--questions", "2")["status"], "BLOCKED")  # scored
+        import shutil
+        shutil.rmtree(ev / "hillclimb")
+        self.assertEqual(self.check("drop", "--evals", str(ev), "--questions", "9")["status"], "BLOCKED")
+        self.assertEqual(self.check("drop", "--evals", str(ev), "--questions", "1,2,3")["status"], "BLOCKED")
+        res = self.check("drop", "--evals", str(ev), "--questions", "2")
+        self.assertEqual((res["questions"], res["dropped"]), (2, ["b"]))
+        self.assertEqual([json.loads(l)["case_id"] for l in (ev / "eval" / "cases.jsonl").read_text().splitlines()], ["a", "c"])
+        self.assertFalse((ev / "eval" / "gold" / "b.json").exists())
+        self.assertEqual([s["id"] for s in json.loads((ev / "work" / "selection.json").read_text())], ["a", "c"])
+
+    def test_a_fix_never_ties_a_moving_period_to_a_date(self) -> None:
+        ev = self.tmp / "ev"
+        (ev / "eval").mkdir(parents=True)
+        (ev / "eval" / "cases.jsonl").write_text(json.dumps({"case_id": "q1"}) + "\n")
+        fix = {"misses": ["q1"], "why": "Different filter", "metric": "CSAT", "rule_now": "no period named",
+               "changes": [{"path": "description", "value": "x"}]}
+        for rule, status in (("last quarter means Q2 2026", "BLOCKED"), ("this month is read as 2026-07", "BLOCKED"),
+                             ("also called the support satisfaction score", "ok"),
+                             ("counts tickets created in the last 30 days", "ok")):
+            (self.tmp / "f.json").write_text(json.dumps([{**fix, "rule_proposed": rule}]))
+            out = self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))
+            self.assertEqual(out["status"], status, rule)
+        (self.tmp / "f.json").write_text(json.dumps([{"misses": ["q1"], "kind": "redraft",
+                                                       "why": "The question names a relative period its SQL fixes"}]))
+        self.assertEqual(self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "ok")
+
+    def test_the_generated_note_says_what_the_score_does_and_does_not_show(self) -> None:
+        sys.path.insert(0, str(ACC.parent))
+        import accuracy
+        self.assertIn("It does not say how it will do on a question nobody has asked before.", accuracy.SOURCE)
+        self.assertNotIn("reproduces", accuracy.SOURCE)
+
     def test_a_set_line_without_sql_is_refused(self) -> None:
         bad = self.tmp / "bad.jsonl"
         bad.write_text('{"question": "Total net revenue?"}\n')

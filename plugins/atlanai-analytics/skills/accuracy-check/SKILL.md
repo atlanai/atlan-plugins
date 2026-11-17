@@ -43,9 +43,26 @@ command as separate argv entries; zsh does not split a string holding one.
    [trusted answers on a warehouse run](references/run.md#trusted-answers-on-a-warehouse-run)
    describes, and `CHECK gold` finishes the same way. `work/selection.json` holds each
    question's metric, source and expected answer.
-3. **Run and score it** as [run it](references/run.md#run-it) describes, with the raw-source
+3. **Show a set the person has not seen, and confirm it.** A set generated in this request is
+   shown before it runs, numbered, each question with the metric it tests and its expected
+   answer, then "Run these <N> questions?" with Run them, Drop some and Not now, as the demo's
+   [generated questions](../analytics-demo/references/accuracy.md#2-generated-questions-show-them-then-ask-to-run-them)
+   step words it. `CHECK drop` takes out the ones the person names. This holds when a person
+   calls this skill directly too. A set the person brought and picked runs as it is.
+4. **Run and score it** as [run it](references/run.md#run-it) describes, with the raw-source
    pass of [before and after](references/run.md#before-and-after) when the caller asks for one,
    then show the score as [show the score](references/run.md#show-the-score) describes.
+
+## A new check is a new check
+
+- A request to check accuracy starts a new eval folder, every time. `CHECK start` lists earlier
+  `checks`; read them only when the person asks to compare, never to decide what to run.
+- Ask only what these steps ask: which set, and whether to run a generated one. Never ask which
+  model, how many runs per question, where to run or whether to publish: this skill fixes them.
+- When `CHECK start` is blocked because the folder holds no built context, say its reason in one
+  line and stop. This skill scores a context built with Atlan Analytics; it does not score a
+  registry agent's own eval set, and it never falls back to another harness or to memory of an
+  earlier run.
 
 ## Test again
 
@@ -60,6 +77,6 @@ the caller names.
 
 ## What comes back
 
-The summary's `score_line`, word for word, and one line per miss: the question, the metric it
-tests, the expected value, the agent's value and why it failed. The eval folder, for whoever acts
+The run report as `EVAL report` prints it: the `score_line`, word for word, every run on the
+set, the run it is compared with, and the misses under their numbers, grouped by cause. The eval folder, for whoever acts
 on the misses. Never call a question checked when its SQL did not run.
