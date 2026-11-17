@@ -33,7 +33,7 @@ this machine only.
 ## 1. Choose the questions
 
 Run `CHECK start` at the start of every check, even a later one in the same session: where the
-context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8` returns the built run, `context_saved_to`, `execution`, the project's
+context lives can change, so never reuse an earlier answer. `CHECK start --project <project> --questions 8 --context-only` returns the built run, `context_saved_to`, `execution`, the project's
 `sets` and, when there is a set, `ask`: the native question to put as it is (its `question`,
 `text` and `options`). Add `--run <run-dir>`, here and on `CHECK load` and `SCOPE inputs`,
 whenever the run is known: the demo's own run, or the build's. With no sets, or the person asking for new questions, generate. Otherwise,

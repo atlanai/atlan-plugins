@@ -221,8 +221,13 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual((res["run"], res["context_saved_to"], [(s["name"], s["questions"]) for s in res["sets"]]),
                          (str(self.run), None, [("finance", 1)]))
         self.assertEqual([o["label"] for o in res["ask"]["options"]], ["finance (1 question)", "Generate 20 new questions"])
-        demo = self.check("start", "--project", str(self.tmp), "--run", str(self.run), "--questions", "8")
+        # Every check runs the raw-source pass too, whoever starts it; only a caller that names it leaves it out.
+        self.assertTrue(res["before_after"])
+        self.assertIn("only the raw tables", res["ask"]["text"])
+        demo = self.check("start", "--project", str(self.tmp), "--run", str(self.run), "--questions", "8", "--context-only")
         self.assertEqual(demo["ask"]["options"][-1]["label"], "Generate 8 new questions")
+        self.assertFalse(demo["before_after"])
+        self.assertNotIn("raw tables", demo["ask"]["text"])
         (self.run / "context" / "published.json").write_text(json.dumps({"metric:yard:1": "metric_01x"}))
         (self.run / "authorization.json").write_text(json.dumps({"workspace_id": "workspace_01saved"}))
         self.assertEqual(self.check("start", "--project", str(self.tmp))["context_saved_to"], "workspace_01saved")

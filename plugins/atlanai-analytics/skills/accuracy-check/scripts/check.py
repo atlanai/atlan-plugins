@@ -96,8 +96,12 @@ def cmd_start(a) -> dict:
     project = pathlib.Path(a.project)
     run = find_run(project, a.run)
     found = sets(project)
+    # Every check runs the raw-source pass beside the context pass, whoever starts it: a person
+    # asking here directly, the build, or another skill. Only a caller that names it leaves it out.
+    before_after = not a.context_only
     out = {"status": "ok", "run": str(run), "context_saved_to": saved_to(run),
-           "use_case": use_case(run), "execution": execution(run), "sets": found}
+           "use_case": use_case(run), "execution": execution(run), "sets": found,
+           "before_after": before_after}
     if not found:
         out["next"] = "generate"
         return out
@@ -108,8 +112,10 @@ def cmd_start(a) -> dict:
     out["ask"] = {
         "question": "Which questions should I test with?",
         "text": (f"This folder has {len(found)} eval set{'s' if len(found) != 1 else ''}: {names}, with their "
-                 "trusted answers.\nNext I ask each question to a fresh agent that sees only your context, and "
-                 "compare its answer with the trusted one. Which questions should I test with?"),
+                 "trusted answers.\nNext I ask each question to a fresh agent that sees only your context, "
+                 + ("and to one that sees only the raw tables, and compare both answers with the trusted one. "
+                    if before_after else "and compare its answer with the trusted one. ")
+                 + "Which questions should I test with?"),
         "options": [{"label": f"{s['name']} ({q(s['questions'])})",
                      "description": "The eval set you already have."} for s in found]
                    + [{"label": f"Generate {a.questions} new questions",
@@ -315,6 +321,8 @@ def main(argv=None) -> int:
     c.add_argument("--run", help="the run folder to test, when the project holds several")
     c.add_argument("--questions", type=int, default=20,
                    help="how many questions a new set holds, as the generate option names it (the demo uses 8)")
+    c.add_argument("--context-only", action="store_true",
+                   help="leave out the raw-source pass that every other check runs (the demo's short check)")
     c.set_defaults(func=cmd_start)
     c = s.add_parser("load", help="a set in a fresh eval folder, trusted answers run or pending")
     c.add_argument("--project", required=True)
