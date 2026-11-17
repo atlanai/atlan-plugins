@@ -522,6 +522,20 @@ class ScopeTest(unittest.TestCase):
         self.assertIn("It does not say how it will do on a question nobody has asked before.", accuracy.SOURCE)
         self.assertNotIn("reproduces", accuracy.SOURCE)
 
+    def test_show_prints_the_set_as_one_readable_table(self) -> None:
+        sys.path.insert(0, str(check.BUILD))
+        ev = self.scored_check()
+        check.dump(ev / "eval" / "gold" / "a.json", {"columns": ["n"], "rows": [["1234567"]]})
+        check.dump(ev / "eval" / "gold" / "b.json", {"columns": ["ms", "cnt", "x", "y"],
+                                                     "rows": [["2026-06-01 00:00:00", "1684", "4.90", "z"], ["2026-07-01", "9", "1", "z"]]})
+        check.dump(ev / "eval" / "gold" / "c.json", {"columns": ["k"], "rows": []})
+        table = self.check("show", "--evals", str(ev))["table"].splitlines()
+        self.assertEqual(table[:2], ["| # | Question | Tests | Expected |", "| ---: | --- | --- | --- |"])
+        self.assertEqual(table[2], "| 1 | Question a? | Net Revenue | 1,234,567 |")
+        self.assertEqual(table[3], "| 2 | Question b? | Net Revenue | 2 rows, starting 2026-06-01, 1,684, 4.9, … |")
+        self.assertEqual(table[4], "| 3 | Question c? | Net Revenue | no rows |")
+        self.assertNotIn("cnt", "\n".join(table))  # a query's aliases never reach the person
+
     def test_a_set_line_without_sql_is_refused(self) -> None:
         bad = self.tmp / "bad.jsonl"
         bad.write_text('{"question": "Total net revenue?"}\n')

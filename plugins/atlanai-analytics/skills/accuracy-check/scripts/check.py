@@ -8,6 +8,7 @@ from) and "note" (the rule the SQL encodes). A generated set and a brought one l
     python3 check.py start --project <project> [--run <run-dir>]
     python3 check.py load --project <project> --file <set.jsonl> [--run <run-dir>]
     python3 check.py gold --evals <eval-dir> [--transcript <file> ...]
+    python3 check.py show --evals <eval-dir>
     python3 check.py drop --evals <eval-dir> --questions <numbers or ids>
     python3 check.py link --evals <eval folder> --org <organization slug>
 
@@ -317,6 +318,52 @@ def cmd_gold(a) -> dict:
     return finish(ev, plan, ran)
 
 
+def _cell(value) -> str:
+    """One value as a person reads it: a number with separators, a date without a time."""
+    if value is None:
+        return "none"
+    text = str(value).strip()
+    try:
+        number = float(text)
+        if re.fullmatch(r"[+-]?\d+(\.\d+)?", text):
+            return f"{int(number):,}" if number.is_integer() else f"{number:,.2f}".rstrip("0").rstrip(".")
+    except ValueError:
+        pass
+    text = re.sub(r"^(\d{4}-\d{2}-\d{2})[ T]00:00(:00(\.0+)?)?([+-]00:?00|Z)?$", r"\1", text)
+    return text.replace("|", "/").replace("\n", " ")
+
+
+def _expected(gold: dict) -> str:
+    """A trusted result as a person reads it: one value on its own, otherwise its size and the
+    first row's leading values. Column names stay out: a query's aliases (ms, cnt) mean nothing
+    to the person."""
+    rows = gold.get("rows") or []
+    if not rows:
+        return "no rows"
+    first = [_cell(v) for v in rows[0] if _cell(v) not in ("", "none")]
+    if len(rows) == 1 and len(rows[0]) == 1:
+        return first[0] if first else "none"
+    shown = ", ".join(first[:3]) + (", …" if len(first) > 3 else "")
+    return f"1 row: {shown}" if len(rows) == 1 else f"{len(rows)} rows, starting {shown}"
+
+
+def cmd_show(a) -> dict:
+    """The loaded set as one markdown table, for the person to read before it runs: the number
+    each question keeps in every report, the question, the metric it tests and its trusted answer."""
+    ev = pathlib.Path(a.evals)
+    spec = load(ev / "work" / "spec.json")
+    if not spec:
+        raise Blocked(f"No loaded set in {ev}: run `check.py load` (and `gold` on a warehouse run) first.")
+    picked = {s.get("id"): s for s in load(ev / "work" / "selection.json", []) or []}
+    clean = lambda t: " ".join(str(t or "").split()).replace("|", "/")  # noqa: E731
+    lines = ["| # | Question | Tests | Expected |", "| ---: | --- | --- | --- |"]
+    for n, r in enumerate(spec["records"], 1):
+        gold = load(ev / "eval" / "gold" / f"{r['id']}.json", {}) or {}
+        lines.append(f"| {n} | {clean(r['question'])} | {clean((picked.get(r['id']) or {}).get('metric')) or 'none named'} "
+                     f"| {clean(_expected(gold))} |")
+    return {"status": "ok", "questions": len(spec["records"]), "table": "\n".join(lines)}
+
+
 def cmd_drop(a) -> dict:
     """Take questions the person does not want out of a loaded set, before anything is scored.
     The set file keeps them: a set is the person's own, and the next check can use them again."""
@@ -385,6 +432,9 @@ def main(argv=None) -> int:
     c.add_argument("--allow-missing", action="store_true",
                    help="drop a question whose trusted SQL has no result, instead of stopping")
     c.set_defaults(func=cmd_gold)
+    c = s.add_parser("show", help="the loaded set as one markdown table, to read before it runs")
+    c.add_argument("--evals", required=True)
+    c.set_defaults(func=cmd_show)
     c = s.add_parser("drop", help="take questions out of a loaded set before it is scored")
     c.add_argument("--evals", required=True)
     c.add_argument("--questions", required=True, help="numbers in the shown list, or ids, comma separated")

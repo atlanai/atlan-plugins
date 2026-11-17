@@ -50,8 +50,8 @@ command as separate argv entries; zsh does not split a string holding one.
    describes, and `CHECK gold` finishes the same way. `work/selection.json` holds each
    question's metric, source and expected answer.
 3. **Show a set the person has not seen, and confirm it.** A set generated in this request is
-   shown before it runs, numbered, each question with the metric it tests and its expected
-   answer, then "Run these <N> questions?" with Run them, Drop some and Not now, as the demo's
+   shown before it runs as the table `CHECK show` prints, at the end of a message that asks
+   "run", "drop <numbers>" or "not now", never inside a native question, as the demo's
    [generated questions](../analytics-demo/references/accuracy.md#2-generated-questions-show-them-then-ask-to-run-them)
    step words it. `CHECK drop` takes out the ones the person names. This holds when a person
    calls this skill directly too. A set the person brought and picked runs as it is.

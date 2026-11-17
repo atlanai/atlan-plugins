@@ -54,36 +54,33 @@ questions are shown with their expected answers, in step 2, because the person h
 
 ## 2. Generated questions: show them, then ask to run them
 
-The person has not seen these, so show them before running. Ask one native question whose text
-is this block, as plain lines: each question from `<evals-run>/work/spec.json`, its metric, source
-and expected answer from `<evals-run>/work/selection.json`, and the use case from `CHECK start`:
+The person has not seen these, so show them before running, as the last message of the turn and
+never in a native question: a list this long wraps and breaks inside a question's text, and the
+last message of a turn renders in full, tables included. Call no tool after it.
+
+`CHECK show --evals <evals-run>` prints the set as one markdown table: the number each question
+keeps in the score, the misses and any fix, the question, the metric it tests, and the trusted
+answer (a single value, or the result's size and first values). Send this message, filled in, with
+the table exactly as printed, and nothing before or after it:
 
 ```
-<N> questions to test your <agent>. They test the metrics it needs to answer
-<the use case>, starting with <focus metric>. Each comes from <firm>'s dashboard or a
-query its analysts already run, and the expected answer is what that query returns.
+<N> questions to test your <agent> on <the use case>. Each comes from <firm>'s dashboard or a
+query its analysts already run; the expected answer is what that query returns.
 
-1. <question>
-   Tests <metric>, from <where it came from>. Expected: <one short value>
+<the table, as CHECK show printed it>
 
-Run these <N> questions?
+Each question goes to a fresh agent with your context, and again to one with only the raw tables, about <4 or 8> minutes.
+Reply "run" to test all <N>, "drop 3, 7" to leave some out first, or "not now".
 ```
 
-The expected answer is the headline number with its label ("Reopen rate: 19.7%"), or one short
-phrase, never a row of bare values, never a table, and never SQL unless asked. The number beside
-each question is the one it keeps in the score, the misses and any fix.
-
-| Option | Description |
-| --- | --- |
-| Run them (Recommended) | Each goes to a fresh agent that sees only your context, and to one that sees only the raw tables, about 4 minutes. |
-| Drop some | Tell me the numbers to leave out, and I run the rest. |
-| Not now | Keep the questions on this machine. |
-
-On Drop some, ask which numbers in plain chat, run `CHECK drop --evals <evals-run> --questions
-<numbers>`, and run the rest without asking again; say how many were left out. The set file keeps
-them. Rewording a question is not offered here: a reworded question needs its trusted SQL checked
-again, so the person edits the set file and runs a new check. On Not now, end with "What would
-you like to do next?", whose text is one line: "The questions stay on this machine."
+Never rebuild the table, add SQL, or move it into a question. Read the person's reply as the
+answer: "run" (or any yes) runs them; numbers to drop run `CHECK drop --evals <evals-run>
+--questions <numbers>`, then the rest run without asking again, and the score says how many were
+left out; "not now" keeps the set on this machine and ends with "What would you like to do
+next?", whose text is one line: "The questions stay on this machine." The set file keeps dropped
+questions. Rewording a question is not offered here: a reworded question needs its trusted SQL
+checked again, so the person edits the set file and runs a new check. Where the host has no way
+to end a turn and wait (a run with no person to answer), run them.
 
 ## 3. Run and score
 
