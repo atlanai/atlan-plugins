@@ -176,3 +176,23 @@ class ReceiptRecording(unittest.TestCase):
         self.assertEqual(result['captured_creates'], 1)
         self.assertEqual(result['released_readbacks'], 0)
         self.assertEqual(result['status'], 'pending')
+
+    def handle(self, artifact, **changes):
+        """A slot's `artifact` as the gateway answers it without `full`: the write handle."""
+        keep = ('id', 'name', 'version_ordinal', 'version_id', 'etag', 'artifact_status')
+        return {**{k: artifact[k] for k in keep if k in artifact}, 'version_ordinal': 1,
+                'version_id': 'ver_' + artifact['id'], 'etag': 'W/"1"', **changes}
+
+    def test_handle_slots_are_saved_and_matched_to_their_request(self):
+        body = {k: self.artifacts[0][k] for k in ('name', 'source_id', 'workspace_id')}
+        self.capture('registry__create_artifacts', {'kind': 'metric', 'items': [body]}, {
+            'created': 1, 'failed': 0, 'items': [{'index': 0, 'ok': True, 'artifact': self.handle(self.artifacts[0])}]})
+        self.assertEqual(self.assemble()['captured_creates'], 1)
+
+    def test_a_handle_naming_another_item_or_kind_is_not_a_receipt(self):
+        body = {k: self.artifacts[0][k] for k in ('name', 'source_id', 'workspace_id')}
+        for wrong in ({'name': 'other'}, {'id': 'sql_query_example'}, {'source_id': 'elsewhere'}):
+            with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                self.capture('registry__create_artifacts', {'kind': 'metric', 'items': [body]}, {
+                    'items': [{'index': 0, 'ok': True, 'artifact': self.handle(self.artifacts[0], **wrong)}]})
+        self.assertEqual(list(self.receipts.glob('*.json')), [])

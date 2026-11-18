@@ -537,7 +537,7 @@
    "plugin": "atlanai",
    "skill": "atlan-connect-repo",
    "title": "Register a repository and bind its artifacts",
-   "route": "Register, relate the artifacts to it and report from each result; Git and CI steps run outside the gateway",
+   "route": "Register, relate every artifact to it in one call and report from each slot; Git and CI steps run outside the gateway",
    "calls": {
     "cold": [
      {
@@ -555,7 +555,7 @@
       }
      },
      {
-      "tool": "registry__relate_artifact",
+      "tool": "registry__relate_artifacts",
       "runner": "call_write_tool",
       "args": {
        "relationship": "<source>"

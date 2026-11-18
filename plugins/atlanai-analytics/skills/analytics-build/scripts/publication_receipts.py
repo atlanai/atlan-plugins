@@ -21,7 +21,9 @@ def read(path):
     path = Path(path).absolute()
     if any(p.is_symlink() for p in (path, *path.parents)) or not path.is_file() or path.stat().st_size > MAX_BYTES:
         raise ValueError('Receipt files must be bounded ordinary files inside this run.')
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    # Windows lacks both flags; the symlink and regular-file checks still hold there.
+    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0)
+                 | getattr(os, 'O_BINARY', 0))
     with os.fdopen(fd, 'rb') as stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
             raise ValueError('Receipt is not an ordinary file.')
@@ -44,6 +46,18 @@ def documents(directory):
                 or not isinstance(value['request'], dict) or not isinstance(value['response'], dict)):
             raise ValueError('Unsupported receipt format.')
         yield value
+
+
+def slot_matches(kind, item, artifact):
+    """Whether a bulk create's ok slot is the item its request sent: the slot is the artifact's
+    handle (`id`, `name`, version, status) unless the call sent `full`, so it is matched on its
+    name and its id's kind prefix, and any identity field a whole row carries must match too.
+    The receipt hook (`command-hooks/receipt_store.py`) checks the same before saving."""
+    if not isinstance(artifact, dict) or not isinstance(artifact.get('id'), str):
+        return False
+    expected = {'kind': kind, **item}
+    return (artifact['id'].startswith(kind + '_') and artifact.get('name') == item.get('name')
+            and all(artifact[k] == v for k, v in expected.items() if k in artifact))
 
 
 def assemble(run_dir, receipt_dir, workspace, finalize=False):
@@ -77,11 +91,13 @@ def assemble(run_dir, receipt_dir, workspace, finalize=False):
                 if type(index) is not int or not 0 <= index < len(items):
                     raise ValueError('Invalid bulk receipt index.')
                 if slot.get('ok') is True:
-                    actual = slot['artifact']
-                    if actual.get('kind') != args['kind'] or any(actual.get(k) != v for k, v in items[index].items()):
+                    actual, sent = slot.get('artifact'), items[index]
+                    if not slot_matches(args['kind'], sent, actual):
                         raise ValueError('A create receipt differs from its request.')
-                    key = (actual['kind'], actual['source_id'])
-                    if key in expected and actual.get('workspace_id') == workspace:
+                    # A slot is the artifact's handle, so its kind, source and workspace are the
+                    # request's: slot_matches held any the slot carries to them.
+                    key = (args['kind'], sent.get('source_id'))
+                    if key in expected and sent.get('workspace_id') == workspace:
                         if key in creates and creates[key] != actual['id']:
                             raise ValueError('Conflicting create identities; reconcile live state.')
                         creates[key] = actual['id']

@@ -5,6 +5,8 @@ or Tableau dashboard projects, including demos and local-only repository/folder 
 The owned metrics-agent module drives source processing, compilation, verification and metric gates.
 
 `ENGINE` means `python3 "<metrics-dir>/scripts/analytics_agent.py" metrics --runtime <runtime>`.
+On Windows, start it with `py -3.12` (or `py -3.11`) instead of `python3`. The runtime runs
+natively there; never ask to install WSL.
 Keep the runtime outside the installed plugin and any generated agent package. For local
 setup, use durable `.atlan-metrics/runtime/` inside the authorized project, or an already
 permitted cache. Never choose an OS/session scratch directory: the saved executor must remain

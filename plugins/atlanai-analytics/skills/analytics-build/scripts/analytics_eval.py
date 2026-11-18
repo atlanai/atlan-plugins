@@ -1591,8 +1591,10 @@ def _create(kind: str, metadata: dict, key: str) -> dict:
             "arguments": {"kind": kind, "metadata": metadata, "idempotency_key": key}}
 
 
-def _create_many(kind: str, items: list) -> dict:
-    return {"tool": "registry__create_artifacts", "arguments": {"kind": kind, "items": items}}
+def _create_many(kind: str, items: list, full: bool = False) -> dict:
+    # A slot answers the artifact's handle alone unless the call sends `full`.
+    return {"tool": "registry__create_artifacts",
+            "arguments": {"kind": kind, "items": items, **({"full": True} if full else {})}}
 
 
 def _find_id(obj, kind: str):
@@ -1808,7 +1810,8 @@ def _next_step(pr: Proj, pub: Publication, c: dict, a) -> tuple:
                           # an untimed run has no duration: 0 would read as instant
                           **({"duration_ms": int(float(r["latency_s"]) * 1000)}
                              if r.get("latency_s") is not None else {})})
-        return "results", [_create_many("experiment_result", items)], [it["case_id"] for it in items]
+        # `full`: publish-ack checks each saved score against the run's, from the rows it answers.
+        return "results", [_create_many("experiment_result", items, full=True)], [it["case_id"] for it in items]
     if not pub.s.get("completed"):
         s = summarize(pr, V)
         return "complete", [{"tool": "registry__patch_artifact", "arguments": {"artifact_id": eid, "patch": {
@@ -2207,6 +2210,8 @@ def _selftest_publish(pr: pathlib.Path, no_transcripts: bool = False) -> bool:
             calls_seen.append(call["tool"])
             kind = call["arguments"].get("kind") or "experiment"
             if call["tool"] == "registry__create_artifacts":
+                if step == "results" and call["arguments"].get("full") is not True:
+                    return False  # without `full` the slots carry no score to check
                 slots = [{"status": 201, **made(kind)} for _ in call["arguments"]["items"]]
                 if step == "messages" and not failed_once:
                     failed_once, slots[0] = True, {"status": 422, "error": "bad field"}

@@ -46,6 +46,7 @@
     "registry__move_artifact": "write",
     "registry__patch_artifact": "write",
     "registry__relate_artifact": "write",
+    "registry__relate_artifacts": "write",
     "registry__release_artifact": "destructive",
     "registry__request_file_upload": "write",
     "registry__retrigger_artifact_action": "write",

@@ -297,6 +297,10 @@
       "description": "The artifact handle, as `<kind>_<identifier>`.",
       "type": "string"
      },
+     "full": {
+      "description": "Return whole release records (notes, reason, who and when for each transition) instead of summary rows. Defaults to false.",
+      "type": "boolean"
+     },
      "limit": {
       "description": "How many to return. Defaults to 50, at most 500.",
       "type": "integer"
@@ -478,6 +482,10 @@
       "description": "Check the write without making it: permission, workspace, name, relationships, whether the source key would add a version to an existing artifact, and the kind's properties when no app hook stands in between. Nothing is written and no app is called; the answer says what would happen and lists what was not checked.",
       "type": "boolean"
      },
+     "full": {
+      "description": "Answer with the whole stored row instead of its handle. By default the reply carries only `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`; call `get_artifact` for the rest when you need it.",
+      "type": "boolean"
+     },
      "idempotency_key": {
       "description": "A unique operation key (1-128 ASCII letters, digits, hyphens or underscores). Send alongside metadata, not inside it. Reuse it with identical arguments to recover the same version for 24 hours; changed arguments conflict. Credential-revealing creates refuse it.",
       "maxLength": 128,
@@ -504,7 +512,7 @@
   },
   {
    "name": "registry__create_artifacts",
-   "description": "Create up to 100 artifacts of one kind in a single call. Each item is exactly what `create_artifact` takes as its `metadata`, including its own `workspace_id`, so one call can span workspaces. \n\n**Each item succeeds or fails on its own.** The result has one slot per item, in order, each with its own status; a failure leaves the successes in place. Retry only the failed items: resending the batch duplicates every item that worked. \n\nAn item whose `source_id` already names an artifact in the same workspace appends a **new version** to it and still reports success; compare `version_ordinal` to tell which happened. \n\nRefused outright: `agent` (each mints a credential this call has no per-item channel for; use `create_artifact`), and any kind needing content bytes. Prefer smaller batches: the whole call shares one 15-second budget.",
+   "description": "Create up to 100 artifacts of one kind in a single call. Each item is exactly what `create_artifact` takes as its `metadata`, including its own `workspace_id`, so one call can span workspaces. \n\n**Each item succeeds or fails on its own.** The result has one slot per item, in order, each with its own status and, when it worked, the artifact's handle (`id`, `name`, `version_ordinal`, `artifact_status`); a failure leaves the successes in place. Retry only the failed items: resending the batch duplicates every item that worked. \n\nAn item whose `source_id` already names an artifact in the same workspace appends a **new version** to it and still reports success; compare `version_ordinal` to tell which happened. \n\nRefused outright: `agent` (each mints a credential this call has no per-item channel for; use `create_artifact`), and any kind needing content bytes. Prefer smaller batches: the whole call shares one 15-second budget.",
    "annotations": {
     "destructiveHint": false,
     "openWorldHint": false,
@@ -513,6 +521,10 @@
    "input_schema": {
     "additionalProperties": false,
     "properties": {
+     "full": {
+      "description": "Answer with the whole stored row instead of its handle. By default the reply carries only `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`; call `get_artifact` for the rest when you need it.",
+      "type": "boolean"
+     },
      "items": {
       "description": "The artifacts to create, at most 100.",
       "items": {
@@ -547,6 +559,10 @@
      "artifact_id": {
       "description": "The artifact handle, as `<kind>_<identifier>`.",
       "type": "string"
+     },
+     "full": {
+      "description": "Answer with the whole stored row instead of its handle. By default the reply carries only `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`; call `get_artifact` for the rest when you need it.",
+      "type": "boolean"
      },
      "if_match": {
       "description": "The `etag` of the read this change is based on; required when `patch` changes `owner_id`. When given, the patch is refused with `precondition_failed` if the artifact changed since; read it again and retry.",
@@ -585,6 +601,10 @@
       "maxLength": 65536,
       "minLength": 1,
       "type": "string"
+     },
+     "full": {
+      "description": "Answer with the whole stored row instead of its handle. By default the reply carries only `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`; call `get_artifact` for the rest when you need it.",
+      "type": "boolean"
      },
      "idempotency_key": {
       "description": "A unique operation key (1-128 ASCII letters, digits, hyphens or underscores). Reuse it with identical arguments to recover the same version for 24 hours; changed arguments conflict. Credential-revealing creates refuse it.",
@@ -774,6 +794,10 @@
       "description": "Exact version ID from the reviewed head, bare or ver_ prefixed.",
       "type": "string"
      },
+     "full": {
+      "description": "Answer with the whole stored row instead of its handle. By default the reply carries only `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`; call `get_artifact` for the rest when you need it.",
+      "type": "boolean"
+     },
      "if_match": {
       "description": "Concrete strong ETag from the same reviewed head; wildcards and weak tags are refused.",
       "minLength": 1,
@@ -935,6 +959,10 @@
      "attributes": {
       "description": "Optional free-form detail recorded alongside the relationship.",
       "type": "object"
+     },
+     "full": {
+      "description": "Answer with the whole stored row instead of its handle. By default the reply carries only `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`; call `get_artifact` for the rest when you need it.",
+      "type": "boolean"
      },
      "kind": {
       "description": "The registered kind to create.",
@@ -2438,6 +2466,59 @@
      }
     },
     "required": [],
+    "type": "object"
+   }
+  },
+  {
+   "name": "registry__relate_artifacts",
+   "description": "Record up to 100 typed relationships in one call, each exactly what `relate_artifact` takes: `artifact_id` (from), `subject_id` or `to_id` (to), `rel_type` and optional `attributes`. Use it instead of calling `relate_artifact` once per link. \n\n**Each link succeeds or fails on its own.** The result has one slot per link, in order, each `ok` or naming its `code` and `error`; a failure leaves the others in place. **Safe to resend:** a link is identified by its two ends and its type, so sending the whole batch again restates the ones that landed rather than adding second copies. A malformed handle anywhere refuses the whole call before anything is written, naming the link.",
+   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+   },
+   "input_schema": {
+    "additionalProperties": false,
+    "properties": {
+     "links": {
+      "description": "1 to 100 relationships, each `{artifact_id, subject_id | to_id, rel_type, attributes?}`.",
+      "items": {
+       "additionalProperties": false,
+       "properties": {
+        "artifact_id": {
+         "description": "The artifact the relationship points **from**, as `<kind>_<identifier>`.",
+         "type": "string"
+        },
+        "attributes": {
+         "description": "Optional free-form detail recorded alongside the relationship, merged into an existing edge's.",
+         "type": "object"
+        },
+        "rel_type": {
+         "description": "The relationship type, which the source kind must declare.",
+         "type": "string"
+        },
+        "subject_id": {
+         "description": "The artifact it points **to**, as `<kind>_<identifier>`. Give this or `to_id`.",
+         "type": "string"
+        },
+        "to_id": {
+         "description": "The same target as `subject_id`, under the name `edges` and `get_related_artifacts` use. Give one of the two; both are refused unless they agree.",
+         "type": "string"
+        }
+       },
+       "required": [
+        "artifact_id",
+        "rel_type"
+       ],
+       "type": "object"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "links"
+    ],
     "type": "object"
    }
   }

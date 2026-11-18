@@ -51,6 +51,9 @@ than choosing silently.
 
 ## Safety
 
+- The helpers and the metrics runtime run natively on macOS, Linux and Windows. On Windows,
+  run every `python3 …` command in these files as `py -3.12 …` (or `py -3.11`, or `python`
+  when that is 3.11 or 3.12). Never ask to install WSL or change the operating system.
 - Never read, print or copy `.env` files, key files, keychains or tokens.
 - Send the warehouse only single SELECT, WITH, SHOW or DESCRIBE statements, with a LIMIT on
   anything returning rows.

@@ -316,7 +316,13 @@ class RegistryToolCoverageTest(unittest.TestCase):
         self.assertFalse(result["isError"], body)
         self.assertEqual([(s["index"], s["ok"]) for s in body["items"]], [(0, True), (1, False)])
         self.assertEqual((body["created"], body["failed"]), (1, 1))
-        self.assertEqual(body["items"][0]["artifact"]["kind"], "knowledge")
+        # Each ok slot is the artifact's handle, unless the call sends `full`.
+        self.assertEqual(set(body["items"][0]["artifact"]), {"id", "name", "version_ordinal", "version_id", "etag", "artifact_status"})
+        self.assertEqual(body["items"][0]["artifact"]["name"], "refund-policy")
+        _, whole = self.run_tool("mcp__call_write_tool", "registry__create_artifacts", {"kind": "knowledge", "full": True, "items": [
+            {"name": "refund-faq", "workspace_id": "workspace_01evalplatform"}]})
+        self.assertEqual((whole["items"][0]["artifact"]["kind"], whole["items"][0]["artifact"]["workspace_id"]),
+                         ("knowledge", "workspace_01evalplatform"))
         result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifacts",
                                      {"kind": "agent", "items": [{"name": "bot", "workspace_id": "workspace_01evalplatform"}]})
         self.assertEqual(body["code"], "unsupported_kind")
@@ -329,7 +335,24 @@ class RegistryToolCoverageTest(unittest.TestCase):
         self.assertEqual(self.m.state["edges"], {}, "a refused edge creates nothing")
         result, body = self.run_tool("mcp__call_write_tool", "registry__create_artifact_linked", linked | {"subject_id": "skill_01evalsecrev01"})
         self.assertFalse(result["isError"], body)
-        self.assertEqual((body["kind"], body["edges"][0]["to_id"], body["edges"][0]["rel_type"]), ("knowledge", "skill_01evalsecrev01", "documents"))
+        self.assertEqual((body["artifact"]["name"], body["relationship"]["to_id"], body["relationship"]["rel_type"]),
+                         ("refund-policy", "skill_01evalsecrev01", "documents"))
+        self.assertNotIn("kind", body["artifact"], "the artifact is its handle")
+
+    def test_relate_artifacts_answers_one_slot_per_link_and_refuses_a_malformed_batch_whole(self) -> None:
+        good = {"artifact_id": "skill_01evalsecrev01", "subject_id": "skill_01evalsecrev02", "rel_type": "replaced_by"}
+        result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifacts",
+                                     {"links": [good, good | {"subject_id": "skill_01evalnone"}]})
+        self.assertFalse(result["isError"], body)
+        self.assertEqual((body["related"], body["failed"]), (1, 1))
+        self.assertEqual([(s["index"], s["ok"]) for s in body["items"]], [(0, True), (1, False)])
+        self.assertEqual(body["items"][1]["code"], "not_found")
+        self.m.state["edges"].clear()
+        result, body = self.run_tool("mcp__call_write_tool", "registry__relate_artifacts",
+                                     {"links": [good, {"artifact_id": "not a handle", "to_id": "skill_01evalsecrev02", "rel_type": "replaced_by"}]})
+        self.assertTrue(result["isError"])
+        self.assertIn("links[1].artifact_id", body["detail"])
+        self.assertEqual(self.m.state["edges"], {}, "a malformed link writes nothing")
 
     def test_a_scan_run_again_is_a_new_run_each_time_and_approves_nothing(self) -> None:
         rerun = {"artifact_id": "skill_01evalpending", "action_name": "scan"}

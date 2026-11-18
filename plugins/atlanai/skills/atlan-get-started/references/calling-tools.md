@@ -24,7 +24,7 @@ mcp__call_read_tool {                       ← the runner for what the tool doe
 | Runner | Runs | Examples |
 |---|---|---|
 | `mcp__call_read_tool` | read-only tools | `registry__search_artifacts`, `registry__get_artifact`, `registry__list_workspaces` |
-| `mcp__call_write_tool` | anything not destructive, reads included | `registry__create_artifact`, `registry__patch_artifact`, `registry__relate_artifact`, `registry__move_artifact` |
+| `mcp__call_write_tool` | anything not destructive, reads included | `registry__create_artifact`, `registry__patch_artifact`, `registry__relate_artifacts`, `registry__move_artifact` |
 | `mcp__call_tool` | any tool | `registry__archive_artifact`, `registry__approve_artifact`, `registry__release_artifact` |
 
 1. **One session.** The first search or runner call sends `objective` and returns the id
@@ -117,8 +117,13 @@ create without an `idempotency_key`: those are writes a lost response does not u
   (a smaller `limit`, a `kind` or `workspace_id` filter, `properties` on `registry__get_artifact`,
   one file at a time), and say so if what the user asked for could not be read in full. The
   calls of one `mcp__call_read_tools` batch share that budget, so send a large read alone.
+- **Write results.** A create, append, patch or approve answers with the artifact's handle:
+  `id`, `name`, `version_ordinal`, `version_id`, `etag` and `artifact_status`. Pass `etag` as the
+  next write's `if_match` and `version_id` to an approval or release without a read. Send
+  `"full": true` only when you will report a field the handle leaves out.
 - **Batches.** `registry__create_artifacts` takes up to 100 items and reports each in its own
-  slot. Read the slots, retry only the failed ones. Keep one call's items under about 256 KB of
+  slot, and `registry__relate_artifacts` takes up to 100 `links` the same way: never one
+  `registry__relate_artifact` call per link. Read the slots, retry only the failed ones. Keep one call's items under about 256 KB of
   JSON as well: small items fill 100, but large bodies, such as full metric definitions of up to
   16 KiB each, go about 25 to a call.
 - **Cortex Code.** No publish hook runs there, so `items_from` and `files_from` are never

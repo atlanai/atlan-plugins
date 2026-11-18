@@ -19,3 +19,4 @@ venv/
 # Private Analytics runs, source captures and isolated runtimes.
 .atlan-metrics/
 .atlan-analytics/
+.context/
