@@ -3,13 +3,13 @@
 The host supplies browser evidence; this module never connects to a BI service.
 """
 import copy
-import fcntl
 import hashlib
 import json
 import os
 import re
 import secrets
 import tempfile
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -18,6 +18,33 @@ from urllib.parse import urlsplit, parse_qs, urlunsplit
 
 from .metric_contract import validate_definition
 from .evaluation import make_plan, results as planned_results, next_task, suggestions, answer_plan, readiness
+
+
+if os.name == 'nt':
+    import msvcrt
+
+    def _lock(handle):
+        # msvcrt locks bytes from the current position; wait on the first byte, even past EOF.
+        while True:
+            handle.seek(0)
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                time.sleep(0.05)
+
+    def _unlock(handle):
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+else:
+    import fcntl
+
+    def _lock(handle):
+        fcntl.flock(handle, fcntl.LOCK_EX)
+
+    def _unlock(handle):
+        fcntl.flock(handle, fcntl.LOCK_UN)
+
 
 MAX_BYTES = 4_000_000
 HANDLE = re.compile(r'job_[a-f0-9]{24}\Z')
@@ -96,8 +123,11 @@ class Service:
         require(not path.is_symlink(), 'Invalid workspace lock.')
         with open(path, 'a') as out:
             os.chmod(path, 0o600)
-            fcntl.flock(out, fcntl.LOCK_EX)
-            yield
+            _lock(out)
+            try:
+                yield
+            finally:
+                _unlock(out)
 
     def load(self, job):
         path = self.path(job, 'state.json')
