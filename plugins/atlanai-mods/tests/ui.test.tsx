@@ -151,6 +151,14 @@ describe('what the session touched', () => {
     const list = mergeTouches(mergeTouches([], patched), read)
     expect(list.map(one => [one.action, one.version])).toEqual([['updated', '0.2.0']])
   })
+
+  test('reads a write that answers with the handle alone', () => {
+    const handle = { id: 'sql_query_01saved', name: 'paid-orders', version_ordinal: 4, version_id: 'ver_01x', etag: 'W/"4"', artifact_status: 'active' }
+    expect(touchesOf('registry__patch_artifact', { artifact_id: 'sql_query_01saved' }, JSON.stringify(handle), false)).toEqual([
+      { id: 'sql_query_01saved', kind: 'sql_query', name: 'paid-orders', version: 'version 4', status: 'active', action: 'updated' },
+    ])
+    expect(summarizeResult(JSON.stringify(handle), false)).toBe('sql_query paid-orders version 4')
+  })
 })
 
 describe('the publish band', () => {

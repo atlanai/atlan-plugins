@@ -782,8 +782,9 @@ def create_many(a: dict) -> dict:
             slots.append({"index": index, "ok": False, "error": "`name` and `workspace_id` are required."})
             continue
         made = write(a["kind"], {"metadata": item})
-        slots.append({"index": index, "ok": True, "artifact": {k: made[k] for k in ("id", "kind", "version_ordinal")}
-                      | {"id": f"{made['id']}{index:02d}" if made["version_ordinal"] == 1 else made["id"], "name": item["name"]}})
+        slots.append({"index": index, "ok": True, "artifact": made | {
+            "id": f"{made['id']}{index:02d}" if made["version_ordinal"] == 1 else made["id"], "name": item["name"],
+            "workspace_id": item["workspace_id"]} | ({"source_id": item["source_id"]} if item.get("source_id") else {})})
     return {"items": slots, "created": sum(s["ok"] for s in slots), "failed": sum(not s["ok"] for s in slots)}
 
 
@@ -798,7 +799,38 @@ def create_linked(a: dict) -> dict:
     edge = {"from_id": made["id"], "to_id": target, "rel_type": a["rel_type"], "relationship_status": "active",
             "attributes": a.get("attributes") or {}}
     state["edges"][(made["id"], a["rel_type"], target)] = edge
-    return made | {"edges": [edge]}
+    return {"artifact": made, "relationship": edge}
+
+
+def relate_many(a: dict) -> dict:
+    """`relate_artifacts`: up to 100 links, each what `relate_artifact` takes. A malformed link
+    refuses the whole call before anything is written, naming it; otherwise each link is written
+    on its own and answers its own slot, in order."""
+    links = a["links"]
+    if not isinstance(links, list) or not 1 <= len(links) <= 100:
+        raise Refusal(400, "invalid_arguments", "`links` takes 1 to 100 relationships.")
+    for index, link in enumerate(links):
+        if not isinstance(link, dict):
+            raise Refusal(400, "invalid_arguments", f"links[{index}] must be an object.")
+        for field in ("artifact_id", "rel_type"):
+            if not isinstance(link.get(field), str) or not link[field]:
+                raise Refusal(400, "invalid_arguments", f"links[{index}].{field} is required.")
+        for field in ("artifact_id", "subject_id", "to_id"):
+            if field in link and not re.fullmatch(r"[a-z][a-z_]*_[0-9a-z]+", str(link[field])):
+                raise Refusal(400, "invalid_arguments", f"links[{index}].{field} is not an artifact handle.")
+        if not (link.get("subject_id") or link.get("to_id")):
+            raise Refusal(400, "invalid_arguments", f"links[{index}] needs `subject_id` or `to_id`.")
+        if link.get("subject_id") and link.get("to_id") and link["subject_id"] != link["to_id"]:
+            raise Refusal(400, "invalid_arguments", f"links[{index}].to_id disagrees with its subject_id.")
+    slots = []
+    for index, link in enumerate(links):
+        try:
+            relate({k: v for k, v in link.items() if k != "to_id"} | {"subject_id": link.get("subject_id") or link["to_id"]})
+            slots.append({"index": index, "ok": True})
+        except Refusal as refused:
+            body = refused.body if isinstance(refused.body, dict) else {"code": "refused", "detail": refused.body}
+            slots.append({"index": index, "ok": False, "code": body["code"], "error": body["detail"]})
+    return {"related": sum(s["ok"] for s in slots), "failed": sum(not s["ok"] for s in slots), "items": slots}
 
 
 def retrigger(a: dict) -> dict:
@@ -838,10 +870,36 @@ def write(kind: str, a: dict) -> dict:
         # Any other kind reconciles: the create becomes the line's next version, under its handle.
         ordinal = head(live)["version_ordinal"] + 1
         state["versions"][live["id"]] = {"version_ordinal": ordinal, "metadata": meta}
-        return {"status": "created", "kind": kind, "id": live["id"], "version_ordinal": ordinal,
-                "note": "eval write recorded"}
-    return {"status": "created", "kind": kind, "id": f"{kind}_01evalnew0000000000000000", "version_ordinal": 1,
-            "note": "eval write recorded"}
+        return written(kind, live["id"], live.get("name") or meta.get("name"), ordinal)
+    return written(kind, f"{kind}_01evalnew0000000000000000", meta.get("name"), 1)
+
+
+def written(kind: str, handle: str, name: str | None, ordinal: int) -> dict:
+    """A write's whole row, as much of it as the emulator keeps; `dispatch` cuts it to the handle."""
+    return {"status": "created", "kind": kind, "id": handle, "name": name, "version_ordinal": ordinal,
+            "version_id": f"ver_01eval{handle[-6:]}{ordinal:02d}", "etag": f'W/"eval-{ordinal}"',
+            "artifact_status": "active", "note": "eval write recorded"}
+
+
+# The writes whose reply is the artifact's handle unless the call sends `full`, and the fields it
+# keeps (`registry_mcp::WRITE_HANDLE_FIELDS`, platform-2026-11-18-registry-write-replies-are-handles).
+HANDLE_REPLIES = {"registry__create_artifact", "registry__append_artifact_version", "registry__patch_artifact",
+                  "registry__approve_artifact", "registry__create_artifacts", "registry__create_artifact_linked"}
+HANDLE_FIELDS = ("id", "name", "version_ordinal", "version_id", "etag", "artifact_status", "oidc_client_id", "replayed")
+
+
+def handle_of(row: dict) -> dict:
+    return {k: row[k] for k in HANDLE_FIELDS if row.get(k) is not None}
+
+
+def write_handles(name: str, body: dict) -> dict:
+    """`body` with each stored row it carries cut to its handle, as the gateway's `write_handles`."""
+    if name == "registry__create_artifacts":
+        return body | {"items": [s | {"artifact": handle_of(s["artifact"])} if isinstance(s.get("artifact"), dict) else s
+                                 for s in body.get("items", [])]}
+    if name == "registry__create_artifact_linked":
+        return body | {"artifact": handle_of(body["artifact"])}
+    return handle_of(body)
 
 
 NOT_CHECKED = ["the app's create hook, where the kind has one, and the checks it runs", "content scans, which run after the write"]
@@ -876,7 +934,8 @@ def approve(a: dict) -> dict:
     if found.get("artifact_status") not in ("pending_review", "blocked"):
         raise Refusal(409, "conflict", "The request conflicts with the current state of the resource.")
     state["approved"][found["id"]] = "active"
-    return {"id": found["id"], "kind": found["kind"], "version_id": found["version_id"], "artifact_status": "active",
+    return {"id": found["id"], "kind": found["kind"], "name": found.get("name"), "version_id": found["version_id"],
+            "version_ordinal": found.get("version_ordinal"), "etag": found.get("etag"), "artifact_status": "active",
             "note": "eval write recorded"}
 
 
@@ -945,6 +1004,13 @@ def skill_create(a: dict) -> dict:
 
 
 def dispatch(name: str, a: dict) -> dict:
+    reply = answer(name, a)
+    if name in HANDLE_REPLIES and a.get("full") is not True and a.get("dry_run") is not True:
+        return write_handles(name, reply)
+    return reply
+
+
+def answer(name: str, a: dict) -> dict:
     tool = next((t for t in served_tools() if t["name"] == name), None)
     if name == "mcp__connect_server":
         server = a.get("server")
@@ -1058,6 +1124,8 @@ def dispatch(name: str, a: dict) -> dict:
         return file_contents(a)
     if name == "registry__relate_artifact":
         return relate(a)
+    if name == "registry__relate_artifacts":
+        return relate_many(a)
     if name == "registry__create_artifacts":
         return create_many(a)
     if name == "registry__create_artifact_linked":

@@ -127,6 +127,14 @@ edge's `attributes` with what you send (none, if you send none), and a newer one
 So never re-relate a derived edge just to confirm it, and when you restate one of yours, send
 every attribute you want kept.
 
+**Several edges are one call.** `registry__relate_artifacts` takes up to 100 `links`, each what
+`registry__relate_artifact` takes (`artifact_id`, `subject_id`, `rel_type`, `attributes`), and
+answers one slot per link in order: `ok`, or the refusal's `code` and `error`. Each link
+succeeds or fails on its own, but a malformed handle anywhere refuses the whole call before
+anything is written and names the link (`links[2].subject_id`). Resending the batch restates the
+links that landed, so after a partial result resend only the failed ones once their cause is
+fixed.
+
 **If you are creating the source artifact anyway, create it linked.**
 `registry__create_artifact_linked` takes the same `kind` and `metadata` as a create plus
 `subject_id` and `rel_type`, and makes the artifact and the edge in one call, so there is no
@@ -148,8 +156,9 @@ registry__create_artifact_linked {
 }
 ```
 
-One edge per call, so an agent that uses three skills is one linked create plus two
-`relate_artifact` calls. It cannot create a `skill`: a skill is its bytes and needs
+One edge per linked create, so an agent that uses three skills is one linked create plus one
+`relate_artifacts` call with the other two links. The result is `{artifact, relationship}`, with
+`artifact` the new artifact's handle. It cannot create a `skill`: a skill is its bytes and needs
 `extension__skill__create`. So for a skill the order is: upload the skill, then relate from
 the other artifact.
 
@@ -157,12 +166,13 @@ the other artifact.
 
 Each tool names the two ends differently. Read the row for the tool you are calling: a guess the
 other way round can write a reversed edge wherever both kinds declare the type. Newer gateways
-also take `to_id` for the target on the first two tools; `subject_id` works on every gateway, so
+also take `to_id` for the target on the `registry__` tools; `subject_id` works on every gateway, so
 send that, and never both with different values.
 
 | Tool | Source (declares `rel_type`) | Target |
 |---|---|---|
 | `registry__relate_artifact` | `artifact_id` | `subject_id` |
+| `registry__relate_artifacts` | `artifact_id`, in each `links` entry | `subject_id`, in each `links` entry |
 | `registry__create_artifact_linked` | the artifact being created | `subject_id` |
 | `extension__agent__publish_output` | the output being published | `to_id`, inside each `edges` entry |
 
@@ -198,7 +208,8 @@ registry__get_related_artifacts { "artifact_id": "agent_01J...", ... }
 Returns both directions: what this artifact points at and what points back at it.
 
 You do not need it to confirm an edge you wrote: `registry__relate_artifact` returns the edge
-it stored, and a refusal means nothing was stored. Read edges for what no result of yours
+it stored, `registry__relate_artifacts` one slot per link, and a refusal means nothing was
+stored. Read edges for what no result of yours
 shows: links that existed before you started, and edges the registry derives after a write,
 such as an agent's `uses_skill` edges from its `skills` manifest or a metric's `depends_on`
 edges.

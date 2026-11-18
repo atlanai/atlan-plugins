@@ -269,14 +269,16 @@ Only after both ends exist, and only the approved list:
    definition later drops that input. Read each metric's edges with
    `registry__get_related_artifacts`. For a `depends_on` in the approved list that is missing,
    call `extension__metric__resync_lineage` (with `metric_id`) once and read again; if it is
-   still missing, hold it and report it. Once the derived edge exists, restate it with `registry__relate_artifact`
-   passing only `attributes` (`why`, `relation`, `role`, `confidence`): the gateway merges them
-   into the derived edge and keeps its marker.
+   still missing, hold it and report it. Once the derived edge exists, restate it as a link in
+   step 4's `registry__relate_artifacts` call, passing only `attributes` (`why`, `relation`,
+   `role`, `confidence`): the gateway merges them into the derived edge and keeps its marker.
 4. For `source_of` and `uses_metric`, the saved query is the `artifact_id`. Read its existing
    links first. A link that matches on source id, target id and `rel_type` is reused unchanged;
-   one whose metadata conflicts is held for review. Write each missing one with
-   `registry__relate_artifact`, passing `artifact_id`, `subject_id`, `rel_type`, and the
-   link's `attributes` (`why`, `confidence`).
+   one whose metadata conflicts is held for review. Write every missing link, with the
+   restated `depends_on` edges, in one `registry__relate_artifacts` call (up to 100 `links` a
+   call), each passing `artifact_id`, `subject_id`, `rel_type`, and its `attributes` (`why`,
+   `confidence`). Its result has one slot per link in order; resend only the failed links once
+   their cause is fixed. Never send one `registry__relate_artifact` call per link.
 5. Read each one back, and record which links were created, reused, restated and held.
 
 Never derive links from other workspace artifacts, and never write workspace-wide.
