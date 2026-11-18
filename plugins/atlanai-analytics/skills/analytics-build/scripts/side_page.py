@@ -54,9 +54,9 @@ GROUP_OF = {stage: group for group, stages in WORK for stage in stages}
 WORK_NAME = {
     'tables': 'Load the tables on this machine', 'group': 'Group past queries into questions',
     'translate': "Turn the report's tiles into queries", 'describe': 'Describe each query',
-    'read': 'Find draft metrics', 'merge': 'Merge drafts, one per number',
-    'rules': "Write each metric's rule", 'link': 'Link related metrics',
-    'check': 'Check each metric and query on the data',
+    'read': 'Find metrics', 'merge': 'Combine duplicates, one per number',
+    'rules': 'Define each metric', 'link': 'Link related metrics',
+    'check': 'Test each metric and query on the data',
 }
 
 
@@ -378,9 +378,9 @@ def tiles_by_page(f, pages=None):
 CHECKPOINTS = (('group', 'Group past queries into questions', 'Grouped past queries'),
                ('translate', "Turn the report's tiles into queries", 'Turned tiles into queries'),
                ('describe', 'Describe each query', 'Described each query'),
-               ('read', 'Find draft metrics', 'Found draft metrics'),
-               ('merge', 'Merge drafts, one per number', 'Merged drafts'),
-               ('rules', "Write each metric's rule", "Wrote each metric's rule"),
+               ('read', 'Find metrics', 'Found metrics'),
+               ('merge', 'Combine duplicates, one per number', 'Combined duplicates'),
+               ('rules', 'Define each metric', 'Defined each metric'),
                ('link', 'Link related metrics', 'Linked related metrics'))
 
 

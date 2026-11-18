@@ -20,9 +20,9 @@ record the branch with `PROJECT journey agentic`; from then on `PROJECT checklis
 | --- | --- | --- |
 | 1 | Pick report and pages | Yes |
 | 2 | Check what can be built | Only when a chosen tile or table would be left out |
-| 3 | Draft metrics from your sources | No |
-| 4 | Merge drafts, one metric per number | No |
-| 5 | Write each metric's rule | No |
+| 3 | Find metrics in your sources | No |
+| 4 | Combine duplicates, one metric per number | No |
+| 5 | Define each metric | No |
 | 6 | Check against the dashboard | Yes: whether to run the checks |
 | 7 | Save or keep local | Yes |
 | 8 | Ask a question | Yes |
@@ -141,9 +141,9 @@ Rough times, from a 37-tile report; scale by the number of tiles:
 | Review of the translations | "Checking each translated tile against the report." | 5 minutes |
 | Questions for the tiles | "Writing the business question each tile answers." | 4 minutes |
 | Describing | "Describing each query in plain words." | 2 minutes |
-| Draft metrics | "Finding the metrics in each query. They show on the side page as they are found." | 4 minutes |
-| Merging | "Merging drafts that measure the same number." | 3 minutes |
-| Rules | "Writing each metric's rule: what it counts and what it leaves out." | 10 minutes |
+| Finding metrics | "Finding the metrics in each query. They show on the side page as they are found." | 4 minutes |
+| Combining | "Combining duplicates: metrics that measure the same number become one." | 3 minutes |
+| Defining | "Defining each metric: what it counts and what it leaves out." | 10 minutes |
 | Links | "Linking metrics that build on each other." | 1 minute |
 
 ## 4. Check against the dashboard: the person's choice
@@ -223,9 +223,9 @@ The person is a builder in another organization, using this for the first time. 
 see, at every moment:
 
 - **No internal words**: engine, gate, helper, subagent, export, hold, alias, run directory,
-  candidate, Registry, statement, staged copy, packing, possible metric, chip, so-far, or a file
+  candidate, Registry, statement, staged copy, packing, draft, merge, rule, chip, so-far, or a file
   or command name. Say what it means: "the build", "a step", "kept back for a look", "your
-  report's tiles", "a draft metric".
+  report's tiles", "a possible metric", "combine duplicates", "its definition".
 - **Whenever something is happening, say what it is and why, and roughly how long**: "Checking
   your 9 tables on Snowflake, so the build only uses data you can read. About a minute." A
   rough range from the work's size; never a percentage.

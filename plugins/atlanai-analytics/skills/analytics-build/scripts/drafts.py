@@ -316,14 +316,13 @@ DUE = ("Due: run this helper's `visual next` before going on, with the flags of 
 SO_FAR_SECONDS = 60
 SO_FAR = ("Due: run this helper's `visual progress` before going on, with the flags of every `visual` call (`--data` for a "
           "demo, `--widget` where you have `show_widget`)")
-NEWS = {'x3': ('Newest rule: ', ''), 'x2': ('Newest metric: ', 'Newest metrics: '),
-        'x1': ('Newest draft metric: ', 'Newest draft metrics: ')}
+NEWS = {'x3': ('Newest definition: ',), 'x2': ('Newest metric: ',), 'x1': ('Newest possible metric: ',)}
 
 
 def _news(engine):
     """The words a so-far turn ends on: the desktop app sends a turn that ends on a widget alone back for words, so they
-    add to the chip, which leads with the newest thing by name: the question a described query answers, the newest
-    names, a rule's first sentence. Never that the step is still running."""
+    add to the chip, which names what is new: the question the newest described query answers, or the newest draft's,
+    metric's or rule's meaning in one sentence. Never that the step is still running."""
     import re
     from run_facts import sentence
     under = _under_way(engine)
@@ -331,16 +330,18 @@ def _news(engine):
     if not items:
         return ''
     gate, (name, said) = under[0], items[-1]
-    items = items[_shown(engine, gate):] or items
     if gate == 'm2':
         line = '%s answers: %s' % (name, said) if said else '%s is in plain words.' % name
-    elif gate == 'x3':
-        # A sentence ends where the next begins with a capital, as the chip's own: "Fixit & Co. jobs" is one sentence.
+    else:
+        # The chip names what is new; the line gives the newest one's meaning, its definition's first sentence.
+        if gate != 'x3':
+            rows = [m for f in under[3] for m in (
+                [m for r in engine.rows(f, 'statements') for m in (r.get('metrics') if isinstance(r.get('metrics'), list) else [])]
+                if gate == 'x1' else engine.rows(f, 'metrics')) if isinstance(m, dict)]
+            said = next((m.get('definition') for m in rows[::-1] if sentence(_text(m.get('name'), NAME_CHARS)) == name
+                         and isinstance(m.get('definition'), str)), '')
         first = re.split(r'(?<=[.!?])\s+(?=[A-Z])', str(said or '').strip(), maxsplit=1)[0]
         line = NEWS[gate][0] + name.rstrip('.') + '.' + (' ' + first if first else '')
-    else:
-        names = [n.rstrip('.') for n, _ in items[::-1][:3]]
-        line = NEWS[gate][len(names) > 1] + (', '.join(names[:-1]) + ' and ' + names[-1] if len(names) > 1 else names[0]) + '.'
     return line if len(line) <= 240 else line[:237].rsplit(' ', 1)[0] + '...'
 
 

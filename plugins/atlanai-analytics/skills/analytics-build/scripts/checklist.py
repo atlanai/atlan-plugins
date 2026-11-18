@@ -45,9 +45,9 @@ STEPS = {
 FLOWS = tuple(STEPS)
 # Metric generation as three steps in the host's task list, in the metrics item's place: each ticks as the engine finishes
 # its part and estimates its time from the count going in, fitted to measured runs (headless h2 and desktop v8b, Fixit).
-THREE = (('draft', 'Draft metrics from your sources', 'Drafting metrics: each query in plain words, then the numbers it works out'),
-         ('merge', 'Merge drafts, one metric per number', 'Merging drafts, one metric per number'),
-         ('write', 'Write and check each metric', 'Writing what each metric counts, then running it on the data'))
+THREE = (('draft', 'Find metrics in your sources', 'Finding metrics: each query in plain words, then the numbers it works out'),
+         ('merge', 'Combine duplicates, one metric per number', 'Combining duplicates, one metric per number'),
+         ('write', 'Define and test each metric', 'Defining what each metric counts, then testing it on the data'))
 ENDS = {'draft': 'x1_ingest', 'merge': 'x2_ingest'}
 
 
@@ -81,12 +81,12 @@ def _three(row, model, flow):
     rows, opened = [], False
     for key, content, active in THREE:
         if key == 'write' and flow == 'dashboard':
-            content, active = "Write each metric's rule", 'Writing what each metric counts and leaves out'
+            content, active = 'Define each metric', 'Defining what each metric counts and leaves out'
         if row['status'] == 'completed' or (key in ENDS and ENDS[key] in done):
             if key == 'draft' and made['draft'] is not None:
-                content = 'Draft metrics: ' + _plural(made['draft'], 'draft')
+                content = 'Find metrics: ' + _plural(made['draft'], 'possible metric')
             elif key == 'merge' and made['merge'] is not None:
-                content = 'Merge drafts: ' + _plural(made['merge'], 'metric')
+                content = 'Combine duplicates: ' + _plural(made['merge'], 'metric')
             elif key == 'write' and totals.get('metrics'):
                 content = content.split(' each')[0] + ' ' + _plural(totals['metrics'], 'metric') + \
                     ((' and ' + _plural(totals['queries'], 'query', 'queries')) if totals.get('queries') and flow != 'dashboard' else '')

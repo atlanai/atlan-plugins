@@ -259,32 +259,32 @@ class ThreeSteps(unittest.TestCase):
 
     def test_the_lists_show_three_metric_steps(self):
         self.assertEqual([r['content'] for r in checklist.initial('demo')], [
-            'Choose and load demo data', 'Choose what to build from', 'Draft metrics from your sources',
-            'Merge drafts, one metric per number', 'Write and check each metric', 'Keep local or save to Atlan Trident',
+            'Choose and load demo data', 'Choose what to build from', 'Find metrics in your sources',
+            'Combine duplicates, one metric per number', 'Define and test each metric', 'Keep local or save to Atlan Trident',
             'Ask a question'])
         build = [r['content'] for r in checklist.initial('build')]
-        self.assertEqual(build[3:6], ['Draft metrics from your sources', 'Merge drafts, one metric per number',
-                                      'Write and check each metric'])
+        self.assertEqual(build[3:6], ['Find metrics in your sources', 'Combine duplicates, one metric per number',
+                                      'Define and test each metric'])
         self.assertEqual([r['id'] for r in checklist.initial('dashboard')][2:5], ['draft', 'merge', 'write'])
 
     def test_each_step_ticks_as_the_engine_finishes_it_with_its_count_and_estimate(self):
         counts = {'m2_emit': {'queries': 30}, 'x1_ingest': {'proposals': 26}}
         start = {r['id']: r for r in checklist.build(self.model((), counts))['steps']}
         self.assertEqual((start['draft']['status'], start['draft']['content']),
-                         ('in_progress', 'Draft metrics from your sources (about 5 min)'))
+                         ('in_progress', 'Find metrics in your sources (about 5 min)'))
         # The list reaches the person when the queries are described (h8, 4.6 min): what is left is finding the numbers.
         # Measured for 30 queries: 2.0, 1.9 and 2.0 min headless, 3.1 on the desktop; the whole step said "about 5".
         rest = {r['id']: r for r in checklist.build(self.model(('m2_ingest',), counts))['steps']}
-        self.assertEqual(rest['draft']['content'], 'Draft metrics from your sources (about 2 min)')
+        self.assertEqual(rest['draft']['content'], 'Find metrics in your sources (about 2 min)')
         rows = {r['id']: r for r in checklist.build(self.model(('m2_ingest', 'x1_ingest'), counts))['steps']}
-        self.assertEqual((rows['draft']['status'], rows['draft']['content']), ('completed', 'Draft metrics: 26 drafts'))
+        self.assertEqual((rows['draft']['status'], rows['draft']['content']), ('completed', 'Find metrics: 26 possible metrics'))
         self.assertEqual((rows['merge']['status'], rows['merge']['content']),
-                         ('in_progress', 'Merge drafts, one metric per number (about 3 min)'))
-        self.assertEqual((rows['write']['status'], rows['write']['content']), ('pending', 'Write and check each metric'))
+                         ('in_progress', 'Combine duplicates, one metric per number (about 3 min)'))
+        self.assertEqual((rows['write']['status'], rows['write']['content']), ('pending', 'Define and test each metric'))
         counts['x2_ingest'] = {'metrics_out': 9}
         rows = {r['id']: r for r in checklist.build(self.model(('m2_ingest', 'x1_ingest', 'x2_ingest'), counts))['steps']}
-        self.assertEqual(rows['merge']['content'], 'Merge drafts: 9 metrics')
-        self.assertEqual(rows['write']['content'], 'Write and check each metric (about 7 min)')
+        self.assertEqual(rows['merge']['content'], 'Combine duplicates: 9 metrics')
+        self.assertEqual(rows['write']['content'], 'Define and test each metric (about 7 min)')
 
     def test_the_side_view_keeps_one_metrics_item(self):
         rows = checklist.build(self.model(), compact=True)['steps']

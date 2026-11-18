@@ -137,12 +137,12 @@ class Batches(unittest.TestCase):
                           'Combining possible metrics, one per number', 'Writing what each metric counts and leaves out'])
 
     def test_each_state_a_metric_passes_has_its_own_plain_name(self):
-        # Team decision, 2026-11-18: one badge in five plain states, from drafted to run on the data, so a person can tell
+        # Team decision, 2026-11-18: one badge in plain states, from found to run on the data, so a person can tell
         # at a glance which metrics ran and which need a look.
         import re
         page = side_page.PAGE.read_text(encoding='utf-8')
         labels = dict(re.findall(r"(\w+): \['([^']+)'", re.search(r'const STATE = \{(.*?)\};', page).group(1)))
-        self.assertEqual(list(labels.values()), ['Draft', 'Merged', 'Written', 'Checked', 'Failed'])
+        self.assertEqual(list(labels.values()), ['Found', 'Defined', 'Tested', 'Needs a look'])
         self.assertIn('title="Ran on the data"', page)
 
 

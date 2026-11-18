@@ -13,7 +13,7 @@ also print the welcome as a reply before the question.
 
 ```
 Build a job profit agent for Fixit & Co. It answers questions about
-Fixit's jobs in plain English and shows the rule behind every number.
+Fixit's jobs in plain English and shows how every number is worked out.
 
 It reads the dashboard and the questions analysts already ran, then
 suggests the questions this context can answer once it is built.

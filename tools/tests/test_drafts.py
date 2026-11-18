@@ -199,19 +199,21 @@ class Drafts(unittest.TestCase):
         self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1', 'name': 'Win rate by month',
                                                    'question': ['What share of deals did we win each month?', 'Win rate?']}]})
         self.assertEqual(news(), 'Win rate by month answers: What share of deals did we win each month?')
+        # The chip's headline names what is new, so the line gives the newest one's meaning, as a rule's line does.
         self.answer('x1', '01.json', {'statements': [
             {'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}, {'name': 'Pipeline'}]},
-            {'vq_id': 'q2', 'verdict': 'metrics', 'metrics': [{'name': 'Deal size'}, {'name': 'Win rate'}, {'name': 'Cycle time'}]}]})
-        self.assertEqual(news(), 'Newest draft metrics: Cycle time, Deal size and Pipeline.')
+            {'vq_id': 'q2', 'verdict': 'metrics', 'metrics': [{'name': 'Deal size'}, {'name': 'Win rate'},
+                                                              {'name': 'Cycle time', 'definition': 'Days from first contact to close. More.'}]}]})
+        self.assertEqual(news(), 'Newest possible metric: Cycle time. Days from first contact to close.')
         # In the chip's own case: the chip said "Job gross margin" above a line that said "Job Gross Margin".
         self.answer('x2', '01.json', {'metrics': [{'name': 'Win Rate', 'sources': ['q1#0']}]})
         self.assertEqual(news(), 'Newest metric: Win rate.')
         self.answer('x3', '001.json', {'metrics': [{'name': 'On-Time Win Rate', 'description': 'Deals won on time. More.'}]})
-        self.assertEqual(news(), 'Newest rule: On-time win rate. Deals won on time.')
+        self.assertEqual(news(), 'Newest definition: On-time win rate. Deals won on time.')
         # h7's line read "Newest rule: On-time completion rate. The share of completed Fixit & Co.": cut at the firm's name.
         self.answer('x3', '002.json', {'metrics': [{'name': 'Late jobs', 'description': 'Completed Fixit & Co. jobs handed '
                                                     'over late. More.'}]})
-        self.assertEqual(news(), 'Newest rule: Late jobs. Completed Fixit & Co. jobs handed over late.')
+        self.assertEqual(news(), 'Newest definition: Late jobs. Completed Fixit & Co. jobs handed over late.')
 
     def test_with_every_chip_the_watch_names_each_chip_once_and_never_says_still(self):
         # In the dashboard flow helpers advance every step, so the watch names each chip that becomes due, once. Its

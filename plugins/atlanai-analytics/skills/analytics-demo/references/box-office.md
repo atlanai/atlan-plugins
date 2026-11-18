@@ -14,7 +14,7 @@ also print the welcome as a reply before the question.
 
 ```
 Build a ticket fees agent for Ticketfuddle. It answers questions about
-its sales and fees in plain English, with the rule behind every number.
+its sales and fees in plain English, showing how every number is worked out.
 
 It reads the dashboard and the questions analysts already ran, then
 suggests the questions this context can answer once it is built.

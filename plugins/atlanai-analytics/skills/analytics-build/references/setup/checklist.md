@@ -17,10 +17,10 @@ desktop app, its own plan tool. Use it whenever the host has one, not only when 
 | --- | --- | --- |
 | 1 | Clarify your use case | Choose and load demo data |
 | 2 | Survey your sources | Choose what to build from |
-| 3 | Select tables and dashboards | Draft metrics from your sources |
-| 4 | Draft metrics from your sources | Merge drafts, one metric per number |
-| 5 | Merge drafts, one metric per number | Write and check each metric |
-| 6 | Write and check each metric | Keep local or save to Atlan Trident |
+| 3 | Select tables and dashboards | Find metrics in your sources |
+| 4 | Find metrics in your sources | Combine duplicates, one metric per number |
+| 5 | Combine duplicates, one metric per number | Define and test each metric |
+| 6 | Define and test each metric | Keep local or save to Atlan Trident |
 | 7 | Keep local or save to Atlan Trident | Ask a question |
 | 8 | Ask a question | |
 | 9 | Build a dashboard | |

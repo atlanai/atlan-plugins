@@ -382,19 +382,12 @@ button { font: inherit; color: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .bar.busy::before, .bar.busy > i::after { display: none; }
   .bar.ind > i { width: 100%; opacity: .35; }
+  .row.pend .pw { background: none; color: var(--text-subtle); }
 }
 
-/* A2: the checklist on top, then metrics, drafts, tiles that could not be built and queries; a metric opens under the checklist */
-.fstrip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; padding: 12px 14px; border: 0.5px solid var(--border-default); border-radius: 12px; margin: 4px 0 12px; }
-@container (min-width: 620px) { .fstrip { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.fitem { display: grid; gap: 2px; min-width: 0; }
-.flab { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
-.fval { font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
-.fsub { font-size: 12px; line-height: 16px; color: var(--text-subtle); overflow-wrap: anywhere; }
+/* What the run made: metrics, then queries, then the tiles that could not be built; each row opens its profile */
 .dsc { margin: 0 0 8px; overflow-wrap: anywhere; }
 .xpl { font-size: 12px; line-height: 16px; color: var(--text-subtle); margin: 0 0 12px; }
-.pt { border-top: 0.5px solid var(--border-subtle); padding: 12px 0 4px; }
-.ph { font-size: 13px; line-height: 18px; font-weight: 500; margin: 0 0 8px; }
 .stop { display: flex; gap: 8px; align-items: center; padding: 6px 0 8px; color: var(--text-warning); font-size: 13px; }
 .sec { display: grid; gap: 6px; }
 .sech { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 2px 2px; font-weight: 500; font-size: 15px; cursor: default; }
@@ -402,30 +395,43 @@ button.sech { cursor: pointer; }
 .sech .n { color: var(--text-subtle); font-weight: 400; font-size: 13px; }
 .sech .chev { margin-left: auto; color: var(--icon-default); transition: transform 0.15s; }
 .sech[aria-expanded="true"] .chev { transform: rotate(180deg); }
-.flt { display: flex; flex-wrap: wrap; gap: 4px; }
-.flt button { all: unset; cursor: pointer; font-size: 12px; line-height: 16px; padding: 3px 8px; border-radius: 7px; border: 0.5px solid var(--border-control); color: var(--text-subtle); background: var(--bg-surface); }
-.flt button[aria-pressed="true"] { background: var(--bg-surface-selected); color: var(--text-default); border-color: var(--border-strong); }
-.lst { padding: 4px; display: grid; gap: 0; }
-.row { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 10px; cursor: pointer; min-width: 0; }
+.flt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.flt button { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  height: 28px; min-width: 38px; padding: 0 12px; border-radius: 12px; font-size: 12px; line-height: 16px; color: var(--text-subtle);
+  transition: background-color 0.15s; }
+.flt button:hover { background: var(--bg-surface-hover); }
+.flt button[aria-pressed="true"] { background: var(--bg-surface-selected); color: var(--text-default); }
+.flt button .n { color: var(--text-subtle); }
+.flt button[disabled] { opacity: 0.45; cursor: default; background: none; }
+.flt button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.flt.top { padding-bottom: 8px; border-bottom: 0.5px solid var(--border-subtle); margin-bottom: 4px; }
+.flt.top button { height: 32px; font-size: 14px; line-height: 20px; }
+.row .pw { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.lgd { font-size: 12px; line-height: 16px; color: var(--text-subtle); margin: 0 2px 8px; }
+.row.pend .pw { background: linear-gradient(90deg, var(--text-subtle) 30%, var(--text-default) 50%, var(--text-subtle) 70%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: pendtx 1.8s linear infinite; }
+@keyframes pendtx { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+.row.took { animation: took 0.9s ease-out 0.3s; }
+@keyframes took { 0% { box-shadow: 0 0 0 0 var(--ring-brand); } 40% { box-shadow: 0 0 0 3px var(--ring-brand); } 100% { box-shadow: 0 0 0 0 var(--ring-brand); } }
+.lst { display: grid; gap: 0; margin: 0 -8px; }
+.row { all: unset; box-sizing: border-box; position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 8px; cursor: pointer; min-width: 0; transition: background-color 0.15s; }
+.lst > .row:not(:last-child)::after { content: ""; position: absolute; left: 16px; right: 16px; bottom: 0; border-bottom: 0.5px solid var(--border-subtle); }
+.lst > .row:hover::after, .lst > .row.sel::after { border-color: transparent; }
 .row:hover { background: var(--bg-surface-hover); }
 .row.sel { background: var(--bg-surface-selected); }
 .row .mm { display: grid; min-width: 0; flex: 1; }
-.row .nm { font-weight: 500; }
-.row .ty { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.row .nm { font-weight: 400; }
+.cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+/* Two lines on a phone, where a row's value and state leave its description little room (as Studio's lists). */
+@media (max-width: 520px) { .row .pw.ell { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; } }
 .row .v { font-size: 13px; color: var(--text-default); white-space: nowrap; }
-.row.dim .nm { color: var(--text-subtle); font-weight: 400; }
 .badge.pu { background: var(--bg-ai-subtle); color: var(--text-ai); }
 .badge .sd.pl { animation: pls 1.2s ease-in-out infinite; }
 @keyframes pls { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-.row.nw, .row.fl { animation: land 1.6s var(--motion-ease-emphasized, ease-out); }
-@keyframes land { 0% { background: var(--bg-brand-muted); } 100% { background: transparent; } }
+.row.nw, .row.fl { animation: land 1.8s ease-out; }
+@keyframes land { 0%, 40% { box-shadow: inset 0 0 0 2px var(--ring-brand), inset 0 0 0 100vmax var(--bg-brand-subtle); } to { box-shadow: inset 0 0 0 2px transparent, inset 0 0 0 100vmax transparent; } }
 .cant { display: flex; gap: 10px; padding: 8px; align-items: flex-start; }
 .cant .ic { color: var(--icon-warning); margin-top: 2px; }
 .hint { font-size: 12px; line-height: 16px; color: var(--text-subtle); padding: 4px 8px 8px; }
-.det { padding: 14px; display: grid; gap: 14px; }
-.deth { display: grid; gap: 4px; }
-.deth .nmr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.deth h2 { font-size: 17px; line-height: 22px; }
 .blk { display: grid; gap: 4px; }
 .blk > .lb { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
 .blk ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
@@ -447,31 +453,94 @@ button.sech { cursor: pointer; }
 /* A2, compact and flat, as in the mock */
 .sp2 { gap: 12px; padding-top: 10px; }
 .tt { font-size: 15px; line-height: 20px; }
-.card.lst, .card.det, .sec .card.empty { box-shadow: none; border-radius: 10px; border: 0.5px solid var(--border-default); }
+.sec .card.empty { box-shadow: none; border-radius: 10px; border: 0.5px solid var(--border-default); }
 .sec { gap: 6px; }
 .sech { font-size: 13px; line-height: 18px; padding: 4px 2px 0; }
 .sech .n { font-size: 12px; }
-.flt button { font-size: 12px; padding: 2px 8px; border-radius: 6px; }
-.lst { padding: 2px; }
-.row { gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 13px; line-height: 18px; }
 .row .ic { color: var(--icon-default); }
 .row .nm { font-weight: 400; flex: 0 1 auto; min-width: 0; }
 .row .ty { font-size: 11px; color: var(--text-placeholder); white-space: nowrap; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .row .v { margin-left: auto; font-size: 12px; }
-.row .badge { margin-left: auto; height: 18px; font-size: 11px; padding: 0 7px; }
-.row .v + .badge { margin-left: 6px; }
 .row .v.lk { color: var(--icon-warning); }
 .cant { padding: 6px 8px; font-size: 13px; line-height: 18px; gap: 8px; }
 .cant .ty { font-size: 11px; color: var(--text-subtle); }
-.det { padding: 12px; gap: 8px; font-size: 13px; line-height: 18px; }
-.deth { gap: 2px; padding-bottom: 6px; border-bottom: 0.5px solid var(--border-subtle); }
-.deth h2 { font-size: 15px; line-height: 20px; }
 .kv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 2px 0; }
 .kv > .lb { font-size: 12px; line-height: 18px; color: var(--text-placeholder); }
 .kv .vv { min-width: 0; display: grid; gap: 2px; }
 .code { font-size: 11px; line-height: 16px; padding: 6px 8px; border-radius: 6px; }
-.det .src { padding: 1px 0; flex-wrap: nowrap; }
+.prof .src { padding: 2px 0; flex-wrap: nowrap; }
 .badge.pu, .badge.ok, .badge.warn, .badge { height: 18px; font-size: 11px; }
+/* Metric Studio's list row and profile, as Studio draws them on the design system (the person's pick, 2026-11-18). */
+.row .mm { gap: 2px; }
+.row .nm { font-size: 14px; line-height: 20px; }
+.row .ty { flex: none; font-size: 12px; line-height: 16px; color: var(--text-subtle); white-space: nowrap; }
+.row .v { flex: none; font-size: 14px; font-weight: 500; }
+.row .badge { flex: none; }
+.rel { display: inline-flex; align-items: center; gap: 6px; color: var(--text-default); white-space: nowrap; }
+.rel .dt { width: 8px; height: 8px; border-radius: 50%; background: var(--text-subtle); flex: none; }
+.rel.ok .dt { background: var(--bg-success-fill); }
+.rel.warn .dt { background: var(--bg-warning-fill); }
+.rel.ring .dt { background: none; box-shadow: inset 0 0 0 1.5px var(--text-subtle); }
+.prof { display: grid; gap: 0; min-width: 0; }
+.prof > *, .ppanel > *, .prow-b > *, .psql > div > span { min-width: 0; }
+.pcrumb { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 12px; color: var(--text-subtle); border-bottom: 0.5px solid var(--border-subtle); }
+.pcrumb .back { flex: none; }
+.pcrumb .here { color: var(--text-default); font-weight: 500; min-width: 0; }
+.ptitle { font-size: 20px; line-height: 28px; font-weight: 500; letter-spacing: -0.01em; margin: 20px 0 4px; overflow-wrap: anywhere; }
+.pmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.pmeta .sep { color: var(--text-placeholder); }
+.pws { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; font-size: 10px; font-weight: 600; background: var(--bg-ai-subtle); color: var(--text-ai); margin-right: 2px; }
+.pwell { background: var(--bg-subtle); border-radius: 16px; padding: 4px; margin: 16px 0 0; }
+.pstrip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border-default); border-radius: 12px; overflow: hidden; }
+@media (max-width: 420px) { .pstrip { grid-template-columns: minmax(0, 1fr); } }
+.pcell { display: grid; gap: 2px; align-content: start; background: var(--bg-surface); padding: 12px 14px; min-width: 0; }
+.pcell .pcl, .pcell .pcs { font-size: 12px; line-height: 16px; color: var(--text-subtle); overflow-wrap: anywhere; }
+.pcell .pcv { font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
+.pcell .pcv .rel { font-weight: 500; }
+.pdsc { font-size: 14px; line-height: 22px; margin: 16px 0 6px; overflow-wrap: anywhere; color: var(--text-default); }
+.prof .xpl { margin: 0 0 16px; }
+.ppanel { background: var(--bg-subtle); border-radius: 16px; padding: 4px; display: grid; }
+.prow { border-radius: 12px; }
+.prow + .prow:not(.open) { border-top: 0.5px solid var(--border-subtle); }
+.prow.open { background: var(--bg-surface); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); margin: 2px 0; }
+.prow-h { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 16px; font-weight: 500; cursor: pointer; border-radius: 12px; }
+.prow-h:focus-visible { outline: 2px solid var(--border-focus); outline-offset: -2px; }
+.prow-h .n { color: var(--text-subtle); font-weight: 400; font-variant-numeric: tabular-nums; }
+.prow-h .chev { margin-left: auto; color: var(--icon-default); }
+.prow.open .prow-h .chev { transform: rotate(180deg); }
+.prow-b { box-sizing: border-box; padding: 0 16px 16px; display: grid; gap: 10px; min-width: 0; }
+.pkv { display: grid; grid-template-columns: 16px 92px minmax(0, 1fr); gap: 8px; align-items: start; }
+.pkv .ic, .pline .ic { color: var(--icon-default); margin-top: 3px; }
+.pk { color: var(--text-subtle); }
+.pvv { min-width: 0; overflow-wrap: anywhere; }
+.pchip { display: inline-flex; align-items: center; min-height: 22px; padding: 1px 8px; border-radius: 6px; border: 0.5px solid var(--border-control); font-size: 12px; line-height: 16px; margin: 0 4px 4px 0; }
+.pdim { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--bg-success-subtle); color: var(--text-success); font-size: 12px; margin: 0 4px 4px 0; }
+.pcard { border: 0.5px solid var(--border-default); border-radius: 12px; overflow: hidden; min-width: 0; }
+.pcard-h { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border-bottom: 0.5px solid var(--border-default); font-size: 12px; color: var(--text-subtle); }
+.pwh { font: 11px/14px "Geist Mono", ui-monospace, monospace; border: 0.5px solid var(--border-control); border-radius: 6px; padding: 1px 6px; color: var(--text-default); }
+.pseg { all: unset; margin-left: auto; display: inline-flex; background: var(--bg-muted); border-radius: 8px; padding: 2px; cursor: pointer; }
+.pseg span { padding: 2px 8px; border-radius: 6px; }
+.pseg .on { background: var(--bg-surface); color: var(--text-default); }
+.pseg:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
+.pline { display: grid; grid-template-columns: 16px 110px minmax(0, 1fr); gap: 8px; padding: 10px 12px; font-size: 14px; line-height: 20px; border-top: 0.5px solid var(--border-subtle); min-width: 0; }
+.pline:first-of-type { border-top: 0; }
+.pmc, .psc { font: 12px/16px "Geist Mono", ui-monospace, monospace; border-radius: 5px; padding: 1px 6px; }
+.pmc { background: var(--bg-brand-subtle); color: var(--text-brand); }
+.psc { background: var(--bg-neutral-subtle); display: inline-block; margin: 0 4px 4px 0; overflow-wrap: anywhere; }
+.psql { font: 12px/19px "Geist Mono", ui-monospace, monospace; padding: 10px 12px; counter-reset: ln; overflow-x: auto; }
+.psql > div { display: grid; grid-template-columns: 24px minmax(0, 1fr); white-space: pre-wrap; overflow-wrap: anywhere; }
+.psql > div::before { counter-increment: ln; content: counter(ln); color: var(--text-placeholder); }
+.ptree { display: grid; gap: 8px; }
+.pnode { display: flex; align-items: flex-start; gap: 10px; }
+.pnode.kid { margin-left: 13px; padding-left: 22px; border-left: 1px solid var(--border-default); }
+.pbox { width: 28px; height: 28px; border-radius: 7px; border: 0.5px solid var(--border-control); display: grid; place-items: center; flex: none; }
+.pnote { font-size: 12px; line-height: 17px; color: var(--text-subtle); }
+/* Metric Studio's motion: a profile's content slides in 16 px and fades; a part a link went to is marked. A card's
+   height and chevron move in script (PANEL). */
+@keyframes pslide { from { opacity: 0; transform: translateX(16px); } }
+.prof.enter { animation: pslide 240ms cubic-bezier(0.2, 0, 0, 1); }
+.landed { animation: land 1.8s ease-out; }
+@media (prefers-reduced-motion: reduce) { .prof.enter, .landed { animation: none; } }
 </style>
 </head>
 <body>
@@ -506,7 +575,14 @@ const PATH = {
   query: '<path d="M9 7.5L4.5 12 9 16.5M15 7.5l4.5 4.5-4.5 4.5"/>',
   table: '<rect x="4" y="5" width="16" height="14" rx="2.5"/><path d="M4 10h16M10 10v9"/>',
   check: '<path d="M5.5 12.5l4 4 9-9"/>',
-  alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5M12 15.8v.2"/>',
+  tick: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-4.5"/>',
+  tri: '<path d="M10.3 4.2 2.8 17.3a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 16.8v.2"/>',
+  inc: '<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.7-5 6-5s6 2 6 5M16 11a3 3 0 1 0 0-6M21 19c0-2.4-1.6-4.2-4-4.8"/>',
+  exc: '<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>',
+  unit: '<path d="M7 7h10v10H7z"/><path d="M4 12h3M17 12h3"/>',
+  fx: '<path d="M14 4c-2 0-3 1-3.4 3L8.5 19c-.4 2-1.4 2-2.5 2M7 10h7"/>',
+  flt: '<path d="M4 5h16l-6 7v6l-4 2v-8z"/>',
+    alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.5M12 15.8v.2"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
   back: '<path d="M15 6l-6 6 6 6"/>',
@@ -524,7 +600,6 @@ const PATH = {
 const ic = (n, cls) => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${PATH[n]}</svg>`;
 const spin = () => '<svg class="spin" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 6 6"/></svg>';
 const kindM = () => `<span class="kind metric">${ic('metric', 's')}</span>`;
-const kindS = k => `<span class="kind source">${ic(k === 'tile' ? 'tile' : 'query', 's')}</span>`;
 
 /* Reading the snapshot */
 const metricsOf = S => arr(S.metrics).filter(m => obj(m) && txt(m.name));
@@ -537,20 +612,29 @@ const findDraft = (S, id) => draftsOf(S).find(d => txt(d.id) === txt(id)) || nul
 /* What a screen reader hears as the page changes: the output, never the step. */
 function outputLabel(S) {
   const ms = metricsOf(S), done = ms.filter(m => stateOf(m) === 'checked').length;
-  return ms.length ? pl(ms.length, 'metric') + (done ? ', ' + grp(done) + ' checked' : '') : '';
+  return ms.length ? pl(ms.length, 'metric') + (done ? ', ' + grp(done) + ' tested' : '') : '';
 }
 const STOPPED = {paused: 'The build is paused', blocked: 'The build needs a decision: see the chat', access_needed: 'The build is waiting for access: see the chat'};
 
-/* A metric's state, in five plain words: drafted, merged into one per number, its rule written, then run on the data. */
-const STATE = {draft: ['Draft', ''], merged: ['Merged', 'pu'], written: ['Written', ''], checked: ['Checked', 'ok'], failed: ['Failed', 'warn']};
+/* A metric's state, in the person's words (2026-11-18): found, defined, tested on the data, or needs a look. Combining
+   duplicates happens to found metrics, so a merged one is still found until it is defined. */
+const STATE = {draft: ['Found', ''], written: ['Defined', ''], checked: ['Tested', 'ok'], failed: ['Needs a look', 'warn']};
 const stageOf = m => m.stage === 'draft' || m.stage === 'merged' || m.stage === 'kept' ? m.stage : m.status === 'draft' ? 'draft' : 'final';
 function stateOf(m) {
   const s = stageOf(m);
-  if (s === 'draft' || s === 'merged') return s;
+  if (s === 'draft' || s === 'merged') return 'draft';
   if (s === 'kept' || m.status === 'look') return 'failed';
   return m.status === 'checked' ? 'checked' : 'written';
 }
-const stateBadge = m => `<span class="badge ${STATE[stateOf(m)][1]}">${STATE[stateOf(m)][0]}</span>`;
+/* A state as Metric Studio marks a release: a hollow ring until it is defined, a quiet dot once
+   defined, a green one once tested, a warning one when it needs a look. */
+const MARK = {draft: 'ring', written: '', checked: 'ok', failed: 'warn'};
+const marker = (label, tone) => `<span class="rel${tone ? ' ' + tone : ''}"><i class="dt"></i>${esc(label)}</span>`;
+const stateMark = m => marker(STATE[stateOf(m)][0], MARK[stateOf(m)]);
+/* In the lists, the design system's StatusBadge: a status leads with its tone's glyph (a tick, a triangle); a state that
+   is not one draws none. */
+const badgeOf = (label, tone) => `<span class="badge${tone ? ' ' + tone : ''}">${tone === 'ok' ? ic('tick') : tone === 'warn' ? ic('tri') : ''}${esc(label)}</span>`;
+const stateBadge = m => badgeOf(...STATE[stateOf(m)]);
 
 /* Top of the page */
 function toolbar(S, UI) {
@@ -577,31 +661,50 @@ function section(key, title, n, open, body, foldable) {
   return `<div class="sec">${head}${open ? body : ''}</div>`;
 }
 const openOf = (UI, key, def) => UI.tog.has(key) ? !def : def;
+/* What the step under way is working on: its rows say so before they change, so a change is expected, not sudden.
+   By stage: a combined metric is Found, but combining is over for it. */
+const PENDING = {merge: [['draft'], 'being combined'], rules: [['draft', 'merged'], 'being defined'], check: [['written'], 'being tested']};
+function pendingOf(S, s) {
+  const p = PENDING[(arr(S.build).find(b => obj(b) && b.state === 'now') || {}).id];
+  return p && p[0].includes(s) ? p[1] : '';
+}
+/* A row's second line: what the step under way is doing to it, else what its state has. */
+const named = (name, pend, sub, fit = 'ell') => `<span class="mm"><span class="nm ${fit}">${esc(name)}</span>${pend || sub ? `<span class="pw ell">${esc(pend || sub)}</span>` : ''}</span>`;
+/* Metric Studio's view pills: plain words, the count apart and muted, the chosen one on a grey pill. */
+const pills = (act, label, items, cur) => `<div class="flt" role="group" aria-label="${esc(label)}">${items.map(([k, name, n]) => `<button type="button" data-act="${act}" data-v="${k}" data-k="${act}:${k}" aria-pressed="${cur === k}"${k !== 'all' && !n ? ' disabled' : ''}>${esc(name)} <span class="n num">${esc(grp(n))}</span></button>`).join('')}</div>`;
+const lead = t => (txt(t).match(/^.*?[.!?](?=\s+[A-Z]|$)/) || [txt(t)])[0];
+const dataOf = S => txt(S.firm) ? txt(S.firm) + '’s data' : 'your data';
+/* The person, 2026-11-18: "if you found something, why can't it be defined?" A found row says where it was found, a
+   defined one how it is worked out. */
+const gist = t => lead(t).split(/:\s/)[0].replace(/[.!?]$/, '');
+const rowSub = (m, s) => s === 'draft' ? (madeFrom(m) ? 'Found in ' + madeFrom(m) : '') : txt(m.description) && !engineWords(gist(m.description)) ? gist(m.description) : '';
 function metricRow(S, UI, m) {
-  const s = stateOf(m), sel = lc(UI.metric) === lc(m.name);
-  return `<button type="button" class="row${sel ? ' sel' : ''}${s === 'draft' ? ' dim' : ''}" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(m.name)}" data-f="m:${esc(m.name)}" data-s="${s}">`
-    + `${ic('metric', 's')}<span class="nm ell">${esc(m.name)}</span>${kindTag(m) ? `<span class="ty">${esc(kindTag(m))}</span>` : ''}`
+  const s = stateOf(m), sel = lc(UI.metric) === lc(m.name), pend = pendingOf(S, stageOf(m) === 'merged' ? 'merged' : s);
+  return `<button type="button" class="row${sel ? ' sel' : ''}${pend ? ' pend' : ''}" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(m.name)}" data-f="m:${esc(m.name)}" data-s="${s}">`
+    + named(m.name, pend, rowSub(m, s)) + (kindTag(m) ? `<span class="ty">${esc(kindTag(m))}</span>` : '')
     + (s === 'checked' && txt(m.value) ? `<span class="v num" title="Ran on the data">${esc(fixMinus(m.value))}</span>` : '') + stateBadge(m) + '</button>';
 }
 /* A draft no merge has taken yet is a metric in its first state; a merged one lives inside the metric it became. */
 function draftRow(S, UI, d) {
-  return `<button type="button" class="row dim${UI.draft === d.id ? ' sel' : ''}" data-act="d" data-d="${esc(d.id)}" data-k="d:${esc(d.id)}" data-f="d:${esc(d.id)}" data-s="draft">`
-    + `${ic('metric', 's')}<span class="nm ell" title="${esc(d.question || '')}">${esc(d.name)}</span>${stateBadge({stage: 'draft'})}</button>`;
+  const pend = pendingOf(S, 'draft') === PENDING.merge[1] ? PENDING.merge[1] : '';
+  return `<button type="button" class="row${UI.draft === d.id ? ' sel' : ''}${pend ? ' pend' : ''}" data-act="d" data-d="${esc(d.id)}" data-k="d:${esc(d.id)}" data-f="d:${esc(d.id)}" data-s="draft" title="${esc(d.question || '')}">`
+    + `${named(d.name, pend)}${stateBadge({stage: 'draft'})}</button>`;
 }
-function metricsBlock(S, UI) {
+function metricsList(S, UI) {
   const ms = metricsOf(S), named = new Set(ms.map(m => lc(m.name)));
   const ds = draftsOf(S).filter(d => !txt(d.into) && !named.has(lc(d.name)));
   const n = ms.length + ds.length;
-  if (!n) return section('metrics', 'Metrics', 0, true, `<div class="card empty">${ic('metric', 's')}<span>Metrics show here as they are made: first as drafts, found in your dashboard and past queries.</span></div>`, false);
+  if (!n) return [0, `<div class="card empty">${ic('metric', 's')}<span>Metrics show here as they are found in your dashboard and past queries.</span></div>`];
   const counts = {};
   ms.forEach(m => { const s = stateOf(m); counts[s] = (counts[s] || 0) + 1; });
   if (ds.length) counts.draft = (counts.draft || 0) + ds.length;
   const f = UI.filter && counts[UI.filter] ? UI.filter : 'all';
-  const opts = [['all', 'All ' + n], ...Object.keys(STATE).filter(s => counts[s]).map(s => [s, STATE[s][0] + ' ' + counts[s]])];
-  const chips = opts.length > 2 ? `<div class="flt" role="group" aria-label="Show">${opts.map(([k, label]) => `<button type="button" data-act="flt" data-v="${k}" data-k="flt:${k}" aria-pressed="${f === k}">${esc(label)}</button>`).join('')}</div>` : '';
+  // Every state keeps its tab, with its count, so no tab moves as the build fills them; an empty one cannot be picked.
+  const chips = pills('flt', 'Show', [['all', 'All', n], ...Object.keys(STATE).map(s => [s, STATE[s][0], counts[s] || 0])], f);
   const rows = ms.filter(m => f === 'all' || stateOf(m) === f).map(m => metricRow(S, UI, m))
     .concat(f === 'all' || f === 'draft' ? ds.map(d => draftRow(S, UI, d)) : []);
-  return section('metrics', 'Metrics', n, true, chips + `<div class="card lst">${rows.join('')}</div>`, false);
+  const order = `<div class="lgd">Each metric is found in your sources, then defined: exactly how it’s worked out, then tested on ${esc(dataOf(S))}.</div>`;
+  return [n, chips + order + `<div class="lst">${rows.join('')}</div>`];
 }
 function cantBlock(S, UI) {
   const cs = cantOf(S);
@@ -610,14 +713,32 @@ function cantBlock(S, UI) {
   const body = `<div class="card lst">${cs.map(c => `<div class="cant">${ic('alert', 's')}<span class="mm"><span class="nm">${esc(c.tile)}</span><span class="ty">${esc(c.why)}${txt(c.page) ? ' · ' + esc(c.page) : ''}</span></span></div>`).join('')}</div>`;
   return section('cant', "Tiles that couldn't be built", cs.length, open, body, true);
 }
-function queriesBlock(S, UI) {
-  const qs = queriesOf(S);
-  if (!qs.length) return '';
-  const open = openOf(UI, 'queries', true);
-  const body = `<div class="card lst">${qs.map(q => `<button type="button" class="row qr" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}">${ic(q.kind === 'tile' ? 'tile' : 'query', 's')}<span class="nm ell">${esc(txt(q.question) || txt(q.name))}</span>${q.status === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}</button>`).join('')}</div>`;
-  return section('queries', 'Queries', qs.length, open, body, true);
+/* Queries in one order every time, whichever list they come from (the engine's before the checks, the checked
+   context's after): dashboard tiles first, then past queries most run first. Each shows its state, like a metric. */
+const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'look' ? 'failed' : 'written';
+const QTABS = ['written', 'checked', 'failed'];
+const QLABEL = {written: 'Found', checked: 'Tested', failed: 'Needs a look'};
+const qsaid = q => txt(q.question) || txt(q.name);
+function queriesList(S, UI) {
+  const qs = queriesOf(S).slice().sort((a, b) => (a.kind === 'tile' ? 0 : 1) - (b.kind === 'tile' ? 0 : 1)
+    || (isNum(b.runs) ? b.runs : 0) - (isNum(a.runs) ? a.runs : 0) || lc(qsaid(a)).localeCompare(lc(qsaid(b))));
+  if (!qs.length) return [0, ''];
+  const counts = {};
+  qs.forEach(q => { const s = qstateOf(q); counts[s] = (counts[s] || 0) + 1; });
+  const f = UI.qfilter && counts[UI.qfilter] ? UI.qfilter : 'all';
+  const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.map(s => [s, QLABEL[s], counts[s] || 0])], f);
+  const rows = qs.filter(q => f === 'all' || qstateOf(q) === f).map(q => {
+    const s = qstateOf(q), pend = pendingOf(S, s);
+    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
+  });
+  return [qs.length, tabs + `<div class="lst">${rows.join('')}</div>`];
 }
-function lists(S, UI) { return metricsBlock(S, UI) + queriesBlock(S, UI) + cantBlock(S, UI); }
+/* One switch between the lists, metrics first (the person's pick, 2026-11-18), as Studio keeps metrics and saved
+   queries on separate pages: a long query list never pushes the metrics down, and one list moves at a time. */
+function lists(S, UI) {
+  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), cur = UI.list === 'queries' && qn ? 'queries' : 'metrics';
+  return `<div class="sec">${pills('list', 'Show list', [['metrics', 'Metrics', mn], ['queries', 'Queries', qn]], cur).replace('class="flt"', 'class="flt top"')}${cur === 'queries' ? qb : mb}</div>` + cantBlock(S, UI);
+}
 
 /* A metric's own view, under the checklist */
 const blk = (label, body) => body ? `<div class="kv"><div class="lb">${esc(label)}</div><div class="vv">${body}</div></div>` : '';
@@ -639,10 +760,27 @@ function checkText(m) {
 }
 function back(label) { return `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${esc(label)}</button>`; }
 /* A metric's profile, in Metric Studio's own order and words: what it is, then what it measures, how, and from what. */
-const STATE_SAYS = {draft: 'Found in your sources, not merged yet', merged: 'One metric per number; its rule comes next',
-  written: 'Its rule is written; it runs on the data next', checked: 'Its written rule matches its SQL, and it ran on {data} and returned a number', failed: 'Ran on the data and needs a look'};
-const fact = (label, value, sub) => `<div class="fitem"><div class="flab">${esc(label)}</div><div class="fval">${value}</div>${sub ? `<div class="fsub">${esc(sub)}</div>` : ''}</div>`;
-const part = (title, body) => body ? `<div class="pt"><h3 class="ph">${esc(title)}</h3>${body}</div>` : '';
+const STATE_SAYS = {draft: 'Found in your sources; exactly how it’s worked out is defined next',
+  written: 'How it’s worked out is written down; it is tested on the data next', checked: 'Tested on {data}: it returned a number, and its definition matches its SQL', failed: 'Tested on the data and needs a look'};
+/* Metric Studio's profile in one scroll for a narrow pane (the person's pick of two drawn from Studio rendered on its
+   mock, 2026-11-18): the way back, a title and its meta line, three facts in a soft well, then panel cards that open
+   and close in place. */
+const crumb = (where, title) => `<div class="pcrumb">${back(where)}<span class="sep" aria-hidden="true">/</span><span class="here ell">${esc(title)}</span></div>`;
+const pmeta = (S, parts) => `<div class="pmeta">${[txt(S.firm) ? `<span class="pws" aria-hidden="true">${esc(txt(S.firm).charAt(0).toUpperCase())}</span>${esc(txt(S.firm))}` : '', ...parts.filter(Boolean).map(esc)].filter(Boolean).join('<span class="sep" aria-hidden="true">·</span>')}</div>`;
+const pcell = (label, value, sub) => `<div class="pcell"><span class="pcl">${esc(label)}</span><span class="pcv">${value}</span>${sub ? `<span class="pcs">${sub}</span>` : ''}</div>`;
+const pstrip = cells => `<div class="pwell"><div class="pstrip">${cells.join('')}</div></div>`;
+function prow(UI, key, title, n, body, open0 = true) {
+  if (!body) return '';
+  const open = openOf(UI, 'p:' + key, open0);
+  return `<div class="prow${open ? ' open' : ''}" data-p="p:${key}"><button type="button" class="prow-h" data-tog="p:${key}" data-k="t:p:${key}" aria-expanded="${open}">${esc(title)}${isNum(n) ? ` <span class="n num">${esc(grp(n))}</span>` : ''}${ic('chev', 's chev')}</button>${open ? `<div class="prow-b">${body}</div>` : ''}</div>`;
+}
+const pkv = (icon, label, body) => body ? `<div class="pkv">${ic(icon, 's')}<span class="pk">${esc(label)}</span><div class="pvv">${body}</div></div>` : '';
+const pchips = (xs, cls) => arr(xs).length ? `<div>${arr(xs).map(x => `<span class="${cls}">${esc(x)}</span>`).join('')}</div>` : '';
+const pline = (icon, label, body) => body ? `<div class="pline">${ic(icon, 's')}<span class="pk">${esc(label)}</span><div>${body}</div></div>` : '';
+const psql = t => `<div class="psql">${prettySql(txt(t)).split('\n').map(l => `<div><span>${esc(l)}</span></div>`).join('')}</div>`;
+const snake = n => lc(n).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+const whereData = S => txt(S.warehouse) || 'On this machine';
+const unitWords = m => { const u = lc(m.unit), w = u in UNIT_SAID ? UNIT_SAID[u].replace(/^in /, '') : txt(m.unit); return w ? w.charAt(0).toUpperCase() + w.slice(1) : ''; };
 /* A grain written as column names reads as words: "project_id, entry_type" is one row per project and entry type. */
 function grainWords(g) {
   g = txt(g).trim();
@@ -665,16 +803,18 @@ function kindWords(m) {
   return [k ? k[0] : '', unit].filter(Boolean).join(', ');
 }
 /* What a metric counts stays in view when it reads as words; the engine's own wording (quoted entries, column names,
-   SQL, a long paragraph) goes with the rule as written. */
-const plainly = t => txt(t).length > 0 && txt(t).length <= 160 && !/['"`‘’“”][\w-]+['"`‘’“”]|\w_\w|\b(join|select|where|group by)\b/i.test(txt(t));
+   SQL, a long paragraph) goes with the definition as written. */
+const engineWords = t => /['"`‘’“”][\w-]+['"`‘’“”]|\w_\w|\b(join|select|where|group by)\b/i.test(txt(t));
+const plainly = t => txt(t).length > 0 && txt(t).length <= 160 && !engineWords(t);
 const foldOf = (key, UI, label, body) => body ? `<button type="button" class="fold" data-tog="${esc(key)}" data-k="t:${esc(key)}" aria-expanded="${UI.tog.has(key)}">${ic('chev', 'xs')}${esc((UI.tog.has(key) ? 'Hide ' : 'Show ') + label)}</button>${UI.tog.has(key) ? `<div>${body}</div>` : ''}` : '';
 function madeFrom(m) {
   const s = arr(m.sources).filter(obj), t = s.filter(x => x.kind === 'tile').length, q = s.length - t;
   return [t ? pl(t, 'dashboard tile') : '', q ? pl(q, 'past query', 'past queries') : ''].filter(Boolean).join(' and ');
 }
+const sourceSaid = s => s.kind === 'tile' ? `Dashboard tile${txt(s.visual) ? ' “' + txt(s.visual) + '”' : ''}${txt(s.page) ? ' on ' + txt(s.page) : ''}`
+  : `Past query${isNum(s.runs) ? ', run ' + pl(s.runs, 'time') : ''}`;
 function source(S, s, key) {
-  const label = s.kind === 'tile' ? `Dashboard tile${txt(s.visual) ? ' “' + txt(s.visual) + '”' : ''}${txt(s.page) ? ' on ' + txt(s.page) : ''}`
-    : `Past query${isNum(s.runs) ? ', run ' + pl(s.runs, 'time') : ''}`;
+  const label = sourceSaid(s);
   const open = findQuery(S, s.id) ? `<button type="button" class="lnk" data-act="q" data-q="${esc(s.id)}" data-k="sq:${esc(key)}">Open this query</button>` : '';
   return `<div class="src">${ic(s.kind === 'tile' ? 'tile' : 'query', 's')}<span>${txt(s.question) ? `<span>${esc(s.question)}</span><br>` : ''}<span class="sub xs">${esc(label)}</span> ${open}</span></div>`;
 }
@@ -687,64 +827,78 @@ function besideTile(m) {
 function metricView(S, UI, name) {
   const m = findMetric(S, name);
   if (!m) return `<div class="card empty">${ic('metric', 's')}<span>This metric is not in the build any more.</span></div>`;
-  const s = stateOf(m), srcs = arr(m.sources).filter(obj), from = arr(m.from).map(txt).filter(Boolean);
-  const saved = obj(S.saved);
-  const strip = '<div class="fstrip">'
-    + fact('State', stateBadge(m), STATE_SAYS[s].replace('{data}', txt(S.firm) ? txt(S.firm) + '’s data' : 'your data') + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))
-    + fact('Checked value', s === 'checked' && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : 'Not run yet'}</span>`, besideTile(m))
-    + fact('Made from', esc(madeFrom(m) || 'Shows once found'), from.length > 1 ? 'Merged from ' + pl(from.length, 'draft') : '')
-    + fact('Kept', esc(saved ? 'Saved to Atlan' : 'On this machine'), saved ? txt(saved.workspace) : 'Not saved to Atlan yet') + '</div>';
+  const s = stateOf(m), srcs = arr(m.sources).filter(obj), from = arr(m.from).map(txt).filter(Boolean), saved = obj(S.saved);
+  const value = s === 'checked' && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : 'Not run yet'}</span>`;
+  const strip = pstrip([
+    pcell('State', stateMark(m), esc(STATE_SAYS[s].replace('{data}', dataOf(S)) + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))),
+    pcell('Tested value', value, esc(besideTile(m))),
+    pcell('Made from', madeFrom(m) ? `<button type="button" class="lnk" data-act="reveal" data-v="p:from" data-k="reveal:from">${esc(madeFrom(m))}</button>` : 'Shows once found',
+      from.length > 1 ? esc('Combined from ' + pl(from.length, 'possible metric')) : '')]);
+  const measures = pkv('inc', 'Includes', plainly(m.population) ? esc(m.population) : '') + pkv('grid', 'Granularity', esc(grainWords(m.grain)))
+    + pkv('exc', 'Excludes', pchips(m.leaves_out, 'pchip')) + pkv('unit', 'Unit', esc(unitWords(m)));
+  // The formula card shows its outline, or the SQL behind it, as Studio's does.
+  const reads = [txt(m.table), ...arr(m.joins).map(txt)].filter(Boolean), sqlv = !!txt(m.example_sql) && UI.tog.has('sqlv:' + m.name);
+  const seg = txt(m.example_sql) ? `<button type="button" class="pseg" data-tog="sqlv:${esc(m.name)}" data-k="t:sqlv:${esc(m.name)}" aria-pressed="${sqlv}"><span${sqlv ? '' : ' class="on"'}>Outline</span><span${sqlv ? ' class="on"' : ''}>SQL</span></button>` : '';
+  const fk = 'fx:' + m.name, fopen = UI.tog.has(fk);
+  const formula = txt(m.formula) ? ` <button type="button" class="lnk" data-tog="${esc(fk)}" data-k="t:${esc(fk)}" aria-expanded="${fopen}">${fopen ? 'Hide the formula' : 'Show the formula'}</button>${fopen ? `<div><code class="psc">${esc(m.formula)}</code></div>` : ''}` : '';
+  const outline = pline('fx', 'Computes', `<code class="pmc">${esc(snake(m.name))}</code> ${esc((KIND_SAID[m.type] || [])[1] || '')}${formula}`)
+    + pline('table', 'Reads from', reads.map(r => `<code class="psc">${esc(r)}</code>`).join(''))
+    + pline('flt', 'Keeps rows where', arr(m.filters).length ? esc(pl(m.filters.length, 'condition')) : '');
+  const calc = `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>${sqlv ? 'SQL' : 'Formula'}</span>${seg}</div>${sqlv ? psql(m.example_sql) : outline}</div>`
+    + foldOf('rule:' + m.name, UI, 'the definition as written', blk('Includes', plainly(m.population) ? '' : para(m.population))
+      + blk('Unit', para(m.unit)) + blk('Formula', code(m.formula)) + blk('Filters', arr(m.filters).length ? code(m.filters.join('\nAND ')) : ''));
   const wk = 'why:' + m.name, wopen = UI.tog.has(wk);
   const why = txt(m.reasoning) && from.length > 1 ? `<button type="button" class="fold" data-tog="${esc(wk)}" data-k="t:${esc(wk)}" aria-expanded="${wopen}">${ic('chev', 'xs')}${wopen ? 'Hide why they became one' : 'Why these became one metric'}</button>${wopen ? `<div class="sub">${esc(m.reasoning)}</div>` : ''}` : '';
-  const rel = arr(m.related).filter(r => Array.isArray(r) && r.length > 1).map(r => `<div>${esc(r[0])} <button type="button" class="lnk" data-act="m" data-m="${esc(r[1])}" data-k="rel:${esc(r[1])}">${esc(r[1])}</button></div>`).join('');
-  const reads = [txt(m.table), ...arr(m.joins).map(j => '+ ' + j)].filter(Boolean);
-  return `<div class="card det"><div class="deth">${back('All metrics')}<div class="nmr"><h2>${esc(m.name)}</h2>${stateBadge(m)}</div><div class="sub xs">${esc(['Metric', kindWords(m)].filter(Boolean).join(' · '))}</div></div>`
-    + strip
-    + (txt(m.description) ? `<p class="dsc">${esc(m.description)}</p>` : (s === 'merged' ? '<p class="dsc sub">Its rule is written next.</p>' : ''))
-    + '<div class="xpl">A metric is one agreed number, with the rule every answer uses to work it out, so the same question always gets the same answer.</div>'
-    + part('What it measures', blk('Includes', plainly(m.population) ? para(m.population) : '') + blk('Excludes', bullets(m.leaves_out)))
-    + part("How it's calculated", para((KIND_SAID[m.type] || [])[1]) + foldOf('rule:' + m.name, UI, 'the rule as written',
-      blk('Includes', plainly(m.population) ? '' : para(m.population)) + blk('Counted once per', para(grainWords(m.grain)))
-      + blk('Unit', para(m.unit)) + blk('Formula', code(m.formula)) + blk('Reads', chipsOf(reads))
-      + blk('Filters', arr(m.filters).length ? code(m.filters.join('\nAND '), 'flt:' + m.name, UI, 'filters') : '')))
-    + part('How it can be split', chipsOf(m.dimensions))
-    + part('Where it came from', srcs.map((x, j) => source(S, x, lc(m.name) + ':' + j)).join('') + why)
-    + part('Related metrics', rel)
-    + part('Example', code(m.example_sql, 'sql:' + m.name, UI, 'SQL'))
-    + '</div>';
+  const details = pkv('table', 'Name', `<code class="psc">${esc(snake(m.name))}</code> <button type="button" class="lnk" data-act="copy" data-v="${esc(snake(m.name))}" data-k="copy:${esc(m.name)}">Copy</button>`)
+    + pkv('unit', 'Kept', esc(saved ? 'Saved to Atlan' + (txt(saved.workspace) ? ' · ' + txt(saved.workspace) : '') : 'On this machine'))
+    + pkv('grid', 'Data', esc(whereData(S)));
+  const rel = arr(m.related).filter(r => Array.isArray(r) && r.length > 1);
+  return `<div class="prof">${crumb('Metrics', m.name)}<h1 class="ptitle">${esc(m.name)}</h1>${pmeta(S, ['Metric', kindWords(m)])}${strip}`
+    + (txt(m.description) ? `<p class="pdsc">${esc(m.description)}</p>` : (s === 'draft' ? '<p class="pdsc sub">How it’s worked out is defined next.</p>' : ''))
+    + '<div class="xpl">A metric is one agreed number, with the definition every answer uses to work it out, so the same question always gets the same answer.</div>'
+    // Only the first card opens by default (the person, 2026-11-18); the rest open when wanted.
+    + `<div class="ppanel">${prow(UI, 'measures', 'What it measures', null, measures)}${prow(UI, 'calc', "How it's calculated", null, calc, false)}`
+    + prow(UI, 'split', 'How it can be split', arr(m.dimensions).length, pchips(m.dimensions, 'pdim'), false)
+    + prow(UI, 'from', 'Where it came from', srcs.length || null, srcs.map((x, j) => source(S, x, lc(m.name) + ':' + j)).join('') + why, false)
+    + prow(UI, 'related', 'Related metrics', rel.length, rel.map(r => `<div>${esc(r[0])} <button type="button" class="lnk" data-act="m" data-m="${esc(r[1])}" data-k="rel:${esc(r[1])}">${esc(r[1])}</button></div>`).join(''), false)
+    + prow(UI, 'details', 'Details', null, details, false)
+    + '</div></div>';
 }
 function draftView(S, UI, id) {
   const d = findDraft(S, id);
-  if (!d) return `<div class="card empty">${ic('metric', 's')}<span>This draft is not in the build any more.</span></div>`;
-  return `<div class="card det"><div class="deth">${back('Back')}<div class="nmr"><h2>${esc(d.name)}</h2><span class="badge${d.into ? ' pu' : ''}">${d.into ? 'Merged' : 'Draft'}</span></div></div>`
-    + blk(d.kind === 'tile' ? 'Found in a dashboard tile' : 'Found in a past query', `<div class="src">${kindS(d.kind)}<span>${esc(d.question || '')}${txt(d.page) ? `<span class="sub"> · ${esc(d.page)}</span>` : ''}</span></div>`)
-    + blk('What it seemed to measure', para(d.meaning))
-    + blk('Became', d.into ? `<button type="button" class="lnk" data-act="m" data-m="${esc(d.into)}" data-k="into">${esc(d.into)}</button>` : '<div class="sub">Waiting to be merged with drafts that measure the same number.</div>')
-    + '</div>';
+  if (!d) return `<div class="card empty">${ic('metric', 's')}<span>This possible metric is not in the build any more.</span></div>`;
+  const became = d.into ? `<button type="button" class="lnk" data-act="m" data-m="${esc(d.into)}" data-k="into">${esc(d.into)}</button>` : '<span class="sub">Not yet</span>';
+  return `<div class="prof">${crumb('Metrics', d.name)}<h1 class="ptitle">${esc(d.name)}</h1>${pmeta(S, ['A possible metric'])}`
+    + pstrip([pcell('State', marker(d.into ? 'Combined' : 'Found', 'ring'), d.into ? '' : 'Waiting to be combined with others that measure the same number'),
+              pcell(d.kind === 'tile' ? 'Found in a dashboard tile' : 'Found in a past query', esc(d.question || ''), esc(txt(d.page))),
+              pcell('Became', became, '')])
+    + (txt(d.meaning) ? `<p class="pdsc">${esc(d.meaning)}</p>` : '') + '</div>';
 }
-/* A query's profile, as Metric Studio shows a saved query: the question, then its SQL, tables, use and metrics. */
-const QSTATE = {checked: ['Checked', 'ok', 'Ran on the data as written'], look: ['Failed', 'warn', 'Ran on the data and needs a look']};
+/* A saved query's profile, as Studio draws one: no tabs; the SQL, the metrics made from it, its use and its columns. */
+const QSTATE = {checked: ['Tested', 'ok', 'Ran on the data as written'], look: ['Needs a look', 'warn', 'Ran on the data and needs a look']};
 function queryView(S, UI, id) {
   const q = findQuery(S, id);
   if (!q) return `<div class="card empty">${ic('query', 's')}<span>This query is not in the build any more.</span></div>`;
-  const st = QSTATE[q.status] || ['Written', '', 'It runs on the data once the metrics are written'];
-  const ms = arr(q.metrics).map(txt).filter(Boolean), saved = obj(S.saved);
-  const comes = q.kind === 'tile' ? ['A dashboard tile', [txt(q.visual), txt(q.page)].filter(Boolean).join(' on ')] : ['A past query', 'From your team\'s query history'];
-  const strip = '<div class="fstrip">'
-    + fact('State', `<span class="badge ${st[1]}">${st[0]}</span>`, st[2] + (q.status === 'look' && txt(q.why) ? ': ' + txt(q.why) : ''))
-    + fact('Comes from', esc(comes[0]), comes[1])
-    + fact('Metrics made from it', esc(ms.length ? grp(ms.length) : 'None'), ms.length === 1 ? ms[0] : '')
-    + fact('Kept', esc(saved ? 'Saved to Atlan' : 'On this machine'), saved ? txt(saved.workspace) : 'Not saved to Atlan yet') + '</div>';
+  const s = qstateOf(q), st = QSTATE[q.status] || ['Found', '', 'It is tested on the data once the metrics are defined'];
+  const ms = arr(q.metrics).map(txt).filter(Boolean), tile = q.kind === 'tile';
+  const comes = tile ? ['Dashboard tile' + (txt(q.visual) ? ' “' + txt(q.visual) + '”' : ''), txt(q.page) ? 'On ' + txt(q.page) : ''] : ['A past query', 'From your team’s query history'];
+  const link = n => `<button type="button" class="lnk" data-act="m" data-m="${esc(n)}" data-k="qm:${esc(n)}">${esc(n)}</button>`;
+  const strip = pstrip([pcell('State', marker(st[0], MARK[s]), esc(st[2] + (q.status === 'look' && txt(q.why) ? ': ' + txt(q.why) : ''))),
+                        pcell('Comes from', esc(comes[0]), esc(comes[1])),
+                        pcell('Linked metrics', esc(ms.length ? pl(ms.length, 'metric') + ' made from it' : 'None yet'), ms.map(link).join(', '))]);
+  const tree = `<div class="ptree"><div class="pnode"><span class="pbox">${ic('query', 's')}</span><span>This query</span></div>`
+    + ms.map(n => `<div class="pnode kid"><span class="pbox">${ic('metric', 's')}</span><span class="mm">${link(n)}<span class="sub xs">Made from this query</span></span></div>`).join('')
+    + '</div><div class="pnote">This query runs its own SQL, so a change to a metric does not reach it.</div>';
   const usage = isNum(q.runs) ? `<div>Run ${esc(pl(q.runs, 'time'))}${isNum(q.analysts) ? ' by ' + esc(pl(q.analysts, 'analyst')) : ''}</div>` : '';
-  return `<div class="card det"><div class="deth">${back('Back')}<div class="nmr"><h2>${esc(txt(q.question) || txt(q.name))}</h2></div><div class="sub xs">Query</div></div>`
-    + strip
-    + (txt(q.description) ? `<p class="dsc">${esc(q.description)}</p>` : '')
+  return `<div class="prof">${crumb(txt(UI.from) || 'Saved queries', txt(q.question) || txt(q.name))}<h1 class="ptitle">${esc(txt(q.question) || txt(q.name))}</h1>`
+    + pmeta(S, tile ? ['Dashboard tile', txt(q.page)] : ['Past query', isNum(q.runs) ? 'run ' + pl(q.runs, 'time') : '']) + strip
+    + (txt(q.description) ? `<p class="pdsc">${esc(q.description)}</p>` : '')
     + '<div class="xpl">A query is a question with the SQL that answers it, kept so the same question gets the same SQL next time.</div>'
-    + part('The query', code(q.sql))
-    + part('Tables', chipsOf(q.tables))
-    + part('Usage', usage)
-    + part('Metrics made from it', ms.map(n => `<div><button type="button" class="lnk" data-act="m" data-m="${esc(n)}" data-k="qm:${esc(n)}">${esc(n)}</button></div>`).join(''))
-    + '</div>';
+    + `<div class="ppanel">${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
+    + prow(UI, 'qmetrics', 'Metrics made from it', ms.length || null, ms.length ? tree : '', false)
+    + prow(UI, 'usage', 'Usage', null, usage, false)
+    + prow(UI, 'cols', 'Columns, tables and filters', null, pkv('table', 'Tables', pchips(q.tables, 'psc')), false)
+    + '</div></div>';
 }
 function detailOf(S, UI) {
   if (UI.metric) return metricView(S, UI, UI.metric);
@@ -764,13 +918,14 @@ function view(S, UI) {
     + (STOPPED[S.state] ? `<div class="card stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>` : '');
   const detail = detailOf(S, UI);
   if (!UI.wide) return `<div class="sp2">${top}${detail || lists(S, UI)}</div>`;
-  return `<div class="wd2"><div>${top}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${ic('metric', 's')}<span>Pick a metric or draft to see its definition, its formula and where it was found.</span></div>`}</div></div>`;
+  return `<div class="wd2"><div>${top}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${ic('metric', 's')}<span>Pick a metric to see its definition, its formula and where it was found.</span></div>`}</div></div>`;
 }
 
 
 /* State, painting and the live feed */
 const THEME_KEY = 'atlan-analytics-side-page-theme';
-const UI = {view: null, metric: null, query: null, draft: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system'};
+const UI = {view: null, metric: null, query: null, draft: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system',
+  list: null};
 const app = document.getElementById('app');
 const WID = {}, STA = {};
 let S = null, raw = '', said = '', seenOnce = false;
@@ -793,7 +948,95 @@ function writeHash() {
   if (location.hash === want) return;
   try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
 }
-function paint() {
+/* Rows ease from where they were to where they are, a new one rises in, and a draft a merge took folds into the
+   metric that took it, so new data never just replaces the page. Only when new data arrives, never on a click, and
+   never with reduced motion. */
+const MOTION = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+function placesOf() {
+  const r = {};
+  app.querySelectorAll('[data-f]').forEach(n => { r[n.dataset.f] = {box: n.getBoundingClientRect(), node: n}; });
+  return r;
+}
+function tookIt(key) {
+  const name = lc(key.slice(2)), d = draftsOf(S).find(x => key.startsWith('d:') ? x.id === key.slice(2) : lc(x.name) === name);
+  return d && txt(d.into) ? lc(d.into) : '';
+}
+function settle(before) {
+  const after = {};
+  app.querySelectorAll('[data-f]').forEach(n => {
+    after[lc(n.dataset.f)] = n;
+    if (!n.animate) return;
+    const was = before[n.dataset.f], box = n.getBoundingClientRect();
+    if (was && Math.abs(was.box.top - box.top) > 1) {
+      n.animate([{transform: `translateY(${was.box.top - box.top}px)`}, {transform: 'none'}], {duration: 260, easing: 'cubic-bezier(.2,0,0,1)'});
+    } else if (!was) n.animate([{opacity: 0, transform: 'translateY(6px)'}, {opacity: 1, transform: 'none'}], {duration: 220, easing: 'ease-out'});
+  });
+  Object.keys(before).filter(k => !after[lc(k)]).forEach(k => {
+    const {box, node} = before[k];
+    if (!box.height || !node.animate) return;
+    const into = tookIt(k), target = into ? after['m:' + into] : null, to = target ? target.getBoundingClientRect() : null;
+    const ghost = node.cloneNode(true);
+    ghost.removeAttribute('data-f');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.tabIndex = -1;
+    ghost.classList.add('ghost');
+    Object.assign(ghost.style, {position: 'fixed', left: box.left + 'px', top: box.top + 'px', width: box.width + 'px', height: box.height + 'px', margin: '0', pointerEvents: 'none', zIndex: '5'});
+    document.body.appendChild(ghost);
+    const end = to ? `translate(${to.left - box.left}px, ${to.top - box.top}px) scale(.96)` : 'translateY(-4px)';
+    const a = ghost.animate([{opacity: 0.9, transform: 'none'}, {opacity: 0, transform: end}], {duration: to ? 420 : 240, easing: 'cubic-bezier(.3,0,.2,1)'});
+    a.onfinish = a.oncancel = () => ghost.remove();
+    if (target) target.classList.add('took');
+  });
+}
+let shownDetail = '';
+/* Metric Studio's panel: a card's body opens and closes over 200 ms, its height and its chevron with it. */
+const PANEL = {duration: 200, easing: 'cubic-bezier(0.4, 0, 0.2, 1)'};
+const rowOf = k => [...app.querySelectorAll('.prow')].find(x => x.dataset.p === k);
+function togglePanel(k) {
+  const flip = () => { if (UI.tog.has(k)) UI.tog.delete(k); else UI.tog.add(k); };
+  const row = rowOf(k);
+  if (!row || !MOTION) { flip(); paint(); return; }
+  const body = row.querySelector('.prow-b'), chev = row.querySelector('.prow-h .chev');
+  if (row.classList.contains('open') && body) {
+    body.style.overflow = 'hidden';
+    if (chev) chev.animate([{transform: 'rotate(180deg)'}, {transform: 'rotate(0deg)'}], PANEL);
+    // A background tab holds an animation's finish back; the timer closes it all the same, once.
+    let shut = false;
+    const close = () => { if (shut) return; shut = true; flip(); paint(); };
+    body.animate([{height: body.offsetHeight + 'px', opacity: 1}, {height: '0px', opacity: 0}], PANEL).onfinish = close;
+    setTimeout(close, PANEL.duration + 60);
+    return;
+  }
+  flip(); paint();
+  const now = rowOf(k), opened = now && now.querySelector('.prow-b'), c2 = now && now.querySelector('.prow-h .chev');
+  if (opened) { opened.style.overflow = 'hidden'; opened.animate([{height: '0px', opacity: 0}, {height: opened.offsetHeight + 'px', opacity: 1}], PANEL).onfinish = () => { opened.style.overflow = ''; }; }
+  if (c2) c2.animate([{transform: 'rotate(0deg)'}, {transform: 'rotate(180deg)'}], PANEL);
+}
+/* Metric Studio's reveal: a link to a part of the page opens it, scrolls there with an ease in and out over
+   the smaller of 700 ms and 280 ms plus 0.2 ms a pixel, then marks it with the landed ring. */
+function reveal(k) {
+  const wasOpen = rowOf(k) && rowOf(k).classList.contains('open');
+  if (!rowOf(k)) return;
+  if (!wasOpen) togglePanel(k);
+  const go = () => {
+    const row = rowOf(k);
+    if (!row) return;
+    const box = UI.wide ? app.querySelector('.wr') : null, from = box ? box.scrollTop : window.scrollY;
+    const dist = row.getBoundingClientRect().top - (box ? box.getBoundingClientRect().top : 0) - 12;
+    const ms = MOTION ? Math.min(700, 280 + 0.2 * Math.abs(dist)) : 0, t0 = performance.now();
+    const ease = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    const step = time => {
+      const f = ms ? Math.min(1, (time - t0) / ms) : 1, y = from + dist * ease(f);
+      if (box) box.scrollTop = y; else window.scrollTo(0, y);
+      if (f < 1) { requestAnimationFrame(step); return; }
+      if (MOTION) { row.classList.remove('landed'); void row.offsetWidth; row.classList.add('landed'); }
+    };
+    requestAnimationFrame(step);
+  };
+  if (!wasOpen && MOTION) setTimeout(go, 320); else go();
+}
+function paint(fresh) {
+  const before = fresh && MOTION && seenOnce && !UI.metric && !UI.query && !UI.draft ? placesOf() : null;
   const y = window.scrollY, wr = app.querySelector('.wr'), wy = wr ? wr.scrollTop : 0;
   const ae = document.activeElement, fk = ae && app.contains(ae) && ae.dataset ? ae.dataset.k : null;
   app.innerHTML = view(S, UI);
@@ -806,16 +1049,22 @@ function paint() {
     if (prev != null && prev !== w) { b.getBoundingClientRect(); b.style.width = w + '%'; }
     WID[k] = w;
   });
+  // Marked only when new data brought the change: a row a click shows for the first time is not new.
   app.querySelectorAll('[data-f]').forEach(n => {
     const k = n.dataset.f, s = n.dataset.s;
-    if (STA[k] != null && STA[k] !== s) n.classList.add('fl');
-    else if (STA[k] == null && painted) n.classList.add('nw');
+    if (fresh && STA[k] != null && STA[k] !== s) n.classList.add('fl');
+    else if (fresh && STA[k] == null && painted) n.classList.add('nw');
     STA[k] = s;
   });
   window.scrollTo(0, y);
   const wr2 = app.querySelector('.wr');
   if (wr2) wr2.scrollTop = wy;
   if (fk) { const el = [...app.querySelectorAll('[data-k]')].find(x => x.dataset.k === fk); if (el) el.focus({preventScroll: true}); }
+  if (before) settle(before);
+  // Studio's motion: a profile slides in when it is opened, never when new data repaints it.
+  const dk = UI.metric ? 'm:' + UI.metric : UI.query ? 'q:' + UI.query : UI.draft ? 'd:' + UI.draft : '';
+  if (dk && dk !== shownDetail) { const pf = app.querySelector('.prof'); if (pf) pf.classList.add('enter'); }
+  shownDetail = dk;
   const line = S ? outputLabel(S) : '';
   if (line !== said) { said = line; document.getElementById('say').textContent = line; }
   writeHash();
@@ -837,7 +1086,7 @@ function accept(data, fromPoll) {
   if (r === raw) return;
   raw = r;
   S = s;
-  paint();
+  paint(true);
 }
 async function poll() {
   try {
@@ -872,10 +1121,16 @@ document.addEventListener('click', e => {
   const th = e.target.closest('[data-theme-set]');
   if (th) { setTheme(th.dataset.themeSet); paint(); return; }
   const tg = e.target.closest('[data-tog]');
-  if (tg) { const k = tg.dataset.tog; if (UI.tog.has(k)) UI.tog.delete(k); else UI.tog.add(k); paint(); return; }
+  if (tg) { const k = tg.dataset.tog; if (k.startsWith('p:')) { togglePanel(k); return; } if (UI.tog.has(k)) UI.tog.delete(k); else UI.tog.add(k); paint(); return; }
   const a = e.target.closest('[data-act]');
   if (!a || !app.contains(a)) return;
   const act = a.dataset.act;
+  if (act === 'reveal') { reveal(a.dataset.v); return; }
+  if (act === 'copy') {
+    const done = () => { a.textContent = 'Copied'; setTimeout(() => { a.textContent = 'Copy'; }, 1200); };
+    if (navigator.clipboard) navigator.clipboard.writeText(a.dataset.v).then(done, () => {});
+    return;
+  }
   if (act === 'step' || act === 'now') {
     UI.view = act === 'step' ? a.dataset.id : null;
     if (!UI.wide) UI.metric = null;
@@ -884,6 +1139,12 @@ document.addEventListener('click', e => {
     window.scrollTo(0, 0);
   } else if (act === 'flt') {
     UI.filter = a.dataset.v === 'all' ? null : a.dataset.v;
+    paint();
+  } else if (act === 'list') {
+    UI.list = a.dataset.v;
+    paint();
+  } else if (act === 'qflt') {
+    UI.qfilter = a.dataset.v === 'all' ? null : a.dataset.v;
     paint();
   } else if (act === 'd') {
     UI.draft = a.dataset.d; UI.metric = null; UI.query = null; UI.from = null;

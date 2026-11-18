@@ -537,22 +537,36 @@ MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'descr
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
 # A step under way: its mark, and why it matters, the line shown under the chip without opening it. The chip lands
 # mid-step, after minutes of quiet, so it says how far, what the step is doing and why, in the side page's words.
-UNDER_WAY = {'describe': ('described', 'Draft metrics: each query gets the question it answers.'),
-             'propose': ('metrics', 'Draft metrics: every number a query works out could be a metric.'),
-             'merge': ('metrics', 'Merge drafts: the same number from many queries becomes one metric.'),
-             'define': ('rules', 'Write and check: so each number is worked out the same way every time.')}
-# Where each metric step's own chip sits, in the task list's own step names (Draft metrics, Merge drafts, Write and check
-# each metric), and what comes next: one set of names in the chat, with no progress bar and no second numbering.
-FLOW = {'described': 'Draft metrics, under way: next, find the numbers each query works out.',
-        'drafted': 'Done: Draft metrics. Next: Merge drafts, one metric per number.',
-        'metrics': 'Done: Merge drafts. Next: Write and check each metric.',
-        'rules': 'Rules written. Next in Write and check: run each metric on the data.'}
+UNDER_WAY = {'describe': ('described', 'Finding metrics: first, each query gets the question it answers.'),
+             'propose': ('metrics', 'Finding metrics: every number a query works out could be one.'),
+             'merge': ('metrics', 'Combining duplicates: the same number in many queries becomes one metric.'),
+             'define': ('rules', 'Defining: so each number is worked out the same way every time.')}
+# Where each metric step's own chip sits, in the task list's own step names (Find metrics, Combine duplicates, Define
+# and test each metric), and what comes next: one set of names in the chat, with no progress bar and no second
+# numbering. The person's words, 2026-11-18: draft, merge, rule and check were the build's.
+FLOW = {'described': 'Finding metrics, under way: next, the numbers each query works out.',
+        'drafted': 'Done: Find metrics. Next: Combine duplicates, one metric per number.',
+        'metrics': 'Done: Combine duplicates. Next: Define and test each metric.',
+        'rules': 'Definitions written. Next: test each one on the data.'}
+
+
+def _named(names, verb):
+    """What a so-far chip leads with: up to three names when they fit a card's width, else the newest and how many
+    more."""
+    if 1 < len(names) <= 3:
+        joined = ', '.join(names[:-1]) + ' and ' + names[-1]
+        if len(joined) + len(verb) <= WIDTH:
+            return joined, verb
+    rest = (' and {:,} more'.format(len(names) - 1) if len(names) > 1 else '') + verb
+    # A long name gives way, never what follows it.
+    return _fit_words(names[0], max(8, LINE - 2 - len(rest))), rest
 
 
 def _so_far(s):
-    """The newest thing a step has made, by name, then how far its batches have got and why; opened, the newest of what
-    they hold first. Led by its count, a first-time reader said it felt like watching a counter. None before its first
-    count."""
+    """What a step has made since the last so-far chip, by name; opened, those items, newest first, and the step's
+    count, with no time of day. The headline carries no count: drawn in the chat it goes stale while the side page
+    moves on, and the next chip jumped ("1 of 8", then "4 of 8"). The step's own chip gives the total. None before its
+    first count."""
     step, items = s.get('step'), [[sentence(n), d] for n, d in s.get('items') or []][::-1]
     of = lambda n, total, word, many: '{:,} of {}'.format(n, count(total, word, many)) if total else count(n, word, many)
     if not items:
@@ -561,29 +575,27 @@ def _so_far(s):
     # with nothing new, it shows them all.
     fresh = len(items) - (s.get('shown') or 0)
     items = items[:fresh] if fresh > 0 else items
-    more = ' and {:,} more'.format(len(items) - 1) if len(items) > 1 else ''
     if step == 'describe' and s.get('described'):
-        rest, tail = more + ' in plain words', of(s['described'], s.get('total'), 'query', 'queries') + ' so far'
+        verb, what = ' in plain words', of(s['described'], s.get('total'), 'query', 'queries') + ' in plain words.'
     elif step == 'propose' and s.get('queries_read'):
-        rest, tail = more + ' found', count(s['drafts'], 'draft metric') + ', from ' + of(
-            s['queries_read'], s.get('queries_total'), 'query', 'queries') if s.get('drafts') else ''
+        # A number found in several queries is one row: the count says how many are different.
+        distinct = len(s.get('items') or [])
+        verb, what = ' found', (count(s['drafts'], 'possible metric') + (', %d different,' % distinct if 0 < distinct < s['drafts'] else '')
+                                + ' found in ' + of(s['queries_read'], s.get('queries_total'), 'query', 'queries') + '.') if s.get('drafts') else ''
     elif step == 'merge' and s.get('metrics'):
-        rest = more + ' merged'
-        tail = count(s['metrics'], 'metric') + ' so far' + (', from %s' % count(s['drafts'], 'draft') if s.get('drafts') else '')
+        verb, what = ' combined', count(s['metrics'], 'metric') + (' from %s' % count(s['drafts'], 'possible metric') if s.get('drafts') else '') + '.'
     elif step == 'define' and s.get('defined'):
-        rest, tail = more + ' written', of(s['defined'], s.get('total'), 'metric', 'metrics') + ' so far'
+        verb, what = ' defined', of(s['defined'], s.get('total'), 'metric', 'metrics') + ' defined.'
     else:
         return None
     mark, why = UNDER_WAY[step]
-    what = ''
+    bold, rest = _named([n for n, _ in items], verb)
     if step == 'propose':
-        # Opened, the list adds up to this count: a number found in several queries is one row, marked how often.
-        what = count(s['drafts'], 'draft metric') + ' found so far' if s.get('drafts') else ''
+        # Opened, each number found in several queries is one row, marked how often.
         rows = [[n, 'found %d times' % d if d > 1 else ''] for n, d in items]
     else:
         rows = [[n, '', _first_sentence(d)] if d else [n] for n, d in items]
-    return {'mark': mark, 'bold': items[0][0], 'rest': rest, 'tail': tail, 'keep_tail': True, 'sub': why, 'what': what,
-            'rows': rows}
+    return {'mark': mark, 'bold': bold, 'rest': rest, 'tail': '', 'sub': why, 'what': what, 'rows': rows}
 
 
 def _beside_dashboard(metrics, where):
@@ -603,7 +615,7 @@ def _beside_dashboard(metrics, where):
         (t['name'],) if t['same'] else (t['name'], _minus(t['value'])))
     rows = [[m['name'], _minus(m['value']) if m['ok'] else 'needs a look'] + ([note(m['tile'])] if m.get('tile') else [])
             for m in metrics]
-    what = 'Each metric’s rule ran %s and returned a number.' % where + (
+    what = 'Each metric’s definition ran %s and returned a number.' % where + (
         ' The dashboard file holds each tile’s formula, not the number it shows: each formula ran on the same data, and its '
         'number is set beside the metric made from it.' if tiles else '')
     return {'sub': sub, 'rows': rows, 'what': what} if rows else {}
@@ -657,17 +669,17 @@ def _outcome(kind, s):
              'what': ('Each query now carries the question it answers, in the words %s team uses. That is how the agent '
                       'matches what you ask to the query that answers it.' % their(s.get('firm')))}
     elif kind == 'drafted' and s.get('drafted'):
-        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'draft metric'),
+        o = {'mark': 'metrics', 'bold': count(s['drafted'], 'possible metric'),
              'tail': 'found in %d of those %s' % (s['with'], count(s['read'], 'query', 'queries')) if s.get('read') and s.get('with') is not None else '',
              'rows': s.get('rows'),
-             'what': ('A draft metric is a number one of %s queries works out, such as a total or a rate. The same number '
-                      'often turns up in several queries; next, those are merged so each number has one rule.' % their(s.get('firm')))}
+             'what': ('A possible metric is a number one of %s queries works out, such as a total or a rate. The same number '
+                      'often turns up in several queries; next, those are combined so each number has one definition.' % their(s.get('firm')))}
     elif kind == 'metrics' and s.get('metrics'):
         o = {'mark': 'metrics', 'bold': count(len(s['metrics']), 'metric') + ' found',
-             'tail': 'the %s, merged one per number' % count(s['drafts'], 'draft') if s.get('drafts') else 'one number, one rule',
+             'tail': 'from %s, one per number' % count(s['drafts'], 'possible metric') if s.get('drafts') else 'one number, one definition',
              'rows': s.get('rows'),
-             'what': ('Reading the queries found the same measure many times over. Those were merged, so each number %s team '
-                      'uses has one rule. The checks next can still hold one back.' % their(s.get('firm')))}
+             'what': ('Reading the queries found the same measure many times over. Those were combined, so each number %s team '
+                      'uses has one definition. The tests next can still hold one back.' % their(s.get('firm')))}
     elif kind == 'rules' and s.get('rows'):
         o = {'mark': 'rules', 'bold': count(s['defined'], 'metric') + ' defined', 'tail': 'what each number counts and leaves out',
              'rows': s['rows'],
@@ -696,8 +708,8 @@ def _outcome(kind, s):
     name = o['mark'] if o['mark'] in MARKS else None
     return {'text_mark': MARKS[name] if name else MARKS[kind if kind in MARKS else 'found'],
             'mark': k.mark(name) if name else o['mark'], 'bold': o['bold'], 'rest': o.get('rest', ''), 'tail': o.get('tail', ''),
-            'quote': o.get('quote', False), 'keep_tail': o.get('keep_tail', False), 'what': o.get('what', ''),
-            'rows': o.get('rows') or [], 'sub': o.get('sub') or FLOW.get(kind, '')}
+            'quote': o.get('quote', False), 'what': o.get('what', ''), 'rows': o.get('rows') or [],
+            'sub': o.get('sub') or FLOW.get(kind, '')}
 
 
 # A chip's line in a terminal, as wide as a card: one line in an 80-column window.
@@ -714,13 +726,9 @@ def _fit_words(text, width):
 
 
 def _fit_line(o):
-    """The chip's words fitted to one line: the tail gives way first, then the outcome itself. A so-far chip's tail is
-    how far its step has got, so its name gives way first."""
+    """The chip's words fitted to one line: the tail gives way first, then the outcome itself."""
     bold, rest, tail = o['bold'], o['rest'], o['tail']
     head = len(o['text_mark']) + 1 + len(bold) + len(rest)
-    if o['keep_tail'] and tail and head + 3 + len(tail) > LINE:
-        bold = _fit_words(bold, max(8, len(bold) - (head + 3 + len(tail) - LINE)))
-        head = len(o['text_mark']) + 1 + len(bold) + len(rest)
     if tail and head + 3 + len(tail) > LINE:
         room = LINE - head - 3
         tail = _fit_words(tail, room) if room >= 12 else ''
