@@ -230,14 +230,41 @@ def _under_way(engine):
 
 
 def so_far(root, engine_dir=None):
-    """The step under way: its counts over all its batches, as the side page counts them, and what they hold so far.
-    Nothing once it has ended. Nothing is recorded."""
+    """The step under way: its counts over all its batches, as the side page counts them, what they hold so far, and
+    how many of those the last so-far chip named. Nothing once it has ended. Nothing is recorded."""
     engine = _Engine(root, engine_dir)
     under = _under_way(engine)
     if not under:
         return {}
     gate, step, describe, files = under
-    return {'step': step, **describe(engine, files, files)[1], 'items': _items(engine, gate, files)}
+    return {'step': step, **describe(engine, files, files)[1], 'items': _items(engine, gate, files),
+            'shown': _shown(engine, gate)}
+
+
+# How many of a step's items its so-far chips have named, so the next names only what landed since: a person lost the
+# 11th to the 17th metric between "10 of 20" and "18 of 20", and a reader met the same definitions in every chip.
+SHOWN = 'so-far-shown.json'
+
+
+def _shown(engine, gate):
+    named = engine.json(engine.root / SHOWN).get(gate)
+    return named if type(named) is int else 0
+
+
+def mark_shown(root, engine_dir=None):
+    """Record that the step under way's so-far chip has named everything it holds so far."""
+    engine = _Engine(root, engine_dir)
+    under = _under_way(engine)
+    if not under:
+        return
+    record = engine.json(engine.root / SHOWN)
+    record[under[0]] = len(_items(engine, under[0], under[3]))
+    try:
+        path = engine.root / SHOWN
+        path.write_text(json.dumps(record))
+        path.chmod(0o600)
+    except OSError:
+        pass  # without the record the next chip names some items again; it never skips one
 
 
 GATES_BY_ID = {gate: describe for gate, _, describe in GATES}
@@ -304,6 +331,7 @@ def _news(engine):
     if not items:
         return ''
     gate, (name, said) = under[0], items[-1]
+    items = items[_shown(engine, gate):] or items
     if gate == 'm2':
         line = '%s answers: %s' % (name, said) if said else '%s is in plain words.' % name
     elif gate == 'x3':

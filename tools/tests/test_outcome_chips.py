@@ -495,20 +495,20 @@ class SoFar(unittest.TestCase):
         # metrics"), a first-time reader said it "felt like watching a counter": the newest thing it made leads, by name.
         import drafts
         self.describe()
-        self.assertEqual(self.show(), '❝ **Rework cost by month** in plain words · 2 of 4 queries so far\n'
+        self.assertEqual(self.show(), '❝ **Rework cost by month** and 1 more in plain words · 2 of 4 queries so far\n'
                                       '  Draft metrics: each query gets the question it answers.')
         self.assertEqual(drafts.counts(self.run, 'm2'), {'described': 2, 'total': 4}, 'the side page counts the same batches')
         self.batch('m2', '02.json', {'queries': [{'vq_id': 'bi-q1', 'name': 'Gross Margin'}]})
-        self.assertTrue(self.show().startswith('❝ **Gross margin** in plain words · 3 of 4 queries so far\n'), self.show())
+        self.assertTrue(self.show().startswith('❝ **Gross margin** and 2 more in plain words · 3 of 4 queries so far\n'), self.show())
         write(self.run / 'engine' / 'x1_prompt.json', QUERIES)
         self.batch('x1', '01.json', {'statements': [
             {'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}]},
             {'vq_id': 'h-2', 'verdict': 'metrics', 'metrics': [{'name': 'Rework Cost'}, {'name': 'Rework Hours'}]}]})
-        self.assertEqual(self.show(), '◆ **Rework hours** found · 3 draft metrics so far, from 2 of 4 queries\n'
+        self.assertEqual(self.show(), '◆ **Rework hours** and 2 more found · 3 draft metrics, from 2 of 4 queries\n'
                                       '  Draft metrics: every number a query works out could be a metric.')
         self.batch('x2', '01.json', {'metrics': [{'name': 'Gross Margin', 'sources': ['h-1#0']},
                                                  {'name': 'Rework Cost', 'sources': ['h-2#0', 'h-2#1']}]})
-        self.assertEqual(self.show(), '◆ **Rework cost** merged · 2 metrics so far, from 3 drafts\n'
+        self.assertEqual(self.show(), '◆ **Rework cost** and 1 more merged · 2 metrics so far, from 3 drafts\n'
                                       '  Merge drafts: the same number from many queries becomes one metric.')
         write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 2, 'tasks': []})
         self.batch('x3', '001.json', {'metrics': [{'name': 'Gross Margin', 'description': 'What the jobs kept. The headline.'}]})
@@ -584,9 +584,39 @@ class SoFar(unittest.TestCase):
         done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress'],
                               capture_output=True, text=True, encoding='utf-8', timeout=60,
                               env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-        self.assertTrue(done.stdout.startswith('= **Rework cost** written'), done.stdout)
+        self.assertTrue(done.stdout.startswith('= **Rework cost** and 1 more written'), done.stdout)
         side = json.loads(done.stdout.split('side view: ', 1)[1])
         self.assertIn('then this line, unchanged, and nothing else: Newest rule: Rework cost. Labour on snags.', side['next'])
+
+    def test_each_so_far_chip_names_only_what_landed_since_the_last_one(self):
+        # The person, 2026-11-18: "we say 10 out of 20, then 18 out of 20: we lost the 11th to the 17th". And a fresh
+        # reader of h8 met the same definitions in every chip. Each chip names what is new since the one before, so
+        # across a step every metric is named once.
+        def progress():
+            done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual',
+                                   'progress', '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
+                                  env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
+            html, side = done.stdout.split('side view: ', 1)
+            return html.split('</summary>', 1), json.loads(side)
+        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 5, 'tasks': []})
+        for i, name in enumerate(('Gross Margin', 'Rework Cost')):
+            self.batch('x3', '%03d.json' % (i + 1), {'metrics': [{'name': name, 'description': name + ' per job. More.'}]})
+        (head, body), side = progress()
+        self.assertIn('<b>Rework cost</b> and 1 more written', head)
+        self.assertIn('Gross Margin per job.', body)
+        for i, name in enumerate(('Labour Cost', 'Late Jobs', 'Waste Rate')):
+            self.batch('x3', '%03d.json' % (i + 3), {'metrics': [{'name': name, 'description': name + ' per job. More.'}]})
+        (head, body), side = progress()
+        self.assertIn('<b>Waste rate</b> and 2 more written', head)
+        self.assertIn('5 of 5 metrics so far', head)
+        for new in ('Waste rate', 'Late jobs', 'Labour cost'):
+            self.assertIn(new, body)
+        for old in ('Gross margin', 'Rework cost'):
+            self.assertNotIn(old, body, 'named by the chip before')
+        self.assertIn('Newest rule: Waste rate. Waste Rate per job.', side['next'])
+        # Drawn again with nothing new, it shows the newest rather than nothing.
+        (head, body), side = progress()
+        self.assertIn('<b>Waste rate</b>', head)
 
     def test_a_step_already_accepted_draws_no_so_far_chip(self):
         # Drawn after its step ended, a so-far chip said a finished step was still "finding the numbers".
@@ -621,13 +651,13 @@ class SoFar(unittest.TestCase):
         self.assertEqual(len(lines), 2)
         for line in lines:
             self.assertLessEqual(len(line.replace('**', '')), 76, line)
-        self.assertTrue(lines[0].startswith('◆ **Metric 1233** merged · 1,234 metrics so far'), lines[0])
+        self.assertTrue(lines[0].startswith('◆ **Metric 1233** and 1,233 more merged · 1,234 metrics so far'), lines[0])
 
     def test_a_demo_a_local_run_and_a_warehouse_draw_it_the_same(self):
         for run, data in ((make_run(self.root / 'demo', demo=True), [facts()]), (make_run(self.root / 'l', saved=False, local=True), []),
                           (make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True}), [])):
             self.describe(run)
-            self.assertTrue(self.show(run, data=data).startswith('❝ **Rework cost by month** in plain words · 2 of 4 queries'))
+            self.assertTrue(self.show(run, data=data).startswith('❝ **Rework cost by month** and 1 more in plain words · 2 of 4 queries'))
             self.assertIn('<details', self.show(run, widget=True, data=data))
 
     def test_the_helper_draws_it_without_recording_it_or_naming_it_due(self):
@@ -636,7 +666,7 @@ class SoFar(unittest.TestCase):
         done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress'],
                               capture_output=True, text=True, encoding='utf-8', timeout=60, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
         self.assertEqual(done.stderr, '')
-        self.assertTrue(done.stdout.startswith('❝ **Rework cost by month** in plain words'), done.stdout)
+        self.assertTrue(done.stdout.startswith('❝ **Rework cost by month** and 1 more in plain words'), done.stdout)
         self.assertIn('start your very next message with it', done.stdout)
         self.assertNotIn('progress', side_view.seen(self.run))
         self.assertNotIn('progress', side_view.due(self.run))

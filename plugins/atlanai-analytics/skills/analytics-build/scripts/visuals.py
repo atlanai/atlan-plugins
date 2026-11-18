@@ -557,16 +557,21 @@ def _so_far(s):
     of = lambda n, total, word, many: '{:,} of {}'.format(n, count(total, word, many)) if total else count(n, word, many)
     if not items:
         return None
+    # Only what landed since the last so-far chip, newest first: across a step every item is named once. Drawn again
+    # with nothing new, it shows them all.
+    fresh = len(items) - (s.get('shown') or 0)
+    items = items[:fresh] if fresh > 0 else items
+    more = ' and {:,} more'.format(len(items) - 1) if len(items) > 1 else ''
     if step == 'describe' and s.get('described'):
-        rest, tail = ' in plain words', of(s['described'], s.get('total'), 'query', 'queries') + ' so far'
+        rest, tail = more + ' in plain words', of(s['described'], s.get('total'), 'query', 'queries') + ' so far'
     elif step == 'propose' and s.get('queries_read'):
-        rest, tail = ' found', count(s['drafts'], 'draft metric') + ' so far, from ' + of(
+        rest, tail = more + ' found', count(s['drafts'], 'draft metric') + ', from ' + of(
             s['queries_read'], s.get('queries_total'), 'query', 'queries') if s.get('drafts') else ''
     elif step == 'merge' and s.get('metrics'):
-        rest = ' merged'
+        rest = more + ' merged'
         tail = count(s['metrics'], 'metric') + ' so far' + (', from %s' % count(s['drafts'], 'draft') if s.get('drafts') else '')
     elif step == 'define' and s.get('defined'):
-        rest, tail = ' written', of(s['defined'], s.get('total'), 'metric', 'metrics') + ' so far'
+        rest, tail = more + ' written', of(s['defined'], s.get('total'), 'metric', 'metrics') + ' so far'
     else:
         return None
     mark, why = UNDER_WAY[step]

@@ -803,6 +803,7 @@ def main():
                 # desktop sends a turn that ends on a widget alone back for words, so the words come with the chip.
                 import drafts
                 line = drafts.news(run, args.engine_dir)
+                drafts.mark_shown(run, args.engine_dir)
                 steps.append("This chip is the whole update while the step runs: end your turn on it, then this line, "
                              "unchanged, and nothing else: %s The watch wakes you when more has landed, and again when the "
                              "step ends." % (line or 'nothing; the chip is enough.'))
