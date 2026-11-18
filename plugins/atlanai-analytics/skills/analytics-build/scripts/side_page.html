@@ -509,6 +509,7 @@ button.sech { cursor: pointer; }
 .prow-h .chev { margin-left: auto; color: var(--icon-default); }
 .prow.open .prow-h .chev { transform: rotate(180deg); }
 .prow-b { box-sizing: border-box; padding: 0 16px 16px; display: grid; gap: 10px; min-width: 0; }
+.prow-b ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .pkv { display: grid; grid-template-columns: 16px 92px minmax(0, 1fr); gap: 8px; align-items: start; }
 .pkv .ic, .pline .ic { color: var(--icon-default); margin-top: 3px; }
 .pk { color: var(--text-subtle); }
@@ -729,7 +730,7 @@ function queriesList(S, UI) {
   const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.map(s => [s, QLABEL[s], counts[s] || 0])], f);
   const rows = qs.filter(q => f === 'all' || qstateOf(q) === f).map(q => {
     const s = qstateOf(q), pend = pendingOf(S, s);
-    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
+    return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q) + (q.review === 'read' ? ' · worth a read' : ''), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
   });
   return [qs.length, tabs + `<div class="lst">${rows.join('')}</div>`];
 }
@@ -894,7 +895,8 @@ function queryView(S, UI, id) {
     + pmeta(S, tile ? ['Dashboard tile', txt(q.page)] : ['Past query', isNum(q.runs) ? 'run ' + pl(q.runs, 'time') : '']) + strip
     + (txt(q.description) ? `<p class="pdsc">${esc(q.description)}</p>` : '')
     + '<div class="xpl">A query is a question with the SQL that answers it, kept so the same question gets the same SQL next time.</div>'
-    + `<div class="ppanel">${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
+    // What the engine noted about it, and whether it marked it worth a read: the chat counts these, so the page says which.
+    + `<div class="ppanel">${prow(UI, 'notes', 'Worth knowing', null, q.review === 'read' || arr(q.notes).length ? (q.review === 'read' ? '<p>Marked worth a read before you rely on it.</p>' : '') + bullets(q.notes) : '')}${prow(UI, 'sql', 'The SQL', null, txt(q.sql) ? `<div class="pcard"><div class="pcard-h"><span class="pwh">${esc(whereData(S))}</span><span>SQL</span></div>${psql(q.sql)}</div>` : '')}`
     + prow(UI, 'qmetrics', 'Metrics made from it', ms.length || null, ms.length ? tree : '', false)
     + prow(UI, 'usage', 'Usage', null, usage, false)
     + prow(UI, 'cols', 'Columns, tables and filters', null, pkv('table', 'Tables', pchips(q.tables, 'psc')), false)

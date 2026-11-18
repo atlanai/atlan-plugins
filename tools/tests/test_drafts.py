@@ -214,6 +214,17 @@ class Drafts(unittest.TestCase):
         self.answer('x3', '002.json', {'metrics': [{'name': 'Late jobs', 'description': 'Completed Fixit & Co. jobs handed '
                                                     'over late. More.'}]})
         self.assertEqual(news(), 'Newest definition: Late jobs. Completed Fixit & Co. jobs handed over late.')
+        # The desktop run read "Labour cost of work logged as rework (task type matched ignoring case and trailing
+        # spaces), taken as hours times...; crew members with no rework are left out.": the engine's asides go.
+        self.answer('x3', '003.json', {'metrics': [{'name': 'Rework cost', 'description': 'Labour cost of work logged as '
+                                                    'rework (task type matched ignoring case and trailing spaces), taken as '
+                                                    'hours times the hourly rate; crew members with no rework are left out.'}]})
+        self.assertEqual(news(), 'Newest definition: Rework cost. Labour cost of work logged as rework, taken as hours '
+                                 'times the hourly rate.')
+        self.answer('x3', '004.json', {'metrics': [{'name': 'Material waste rate', 'description': 'Share of delivered '
+                                                    'material wasted on site: the wasted value as a fraction of the value '
+                                                    'delivered.'}]})
+        self.assertEqual(news(), 'Newest definition: Material waste rate. Share of delivered material wasted on site.')
 
     def test_with_every_chip_the_watch_names_each_chip_once_and_never_says_still(self):
         # In the dashboard flow helpers advance every step, so the watch names each chip that becomes due, once. Its

@@ -311,7 +311,7 @@ class Chips(unittest.TestCase):
         detail = self.show('group', widget=True).split('</summary>', 1)[1]
         rows = re.findall(r'<b style="font-weight:400">([^<]*)</b><span>([^<]*)</span>', detail)
         self.assertEqual(rows, [('On time rate', '2 queries, run 39 times'),
-                                ('A number by project, from projects and work logs', 'run 34 times'),
+                                ('A question about projects and work logs, by project', 'run 34 times'),
                                 ('On time rate by project type', 'run 14 times')])
 
     def test_before_the_queries_are_described_their_short_names_are_spelled_out(self):
@@ -329,8 +329,8 @@ class Chips(unittest.TestCase):
         detail = self.show('group', widget=True).split('</summary>', 1)[1]
         rows = [r for r, _ in re.findall(r'<b style="font-weight:400">([^<]*)</b><span>([^<]*)</span>', detail)]
         self.assertEqual(rows, ['Waste percentage by material', 'Rework cost by project', 'Billable utilisation by crew and month',
-                                'Average job value', 'Number of jobs by site', 'A total by project, from projects',
-                                'A count, from projects', 'Quantity delivered by year'])
+                                'Average job value', 'Number of jobs by site', 'A total from projects, by project',
+                                'A count from projects', 'Quantity delivered by year'])
 
     def test_a_step_the_engine_refused_has_not_finished(self):
         manifest = self.run / 'engine' / 'manifest.json'
@@ -510,7 +510,9 @@ class SoFar(unittest.TestCase):
             {'vq_id': 'h-2', 'verdict': 'metrics', 'metrics': [{'name': 'Rework Cost'}, {'name': 'Rework Hours'}]}]})
         self.assertEqual(self.show(), '◆ **Rework hours, Rework cost and Gross margin** found\n'
                                       '  Finding metrics: every number a query works out could be one.')
-        self.assertIn('>3 possible metrics found in 2 of 4 queries.<', self.show(widget=True))
+        # A fresh reader of h9 met "found in 30 of 30 queries", then "found in 25 of those 30": both count the queries
+        # that held a number now, out of those read.
+        self.assertIn('>3 possible metrics found in 2 of the 2 queries read.<', self.show(widget=True))
         self.batch('x2', '01.json', {'metrics': [{'name': 'Gross Margin', 'sources': ['h-1#0']},
                                                  {'name': 'Rework Cost', 'sources': ['h-2#0', 'h-2#1']}]})
         self.assertEqual(self.show(), '◆ **Rework cost and Gross margin** combined\n'
@@ -602,6 +604,29 @@ class SoFar(unittest.TestCase):
         side = json.loads(done.stdout.split('side view: ', 1)[1])
         self.assertIn('then this line, unchanged, and nothing else: Newest definition: Rework cost. Labour on snags.', side['next'])
 
+    def test_a_step_s_own_chip_gives_the_line_to_end_on_and_its_title(self):
+        # The person, 2026-11-18: our own wording leaked into the window. After a step's chip the agent wrote "Doing:
+        # Combining duplicates, one metric per number." under a chip that said "Next: Combine duplicates, one metric per
+        # number."; its widgets were titled "fixit_define_progress_chip_3". The chip's result gives the line to end on
+        # (the newest thing made) and a title in the person's words.
+        self.batch('x1', '01.json', {'statements': [
+            {'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin', 'definition': 'What the jobs kept. More.'}]}]})
+        manifest = self.run / 'engine' / 'manifest.json'
+        stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
+        write(manifest, {'stages': stages + [{'stage': 'x1_ingest', 'counts': {'proposals': 1}, 'verdict': 'accepted'}]})
+        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'drafted',
+                               '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
+                              env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
+        side = json.loads(done.stdout.split('side view: ', 1)[1])
+        self.assertIn('with the title `1_possible_metric`', side['next'])
+        self.assertIn('end your turn on it, then this line, unchanged, and nothing else: Newest possible metric: Gross margin. '
+                      'What the jobs kept.', side['next'])
+        self.assertNotIn('Doing', side['next'])
+        progress = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual',
+                                   'progress', '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
+                                  env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
+        self.assertNotIn('chip`', progress.stdout.split('side view: ', 1)[-1].split('title `', 1)[-1][:60])
+
     def test_each_so_far_chip_names_only_what_landed_since_the_last_one(self):
         # The person, 2026-11-18: "we say 10 out of 20, then 18 out of 20: we lost the 11th to the 17th". And a fresh
         # reader of h8 met the same definitions in every chip. Each chip names what is new since the one before, so
@@ -649,7 +674,7 @@ class SoFar(unittest.TestCase):
             {'vq_id': 'bi-q1', 'verdict': 'metrics', 'metrics': [{'name': 'gross margin'}]}]})
         html = self.show(widget=True)
         # A fresh reader met "10 draft metrics found" opening to 7 names: the count says how many are different.
-        self.assertIn('4 possible metrics, 2 different, found', html)
+        self.assertIn('4 possible metrics, 2 different, found in', html)
         self.assertIn('<b style="font-weight:400">Gross margin</b><span>found 3 times</span>', html)
         self.assertIn('<b style="font-weight:400">Rework cost</b><span></span>', html)
         described = make_run(self.root / 'd')

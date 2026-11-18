@@ -63,11 +63,16 @@ page shows each batch as it lands; the chat shows each step's chip when the step
    naming `visual progress`, the chip with how far the step has got: run what it names and show
    what it gives, with no words of your own. Re-arm the watch if it stops before the cards are
    accepted; it never repeats or skips a step. The desktop app sends a turn that ends without words
-   back for words, so every turn ends on one line with something new: a step's start on its Doing
-   line, named as the task list names it, with nothing about what will show or when, never the
-   engine's results or counts (accepted, cards, pairs, a check's own name) nor your own tooling
-   (scripts, retries, setup); a so-far turn on the line `visual progress` gives with its chip,
-   unchanged; never that a step is still running.
+   back for words, so every turn ends on one line with something new: the line the `visual`
+   result gives with its chip, unchanged. A step's own chip names the step that starts, so no
+   line of yours names it again (a Doing line under a chip that says "Next: Combine duplicates"
+   repeats it). Never the engine's results or counts (accepted, cards, pairs, a check's own name)
+   nor your own tooling (scripts, retries, setup); never that a step is still running.
+3. **What the app shows is the person's.** It shows each command's description, each helper's and
+   watch's name, and each widget's title. Describe each command as what it does for them
+   ("Showing what's new", "Continuing the build", "Testing on the data"), never a chip, the engine,
+   a gate, an answer folder, a record or a "visual moment"; give each widget the title its
+   `visual` result names.
 
 A host with no background subagent or no line-by-line watch writes the gates in this session
 instead and runs `visual next` once each gate is accepted. On every host the batches stay on the

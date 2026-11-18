@@ -139,12 +139,17 @@ def _table_names(tables):
     return out[:12]
 
 
-def _query_profile(vid, known, said, built_on, description=None, sql=None, tables=None):
+def _query_profile(vid, known, said, built_on, description=None, sql=None, tables=None, review=None):
     """A saved query's profile, as a metric's: where it came from, what it reads, and the metrics built on it."""
     source = _source({'vq_id': vid}, known, said) if vid else {}
     vq = (known.get(vid) or ({},))[0]
     tables = tables if isinstance(tables, list) else vq.get('tables') if isinstance(vq.get('tables'), list) else []
-    return (('kind', source.get('kind')), ('description', _cut(description, 600) or source.get('description')),
+    # The engine marks a query worth a person's read (`needs_review`), with notes on what it does; saved, that is any
+    # review status but verified or reviewed.
+    read = vq.get('label') == 'needs_review' if review is None else review not in ('verified', 'reviewed')
+    notes = [_cut(n, 200) for n in vq.get('gotchas') or [] if isinstance(n, str) and n.strip()][:4]
+    return (('review', 'read' if read else None), ('notes', notes),
+            ('kind', source.get('kind')), ('description', _cut(description, 600) or source.get('description')),
             ('sql', _cut(sql, 1600) or source.get('sql')), ('tables', _table_names(tables)),
             ('metrics', list(dict.fromkeys(built_on.get(vid) or []))),
             *((k, source.get(k)) for k in ('runs', 'analysts', 'visual', 'page', 'report')))
@@ -511,7 +516,7 @@ def details(f):
                 ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and not v else None),
                 ('value', _checked_value(v)),
                 *_query_profile(vid, known, said, built_on, description=q.get('description'), sql=d.get('sql'),
-                                tables=evidence.get('tables'))) if x})
+                                tables=evidence.get('tables'), review=d.get('review_status', 'not_recorded'))) if x})
     if not queries:
         # Before the checks, the engine's own queries as it writes them, named as the checked context names them.
         for vid, (o, words) in known.items():

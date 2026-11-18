@@ -186,6 +186,19 @@ class SidePageView(unittest.TestCase):
         sizes = set(re.findall(r'font-size: (\d+)px', page.split('/* Metric Studio\'s list row and profile', 1)[1]))
         self.assertLessEqual(sizes, {'12', '14', '20', '11', '10'}, sizes)
 
+    def test_a_query_marked_for_a_read_says_so_and_why(self):
+        # The engine marks a query worth a person's read, with notes on what it does: its row says so, and its profile
+        # opens on the notes, so the chat's count and the page agree.
+        q = dict(SNAPSHOT['queries'][0], review='read', notes=['Returns blank rather than 0 when no job is late.'])
+        snap = dict(SNAPSHOT, queries=[q])
+        self.assertIn('Past query, run 12 times · worth a read', self.text(self.render(snap, list='queries')))
+        html = self.render(snap, query='h-1')
+        self.assertIn('data-tog="p:notes" data-k="t:p:notes" aria-expanded="true"', html)
+        self.assertIn('Worth knowing Marked worth a read before you rely on it. Returns blank rather than 0 when no job is '
+                      'late.', self.text(html))
+        plain = self.render(query='h-1')
+        self.assertNotIn('Worth knowing', self.text(plain), 'a query with nothing to know has no such card')
+
     def test_the_way_back_names_where_it_goes(self):
         # Back from a query opened from a metric returns to that metric, so the breadcrumb names it, not the list.
         self.assertIn('Saved queries / How many jobs did we run?', self.text(self.render(query='h-1')))

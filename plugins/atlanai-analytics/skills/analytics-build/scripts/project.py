@@ -597,6 +597,8 @@ def _due(run, engine_dir=None):
 
 # The moments that end a metric step or the checks: each carries the host's task list as it now stands.
 TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
+# The chips that end a metric step and start the next: each turn they end, ends on the newest thing made.
+STEP_CHIPS = ('described', 'drafted', 'metrics', 'rules')
 
 
 def main():
@@ -775,9 +777,9 @@ def main():
                 print(shown)
             steps = []
             if shown and args.widget:
-                steps.append("Draw it now: pass the HTML above to `show_widget` (after its `read_me`, the first time), before "
-                             "your next question or reply. Never put it in a question's text. It says what the step produced: "
-                             "add no line of your own about it.")
+                steps.append(("Draw it now: pass the HTML above to `show_widget` with the title `%s` (after its `read_me`, the "
+                              "first time), before your next question or reply. Never put it in a question's text. It says what "
+                              "the step produced: add no line of your own about it.") % visuals.title_of(args.kind, spec))
             elif shown and asked:
                 steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
                              "written just before it folds. They are counted from the run's files, so never reword them or "
@@ -807,6 +809,14 @@ def main():
                 steps.append("This chip is the whole update while the step runs: end your turn on it, then this line, "
                              "unchanged, and nothing else: %s The watch wakes you when more has landed, and again when the "
                              "step ends." % (line or 'nothing; the chip is enough.'))
+            if shown and args.kind in STEP_CHIPS:
+                # The person, 2026-11-18: under a chip that said "Next: Combine duplicates" the agent wrote "Doing: Combining
+                # duplicates". The desktop sends a turn back for words, so the words come with the chip: the newest thing made.
+                import drafts
+                line = drafts.news(run, args.engine_dir)
+                steps.append("Once the next step is started, end your turn on it, then this line, unchanged, and nothing "
+                             "else: %s The chip names the step that starts, so no line of yours names it again." % (
+                                 line or 'nothing; the chip is enough.'))
             task_list = None
             if shown and args.kind in TASK_MOMENTS:
                 # A live run set the host's list once, at the start: no step ever showed under way or its estimate. Each

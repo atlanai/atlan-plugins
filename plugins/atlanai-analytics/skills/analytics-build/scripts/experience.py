@@ -202,9 +202,10 @@ def _context_items(reader, state):
                     sql = examples[0].get('sql')
             calculation, calculation_note = _sql(definition.get('formula') or definition.get('sql'), 'Calculation')
             sql, sql_note = _sql(sql)
-            review_label = {'verified': 'Source review recorded', 'reviewed': 'Source review recorded', 'needs_review': 'Source review required',
-                            'unreviewed': 'Source review pending', 'rejected': 'Source review rejected',
-                            'not_recorded': 'Source review not recorded'}[review]
+            # In the person's words, as the side page says it: a fresh reader of h9 could not tell what "source review" was.
+            review_label = {'verified': 'Marked as reviewed', 'reviewed': 'Marked as reviewed',
+                            'needs_review': 'Worth a read before you rely on it', 'unreviewed': 'Worth a read before you rely on it',
+                            'rejected': 'Rejected on review', 'not_recorded': 'Worth a read before you rely on it'}[review]
             evidence_notes = ['Execution: ' + (LABELS[execution] if execution != 'not_recorded' else 'not recorded for this revision'),
                               'Review: ' + review_label, 'Dashboard value parity: unmeasured',
                               'Publication: ' + ('saved in Atlan Trident' if status == 'released' else 'held' if status == 'held' else 'local')]
@@ -530,7 +531,7 @@ def handoff(model):
     if counts['held']:
         attention.append(f"{counts['held']} items need repair before publication.")
     if counts['review_required']:
-        attention.append(f"{counts['review_required']} queries need source review.")
+        attention.append(read_line(counts['review_required']))
     if total and not counts['executed']:
         attention.append('No execution check is recorded for the current definitions.')
     if total:
@@ -556,6 +557,12 @@ def _code(value):
     return fence + 'sql\n' + value + '\n' + fence
 
 
+def read_line(n):
+    """The queries the engine marked for a person's read, in plain words: "5 queries need source review" beside a page
+    that said nothing of them read as a contradiction to a fresh reader of h9."""
+    return (f'{n} query is marked worth a read before you rely on it; the side page shows which and why.' if n == 1 else
+            f'{n} queries are marked worth a read before you rely on them; the side page shows which and why.')
+
 def render_chat(model, detail=False):
     counts, sample = model['counts'], model['sample']
     metrics = 'metric' if counts['metrics'] == 1 else 'metrics'
@@ -570,7 +577,7 @@ def render_chat(model, detail=False):
     if counts['held']:
         lines.append(f"{counts['held']} items need repair before publication.")
     if counts.get('review_required'):
-        lines.append(f"{counts['review_required']} queries need source review, separate from execution checks and publication holds.")
+        lines.append(read_line(counts['review_required']) + ' This is separate from the checks on the data.')
     if model.get('handoff', {}).get('coverage_notes'):
         lines.append(f"{model['handoff']['coverage_notes']} reused definitions have coverage limits retained in details.")
     intent = model.get('interaction', {}).get('intent', {})

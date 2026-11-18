@@ -60,11 +60,15 @@ class AnalyticsExperience(unittest.TestCase):
         self.assertEqual(model['counts']['held'], 0)
         self.assertEqual(model['counts']['released'], 0)
         item = model['items'][0]
-        self.assertIn('source review required', item['status_label'])
+        self.assertIn('worth a read before you rely on it', item['status_label'])
         self.assertEqual(item['checks']['parity'], 'unmeasured')
         self.assertIn('Shipping cost by region', '; '.join(item['provenance']))
         self.assertNotIn('h-example', '; '.join(item['provenance']))
-        self.assertIn('queries need source review', experience.render_chat(model))
+        # A fresh reader of h9: "The build marked 5 queries for a review of their sources" beside a page that said
+        # nothing of it. Said plainly, and the page shows which.
+        chat = experience.render_chat(model)
+        self.assertIn('1 query is marked worth a read before you rely on it; the side page shows which', chat)
+        self.assertNotIn('source review', chat)
 
     def test_query_review_count_includes_unreviewed_and_missing_without_losing_reviewed(self):
         for status, expected in [('unreviewed', 1), (None, 1), ('reviewed', 0), ('verified', 0)]:

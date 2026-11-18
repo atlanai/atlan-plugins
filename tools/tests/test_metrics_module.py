@@ -80,13 +80,16 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('`split`', cards['say'])
         # A live run said "still being written in the background" at every wake-up: 11 of its 22 lines. The desktop app
         # sends a turn that ends without words back for words, so each turn ends on a line with something new.
-        self.assertIn('the line `visual progress` gives with its chip, unchanged', describe['say'])
+        self.assertIn('the line the `visual` result gives with its chip, unchanged', describe['say'])
+        # Under a chip that said "Next: Combine duplicates" the agent wrote a Doing line saying it again (2026-11-18).
+        self.assertNotIn('Doing line', describe['say'])
+        self.assertIn('never a chip, the engine, a gate', describe['say'], 'command descriptions are the person\'s')
         # Live (h4), the watch ran as a background shell command, which never wakes the chat: no so-far chip came.
         self.assertIn('Monitor tool', describe['say'])
         self.assertIn('never that the step is still running', describe['say'])
         # A first-time reader of h3 stopped at "Cards accepted on first check. Now linking related metrics (9 pairs)",
         # "the structural check" and "a tiny wrapper script": the engine's results and counts, and the agent's tooling.
-        self.assertIn('named as the task list names it', describe['say'])
+        self.assertIn("a step's own chip names the step that starts", describe['say'])
         self.assertIn("never the engine's results or counts", describe['say'])
         self.assertIn('nor your own tooling', describe['say'])
         # Runs h1 and h6 started each gate's subagent in the foreground: the session waited on it, never ran the watch,

@@ -285,8 +285,9 @@ def _before_described(o):
                                    for c in o.get('group_by') or [] if isinstance(c, str))))
     if name.lower() in VAGUE:
         tables = _words(list(dict.fromkeys(table_name(t).lower() for t in o.get('tables') or [] if isinstance(t, str)))[:3])
-        said = VAGUE_SAID.get(name.lower(), 'A number')
-        return (said + (' by ' + by if by else '') + ', from ' + tables) if tables else ''
+        # A fresh reader of h9 could not tell what "A number by project, from crew, material orders and projects" asked.
+        said = VAGUE_SAID.get(name.lower())
+        return ((said + ' from ' if said else 'A question about ') + tables + (', by ' + by if by else '')) if tables else ''
     name = _spelled(name)
     return name[:1].upper() + name[1:] + (' by ' + by if by else '')
 
@@ -550,6 +551,15 @@ FLOW = {'described': 'Finding metrics, under way: next, the numbers each query w
         'rules': 'Definitions written. Next: test each one on the data.'}
 
 
+def title_of(kind, spec):
+    """A widget's title in the person's words, from what its chip says ("27_possible_metrics"): the app shows it, and
+    the agent's own read "fixit_define_progress_chip_3"."""
+    import re
+    shown = render(kind, spec, False) or ''
+    head = re.sub(r'[*_`]', '', (shown.strip().split('\n') or [''])[0]).split(' · ')[0]
+    words = re.sub(r'[^a-z0-9]+', '_', head.lower()).strip('_')
+    return words[:60].rstrip('_') or kind
+
 def _named(names, verb):
     """What a so-far chip leads with: up to three names when they fit a card's width, else the newest and how many
     more."""
@@ -581,7 +591,7 @@ def _so_far(s):
         # A number found in several queries is one row: the count says how many are different.
         distinct = len(s.get('items') or [])
         verb, what = ' found', (count(s['drafts'], 'possible metric') + (', %d different,' % distinct if 0 < distinct < s['drafts'] else '')
-                                + ' found in ' + of(s['queries_read'], s.get('queries_total'), 'query', 'queries') + '.') if s.get('drafts') else ''
+                                + ' found in %d of the %s read.' % (s.get('queries_with', s['queries_read']), count(s['queries_read'], 'query', 'queries'))) if s.get('drafts') else ''
     elif step == 'merge' and s.get('metrics'):
         verb, what = ' combined', count(s['metrics'], 'metric') + (' from %s' % count(s['drafts'], 'possible metric') if s.get('drafts') else '') + '.'
     elif step == 'define' and s.get('defined'):

@@ -515,6 +515,23 @@ class Questions(unittest.TestCase):
         margin_metric = next(m for m in made['metrics'] if m['name'] == 'Gross margin')
         self.assertIn('bi-q1', [s.get('id') for s in margin_metric['sources']], 'a metric opens the query it came from')
 
+    def test_a_query_marked_for_a_read_carries_its_notes(self):
+        # A fresh reader of h9 met "5 queries marked for a review of their sources" in the chat and "Needs a look 0" on
+        # the page. The engine marks a query `needs_review` with notes on what it does (its gotchas): the page shows both.
+        run = make_run(self.root, saved=False, local=True)
+        bi = json.loads((run / 'engine' / 'verified_queries.bi.json').read_text())
+        bi['objects'][0].update(label='needs_review', gotchas=['Returns blank rather than 0 when no job is late.'])
+        (run / 'engine' / 'verified_queries.bi.json').write_text(json.dumps(bi), encoding='utf-8')
+        (run / 'context' / 'queries.json').write_text(json.dumps([
+            {'name': 'q-margin', 'definition': {'question': 'What gross margin have we made?', 'review_status': 'unreviewed',
+                                                'extensions': {'metrics_agent': {'vq_id': 'bi-q1'}}}},
+            {'name': 'q-jobs', 'definition': {'question': 'How much went on rework?', 'review_status': 'verified',
+                                              'extensions': {'metrics_agent': {'vq_id': 'h-2'}}}}]), encoding='utf-8')
+        at(run, 'preview')
+        made = {q['id']: q for q in side_page.snapshot(run)['queries']}
+        self.assertEqual((made['bi-q1']['review'], made['bi-q1']['notes']), ('read', ['Returns blank rather than 0 when no job is late.']))
+        self.assertNotIn('review', made['h-2'])
+
     def test_a_warehouse_run_is_asked_where_its_context_lives(self):
         # A warehouse's checks run with its own read-only tool, so no verdict reaches the run's files: the save question
         # refused for good, and counting them would read "0/4 checked, 4 need a look".

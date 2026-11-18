@@ -85,8 +85,10 @@ Never use file names, helper names or query-shape counts in these lines. After r
 sources, add one sentence on what they revealed, such as which questions the analysts
 asked most. Never leave a minute with nothing new on screen; follow [progress](../../analytics-build/references/setup/progress.md):
 while subagents write the build, each step's chip and the side page are what is new, and each turn ends on one
-line with something new: the step's Doing line, or the line `visual progress` gives with its chip; never that a step is still running,
-or what will show and when.
+line with something new: the line the chip's `visual` result gives, unchanged, never a Doing line that repeats
+what a chip just said; never that a step is still running, or what will show and when. The Doing and Why pairs
+are for the moments above; the metric steps between Build and Check have their chips. The app shows each
+command's description: describe each as what it does for the person, never a chip, the engine or a gate.
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
 the steps, a question or an example. Use the firm's name. A name

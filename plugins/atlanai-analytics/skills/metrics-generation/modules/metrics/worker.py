@@ -274,11 +274,13 @@ def batch_progress(run, gate):
                     'app shows both names to the person): each line '
                     'it prints names the `visual` call that is due: the step\'s chip when a step ends, and '
                     'how far it has got every few minutes while batches land; run it and show what it gives, '
-                    'with no words of your own. Every turn ends on one line with something new: a step\'s start on '
-                    'its Doing line, named as the task list names it, with nothing about what will show or when, never '
-                    'the engine\'s results or counts (accepted, cards, pairs, a check\'s own name) nor your own tooling '
-                    '(scripts, retries, setup); a so-far turn on the line `visual progress` '
-                    'gives with its chip, unchanged; never that the step is still running. The side page shows each batch as it lands, so '
+                    'with no words of your own. Every turn ends on one line with something new: the line the `visual` '
+                    'result gives with its chip, unchanged (a step\'s own chip names the step that starts, so no line of '
+                    'yours names it again), never the engine\'s results or counts (accepted, cards, pairs, a check\'s own '
+                    'name) nor your own tooling (scripts, retries, setup), never that the step is still running. The app '
+                    'shows each command\'s description to the person: describe each as what it does for them ("Showing '
+                    'what\'s new", "Continuing the build"), never a chip, the engine, a gate, a folder or a record. The '
+                    'side page shows each batch as it lands, so '
                     'no batch goes in the chat. With no background subagent or watch, write the gate in '
                     'that session and run `visual next` once the gate is accepted.')}
 

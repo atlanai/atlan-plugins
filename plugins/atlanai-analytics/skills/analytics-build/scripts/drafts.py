@@ -108,7 +108,9 @@ def _propose(engine, files, targets):
     total = sum(len(t['queries']) for t in engine.json(engine.dir / 'x1_prompt.json').get('tasks', [])
                 if isinstance(t, dict) and isinstance(t.get('queries'), list))
     drafted = sum(len(r['metrics']) for r in statements if isinstance(r.get('metrics'), list))
-    counts = {'queries_read': read, 'queries_total': total, 'drafts': drafted}
+    # The queries that held a number, as the step's own chip counts them ("found in 25 of those 30 queries").
+    held = len({r.get('vq_id') for r in statements if isinstance(r.get('vq_id'), str) and r.get('metrics')})
+    counts = {'queries_read': read, 'queries_total': total, 'queries_with': held, 'drafts': drafted}
     progress = f'{read} of {total} queries read' if total else f'{read} queries read'
     if not names:
         return f"No metrics in {'this batch' if len(targets) == 1 else 'these batches'} ({progress}).", counts
@@ -341,6 +343,10 @@ def _news(engine):
             said = next((m.get('definition') for m in rows[::-1] if sentence(_text(m.get('name'), NAME_CHARS)) == name
                          and isinstance(m.get('definition'), str)), '')
         first = re.split(r'(?<=[.!?])\s+(?=[A-Z])', str(said or '').strip(), maxsplit=1)[0]
+        # The gist, without the engine's asides: the desktop run's line read "(task type matched ignoring case and
+        # trailing spaces)". A bracketed aside goes, and the sentence ends where its detail starts.
+        first = re.split(r'[:;]\s', re.sub(r'\s*\([^()]*\)', '', first), maxsplit=1)[0].rstrip(' .,') if first else ''
+        first = first + '.' if first else ''
         line = NEWS[gate][0] + name.rstrip('.') + '.' + (' ' + first if first else '')
     return line if len(line) <= 240 else line[:237].rsplit(' ', 1)[0] + '...'
 
