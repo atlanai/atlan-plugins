@@ -235,6 +235,22 @@ STEP_NAMES = {'m2': 'Describe each query', 'x1': 'Find draft metrics',
               'x2': 'Merge drafts, one per number', 'x3': "Write each metric's rule"}
 
 
+# The other authored gates, as the person would name them: short enough to write in the session that talks to them.
+OTHER_STEP_NAMES = {'a3b': "Check each tile's query", 'c3': "Write each tile's question", 'x4': 'Link related metrics'}
+
+
+def authored_step(gate):
+    """How an authored gate outside the batched steps is written, and its name in the person's words. Runs that
+    handed these to subagents the session waited on, named for the gate's id, kept waiting through the batched
+    steps too, so no chip came while they ran."""
+    if gate not in OTHER_STEP_NAMES:
+        return None
+    name = OTHER_STEP_NAMES[gate]
+    return {'name': name,
+            'say': (f'Write this gate in this session, as `{name}`; a subagent for it is started in the background and '
+                    f'named `{name}`, never one this session waits on: a waiting session shows the person nothing.')}
+
+
 def batch_progress(run, gate):
     """What the person sees while a batched gate is answered: each saved file on the side page as it lands, and
     in the chat, the step's chip when the step ends."""
@@ -248,17 +264,21 @@ def batch_progress(run, gate):
             'follow': command + ' --follow',
             'name': STEP_NAMES[gate],
             **shares,
-            'say': (f'A fresh subagent named `{STEP_NAMES[gate]}` writes this gate in numbered batch files and runs '
-                    'no drafts command'
+            'say': (f'A fresh subagent named `{STEP_NAMES[gate]}`, started in the background (never one this session '
+                    'waits on: a waiting session runs no watch and shows the person nothing), writes this gate in '
+                    'numbered batch files and runs no drafts command'
                     + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
                        'brief. ' if shares else '. ') +
-                    'The session that talks to the person runs `follow` as a background watch named `Following the '
-                    'build` (the app shows both names to the person): each line '
+                    'The session that talks to the person runs `follow` with the Monitor tool, named `Following the '
+                    'build` (a background shell command never wakes you, so its lines would never reach the person; the '
+                    'app shows both names to the person): each line '
                     'it prints names the `visual` call that is due: the step\'s chip when a step ends, and '
                     'how far it has got every few minutes while batches land; run it and show what it gives, '
                     'with no words of your own. Every turn ends on one line with something new: a step\'s start on '
-                    'its Doing line, with nothing about what will show or when; a so-far turn on the line the watch '
-                    'gives, unchanged; never that the step is still running. The side page shows each batch as it lands, so '
+                    'its Doing line, named as the task list names it, with nothing about what will show or when, never '
+                    'the engine\'s results or counts (accepted, cards, pairs, a check\'s own name) nor your own tooling '
+                    '(scripts, retries, setup); a so-far turn on the line `visual progress` '
+                    'gives with its chip, unchanged; never that the step is still running. The side page shows each batch as it lands, so '
                     'no batch goes in the chat. With no background subagent or watch, write the gate in '
                     'that session and run `visual next` once the gate is accepted.')}
 
@@ -321,6 +341,8 @@ def advance(run, runtime, model):
             progress = batch_progress(run, gate)
             if progress:
                 result['gate']['after_each_batch'] = progress
+            elif authored_step(gate):
+                result['gate'].update(authored_step(gate))
         result['feedback'] = last_stage_output(proc.stderr)
     else:
         result['reason'] = (blocked_reason(run)

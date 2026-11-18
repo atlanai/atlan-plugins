@@ -74,20 +74,42 @@ class InputStagingTests(unittest.TestCase):
             (run / 'run.json').write_text('{}')
             describe = self.worker().batch_progress(run / 'engine', 'm2')
             cards = self.worker().batch_progress(run / 'engine', 'x3')
-        self.assertIn('A fresh subagent named `Describe each query` writes this gate', describe['say'])
+        self.assertTrue(describe['say'].startswith('A fresh subagent named `Describe each query`'), describe['say'])
         self.assertNotIn('split', describe)
         self.assertTrue(cards['split'].endswith('split --engine-dir "engine"'), cards['split'])
         self.assertIn('`split`', cards['say'])
         # A live run said "still being written in the background" at every wake-up: 11 of its 22 lines. The desktop app
         # sends a turn that ends without words back for words, so each turn ends on a line with something new.
-        self.assertIn('the line the watch gives, unchanged', describe['say'])
+        self.assertIn('the line `visual progress` gives with its chip, unchanged', describe['say'])
+        # Live (h4), the watch ran as a background shell command, which never wakes the chat: no so-far chip came.
+        self.assertIn('Monitor tool', describe['say'])
         self.assertIn('never that the step is still running', describe['say'])
+        # A first-time reader of h3 stopped at "Cards accepted on first check. Now linking related metrics (9 pairs)",
+        # "the structural check" and "a tiny wrapper script": the engine's results and counts, and the agent's tooling.
+        self.assertIn('named as the task list names it', describe['say'])
+        self.assertIn("never the engine's results or counts", describe['say'])
+        self.assertIn('nor your own tooling', describe['say'])
+        # Runs h1 and h6 started each gate's subagent in the foreground: the session waited on it, never ran the watch,
+        # and showed no chip for 4 to 5 minutes at a time. h2, h3 and h4 started them in the background.
+        self.assertIn('started in the background', describe['say'])
+        self.assertIn('never one this session waits on', describe['say'])
         # The app shows a subagent's name to the person: live ones were "Describe past queries gate", "noop placeholder".
         import side_page
         self.assertEqual(describe['name'], side_page.WORK_NAME['describe'])
         self.assertEqual(cards['name'], side_page.WORK_NAME['rules'])
         self.assertIn('`%s`' % cards['name'], cards['say'])
         self.assertIn('`Following the build`', cards['say'])
+
+    def test_every_other_authored_step_is_named_in_words_and_never_waited_on(self):
+        # h1 and h6 handed the gates before "Describe each query" to foreground subagents named "Answer engine gate
+        # a3b" and "Answer engine gate c3": the app showed the gate ids, and the waiting pattern carried on.
+        for gate in ('a3b', 'c3', 'x4'):
+            step = self.worker().authored_step(gate)
+            self.assertNotIn(gate, step['name'])
+            self.assertIn('`%s`' % step['name'], step['say'])
+            self.assertIn('in this session', step['say'])
+            self.assertIn('never one this session waits on', step['say'])
+        self.assertIsNone(self.worker().authored_step('m2'), 'a batched step has its own instructions')
 
     def test_a_ready_runtime_names_its_own_python(self):
         # Live, the agent guessed the runtime's Python, guessed wrong, and the failed call stopped the side page.
@@ -101,6 +123,42 @@ class InputStagingTests(unittest.TestCase):
                 ready = driver._setup(root, [])
         self.assertTrue(ready['reused'])
         self.assertEqual(ready['python'], str(root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')))
+
+    def setup_with(self, works):
+        # Setup where the running Python cannot build the runtime's environment, and `works` says which others can.
+        built = []
+
+        def run(command, **kw):
+            if command[1:4] == ['-I', '-m', 'venv']:
+                built.append(command[0])
+                (Path(command[4]) / 'bin').mkdir(parents=True, exist_ok=True)
+                return subprocess.CompletedProcess(command, 0 if command[0] in works else 1)
+            return subprocess.CompletedProcess(command, 0, stdout='')
+        def fail(path):
+            path.mkdir(parents=True)
+            raise subprocess.CalledProcessError(1, ['ensurepip'])
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(driver.sys, 'version_info', (3, 12, 0)), \
+                mock.patch.object(driver.venv.EnvBuilder, 'create', side_effect=fail), \
+                mock.patch.object(driver, 'supported_pythons', return_value=[driver.sys.executable, '/opt/a/python3.12', '/opt/b/python3.11']), \
+                mock.patch.object(driver.subprocess, 'run', side_effect=run):
+            root = Path(tmp).resolve() / 'runtime'
+            result = driver._setup(root, [])
+            return result, built, sorted(p.name for p in root.iterdir() if p.name.startswith('venv'))
+
+    def test_setup_builds_the_runtime_with_the_next_python_when_one_cannot(self):
+        # Live, the Python 3.12 first on PATH (a standalone build) could not build the runtime's environment: the agent
+        # spent a minute trying others and told the person about each, and again in its closing message.
+        ready, built, kept = self.setup_with(works=['/opt/b/python3.11'])
+        self.assertEqual(ready['status'], 'ready')
+        self.assertEqual(built, ['/opt/a/python3.12', '/opt/b/python3.11'], 'the running Python is not tried twice')
+        self.assertEqual(kept, ['venv', 'venv.failed-1', 'venv.failed-2'], 'each failed attempt kept, never erased')
+
+    def test_setup_stops_once_no_python_can_build_the_runtime(self):
+        blocked, built, _ = self.setup_with(works=[])
+        self.assertEqual(blocked['status'], 'BLOCKED')
+        self.assertEqual(blocked['reason'], 'Python could not create the isolated runtime.')
+        self.assertEqual(len(built), 2)
 
     def test_capture_is_immutable_when_files_are_added_removed_or_changed(self):
         worker = self.worker()

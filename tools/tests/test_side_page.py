@@ -195,6 +195,19 @@ class Page(unittest.TestCase):
         self.assertNotIn('Saving', json.dumps(state))
         self.assertEqual([s['id'] for s in state['steps']], ['metrics'])
 
+    def test_a_metric_from_a_dashboard_tile_carries_the_tile_s_own_figure(self):
+        # Proof a first-time reader can check: the number the tile's own query returned, beside the metric's.
+        run = make_run(self.root)
+        metrics = json.loads((run / 'context' / 'metrics.json').read_text())
+        metrics[0]['definition']['provenance']['derived_from'] = ['bi-q1', 'h-1']
+        (run / 'context' / 'metrics.json').write_text(json.dumps(metrics), encoding='utf-8')
+        bi = json.loads((run / 'engine' / 'verified_queries.bi.json').read_text())
+        bi['objects'][0]['witness'] = {'result': 'pass', 'rows': 1, 'columns': ['gross_margin'], 'sample': [['118681.0']]}
+        (run / 'engine' / 'verified_queries.bi.json').write_text(json.dumps(bi), encoding='utf-8')
+        found = {m['name']: m for m in side_page.snapshot(run)['metrics']}
+        self.assertEqual(found['Gross margin']['tile'], {'name': 'Gross margin', 'value': '£118,681', 'same': True})
+        self.assertNotIn('tile', found['Rework cost'], 'made from past queries alone')
+
     def test_two_helper_calls_at_once_start_one_page(self):
         # Two parallel helper calls (each names the page through its reminder) started two servers and lost both.
         import threading

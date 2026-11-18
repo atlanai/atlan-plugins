@@ -372,7 +372,7 @@ class SideView(unittest.TestCase):
         metrics = self.nodes(self.doc(run), 'Metrics')
         self.assertEqual([(metrics[p]['n'], metrics[p].get('w')) for p in ('Run each metric on the data', 'Hold what needs a look')],
                          [('1 of 2', True), ('1 need a look', True)])
-        self.assertEqual(side_view.due(run), ['sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'build', 'context'])
+        self.assertEqual(side_view.due(run), ['sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context'])
         self.assertEqual(visuals.render('context', visuals.build_spec('context', run)),
                          '△ **3 ran cleanly** · 1 need a look · on your data')
 

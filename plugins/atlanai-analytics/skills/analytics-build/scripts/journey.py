@@ -173,7 +173,7 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
         intent[action] = answer
         saved['intent'] = intent
     elif action == 'agentic':
-        # The person chose "Make my dashboard agentic": the run shows the dashboard branch's seven items from now on.
+        # The person chose "Make my dashboard agentic": the run shows the dashboard branch's nine items from now on.
         saved['flow'] = 'dashboard'
     elif action in ('report', 'readiness'):
         if not isinstance(answer, str) or not answer.strip() or len(answer) > 1000:

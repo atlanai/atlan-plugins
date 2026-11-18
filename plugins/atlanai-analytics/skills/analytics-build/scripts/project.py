@@ -595,6 +595,10 @@ def _due(run, engine_dir=None):
     return out
 
 
+# The moments that end a metric step or the checks: each carries the host's task list as it now stands.
+TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
+
+
 def main():
     # Chips, cards and data files carry text such as '●', '£' and '−'; a console or pipe in another code page must not break them.
     for stream in (sys.stdout, sys.stdin):
@@ -795,9 +799,23 @@ def main():
                              "ask exactly what it prints. Print nothing before it. If you have a `show_widget` tool, run "
                              "this again with `--widget` and draw it instead." % deferred)
             if shown and args.kind == 'progress':
-                # A watch wakes the chat only to draw this: closed on a status line of its own, every chip got one.
-                steps.append("This chip is the whole update while the step runs: end your turn on it, with no line after "
-                             "it. The watch wakes you when more has landed, and again when the step ends.")
+                # A watch wakes the chat only to draw this: closed on a status line of its own, every chip got one. The
+                # desktop sends a turn that ends on a widget alone back for words, so the words come with the chip.
+                import drafts
+                line = drafts.news(run, args.engine_dir)
+                steps.append("This chip is the whole update while the step runs: end your turn on it, then this line, "
+                             "unchanged, and nothing else: %s The watch wakes you when more has landed, and again when the "
+                             "step ends." % (line or 'nothing; the chip is enough.'))
+            task_list = None
+            if shown and args.kind in TASK_MOMENTS:
+                # A live run set the host's list once, at the start: no step ever showed under way or its estimate. Each
+                # metric step's chip is the moment the agent acts, so the list moves with it.
+                import checklist
+                import experience
+                task_list = [{'content': s['content'], 'status': s['status']}
+                             for s in checklist.build(experience.snapshot(run, args.engine_dir))['steps']]
+                steps.append("Set the host's task list to `task_list`, each step's text and status as given, in the same "
+                             "message as the chip; a host with no task list skips this.")
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
             # A moment deferred to its question is recorded when that question is composed, so a skipped question
             # is named again by the next helper result. A step's so-far chip is drawn as often as the watch asks, and
@@ -814,7 +832,8 @@ def main():
                 steps.append(reminder)
             if steps:
                 print(('\n' if shown else '') + 'side view: ' + json.dumps(
-                    {'next': ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]])}, ensure_ascii=False))
+                    {'next': ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]]),
+                     **({'task_list': task_list} if task_list else {})}, ensure_ascii=False))
             return 0
         if args.command == 'question':
             import questions

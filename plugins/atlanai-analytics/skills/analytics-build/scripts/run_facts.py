@@ -410,6 +410,27 @@ class RunFacts:
         return {k: v for k, v in (('queries', read), ('tiles', tiles), ('questions', tiles + asked), ('metrics', metrics)) if v}
 
     @cached_property
+    def tile_figures(self):
+        """What each dashboard tile's own query returned when it ran on the data, by its id, as (tile name, number):
+        only a tile whose query returned one number."""
+        out = {}
+        for o in self.engine_file('verified_queries.bi.json').get('objects') or []:
+            w = o.get('witness') if isinstance(o, dict) and isinstance(o.get('witness'), dict) else {}
+            sample = w.get('sample')
+            if w.get('result') != 'pass' or not (isinstance(sample, list) and len(sample) == 1 and isinstance(sample[0], list)
+                                                 and len(sample[0]) == 1):
+                continue
+            try:
+                value = float(sample[0][0])
+            except (TypeError, ValueError):
+                continue
+            prov = o.get('provenance') if isinstance(o.get('provenance'), dict) else {}
+            bi = prov.get('bi') if isinstance(prov.get('bi'), dict) else {}
+            if bi.get('visual'):
+                out[o.get('vq_id')] = (sentence(str(bi['visual'])), value)
+        return out
+
+    @cached_property
     def context(self):
         """The context as checked: each metric's value, and how many items ran cleanly. Empty before the checks."""
         metrics, queries = self.file('context', 'metrics.json', kind=list), self.file('context', 'queries.json', kind=list)
@@ -433,6 +454,11 @@ class RunFacts:
                          'origin': 'tile' if any(from_dashboard(x) for x in derived or []) else 'queries',
                          'value': 'not run' if not ok else number(values[0][0] if values and values[0] else None, unit)
                          if len(values) == 1 else count(len(values), 'row')})
+            # Beside the dashboard's own figure, when the metric came from a tile whose query returned one number.
+            tile = next((self.tile_figures[x] for x in derived or [] if x in self.tile_figures), None)
+            if ok and tile and len(values) == 1:
+                shown = number(tile[1], unit)
+                rows[-1]['tile'] = {'name': tile[0], 'value': shown, 'same': shown == rows[-1]['value']}
         rows.sort(key=lambda r: r['origin'] != 'tile')
         metrics_ran = sum(r['ok'] for r in rows)
         queries_ran = sum(_passed(checks.get('sql_query:' + q['name']) or {}) for q in queries)

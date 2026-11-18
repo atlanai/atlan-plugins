@@ -9,7 +9,7 @@ demo never read it, and nothing here changes how metrics are generated.
 What the person should feel throughout: the build is moving, they can see each metric as it is
 made, and they can trust what they see. Every rule below serves that.
 
-## The checklist: seven items
+## The checklist: nine items
 
 Right after card 1, put these in the host's task list with item 1 in progress.
 `PROJECT checklist --flow dashboard` returns them before a run exists. Once the run exists,
@@ -20,11 +20,16 @@ record the branch with `PROJECT journey agentic`; from then on `PROJECT checklis
 | --- | --- | --- |
 | 1 | Pick report and pages | Yes |
 | 2 | Check what can be built | Only when a chosen tile or table would be left out |
-| 3 | Build metrics and queries | No |
-| 4 | Check against the dashboard | Yes: whether to run the checks |
-| 5 | Save or keep local | Yes |
-| 6 | Ask a question | Yes |
-| 7 | Build a page from the metrics (optional) | Yes |
+| 3 | Draft metrics from your sources | No |
+| 4 | Merge drafts, one metric per number | No |
+| 5 | Write each metric's rule | No |
+| 6 | Check against the dashboard | Yes: whether to run the checks |
+| 7 | Save or keep local | Yes |
+| 8 | Ask a question | Yes |
+| 9 | Build a page from the metrics (optional) | Yes |
+
+Items 3 to 5 are the build, ticked one by one as the engine finishes each part; each shows its time
+estimate once the count going into it is known ("about 4 min").
 
 - **Update the task list the moment an item ends**: in the same message as the call that ends
   it (`PROJECT journey report`, `PROJECT journey readiness`, the build's start, `PROJECT journey

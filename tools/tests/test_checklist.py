@@ -25,7 +25,11 @@ class Checklist(unittest.TestCase):
         self.tmp.cleanup()
 
     def steps(self):
-        return experience.snapshot(self.run)['checklist']
+        return checklist.build(experience.snapshot(self.run), compact=True)
+
+    def compact(self, result=None, run=None):
+        # A journey result's list, as the side view keeps it: the metrics item whole.
+        return checklist.build(experience.snapshot(run or self.run), compact=True)
 
     def progress(self, **state):
         self.run.write(self.run.root / 'progress.json', state)
@@ -36,7 +40,7 @@ class Checklist(unittest.TestCase):
         run.write(run.path, state)
 
     def test_initial_list_names_seven_build_steps(self):
-        rows = checklist.initial()
+        rows = checklist.initial(compact=True)
         self.assertEqual([r['content'] for r in rows], [
             'Clarify your use case', 'Survey your sources', 'Select tables and dashboards',
             'Generate and check metrics', 'Keep local or save to Atlan Trident', 'Ask a question', 'Build a dashboard'])
@@ -44,7 +48,7 @@ class Checklist(unittest.TestCase):
         self.assertEqual([r['id'] for r in rows if r['needs_you']], ['intent', 'scope', 'save', 'ask', 'dashboard'])
 
     def test_initial_demo_list_starts_with_demo_data(self):
-        rows = checklist.initial('demo')
+        rows = checklist.initial('demo', compact=True)
         self.assertEqual([r['content'] for r in rows], [
             'Choose and load demo data', 'Choose what to build from', 'Build and check metrics',
             'Keep local or save to Atlan Trident', 'Ask a question'])
@@ -76,7 +80,7 @@ class Checklist(unittest.TestCase):
         result = self.run.journey('demo')
         self.assertNotIn('business area', result['chat'])
         self.assertNotIn(result['continuation']['action'], ('choose-domain', 'choose-purpose'))
-        step = result['checklist']['steps'][0]
+        step = self.compact(result)['steps'][0]
         self.assertEqual((step['content'], step['status']), ('Choose and load demo data', 'in_progress'))
         self.bind(self.run)
         step = self.steps()['steps'][0]
@@ -94,9 +98,9 @@ class Checklist(unittest.TestCase):
                     run.journey('demo')
                 result = run.journey('keep-local')
                 self.assertEqual(result['continuation']['action'], 'explore-local')
-                self.assertEqual([r['status'] for r in result['checklist']['steps']],
+                self.assertEqual([r['status'] for r in self.compact(result, run)['steps']],
                                  ['completed'] * saved + ['in_progress'] + ['pending'] * (flow == 'build'))
-                self.assertEqual(result['checklist']['steps'][saved - 1]['content'], 'Kept on this machine')
+                self.assertEqual(self.compact(result, run)['steps'][saved - 1]['content'], 'Kept on this machine')
 
     def test_one_step_runs_at_a_time_with_real_counts(self):
         self.progress(stage='inspect', status='running', completed_items=1, total_items=3)
@@ -143,7 +147,7 @@ class Checklist(unittest.TestCase):
         result = self.steps()
         self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 5 + ['in_progress', 'pending'])
         self.assertEqual(({r['id']: r for r in result['steps']}['save']['content'], result['state']), ('Kept on this machine', 'running'))
-        self.assertEqual(self.run.journey('status')['checklist'], result)
+        self.assertEqual(self.compact(self.run.journey('status')), result)
 
     def test_a_recorded_source_choice_moves_the_tracker_to_the_build(self):
         fixture.seed_checked(self.run, 'checked')
@@ -154,7 +158,7 @@ class Checklist(unittest.TestCase):
         self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'])
 
     def test_initial_dashboard_list_has_its_own_seven_items(self):
-        rows = checklist.initial('dashboard')
+        rows = checklist.initial('dashboard', compact=True)
         self.assertEqual([r['content'] for r in rows], [
             'Pick report and pages', 'Check what can be built', 'Build metrics and queries', 'Check against the dashboard',
             'Save or keep local', 'Ask a question', 'Build a page from the metrics (optional)'])
@@ -163,18 +167,18 @@ class Checklist(unittest.TestCase):
 
     def test_dashboard_items_show_their_results_and_the_check_waits_only_when_it_changes_the_plan(self):
         self.progress(stage='inspect', status='running')
-        result = self.run.journey('agentic')['checklist']
+        result = self.compact(self.run.journey('agentic'))
         self.assertEqual((result['flow'], result['of']), ('dashboard', 7))
         first = result['steps'][0]
         self.assertEqual((first['id'], first['status'], first['needs_you']), ('scope', 'in_progress', True))
-        result = self.run.journey('report', answer='Sales pipeline:  Overview, Stages')['checklist']
+        result = self.compact(self.run.journey('report', answer='Sales pipeline:  Overview, Stages'))
         self.assertEqual(result['steps'][0]['content'], 'Pick report and pages: Sales pipeline: Overview, Stages')
         check = result['steps'][1]
         self.assertEqual((check['status'], check['needs_you']), ('in_progress', False), 'a check that finds nothing needs nobody')
-        check = self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date', waits=True)['checklist']['steps'][1]
+        check = self.compact(self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date', waits=True))['steps'][1]
         self.assertEqual((check['status'], check['needs_you']), ('in_progress', True))
         self.assertIn('18 of 25 tiles', check['active'])
-        result = self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date')['checklist']
+        result = self.compact(self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date'))
         self.assertEqual(result['steps'][1]['content'], 'Check what can be built: 18 of 25 tiles, stage list out of date')
         self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'],
                          'the build starts on its own: there is no confirm item')
@@ -212,14 +216,14 @@ class Checklist(unittest.TestCase):
         self.assertNotEqual({r['id']: r for r in self.steps()['steps']}['check']['status'], 'completed')
         with self.assertRaises(journey.JourneyError):
             self.run.journey('checks', answer='maybe')
-        steps = {r['id']: r for r in self.run.journey('checks', answer='skip')['checklist']['steps']}
+        steps = {r['id']: r for r in self.compact(self.run.journey('checks', answer='skip'))['steps']}
         self.assertEqual((steps['check']['status'], steps['check']['content']),
                          ('completed', 'Check against the dashboard: skipped, your choice'))
 
     def test_other_flows_keep_their_lists(self):
-        self.assertEqual(len(checklist.initial()), 7)
-        self.assertEqual(checklist.initial()[0]['content'], 'Clarify your use case')
-        self.assertEqual(len(checklist.initial('demo')), 5)
+        self.assertEqual(len(checklist.initial(compact=True)), 7)
+        self.assertEqual(checklist.initial(compact=True)[0]['content'], 'Clarify your use case')
+        self.assertEqual(len(checklist.initial('demo', compact=True)), 5)
         self.assertEqual(self.steps()['flow'], 'build')
 
     def test_command_reads_only_and_starts_before_a_run_exists(self):
@@ -235,9 +239,54 @@ class Checklist(unittest.TestCase):
         before = {str(p): p.read_bytes() for p in self.run.root.rglob('*') if p.is_file()}
         out = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run.root), 'checklist'], capture_output=True, text=True)
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual(len(json.loads(out.stdout)['steps']), 7)
+        self.assertEqual(len(json.loads(out.stdout)['steps']), 9, 'seven steps, metric generation as three')
         self.assertEqual(before, {str(p): p.read_bytes() for p in self.run.root.rglob('*') if p.is_file()})
 
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ThreeSteps(unittest.TestCase):
+    """Team review, 2026-11-18: metric generation is three steps in the host's own task list (draft, merge, write),
+    each with a time estimate fitted to measured runs, so the person sees the flow and how long it takes."""
+
+    def model(self, done=(), counts=None, flow='demo'):
+        return {'phase': {'code': 'build', 'status': 'working', 'label': 'Building', 'source': 'engine'},
+                'counts': {'metrics': 0, 'queries': 0, 'released': 0}, 'progress': {},
+                'interaction': {'flow': flow, 'mode': 'active', 'intent': {'domain': 'x', 'purpose': 'y'}},
+                'bound_tables': 5, 'engine': {'done': list(done), 'counts': counts or {}}}
+
+    def test_the_lists_show_three_metric_steps(self):
+        self.assertEqual([r['content'] for r in checklist.initial('demo')], [
+            'Choose and load demo data', 'Choose what to build from', 'Draft metrics from your sources',
+            'Merge drafts, one metric per number', 'Write and check each metric', 'Keep local or save to Atlan Trident',
+            'Ask a question'])
+        build = [r['content'] for r in checklist.initial('build')]
+        self.assertEqual(build[3:6], ['Draft metrics from your sources', 'Merge drafts, one metric per number',
+                                      'Write and check each metric'])
+        self.assertEqual([r['id'] for r in checklist.initial('dashboard')][2:5], ['draft', 'merge', 'write'])
+
+    def test_each_step_ticks_as_the_engine_finishes_it_with_its_count_and_estimate(self):
+        counts = {'m2_emit': {'queries': 30}, 'x1_ingest': {'proposals': 26}}
+        start = {r['id']: r for r in checklist.build(self.model((), counts))['steps']}
+        self.assertEqual((start['draft']['status'], start['draft']['content']),
+                         ('in_progress', 'Draft metrics from your sources (about 5 min)'))
+        # The list reaches the person when the queries are described (h8, 4.6 min): what is left is finding the numbers.
+        # Measured for 30 queries: 2.0, 1.9 and 2.0 min headless, 3.1 on the desktop; the whole step said "about 5".
+        rest = {r['id']: r for r in checklist.build(self.model(('m2_ingest',), counts))['steps']}
+        self.assertEqual(rest['draft']['content'], 'Draft metrics from your sources (about 2 min)')
+        rows = {r['id']: r for r in checklist.build(self.model(('m2_ingest', 'x1_ingest'), counts))['steps']}
+        self.assertEqual((rows['draft']['status'], rows['draft']['content']), ('completed', 'Draft metrics: 26 drafts'))
+        self.assertEqual((rows['merge']['status'], rows['merge']['content']),
+                         ('in_progress', 'Merge drafts, one metric per number (about 3 min)'))
+        self.assertEqual((rows['write']['status'], rows['write']['content']), ('pending', 'Write and check each metric'))
+        counts['x2_ingest'] = {'metrics_out': 9}
+        rows = {r['id']: r for r in checklist.build(self.model(('m2_ingest', 'x1_ingest', 'x2_ingest'), counts))['steps']}
+        self.assertEqual(rows['merge']['content'], 'Merge drafts: 9 metrics')
+        self.assertEqual(rows['write']['content'], 'Write and check each metric (about 7 min)')
+
+    def test_the_side_view_keeps_one_metrics_item(self):
+        rows = checklist.build(self.model(), compact=True)['steps']
+        self.assertIn('metrics', [r['id'] for r in rows])
+        self.assertFalse({'draft', 'merge', 'write'} & {r['id'] for r in rows})

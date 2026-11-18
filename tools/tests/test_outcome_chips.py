@@ -54,12 +54,46 @@ class Chips(unittest.TestCase):
     def test_each_build_step_says_what_it_produced_and_why_it_matters(self):
         # A person asked what "28 drafts became 10 metrics" or "+29 more in plain words" meant to them: each chip says what
         # the step produced in their terms, and its tail says why that matters.
-        self.assertEqual(self.show('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
-        self.assertEqual(self.show('tiles'), '▦ **2 dashboard tiles read** · each turned into a query')
-        self.assertEqual(self.show('described'), '❝ **4 queries in plain words** · so a question finds the right one')
-        self.assertEqual(self.show('metrics'), '◆ **2 metrics found** · one number, one rule')
-        self.assertEqual(self.show('rules'), '= **2 metrics defined** · what each number counts and leaves out')
+        first = lambda kind: self.show(kind).split('\n')[0]  # a metric step's second line places it in the three steps
+        self.assertEqual(first('group'), '» **2 questions your team asks** · found in 2 of your 3 past queries')
+        self.assertEqual(first('tiles'), '▦ **2 dashboard tiles read** · each turned into a query')
+        # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
+        self.assertEqual(first('described'), '❝ **4 queries in plain words** · your 2 questions and 2 dashboard tiles')
+        self.assertEqual(first('metrics'), '◆ **2 metrics found** · the 3 drafts, merged one per number')
+        self.assertEqual(first('rules'), '= **2 metrics defined** · what each number counts and leaves out')
         self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · Gross margin uses Rework cost')
+
+    def drafted(self):
+        manifest = self.run / 'engine' / 'manifest.json'
+        stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
+        for s in stages:
+            if s['stage'] == 'x1_ingest':
+                s['counts'] = {'answered': 4, 'proposals': 5, 'no_metric': 1}
+        write(manifest, {'stages': stages})
+        write(self.run / 'engine' / 'metric_proposals.json', {'proposals': [
+            {'proposal_id': 'h-%d#0' % i, 'vq_id': 'h-%d' % i, 'name': name} for i, name in enumerate(
+                ['Gross Margin', 'Gross Margin', 'Gross Margin', 'Rework Cost', 'Job Count'])]})
+
+    def test_the_draft_step_ends_on_its_own_milestone(self):
+        # Live (h2), the chat went 3.4 minutes from the queries described to the merge with nothing new: the draft step
+        # had no chip of its own.
+        self.drafted()
+        self.assertEqual(self.show('drafted').split('\n')[0], '◆ **5 draft metrics** · found in 3 of those 4 queries')
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span>in 3 queries</span>', self.show('drafted', widget=True))
+        import side_view
+        due = side_view.due(self.run)
+        self.assertLess(due.index('drafted'), due.index('metrics'))
+        self.assertLess(due.index('described'), due.index('drafted'))
+
+    def test_each_metric_step_names_its_task_list_step_and_what_comes_next(self):
+        # Team review: the chips show how the steps connect (draft, merge, write), with no progress bar.
+        self.drafted()
+        # A first-time reader: "the seven-step list never matched the Step 1 of 3 chips". The chips name the list's steps.
+        for kind, start in (('described', 'Draft metrics, under way: next,'), ('drafted', 'Done: Draft metrics. Next: Merge drafts'),
+                            ('metrics', 'Done: Merge drafts. Next: Write and check'), ('rules', 'Rules written. Next in Write and check')):
+            lines = self.show(kind).split('\n')
+            self.assertTrue(len(lines) > 1 and lines[1].strip().startswith(start), (kind, lines))
+            self.assertIn(start, self.show(kind, widget=True))
 
     def test_each_build_step_opens_to_what_it_did_and_what_it_produced(self):
         # Where the host draws widgets, a chip opens with no script: one sentence on what the step did, then its list.
@@ -140,6 +174,50 @@ class Chips(unittest.TestCase):
         self.assertEqual(self.show('context', failing), '△ **3 ran cleanly** · 1 need a look · on your data')
         demo = make_run(self.root / 'demo', demo=True)
         self.assertEqual(self.show('context', demo, data=[facts()]), "✓ **Every metric and query ran** · on Fixit's data · Gross margin £118,681")
+
+    def test_a_demo_s_chips_name_the_firm_never_the_person(self):
+        # The demo's welcome says "Made-up data; nothing of yours is touched"; a fresh reader of h8 then met "your 110 past
+        # queries", "your team's words" and "each number your team uses": a contradiction. Own data keeps "your".
+        demo = make_run(self.root / 'demo', demo=True)
+        shown = 0
+        for kind in ('group', 'described', 'drafted', 'metrics', 'context'):
+            for widget in (False, True):
+                said = self.show(kind, demo, widget=widget, data=[facts()])
+                if said:
+                    shown += 1
+                    self.assertNotRegex(said, r'\b[Yy]our\b', (kind, widget))
+        self.assertGreaterEqual(shown, 8)
+        self.assertIn('your', self.show('described', widget=True), 'own data is the person\'s')
+
+    def tiled(self, run, figure):
+        # Gross margin made from the dashboard's Gross margin tile, whose own query returned `figure` on the data.
+        metrics = json.loads((run / 'context' / 'metrics.json').read_text())
+        metrics[0]['definition']['provenance']['derived_from'] = ['bi-q1', 'h-1']
+        write(run / 'context' / 'metrics.json', metrics)
+        bi = json.loads((run / 'engine' / 'verified_queries.bi.json').read_text())
+        bi['objects'][0]['witness'] = {'result': 'pass', 'rows': 1, 'columns': ['gross_margin'], 'sample': [[figure]]}
+        write(run / 'engine' / 'verified_queries.bi.json', bi)
+
+    def test_the_checks_chip_sets_each_number_beside_its_dashboard_tile(self):
+        # A first-time reader of a live run never saw the dashboard's own figure beside the agent's: nothing showed why
+        # to trust either. Across 40 earlier runs, 151 of 159 such pairs matched and 8 did not.
+        self.tiled(self.run, '118681.0')
+        self.assertEqual(self.show('context'), '✓ **Every metric and query ran** · on your data · Gross margin £118,681\n'
+                                               '  The dashboard\u2019s own formula for its Gross margin tile gives the same.')
+        detail = self.show('context', widget=True).split('</summary>', 1)[1]
+        self.assertIn("Each metric\u2019s rule ran on your data and returned a number.", detail)
+        # The dashboard file holds each tile's formula, not the number it shows (a Power BI template has no data): the
+        # comparison says so, so a reader does not take it for the figure on the screen.
+        self.assertIn('not the number it shows', detail)
+        self.assertIn('<b style="font-weight:400">Gross margin</b><span>£118,681</span><em>Same as the dashboard\u2019s '
+                      'formula for its Gross margin tile</em>', detail)
+        self.assertIn('<b style="font-weight:400">Rework cost</b><span>£33,800</span>', detail)
+
+    def test_a_number_that_differs_from_its_tile_says_so(self):
+        self.tiled(self.run, '117000.0')
+        self.assertEqual(self.show('context').split('\n')[1],
+                         '  Gross margin differs from its dashboard tile\u2019s formula: £117,000.')
+        self.assertIn('<em>The dashboard\u2019s formula for its Gross margin tile gives £117,000</em>', self.show('context', widget=True))
 
     def test_no_chip_repeats_what_the_person_already_sees(self):
         # A live desktop run drew "Kept on this machine" right after the person chose it, the layout its question then
@@ -233,8 +311,26 @@ class Chips(unittest.TestCase):
         detail = self.show('group', widget=True).split('</summary>', 1)[1]
         rows = re.findall(r'<b style="font-weight:400">([^<]*)</b><span>([^<]*)</span>', detail)
         self.assertEqual(rows, [('On time rate', '2 queries, run 39 times'),
-                                ('A number by project id, from projects and work logs', 'run 34 times'),
+                                ('A number by project, from projects and work logs', 'run 34 times'),
                                 ('On time rate by project type', 'run 14 times')])
+
+    def test_before_the_queries_are_described_their_short_names_are_spelled_out(self):
+        # A first-time reader of a live run stopped at "Waste pct", "Rework cost gbp by project name" and "A number by
+        # project id": column shorthand they were never taught.
+        def query(vid, name, by, runs):
+            return {'vq_id': vid, 'question': name, 'group_by': by, 'tables': ['SITE.SITE.PROJECTS'],
+                    'provenance': {'lane': 'history', 'history': {'n_exec': runs, 'n_distinct_users': 1}}}
+        write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {}})
+        write(self.run / 'engine' / 'verified_queries.history.json', {'objects': [
+            query('h-1', 'waste_pct', ['material'], 50), query('h-2', 'rework_cost_gbp', ['project_name'], 40),
+            query('h-3', 'billable_utilisation', ['crew_name', 'month_dt'], 30), query('h-4', 'avg_job_value', [], 20),
+            query('h-5', 'num_jobs', ['site_id'], 15), query('h-6', 'total', ['project_id'], 10),
+            query('h-7', 'cnt', [], 5), query('h-8', 'qty_delivered', ['yr'], 4)]})
+        detail = self.show('group', widget=True).split('</summary>', 1)[1]
+        rows = [r for r, _ in re.findall(r'<b style="font-weight:400">([^<]*)</b><span>([^<]*)</span>', detail)]
+        self.assertEqual(rows, ['Waste percentage by material', 'Rework cost by project', 'Billable utilisation by crew and month',
+                                'Average job value', 'Number of jobs by site', 'A total by project, from projects',
+                                'A count, from projects', 'Quantity delivered by year'])
 
     def test_a_step_the_engine_refused_has_not_finished(self):
         manifest = self.run / 'engine' / 'manifest.json'
@@ -247,7 +343,7 @@ class Chips(unittest.TestCase):
             {'name': 'Gross Margin', 'description': 'Jobs that made money (excl. cancelled jobs, e.g. quotes). Not the rest.'}]})
         self.assertIn('Jobs that made money (excl. cancelled jobs, e.g. quotes).', self.show('rules', widget=True))
 
-    def test_every_chip_fits_one_terminal_line(self):
+    def test_every_chip_line_fits_a_terminal(self):
         long = 'What share of the delivered material value ended up wasted on the jobs that finished late this year?'
         write(self.run / 'engine' / 'sql_descriptions.json', {'descriptions': {'h-1': {'question': long}}})
         write(self.run / 'engine' / 'metric_cards.json', {'cards': [{'name': 'Gross Margin', 'description': 'Contract value ' + 'less a cost ' * 12 + '.'}]})
@@ -255,8 +351,8 @@ class Chips(unittest.TestCase):
             {'from': 'Delivered Material Waste Rate', 'to': 'Delivered Material Waste', 'relation': 'derivation', 'role': 'numerator'},
             {'from': 'Delivered Material Waste Rate', 'to': 'Delivered Materials Cost', 'relation': 'derivation', 'role': 'denominator'}]})
         for kind in BUILD_STEPS + ('sources',):
-            line = self.show(kind).replace('**', '')
-            self.assertLessEqual(len(line), 76, (kind, line))
+            for line in self.show(kind).replace('**', '').split('\n'):
+                self.assertLessEqual(len(line), 76, (kind, line))
         self.assertIn(long, self.show('described', widget=True), 'whole in the list, which wraps')
 
     def test_the_question_shown_is_one_that_fits_whole(self):
@@ -326,7 +422,7 @@ class Due(unittest.TestCase):
         self.assertIn('`visual next` again', first, 'more is due')
         second = self.project('visual', 'next')
         self.assertTrue(second.startswith('▦ **2 dashboard tiles read**'), second)
-        for _ in range(4):
+        for _ in range(5):  # described, drafted, metrics, rules, links
             self.project('visual', 'next')
         self.assertNotIn('group', side_view.due(self.run))
         widget = self.project('visual', 'next', '--widget')
@@ -394,29 +490,40 @@ class SoFar(unittest.TestCase):
         self.assertEqual(self.show(), '')
         self.assertEqual(self.show(widget=True), '')
 
-    def test_each_step_says_how_far_what_it_is_doing_and_why(self):
-        # It lands mid-step, after minutes of quiet: the count, what the step is doing, then a line on why it matters.
+    def test_each_step_leads_with_its_newest_thing_then_how_far_and_why(self):
+        # It lands mid-step, after minutes of quiet. Led by its count ("8 of 30 queries", "1 metric so far", "5 of 8
+        # metrics"), a first-time reader said it "felt like watching a counter": the newest thing it made leads, by name.
         import drafts
         self.describe()
-        self.assertEqual(self.show(), '❝ **2 of 4 queries** · putting them in plain words\n'
-                                      '  Each query gets the question it answers, so the agent finds it when asked.')
+        self.assertEqual(self.show(), '❝ **Rework cost by month** in plain words · 2 of 4 queries so far\n'
+                                      '  Draft metrics: each query gets the question it answers.')
         self.assertEqual(drafts.counts(self.run, 'm2'), {'described': 2, 'total': 4}, 'the side page counts the same batches')
         self.batch('m2', '02.json', {'queries': [{'vq_id': 'bi-q1', 'name': 'Gross Margin'}]})
-        self.assertTrue(self.show().startswith('❝ **3 of 4 queries** · putting them in plain words\n'), self.show())
+        self.assertTrue(self.show().startswith('❝ **Gross margin** in plain words · 3 of 4 queries so far\n'), self.show())
         write(self.run / 'engine' / 'x1_prompt.json', QUERIES)
         self.batch('x1', '01.json', {'statements': [
             {'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}]},
             {'vq_id': 'h-2', 'verdict': 'metrics', 'metrics': [{'name': 'Rework Cost'}, {'name': 'Rework Hours'}]}]})
-        self.assertEqual(self.show(), '◆ **2 of 4 queries** · finding the numbers they measure\n'
-                                      '  Every number a query works out could become a metric your team asks for.')
+        self.assertEqual(self.show(), '◆ **Rework hours** found · 3 draft metrics so far, from 2 of 4 queries\n'
+                                      '  Draft metrics: every number a query works out could be a metric.')
         self.batch('x2', '01.json', {'metrics': [{'name': 'Gross Margin', 'sources': ['h-1#0']},
                                                  {'name': 'Rework Cost', 'sources': ['h-2#0', 'h-2#1']}]})
-        self.assertEqual(self.show(), '◆ **2 metrics so far** · combining 3 possible ones, one per number\n'
-                                      '  The same number found in many queries becomes one metric, with one rule.')
+        self.assertEqual(self.show(), '◆ **Rework cost** merged · 2 metrics so far, from 3 drafts\n'
+                                      '  Merge drafts: the same number from many queries becomes one metric.')
         write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 2, 'tasks': []})
         self.batch('x3', '001.json', {'metrics': [{'name': 'Gross Margin', 'description': 'What the jobs kept. The headline.'}]})
-        self.assertEqual(self.show(), '= **1 of 2 metrics** · writing what each one counts and leaves out\n'
-                                      '  So the agent works out each number the same way every time you ask.')
+        self.assertEqual(self.show(), '= **Gross margin** written · 1 of 2 metrics so far\n'
+                                      '  Write and check: so each number is worked out the same way every time.')
+
+    def test_a_long_name_keeps_the_count_in_view(self):
+        # The count is how far the step has got: a long name gives way before it does.
+        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 12, 'tasks': []})
+        self.batch('x3', '001.json', {'metrics': [{'name': 'Average contract value of completed residential extension '
+                                                           'jobs per quarter', 'description': 'Per job.'}]})
+        line = self.show().split('\n')[0]
+        self.assertLessEqual(len(line.replace('**', '')), 76, line)
+        self.assertTrue(line.endswith(' written · 1 of 12 metrics so far'), line)
+        self.assertTrue(line.startswith('= **Average contract value'), line)
 
     def test_its_reason_shows_without_opening_and_opens_to_the_newest_first(self):
         names = ['Gross Margin', 'Rework Cost', 'Labour Cost', 'Material Cost', 'Contract Value', 'Late Jobs', 'On-Time Rate',
@@ -428,7 +535,7 @@ class SoFar(unittest.TestCase):
         self.assertIn('<details', html)
         self.assertNotIn('<script', html)
         summary, detail = html.split('</summary>', 1)
-        self.assertIn('<span class="ws">So the agent works out each number the same way every time you ask.</span>', summary)
+        self.assertIn('<span class="ws">Write and check: so each number is worked out the same way every time.</span>', summary)
         self.assertIn('class="oc two"', summary, 'the chip lays its reason out on a second row')
         self.assertNotIn('class="mt"', detail, 'opened, it does not say the reason again')
         self.assertIn('Crew hours', detail, 'the newest first')
@@ -446,11 +553,12 @@ class SoFar(unittest.TestCase):
         steps.append(self.show(widget=True))
         self.batch('x2', '01.json', {'metrics': [{'name': 'Gross Margin', 'sources': ['h-1#0']}]})
         steps.append(self.show(widget=True))
-        for reason, name, html in zip(('Each query gets', 'Every number a query', 'The same number found'),
+        for reason, name, html in zip(('Draft metrics: each query', 'Draft metrics: every number', 'Merge drafts: the same number'),
                                       ('Margin by job', 'Gross margin', 'Gross margin'), steps):
             self.assertIn('<span class="ws">' + reason, html)
             self.assertIn(name, html)
-            for internal in ('vq_id', 'h-1', 'bi-q1', 'x1', 'm2', 'proposal', 'draft'):
+            # "Draft" is the task list's own step and a metric's first state (team decision, 2026-11-18), not engine talk.
+            for internal in ('vq_id', 'h-1', 'bi-q1', 'x1', 'm2', 'proposal'):
                 self.assertNotIn(internal, html, (reason, internal))
 
     def test_a_so_far_chip_is_the_whole_turn(self):
@@ -463,6 +571,22 @@ class SoFar(unittest.TestCase):
                                   env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
             self.assertIn('end your turn on it', done.stdout, flags)
             self.assertIn('watch wakes you', done.stdout, flags)
+            # The desktop sends a turn that ends on a widget alone back for words: the watch's news line closes it.
+            self.assertIn('then this line, unchanged, and nothing else: ', done.stdout, flags)
+            self.assertNotIn('no line after it', done.stdout, flags)
+
+    def test_the_line_to_end_on_comes_with_the_chip_and_names_what_it_names(self):
+        # h8 at 13.6 drew "Delivered materials cost written" over the watch's older line "Newest rule: Project labour
+        # cost": the watch wrote its line, another rule landed, then the chip was drawn. Both now come from one call.
+        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 3, 'tasks': []})
+        self.batch('x3', '001.json', {'metrics': [{'name': 'Gross Margin', 'description': 'What the jobs kept. More.'}]})
+        self.batch('x3', '002.json', {'metrics': [{'name': 'Rework Cost', 'description': 'Labour on snags. More.'}]})
+        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress'],
+                              capture_output=True, text=True, encoding='utf-8', timeout=60,
+                              env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
+        self.assertTrue(done.stdout.startswith('= **Rework cost** written'), done.stdout)
+        side = json.loads(done.stdout.split('side view: ', 1)[1])
+        self.assertIn('then this line, unchanged, and nothing else: Newest rule: Rework cost. Labour on snags.', side['next'])
 
     def test_a_step_already_accepted_draws_no_so_far_chip(self):
         # Drawn after its step ended, a so-far chip said a finished step was still "finding the numbers".
@@ -480,7 +604,7 @@ class SoFar(unittest.TestCase):
             {'vq_id': 'h-2', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}, {'name': 'Rework Cost'}]},
             {'vq_id': 'bi-q1', 'verdict': 'metrics', 'metrics': [{'name': 'gross margin'}]}]})
         html = self.show(widget=True)
-        self.assertIn('4 possible metrics found', html)
+        self.assertIn('4 draft metrics found', html)
         self.assertIn('<b style="font-weight:400">Gross margin</b><span>found 3 times</span>', html)
         self.assertIn('<b style="font-weight:400">Rework cost</b><span></span>', html)
         described = make_run(self.root / 'd')
@@ -497,13 +621,13 @@ class SoFar(unittest.TestCase):
         self.assertEqual(len(lines), 2)
         for line in lines:
             self.assertLessEqual(len(line.replace('**', '')), 76, line)
-        self.assertTrue(lines[0].startswith('◆ **1,234 metrics so far** · combining'), lines[0])
+        self.assertTrue(lines[0].startswith('◆ **Metric 1233** merged · 1,234 metrics so far'), lines[0])
 
     def test_a_demo_a_local_run_and_a_warehouse_draw_it_the_same(self):
         for run, data in ((make_run(self.root / 'demo', demo=True), [facts()]), (make_run(self.root / 'l', saved=False, local=True), []),
                           (make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True}), [])):
             self.describe(run)
-            self.assertTrue(self.show(run, data=data).startswith('❝ **2 of 4 queries** · putting them in plain words\n'))
+            self.assertTrue(self.show(run, data=data).startswith('❝ **Rework cost by month** in plain words · 2 of 4 queries'))
             self.assertIn('<details', self.show(run, widget=True, data=data))
 
     def test_the_helper_draws_it_without_recording_it_or_naming_it_due(self):
@@ -512,7 +636,7 @@ class SoFar(unittest.TestCase):
         done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress'],
                               capture_output=True, text=True, encoding='utf-8', timeout=60, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
         self.assertEqual(done.stderr, '')
-        self.assertTrue(done.stdout.startswith('❝ **2 of 4 queries** · putting them in plain words'), done.stdout)
+        self.assertTrue(done.stdout.startswith('❝ **Rework cost by month** in plain words'), done.stdout)
         self.assertIn('start your very next message with it', done.stdout)
         self.assertNotIn('progress', side_view.seen(self.run))
         self.assertNotIn('progress', side_view.due(self.run))

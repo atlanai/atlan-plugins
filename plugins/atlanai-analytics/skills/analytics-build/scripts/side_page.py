@@ -446,6 +446,10 @@ def details(f):
         unit = RunFacts.unit_of(ctx) if ctx else str(m.get('unit') or '')
         v = verdicts.get('metric:' + str(ctx.get('name') or m['name']))
         value = _checked_value(v, unit)
+        # Beside the dashboard's own figure: the number its tile's query returned, when it returned one.
+        derived = (d.get('provenance') or {}).get('derived_from') if isinstance(d.get('provenance'), dict) else []
+        tile = next((f.tile_figures[x] for x in derived or [] if x in f.tile_figures), None) if value else None
+        tile = {'name': tile[0], 'value': number(tile[1], unit), 'same': number(tile[1], unit) == value} if tile else None
         description = ctx.get('description') or card.get('description')
         metrics.append({k: x for k, x in (
             ('name', sentence(ctx.get('display_name') or card.get('display_name') or m['name'])),
@@ -461,7 +465,8 @@ def details(f):
             ('from', _merged_from(sources, drafts, m['name'])),
             ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over and ctx else waiting if checking
              else 'final' if ruled or description else 'merged'),
-            ('value', value), ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and ctx and not v else None),
+            ('value', value), ('tile', tile),
+            ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and ctx and not v else None),
             # Where the metric is in its life, apart from its check: the page's badge.
             ('stage', 'final' if ruled or description else 'merged'),
             ('type', _type_of(d, card, m['name'])),

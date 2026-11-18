@@ -134,19 +134,43 @@ SUPPORTED_PYTHON = ((3, 12), (3, 11))
 DISPATCHER = Path(__file__).resolve().parents[2] / 'scripts' / 'analytics_agent.py'
 
 
-def supported_python():
-    """A Python on PATH the pinned runtime is built with (its wheels are pinned per version),
-    or None. A machine's default `python3` may be newer than any of them."""
+def supported_pythons():
+    """Each Python on PATH the pinned runtime is built with (its wheels are pinned per version), in
+    order of preference. A machine's default `python3` may be older or newer than any of them."""
     import shutil  # noqa: PLC0415
+    found = []
     for major, minor in SUPPORTED_PYTHON:
-        found = shutil.which(f'python{major}.{minor}')
-        if not found:
+        path = shutil.which(f'python{major}.{minor}')
+        if not path:
             continue
-        probe = subprocess.run([found, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
+        probe = subprocess.run([path, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
                                capture_output=True, text=True, timeout=30)
         if probe.returncode == 0 and probe.stdout.strip() == str((major, minor)):
-            return found
-    return None
+            found.append(path)
+    return found
+
+
+def supported_python():
+    """The first Python on PATH the pinned runtime is built with, or None."""
+    return next(iter(supported_pythons()), None)
+
+
+def _venv_with_another(root):
+    """A standalone Python build (as some installers ship) can fail to build the runtime's own
+    environment. Build it with the next supported Python on this machine instead, so the agent
+    never has to: True once one has. Each failed attempt is kept beside it, never erased, and
+    no child's output is kept."""
+    current = os.path.realpath(sys.executable)
+    for other in supported_pythons():
+        if os.path.realpath(other) == current:
+            continue
+        if (root / 'venv').exists():
+            kept = next(root / f'venv.failed-{n}' for n in range(1, 100) if not (root / f'venv.failed-{n}').exists())
+            (root / 'venv').rename(kept)
+        if subprocess.run([other, '-I', '-m', 'venv', str(root / 'venv')], stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL).returncode == 0:
+            return True
+    return False
 
 
 def _python(root):
@@ -178,12 +202,13 @@ def _setup(root, features):
     except subprocess.CalledProcessError as exc:
         # Child diagnostics can contain private environment or package-registry data.
         # Preserve the failed directory, but expose neither the command nor its output.
-        return {'status': 'BLOCKED', 'reason': 'Python could not create the isolated runtime.',
-                'bootstrap_error': {'type': 'CalledProcessError',
-                                    'exit_code': exc.returncode if type(exc.returncode) is int else None},
-                'runtime': str(root),
-                'fix': 'Use another approved Python 3.11 or 3.12 interpreter and a new durable runtime directory. '
-                       'The failed directory is preserved.'}
+        if not _venv_with_another(root):
+            return {'status': 'BLOCKED', 'reason': 'Python could not create the isolated runtime.',
+                    'bootstrap_error': {'type': 'CalledProcessError',
+                                        'exit_code': exc.returncode if type(exc.returncode) is int else None},
+                    'runtime': str(root),
+                    'fix': 'Use another approved Python 3.11 or 3.12 interpreter and a new durable runtime directory. '
+                           'The failed directory is preserved.'}
     python = _python(root)
     constraints = str(source / 'constraints.txt')
     commands = [[str(python), '-m', 'pip', '--quiet', '--disable-pip-version-check', 'install', '-c', constraints, '--only-binary=:all:',

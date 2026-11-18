@@ -199,7 +199,8 @@ def counts(root, gate, engine_dir=None):
 
 def _items(engine, gate, files):
     """What a gate's batches hold, in the order they were saved, so a list of them adds up to the step's count: each
-    query described, each possible metric once with how many times it was found, each metric with a definition's text."""
+    query described with the question it answers, each draft metric once with how many times it was found, each metric
+    with a definition's text."""
     first = {}
     if gate == 'x1':
         for name in [n for p in files for n in _metric_names(engine, p) if n]:
@@ -208,8 +209,11 @@ def _items(engine, gate, files):
     for r in [r for p in files for r in engine.rows(p, 'queries' if gate == 'm2' else 'metrics')]:
         name = _text(r.get('name'), NAME_CHARS)
         key = r.get('vq_id') if gate == 'm2' and isinstance(r.get('vq_id'), str) else name.lower()
+        question = r.get('question')
+        question = question[0] if isinstance(question, list) and question else question
         if name:
-            first.setdefault(key, [name, _text(r.get('description'), 600) if gate == 'x3' else ''])
+            first.setdefault(key, [name, _text(r.get('description'), 600) if gate == 'x3' else
+                                   _text(question, 300) if gate == 'm2' else ''])
     return list(first.values())
 
 
@@ -278,28 +282,44 @@ def latest(root, engine_dir=None):
 
 # The steps whose end the chat shows as a chip: queries described, drafts merged, metrics defined. Their batches show on
 # the side page as they land, never in the chat.
-WAKES = ('m2_ingest', 'x2_ingest', 'x3_ingest')
+WAKES = ('m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
 DUE = ("Due: run this helper's `visual next` before going on, with the flags of every `visual` call (`--data` for a demo, "
        "`--widget` where you have `show_widget`).")
 # A step can run for many minutes: while its batches land, the chat hears how far it has got this often.
-SO_FAR_SECONDS = 150
+SO_FAR_SECONDS = 60
 SO_FAR = ("Due: run this helper's `visual progress` before going on, with the flags of every `visual` call (`--data` for a "
           "demo, `--widget` where you have `show_widget`)")
-NEWS = {'x3': 'Newest rule: ', 'x2': 'Newest metric: ', 'x1': 'Newest possible metric: ', 'm2': 'Newest in plain words: '}
+NEWS = {'x3': ('Newest rule: ', ''), 'x2': ('Newest metric: ', 'Newest metrics: '),
+        'x1': ('Newest draft metric: ', 'Newest draft metrics: ')}
 
 
 def _news(engine):
     """The words a so-far turn ends on: the desktop app sends a turn that ends on a widget alone back for words, so they
-    name the newest thing that landed, and a rule's first sentence, instead of saying the step is still running."""
+    add to the chip, which leads with the newest thing by name: the question a described query answers, the newest
+    names, a rule's first sentence. Never that the step is still running."""
     import re
+    from run_facts import sentence
     under = _under_way(engine)
-    items = _items(engine, under[0], under[3]) if under else []
+    items = [[sentence(n), d] for n, d in _items(engine, under[0], under[3])] if under else []
     if not items:
         return ''
-    name, said = items[-1]
-    first = re.split(r'(?<=[.!?])\s', str(said or '').strip(), maxsplit=1)[0] if under[0] == 'x3' else ''
-    line = NEWS[under[0]] + name.rstrip('.') + '.' + (' ' + first if first else '')
+    gate, (name, said) = under[0], items[-1]
+    if gate == 'm2':
+        line = '%s answers: %s' % (name, said) if said else '%s is in plain words.' % name
+    elif gate == 'x3':
+        # A sentence ends where the next begins with a capital, as the chip's own: "Fixit & Co. jobs" is one sentence.
+        first = re.split(r'(?<=[.!?])\s+(?=[A-Z])', str(said or '').strip(), maxsplit=1)[0]
+        line = NEWS[gate][0] + name.rstrip('.') + '.' + (' ' + first if first else '')
+    else:
+        names = [n.rstrip('.') for n, _ in items[::-1][:3]]
+        line = NEWS[gate][len(names) > 1] + (', '.join(names[:-1]) + ' and ' + names[-1] if len(names) > 1 else names[0]) + '.'
     return line if len(line) <= 240 else line[:237].rsplit(' ', 1)[0] + '...'
+
+
+def news(root, engine_dir=None):
+    """The words a so-far chip's turn ends on, from the same saved batches as the chip, read at the same moment: a line
+    the watch wrote before the chip was drawn named an older rule than the chip did."""
+    return _news(_Engine(root, engine_dir))
 
 
 HEARTBEAT = 'Say this one line to the person, unchanged, then end the turn: '
@@ -354,8 +374,7 @@ def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_
         # With a heartbeat (the dashboard branch) the chat carries checkpoints only: a running count goes stale there, so
         # the so-far chips stay on the side page, which is live.
         if not heartbeat and now > told and time.monotonic() - spoke >= so_far_every and _under_way(engine):
-            news = _news(engine)
-            print(SO_FAR + (', then end the turn on this line, unchanged: ' + news if news else '.'), file=out, flush=True)
+            print(SO_FAR + ', then end the turn on the line it gives, unchanged.', file=out, flush=True)
             printed += 1
             spoke, told = time.monotonic(), now
         if heartbeat:

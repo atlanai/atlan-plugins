@@ -29,7 +29,7 @@ What you're working with:
   ○─────────○─────────○─────────○─────────○
   Pick      Build     Save to   Ask       Build a
   sources   context   Atlan     questions dashboard
-            ~5 min                        (optional)
+            ~13 min                       (optional)
 
 About 15 minutes. Made-up data; nothing of yours is touched.
 See the firm first:

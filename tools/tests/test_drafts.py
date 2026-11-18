@@ -134,7 +134,9 @@ class Drafts(unittest.TestCase):
         watch.join(5)
         self.assertFalse(watch.is_alive())
         lines = out.getvalue().splitlines()
-        self.assertEqual(len([l for l in lines if l.startswith('Due:')]), 3, lines)  # described, merged, defined
+        # Described, drafted, merged, defined: the draft step's end is a milestone of its own ("26 draft metrics"); without
+        # it the chat went 3.4 minutes with nothing new.
+        self.assertEqual(len([l for l in lines if l.startswith('Due:')]), 4, lines)
         self.assertTrue(all('`visual next`' in l for l in lines if l.startswith('Due:')), lines)
         self.assertFalse([l for l in lines if 'drafted' in l or '→' in l], 'no batch line reaches the chat')
 
@@ -182,9 +184,34 @@ class Drafts(unittest.TestCase):
         watch.join(5)
         lines = [l for l in out.getvalue().splitlines() if '`visual progress`' in l]
         self.assertEqual(len(lines), 2, out.getvalue())
-        self.assertTrue(lines[0].endswith('then end the turn on this line, unchanged: Newest possible metric: Win rate.'), lines[0])
-        self.assertTrue(lines[1].endswith('unchanged: Newest rule: Gross margin. What the jobs kept: contract value less '
-                                          'labour and materials.'), lines[1])
+        # The words come with the chip, from the same files at the same moment (h8: a line written before the chip named
+        # an older rule than the chip did).
+        for line in lines:
+            self.assertTrue(line.endswith('then end the turn on the line it gives, unchanged.'), line)
+            self.assertNotIn('Newest', line)
+
+    def test_the_line_says_what_the_chip_s_headline_does_not(self):
+        # The chip leads with the newest thing by name, so the line under it adds to it: the question a described query
+        # answers, the other newest names, a rule's first sentence. Never the name alone again.
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        news = lambda: drafts._news(drafts._Engine(self.run.root, 'engine'))
+        self.answer('m2', '01.json', {'queries': [{'vq_id': 'q1', 'name': 'Win rate by month',
+                                                   'question': ['What share of deals did we win each month?', 'Win rate?']}]})
+        self.assertEqual(news(), 'Win rate by month answers: What share of deals did we win each month?')
+        self.answer('x1', '01.json', {'statements': [
+            {'vq_id': 'q1', 'verdict': 'metrics', 'metrics': [{'name': 'Win rate'}, {'name': 'Pipeline'}]},
+            {'vq_id': 'q2', 'verdict': 'metrics', 'metrics': [{'name': 'Deal size'}, {'name': 'Win rate'}, {'name': 'Cycle time'}]}]})
+        self.assertEqual(news(), 'Newest draft metrics: Cycle time, Deal size and Pipeline.')
+        # In the chip's own case: the chip said "Job gross margin" above a line that said "Job Gross Margin".
+        self.answer('x2', '01.json', {'metrics': [{'name': 'Win Rate', 'sources': ['q1#0']}]})
+        self.assertEqual(news(), 'Newest metric: Win rate.')
+        self.answer('x3', '001.json', {'metrics': [{'name': 'On-Time Win Rate', 'description': 'Deals won on time. More.'}]})
+        self.assertEqual(news(), 'Newest rule: On-time win rate. Deals won on time.')
+        # h7's line read "Newest rule: On-time completion rate. The share of completed Fixit & Co.": cut at the firm's name.
+        self.answer('x3', '002.json', {'metrics': [{'name': 'Late jobs', 'description': 'Completed Fixit & Co. jobs handed '
+                                                    'over late. More.'}]})
+        self.assertEqual(news(), 'Newest rule: Late jobs. Completed Fixit & Co. jobs handed over late.')
 
     def test_a_heartbeat_keeps_a_step_that_saves_nothing_from_going_quiet(self):
         # Live, the translation review ran five minutes with nothing in the chat: it saves its answers only at its end.
@@ -215,11 +242,11 @@ class Drafts(unittest.TestCase):
         drafts.follow(self.run.root, 'engine', seconds=0.5, idle=10, interval=0.05, out=out)
         self.assertNotIn(drafts.HEARTBEAT, out.getvalue())
 
-    def test_the_so_far_interval_leaves_no_wait_over_three_and_a_half_minutes(self):
+    def test_the_so_far_interval_leaves_no_wait_over_ninety_seconds(self):
         # Live, the chat took about a minute from the watch's line to the chip: at three minutes the longest wait was 4.0.
         sys.path.insert(0, str(fixtures.SCRIPTS))
         import drafts
-        self.assertLessEqual(drafts.SO_FAR_SECONDS + 60, 210)
+        self.assertLessEqual(drafts.SO_FAR_SECONDS + 30, 90, 'no gap over 90 seconds once the chat draws it')
 
     def test_a_step_ending_starts_the_quiet_interval_again(self):
         # The step's own chip has just been shown: the next so-far line waits for a batch that lands after it.

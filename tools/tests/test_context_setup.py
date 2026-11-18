@@ -409,9 +409,9 @@ class SQLiteCheckProgress(unittest.TestCase):
         for check, name in ((self.run.check_metric, 'total-1'), (self.run.check_query, 'work-total')):
             check({'name': name})
             self.assert_progress('complete', 2)
-            rows = experience.snapshot(Project(self.run.root))['checklist']['steps']
-            self.assertEqual(rows[2]['status'], 'completed')
-            self.assertEqual((rows[3]['id'], rows[3]['status']), ('save', 'in_progress'))
+            rows = {r['id']: r for r in experience.snapshot(Project(self.run.root))['checklist']['steps']}
+            self.assertEqual(rows['write']['status'], 'completed')
+            self.assertEqual(rows['save']['status'], 'in_progress')
 
     def test_individual_checks_finish_only_after_every_current_candidate_is_checked(self):
         self.seed_checks()

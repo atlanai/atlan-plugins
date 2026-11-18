@@ -352,7 +352,7 @@ def first_answer(run, spec):
 
 
 # The moments the run's own files can show without a data file from the agent, so the run names them when due.
-MIDWAY = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'build', 'context')
+MIDWAY = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context')
 
 
 def _shows(kind, run, engine_dir):
@@ -395,10 +395,10 @@ def _rows(run, flow, kinds, engine_dir):
     import checklist
     try:
         import experience
-        listed = checklist.build(experience.snapshot(run, engine_dir), flow)
+        listed = checklist.build(experience.snapshot(run, engine_dir), flow, compact=True)
         return listed['steps'], listed['state']
     except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError):
-        rows = checklist.initial(flow)
+        rows = checklist.initial(flow, compact=True)
         ids = [r['id'] for r in rows]
         last = max((ids.index(FINISHED_BY[k]) for k in kinds if FINISHED_BY.get(k) in ids), default=-1)
         return [dict(r, status='completed' if i <= last else 'in_progress' if i == last + 1 else 'pending') for i, r in enumerate(rows)], 'running'

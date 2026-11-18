@@ -192,9 +192,10 @@ class Moments(unittest.TestCase):
     def test_a_chip_is_a_small_widget_where_the_host_draws_one(self):
         for kind in ('found', 'sources', 'context'):
             html = visuals.render(kind, visuals.build_spec(kind, self.run), widget=True)
-            self.assertTrue(html.startswith('<style>') and 'class="a oc"' in html, kind)
+            # The checks chip opens to each metric's number beside its dashboard tile's (check D, 2026-11-18).
+            self.assertTrue(html.startswith('<style>') and ('class="a oc"' in html or kind == 'context' and 'class="a ox"' in html), kind)
             self.assertNotRegex(html, r'https?://', kind)
-            self.assertLess(len(html), 2500, kind + ': a chip costs a few seconds of writing, not a card\'s')
+            self.assertLess(len(html), 2500 if kind != 'context' else 6000, kind + ': a chip costs a few seconds of writing, not a card\'s')
         self.assertIn('<b>129 rows</b>', visuals.render('sources', visuals.build_spec('sources', self.run), widget=True), 'the outcome is the chip\'s own')
         self.assertIn('class="m ok"', visuals.render('context', visuals.build_spec('context', self.run), widget=True), 'its own mark, no ring')
 
@@ -380,6 +381,19 @@ class Helper(unittest.TestCase):
         line = [l for l in out.splitlines() if l.startswith('side view: ')]
         return json.loads(line[0][len('side view: '):]) if line else None
 
+    def test_each_metric_step_s_chip_hands_the_host_s_task_list_its_current_steps(self):
+        # h7 built the task list once at the start and never again: the three steps never showed under way, and no
+        # estimate ever reached the list. Each step's chip is the moment the agent acts, so it carries the list.
+        import checklist, experience
+        listed = [{'content': s['content'], 'status': s['status']}
+                  for s in checklist.build(experience.snapshot(self.run, 'engine'))['steps']]
+        # Without a widget tool the checks' chip waits for the save question, so it is drawn here as a widget.
+        for kind, flags in (('described', []), ('drafted', []), ('metrics', []), ('rules', []), ('context', ['--widget'])):
+            side = self.side(self.project('visual', kind, *flags))
+            self.assertEqual(side.get('task_list'), listed, kind)
+            self.assertIn("set the host's task list to `task_list`", side['next'], kind)
+        self.assertNotIn('task_list', self.side(self.project('visual', 'sources')) or {}, 'before the build')
+
     def test_a_rule_changed_leads_its_block_wherever_the_block_goes(self):
         self.project('visual', 'connect')
         line = self.side(self.project('visual', 'edit'))['next']
@@ -541,15 +555,15 @@ class Helper(unittest.TestCase):
             self.project('visual', kind)
         out = self.project('visual', 'context', '--widget')
         self.assertTrue(out.startswith('<style>'))
-        self.assertIn('class="a oc"', out)
+        self.assertIn('class="a ox"', out, 'it opens to each metric beside its dashboard tile')
         self.assertIn('show_widget', self.side(out)['next'])
         self.assertIn("Never put it in a question's text", self.side(out)['next'])
 
     def test_a_helper_result_names_the_moments_the_run_has_reached(self):
         import side_view
-        self.assertEqual(side_view.due(self.run), ['connect', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links',
+        self.assertEqual(side_view.due(self.run), ['connect', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links',
                                                    'build', 'context'], 'in the order the run reached them')
-        for kind in ('connect', 'sources', 'group', 'tiles', 'described', 'metrics', 'rules', 'links', 'build', 'context'):
+        for kind in ('connect', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context'):
             self.project('visual', kind)
         self.assertEqual(side_view.due(self.run), ['context'], 'in a terminal the checks are shown by the save question')
         self.project('question', 'save')

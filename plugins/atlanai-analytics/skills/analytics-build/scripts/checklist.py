@@ -1,7 +1,8 @@
 """The guided-flow checklist: the steps a person can expect, each with its saved state.
 
-Three flows share it. `analytics-build` (own data) shows seven steps, its dashboard branch ("Make my dashboard
-agentic") seven of its own, and `analytics-demo` (a chosen demo) five.
+Three flows share it. `analytics-build` (own data) shows nine steps, its dashboard branch ("Make my dashboard
+agentic") nine of its own, and `analytics-demo` (a chosen demo) seven: in each, the build shows as
+three steps (draft, merge, write).
 Read-only. Every state and count comes from the saved run, so
 the host's task list mirrors what happened and a resumed run starts with its finished steps
 already done.
@@ -42,24 +43,100 @@ STEPS = {
     ),
 }
 FLOWS = tuple(STEPS)
+# Metric generation as three steps in the host's task list, in the metrics item's place: each ticks as the engine finishes
+# its part and estimates its time from the count going in, fitted to measured runs (headless h2 and desktop v8b, Fixit).
+THREE = (('draft', 'Draft metrics from your sources', 'Drafting metrics: each query in plain words, then the numbers it works out'),
+         ('merge', 'Merge drafts, one metric per number', 'Merging drafts, one metric per number'),
+         ('write', 'Write and check each metric', 'Writing what each metric counts, then running it on the data'))
+ENDS = {'draft': 'x1_ingest', 'merge': 'x2_ingest'}
+
+
+def _count(counts, stage, key):
+    value = (counts.get(stage) or {}).get(key) if isinstance(counts.get(stage), dict) else None
+    return value if type(value) is int else None
+
+
+def _minutes(key, counts, done=()):
+    queries, drafts, metrics = _count(counts, 'm2_emit', 'queries'), _count(counts, 'x1_ingest', 'proposals'), \
+        _count(counts, 'x2_ingest', 'metrics_out')
+    if key == 'draft' and queries is not None and 'm2_ingest' in done:
+        # Once the queries are described, what is left is finding the numbers: 1.9 to 3.1 min for 30 measured.
+        return 0.6 + 0.06 * queries
+    if key == 'draft' and queries is not None:
+        return 1.5 + 0.1 * queries
+    if key == 'merge' and drafts is not None:
+        return 1 + 0.07 * drafts
+    if key == 'write' and metrics is not None:
+        # Above 20 metrics the definitions are shared among helpers, so each extra one costs less.
+        return 2 + 0.6 * min(metrics, 20) + 0.15 * max(0, metrics - 20)
+    return None
+
+
+def _three(row, model, flow):
+    """The metrics item as its three steps, each completed once the engine has accepted its part."""
+    engine = model.get('engine') if isinstance(model.get('engine'), dict) else {}
+    done, counts = set(engine.get('done') or []), engine.get('counts') if isinstance(engine.get('counts'), dict) else {}
+    totals = model.get('counts') or {}
+    made = {'draft': _count(counts, 'x1_ingest', 'proposals'), 'merge': _count(counts, 'x2_ingest', 'metrics_out')}
+    rows, opened = [], False
+    for key, content, active in THREE:
+        if key == 'write' and flow == 'dashboard':
+            content, active = "Write each metric's rule", 'Writing what each metric counts and leaves out'
+        if row['status'] == 'completed' or (key in ENDS and ENDS[key] in done):
+            if key == 'draft' and made['draft'] is not None:
+                content = 'Draft metrics: ' + _plural(made['draft'], 'draft')
+            elif key == 'merge' and made['merge'] is not None:
+                content = 'Merge drafts: ' + _plural(made['merge'], 'metric')
+            elif key == 'write' and totals.get('metrics'):
+                content = content.split(' each')[0] + ' ' + _plural(totals['metrics'], 'metric') + \
+                    ((' and ' + _plural(totals['queries'], 'query', 'queries')) if totals.get('queries') and flow != 'dashboard' else '')
+            rows.append({'id': key, 'content': content, 'active': active, 'needs_you': False, 'status': 'completed'})
+            continue
+        status = 'in_progress' if row['status'] == 'in_progress' and not opened else 'pending'
+        opened = opened or status == 'in_progress'
+        if key == 'write' and status == 'in_progress' and row['active'] not in dict((s[0], s[2]) for s in STEPS[flow]).values():
+            active = row['active']  # the run's own line, such as "Checking 5 of 9"
+        minutes = _minutes(key, counts, done)
+        if minutes is not None:
+            content += ' (about %d min)' % max(1, int(minutes + 0.5))
+        rows.append({'id': key, 'content': content, 'active': active, 'needs_you': False, 'status': status})
+    return rows
+
+
+def _expanded(listed, model, flow):
+    """The list as the host shows it: the metrics item as three steps, the step counter recounted."""
+    rows = []
+    for row in listed['steps']:
+        rows.extend(_three(row, model, flow) if row['id'] == 'metrics' else [row])
+    current = next((i + 1 for i, r in enumerate(rows) if r['status'] == 'in_progress'),
+                   next((i + 1 for i, r in enumerate(rows) if r['status'] != 'completed'), len(rows)))
+    return dict(listed, steps=rows, step=current, of=len(rows))
 
 
 def _flow(flow):
     return flow if flow in FLOWS else 'build'
 
 
-def initial(flow='build'):
+def initial(flow='build', compact=False):
     """The list before any run exists: the first step under way, nothing claimed."""
-    return [{'id': key, 'content': content, 'active': active, 'needs_you': needs_you,
+    rows = [{'id': key, 'content': content, 'active': active, 'needs_you': needs_you,
              'status': 'in_progress' if index == 0 else 'pending'}
             for index, (key, content, active, needs_you) in enumerate(STEPS[_flow(flow)])]
+    return rows if compact else _expanded({'steps': rows}, {}, _flow(flow))['steps']
 
 
 def _plural(count, word, many=None):
     return f'{count} {word if count == 1 else many or word + "s"}'
 
 
-def build(model, flow=None):
+def build(model, flow=None, compact=False):
+    """The flow's list from the saved run. The host's list shows metric generation as three steps; `compact` keeps the
+    one metrics item, for the side view's own steps."""
+    listed = _listed(model, flow)
+    return listed if compact else _expanded(listed, model, listed['flow'])
+
+
+def _listed(model, flow=None):
     if _flow((model.get('interaction') or {}).get('flow') or flow) == 'dashboard':
         return _dashboard(model)
     phase, counts = model['phase'], model['counts']
@@ -143,7 +220,7 @@ def build(model, flow=None):
 
 
 def _dashboard(model):
-    """The dashboard branch's seven items. Each finished item carries its result after a colon, from the run's own
+    """The dashboard branch's seven items (nine in the host's list, the build as three). Each finished item carries its result after a colon, from the run's own
     record: the report and pages the person picked, the readiness check's line, and the counts that came out."""
     phase, counts = model['phase'], model['counts']
     interaction = model.get('interaction') or {}

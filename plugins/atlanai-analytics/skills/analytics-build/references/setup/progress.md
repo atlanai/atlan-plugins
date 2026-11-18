@@ -39,7 +39,10 @@ The describe, propose, merge and card gates save their answers in numbered batch
 page shows each batch as it lands; the chat shows each step's chip when the step ends:
 
 1. **A fresh subagent writes each gate.** Hand each authored gate, from describe to cards, to its
-   own background subagent, started when the gate before it is accepted: the engine directory,
+   own subagent started in the background, never one this session waits on (a waiting session
+   runs no watch and shows the person nothing), when the gate before it is accepted. Write the
+   short gates before describe and the links gate in this session, named as their gate result
+   names them, never by a gate's id. Give each subagent the engine directory,
    `ENGINE advance` until that gate is accepted, the gate's instructions, numbered batch files,
    and no `PROJECT drafts` and no chat of its own, saving each batch with its own write as soon as
    it is ready, never several in one script. The engine's refusal names each field to fix, so the
@@ -54,13 +57,16 @@ page shows each batch as it lands; the chat shows each step's chip when the step
    number.
 2. **This session draws each step's chip.** While it works, run the gate result's
    `after_each_batch.follow` (`PROJECT drafts --follow`) as a background watch that hands you
-   each printed line (in Claude Code, the Monitor tool). It prints a line when a step the chat
-   shows ends, naming the `visual next` that is due, and every two and a half minutes while batches land,
+   each printed line: in Claude Code, the Monitor tool, never a background shell command, which
+   never wakes you. It prints a line when a step the chat
+   shows ends, naming the `visual next` that is due, and every minute while batches land,
    naming `visual progress`, the chip with how far the step has got: run what it names and show
    what it gives, with no words of your own. Re-arm the watch if it stops before the cards are
    accepted; it never repeats or skips a step. The desktop app sends a turn that ends without words
    back for words, so every turn ends on one line with something new: a step's start on its Doing
-   line, with nothing about what will show or when; a so-far turn on the line the watch gives,
+   line, named as the task list names it, with nothing about what will show or when, never the
+   engine's results or counts (accepted, cards, pairs, a check's own name) nor your own tooling
+   (scripts, retries, setup); a so-far turn on the line `visual progress` gives with its chip,
    unchanged; never that a step is still running.
 
 A host with no background subagent or no line-by-line watch writes the gates in this session

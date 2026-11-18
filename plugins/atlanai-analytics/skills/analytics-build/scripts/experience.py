@@ -257,7 +257,12 @@ def _engine(reader, directory):
     result = {'checkpoint': stage, 'label': ENGINE_PHASES.get(stage.split('_')[0], 'Building metrics and queries'),
               'status': module.get('status') if module.get('status') in ('prepared', 'paused', 'blocked', 'complete') else 'recorded',
               'completed_checkpoints': sum(s.get('verdict') == 'ok' and s.get('notes') != 'awaiting_decision' for s in stages),
-              'recorded_at': _text(last.get('started_at'), 50), 'sample': None, 'provisional_count': 0}
+              'recorded_at': _text(last.get('started_at'), 50), 'sample': None, 'provisional_count': 0,
+              # The steps the task list ticks one by one, and the counts their time estimates come from.
+              'done': sorted({_text(s.get('stage'), 100) for s in stages if s.get('verdict') == 'ok' and s.get('notes') != 'awaiting_decision'}),
+              'counts': {name: {k: v for k, v in (s.get('counts') or {}).items() if type(v) is int}
+                         for s in stages for name in [_text(s.get('stage'), 100)]
+                         if name in ('m2_emit', 'x1_ingest', 'x2_ingest') and isinstance(s.get('counts'), dict)}}
     if not stages:
         return result
     # Only known output filenames are read. Manifest paths are compared, never followed.

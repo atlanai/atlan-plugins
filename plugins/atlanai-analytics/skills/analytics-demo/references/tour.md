@@ -85,7 +85,7 @@ Never use file names, helper names or query-shape counts in these lines. After r
 sources, add one sentence on what they revealed, such as which questions the analysts
 asked most. Never leave a minute with nothing new on screen; follow [progress](../../analytics-build/references/setup/progress.md):
 while subagents write the build, each step's chip and the side page are what is new, and each turn ends on one
-line with something new: the step's Doing line, or the line the watch gives; never that a step is still running,
+line with something new: the step's Doing line, or the line `visual progress` gives with its chip; never that a step is still running,
 or what will show and when.
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
