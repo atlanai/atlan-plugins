@@ -814,8 +814,9 @@ def main():
                 import experience
                 task_list = [{'content': s['content'], 'status': s['status']}
                              for s in checklist.build(experience.snapshot(run, args.engine_dir))['steps']]
-                steps.append("Set the host's task list to `task_list`, each step's text and status as given, in the same "
-                             "message as the chip; a host with no task list skips this.")
+                steps.append("Set your task list to `task_list`, each step's text and status as given, in the same "
+                             "message as the chip: in Claude Code's terminal with TodoWrite (or TaskCreate and TaskUpdate), "
+                             "in the desktop app's task list with its own plan tool; a host with no task list skips this.")
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
             # A moment deferred to its question is recorded when that question is composed, so a skipped question
             # is named again by the next helper result. A step's so-far chip is drawn as often as the watch asks, and

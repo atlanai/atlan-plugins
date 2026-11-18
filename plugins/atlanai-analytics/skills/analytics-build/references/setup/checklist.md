@@ -9,7 +9,9 @@ unless the person asks for a visual view, apart from the run's own [side page](v
 ## Start with the list
 
 Right after the opening message and before the first helper call, put the flow's steps in the
-host's task list when available and show them in chat, the first one in progress.
+host's task list when available and show them in chat, the first one in progress. The task list
+is the host's own: in Claude Code's terminal, TodoWrite (or TaskCreate and TaskUpdate); in the
+desktop app, its own plan tool. Use it whenever the host has one, not only when asked.
 
 | Step | Own data (`analytics-build`) | Demo (`analytics-demo`) |
 | --- | --- | --- |

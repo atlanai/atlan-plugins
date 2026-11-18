@@ -391,7 +391,10 @@ class Helper(unittest.TestCase):
         for kind, flags in (('described', []), ('drafted', []), ('metrics', []), ('rules', []), ('context', ['--widget'])):
             side = self.side(self.project('visual', kind, *flags))
             self.assertEqual(side.get('task_list'), listed, kind)
-            self.assertIn("set the host's task list to `task_list`", side['next'], kind)
+            self.assertIn("set your task list to `task_list`", side['next'], kind)
+            # Named for both hosts: left implicit, a live run set its list once and never again.
+            self.assertIn('TodoWrite', side['next'], kind)
+            self.assertIn("the desktop app's task list", side['next'], kind)
         self.assertNotIn('task_list', self.side(self.project('visual', 'sources')) or {}, 'before the build')
 
     def test_a_rule_changed_leads_its_block_wherever_the_block_goes(self):
