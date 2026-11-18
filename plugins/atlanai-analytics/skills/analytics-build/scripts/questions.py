@@ -68,6 +68,8 @@ def _label(name, value):
 def save(run, widget=False, data=None, engine_dir=None):
     """The save question, after every check has run."""
     f = RunFacts(run, engine_dir)
+    if f.interaction.get('flow') == 'dashboard':
+        return _dashboard_save(run, f, widget, data, engine_dir)
     demo = _demo(run, data)
     c = f.context
     # A warehouse's checks run with its own tool and leave no verdict here: the agent adds the line of results it holds.
@@ -99,6 +101,47 @@ def save(run, widget=False, data=None, engine_dir=None):
     return {'header': 'Step 4 of 5' if demo or f.interaction.get('flow') == 'demo' else 'Step 5 of 7',
             'question': '\n'.join(lines), 'options': [{'label': a, 'description': b} for a, b in SAVE_OPTIONS],
             'shown': [k for k, v in (('build', card), ('context', shown)) if v], 'results': by_tool}
+
+
+def _dashboard_save(run, f, widget, data, engine_dir):
+    """The dashboard branch's save question: what was built, whether it ran on the data, what was kept back and why,
+    and the tiles that could not be built, one line each. The side page holds every detail."""
+    import side_page
+    c = f.context
+    skipped = f.interaction.get('checks') == 'skip'
+    by_tool = bool(c) and not f.checks_here and not f.checks_over
+    if not (skipped or by_tool or f.checks_over):
+        raise ValueError('Ask where the context lives once the checks have run, or once the person chose to skip them '
+                         '(`PROJECT journey checks --answer skip`, their answer, never yours).')
+    report = str(f.interaction.get('report') or '').split(':')[0].strip() or 'your dashboard'
+    n_metrics, n_queries = (len(c['metrics']), c['queries']) if c else (0, 0)
+    where = f.warehouse or 'your data'
+    lines = ['Built %s and %s from %s.' % (count(n_metrics, 'metric'), count(n_queries, 'query', 'queries'), report)]
+    if skipped:
+        lines.append('Not run on %s: you chose to skip the checks, so the numbers are untested.' % where)
+    elif by_tool:
+        lines.append("Run on %s with its own read-only tool." % where)
+    else:
+        lines.append('Run on %s: %s.' % (where, 'every one ran' if not c['need_look'] else
+                                          '%d ran cleanly, %d need a look' % (c['passed'], c['need_look'])))
+    holds = f.file('context', 'publication-holds.json')
+    held_m = [h for h in holds.get('metrics') or [] if isinstance(h, dict)] if isinstance(holds, dict) else []
+    held_q = [h for h in holds.get('queries') or [] if isinstance(h, dict)] if isinstance(holds, dict) else []
+    if held_m or held_q:
+        reasons = [str(h.get('reason')) for h in held_m + held_q]
+        top = max(set(reasons), key=reasons.count)
+        lines.append('Kept back, not saved: %s. Most often: %s' % (
+            ' and '.join(x for x in (count(len(held_m), 'metric') if held_m else '',
+                                     count(len(held_q), 'query', 'queries') if held_q else '') if x),
+            side_page.KEPT.get(top, side_page.KEPT_ANY)[:1].lower() + side_page.KEPT.get(top, side_page.KEPT_ANY)[1:]))
+    cant = side_page.cant_build(f)
+    if cant:
+        lines.append("%s couldn't be built. The side page lists each with why." % count(len(cant), 'tile'))
+    card = '' if widget else visuals.render('build', visuals.build_spec('build', run, data, engine_dir), plain=True)
+    lines = ([card, ''] if card else []) + lines + ['', 'Where should this context live?']
+    return {'header': 'Save', 'question': '\n'.join(lines),
+            'options': [{'label': a, 'description': b} for a, b in SAVE_OPTIONS],
+            'shown': ['build'] if card else [], 'results': by_tool}
 
 
 def _one_metric(run, f, demo, widget=False):

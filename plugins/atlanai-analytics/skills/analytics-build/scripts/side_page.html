@@ -385,6 +385,107 @@ button { font: inherit; color: inherit; }
   .bar.busy::before, .bar.busy > i::after { display: none; }
   .bar.ind > i { width: 100%; opacity: .35; }
 }
+
+/* A2: the checklist on top, then metrics, drafts, tiles that could not be built and queries; a metric opens under the checklist */
+.ck { padding: 10px 14px 12px; display: grid; gap: 0; }
+.ckh { font-size: 13px; line-height: 18px; padding: 4px 0 8px; }
+.ckr { display: flex; align-items: center; gap: 10px; min-height: 30px; border-top: 0.5px solid var(--border-subtle); }
+.ckr:first-of-type { border-top: 0; }
+.ckr .ckn { flex: 1; min-width: 0; }
+.ckr .ckv { color: var(--text-subtle); font-size: 12px; white-space: nowrap; }
+.ckr.done .ic { color: var(--icon-success); }
+.ckr.next { color: var(--text-placeholder); }
+.ckr.now { font-weight: 500; }
+.ckr .o { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--border-strong); flex: none; }
+.ckr .spin, .ckr .ic, .ckr .o, .ckr .sd { margin: 0 1px; }
+.cknow { display: flex; align-items: baseline; gap: 6px; padding: 0 0 6px 26px; font-size: 13px; color: var(--text-subtle); }
+.cknow b { font-size: 20px; line-height: 24px; color: var(--text-default); font-weight: 500; }
+.ck .bar { margin: 0 0 8px 26px; }
+.ckdone { display: flex; align-items: center; gap: 8px; padding: 8px 0 0; border-top: 0.5px solid var(--border-subtle); color: var(--text-success); font-weight: 500; }
+.stop { display: flex; gap: 8px; align-items: center; padding: 6px 0 8px; color: var(--text-warning); font-size: 13px; }
+.sec { display: grid; gap: 6px; }
+.sech { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 2px 2px; font-weight: 500; font-size: 15px; cursor: default; }
+button.sech { cursor: pointer; }
+.sech .n { color: var(--text-subtle); font-weight: 400; font-size: 13px; }
+.sech .chev { margin-left: auto; color: var(--icon-default); transition: transform 0.15s; }
+.sech[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.flt { display: flex; flex-wrap: wrap; gap: 4px; }
+.flt button { all: unset; cursor: pointer; font-size: 12px; line-height: 16px; padding: 3px 8px; border-radius: 7px; border: 0.5px solid var(--border-control); color: var(--text-subtle); background: var(--bg-surface); }
+.flt button[aria-pressed="true"] { background: var(--bg-surface-selected); color: var(--text-default); border-color: var(--border-strong); }
+.lst { padding: 4px; display: grid; gap: 0; }
+.row { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 8px; border-radius: 10px; cursor: pointer; min-width: 0; }
+.row:hover { background: var(--bg-surface-hover); }
+.row.sel { background: var(--bg-surface-selected); }
+.row .mm { display: grid; min-width: 0; flex: 1; }
+.row .nm { font-weight: 500; }
+.row .ty { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.row .v { font-size: 13px; color: var(--text-default); white-space: nowrap; }
+.row.dim .nm { color: var(--text-subtle); font-weight: 400; }
+.badge.pu { background: var(--bg-ai-subtle); color: var(--text-ai); }
+.badge .sd.pl { animation: pls 1.2s ease-in-out infinite; }
+@keyframes pls { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.row.nw, .row.fl { animation: land 1.6s var(--motion-ease-emphasized, ease-out); }
+@keyframes land { 0% { background: var(--bg-brand-muted); } 100% { background: transparent; } }
+.cant { display: flex; gap: 10px; padding: 8px; align-items: flex-start; }
+.cant .ic { color: var(--icon-warning); margin-top: 2px; }
+.hint { font-size: 12px; line-height: 16px; color: var(--text-subtle); padding: 4px 8px 8px; }
+.det { padding: 14px; display: grid; gap: 14px; }
+.deth { display: grid; gap: 4px; }
+.deth .nmr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.deth h2 { font-size: 17px; line-height: 22px; }
+.blk { display: grid; gap: 4px; }
+.blk > .lb { font-size: 12px; line-height: 16px; color: var(--text-subtle); }
+.blk ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.code { font-size: 12px; line-height: 17px; background: var(--bg-subtle); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.src { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; }
+.src .ic { margin-top: 2px; color: var(--icon-default); }
+.warnbox { display: flex; gap: 8px; padding: 10px; border-radius: 10px; background: var(--bg-warning-subtle); color: var(--text-warning); }
+.lnk { all: unset; cursor: pointer; color: var(--text-brand); }
+.lnk:hover { text-decoration: underline; }
+.fold { all: unset; cursor: pointer; font-size: 12px; color: var(--text-subtle); display: inline-flex; gap: 4px; align-items: center; }
+.back { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-subtle); }
+.back:hover { color: var(--text-default); }
+.sp2 { display: grid; gap: 14px; padding: 12px var(--gutter-r) 32px var(--gutter); max-width: 720px; margin: 0 auto; }
+.wd2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; padding: 12px 16px 32px; }
+.wd2 > div { display: grid; gap: 14px; align-content: start; min-width: 0; }
+
+
+/* A2, compact and flat, as in the mock */
+.sp2 { gap: 12px; padding-top: 10px; }
+.tt { font-size: 15px; line-height: 20px; }
+.card.ck, .card.lst, .card.det, .sec .card.empty { box-shadow: none; border-radius: 10px; border: 0.5px solid var(--border-default); }
+.ck { padding: 6px 12px 8px; font-size: 13px; line-height: 18px; }
+.ckr { min-height: 28px; gap: 8px; }
+.ckr .ckv { font-size: 12px; }
+.cknow { padding: 0 0 4px 24px; font-size: 12px; }
+.cknow b { font-size: 13px; line-height: 18px; }
+.ck .bar { height: 4px; margin: 0 0 6px 24px; }
+.ckdone { font-size: 13px; padding-top: 6px; }
+.sec { gap: 6px; }
+.sech { font-size: 13px; line-height: 18px; padding: 4px 2px 0; }
+.sech .n { font-size: 12px; }
+.flt button { font-size: 12px; padding: 2px 8px; border-radius: 6px; }
+.lst { padding: 2px; }
+.row { gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 13px; line-height: 18px; }
+.row .ic { color: var(--icon-default); }
+.row .nm { font-weight: 400; flex: 0 1 auto; min-width: 0; }
+.row .ty { font-size: 11px; color: var(--text-placeholder); white-space: nowrap; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.row .v { margin-left: auto; font-size: 12px; }
+.row .badge { margin-left: auto; height: 18px; font-size: 11px; padding: 0 7px; }
+.row .v + .badge { margin-left: 6px; }
+.row .v.lk { color: var(--icon-warning); }
+.cant { padding: 6px 8px; font-size: 13px; line-height: 18px; gap: 8px; }
+.cant .ty { font-size: 11px; color: var(--text-subtle); }
+.det { padding: 12px; gap: 8px; font-size: 13px; line-height: 18px; }
+.deth { gap: 2px; padding-bottom: 6px; border-bottom: 0.5px solid var(--border-subtle); }
+.deth h2 { font-size: 15px; line-height: 20px; }
+.kv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 2px 0; }
+.kv > .lb { font-size: 12px; line-height: 18px; color: var(--text-placeholder); }
+.kv .vv { min-width: 0; display: grid; gap: 2px; }
+.code { font-size: 11px; line-height: 16px; padding: 6px 8px; border-radius: 6px; }
+.det .src { padding: 1px 0; flex-wrap: nowrap; }
+.badge.pu, .badge.ok, .badge.warn, .badge { height: 18px; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -440,30 +541,29 @@ const kindM = () => `<span class="kind metric">${ic('metric', 's')}</span>`;
 const kindS = k => `<span class="kind source">${ic(k === 'tile' ? 'tile' : 'query', 's')}</span>`;
 
 /* Reading the snapshot */
-const stepsOf = S => arr(S.steps).filter(s => obj(s) && txt(s.id));
+const nowOf = S => obj(S.now) || {};
 const metricsOf = S => arr(S.metrics).filter(m => obj(m) && txt(m.name));
 const queriesOf = S => arr(S.queries).filter(obj);
-const nowOf = S => obj(S.now) || {};
+const draftsOf = S => arr(S.drafts).filter(d => obj(d) && txt(d.name));
+const buildOf = S => arr(S.build).filter(s => obj(s) && txt(s.id));
+const cantOf = S => arr(S.cant).filter(c => obj(c) && txt(c.tile));
 const findMetric = (S, name) => metricsOf(S).find(m => lc(m.name) === lc(name)) || null;
 const findQuery = (S, id) => txt(id) ? queriesOf(S).find(q => txt(q.id) === txt(id)) || null : null;
-const sourcesOf = m => arr(m.sources).filter(obj);
-function srcCounts(m) { const s = sourcesOf(m), t = s.filter(x => x.kind === 'tile').length; return {t, q: s.length - t}; }
-function editFor(S, m) { const e = obj(S.edit); return e && lc(e.metric) === lc(m.name) ? e : null; }
+const findDraft = (S, id) => draftsOf(S).find(d => txt(d.id) === txt(id)) || null;
 const moving = UI => UI.link !== 'off';
 const busyNow = (S, UI) => !!nowOf(S).busy && moving(UI) && !S.state;
-function stepLabel(S) {
-  const n = nowOf(S), M = isNum(n.steps) ? n.steps : stepsOf(S).length;
-  if (n.id === 'done' || !isNum(n.at) || n.at >= M) return txt(n.step);
-  return `Step ${n.at + 1} of ${M} · ${txt(n.step)}`;
-}
+const current = S => buildOf(S).find(s => s.state === 'now') || null;
+const finished = S => { const b = buildOf(S); return b.length > 0 && b.every(s => s.state === 'done'); };
+function stepLabel(S) { const c = current(S); return c ? c.name : finished(S) ? 'Build finished' : txt(nowOf(S).title); }
+const STOPPED = {paused: 'The build is paused', blocked: 'The build needs a decision: see the chat', access_needed: 'The build is waiting for access: see the chat'};
 
-const STATUS = {draft: ['Found', ''], merged: ['Being defined', ''], final: ['Not checked yet', ''], drafted: ['Not checked yet', ''], checking: ['Checking', 'brand'], tool: ['Warehouse check', ''], checked: ['Checked', 'ok'], look: ['Needs a look', 'warn']};
-const statusOf = s => STATUS[s] ? s : 'drafted';
-function statusBadge(s, UI) {
-  s = statusOf(s);
-  return `<span class="badge ${STATUS[s][1]} stb"><i class="sd${s === 'checking' && moving(UI) ? ' pl' : ''}"></i>${STATUS[s][0]}</span>`;
+/* A metric's place in its life: draft, merged, final or kept back. Its check is told apart, in its own view. */
+const STAGE = {draft: ['Draft', ''], merged: ['Merged', 'pu'], final: ['Final', 'ok'], kept: ['Kept back', 'warn']};
+const stageOf = m => STAGE[m.stage] ? m.stage : m.status === 'draft' ? 'draft' : 'final';
+function stageBadge(S, m, UI) {
+  const s = stageOf(m), c = current(S), writing = s === 'merged' && c && c.id === 'rules';
+  return `<span class="badge ${STAGE[s][1]}">${writing && moving(UI) ? '<i class="sd pl"></i>' : ''}${writing ? 'Writing rule' : STAGE[s][0]}</span>`;
 }
-const STOPPED = {paused: 'The build is paused', blocked: 'The build has stopped: see the chat', access_needed: 'The build is waiting for access: see the chat'};
 
 /* Top of the page */
 function toolbar(S, UI) {
@@ -476,400 +576,192 @@ function toolbar(S, UI) {
 }
 function offNote(S) {
   const t = clock(S.updated);
-  return `<div class="card off">${ic('alert', 's')}<span><b>This build page is no longer live.</b> It shows the last update${t ? ', from ' + esc(t) : ''}, and picks up again if the build answers.</span></div>`;
+  return `<div class="card empty">${ic('alert', 's')}<span><b>This page is no longer live.</b> It shows the last update${t ? ', from ' + esc(t) : ''}, and picks up again when the build answers.</span></div>`;
 }
 function topBlock(S) {
   const eb = 'Atlan Analytics · ' + (S.flow === 'demo' ? 'demo on made-up data' : 'your data') + (txt(S.firm) ? ' · ' + txt(S.firm) : '');
   return `<div class="tp"><div class="eb">${esc(eb)}</div><h1 class="tt">${esc(txt(S.title) || 'Analytics setup')}</h1>${txt(S.subtitle) ? `<div class="ts">${esc(S.subtitle)}</div>` : ''}</div>`;
 }
-function rail(S, UI, view) {
-  const st = stepsOf(S), n = nowOf(S), busy = busyNow(S, UI);
-  if (!st.length) return '';
-  return `<nav class="rail" aria-label="Steps">${st.map((s, i) => {
-    const cls = s.status === 'done' ? 'd' : s.status === 'now' ? 'n' : 'x';
-    const waiting = s.status === 'now' && !!(s.needs_you || txt(n.wait));
-    const word = cls === 'd' ? 'done' : cls === 'n' ? (waiting ? 'waiting for you' : 'under way') : 'not started';
-    const line = i ? `<span class="rln${st[i - 1].status === 'done' && cls !== 'x' ? ' d' : ''}" aria-hidden="true"></span>` : '';
-    return line + `<button type="button" class="rst ${cls}${cls === 'n' && busy ? ' busy' : ''}${waiting ? ' wt' : ''}" data-act="step" data-id="${esc(s.id)}" data-k="step:${esc(s.id)}"`
-      + ` aria-pressed="${view === s.id}"${cls === 'n' ? ' aria-current="step"' : ''} title="${esc(txt(s.purpose) || txt(s.name))}">`
-      + `<span class="rd" aria-hidden="true"></span><span class="rl">${esc(txt(s.name) || txt(s.purpose))}</span><span class="sr">, ${word}</span></button>`;
-  }).join('')}</nav>`;
-}
-
-/* Layout B header, and its compact form while another step is open */
 function barHtml(key, n, busy) {
   const has = isNum(n.bar);
   if (!has && !busy) return '';
   const w = has ? Math.max(0, Math.min(100, Math.round(n.bar * 1000) / 10)) : null;
-  const cls = ['bar', key === 'strip' ? 'thin' : '', n.ok ? 'ok' : '', busy ? 'busy' : '', busy && !has ? 'ind' : ''].filter(Boolean).join(' ');
+  const cls = ['bar', n.ok ? 'ok' : '', busy ? 'busy' : '', busy && !has ? 'ind' : ''].filter(Boolean).join(' ');
   const aria = has ? ` aria-valuemin="0" aria-valuemax="100" aria-valuenow="${w}"` : '';
   return `<div class="${cls}" role="progressbar" aria-label="Progress"${aria}><i${has ? ` data-k="${key}" data-w="${w}"` : ''}></i></div>`;
 }
-function header(S, UI) {
-  const n = nowOf(S), busy = busyNow(S, UI), c = obj(n.count);
-  let h = `<div class="card hb"><div class="hk">${esc(stepLabel(S))}</div>`
-    + `<div class="hh"><span>${esc(n.title)}</span>${busy ? spin() + '<span class="sr">Working</span>' : ''}</div>`;
-  if (txt(n.value)) h += `<div class="hc"><b class="big num">${esc(fixMinus(n.value))}</b>${txt(n.value_label) ? `<span>${esc(n.value_label)}</span>` : ''}</div>`;
-  if (c && isNum(c.n)) h += `<div class="hc"><b class="big num">${esc(grp(c.n))}</b><span>${isNum(c.of) ? 'of ' + esc(grp(c.of)) + ' ' : ''}${esc(c.unit)}</span></div>`;
-  h += barHtml('hero', n, busy);
-  if (STOPPED[S.state]) h += `<div class="hw stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>`;
-  if (txt(n.wait)) h += `<div class="hw"><i class="sd" aria-hidden="true"></i><span>${esc(n.wait)}</span></div>`;
-  if (txt(n.note)) h += `<div class="hn" title="${esc(n.note)}">${esc(n.note)}</div>`;
-  h += '</div>';
-  if (txt(n.next)) h += `<div class="nx">${ic('arrow', 's')}<span><b>Next</b> · ${esc(n.next)}</span></div>`;
-  return `<div class="hblk">${h}</div>`;
-}
-function strip(S, UI) {
-  const n = nowOf(S), busy = busyNow(S, UI), c = obj(n.count);
-  const main = c && isNum(c.n) ? `<b class="num">${esc(grp(c.n))}${isNum(c.of) ? ' of ' + esc(grp(c.of)) : ''}</b> <span>${esc(c.unit)}</span>`
-    : txt(n.value) ? `<b class="num">${esc(fixMinus(n.value))}</b> <span>${esc(n.value_label)}</span>`
-    : `<b>${esc(txt(n.wait) || txt(n.title))}</b>`;
-  const sub = [stepLabel(S), (c && isNum(c.n)) || txt(n.value) || txt(n.wait) ? txt(n.title) : ''].filter(Boolean).join(' · ');
-  const mark = busy ? spin() : `<i class="sd${n.ok ? ' okd' : ''}" aria-hidden="true"></i>`;
-  return `<div class="card cp"><div class="cpr">${mark}<span class="cpm ell">${main}</span>`
-    + `<button type="button" class="btn pri" data-act="now" data-k="now">${ic('back', 'xs')}Back to now</button></div>`
-    + `<div class="cps ell">${esc(sub)}</div>${n.wait ? '' : barHtml('strip', n, busy)}</div>`;
+
+/* The checklist: always on top, in the list and in a metric's own view */
+function checklist(S, UI) {
+  const st = buildOf(S), n = nowOf(S), busy = busyNow(S, UI);
+  let h = '<div class="card ck">';
+  if (STOPPED[S.state]) h += `<div class="stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>`;
+  if (!st.length || st.every(s => s.state === 'next')) h += `<div class="ckh sub">The build starts once your choices are in. Each metric shows here as it is made.</div>`;
+  h += st.map(s => {
+    const mark = s.state === 'done' ? ic('check', 's') : s.state === 'now' ? (busy ? spin() : '<i class="sd"></i>') : '<i class="o"></i>';
+    let row = `<div class="ckr ${s.state}">${mark}<span class="ckn">${esc(s.name)}</span><span class="ckv num">${s.state === 'done' ? esc(s.result) : ''}</span></div>`;
+    if (s.state === 'now') {
+      const c = obj(n.count);
+      const counted = c && isNum(c.n) ? `<b class="num">${esc(grp(c.n))}</b><span>${isNum(c.of) ? 'of ' + esc(grp(c.of)) + ' ' : ''}${esc(c.unit || '')}</span>` : '';
+      const note = txt(n.note) ? `<span>${counted ? '· ' : ''}${esc(n.note)}</span>` : '';
+      if (counted || note) row += `<div class="cknow">${counted}${note}</div>`;
+      row += barHtml('now', n, busy);
+    }
+    return row;
+  }).join('');
+  if (finished(S)) {
+    const ms = metricsOf(S).filter(m => stageOf(m) === 'final').length, qs = queriesOf(S).length;
+    h += `<div class="ckdone">${ic('check', 's')}<span>Built ${esc(pl(ms, 'metric'))}${qs ? ' and ' + esc(pl(qs, 'query', 'queries')) : ''}</span></div>`;
+  }
+  return h + '</div>';
 }
 
-/* Before the build: what it reads */
-const intro = () => '<div class="card intro"><b>This page follows the build beside the chat.</b><span class="sub">As it runs you see where it is, each metric as it is made, and how each one was reached: the dashboard tiles and past queries behind it, why they became one metric, its rule and its check on the data. Pick a step above to see what it did.</span></div>';
-function overview(S) {
-  const r = obj(S.read) || {};
-  const sec = (label, count, body) => `<div class="ovs"><div class="ovh"><span>${label}</span><b>${count}</b></div>${body || ''}</div>`;
-  let out = '';
-  if (isNum(r.found)) out += sec('Sources found', esc(grp(r.found)), arr(r.kinds).length ? `<div class="chips">${arr(r.kinds).map(k => `<span class="badge">${esc(k)}</span>`).join('')}</div>` : '');
-  const T = arr(r.tables).filter(t => Array.isArray(t) && txt(t[0]));
-  if (T.length) out += sec('Tables', esc(grp(T.length)), `<div class="ovl">${T.map(t => `<div class="ovr">${ic('table', 's')}<code class="mono">${esc(t[0])}</code><b>${isNum(t[1]) ? esc(pl(t[1], 'row')) : ''}</b></div>`).join('')}</div>`);
-  const tiles = arr(S.tiles).filter(obj);
-  if (tiles.length) {
-    const pages = [...new Set(tiles.map(t => txt(t.page)).filter(Boolean))];
-    out += sec(esc(txt(r.dashboard) ? r.dashboard + ' dashboard' : 'Dashboard'), esc(pl(tiles.length, 'tile')),
-      `<div class="ovl">${tiles.map(t => `<div class="ovr">${ic('tile', 's')}<span>${esc(txt(t.visual) || txt(t.question))}${txt(t.visual) && txt(t.question) ? `<span class="q">${esc(t.question)}</span>` : ''}</span><b></b></div>`).join('')}</div>${pages.length ? `<div class="ovn">On ${esc(pages.join(', '))}</div>` : ''}`);
+/* The lists */
+function section(key, title, n, open, body, foldable) {
+  const head = foldable
+    ? `<button type="button" class="sech" data-tog="${key}" data-k="t:${key}" aria-expanded="${open}">${esc(title)} <span class="n num">${esc(grp(n))}</span>${ic('chev', 's chev')}</button>`
+    : `<div class="sech">${esc(title)} <span class="n num">${esc(grp(n))}</span></div>`;
+  return `<div class="sec">${head}${open ? body : ''}</div>`;
+}
+const openOf = (UI, key, def) => UI.tog.has(key) ? !def : def;
+function metricRow(S, UI, m) {
+  const s = stageOf(m), sel = lc(UI.metric) === lc(m.name);
+  return `<button type="button" class="row${sel ? ' sel' : ''}${s === 'draft' ? ' dim' : ''}" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(m.name)}" data-f="m:${esc(m.name)}" data-s="${s}">`
+    + `${ic('metric', 's')}<span class="nm ell">${esc(m.name)}</span>${txt(m.type) ? `<span class="ty">${esc(m.type)}</span>` : ''}`
+    + (m.status === 'checked' && txt(m.value) ? `<span class="v num" title="Ran on the data">${esc(fixMinus(m.value))}</span>`
+      : m.status === 'look' ? `<span class="v lk" title="Ran and needs a look">${ic('alert', 'xs')}</span>` : '') + stageBadge(S, m, UI) + '</button>';
+}
+function metricsBlock(S, UI) {
+  const ms = metricsOf(S);
+  if (!ms.length) {
+    const d = draftsOf(S).length;
+    return section('metrics', 'Metrics', 0, true, `<div class="card empty">${ic('metric', 's')}<span>${d ? 'Metrics form once the drafts below are merged, one per number.' : 'Metrics show here as they are made.'}</span></div>`, false);
   }
-  const H = obj(r.history);
-  if (H && isNum(H.statements)) out += sec('Past queries', esc(grp(H.statements)), isNum(H.runs) ? `<div class="ovn">Run ${esc(grp(H.runs))} times in all</div>` : '');
-  if (!out) return `<div class="card empty">${ic('folder')}<span>${S.flow === 'demo' ? "The demo's dashboard, past queries and data appear here once they are found." : 'Your sources appear here once they are surveyed.'}</span></div>`;
-  return `<div><h2 class="sh">Sources</h2><div class="card ov">${out}</div></div>`;
+  const counts = {};
+  ms.forEach(m => { const s = stageOf(m); counts[s] = (counts[s] || 0) + 1; });
+  const f = UI.filter && counts[UI.filter] ? UI.filter : 'all';
+  const c = current(S), writing = c && c.id === 'rules';
+  const opts = [['all', 'All ' + ms.length], ...['final', 'merged', 'kept', 'draft'].filter(s => counts[s]).map(s => [s, (s === 'merged' && writing ? 'Writing' : STAGE[s][0]) + ' ' + counts[s]])];
+  const chips = opts.length > 2 ? `<div class="flt" role="group" aria-label="Show">${opts.map(([k, label]) => `<button type="button" data-act="flt" data-v="${k}" data-k="flt:${k}" aria-pressed="${f === k}">${esc(label)}</button>`).join('')}</div>` : '';
+  const shown = ms.filter(m => f === 'all' || stageOf(m) === f);
+  return section('metrics', 'Metrics', ms.length, true, chips + `<div class="card lst">${shown.map(m => metricRow(S, UI, m)).join('')}</div>`, false);
 }
-
-/* The metric list */
-function srcBadges(m) {
-  const {t, q} = srcCounts(m);
-  return (t ? `<span class="badge sb">${ic('tile')}${esc(pl(t, 'tile'))}</span>` : '') + (q ? `<span class="badge sb">${ic('query')}${esc(pl(q, 'past query', 'past queries'))}</span>` : '');
+function draftsBlock(S, UI) {
+  const ds = draftsOf(S);
+  if (!ds.length) return '';
+  const merging = ds.some(d => txt(d.into));
+  const open = openOf(UI, 'drafts', !finished(S));
+  const body = `<div class="card lst">${ds.map(d => `<button type="button" class="row" data-act="d" data-d="${esc(d.id)}" data-k="d:${esc(d.id)}" data-f="d:${esc(d.id)}" data-s="${merging ? 'm' : 'd'}">`
+    + `${ic(d.kind === 'tile' ? 'tile' : 'query', 's')}<span class="nm ell" title="${esc(d.question || '')}">${esc(d.name)}</span>${txt(d.page) ? `<span class="ty ell">${esc(d.page)}</span>` : ''}`
+    + `<span class="badge${d.into ? ' pu' : ''}">${d.into ? 'Merged' : 'Draft'}</span></button>`).join('')}</div>`;
+  return section('drafts', 'Drafts', ds.length, open, body, true);
 }
-function row(S, UI, m, sel) {
-  const s = statusOf(m.status), v = s === 'checked' ? fixMinus(m.value) : '';
-  const from = arr(m.from).map(txt).filter(Boolean);
-  const desc = m.rule ? esc(m.description)
-    : from.length ? `<span class="wt">Merged from ${esc(from.join(' + '))}</span>`
-    : m.status === 'draft' && txt(m.description) ? `<span class="wt">${esc(m.description)}</span>`
-    : '<span class="wt">Being defined</span>';
-  return `<button type="button" class="mr" data-act="m" data-m="${esc(m.name)}" data-k="m:${esc(lc(m.name))}" data-f="${esc(lc(m.name))}" data-s="${s}${m.rule ? 'r' : ''}"${UI.wide ? ` aria-pressed="${sel}"` : ''}>`
-    + kindM() + `<span class="mm"><span class="nm">${esc(m.name)}</span>${desc ? `<span class="ds ell">${desc}</span>` : ''}<span class="src n">${srcBadges(m)}</span></span>`
-    + `<span class="src w">${srcBadges(m)}</span><span class="w">${statusBadge(s, UI)}</span>`
-    + `<span class="vs"><span class="v num">${esc(v)}</span><span class="n">${statusBadge(s, UI)}</span></span></button>`;
-}
-function listHead(ms) {
-  let right = '';
-  if (ms.length) {
-    const c = k => ms.filter(m => m.status === k).length, ruled = ms.filter(m => m.rule).length;
-    if (c('tool')) right = 'Checks run with the warehouse\'s own tool' + (c('look') ? ` · ${c('look')} need a look` : '');
-    else if (ms.some(m => ['checking', 'checked', 'look'].includes(m.status))) right = `${c('checked')} of ${ms.length} checked` + (c('look') ? ` · ${c('look')} need a look` : '');
-    else if (c('draft')) right = c('merged') ? `${c('merged')} merged · ${c('draft')} drafts to merge` : `${c('draft')} drafts, not merged yet`;
-    else if (ruled < ms.length) right = ruled ? `${ruled} of ${ms.length} rules written` : 'Rules not written yet';
-    else right = 'Not checked yet';
-  }
-  return `<div class="mlh"><h2>Metrics<span class="cnt num">${ms.length}</span></h2><span class="xs sub">${esc(right)}</span></div>`;
-}
-function lookBlock(S) {
-  const qs = queriesOf(S).filter(q => q.status === 'look');
-  if (!qs.length) return '';
-  return `<div class="card lk"><div class="lh">${ic('alert', 's')}<span>${qs.length === 1 ? '1 query needs a look' : qs.length + ' queries need a look'}</span></div>`
-    + qs.map(q => `<div class="li"><span>${esc(txt(q.question) || txt(q.name))}</span>${txt(q.why) ? `<span class="e">${esc(q.why)}</span>` : ''}</div>`).join('') + '</div>';
+function cantBlock(S, UI) {
+  const cs = cantOf(S);
+  if (!cs.length) return '';
+  const open = openOf(UI, 'cant', false);
+  const body = `<div class="card lst">${cs.map(c => `<div class="cant">${ic('alert', 's')}<span class="mm"><span class="nm">${esc(c.tile)}</span><span class="ty">${esc(c.why)}${txt(c.page) ? ' · ' + esc(c.page) : ''}</span></span></div>`).join('')}</div>`;
+  return section('cant', "Tiles that couldn't be built", cs.length, open, body, true);
 }
 function queriesBlock(S, UI) {
   const qs = queriesOf(S);
   if (!qs.length) return '';
-  const c = k => qs.filter(q => q.status === k).length;
-  const line = c('tool') ? 'checks run with the warehouse\'s own tool' + (c('look') ? ` · ${c('look')} need a look` : '')
-    : c('checked') + c('checking') + c('look') ? `${c('checked')} of ${qs.length} checked` + (c('look') ? ` · ${c('look')} need a look` : '') : 'checked after the metrics';
-  const open = UI.tog.has('queries');
-  return `<div class="qb"><button type="button" class="fold" data-tog="queries" data-k="t:queries" aria-expanded="${open}">Plus ${esc(pl(qs.length, 'query', 'queries'))}: ${esc(line)}${ic('chev', 'xs')}</button>`
-    + (open ? `<div class="card ql">${qs.map(q => `<button type="button" class="qr" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}"${UI.wide ? ` aria-pressed="${txt(q.id) === txt(UI.query)}"` : ''}>`
-      + `${kindS(q.kind)}<span class="mm"><span class="q">${esc(txt(q.question) || txt(q.name))}</span>${q.status === 'look' && txt(q.why) ? `<span class="u">${esc(q.why)}</span>` : ''}</span>`
-      + `<span class="vs">${statusBadge(q.status, UI)}${statusOf(q.status) === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}</span></button>`).join('')}</div>` : '')
+  const open = openOf(UI, 'queries', false);
+  const body = `<div class="card lst">${qs.map(q => `<button type="button" class="row qr" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}">${ic(q.kind === 'tile' ? 'tile' : 'query', 's')}<span class="nm ell">${esc(txt(q.question) || txt(q.name))}</span>${q.status === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}</button>`).join('')}</div>`;
+  return section('queries', 'Queries', qs.length, open, body, true);
+}
+function lists(S, UI) { return metricsBlock(S, UI) + draftsBlock(S, UI) + cantBlock(S, UI) + queriesBlock(S, UI); }
+
+/* A metric's own view, under the checklist */
+const blk = (label, body) => body ? `<div class="kv"><div class="lb">${esc(label)}</div><div class="vv">${body}</div></div>` : '';
+const para = t => txt(t) ? `<div>${esc(t)}</div>` : '';
+const bullets = xs => arr(xs).length ? `<ul>${arr(xs).map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
+const chipsOf = xs => arr(xs).length ? `<div class="chips">${arr(xs).map(x => `<span class="badge">${esc(x)}</span>`).join('')}</div>` : '';
+const code = (t, key, UI, label) => {
+  if (!txt(t)) return '';
+  if (!key) return `<pre class="code">${esc(t)}</pre>`;
+  const open = UI.tog.has(key);
+  return `<button type="button" class="fold" data-tog="${key}" data-k="t:${key}" aria-expanded="${open}">${ic('chev', 'xs')}${esc(open ? 'Hide ' + label : 'Show ' + label)}</button>${open ? `<pre class="code">${esc(prettySql(t))}</pre>` : ''}`;
+};
+function checkText(m) {
+  if (m.status === 'checked') return `${ic('check', 'xs')} Ran on the data${txt(m.value) ? ': ' + esc(fixMinus(m.value)) : ''}`;
+  if (m.status === 'look') return `Ran and needs a look${txt(m.why) ? ': ' + esc(m.why) : ''}`;
+  if (m.status === 'checking') return 'Running now';
+  if (m.status === 'tool') return "Run with your warehouse's own read-only tool";
+  return 'Not run on the data yet';
+}
+function back(label) { return `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${esc(label)}</button>`; }
+function metricView(S, UI, name) {
+  const m = findMetric(S, name);
+  if (!m) return `<div class="card empty">${ic('metric', 's')}<span>This metric is not in the build any more.</span></div>`;
+  const srcs = arr(m.sources).filter(obj);
+  const where = srcs.map(s => `<div class="src">${ic(s.kind === 'tile' ? 'tile' : 'query', 's')}<span>${esc(txt(s.question) || txt(s.visual) || 'A query')}${txt(s.page) ? `<span class="sub"> · ${esc(s.page)}</span>` : ''}${isNum(s.runs) ? `<span class="sub"> · run ${esc(grp(s.runs))} times</span>` : ''}</span></div>`).join('');
+  const merged = arr(m.from).length ? `<div class="sub xs">Merged from ${esc(m.from.join(', '))}</div>` : '';
+  const wk = 'why:' + m.name, wopen = UI.tog.has(wk);
+  const why = txt(m.reasoning) && arr(m.from).length ? `<button type="button" class="fold" data-tog="${esc(wk)}" data-k="t:${esc(wk)}" aria-expanded="${wopen}">${ic('chev', 'xs')}${wopen ? 'Hide why they became one' : 'Why they became one'}</button>${wopen ? `<div class="sub">${esc(m.reasoning)}</div>` : ''}` : '';
+  const rel = arr(m.related).filter(r => Array.isArray(r) && r.length > 1).map(r => `<div>${esc(r[0])} <button type="button" class="lnk" data-act="m" data-m="${esc(r[1])}" data-k="rel:${esc(r[1])}">${esc(r[1])}</button></div>`).join('');
+  const reads = [txt(m.table), ...arr(m.joins).map(j => '+ ' + j)].filter(Boolean);
+  return `<div class="card det"><div class="deth">${back('All metrics')}<div class="nmr"><h2>${esc(m.name)}</h2>${stageBadge(S, m, UI)}</div><div class="sub xs">${esc([m.type, lc(m.unit) !== lc(m.type) ? m.unit : ''].filter(Boolean).join(' · '))}</div></div>`
+    + (stageOf(m) === 'kept' ? `<div class="warnbox">${ic('alert', 's')}<span><b>Kept back.</b> ${esc(m.kept_reason || 'It needs a look before it can be saved.')}</span></div>` : '')
+    + blk('What it measures', para(m.description) || (stageOf(m) === 'merged' ? '<div class="sub">Its rule is being written.</div>' : ''))
+    + blk('Where it was found', where + merged + why)
+    + blk('Formula', code(m.formula))
+    + blk('Leaves out', bullets(m.leaves_out))
+    + blk('Counts', para(m.population))
+    + blk('One row per', para(m.grain))
+    + blk('Break it down by', chipsOf(m.dimensions))
+    + blk('Reads', chipsOf(reads))
+    + blk('Filters as written', arr(m.filters).length ? code(m.filters.join('\nAND '), 'flt:' + m.name, UI, 'filters') : '')
+    + blk('Related metrics', rel)
+    + blk('Example query', code(m.example_sql, 'sql:' + m.name, UI, 'SQL'))
+    + blk('Checked on the data', stageOf(m) === 'draft' || stageOf(m) === 'merged' ? '' : `<div>${checkText(m)}</div>`)
     + '</div>';
 }
-function listBlock(S, UI) {
-  const ms = metricsOf(S), sel = lc(selectedName(S, UI));
-  let body;
-  if (!ms.length) {
-    const st = stepsOf(S).find(s => s.id === 'metrics');
-    body = `<div class="card empty">${ic('metric')}<span>${!st || st.status === 'next' ? 'Metrics appear here as they are made, once the build starts.' : 'Metrics appear here as they are made. First, each query is described and read for the number it measures.'}</span></div>`;
-  } else {
-    body = '<div class="card mt"><div class="th"><span></span><span>Metric</span><span>Sources</span><span>Status</span><span>Checked value</span></div>'
-      + ms.map(m => row(S, UI, m, lc(m.name) === sel)).join('') + '</div>';
-  }
-  return `<div class="ml">${lookBlock(S)}${listHead(ms)}${body}${queriesBlock(S, UI)}</div>`;
+function draftView(S, UI, id) {
+  const d = findDraft(S, id);
+  if (!d) return `<div class="card empty">${ic('metric', 's')}<span>This draft is not in the build any more.</span></div>`;
+  return `<div class="card det"><div class="deth">${back('Back')}<div class="nmr"><h2>${esc(d.name)}</h2><span class="badge${d.into ? ' pu' : ''}">${d.into ? 'Merged' : 'Draft'}</span></div></div>`
+    + blk(d.kind === 'tile' ? 'Found in a dashboard tile' : 'Found in a past query', `<div class="src">${kindS(d.kind)}<span>${esc(d.question || '')}${txt(d.page) ? `<span class="sub"> · ${esc(d.page)}</span>` : ''}</span></div>`)
+    + blk('What it seemed to measure', para(d.meaning))
+    + blk('Became', d.into ? `<button type="button" class="lnk" data-act="m" data-m="${esc(d.into)}" data-k="into">${esc(d.into)}</button>` : '<div class="sub">Waiting to be merged with drafts that measure the same number.</div>')
+    + '</div>';
 }
-function selectedName(S, UI) {
-  if (UI.query) return '';
-  if (UI.metric) return UI.metric;
-  return UI.wide ? txt((metricsOf(S)[0] || {}).name) : '';
-}
-
-/* How we got here */
-function runsLine(s) {
-  if (!isNum(s.runs)) return 'Past query';
-  return `Ran ${pl(s.runs, 'time')}` + (isNum(s.analysts) ? ' by ' + pl(s.analysts, 'analyst') : '');
-}
-function sqlFold(UI, sql, key) {
-  const k = 'sql:' + key, open = UI.tog.has(k);
-  return `<button type="button" class="fold" data-tog="${esc(k)}" data-k="t:${esc(k)}" aria-expanded="${open}">${open ? 'Hide SQL' : 'Show SQL'}${ic('chev', 'xs')}</button>`
-    + (open ? `<pre class="sql mono">${esc(prettySql(sql))}</pre>` : '');
-}
-function srcItem(S, UI, s, key) {
-  const tile = s.kind === 'tile';
-  const where = tile
-    ? 'Dashboard tile' + (txt(s.visual) ? ` “${txt(s.visual)}”` : '') + (txt(s.page) ? ' on ' + txt(s.page) : '') + (txt(s.report) && s.report !== s.page ? ', in ' + txt(s.report) : '')
-    : runsLine(s);
-  const part = arr(s.part).map(txt).filter(Boolean);
-  return `<div class="ei">${kindS(s.kind)}<div class="mm">${txt(s.question) ? `<span class="q">${esc(s.question)}</span>` : ''}`
-    + (txt(s.description) ? `<span class="u">${esc(s.description)}</span>` : '')
-    + `<span class="u">${esc(where)}</span>` + (part.length ? `<span class="u">Its part: ${esc(part.join('; '))}</span>` : '')
-    + (txt(s.sql) ? sqlFold(UI, s.sql, key) : '')
-    + (findQuery(S, s.id) ? `<button type="button" class="lnk" data-act="q" data-q="${esc(s.id)}" data-k="sq:${esc(key)}">Open this query${ic('arrow', 'xs')}</button>` : '') + '</div></div>';
-}
-function reasonBlock(m, n) {
-  if (!txt(m.reasoning)) return '';
-  return `<div class="dsec"><h3 class="sl ai">${n > 1 ? `Why these ${n} became one metric` : 'Why it is a metric of its own'}</h3><div class="rs">${esc(m.reasoning)}</div></div>`;
-}
-function ruleBlock(S, m) {
-  if (!m.rule) return `<div class="dsec"><h3 class="sl">The rule</h3><div class="card pad u">Not written yet. Each metric's rule is written once the metrics are merged.</div></div>`;
-  const e = editFor(S, m), rows = [];
-  if (e && txt(e.before)) rows.push(['Rule before', esc(e.before)]);
-  if (e && txt(e.after)) rows.push(['Rule now', esc(e.after)]);
-  if (txt(m.population)) rows.push(['What it counts', esc(m.population)]);
-  const lo = arr(m.leaves_out).map(txt).filter(Boolean);
-  if (lo.length) rows.push(['Leaves out', lo.map(esc).join('<br>')]);
-  const f = txt(m.formula) ? `<pre class="sql mono${rows.length ? ' fx' : ''}">${esc(m.formula)}</pre>` : '';
-  if (!f && !rows.length) return '';
-  return `<div class="dsec"><h3 class="sl">The rule</h3><div class="card pad">${f}${rows.length ? `<dl class="kv">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}</div></div>`;
-}
-function checkBody(S, UI, m) {
-  const s = statusOf(m.status), e = editFor(S, m);
-  if (s === 'checked') {
-    const was = e && txt(e.before_value) ? `Was ${fixMinus(e.before_value)} before the rule change` : '';
-    return (txt(m.value) ? `<div class="ckv"><b class="big num">${esc(fixMinus(m.value))}</b></div>` : '<div>Ran on the data and passed its check</div>')
-      + (was ? `<div class="u">${esc(was)}</div>` : '');
-  }
-  if (s === 'look') return `<div class="warnline">${ic('alert', 's')}<span>Needs a look</span></div>${txt(m.why) ? `<div class="u">${esc(m.why)}</div>` : ''}`;
-  if (s === 'checking') return `<div class="ckrun"><i class="sd${moving(UI) ? ' pl' : ''}"></i>Running on the data now</div>`;
-  if (s === 'tool') return '<div class="u">Its check runs on your warehouse with its own read-only tool. The result is in the chat, not on this page.</div>';
-  return '<div class="u">Not checked yet. Every metric and query runs on the data once the build finishes.</div>';
-}
-function detail(S, UI, name) {
-  const m = findMetric(S, name);
-  if (!m) return `<div class="card empty">${ic('metric')}<span><b>${esc(name)}</b> is not made yet. It opens here once the build makes it.</span></div>`;
-  const s = statusOf(m.status), {t, q} = srcCounts(m), srcs = sourcesOf(m);
-  const from = [t ? pl(t, 'dashboard tile') : '', q ? pl(q, 'past query', 'past queries') : ''].filter(Boolean);
-  const head = `<div class="dth"><span class="kind metric lg">${ic('metric')}</span><div class="mm"><h2 class="dn">${esc(m.name)}</h2>${from.length ? `<span class="u">From ${esc(from.join(' and '))}</span>` : ''}</div>`
-    + `<div class="vs">${s === 'checked' && txt(m.value) ? `<span class="dv">${esc(fixMinus(m.value))}</span>` : ''}${statusBadge(s, UI)}</div></div>`;
-  const desc = m.rule && txt(m.description) ? `<p class="dd">${esc(m.description)}</p>` : '';
-  const ev = srcs.length ? `<div class="dsec"><h3 class="sl">Where it came from</h3><div class="card ev">${srcs.map((x, j) => srcItem(S, UI, x, lc(m.name) + ':' + j)).join('')}</div></div>` : '';
-  return `<div class="dt">${head}${desc}${ev}${reasonBlock(m, srcs.length)}${ruleBlock(S, m)}<div class="dsec"><h3 class="sl">Checked on the data</h3><div class="card pad ck">${checkBody(S, UI, m)}</div></div></div>`;
-}
-
-function queryFrom(q) {
-  if (q.kind === 'tile') return 'From the dashboard tile' + (txt(q.visual) ? ` “${txt(q.visual)}”` : '') + (txt(q.page) ? ' on ' + txt(q.page) : '');
-  return isNum(q.runs) ? `From a past query, run ${pl(q.runs, 'time')}` + (isNum(q.analysts) ? ' by ' + pl(q.analysts, 'analyst') : '') : 'From a past query';
-}
-function queryDetail(S, UI, id) {
+function queryView(S, UI, id) {
   const q = findQuery(S, id);
-  if (!q) return `<div class="card empty">${ic('query')}<span>This query is not made yet. It opens here once the build makes it.</span></div>`;
-  const s = statusOf(q.status), tables = arr(q.tables).map(txt).filter(Boolean), built = arr(q.metrics).map(txt).filter(Boolean);
-  const head = `<div class="dth"><span class="kind source lg">${ic(q.kind === 'tile' ? 'tile' : 'query')}</span><div class="mm"><h2 class="dn">${esc(txt(q.question) || txt(q.name))}</h2><span class="u">${esc(queryFrom(q))}</span></div>`
-    + `<div class="vs">${s === 'checked' && txt(q.value) ? `<span class="dv">${esc(fixMinus(q.value))}</span>` : ''}${statusBadge(s, UI)}</div></div>`;
-  const desc = txt(q.description) ? `<p class="dd">${esc(q.description)}</p>` : '';
-  const sql = txt(q.sql) ? `<div class="dsec"><h3 class="sl">The query</h3><div class="card pad"><pre class="sql mono fx0">${esc(prettySql(q.sql))}</pre>`
-    + (tables.length ? `<dl class="kv"><dt>Reads</dt><dd>${tables.map(x => `<code class="mono">${esc(x)}</code>`).join('<br>')}</dd></dl>` : '') + '</div></div>' : '';
-  const metrics = built.length ? `<div class="dsec"><h3 class="sl">${built.length === 1 ? 'The metric built on it' : `The ${built.length} metrics built on it`}</h3><div class="ap">${built.map(n => proofChip(S, n)).join('')}</div></div>` : '';
-  return `<div class="dt">${head}${desc}${sql}${metrics}<div class="dsec"><h3 class="sl">Checked on the data</h3><div class="card pad ck">${checkBody(S, UI, q)}</div></div></div>`;
+  if (!q) return `<div class="card empty">${ic('query', 's')}<span>This query is not in the build any more.</span></div>`;
+  return `<div class="card det"><div class="deth">${back('Back')}<div class="nmr"><h2>${esc(txt(q.question) || txt(q.name))}</h2></div></div>`
+    + blk('What it answers', para(q.description))
+    + blk('Reads', chipsOf(q.tables))
+    + blk('Metrics built on it', arr(q.metrics).map(n => `<div><button type="button" class="lnk" data-act="m" data-m="${esc(n)}" data-k="qm:${esc(n)}">${esc(n)}</button></div>`).join(''))
+    + blk('SQL', code(q.sql, 'qsql:' + q.id, UI, 'SQL'))
+    + '</div>';
 }
-
-/* End states */
-function proofChip(S, name) {
-  const m = findMetric(S, name);
-  return m ? `<button type="button" class="pch" data-act="m" data-m="${esc(m.name)}" data-k="p:${esc(lc(m.name))}">${kindM()}<span class="ell">${esc(name)}</span></button>` : `<span class="pch plain">${esc(name)}</span>`;
-}
-function answerCard(S, UI, lean) {
-  const a = obj(S.answer);
-  if (!a) return '';
-  const [nm, val] = splitHeadline(a.headline);
-  const rows = arr(a.rows).filter(r => Array.isArray(r) && r.length >= 2);
-  const nums = rows.map(r => r[2]).filter(isNum);
-  const lo = Math.min(0, ...nums), hi = Math.max(0, ...nums), span = (hi - lo) || 1, z = -lo / span * 100, neg = lo < 0;
-  const bars = rows.map(r => {
-    const v = r[2], has = isNum(v), left = has && v < 0 ? (v - lo) / span * 100 : z, w = has ? Math.abs(v) / span * 100 : 0;
-    return `<div class="abr${txt(a.highlight) && txt(r[0]) === txt(a.highlight) ? ' hl' : ''}"><span class="n" title="${esc(r[0])}">${esc(r[0])}</span>`
-      + `<span class="trk">${has ? `<i style="left:${left.toFixed(2)}%;width:${Math.max(w, 0.6).toFixed(2)}%"></i>` : ''}${neg ? `<b class="z" style="left:${z.toFixed(2)}%"></b>` : ''}</span>`
-      + `<span class="v num">${esc(fixMinus(r[1]))}</span></div>`;
-  }).join('');
-  const head = lean ? '' : `<div class="sl">First answer</div>${txt(a.question) ? `<div class="aq">${esc(a.question)}</div>` : ''}`
-    + `<div class="av"><b class="big num">${esc(fixMinus(val))}</b>${nm ? `<span class="sub">${esc(nm)}</span>` : ''}</div>${txt(a.summary) ? `<p class="as">${esc(a.summary)}</p>` : ''}`;
-  const proof = arr(a.proof).map(txt).filter(Boolean);
-  return `<div class="card ans">${head}${rows.length ? `<div class="sl">${lean ? 'Behind the answer' : 'By row'}</div><div class="ab">${bars}</div>` : ''}`
-    + (txt(a.rule) ? `<div class="arl">${ic('pen', 's')}<span><span class="sub">Rule:</span> ${esc(a.rule)}</span></div>` : '')
-    + (proof.length ? `<div class="ap"><span class="xs sub">Based on</span>${proof.map(p => proofChip(S, p)).join('')}</div>` : '') + '</div>';
-}
-function readyCard(S) {
-  const ms = metricsOf(S), qs = queriesOf(S), c = obj(S.checks), r = obj(S.read) || {}, ch = obj(r.chosen) || {}, H = obj(r.history);
-  const parts = [];
-  if (c && isNum(c.total)) parts.push(`${grp(c.passed)} of ${grp(c.total)} checked on the data`);
-  if (c && isNum(c.need_look) && c.need_look) parts.push(`${grp(c.need_look)} need a look`);
-  const built = [ch.bi && arr(S.tiles).length ? pl(arr(S.tiles).length, 'dashboard tile') : '', ch.history && H && isNum(H.statements) ? pl(H.statements, 'past query', 'past queries') : ''].filter(Boolean);
-  if (built.length) parts.push('built from ' + built.join(' and '));
-  const sv = obj(S.saved);
-  const where = sv ? ['cloud', 'Saved to Atlan Trident', txt(sv.workspace) ? 'Workspace: ' + sv.workspace : '', '']
-    : S.local ? ['laptop', 'Kept on this machine', 'Not saved to Atlan', '']
-    : ['chat', 'Waiting for where to save', 'Keep local or save to Atlan Trident, in the chat', ' wait'];
-  return `<div class="card rd2"><div class="rdr">${kindM()}<div class="mm"><b>${esc(pl(ms.length, 'metric'))} and ${esc(pl(qs.length, 'query', 'queries'))} ready</b>${parts.length ? `<span class="u">${esc(parts.join(' · '))}</span>` : ''}</div></div>`
-    + `<div class="rdr"><span class="ico${where[3]}">${ic(where[0], 's')}</span><div class="mm"><b>${esc(where[1])}</b>${where[2] ? `<span class="u">${esc(where[2])}</span>` : ''}</div></div></div>`;
-}
-function dashCard(S) {
-  const L = obj(S.layout);
-  if (!L) return '';
-  const tiles = arr(L.tiles).map(txt).filter(Boolean), more = arr(L.more).map(txt).filter(Boolean);
-  const val = name => { const m = findMetric(S, name); return m && m.status === 'checked' && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : ''; };
-  return `<div class="card db"><div class="dbh">${ic('grid', 's')}<b>Dashboard</b><span class="xs sub">${esc(pl(tiles.length, 'tile'))}</span></div>`
-    + `<div class="dbg">${tiles.map(t => `<div class="dbt"><span class="u">${esc(t)}</span>${val(t)}</div>`).join('')}</div>`
-    + (more.length ? `<div class="u">More on offer: ${esc(more.join(', '))}</div>` : '') + '</div>';
-}
-function editCard(S, lean) {
-  const e = obj(S.edit);
-  if (!e) return '';
-  const lists = [['Now counted', e.added], ['No longer counted', e.removed]].map(([l, x]) => [l, arr(x).map(txt).filter(Boolean)]).filter(([, x]) => x.length);
-  const dl = (txt(e.before) ? `<dt>Rule before</dt><dd class="sub">${esc(e.before)}</dd>` : '') + (txt(e.after) ? `<dt>Rule now</dt><dd>${esc(e.after)}</dd>` : '');
-  return `<div class="card ed"><div class="edh">${kindM()}<div class="mm"><span class="xs sub">Rule changed</span><b>${esc(e.metric)}</b></div></div>`
-    + (lean || !txt(e.after_value) ? '' : `<div class="edv"><div><span class="xs sub">Before</span><span class="was num">${esc(fixMinus(e.before_value))}</span></div>${ic('arrow')}<div><span class="xs sub">Now</span><b class="big num">${esc(fixMinus(e.after_value))}</b></div>${txt(e.name) ? `<span class="sub">${esc(e.name)}</span>` : ''}</div>`)
-    + (dl ? `<dl class="kv">${dl}</dl>` : '')
-    + lists.map(([l, xs]) => `<div class="edl"><span class="xs sub">${l}</span>${xs.map(x => `<span class="badge">${esc(x)}</span>`).join('')}</div>`).join('')
-    + (txt(e.note) ? `<div class="nte">${ic('alert', 's')}<span>${esc(e.note)}</span></div>` : '') + '</div>';
-}
-
-/* A step: what came out of it and how it works */
-function resultBlock(r) {
-  const a = obj(r.answer);
-  if (a) {
-    const [nm, val] = splitHeadline(a.headline);
-    return `<div class="dsec">${txt(r.title) ? `<h3 class="sl">${esc(r.title)}</h3>` : ''}<div class="card ans">${txt(a.question) ? `<div class="aq">${esc(a.question)}</div>` : ''}`
-      + `<div class="av"><b class="big num">${esc(fixMinus(val))}</b>${nm ? `<span class="sub">${esc(nm)}</span>` : ''}</div>${txt(a.summary) ? `<p class="as">${esc(a.summary)}</p>` : ''}`
-      + (txt(a.rule) ? `<div class="arl">${ic('pen', 's')}<span><span class="sub">Rule:</span> ${esc(a.rule)}</span></div>` : '') + '</div></div>';
-  }
-  const list = arr(r.list).filter(x => Array.isArray(x) && txt(x[0]));
-  if (!list.length) return '';
-  return `<div class="dsec">${txt(r.title) ? `<h3 class="sl">${esc(r.title)}</h3>` : ''}<div class="card rsl">${list.map(x => `<div class="rsr"><span>${esc(x[0])}</span>${txt(x[1]) ? `<b class="num">${esc(fixMinus(x[1]))}</b>` : ''}</div>`).join('')}</div></div>`;
-}
-function pieces(S, UI, s, flat) {
-  const hw = arr(s.how).filter(p => obj(p) && txt(p.t));
-  if (!hw.length) return '';
-  const busy = s.status === 'now' && busyNow(S, UI), first = s.status === 'now' ? hw.findIndex(p => p.s !== 'done') : -1;
-  const list = hw.map((p, j) => {
-    const cls = p.w ? 'warn' : p.s === 'done' ? 'done' : j === first && busy ? 'run' : 'next';
-    const mark = cls === 'warn' ? ic('alert', 's') : cls === 'done' ? ic('check', 's') : cls === 'run' ? spin() : ic('circle', 's');
-    const word = cls === 'warn' ? 'Done, with something to look at' : cls === 'done' ? 'Done' : cls === 'run' ? 'Under way' : 'Not done yet';
-    return `<div class="pc ${cls}"><span class="pci" title="${word}">${mark}<span class="sr">${word}</span></span><div class="mm"><span class="pct">${esc(p.t)}</span>`
-      + (txt(p.d) ? `<span class="u">${esc(p.d)}</span>` : '') + (txt(p.by) ? `<span class="pcb">${esc(p.by)}</span>` : '') + '</div>'
-      + (txt(p.n) ? `<span class="pcn num">${esc(fixMinus(p.n))}</span>` : '<span></span>') + '</div>';
-  }).join('');
-  if (flat) return `<div class="pcs flat">${list}</div>`;
-  return `<div class="dsec"><h3 class="sl">${s.status === 'next' ? 'How this step will work' : 'How this step works'}</h3><div class="card pcs">${list}</div></div>`;
-}
-function outcome(S, UI, s) {
-  if (s.id === 'metrics') return listBlock(S, UI);
-  let out = '';
-  const res = arr(s.result).filter(obj);
-  if (s.id === 'ask' && obj(S.answer)) out += answerCard(S, UI, false);
-  else out += res.map(resultBlock).join('');
-  if (s.id === 'sources' && !res.length) out += overview(S);
-  if (s.id === 'save' && (S.local || obj(S.saved) || s.status === 'now')) out += readyCard(S);
-  if (s.id === 'dashboard' && obj(S.layout)) out += dashCard(S);
-  return out;
-}
-function stepPanel(S, UI, id) {
-  const st = stepsOf(S), i = st.findIndex(s => s.id === id), s = st[i], n = nowOf(S);
-  const isNow = s.status === 'now', waiting = isNow && !!(s.needs_you || txt(n.wait)), busy = isNow && busyNow(S, UI);
-  const badge = s.status === 'done' ? `<span class="badge ok">${ic('check', 'xs')}Done</span>`
-    : isNow ? (waiting ? '<span class="badge brand"><i class="sd"></i>Waiting for you</span>' : `<span class="badge brand"><i class="sd${busy ? ' pl' : ''}"></i>Under way</span>`)
-    : '<span class="badge">Not started yet</span>';
-  const head = `<div class="card sph"><div class="mm"><span class="xs sub">Step ${i + 1} of ${st.length}</span><h2 class="spt">${esc(txt(s.purpose) || txt(s.name))}</h2>`
-    + (isNow && txt(s.doing) && s.doing !== s.purpose ? `<span class="u">${esc(s.doing)}</span>` : '')
-    + (txt(s.fact) ? `<span class="sfact">${ic('check', 's')}<span>${esc(fixMinus(s.fact))}</span></span>` : '') + `</div>${badge}</div>`;
-  return `<div class="stv">${head}${outcome(S, UI, s)}${pieces(S, UI, s, false)}</div>`;
-}
-
-/* Following the build: the page as picked */
-function doneSoFar(S, UI) {
-  const done = stepsOf(S).filter(s => s.status === 'done').reverse();
-  if (!done.length) return '';
-  return `<div><h2 class="sh">Done so far</h2><div class="card lst">${done.map(s => {
-    const k = 'done:' + s.id, open = UI.tog.has(k);
-    const body = open ? `<div class="drc">${s.id === 'metrics' ? '' : arr(s.result).filter(obj).map(resultBlock).join('')}${pieces(S, UI, s, true)}`
-      + `<button type="button" class="lnk" data-act="step" data-id="${esc(s.id)}" data-k="open:${esc(s.id)}">Open this step${ic('arrow', 'xs')}</button></div>` : '';
-    return `<div class="dr"><button type="button" class="drb" data-tog="${esc(k)}" data-k="t:${esc(k)}" aria-expanded="${open}"><span class="tick">${ic('check', 's')}</span>`
-      + `<span class="n">${esc(txt(s.purpose) || txt(s.name))}</span><span class="f ell">${esc(fixMinus(s.fact))}</span>${ic('chev', 's chev')}</button>${body}</div>`;
-  }).join('')}</div></div>`;
-}
-function followBody(S, UI) {
-  const n = nowOf(S);
-  let main = '';
-  if (['intent', 'sources', 'scope'].includes(n.id)) {
-    if (!stepsOf(S).some(s => s.status === 'done')) main += intro();
-    main += overview(S);
-  } else {
-    const a = obj(S.answer), headAnswer = !!(a && txt(n.value) && txt(n.title) === txt(a.question));
-    main += editCard(S, !!(obj(S.edit) && txt(n.value) && !headAnswer));
-    main += answerCard(S, UI, headAnswer);
-    if (S.local || obj(S.saved)) main += readyCard(S);
-    main += dashCard(S);
-    main += listBlock(S, UI);
-  }
-  return main + doneSoFar(S, UI);
-}
-function rightColumn(S, UI) {
-  if (UI.query) return `<h2 class="sh" style="margin-bottom:0">How we got here</h2>${queryDetail(S, UI, UI.query)}`;
-  if (metricsOf(S).length || UI.metric) return `<h2 class="sh" style="margin-bottom:0">How we got here</h2>${detail(S, UI, selectedName(S, UI))}`;
-  const now = stepsOf(S).find(s => s.status === 'now');
-  if (now && !UI.view) return pieces(S, UI, now, false);
-  return `<div class="card empty">${ic('metric')}<span>How each metric was reached shows here once metrics are made: the dashboard tiles and past queries behind it, why they became one metric, its rule and its check on the data.</span></div>`;
+function detailOf(S, UI) {
+  if (UI.metric) return metricView(S, UI, UI.metric);
+  if (UI.draft) return draftView(S, UI, UI.draft);
+  if (UI.query) return queryView(S, UI, UI.query);
+  return '';
 }
 
 /* The whole page: a pure function of the snapshot and the UI state */
 function view(S, UI) {
   if (!obj(S)) {
     const msg = UI.link === 'off' ? `${ic('alert')}<span>No update has arrived from the build. This page picks up when it answers.</span>` : `${spin()}<span>Connecting to the build</span>`;
-    return `<div class="sp"><div class="top">${toolbar(null, UI)}</div><div class="card empty">${msg}</div></div>`;
+    return `<div class="sp2">${toolbar(null, UI)}<div class="card empty">${msg}</div></div>`;
   }
-  const at = UI.view && stepsOf(S).some(s => s.id === UI.view) ? UI.view : null;
-  const top = `<div class="top">${toolbar(S, UI)}${UI.link === 'off' ? offNote(S) : ''}${topBlock(S)}${rail(S, UI, at)}</div>`;
-  const status = at ? strip(S, UI) : header(S, UI);
-  let main;
-  if (!UI.wide && (UI.metric || UI.query)) {
-    main = `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${UI.query ? (UI.from ? 'Back to the metric' : 'Back') : at && at !== 'metrics' ? 'Back' : 'All metrics'}</button>`
-      + `<h2 class="sh" style="margin-bottom:-8px">How we got here</h2>${UI.query ? queryDetail(S, UI, UI.query) : detail(S, UI, UI.metric)}`;
-  } else {
-    main = at ? stepPanel(S, UI, at) : followBody(S, UI);
-  }
-  if (!UI.wide) return `<div class="sp">${top}${status}${main}</div>`;
-  return `<div class="sp wd"><div class="wl">${top}${status}${main}</div><div class="wr">${rightColumn(S, UI)}</div></div>`;
+  const top = `${toolbar(S, UI)}${UI.link === 'off' ? offNote(S) : ''}${topBlock(S)}`;
+  const detail = detailOf(S, UI);
+  if (!UI.wide) return `<div class="sp2">${top}${checklist(S, UI)}${detail || lists(S, UI)}</div>`;
+  return `<div class="wd2"><div>${top}${checklist(S, UI)}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${ic('metric', 's')}<span>Pick a metric or draft to see its definition, its formula and where it was found.</span></div>`}</div></div>`;
 }
+
 
 /* State, painting and the live feed */
 const THEME_KEY = 'atlan-analytics-side-page-theme';
-const UI = {view: null, metric: null, query: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system'};
+const UI = {view: null, metric: null, query: null, draft: null, filter: null, from: null, tog: new Set(), wide: false, link: 'wait', theme: 'system'};
 const app = document.getElementById('app');
 const WID = {}, STA = {};
-let S = null, raw = '', said = '';
+let S = null, raw = '', said = '', seenOnce = false;
 
 function readHash() {
   let p;
@@ -877,12 +769,14 @@ function readHash() {
   UI.view = p.get('step') || null;
   UI.metric = p.get('m') || null;
   UI.query = p.get('q') || null;
+  UI.draft = p.get('d') || null;
 }
 function writeHash() {
   const p = new URLSearchParams();
   if (UI.view) p.set('step', UI.view);
   if (UI.metric) p.set('m', UI.metric);
   if (UI.query) p.set('q', UI.query);
+  if (UI.draft) p.set('d', UI.draft);
   const want = p.toString() ? '#' + p.toString() : '';
   if (location.hash === want) return;
   try { history.replaceState(null, '', location.pathname + location.search + want); } catch (e) { /* the address is a convenience */ }
@@ -891,6 +785,8 @@ function paint() {
   const y = window.scrollY, wr = app.querySelector('.wr'), wy = wr ? wr.scrollTop : 0;
   const ae = document.activeElement, fk = ae && app.contains(ae) && ae.dataset ? ae.dataset.k : null;
   app.innerHTML = view(S, UI);
+  const painted = !!S && seenOnce;
+  if (S) seenOnce = true;
   app.removeAttribute('aria-busy');
   app.querySelectorAll('.bar > i[data-k]').forEach(b => {
     const k = b.dataset.k, w = b.dataset.w, prev = WID[k];
@@ -901,13 +797,14 @@ function paint() {
   app.querySelectorAll('[data-f]').forEach(n => {
     const k = n.dataset.f, s = n.dataset.s;
     if (STA[k] != null && STA[k] !== s) n.classList.add('fl');
+    else if (STA[k] == null && painted) n.classList.add('nw');
     STA[k] = s;
   });
   window.scrollTo(0, y);
   const wr2 = app.querySelector('.wr');
   if (wr2) wr2.scrollTop = wy;
   if (fk) { const el = [...app.querySelectorAll('[data-k]')].find(x => x.dataset.k === fk); if (el) el.focus({preventScroll: true}); }
-  const line = S ? [stepLabel(S), txt(nowOf(S).title)].filter(Boolean).join('. ') : '';
+  const line = S ? stepLabel(S) : '';
   if (line !== said) { said = line; document.getElementById('say').textContent = line; }
   writeHash();
 }
@@ -973,7 +870,15 @@ document.addEventListener('click', e => {
     UI.query = null; UI.from = null;
     paint();
     window.scrollTo(0, 0);
+  } else if (act === 'flt') {
+    UI.filter = a.dataset.v === 'all' ? null : a.dataset.v;
+    paint();
+  } else if (act === 'd') {
+    UI.draft = a.dataset.d; UI.metric = null; UI.query = null; UI.from = null;
+    paint();
+    window.scrollTo(0, 0);
   } else if (act === 'm' || act === 'q') {
+    UI.draft = null;
     if (act === 'm') { UI.metric = a.dataset.m; UI.query = null; UI.from = null; }
     else { UI.from = UI.query ? UI.from : UI.metric; UI.metric = null; UI.query = a.dataset.q; }
     paint();
@@ -985,17 +890,20 @@ document.addEventListener('click', e => {
     paint();
     const r = UI.metric ? null : [...app.querySelectorAll('.qr')].find(x => x.dataset.q === was);
     if (r) { r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
+  } else if (act === 'back' && UI.draft) {
+    UI.draft = null;
+    paint();
   } else if (act === 'back') {
     const was = lc(UI.metric);
     UI.metric = null;
     paint();
-    const r = [...app.querySelectorAll('.mr')].find(x => lc(x.dataset.m) === was);
+    const r = [...app.querySelectorAll('.row[data-m]')].find(x => lc(x.dataset.m) === was);
     if (r) { r.scrollIntoView({block: 'center'}); r.focus({preventScroll: true}); }
   }
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if ((UI.metric || UI.query) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
+  if ((UI.metric || UI.query || UI.draft) && !UI.wide) { const b = app.querySelector('.back'); if (b) b.click(); }
   else if (UI.query) { UI.query = null; UI.metric = UI.from; UI.from = null; paint(); }
   else if (UI.view) { UI.view = null; paint(); }
 });
@@ -1015,7 +923,7 @@ connect();
 setInterval(health, 1000);
 
 window.SidePage = Object.freeze({
-  view: (snapshot, ui) => view(snapshot, Object.assign({view: null, metric: null, query: null, from: null, tog: new Set(), wide: false, link: 'live', theme: 'system'}, ui || {})),
+  view: (snapshot, ui) => view(snapshot, Object.assign({view: null, metric: null, query: null, draft: null, filter: null, from: null, tog: new Set(), wide: false, link: 'live', theme: 'system'}, ui || {})),
 });
 })();
 </script>

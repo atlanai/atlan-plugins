@@ -302,18 +302,38 @@ def _news(engine):
     return line if len(line) <= 240 else line[:237].rsplit(' ', 1)[0] + '...'
 
 
-def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_every=SO_FAR_SECONDS, out=None):
+HEARTBEAT = 'Say this one line to the person, unchanged, then end the turn: '
+
+
+def heartbeat_line(root, engine_dir=None):
+    """Where the build has got to, in the side page's own words, for a step that saves nothing until it ends."""
+    import side_page
+    from run_facts import count
+    try:
+        now = side_page.snapshot(root, engine_dir)['now']
+    except (OSError, ValueError, KeyError, TypeError):
+        return ''
+    title = now.get('title') or ''
+    if not title or not now.get('busy'):
+        return ''
+    # A checkpoint, never a count: the chat is static, so a count in it would go stale while the side page moves on.
+    return 'Still ' + title[:1].lower() + title[1:] + '. Each one shows on the side page as it lands.'
+
+
+def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_every=SO_FAR_SECONDS, out=None, heartbeat=None):
     """Print one line each time a step the chat shows ends, for the session that talks to the person while a subagent
     writes the gates: the line names the chip to draw, and nothing else reaches the chat. While a step runs, a line
     names the so-far chip once `so_far_every` seconds have passed since the last line and a batch has landed since. Stops
     once the definitions are accepted, after `idle` seconds with no batch or step, or after `seconds`; run it again to
-    carry on. The record of reported steps is shared, so a restart neither repeats nor skips one."""
+    carry on. The record of reported steps is shared, so a restart neither repeats nor skips one. With `heartbeat` seconds,
+    a step that prints nothing for that long, such as one that saves its answers only at its end, gets a plain line of
+    where the build has got to, so the chat never goes quiet."""
     import sys
     import time
     out = out or sys.stdout
     engine = _Engine(root, engine_dir)
     start = last = spoke = time.monotonic()
-    printed, saved, told = 0, None, None
+    printed, saved, told, chips = 0, None, None, set()
     while time.monotonic() - start < seconds and time.monotonic() - last < idle:
         record = engine.json(engine.root / REPORTED)
         done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
@@ -331,11 +351,32 @@ def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_
                 printed += 1
                 last = spoke = time.monotonic()
                 told = now
-        if now > told and time.monotonic() - spoke >= so_far_every and _under_way(engine):
+        # With a heartbeat (the dashboard branch) the chat carries checkpoints only: a running count goes stale there, so
+        # the so-far chips stay on the side page, which is live.
+        if not heartbeat and now > told and time.monotonic() - spoke >= so_far_every and _under_way(engine):
             news = _news(engine)
             print(SO_FAR + (', then end the turn on this line, unchanged: ' + news if news else '.'), file=out, flush=True)
             printed += 1
             spoke, told = time.monotonic(), now
+        if heartbeat:
+            # Helpers advance every step in the dashboard branch, so no step's result reaches the chat to name its chip:
+            # the watch names each chip the run can show and has not, once.
+            import side_view
+            try:
+                waiting = [k for k in side_view.due(root, engine_dir) if k not in chips]
+            except (OSError, ValueError, KeyError, TypeError):
+                waiting = []
+            if waiting:
+                print(DUE, file=out, flush=True)
+                chips.update(waiting)
+                printed += 1
+                last = spoke = time.monotonic()
+        if heartbeat and time.monotonic() - spoke >= heartbeat:
+            line = heartbeat_line(root, engine_dir)
+            if line:
+                print(HEARTBEAT + line.strip(), file=out, flush=True)
+                printed += 1
+            spoke = time.monotonic()
         if 'x3_ingest' in accepted:
             break
         time.sleep(interval)

@@ -53,9 +53,9 @@ GROUP_OF = {stage: group for group, stages in WORK for stage in stages}
 # What each piece of the build is, for the line under the step and the Next line.
 WORK_NAME = {
     'tables': 'Load the tables on this machine', 'group': 'Group past queries into questions',
-    'translate': "Translate the dashboard's tiles into queries", 'describe': 'Put each query in plain words',
-    'read': 'Find the numbers each query measures', 'merge': 'Combine possible metrics, one per number',
-    'rules': 'Write what each metric counts and leaves out', 'link': 'Link metrics that build on each other',
+    'translate': "Turn the report's tiles into queries", 'describe': 'Describe each query',
+    'read': 'Find draft metrics', 'merge': 'Merge drafts, one per number',
+    'rules': "Write each metric's rule", 'link': 'Link related metrics',
     'check': 'Check each metric and query on the data',
 }
 
@@ -225,6 +225,194 @@ def _merged_from(sources, drafts, merged_name=''):
     return [n if k == 1 else '%s ×%d' % (n, k) for n, k in names.values()]
 
 
+TYPES = {'count': 'Count', 'count_distinct': 'Count', 'sum': 'Sum', 'avg': 'Average', 'average': 'Average', 'mean': 'Average',
+         'ratio': 'Rate', 'rate': 'Rate', 'min': 'Lowest', 'max': 'Highest', 'median': 'Median'}
+# Why an item was kept back, in the person's words, by the engine's reason code.
+KEPT = {'compiler_review_wrong': 'The review found the translation of its tile wrong.',
+        'source_query_held': 'A tile it comes from was kept back, so its number could differ from the dashboard.',
+        'required_member_scope': 'It only works once something is picked first, such as one account.',
+        'card_aggregation': "Its calculation doesn't match the tile's."}
+KEPT_ANY = 'It needs a look before it can be saved.'
+
+
+def _type_of(d, card, name):
+    """What kind of number a metric is, in one word: its name says a rate or an average before its aggregation does."""
+    words = str(name).lower()
+    if 'rate' in words.split() or words.endswith(' rate') or '%' in words:
+        return 'Rate'
+    if 'average' in words or words.startswith('avg'):
+        return 'Average'
+    agg = (d.get('aggregation') or card.get('aggregation') or {}) if isinstance(d.get('aggregation') or card.get('aggregation') or {}, dict) else {}
+    return TYPES.get(str(agg.get('type') or '').lower(), 'Calculated' if agg.get('type') else None)
+
+
+def _short_table(name):
+    return str(name).split('.')[-1] if name else None
+
+
+def _definition_parts(d, card):
+    """The rest of a written rule, for the metric's own view: what it leaves out, its grain, what it breaks down by, the
+    table it reads and what it joins, its filters as written, and one worked example."""
+    if not d and not card:
+        return ()
+    source = d.get('source') if isinstance(d.get('source'), dict) else {}
+    dims = [x.get('name') for x in d.get('dimensions') or [] if isinstance(x, dict) and x.get('name')]
+    joins = [_short_table(j.get('to')) for j in d.get('joins') or [] if isinstance(j, dict) and j.get('to')]
+    filters = [_cut(str(x), 400) for x in (d.get('mandatory_filters') or []) + (d.get('filters') or []) if x]
+    examples = [e for e in d.get('examples') or [] if isinstance(e, dict) and e.get('sql')]
+    leaves = d.get('exclusions') or card.get('exclusions') or []
+    return (('leaves_out', [_cut(str(x), 240) for x in leaves][:8]),
+            ('population', _cut(d.get('population') or card.get('population'), 1200)),
+            ('grain', ', '.join(_short_table(g.strip()) for g in str(d.get('grain') or '').split(',') if g.strip())),
+            ('dimensions', dims[:12]), ('table', _short_table(source.get('table') or source.get('entity'))),
+            ('joins', [j for j in joins if j][:6]), ('filters', filters[:6]),
+            ('example_sql', _cut(examples[0]['sql'], 2400) if examples else None))
+
+
+def _mark_kept(f, metrics):
+    """A metric the save keeps back shows as kept back, with why. The record can name it differently from the merge (the
+    rule's own name), so it is matched by the tiles and queries it came from as well as by name."""
+    holds = f.file('context', 'publication-holds.json')
+    for h in holds.get('metrics') or [] if isinstance(holds, dict) else []:
+        if not isinstance(h, dict):
+            continue
+        ids = set(h.get('query_ids') or [])
+        for m in metrics:
+            if lc_name(m['name']) == lc_name(h.get('name')) or ids & {s.get('id') for s in m.get('sources') or []}:
+                m['stage'] = 'kept'
+                m['kept_reason'] = KEPT.get(str(h.get('reason')), KEPT_ANY)
+                break
+
+
+def lc_name(name):
+    return sentence(str(name or '')).lower()
+
+
+def _mark_related(f, metrics):
+    """The metrics each one builds on or sits beside, from the run's links between metrics."""
+    names = {lc_name(m['name']): m for m in metrics}
+    for link in f.file('context', 'links.json', kind=list):
+        if not isinstance(link, dict):
+            continue
+        a, b = link.get('from') or {}, link.get('to') or {}
+        if a.get('kind') != 'metric' or b.get('kind') != 'metric':
+            continue
+        word = 'Builds on' if link.get('rel_type') in ('depends_on', 'derived_from', 'composed_of') else 'Related to'
+        for here, there in ((a, b), (b, a)):
+            m = names.get(lc_name(here.get('name')))
+            if m and lc_name(there.get('name')) in names:
+                m.setdefault('related', []).append([word if here is a else 'Used by' if word == 'Builds on' else word,
+                                                    names[lc_name(there.get('name'))]['name']])
+
+
+def drafts_list(f, metrics):
+    """Every draft metric the build has found, as it lands: its name, the tile or query it was found in, and, once the
+    drafts are merged, the metric it became."""
+    known, said = _sources(f)
+    into = {}
+    for m in metrics:
+        for s in m.get('sources') or []:
+            into.setdefault(s.get('id'), m['name'])
+    out = []
+    for pid, d in _drafts(f).items():
+        src = _source({'vq_id': d.get('vq_id')}, known, said)
+        out.append({k: v for k, v in (('id', pid), ('name', sentence(d['name'])), ('meaning', _cut(d.get('meaning'), 400)),
+                                      ('kind', src.get('kind')), ('question', src.get('question')), ('page', src.get('page')),
+                                      ('into', into.get(d.get('vq_id')) if any(m.get('stage') != 'draft' for m in metrics) else None))
+                    if v not in (None, '', [])})
+    return out
+
+
+# Why a tile could not be turned into a query, in the person's words, by the start of the engine's reason.
+REFUSED = (('compiler emitted unparseable', 'The translation came out malformed'),
+           ('filter column', 'A filter would have been lost, changing the number'),
+           ('filter(s) on', 'A filter would have been lost, changing the number'),
+           ('untranslatable', "It uses something that can't be turned into a query"))
+
+
+def cant_build(f):
+    """The dashboard's tiles the build could not turn into queries, each with its page and why."""
+    report = f.engine_file('a3_compile_report.json')
+    units = f.engine_file('question_units.json')
+    units = units.get('units') if isinstance(units, dict) else units if isinstance(units, list) else []
+    title = {u.get('unit_id'): u.get('title') for u in units or [] if isinstance(u, dict)}
+    out = []
+    for r in report.get('refused') or [] if isinstance(report, dict) else []:
+        if not isinstance(r, dict):
+            continue
+        uid = str(r.get('unit_id') or '')
+        parts = uid.split('::')
+        why = next((w for k, w in REFUSED if str(r.get('reason') or '').startswith(k)), "It couldn't be turned into a query")
+        out.append({'tile': _cut(title.get(uid) or (parts[-1] if parts else ''), 120), 'page': parts[2] if len(parts) > 3 else None,
+                    'why': why})
+    return out
+
+
+def tiles_by_page(f, pages=None):
+    """The report's tiles by page once the build has translated them, for the readiness check: how many became queries
+    and each that could not, with why. Before the translation it says so instead of guessing."""
+    units = f.engine_file('question_units.json')
+    units = units.get('units') if isinstance(units, dict) else units if isinstance(units, list) else []
+    if 'a3_translate' not in f.stages or not units:
+        return {'status': 'not_translated', 'next': 'Run the build up to its first written step first; the translation takes '
+                                                    'seconds and needs no answers.'}
+    cant = {}
+    for c in cant_build(f):
+        cant.setdefault(c.get('page'), []).append({'tile': c['tile'], 'why': c['why']})
+    wanted = {str(p).lower() for p in pages or []}
+    out = {}
+    for u in units:
+        if not isinstance(u, dict):
+            continue
+        parts = str(u.get('unit_id') or '').split('::')
+        page = parts[2] if len(parts) > 3 else ''
+        if wanted and page.lower() not in wanted:
+            continue
+        out.setdefault(page, {'page': page, 'tiles': 0, 'cannot': cant.get(page, [])})['tiles'] += 1
+    rows = [dict(v, buildable=v['tiles'] - len(v['cannot'])) for v in out.values()]
+    return {'status': 'ok', 'pages': rows, 'tiles': sum(r['tiles'] for r in rows),
+            'buildable': sum(r['buildable'] for r in rows)}
+
+
+# The build's checkpoints, in the order a build passes them: (group, name while it waits or runs, name once done).
+CHECKPOINTS = (('group', 'Group past queries into questions', 'Grouped past queries'),
+               ('translate', "Turn the report's tiles into queries", 'Turned tiles into queries'),
+               ('describe', 'Describe each query', 'Described each query'),
+               ('read', 'Find draft metrics', 'Found draft metrics'),
+               ('merge', 'Merge drafts, one per number', 'Merged drafts'),
+               ('rules', "Write each metric's rule", "Wrote each metric's rule"),
+               ('link', 'Link related metrics', 'Linked related metrics'))
+
+
+def checkpoints(f, d):
+    """The build's steps for the page's checklist: each done with its result, the one under way with its count, and the
+    rest still to come. A step the build skips (past queries on a dashboard-only build) is left out."""
+    st, chosen = f.stage, f.inputs or {'bi': bool(d['tiles'] or f.dashboard), 'history': bool(f.history)}
+    will = {'group': chosen.get('history'), 'translate': chosen.get('bi')}
+    work = _work(f)
+    order = [g for g, _ in WORK]
+    at = len(order) if work == 'check' else order.index(work) if work in order else -1
+    results = {
+        'group': count(st('h1_shapes', 'canonical_shapes'), 'question') if st('h1_shapes', 'canonical_shapes') else None,
+        'translate': '%d of %s' % (st('a3_translate', 'candidates'), count(st('a3_translate', 'units'), 'tile'))
+        if st('a3_translate', 'candidates') is not None else None,
+        'describe': count(st('m2_ingest', 'described'), 'query', 'queries') if st('m2_ingest', 'described') else None,
+        'read': count(st('x1_ingest', 'proposals'), 'draft') if st('x1_ingest', 'proposals') else None,
+        'merge': count(st('x2_ingest', 'metrics_out'), 'metric') if st('x2_ingest', 'metrics_out') else None,
+        'rules': count(len(d['metrics']), 'rule') if 'x3_ingest' in f.stages else None,
+        'link': count(st('x4_ingest', 'edges'), 'link') if st('x4_ingest', 'edges') is not None else None,
+    }
+    steps = []
+    for group, waiting, done in CHECKPOINTS:
+        if will.get(group, True) is False:
+            continue
+        i = order.index(group)
+        state = 'done' if i < at else 'now' if i == at else 'next'
+        steps.append({k: v for k, v in (('id', group), ('name', done if state == 'done' else waiting), ('state', state),
+                                        ('result', results[group] if state == 'done' else None)) if v})
+    return steps
+
+
 def details(f):
     """The metrics as the engine made them, each with where it came from and why, its rule, and its check; the
     queries; and what the run read."""
@@ -273,7 +461,11 @@ def details(f):
             ('from', _merged_from(sources, drafts, m['name'])),
             ('status', ('checked' if v['ok'] else 'look') if v else 'look' if over and ctx else waiting if checking
              else 'final' if ruled or description else 'merged'),
-            ('value', value), ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and ctx and not v else None))
+            ('value', value), ('why', v['why'] if v and not v['ok'] else NEVER_RAN if over and ctx and not v else None),
+            # Where the metric is in its life, apart from its check: the page's badge.
+            ('stage', 'final' if ruled or description else 'merged'),
+            ('type', _type_of(d, card, m['name'])),
+            *_definition_parts(d, card))
             if x not in (None, '', [])}
                        )
         for s in sources:
@@ -287,12 +479,15 @@ def details(f):
         for d, sources in rows.values():
             metrics.append({k: x for k, x in (
                 ('name', sentence(d['name'])), ('description', _cut(d['meaning'], 320)), ('rule', False),
-                ('sources', [_source(s, known, said) for s in sources]), ('status', 'draft')) if x not in (None, '', [])})
+                ('sources', [_source(s, known, said) for s in sources]), ('status', 'draft'), ('stage', 'draft'))
+                if x not in (None, '', [])})
             for s in sources:
                 built_on.setdefault(s.get('vq_id'), []).append(metrics[-1]['name'])
     for m in metrics:
         # Every metric carries its sources, an empty list when the engine named none.
         m.setdefault('sources', [])
+    _mark_kept(f, metrics)
+    _mark_related(f, metrics)
     # Metrics from the dashboard first, then by how much evidence each has.
     metrics.sort(key=lambda m: (not any(s['kind'] == 'tile' for s in m.get('sources') or []), -len(m.get('sources') or [])))
     queries = []
@@ -443,35 +638,43 @@ def header(f, steps, d, demo):
             tiles = st('a2_question_units', 'units') or len(d['tiles']) or None
             done = st('a3_translate', 'candidates') or 0
             ran = st('a4_witness_bi', 'witnessed')
-            h.update(title="Translating the dashboard's tiles into queries", n=done, of=tiles, unit='tiles translated',
-                     bar=done / tiles if tiles else 0, note=('%d of %d ran on the data' % (st('a4_witness_bi', 'verdict_pass') or 0, ran))
-                     if ran else None)
+            refused = st('a3_translate', 'refused')
+            if 'a3b_emit' in f.stages and 'a3b_ingest' not in f.stages:
+                # Every tile that could be translated has been; a second read of each translation is under way. Its
+                # answers land in one file at the end, so the bar moves with no count.
+                h.update(title='Reviewing each translated tile', n=st('a3b_emit', 'prompted') or done, unit='translations to review',
+                         note=('%s could not be translated' % count(refused, 'tile')) if refused else None)
+            else:
+                h.update(title="Translating the dashboard's tiles into queries", n=done, of=tiles, unit='tiles translated',
+                         bar=done / tiles if tiles else 0, note=('%d of %d ran on the data' % (st('a4_witness_bi', 'verdict_pass') or 0, ran))
+                         if ran else None)
         elif work == 'describe':
             batch = _batch_counts(f, 'm2')
             total = st('m2_emit', 'queries') or batch.get('total') or st('m1_merge_pre', 'merged')
-            done = st('m2_ingest', 'described') or batch.get('described') or st('c3_ingest', 'candidates') or 0
+            # The tiles' questions are written in one go before the describing starts: they are not the describing's count.
+            done = st('m2_ingest', 'described') or batch.get('described') or 0
             # Before the total is known (the dashboard's tiles are described first), the bar moves with no end to fill to.
-            h.update(title='Putting each query in plain words', n=done, of=total, unit='queries',
+            h.update(title='Describing each query', n=done, of=total, unit='queries',
                      bar=done / total if total else None)
         elif work == 'read':
             batch = _batch_counts(f, 'x1')
             total = st('x1_emit', 'queries') or batch.get('queries_total')
             done = st('x1_ingest', 'answered') or batch.get('queries_read') or 0
             found = st('x1_ingest', 'proposals') or batch.get('drafts')
-            h.update(title='Finding the numbers each query measures', n=done, of=total, unit='queries',
-                     bar=done / total if total else 0, note=('%s found' % count(found, 'possible metric')) if found else None)
+            h.update(title='Finding draft metrics', n=done, of=total, unit='queries read',
+                     bar=done / total if total else 0, note=('%s so far' % count(found, 'draft')) if found else None)
         elif work == 'merge':
             batch = _batch_counts(f, 'x2')
             made, proposed = st('x2_ingest', 'metrics_out'), st('x2_emit', 'proposals') or st('x1_ingest', 'proposals') or batch.get('drafts')
             # Until the step is accepted, each saved merge counts, and the bar fills with the drafts merged so far.
             bar = 1 if made is not None else batch['drafts_merged'] / batch['drafts'] if batch.get('drafts') else 0
             made = made if made is not None else batch.get('metrics', 0)
-            h.update(title='Combining possible metrics, one per number', n=made, unit='metric so far' if made == 1 else 'metrics so far',
-                     bar=bar, note='From %s' % count(proposed, 'possible metric') if proposed else None)
+            h.update(title='Merging drafts, one per number', n=made, unit='metric so far' if made == 1 else 'metrics so far',
+                     bar=bar, note='From %s' % count(proposed, 'draft') if proposed else None)
         elif work == 'rules':
             n = len(metrics)
             written = n if 'x3_ingest' in f.stages else min(_batch_counts(f, 'x3').get('defined', 0), n)
-            h.update(title='Writing what each metric counts and leaves out', n=written, of=n, unit='metrics', bar=written / n if n else 0)
+            h.update(title="Writing each metric's rule", n=written, of=n, unit='rules written', bar=written / n if n else 0)
         elif work == 'link':
             # The links are counted once the step has finished; while it runs, the bar moves with no count.
             edges = st('x4_ingest', 'edges')
@@ -565,40 +768,72 @@ def _steps(run, f, demo, engine_dir=None):
     # The moments the chat has shown say what the person has seen; every check with its verdict ends the checks too.
     kinds = side_view.seen(run) + (['context'] if f.checks_over else [])
     state = {'moments': [{'kind': k} for k in kinds], 'demo': demo}
-    return side_view.model(run, state, engine_dir, private=False)
+    return side_view.model(run, state, engine_dir, private=False, build_only=True)
+
+
+BUILD_STEP = 'Build metrics and queries'
+
+
+def build_header(f, step, d, demo):
+    """The page's top while it follows generation, the one step it shows: the build's own progress while it runs, a
+    plain wait before it starts, and what was built once it is over. The checks, the save and the answers that come after
+    are the chat's."""
+    status = (step or {}).get('status')
+    work = _work(f)
+    metrics, queries = d['metrics'], d['queries']
+    if status == 'now' and work != 'check':
+        h = header(f, [step], d, demo)
+        h.update(step=BUILD_STEP, waiting=False)
+        h.pop('wait', None)
+        c = h.get('count') or {}
+        if c.get('n') == 0 and not c.get('of'):
+            # Nothing counted yet and no total to count to: "0 queries" reads as a restart.
+            h.pop('count', None)
+        if h.get('next') == WORK_NAME['check'] or h.get('next') not in WORK_NAME.values():
+            # The page ends with the build: the checks that follow are the chat's.
+            h.pop('next', None)
+        return h
+    if status == 'done' or status == 'now':
+        h = {'at': 1, 'steps': 1, 'step': BUILD_STEP, 'id': 'done', 'title': 'Metrics and queries built',
+             'count': {'n': len(metrics), 'unit': 'metric built' if len(metrics) == 1 else 'metrics built'}, 'bar': 1, 'ok': True,
+             'note': ('And %s' % count(len(queries), 'query', 'queries')) if queries else None}
+    else:
+        h = {'at': 0, 'steps': 1, 'step': BUILD_STEP, 'id': 'metrics', 'title': 'The build starts once your choices are in',
+             'note': 'This page follows the build: each metric as it is made, and how it was reached.'}
+    return {k: v for k, v in dict(h, busy=False, waiting=False).items() if v is not None}
 
 
 def snapshot(run, engine_dir=None):
-    """The whole page as one document, from the run's current files."""
+    """The whole page as one document, from the run's current files. In every flow the page follows metric generation
+    only: each draft as it lands and where the build has got to. The steps before it, the checks, the save, the answers
+    and the dashboard are the chat's."""
     run = Path(run)
     f = RunFacts(run, engine_dir)
-    demo = f.interaction.get('flow') == 'demo'
+    flow = f.interaction.get('flow') if f.interaction.get('flow') in ('demo', 'dashboard') else 'build'
+    demo = flow == 'demo'
     # Only the run's journey record makes a demo, so a demo's facts never reach own data.
     facts = (read_json(run / 'view' / 'facts.json', dict, {}) or _demo_facts(run)) if demo else {}
     view = _steps(run, f, demo, engine_dir)
+    building = [s for s in view['steps'] if s['id'] == 'metrics']
     d = details(f)
-    d.update(answer=_answer(f), layout=_layout(f), edit=_edit(f))
     found, kinds = f.found
-    c = f.context
-    saved = f.publication
     return {
-        'v': 1, 'flow': 'demo' if demo else 'build', 'updated': _now(),
+        'v': 1, 'flow': flow, 'updated': _now(),
         'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or 'Analytics setup',
         'subtitle': facts.get('tagline') or f.purpose or None,
         'firm': facts.get('firm'),
         **({'state': view['state']} if view.get('state') else {}),
         # A run that stopped (paused, blocked, waiting for access) never looks busy.
-        'now': dict(header(f, view['steps'], d, demo), **({'busy': False} if view.get('state') else {})),
-        'steps': [{k: s[k] for k in ('id', 'name', 'status', 'purpose', 'doing', 'how', 'fact', 'result', 'needs_you') if k in s}
-                  for s in view['steps']],
+        'now': dict(build_header(f, building[0] if building else None, d, demo), **({'busy': False} if view.get('state') else {})),
+        'steps': [dict({k: s[k] for k in ('id', 'name', 'status', 'doing', 'how', 'fact', 'result') if k in s}, purpose=BUILD_STEP)
+                  for s in building],
         'read': {k: v for k, v in (('found', found), ('kinds', kinds), ('tables', [[t[0], t[1]] for t in f.tables]),
                                    ('dashboard', f.dashboard.get('tool')), ('history', f.history), ('warehouse', f.warehouse),
                                    ('chosen', f.inputs)) if v},
-        'checks': {k: c[k] for k in ('total', 'passed', 'need_look', 'failed', 'metrics_checked', 'queries_checked')}
-        if c and f.counts_known else None,
-        'saved': {'workspace': saved.get('workspace'), 'items': saved.get('items')} if saved and not f.local else None,
-        'local': f.local,
+        'checks': None, 'saved': None, 'local': False,
         **d,
+        # The page's checklist, the drafts as they land, and the tiles the build could not turn into queries.
+        'build': checkpoints(f, d), 'drafts': drafts_list(f, d['metrics']), 'cant': cant_build(f),
     }
 
 

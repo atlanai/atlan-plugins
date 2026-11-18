@@ -95,7 +95,9 @@ tiers cover 80." A gap first seen in a dashboard footer was found too late.
 
 **The whole report is the selection.** Every page the engine reads is in scope, so every
 statement it compiles is part of the collection and is answered at each gate in full. Never
-edit, trim or copy the report file to shrink a run.
+edit, trim or copy the report file to shrink a run. In [the dashboard branch](dashboard-flow.md)
+the person picks one report and its pages: the build reads that report whole, and the pages set
+what the readiness check inspects and which metrics the review leads with.
 
 The engine's X3 whole-card review and later consistency checks own semantic review for the
 full collection. Repair source bindings, descriptions, grain or dimensions in that same run;

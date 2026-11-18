@@ -186,6 +186,35 @@ class Drafts(unittest.TestCase):
         self.assertTrue(lines[1].endswith('unchanged: Newest rule: Gross margin. What the jobs kept: contract value less '
                                           'labour and materials.'), lines[1])
 
+    def test_a_heartbeat_keeps_a_step_that_saves_nothing_from_going_quiet(self):
+        # Live, the translation review ran five minutes with nothing in the chat: it saves its answers only at its end.
+        import io, threading, time
+        from unittest import mock
+        sys.path.insert(0, str(fixtures.SCRIPTS))
+        import drafts
+        out = io.StringIO()
+        with mock.patch.object(drafts, 'heartbeat_line', return_value='Still reviewing each translated tile: 37 translations to review.'):
+            watch = threading.Thread(target=lambda: out.write(drafts.follow(
+                self.run.root, 'engine', seconds=20, idle=10, interval=0.05, heartbeat=0.3, out=out)))
+            watch.start()
+            time.sleep(0.8)
+            self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'x3_ingest', 'verdict': 'ok'}]})
+            watch.join(5)
+        lines = [l for l in out.getvalue().splitlines() if l.startswith(drafts.HEARTBEAT)]
+        self.assertTrue(lines, out.getvalue())
+        self.assertTrue(lines[0].endswith('Still reviewing each translated tile: 37 translations to review.'))
+        # Helpers advance every step in the dashboard branch, so the watch names each chip that becomes due, once.
+        import side_view
+        out = io.StringIO()
+        with mock.patch.object(side_view, 'due', return_value=['tiles']), \
+                mock.patch.object(drafts, 'heartbeat_line', return_value=''):
+            drafts.follow(self.run.root, 'engine', seconds=0.5, idle=10, interval=0.05, heartbeat=60, out=out)
+        self.assertEqual([l for l in out.getvalue().splitlines() if '`visual next`' in l], [drafts.DUE])
+        # Without the flag, the watch stays as the other flows know it.
+        out = io.StringIO()
+        drafts.follow(self.run.root, 'engine', seconds=0.5, idle=10, interval=0.05, out=out)
+        self.assertNotIn(drafts.HEARTBEAT, out.getvalue())
+
     def test_the_so_far_interval_leaves_no_wait_over_three_and_a_half_minutes(self):
         # Live, the chat took about a minute from the watch's line to the chip: at three minutes the longest wait was 4.0.
         sys.path.insert(0, str(fixtures.SCRIPTS))

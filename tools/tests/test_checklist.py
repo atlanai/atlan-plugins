@@ -153,11 +153,84 @@ class Checklist(unittest.TestCase):
         result = self.steps()
         self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'])
 
+    def test_initial_dashboard_list_has_its_own_seven_items(self):
+        rows = checklist.initial('dashboard')
+        self.assertEqual([r['content'] for r in rows], [
+            'Pick report and pages', 'Check what can be built', 'Build metrics and queries', 'Check against the dashboard',
+            'Save or keep local', 'Ask a question', 'Build a page from the metrics (optional)'])
+        # It waits at the report, the save, the question and the page; the check waits only when it changes the plan.
+        self.assertEqual([r['id'] for r in rows if r['needs_you']], ['scope', 'save', 'ask', 'dashboard'])
+
+    def test_dashboard_items_show_their_results_and_the_check_waits_only_when_it_changes_the_plan(self):
+        self.progress(stage='inspect', status='running')
+        result = self.run.journey('agentic')['checklist']
+        self.assertEqual((result['flow'], result['of']), ('dashboard', 7))
+        first = result['steps'][0]
+        self.assertEqual((first['id'], first['status'], first['needs_you']), ('scope', 'in_progress', True))
+        result = self.run.journey('report', answer='Sales pipeline:  Overview, Stages')['checklist']
+        self.assertEqual(result['steps'][0]['content'], 'Pick report and pages: Sales pipeline: Overview, Stages')
+        check = result['steps'][1]
+        self.assertEqual((check['status'], check['needs_you']), ('in_progress', False), 'a check that finds nothing needs nobody')
+        check = self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date', waits=True)['checklist']['steps'][1]
+        self.assertEqual((check['status'], check['needs_you']), ('in_progress', True))
+        self.assertIn('18 of 25 tiles', check['active'])
+        result = self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date')['checklist']
+        self.assertEqual(result['steps'][1]['content'], 'Check what can be built: 18 of 25 tiles, stage list out of date')
+        self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'],
+                         'the build starts on its own: there is no confirm item')
+
+    def test_dashboard_page_item_ticks_when_built_or_declined(self):
+        fixture.seed_checked(self.run, 'checked')
+        self.bind(self.run)
+        self.run.journey('agentic')
+        self.progress(stage='check', status='complete')
+        self.run.journey('keep-local')
+        self.run.journey('asked')
+        result = self.steps()
+        self.assertEqual([r['status'] for r in result['steps']], ['completed'] * 6 + ['in_progress'])
+        self.assertEqual(result['steps'][4]['content'], 'Save or keep local: kept on this machine')
+        self.run.journey('dashboard', answer='declined')
+        result = self.steps()
+        self.assertEqual((result['state'], result['steps'][6]['content']),
+                         ('done', 'Build a page from the metrics (optional): declined'))
+
+    def test_dashboard_records_refuse_what_they_cannot_hold(self):
+        import journey
+        self.run.journey('agentic')
+        with self.assertRaises(journey.JourneyError):
+            self.run.journey('report', answer='  ')
+        with self.assertRaises(journey.JourneyError):
+            self.run.journey('report', answer='Sales', waits=True)
+        with self.assertRaises(journey.JourneyError):
+            self.run.journey('dashboard', answer='maybe')
+
+    def test_the_checks_are_the_persons_choice_and_item_four_says_so(self):
+        import journey
+        fixture.seed_checked(self.run, 'checked')
+        self.run.journey('agentic')
+        self.progress(stage='check', status='running')
+        self.assertNotEqual({r['id']: r for r in self.steps()['steps']}['check']['status'], 'completed')
+        with self.assertRaises(journey.JourneyError):
+            self.run.journey('checks', answer='maybe')
+        steps = {r['id']: r for r in self.run.journey('checks', answer='skip')['checklist']['steps']}
+        self.assertEqual((steps['check']['status'], steps['check']['content']),
+                         ('completed', 'Check against the dashboard: skipped, your choice'))
+
+    def test_other_flows_keep_their_lists(self):
+        self.assertEqual(len(checklist.initial()), 7)
+        self.assertEqual(checklist.initial()[0]['content'], 'Clarify your use case')
+        self.assertEqual(len(checklist.initial('demo')), 5)
+        self.assertEqual(self.steps()['flow'], 'build')
+
     def test_command_reads_only_and_starts_before_a_run_exists(self):
         fresh = Path(self.tmp.name).resolve() / 'not-started'
         out = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(fresh), 'checklist'], capture_output=True, text=True)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(json.loads(out.stdout)['steps'], checklist.initial())
+        out = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(fresh), 'checklist', '--flow', 'dashboard'],
+                             capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual((json.loads(out.stdout)['flow'], json.loads(out.stdout)['steps']), ('dashboard', checklist.initial('dashboard')))
         self.assertFalse(fresh.exists())
         before = {str(p): p.read_bytes() for p in self.run.root.rglob('*') if p.is_file()}
         out = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run.root), 'checklist'], capture_output=True, text=True)

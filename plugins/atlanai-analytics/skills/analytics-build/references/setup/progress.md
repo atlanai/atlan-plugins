@@ -29,7 +29,8 @@ Do not pass a cwd-relative engine path unchanged. For long work,
 provide a factual heartbeat every 30 to 60 seconds, except while a subagent writes the gates: then the
 side page and the step chips are the heartbeat. Surface useful evidence such as a first
 metric or a resolved hold, not gate names, private paths or raw logs. Do not repeat unchanged
-counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage.
+counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage;
+the dashboard branch gives a rough spoken range instead, as [its file](dashboard-flow.md) says.
 Report schema checks, executed examples and parity separately; diagnostics stay in details.
 
 ## Drafts as they land
@@ -45,7 +46,7 @@ page shows each batch as it lands; the chat shows each step's chip when the step
    subagent never reads the engine's code to check its answers first. It returns when its gate is accepted or the gate
    needs the person; then start the next gate's subagent. The app shows each subagent's and
    watch's name to the person: name each for what it does, as the side page names its step
-   ("Put each query in plain words", "Following the build"), never a gate's name. For the card gate, run the gate
+   ("Describe each query", "Following the build"), never a gate's name. For the card gate, run the gate
    result's `after_each_batch.split` (`PROJECT split`) first: up to 20 metrics it gives one
    brief, above that one per share, at most five. Start every share's subagent at once with its
    brief as the whole prompt; none advances the engine. When every share is back, run

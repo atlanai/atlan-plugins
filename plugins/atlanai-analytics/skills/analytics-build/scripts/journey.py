@@ -1,5 +1,9 @@
 """Durable conversation choices. Never performs engine, auth, publication or SQL work."""
-ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resume', 'details', 'demo', 'asked', 'dashboard')
+ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resume', 'details', 'demo', 'asked', 'dashboard',
+           'agentic', 'report', 'readiness', 'checks')
+# Actions that record the person's own words, or a helper's one-line result.
+ANSWERED = ('domain', 'purpose', 'report', 'readiness', 'dashboard', 'checks')
+FLOWS = ('build', 'demo', 'dashboard')
 MODES = ('active', 'paused', 'local')
 
 
@@ -20,8 +24,18 @@ def validate(value):
         raise JourneyError('The saved business focus and purpose need repair before continuing.')
     if 'intent_focus_required' in value and type(value['intent_focus_required']) is not bool:
         raise JourneyError('The saved intent selection needs repair before continuing.')
-    if value.get('flow', 'build') not in ('build', 'demo'):
+    if value.get('flow', 'build') not in FLOWS:
         raise JourneyError('The saved guided flow needs repair before continuing.')
+    if 'report' in value and (not isinstance(value['report'], str) or not 0 < len(value['report']) <= 1000):
+        raise JourneyError('The saved report and pages need repair before continuing.')
+    readiness = value.get('readiness', {})
+    if (not isinstance(readiness, dict) or not isinstance(readiness.get('result', ''), str)
+            or type(readiness.get('waits', False)) is not bool):
+        raise JourneyError('The saved readiness check needs repair before continuing.')
+    if value.get('checks', 'run') not in ('run', 'skip'):
+        raise JourneyError('The saved choice about the warehouse checks needs repair before continuing.')
+    if value.get('dashboard_result', 'built') not in ('built', 'declined'):
+        raise JourneyError('The saved dashboard choice needs repair before continuing.')
     if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard')):
         raise JourneyError('The saved question and dashboard steps need repair before continuing.')
     return value
@@ -34,7 +48,8 @@ def apply(model, saved, explicit_focus=False):
     model['interaction'] = {'mode': mode, 'focus': model.get('focus'), 'intent': dict(saved.get('intent', {})),
                             'selection_pending': pending, 'flow': (saved or {}).get('flow', 'build'),
                             'asked': (saved or {}).get('asked', False),
-                            'dashboard': (saved or {}).get('dashboard', False)}
+                            'dashboard': (saved or {}).get('dashboard', False),
+                            **{k: (saved or {})[k] for k in ('report', 'readiness', 'dashboard_result', 'checks') if k in (saved or {})}}
     if pending:
         # Intent is a selection checkpoint. Never silently show the first alphabetic
         # metric or carry an earlier domain's focus into a new business question.
@@ -117,7 +132,7 @@ def continuation(model):
     return result
 
 
-def advance(run, action='status', focus=None, host=None, server=None, answer=None):
+def advance(run, action='status', focus=None, host=None, server=None, answer=None, waits=False):
     """Save only explicit user choices; status/details are read-only."""
     import experience
     experience.host_scope(host, server)
@@ -128,8 +143,10 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
     saved = validate(run.read(path)) if path.exists() else {'version': 1, 'mode': 'active', 'focus': None}
     if focus is not None and action != 'select':
         raise JourneyError('Use select to change the focused definition.')
-    if answer is not None and action not in ('domain', 'purpose'):
-        raise JourneyError('Use domain or purpose to record an intent answer.')
+    if answer is not None and action not in ANSWERED:
+        raise JourneyError('Use domain, purpose, report, readiness or dashboard to record an answer.')
+    if waits and action != 'readiness':
+        raise JourneyError('Only the readiness check can wait for the person.')
     if action == 'select':
         if not isinstance(focus, str) or not 0 < len(focus) <= 512:
             raise JourneyError('Select a definition by its saved id, such as metric:<name> or sql_query:<name>.')
@@ -155,12 +172,34 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
             saved['intent_focus_required'] = True
         intent[action] = answer
         saved['intent'] = intent
+    elif action == 'agentic':
+        # The person chose "Make my dashboard agentic": the run shows the dashboard branch's seven items from now on.
+        saved['flow'] = 'dashboard'
+    elif action in ('report', 'readiness'):
+        if not isinstance(answer, str) or not answer.strip() or len(answer) > 1000:
+            raise JourneyError('Record the ' + ('chosen report and pages' if action == 'report' else "readiness check's one-line result")
+                               + ' with --answer, in 1 to 1000 characters.')
+        if action == 'report':
+            saved['report'] = answer.strip()
+        else:
+            # A result that changes the plan waits for the person's go-ahead; record it again without --waits after it.
+            saved['readiness'] = {'result': answer.strip(), 'waits': bool(waits)}
+    elif action == 'checks':
+        # The person's own choice, asked once the build is done: run each metric and query on the warehouse, or skip.
+        # Never recorded on the person's behalf.
+        if answer not in ('run', 'skip'):
+            raise JourneyError('Record the person\'s choice with --answer run or --answer skip.')
+        saved['checks'] = answer
     elif action == 'demo':
         # The person chose a demo: the run shows the demo's seven steps from now on.
         saved['flow'] = 'demo'
     elif action in ('asked', 'dashboard'):
         # Step 6 ends when a chosen question was answered; step 7 when a dashboard was built
         # or the person declined one. Both are recorded only after they happen.
+        if action == 'dashboard' and answer is not None:
+            if answer not in ('built', 'declined'):
+                raise JourneyError('Record the dashboard step with --answer built or --answer declined.')
+            saved['dashboard_result'] = answer
         saved[action] = True
     elif action in ('pause', 'keep-local', 'resume'):
         saved['mode'] = {'pause': 'paused', 'keep-local': 'local', 'resume': 'active'}[action]

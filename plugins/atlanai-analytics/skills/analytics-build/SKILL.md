@@ -34,10 +34,10 @@ concrete plan. Respect explicit draft or review requests.
    | They chose | Then |
    | --- | --- |
    | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over up to three use cases with their tables plus "I have a dashboard", then at most two clarifying questions if something is unsettled. After the build, one offer to add a dashboard |
-   | Make my dashboard agentic | One card for the dashboard: files in the folder as options, a link or path as free text. A link is opened with that tool's sign-in started when needed, then `source-survey` `access` on it and its tables |
+   | Make my dashboard agentic | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below and the confirmation |
    | I have a use case and know my tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 
-3. **Confirm and trigger**, the same in every branch: one line of what will be built and
+3. **Confirm and trigger**, in the other two branches: one line of what will be built and
    from what, then "Build it?". Nothing is built before the yes.
 
 A question the request already answers is not asked. Before card 1, look silently at what is

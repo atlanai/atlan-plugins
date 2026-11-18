@@ -231,8 +231,8 @@ def answer_contract(run, gate):
 
 BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
 # Each step as the side page names it: the app shows a subagent's name to the person, so it is never a gate's.
-STEP_NAMES = {'m2': 'Put each query in plain words', 'x1': 'Find the numbers each query measures',
-              'x2': 'Combine possible metrics, one per number', 'x3': 'Write what each metric counts and leaves out'}
+STEP_NAMES = {'m2': 'Describe each query', 'x1': 'Find draft metrics',
+              'x2': 'Merge drafts, one per number', 'x3': "Write each metric's rule"}
 
 
 def batch_progress(run, gate):

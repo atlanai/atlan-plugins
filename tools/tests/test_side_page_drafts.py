@@ -107,7 +107,7 @@ class Batches(unittest.TestCase):
         self.assertEqual(self.at('m2_emit', m2_emit={'queries': 4}), {'n': 2, 'of': 4, 'unit': 'queries'})
 
     def test_the_top_counts_the_queries_each_batch_read(self):
-        self.assertEqual(self.at('m2_ingest', 'x1_emit', x1_emit={'queries': 6}), {'n': 3, 'of': 6, 'unit': 'queries'})
+        self.assertEqual(self.at('m2_ingest', 'x1_emit', x1_emit={'queries': 6}), {'n': 3, 'of': 6, 'unit': 'queries read'})
 
     def test_the_top_counts_the_metrics_each_merge_made(self):
         self.save('x2', '01.json', {'metrics': [{'name': 'Win rate', 'sources': ['h-1#0', 'h-2#0']}]})
@@ -117,7 +117,7 @@ class Batches(unittest.TestCase):
         self.save('x2', '01.json', {'metrics': [{'name': 'Win rate', 'sources': ['h-1#0', 'h-2#0']},
                                                 {'name': 'Pipeline', 'sources': ['h-2#1', 'h-3#0']}]})
         self.save('x3', '01.json', {'metrics': [{'name': 'Win rate', 'description': 'Share of closed deals won.'}]})
-        self.assertEqual(self.at('x2_ingest', 'x3_emit'), {'n': 1, 'of': 2, 'unit': 'metrics'})
+        self.assertEqual(self.at('x2_ingest', 'x3_emit'), {'n': 1, 'of': 2, 'unit': 'rules written'})
 
     def test_the_queries_show_while_the_build_runs(self):
         # A desktop run's Queries list stayed empty for 20 minutes: it read only the checked context.
@@ -137,12 +137,14 @@ class Batches(unittest.TestCase):
                           'Combining possible metrics, one per number', 'Writing what each metric counts and leaves out'])
 
     def test_each_state_a_metric_passes_has_its_own_plain_name(self):
-        # "Final" came before "Checked": a person could not tell which metrics had run on the data.
+        # The badge is the metric's life (draft, merged, final, kept back); whether it ran on the data shows on the row
+        # beside it, so a person can still tell which metrics ran.
         import re
         page = side_page.PAGE.read_text(encoding='utf-8')
-        labels = dict(re.findall(r"(\w+): \['([^']+)'", re.search(r'const STATUS = \{(.*?)\};', page).group(1)))
-        names = [labels[s] for s in ('draft', 'merged', 'final', 'checking', 'checked', 'look')]
-        self.assertEqual(names, ['Found', 'Being defined', 'Not checked yet', 'Checking', 'Checked', 'Needs a look'])
+        labels = dict(re.findall(r"(\w+): \['([^']+)'", re.search(r'const STAGE = \{(.*?)\};', page).group(1)))
+        self.assertEqual([labels[s] for s in ('draft', 'merged', 'final', 'kept')], ['Draft', 'Merged', 'Final', 'Kept back'])
+        self.assertIn('title="Ran on the data"', page)
+        self.assertIn('title="Ran and needs a look"', page)
 
 
 if __name__ == '__main__':

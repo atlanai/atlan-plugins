@@ -159,6 +159,27 @@ def metrics(f, s):
              count(st('x4_ingest', 'edges'), 'link') if st('x4_ingest', 'edges') is not None else None)]
     c = f.context
     checked = bool(c)
+    # The side page follows generation only, and the dashboard branch checks in a step of its own: there, the checks
+    # stay off this step.
+    own_checks = not (s.get('build_only') or s.get('flow') == 'dashboard')
+    if own_checks:
+        how += _check_nodes(f, s)
+
+    def came_from(m):
+        return ', '.join(x for x in ('%d from the dashboard' % m['tiles'] if m['tiles'] else '',
+                                     '%d from past queries' % m['queries'] if m['queries'] else '') if x)
+    merged = f.merged
+    return {'how': how, 'fact': count(len(merged), 'metric') if merged else '',
+            'result': ([{'title': 'Metrics, and what each came from', 'list': [[m['name'], came_from(m)] for m in merged]}] if merged else [])
+            + ([{'title': 'Each metric, run on the data', 'list': [[m['name'], m['value']] + ([] if m['ok'] else ['warn']) for m in c['metrics']]}]
+               if checked and own_checks else [])}
+
+
+def _check_nodes(f, s):
+    """Each metric and query run on the data, and what did not pass."""
+    c = f.context
+    checked = bool(c)
+    how = []
     n_metrics, n_queries = (len(c['metrics']), c['queries']) if checked else (None, None)
     all_metrics = checked and c['metrics_checked'] == n_metrics
     all_queries = checked and c['queries_checked'] == n_queries
@@ -179,15 +200,25 @@ def metrics(f, s):
         how.append(node('Hold what needs a look', 'Anything that did not pass its check is kept back and listed for a '
                         'person, never shown as a result.', SETUP, '%d need a look' % held if held else None,
                         done=all_metrics and all_queries or not s['open'], warn=bool(held)))
+    return how
 
-    def came_from(m):
-        return ', '.join(x for x in ('%d from the dashboard' % m['tiles'] if m['tiles'] else '',
-                                     '%d from past queries' % m['queries'] if m['queries'] else '') if x)
-    merged = f.merged
-    return {'how': how, 'fact': count(len(merged), 'metric') if merged else '',
-            'result': ([{'title': 'Metrics, and what each came from', 'list': [[m['name'], came_from(m)] for m in merged]}] if merged else [])
-            + ([{'title': 'Each metric, run on the data', 'list': [[m['name'], m['value']] + ([] if m['ok'] else ['warn']) for m in c['metrics']]}]
-               if checked else [])}
+
+def readiness(f, s):
+    """The dashboard branch's check before anything is built, as the run recorded its result."""
+    result = (f.interaction.get('readiness') or {}).get('result') or ''
+    return {'how': [node('Check what can be built', 'Which tiles can be built, which tables can be read, whether past queries '
+                         'can be read, and whether the data still matches the report.', SURVEY, None, always=True,
+                         done=bool(result))],
+            'fact': result}
+
+
+def check(f, s):
+    """The dashboard branch's own check step: each metric and query run on the data."""
+    c = f.context
+    return {'how': _check_nodes(f, s),
+            'fact': '%d of %d ran' % (c['metrics_checked'] + c['queries_checked'], c['total']) if c and f.counts_known else '',
+            'result': [{'title': 'Each metric, run on the data', 'list': [[m['name'], m['value']] + ([] if m['ok'] else ['warn'])
+                                                                         for m in c['metrics']]}] if c else []}
 
 
 def save(f, s):
@@ -258,6 +289,7 @@ def dashboard(f, s):
 
 # Each task-list step: its short name on the page, and what it holds.
 BUILDERS = {'intent': ('Use case', intent), 'sources': ('Sources', sources), 'scope': ('Select', scope), 'metrics': ('Metrics', metrics),
+            'readiness': ('Readiness', readiness), 'check': ('Checks', check),
             'save': ('Save', save), 'ask': ('Ask', ask), 'dashboard': ('Dashboard', dashboard)}
 # When the saved run cannot be read, the moments seen say how far it got: the step each one finishes.
 FINISHED_BY = {'sources': 'sources', 'build': 'scope', 'context': 'metrics', 'saved': 'save', 'answer': 'ask'}
@@ -372,7 +404,7 @@ def _rows(run, flow, kinds, engine_dir):
         return [dict(r, status='completed' if i <= last else 'in_progress' if i == last + 1 else 'pending') for i, r in enumerate(rows)], 'running'
 
 
-def model(run, state=None, engine_dir=None, private=None):
+def model(run, state=None, engine_dir=None, private=None, build_only=False):
     """The whole view as one document: the flow's steps, their status, what came out and how, always from the run's
     current files. On own data the page carries progress only, unless it never leaves this machine (`private` False):
     step and piece names, statuses, counts and the person's own use-case words. Metric names, values, answers and
@@ -382,7 +414,8 @@ def model(run, state=None, engine_dir=None, private=None):
     facts = RunFacts(run, engine_dir)
     kinds = [m.get('kind') for m in state['moments'] if isinstance(m, dict)]
     # Only the run's journey record makes a demo.
-    flow = 'demo' if state.get('demo') or facts.interaction.get('flow') == 'demo' else 'build'
+    flow = 'demo' if state.get('demo') or facts.interaction.get('flow') == 'demo' else \
+        'dashboard' if facts.interaction.get('flow') == 'dashboard' else 'build'
     private = flow != 'demo' if private is None else private
     # The task list counts the build as started only once the run (or the command) names its engine run; a run that
     # moved keeps finding that engine inside it.
@@ -390,7 +423,8 @@ def model(run, state=None, engine_dir=None, private=None):
     named = engine_dir or facts.meta.get('engine_run') or (facts.engine / 'manifest.json').is_file()
     rows, run_state = _rows(run, flow, kinds, facts.engine if named and facts.engine.is_dir() else None)
     c = facts.context
-    if c and facts.checks_here and 'context' not in kinds and (c['metrics_checked'] < len(c['metrics']) or c['queries_checked'] < c['queries']):
+    # The dashboard branch checks in a step of its own, which the task list keeps open while the checks run.
+    if flow != 'dashboard' and c and facts.checks_here and 'context' not in kinds and (c['metrics_checked'] < len(c['metrics']) or c['queries_checked'] < c['queries']):
         # The task list counts the first check pass, which only looks for missing parts, as the checks. The page keeps
         # the step open until every item has run, or the checks moment has been shown.
         # A later step the task list finished means the checks are over; the page never walks one back.
@@ -409,7 +443,8 @@ def model(run, state=None, engine_dir=None, private=None):
         name, build = BUILDERS[row['id']]
         # A step can finish ahead of one still open: own data surveys its sources before the use case is saved.
         done, now = row['status'] == 'completed', i == current
-        section = build(facts, {'demo': flow == 'demo', 'open': not done, 'private': private})
+        section = build(facts, {'demo': flow == 'demo', 'flow': flow, 'open': not done, 'private': private,
+                                'build_only': build_only})
         nodes = [n for n in section.get('how') or [] if not done or n['n'] or n['always']]
         doing = row['active'] if now else row['content']
         if private and now:

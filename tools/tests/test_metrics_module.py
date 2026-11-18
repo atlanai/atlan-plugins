@@ -74,7 +74,7 @@ class InputStagingTests(unittest.TestCase):
             (run / 'run.json').write_text('{}')
             describe = self.worker().batch_progress(run / 'engine', 'm2')
             cards = self.worker().batch_progress(run / 'engine', 'x3')
-        self.assertIn('A fresh subagent named `Put each query in plain words` writes this gate', describe['say'])
+        self.assertIn('A fresh subagent named `Describe each query` writes this gate', describe['say'])
         self.assertNotIn('split', describe)
         self.assertTrue(cards['split'].endswith('split --engine-dir "engine"'), cards['split'])
         self.assertIn('`split`', cards['say'])

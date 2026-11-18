@@ -46,7 +46,13 @@ class SideView(unittest.TestCase):
             side_view.note(run, kind, visuals.build_spec(kind, run, list(data), engine_dir))
 
     def doc(self, run, engine_dir=None):
-        return side_page.snapshot(run, engine_dir)
+        """The page, with every step of the flow as the side view models them. The page itself shows the build's step
+        alone; the others are what the task list and the chat show."""
+        page = side_page.snapshot(run, engine_dir)
+        f = side_page.RunFacts(run, engine_dir)
+        kinds = side_view.seen(run) + (['context'] if f.checks_over else [])
+        state = {'moments': [{'kind': k} for k in kinds], 'demo': page['flow'] == 'demo'}
+        return dict(page, steps=side_view.model(run, state, engine_dir, private=False)['steps'])
 
     def step(self, doc, name):
         return next(s for s in doc['steps'] if s['name'] == name)
@@ -87,8 +93,10 @@ class SideView(unittest.TestCase):
                          'own data surveys its sources before the use case is saved, and the page shows the survey done')
         self.assertEqual(self.step(doc, 'Sources')['fact'], 'Power BI dashboard, 2 data files, query history')
         self.assertTrue(all(n['s'] == 'done' for n in self.step(doc, 'Sources')['how']))
-        self.assertEqual(doc['now']['at'], 0)
-        self.assertEqual(doc['now']['next'], 'Select tables and dashboards', 'the Next line skips a step that is already done')
+        # The page follows the build alone: before it starts, it says so, with nothing about the steps before it.
+        self.assertEqual((doc['now']['id'], doc['now']['title']), ('metrics', 'The build starts once your choices are in'))
+        self.assertNotIn('next', doc['now'])
+        self.assertFalse(doc['now']['busy'])
 
     def test_a_piece_of_work_ticks_as_soon_as_the_run_has_it(self):
         run, manifest, gates = self.building()
@@ -158,11 +166,29 @@ class SideView(unittest.TestCase):
         (early / 'interaction.json').write_text(json.dumps({k: v for k, v in interaction.items() if k != 'intent'}), encoding='utf-8')
         self.assertEqual(self.doc(early)['title'], 'Analytics setup', 'before the use case: a neutral name, never a stray folder\'s')
 
-    def test_after_the_answer_a_demo_page_leads_with_it(self):
+    def test_the_dashboard_branch_page_shows_its_build_alone_and_checks_in_a_step_of_its_own(self):
+        run = make_run(self.root)
+        interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
+        (run / 'interaction.json').write_text(json.dumps(dict(interaction, flow='dashboard', report='Job margin: Overview',
+                                                              readiness={'result': '4 of 4 tiles', 'waits': False})),
+                                              encoding='utf-8')
+        self.record(run, 'connect')
+        page = side_page.snapshot(run)
+        self.assertEqual((page['flow'], [s['id'] for s in page['steps']]), ('dashboard', ['metrics']))
+        self.assertNotIn('Run each metric on the data', [n['t'] for n in page['steps'][0]['how']], 'the checks are not generation')
+        doc = self.doc(run)
+        self.assertEqual([s['name'] for s in doc['steps']],
+                         ['Select', 'Readiness', 'Metrics', 'Checks', 'Save', 'Ask', 'Dashboard'])
+        self.assertEqual(self.step(doc, 'Readiness')['fact'], '4 of 4 tiles')
+        self.assertIn('Run each metric on the data', [n['t'] for n in self.step(doc, 'Checks')['how']])
+
+    def test_after_the_answer_the_page_still_shows_the_build(self):
+        # The page follows metric generation only; the answer is the chat's.
         run = make_run(self.root, demo=True)
         self.record(run, 'connect', data=[facts()])
         doc = self.doc(run)
-        self.assertEqual((doc['now']['at'], doc['answer']['headline']), (5, 'Turbine base: -£6,360'))
+        self.assertEqual(doc['now']['title'], 'Metrics and queries built')
+        self.assertNotIn('answer', doc)
         self.assertEqual(self.nodes(doc, 'Ask')['Read the saved rules']['n'], '1 rule · from Atlan')
         unasked = make_run(self.root / 'b', answered=False, demo=True)
         self.assertNotIn('answer', side_view.model(unasked), 'no answer before a question')

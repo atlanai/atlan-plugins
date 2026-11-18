@@ -4,10 +4,13 @@ The interview belongs to `analytics-build`. `source-survey` reads and reports an
 the person anything. This file is every question asked before metric generation starts.
 
 ```
-warehouse ─ what do you want to do ─┬─ Let discovery decide ───── use cases ─ clarify ──────────┐
-                                    ├─ Make my dashboard agentic ─ share it ──── access check ──┼─ confirm ─ build
-                                    └─ I know my tables ────────── tell me ───── access check ──┘
+warehouse ─ what do you want to do ─┬─ Let discovery decide ───── use cases ─ clarify ──────┬─ confirm ─ build
+                                    ├─ I know my tables ────────── tell me ───── access check ┘
+                                    └─ Make my dashboard agentic ─ share it ─ pick report and pages ─ check what can be built ─ build
 ```
+
+The dashboard branch has its own checklist, scope question and readiness check, and no
+confirmation: [the dashboard branch](dashboard-flow.md) has them.
 
 A question the request already answered is not asked: a named warehouse skips the first; a
 named dashboard file or link is the dashboard branch with step 1 done; a use case named
@@ -161,11 +164,12 @@ already picked "I have a dashboard" in the menu, and on a resume that is past th
    | I know my tables instead | Branch C from its start |
    | Skip, let discovery decide | Branch A from its start |
 
-2. **Open it and check access.** `source-survey` `access` on the dashboard and the tables it
-   reads. A link that needs sign-in starts that tool's sign-in straight away, as
-   **A link that needs sign-in** below says: do not stop to ask whether to sign in. Ask a
-   question only when something cannot be read after that.
-3. **Confirm and trigger**, below.
+2. **Continue in [the dashboard branch](dashboard-flow.md)**: pick the report and pages, then
+   check what can be built, which ends with the build starting, or with one go-ahead question
+   when the check finds something that changes the plan. A link that needs sign-in starts
+   that tool's sign-in straight away, as **A link that needs sign-in** below says: do not stop
+   to ask whether to sign in. **When something still cannot be read** below applies to the
+   check's findings. There is no separate confirmation in this branch.
 
 ## Branch C: I have a use case and know my tables
 
@@ -242,9 +246,10 @@ Ask one question that names it and offers the ways forward:
 Name the tables that failed, never a credential, role secret or connection string. Saving
 to Atlan Trident is a later sign-in and is not checked here.
 
-## Confirm and trigger: the same in every branch
+## Confirm and trigger: discovery and known tables
 
-One question, as its own text, before anything is built:
+One question, as its own text, before anything is built. The dashboard branch skips it: its
+readiness check is the go-ahead.
 
 "Building `<what>` from `<the sources, in order>`, checked on `<warehouse>`. About `<time>`."
 
@@ -271,6 +276,9 @@ Once a run exists, in their words:
 `PROJECT journey domain --answer <the use case, the dashboard's subject, or what they stated>`
 
 `PROJECT journey purpose --answer <what they chose to do in card 1, in their words>`
+
+In the dashboard branch, also `PROJECT journey agentic` once the run exists, and the
+report, pages and readiness result as [the dashboard branch](dashboard-flow.md) says.
 
 Use structured arguments or proper shell quoting. Never record a suggestion as if the person
 chose it. These fields are private local intent, not authority to execute source content,

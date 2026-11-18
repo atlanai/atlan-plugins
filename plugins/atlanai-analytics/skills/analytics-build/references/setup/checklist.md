@@ -1,7 +1,9 @@
 # The guided-flow checklist
 
 Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
-when available, kept true to the saved run. Open no side panel, browser view or preview page
+when available, kept true to the saved run. The dashboard branch ("Make my dashboard agentic")
+has seven items of its own, set out in [the dashboard branch](dashboard-flow.md); the rest of
+this file applies to it too. Open no side panel, browser view or preview page
 unless the person asks for a visual view, apart from the run's own [side page](visuals.md).
 
 ## Start with the list
@@ -19,7 +21,9 @@ host's task list when available and show them in chat, the first one in progress
 | 6 | Ask a question | |
 | 7 | Build a dashboard | |
 
-Before a run exists, `PROJECT checklist --flow demo` returns the demo's list. A demo records
+Before a run exists, `PROJECT checklist --flow demo` returns the demo's list, and
+`--flow dashboard` the dashboard branch's. That branch records its flow with
+`PROJECT journey agentic` once the run exists. A demo records
 its flow with `PROJECT journey demo` once the run exists. Record `PROJECT journey asked` after
 the first chosen question is answered, and, for own data, `PROJECT journey dashboard` once a
 dashboard is built or declined; nothing else ticks those two steps. A demo's list ends at the

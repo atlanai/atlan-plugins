@@ -1,7 +1,7 @@
 """The guided-flow checklist: the steps a person can expect, each with its saved state.
 
-Two flows share it. `analytics-build` (own data) shows seven steps and `analytics-demo` (a
-chosen demo) six: the demo shows its metric names before building, not a first metric.
+Three flows share it. `analytics-build` (own data) shows seven steps, its dashboard branch ("Make my dashboard
+agentic") seven of its own, and `analytics-demo` (a chosen demo) five.
 Read-only. Every state and count comes from the saved run, so
 the host's task list mirrors what happened and a resumed run starts with its finished steps
 already done.
@@ -9,7 +9,6 @@ already done.
 STAGES = ('inspect', 'scope', 'build', 'check', 'preview', 'publish', 'ready')
 FINISHED = ('complete', 'complete-with-held-items', 'partial_ready')
 STOPPED = ('paused', 'canceled', 'waiting-for-user')
-FLOWS = ('build', 'demo')
 # (id, content, active, needs_you)
 STEPS = {
     'build': (
@@ -30,7 +29,19 @@ STEPS = {
         ('save', 'Keep local or save to Atlan Trident', 'Waiting for where to save', True),
         ('ask', 'Ask a question', 'Waiting for your question', True),
     ),
+    # Own data, "Make my dashboard agentic": the report and pages are picked before anything is checked, the check
+    # waits for the person only when it changes the plan, and building and checking are two items.
+    'dashboard': (
+        ('scope', 'Pick report and pages', 'Waiting for your report and pages', True),
+        ('readiness', 'Check what can be built', 'Checking the report, its tables and its data', False),
+        ('metrics', 'Build metrics and queries', 'Building metrics and queries', False),
+        ('check', 'Check against the dashboard', 'Checking each metric and query against the dashboard', False),
+        ('save', 'Save or keep local', 'Waiting for where to save', True),
+        ('ask', 'Ask a question', 'Waiting for your question', True),
+        ('dashboard', 'Build a page from the metrics (optional)', 'Waiting for your choice', True),
+    ),
 }
+FLOWS = tuple(STEPS)
 
 
 def _flow(flow):
@@ -49,6 +60,8 @@ def _plural(count, word, many=None):
 
 
 def build(model, flow=None):
+    if _flow((model.get('interaction') or {}).get('flow') or flow) == 'dashboard':
+        return _dashboard(model)
     phase, counts = model['phase'], model['counts']
     progress = model.get('progress') or {}
     interaction = model.get('interaction') or {}
@@ -126,4 +139,69 @@ def build(model, flow=None):
     state = 'paused' if stopped and current else 'blocked' if phase['status'] in ('blocked', 'failed') else \
         'access_needed' if phase['status'] == 'access_needed' else 'done' if current is None else 'running'
     return {'flow': flow, 'steps': rows, 'state': state,
+            'step': next((i + 1 for i, r in enumerate(rows) if r['id'] == current), len(rows)), 'of': len(rows)}
+
+
+def _dashboard(model):
+    """The dashboard branch's seven items. Each finished item carries its result after a colon, from the run's own
+    record: the report and pages the person picked, the readiness check's line, and the counts that came out."""
+    phase, counts = model['phase'], model['counts']
+    interaction = model.get('interaction') or {}
+    local = interaction.get('mode') == 'local'
+    at = STAGES.index(phase['code']) if phase['code'] in STAGES else 0
+    finished = phase['status'] in FINISHED
+    stopped = phase['status'] in STOPPED or interaction.get('mode') == 'paused'
+    action = (model.get('continuation') or {}).get('action')
+    total = counts['metrics'] + counts['queries']
+    report = interaction.get('report') or ''
+    readiness = interaction.get('readiness') or {}
+    saved = (action in ('ask', 'explore-local') or (at == 6 and finished) or (local and at >= 3)
+             or bool(counts.get('released')))
+    skipped = interaction.get('checks') == 'skip'
+    # The checks end with their own recorded result, or with the person's choice to skip them: never on a save alone.
+    checked = at >= 4 or (at == 3 and finished) or skipped
+    done = {
+        # A run that is already building passed both early items, even one saved before they were recorded.
+        'scope': bool(report) or at >= 2,
+        'readiness': (bool(readiness.get('result')) and not readiness.get('waits')) or at >= 2,
+        'metrics': at >= 3 or (at == 2 and finished) or checked or saved,
+        'check': checked or (saved and at >= 4),
+        'save': saved,
+        'ask': saved and bool(interaction.get('asked')),
+        'dashboard': saved and bool(interaction.get('dashboard')),
+    }
+    results = {
+        'scope': report,
+        'readiness': readiness.get('result') or '',
+        'metrics': (_plural(counts['metrics'], 'metric') + ' and ' + _plural(counts['queries'], 'query', 'queries')) if total else '',
+        'check': 'skipped, your choice' if skipped else
+        (f"{counts.get('executed', 0)} of {total} ran" + (f", {counts['held']} need a look" if counts.get('held') else ''))
+        if total else '',
+        'save': 'kept on this machine' if local else
+        (_plural(counts['released'], 'metric or query', 'metrics and queries') + ' saved to Atlan Trident') if counts.get('released') else '',
+        'ask': 'answered',
+        'dashboard': interaction.get('dashboard_result') or 'done',
+    }
+    rows, current = [], None
+    for key, content, active, needs_you in STEPS['dashboard']:
+        status = 'completed' if done[key] else 'pending'
+        if status == 'pending' and current is None:
+            current = key
+            status = 'pending' if stopped else 'in_progress'
+        if key == 'readiness':
+            # The check waits for the person only when what it found changes the plan.
+            needs_you = bool(readiness.get('waits'))
+            if needs_you:
+                active = 'Waiting for your go-ahead: ' + readiness.get('result', '')
+        elif key == 'metrics' and phase.get('source') == 'engine' and at == 2:
+            active = phase['label']
+        elif key == 'save' and at == 5 and not done[key]:
+            active, needs_you = 'Saving to Atlan Trident', False
+        if status == 'completed' and results[key]:
+            content = content + ': ' + ' '.join(str(results[key]).split())[:120]
+        rows.append({'id': key, 'content': content, 'active': active, 'needs_you': needs_you and status != 'completed',
+                     'status': status})
+    state = 'paused' if stopped and current else 'blocked' if phase['status'] in ('blocked', 'failed') else \
+        'access_needed' if phase['status'] == 'access_needed' else 'done' if current is None else 'running'
+    return {'flow': 'dashboard', 'steps': rows, 'state': state,
             'step': next((i + 1 for i, r in enumerate(rows) if r['id'] == current), len(rows)), 'of': len(rows)}

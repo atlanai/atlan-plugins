@@ -101,9 +101,9 @@ class Project(ContextState):
     def auth(self, request):
         return auth_recovery.advance(self, request)
 
-    def journey(self, action='status', focus=None, host=None, server=None, answer=None):
+    def journey(self, action='status', focus=None, host=None, server=None, answer=None, waits=False):
         import journey
-        return journey.advance(self, action, focus, host=host, server=server, answer=answer)
+        return journey.advance(self, action, focus, host=host, server=server, answer=answer, waits=waits)
 
     def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None):
         """Present existing evidence without advancing the engine or publication."""
@@ -630,18 +630,27 @@ def main():
     conversation = sub.add_parser('journey')
     conversation.add_argument('action', choices=journey.ACTIONS, nargs='?', default='status')
     conversation.add_argument('--focus')
-    conversation.add_argument('--answer', help='User-supplied business area or purpose; never an unsubmitted suggestion')
+    conversation.add_argument('--answer', help='User-supplied business area, purpose, report and pages, or dashboard choice '
+                              "(built or declined); the readiness check's one-line result. Never an unsubmitted suggestion")
+    conversation.add_argument('--waits', action='store_true',
+                              help='With readiness: the result changes the plan, so the build waits for the go-ahead')
     conversation.add_argument('--host', choices=('claude_code', 'codex'))
     conversation.add_argument('--server', help='Observed Atlan server identifier in that host')
-    steps = sub.add_parser('checklist', help='The guided-flow steps (seven, or six for a demo) with their saved state, for the host task list')
+    steps = sub.add_parser('checklist', help='The guided-flow steps (seven, five for a demo) with their saved state, for the host task list')
     steps.add_argument('--engine-dir', type=Path)
-    steps.add_argument('--flow', choices=('build', 'demo'), help='The guided flow when the run has not recorded one')
+    steps.add_argument('--flow', choices=('build', 'demo', 'dashboard'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
     drafts = sub.add_parser('drafts', help='The progress line for the batch of metrics the build just saved')
     drafts.add_argument('--engine-dir', type=Path)
+    drafts.add_argument('--heartbeat', type=int, metavar='SECONDS',
+                        help='With --follow: a plain line of where the build has got to after this many quiet seconds')
     drafts.add_argument('--follow', action='store_true',
                         help='Print a line each time a step the chat shows ends, until the metric definitions are accepted')
+    tiles = sub.add_parser('tiles', help="The report's tiles by page, once the build has translated them: which became "
+                           "queries and which could not, with why")
+    tiles.add_argument('--engine-dir', type=Path)
+    tiles.add_argument('--pages', nargs='*', help='Only these pages, by name')
     shared = sub.add_parser('split', help="How the metric definitions are shared among helpers, with each helper's brief")
     shared.add_argument('--engine-dir', type=Path)
     step = sub.add_parser('progress')
@@ -858,16 +867,20 @@ def main():
             import checklist, experience
             model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
             result = {**checklist.build(model, args.flow), 'remote_writes': False}
-        elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer)
+        elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer, args.waits)
         elif args.command == 'drafts':
             import drafts
             # Plain text, never a result file: the person reads these lines as they are.
-            result = (drafts.follow(project.root, args.engine_dir) if args.follow
+            result = (drafts.follow(project.root, args.engine_dir, heartbeat=args.heartbeat) if args.follow
                       else drafts.latest(project.root, args.engine_dir)['line'])
             if result and not args.follow:
                 # Command output is folded away in most hosts; the person sees only messages.
                 print('The person cannot see this output. Send the block above as your next chat message, '
                       'exactly as printed, before any other tool call.', file=sys.stderr)
+        elif args.command == 'tiles':
+            import side_page
+            from run_facts import RunFacts
+            result = side_page.tiles_by_page(RunFacts(project.root, args.engine_dir), args.pages)
         elif args.command == 'split':
             import define_split
             try:
@@ -929,7 +942,10 @@ def main():
         return 130
     except (ValueError, OSError, KeyError, TypeError, mine.Blocked) as exc:
         # A refused query leaves the run as it was, so its progress stays too.
-        if 'project' in locals() and args.command not in ('experience', 'journey', 'execute'):
+        # A refusal with its own message (a check route this warehouse does not take, a request to correct) changes
+        # nothing, so the stage is not marked failed: the side page would read it as the build stopping.
+        refused = isinstance(exc, (ProjectError, journey.JourneyError, mine.Blocked))
+        if 'project' in locals() and not refused and args.command not in ('experience', 'journey', 'execute'):
             try:
                 path = project.root / 'progress.json'
                 if path.exists():

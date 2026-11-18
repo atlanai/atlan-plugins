@@ -58,7 +58,7 @@ before going on. While the engine builds, its result after each gate says so too
 | Every check has run | `context` | Chip: what ran, and what needs a look; in a terminal, with the build card, in the save question | |
 | Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
-| Dashboard layout proposed | `layout` | Nothing: the layout question proposes it; the side page shows its tiles | `layout.json` |
+| Dashboard layout proposed | `layout` | Nothing: the layout question proposes it | `layout.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |
 
 The helper names the first eleven when they are due. A chip or card is the moment's result line:
@@ -88,9 +88,15 @@ machine can open (`http://127.0.0.1:<port>/<key>/`), and its `next` says what to
   goes in a question names it, so the person can open it again.
 - **Anywhere else:** the next chip that goes in a question names the address the same way.
 
-The page reads the run's files itself: never reload, rebuild or push to it, and never describe
-what it shows. Nothing on it leaves this machine, so it shows the metrics, their sources, values
-and the answer on own data as on a demo. A card's last line points to it for the detail. If
+The page shows metric generation only, in every flow: a checklist of the build's steps on top,
+each done with its result and the current one with its count, then the metrics, each with its
+status (draft, merged, final, kept back), the drafts as they land, the tiles that could not be
+built and the queries. A click opens a metric's definition, formula and where it was found,
+under the checklist. The survey, the choices, the checks, the save,
+the answers and the dashboard are the chat's and never appear on it. Before the build starts it
+says it is waiting for the build, with nothing else. The page reads the run's files itself: never reload,
+rebuild or push to it, and never describe what it shows. Nothing on it leaves this machine, so
+it shows the metrics, their sources and values on own data as on a demo. A card's last line points to it for the detail. If
 the page stops while nobody looks at it, the next `visual` call, `visual next` included,
 starts it again at the same address. `PROJECT view` prints the address again;
 `PROJECT view --stop` stops it.
