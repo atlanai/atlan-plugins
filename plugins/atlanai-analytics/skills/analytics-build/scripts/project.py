@@ -598,7 +598,7 @@ def _due(run, engine_dir=None):
 # The moments that end a metric step or the checks: each carries the host's task list as it now stands.
 TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
 # The chips that end a metric step and start the next: each turn they end, ends on the newest thing made.
-STEP_CHIPS = ('described', 'drafted', 'metrics', 'rules')
+STEP_CHIPS = {'described': 'm2', 'drafted': 'x1', 'metrics': 'x2', 'rules': 'x3'}
 
 
 def main():
@@ -813,7 +813,7 @@ def main():
                 # The person, 2026-11-18: under a chip that said "Next: Combine duplicates" the agent wrote "Doing: Combining
                 # duplicates". The desktop sends a turn back for words, so the words come with the chip: the newest thing made.
                 import drafts
-                line = drafts.news(run, args.engine_dir)
+                line = drafts.news(run, args.engine_dir, STEP_CHIPS[args.kind])
                 steps.append("Once the next step is started, end your turn on it, then this line, unchanged, and nothing "
                              "else: %s The chip names the step that starts, so no line of yours names it again." % (
                                  line or 'nothing; the chip is enough.'))

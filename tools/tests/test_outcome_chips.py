@@ -613,7 +613,10 @@ class SoFar(unittest.TestCase):
             {'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin', 'definition': 'What the jobs kept. More.'}]}]})
         manifest = self.run / 'engine' / 'manifest.json'
         stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
-        write(manifest, {'stages': stages + [{'stage': 'x1_ingest', 'counts': {'proposals': 1}, 'verdict': 'accepted'}]})
+        # As the engine writes it: the step's own stage accepted ("ok") and the next step already asked for. The desktop
+        # run's step chips got an empty line this way, and the turn went back for words.
+        write(manifest, {'stages': stages + [{'stage': 'x1_ingest', 'counts': {'proposals': 1}, 'verdict': 'ok'},
+                                             {'stage': 'x2_emit', 'counts': {}, 'verdict': 'ok'}]})
         done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'drafted',
                                '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
                               env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})

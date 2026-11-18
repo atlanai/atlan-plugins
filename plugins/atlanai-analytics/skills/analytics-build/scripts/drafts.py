@@ -231,6 +231,16 @@ def _under_way(engine):
     return None
 
 
+def _step(engine, gate):
+    """One step's saved batches, ended or not, as (gate, step, describe, files): a step's own chip is drawn once it has
+    ended, with the next step already asked for, so its line reads its own step, not the one under way."""
+    for g, step, describe in GATES:
+        if g == gate:
+            files = _saved(engine, g)
+            return (g, step, describe, files) if files else None
+    return None
+
+
 def so_far(root, engine_dir=None):
     """The step under way: its counts over all its batches, as the side page counts them, what they hold so far, and
     how many of those the last so-far chip named. Nothing once it has ended. Nothing is recorded."""
@@ -321,13 +331,13 @@ SO_FAR = ("Due: run this helper's `visual progress` before going on, with the fl
 NEWS = {'x3': ('Newest definition: ',), 'x2': ('Newest metric: ',), 'x1': ('Newest possible metric: ',)}
 
 
-def _news(engine):
+def _news(engine, gate=None):
     """The words a so-far turn ends on: the desktop app sends a turn that ends on a widget alone back for words, so they
     add to the chip, which names what is new: the question the newest described query answers, or the newest draft's,
     metric's or rule's meaning in one sentence. Never that the step is still running."""
     import re
     from run_facts import sentence
-    under = _under_way(engine)
+    under = _step(engine, gate) if gate else _under_way(engine)
     items = [[sentence(n), d] for n, d in _items(engine, under[0], under[3])] if under else []
     if not items:
         return ''
@@ -351,10 +361,10 @@ def _news(engine):
     return line if len(line) <= 240 else line[:237].rsplit(' ', 1)[0] + '...'
 
 
-def news(root, engine_dir=None):
+def news(root, engine_dir=None, gate=None):
     """The words a so-far chip's turn ends on, from the same saved batches as the chip, read at the same moment: a line
     the watch wrote before the chip was drawn named an older rule than the chip did."""
-    return _news(_Engine(root, engine_dir))
+    return _news(_Engine(root, engine_dir), gate)
 
 
 def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_every=SO_FAR_SECONDS, out=None, every_chip=False):
