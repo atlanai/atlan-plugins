@@ -203,7 +203,10 @@ class PartialSaveFollowup(unittest.TestCase):
         self.assertEqual(out['counts'], {'created': 4, 'failed': 2})
         self.assertEqual([h['name'] for h in out['held']], ['b'])
         self.assertEqual([r['name'] for r in out['retry_after_lookup']], ['M0'])
-        self.assertEqual(len(out['link_calls']), 1)              # a -> M1, both ids known
+        self.assertEqual(len(out['link_calls']), 1)              # one batch call
+        self.assertEqual(out['link_calls'][0]['name'], 'registry__relate_artifacts')
+        self.assertEqual([(l['artifact_id'], l['subject_id']) for l in out['link_calls'][0]['arguments']['links']],
+                         [('sql_query_a', 'metric_b')])          # a -> M1, both ids known
         self.assertEqual(out['held_links'][0]['from'], 'b')       # the conflict holds its link
         looked = {c['arguments']['name'] for c in out['lookup_calls']}
         self.assertEqual(looked, {'M0', 'c'})                    # retry check and missing link id

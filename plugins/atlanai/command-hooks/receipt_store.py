@@ -121,6 +121,20 @@ def request_view(request):
     return {'name': name, 'arguments': args}
 
 
+def slot_matches(kind, item, artifact):
+    """Whether a bulk create's ok slot is the item its request sent.
+
+    The gateway answers each slot with the artifact's handle (`id`, `name`, version, status)
+    unless the call sent `full`, so the slot is matched on its name and its id's kind prefix.
+    Any identity field a whole row still carries must match too.
+    """
+    if not isinstance(artifact, dict) or not isinstance(artifact.get('id'), str):
+        return False
+    expected = {'kind': kind, **item}
+    return (artifact['id'].startswith(kind + '_') and artifact.get('name') == item.get('name')
+            and all(artifact[k] == v for k, v in expected.items() if k in artifact))
+
+
 def checked_response(request, text, is_error=False):
     response = json.loads(text)
     if not isinstance(response, dict):
@@ -138,12 +152,8 @@ def checked_response(request, text, is_error=False):
             if type(index) is not int or not 0 <= index < len(slots) or index in indices or type(slot.get('ok')) is not bool:
                 raise ValueError('Invalid bulk outcome index.')
             indices.add(index)
-            if slot['ok']:
-                artifact = slot.get('artifact', {})
-                if artifact.get('kind') != args['kind'] or any(artifact.get(k) != v for k, v in args['items'][index].items()):
-                    raise ValueError('Bulk outcome identity differs from its request.')
-                if not artifact.get('id'):
-                    raise ValueError('Successful outcome has no artifact identity.')
+            if slot['ok'] and not slot_matches(args['kind'], args['items'][index], slot.get('artifact')):
+                raise ValueError('Bulk outcome identity differs from its request.')
     elif is_error or response.get('error') or response.get('isError'):
         raise ValueError('A failed read is not a receipt.')
     elif name == 'registry__get_artifact':

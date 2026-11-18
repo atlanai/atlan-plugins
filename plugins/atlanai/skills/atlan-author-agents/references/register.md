@@ -104,9 +104,11 @@ moves on its own - a skill publishing a new release changes no agent until you w
 pin, and on a released agent that write is a new agent version.
 
 The `uses_skill` edges follow the manifest: the registry derives one per pinned skill and
-archives the rest, shortly after the write. The write's result carries the pins, with the
-ordinal and digest the registry filled in, so report from it. Read the derived edges with
-`registry__get_related_artifacts` only when someone needs the graph itself.
+archives the rest, shortly after the write. A write answers with the agent's handle alone, so
+send `"full": true` on the create or patch that writes `skills`: its result then carries the
+pins, with the ordinal and digest the registry filled in, and you report from it without a read.
+Read the derived edges with `registry__get_related_artifacts` only when someone needs the graph
+itself.
 
 An agent that has **never** written a manifest still carries hand-curated `uses_skill` edges
 (`registry__relate_artifact`); the first manifest replaces them. The full edge table and its

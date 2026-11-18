@@ -6,7 +6,8 @@ prints three lists of call descriptors for the host to send:
 
 - `lookup_calls`: reads that resolve an item whose slot the result did not report (a result
   can be cut to its first rows) or a link end with no id yet;
-- `link_calls`: the approved `source_of`/`uses_metric` links whose two ends both exist;
+- `link_calls`: `registry__relate_artifacts` calls, up to 100 links each, writing the approved
+  `source_of`/`uses_metric` links whose two ends both exist;
 - `retry`: failed items whose code says a resend can succeed (an internal or timeout error,
   confirmed absent by a lookup first). A `conflict` is never retried: it is reported and held.
 
@@ -18,6 +19,7 @@ import json
 from pathlib import Path
 
 NO_RETRY = {'conflict', 'invalid_arguments', 'forbidden', 'not_found', 'unknown_kind'}
+LINKS_PER_CALL = 100  # `registry__relate_artifacts` takes 1 to 100 links.
 
 
 def _load_result(path):
@@ -79,7 +81,7 @@ def settle(batches, results, resolved, links, workspace, names):
         if entry['status'] == 'unreported' or (entry['status'] == 'failed' and entry['code'] not in NO_RETRY):
             lookups.append(lookup(kind, name))
             seen.add((kind, name))
-    link_calls, held_links = [], []
+    links_ready, held_links = [], []
     for link in links:
         if link.get('rel_type') == 'depends_on':
             continue
@@ -89,15 +91,16 @@ def settle(batches, results, resolved, links, workspace, names):
             held_links.append({'from': ends[0][1], 'to': ends[1][1], 'reason': 'an end failed to save'})
             continue
         if all(s.get('id') for s in states):
-            link_calls.append({'name': 'registry__relate_artifact',
-                               'arguments': {'artifact_id': states[0]['id'], 'subject_id': states[1]['id'],
-                                             'rel_type': link['rel_type'],
-                                             'attributes': link.get('attributes') or {}}})
+            links_ready.append({'artifact_id': states[0]['id'], 'subject_id': states[1]['id'],
+                                'rel_type': link['rel_type'], 'attributes': link.get('attributes') or {}})
         else:
             for end, state in zip(ends, states):
                 if not state.get('id') and end not in seen:
                     lookups.append(lookup(*end))
                     seen.add(end)
+    link_calls = [{'name': 'registry__relate_artifacts',
+                   'arguments': {'links': links_ready[i:i + LINKS_PER_CALL]}}
+                  for i in range(0, len(links_ready), LINKS_PER_CALL)]
     retry = [{'kind': k, 'name': n, 'source_id': e['source_id'], 'code': e['code']}
              for (k, n), e in outcome.items() if e['status'] == 'failed' and e['code'] not in NO_RETRY]
     held = [{'kind': k, 'name': n, 'code': e['code'], 'error': e.get('error')}

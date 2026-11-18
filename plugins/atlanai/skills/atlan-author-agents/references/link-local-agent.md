@@ -73,7 +73,8 @@ These steps apply a local agent, and local skills for a skills-only request.
 6. Upload owned files through `atlan-content`, creating each `file` with
    `parent_kind: agent`, `parent_id: <agent-id>` and the stable destination as
    `path`. A path that already holds a file is a conflict to resolve, not to
-   retry. Verify file ID, digest, version, workspace and exact owner/path slot. Source code stays in Git; upload only the
+   retry. Read each file back with `registry__get_artifact` and verify its ID, digest, version,
+   workspace and exact owner/path slot: a create answers with the handle alone. Source code stays in Git; upload only the
    small prompts, policies, schemas and configuration that define the agent.
 7. Pin the requested skills in the agent's `skills` manifest, in the create
    payload or as a patch:

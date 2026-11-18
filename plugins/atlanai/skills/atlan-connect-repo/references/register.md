@@ -18,7 +18,7 @@ Your first call opens the session by sending `objective`; pass the id it returns
 - `registry__get_artifact` to read the repo back.
 - `registry__search_artifacts`, `registry__list_artifacts` and `registry__get_artifact` to find
   the skills, agents and scorers to link.
-- `registry__relate_artifact` to write each `sourced_from` relationship.
+- `registry__relate_artifacts` to write every `sourced_from` relationship in one call.
 - `registry__get_related_artifacts` on the repo, only to see links that existed before.
 
 Do not reach for `curl` or raw HTTP when one of these covers the step. If none does, stop and
@@ -62,20 +62,24 @@ its `workspace_id` and `remote_url`.
 
 ## 4. Link the artifacts
 
-For each chosen skill, agent or scorer, call `registry__relate_artifact` with:
+Call `registry__relate_artifacts` once, with one entry in `links` for each chosen skill, agent
+or scorer (up to 100 a call):
 
 - `artifact_id`: the skill, agent or scorer;
 - `subject_id`: the `repo_…` id;
 - `rel_type`: `sourced_from`;
 - `attributes`: `{"path": "<repository-relative path>"}`.
 
-Only `skill`, `agent` and `scorer` declare `sourced_from`. Any other kind refuses it; report that
-rather than choosing another relationship. Writing the same link again is harmless.
+Only `skill`, `agent` and `scorer` declare `sourced_from`. Any other kind refuses its link; report
+that rather than choosing another relationship. A malformed handle refuses the whole call before
+anything is written and names the link (`links[2].artifact_id`): fix that entry and send the
+batch again. Writing the same link again is harmless, so a resent batch adds no copies.
 
 ## 5. Report
 
-Each `registry__relate_artifact` result is the link it stored, so report from those results
-rather than reading the links back. Report the repo's name and id, the workspace, and each linked
+The result has one slot per link, in order: `ok`, or the refusal's `code` and `error`. Report
+from those slots rather than reading the links back, and resend only the failed links once
+their cause is fixed. Report the repo's name and id, the workspace, and each linked
 artifact with its path. Say plainly which links failed and why.
 
 ## Continue with publication

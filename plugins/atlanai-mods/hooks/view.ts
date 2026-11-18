@@ -138,10 +138,23 @@ function resultObject(text: string): Record<string, unknown> | undefined {
   return undefined
 }
 
+/** An artifact's kind: the row's own, else its handle's prefix (`sql_query_01…` is a `sql_query`).
+ * A write answers with the handle alone, which names no kind. */
+function kindOf(row: Record<string, unknown>, id = field(row, 'id')): string {
+  const cut = id.lastIndexOf('_')
+  return field(row, 'kind') || (cut > 0 ? id.slice(0, cut) : '') || 'artifact'
+}
+
+/** An artifact version's label, else its ordinal: a write's handle carries only the ordinal. */
+function versionOf(row: Record<string, unknown>): string {
+  const ordinal = row.version_ordinal
+  return field(row, 'version_label') || (typeof ordinal === 'number' ? `version ${ordinal}` : '')
+}
+
 /** An artifact's name, version and status, as one short label. */
 function label(object: Record<string, unknown>): string {
   const name = field(object, 'display_name') || field(object, 'name') || field(object, 'id')
-  const version = field(object, 'version_label')
+  const version = versionOf(object)
   const status = field(object, 'artifact_status')
   return [name, version, status && status !== 'active' ? `(${status.replace(/_/g, ' ')})` : ''].filter(Boolean).join(' ')
 }
@@ -197,7 +210,7 @@ export function summarizeResult(text: string, isError: boolean): string {
     const outgoing = Array.isArray(object.outgoing) ? object.outgoing.length : 0
     return `${incoming} ${incoming === 1 ? 'artifact points' : 'artifacts point'} at it; it points at ${outgoing}`
   }
-  if (isText(object.id)) return `${field(object, 'kind') || 'artifact'} ${label(object)}`
+  if (isText(object.id)) return `${kindOf(object)} ${label(object)}`
   return 'Done.'
 }
 
@@ -229,7 +242,7 @@ export function touchesOf(name: string, args: unknown, text: string, isError: bo
     return [
       {
         id,
-        kind: field(row, 'kind') || id.split('_')[0] || 'artifact',
+        kind: kindOf(row, id),
         name: field(row, 'display_name') || field(row, 'name'),
         version: releaseOf(row),
         status: field(row, 'artifact_status'),
@@ -242,7 +255,7 @@ export function touchesOf(name: string, args: unknown, text: string, isError: bo
 /** The version an artifact or publish slot names: its release's label, else its own. */
 function releaseOf(row: Record<string, unknown>): string {
   const releases = Array.isArray(row.current_releases) ? row.current_releases.filter(isRecord) : []
-  return (releases[0] && field(releases[0], 'version_label')) || field(row, 'version_label')
+  return (releases[0] && field(releases[0], 'version_label')) || versionOf(row)
 }
 
 /** Folds new touches into the list, newest first; a read never hides an earlier write. */
