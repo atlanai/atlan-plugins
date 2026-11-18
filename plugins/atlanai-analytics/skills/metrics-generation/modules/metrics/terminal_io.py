@@ -47,6 +47,8 @@ def run(command, *, env, timeout=SIGN_IN_TIMEOUT):
     """
     if not at_terminal():
         return subprocess.run(command, env=env, capture_output=True, text=True)
+    if os.name == 'nt':
+        return _run_piped(command, env=env, timeout=timeout)
     import pty
     import termios
 
@@ -109,3 +111,57 @@ def run(command, *, env, timeout=SIGN_IN_TIMEOUT):
             os.close(master)
             if slave is not None:
                 os.close(slave)
+
+
+def _run_piped(command, *, env, timeout):
+    """Windows has no PTYs: relay each piped stream from a reader thread while capturing it.
+
+    The engine sees pipes rather than a terminal, so sign-in prompts still reach the person
+    through stderr. Input is inherited, never captured.
+    """
+    import threading
+
+    output = {'stdout': [], 'stderr': []}
+    relay = threading.Lock()
+    proc = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+
+    def pump(name, stream):
+        decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+        while True:
+            chunk = os.read(stream.fileno(), 65536)
+            value = decoder.decode(chunk, final=not chunk)
+            if value:
+                output[name].append(value)
+                with relay:
+                    sys.stderr.write(value)
+                    sys.stderr.flush()
+            if not chunk:
+                return
+
+    readers = [threading.Thread(target=pump, args=(name, getattr(proc, name)), daemon=True)
+               for name in output]
+    try:
+        for reader in readers:
+            reader.start()
+        deadline = time.monotonic() + timeout
+        try:
+            code = proc.wait(timeout=max(deadline - time.monotonic(), 0))
+        except subprocess.TimeoutExpired:
+            raise TimeoutError('Interactive connector operation timed out; retry sign-in.') from None
+        for reader in readers:
+            reader.join(max(deadline - time.monotonic(), 0))
+            if reader.is_alive():
+                raise TimeoutError('Interactive connector operation timed out; retry sign-in.')
+        return subprocess.CompletedProcess(command, code, ''.join(output['stdout']),
+                                           ''.join(output['stderr']))
+    finally:
+        # Include connector subprocesses on cancellation or timeout, as the PTY path does
+        # with its process group. taskkill is part of every supported Windows install.
+        subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc.wait()
+        for reader in readers:
+            reader.join(1)
+        proc.stdout.close()
+        proc.stderr.close()
