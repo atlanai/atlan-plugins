@@ -647,8 +647,8 @@ def main():
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
     drafts = sub.add_parser('drafts', help='The progress line for the batch of metrics the build just saved')
     drafts.add_argument('--engine-dir', type=Path)
-    drafts.add_argument('--heartbeat', type=int, metavar='SECONDS',
-                        help='With --follow: a plain line of where the build has got to after this many quiet seconds')
+    drafts.add_argument('--every-chip', action='store_true',
+                        help='With --follow: also name each chip the run can show, once, for a flow whose helpers advance every step')
     drafts.add_argument('--follow', action='store_true',
                         help='Print a line each time a step the chat shows ends, until the metric definitions are accepted')
     tiles = sub.add_parser('tiles', help="The report's tiles by page, once the build has translated them: which became "
@@ -892,7 +892,7 @@ def main():
         elif args.command == 'drafts':
             import drafts
             # Plain text, never a result file: the person reads these lines as they are.
-            result = (drafts.follow(project.root, args.engine_dir, heartbeat=args.heartbeat) if args.follow
+            result = (drafts.follow(project.root, args.engine_dir, every_chip=args.every_chip) if args.follow
                       else drafts.latest(project.root, args.engine_dir)['line'])
             if result and not args.follow:
                 # Command output is folded away in most hosts; the person sees only messages.

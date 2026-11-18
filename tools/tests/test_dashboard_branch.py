@@ -97,14 +97,28 @@ class DashboardBranch(unittest.TestCase):
         self.assertIn('"status": "blocked"', out.stdout)
         self.assertEqual(json.loads((self.run / 'progress.json').read_text(encoding='utf-8'))['status'], 'complete')
 
-    def test_with_a_heartbeat_the_chat_gets_no_running_counts(self):
-        # The chat is static: a count drawn there goes stale while the side page moves on.
+    def test_the_dashboard_flow_s_watch_gives_the_same_chips_as_every_flow(self):
+        # Its chat carried checkpoints only, with a "Still writing..." line after two quiet minutes. The person chose our
+        # chat for it (2026-11-18): so-far chips while a step runs, and never "still".
         out = io.StringIO()
-        with mock.patch.object(drafts, '_under_way', return_value=True), \
-                mock.patch.object(drafts, 'heartbeat_line', return_value='Still writing each metric\'s rule. Each one shows on the side page as it lands.'):
-            drafts.follow(self.run, 'engine', seconds=0.6, idle=10, interval=0.05, so_far_every=0, heartbeat=0.2, out=out)
-        self.assertNotIn('visual progress', out.getvalue())
-        self.assertNotRegex(out.getvalue(), r'\d+ of \d+')
+        engine = self.run / 'engine'
+        (engine / 'answers' / 'x3').mkdir(parents=True, exist_ok=True)
+        import side_view
+        import threading
+        import time
+        with mock.patch.object(drafts, '_under_way', return_value=True), mock.patch.object(side_view, 'due', return_value=[]):
+            watch = threading.Thread(target=lambda: drafts.follow(self.run, 'engine', seconds=1.0, idle=10, interval=0.05,
+                                                                  so_far_every=0, every_chip=True, out=out))
+            watch.start()
+            time.sleep(0.2)
+            (engine / 'answers' / 'x3' / '001.json').write_text(json.dumps({'metrics': [{'name': 'Gross margin'}]}))
+            watch.join(5)
+        self.assertIn('visual progress', out.getvalue())
+        self.assertNotIn('Still', out.getvalue())
+        guide = (SCRIPTS.parent / 'references' / 'setup' / 'dashboard-flow.md').read_text(encoding='utf-8')
+        for gone in ('--heartbeat', 'Never a running count, a so-far chip', 'final, kept back', 'Still writing'):
+            self.assertNotIn(gone, guide)
+        self.assertIn('--every-chip', guide)
 
 
 if __name__ == '__main__':

@@ -38,7 +38,8 @@ estimate once the count going into it is known ("about 4 min").
 - **Keep the list on screen in every turn.** The Claude desktop app shows the list under the
   turn that sent it, so a turn with no list update shows none. Every turn in this branch,
   including one woken by a helper finishing or by the build's watch, sends the whole list from
-  `PROJECT checklist` (`update_plan` with every item) in its first message.
+  `PROJECT checklist` in its first message: the plan tool's whole list in the desktop app,
+  TodoWrite (or TaskUpdate) with every item in Claude Code's terminal.
 - **Never tick an item from memory.** Item 4 ticks only when the helper says so: the checks
   recorded their results, or the person chose to skip them.
 - A finished item shows its result after a colon, as the helper returns it: "Check what can be
@@ -117,25 +118,21 @@ in the build: they are news, never a question.
 ## 3. Build metrics and queries
 
 [Build and check](build-check.md) and [the metrics module](../../../metrics-generation/references/metrics-engine.md)
-run as they are, every step in a background helper (below). The side page, open since the run
-was created, is where the person watches: the checklist, each draft metric as it lands, each
-metric with its status (draft, merged, final, kept back) and its full definition on a click.
+run as they are, every step in a background helper (below). The side page is the same as in
+every flow: what the run made, metrics first and then queries, each in its state (Draft, Merged,
+Written, Checked, Failed) and opening its profile, then the tiles that could not be built.
 
-**The chat carries checkpoints, never progress.** A count in the chat freezes the moment it is
-drawn while the side page moves on, so the two disagree. For each step:
+**The chat is the same as in every flow**, as [progress](progress.md) sets out: each step's start
+on its Doing line with roughly how long, from its size; its chip when it ends; and while a step
+runs, the so-far chip `visual progress` gives with its line, unchanged. Never a "still" line.
 
-- **When it starts**: one line, once, in plain words, with roughly how long, from its size. Not
-  a second line about the same step.
-- **When it ends**: the step's chip, which the watch names (`visual next`). No words of your own
-  beside it.
-- **In between**: nothing, unless two minutes pass in silence. Then the watch gives one line
-  ("Still writing each metric's rule. Each one shows on the side page as it lands."): say it as
-  given and end the turn. Never a running count, a so-far chip or a "newest" line.
-
-As the build starts, before the first helper, arm `PROJECT drafts --follow --heartbeat 120
+As the build starts, before the first helper, arm `PROJECT drafts --follow --every-chip
 --engine-dir engine` as a background watch (in Claude Code, the Monitor tool), and re-arm it
-whenever it stops before the build ends. It replaces the watch that
-[drafts as they land](progress.md#drafts-as-they-land) arms at the describe step.
+whenever it stops before the build ends. It names each chip as it becomes due, since helpers
+advance every step here, and replaces the watch that
+[drafts as they land](progress.md#drafts-as-they-land) arms at the describe step. The tile
+translation review saves nothing until it ends, so no so-far chip comes during it: its start
+line gives its rough time.
 
 Rough times, from a 37-tile report; scale by the number of tiles:
 
