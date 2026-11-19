@@ -144,7 +144,7 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
     if focus is not None and action != 'select':
         raise JourneyError('Use select to change the focused definition.')
     if answer is not None and action not in ANSWERED:
-        raise JourneyError('Use domain, purpose, report, readiness or dashboard to record an answer.')
+        raise JourneyError('Use domain, purpose, report, readiness, dashboard, checks or tasks to record an answer.')
     if waits and action != 'readiness':
         raise JourneyError('Only the readiness check can wait for the person.')
     if action == 'select':

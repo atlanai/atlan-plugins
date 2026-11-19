@@ -57,8 +57,7 @@ class Numbers(unittest.TestCase):
     def test_a_multiple_reads_as_a_multiple(self):
         self.assertEqual(visuals.number(2.21, 'times face value'), '2.2×')
 
-    def test_glyphs_show_how_far_and_how_much(self):
-        self.assertEqual([visuals.ring(d, 4) for d in (0, 1, 2, 3, 4)], ['○', '◔', '◑', '◕', '●'])
+    def test_glyphs_show_how_much(self):
         self.assertEqual(visuals.spark([1, 8, 4]), '▁█▄', 'plain text, in the reply\'s own colour: a code span is faint on a light terminal')
         self.assertEqual(visuals.spark([5]), '▪', 'one value is not a series, and no ring')
 
@@ -115,8 +114,6 @@ class Moments(unittest.TestCase):
         self.assertEqual(self.show('sources', run), '▤ **1 table** loaded · 3 past queries, Power BI dashboard',
                          'a live run showed the 10 tables bound while its question said the 6 chosen')
         import side_view
-        pieces = {n['t']: n for s in side_view.model(run)['steps'] for n in s['how']}
-        self.assertEqual(pieces['Open the database read-only']['n'], '1 table')
         unchosen = make_run(self.root / 'early', saved=False, stage=('scope', 'running'))
         (unchosen / 'engine-config.json').unlink()
         self.assertNotIn('sources', side_view.due(unchosen), 'on own data the data read waits for what the person chose')
@@ -371,13 +368,6 @@ class Helper(unittest.TestCase):
         self.assertEqual([l for l in done.stderr.splitlines() if not l.startswith('Next: ')], [])
         return done.stdout
 
-    def start_engine(self, run):
-        """What `PROJECT engine-config` and the first engine gates leave: the engine run named, its manifest written."""
-        meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
-        (run / 'run.json').write_text(json.dumps({**meta, 'engine_run': str(run / 'engine')}), encoding='utf-8')
-        (run / 'engine').mkdir()
-        (run / 'engine' / 'manifest.json').write_bytes((self.run / 'engine' / 'manifest.json').read_bytes())
-
     def side(self, out):
         line = [l for l in out.splitlines() if l.startswith('side view: ')]
         return json.loads(line[0][len('side view: '):]) if line else None
@@ -413,7 +403,10 @@ class Helper(unittest.TestCase):
         out = self.project('visual', 'drafted', '--widget')
         self.assertTrue(out.startswith('side view: '), 'no chip in the chat')
         side = self.side(out)
-        self.assertIn('nothing goes in the chat', side['next'])
+        # Runs wrote their own line at each step's end ("the build continues"): it gets the step's line, in plain words.
+        self.assertIn('word for word', side['next'])
+        self.assertIn('possible metric', side['say'])
+        self.assertFalse(set('*◆❝▦»·') & set(side['say'][:2]), side['say'])
         self.assertIn('drafts --wait', side['next'])
         self.assertTrue(any(r['status'] == 'completed' and r['content'].startswith('Find metrics: ') for r in side['task_list']),
                         side['task_list'])
@@ -730,11 +723,6 @@ class Helper(unittest.TestCase):
         asked = json.loads(self.project('question', 'ready'))['question']
         self.assertNotIn('⌂', asked)
         self.assertEqual(asked.count('on this machine'), 1, asked)
-
-    def test_a_layout_is_recorded_for_the_side_page_and_draws_nothing(self):
-        out = self.project('visual', 'layout', '--input', '-', stdin=json.dumps({'tiles': ['Gross Margin'], 'more': ['Rework Cost']}))
-        self.assertNotIn('▭', out, 'the layout question proposes it')
-        self.assertEqual(json.loads((self.run / 'layout.json').read_text(encoding='utf-8'))['tiles'], ['Gross Margin'])
 
     def test_a_data_file_over_1_mb_says_so(self):
         out = json.loads(self.project('visual', 'answer', '--input', '-', stdin=json.dumps({'question': 'Q' * 1_000_100, 'headline': 'H: 1'})))

@@ -93,13 +93,11 @@ CARD = (
 )
 
 
-# The chip as a widget, the C3 ticker: a ring or a spark, the number, then what it counts.
+# The chip as a widget, the C3 ticker: a spark, the number, then what it counts.
 TICKER = (
     '.c3{display:inline-flex;align-items:center;gap:10px;padding:6px 12px;border-radius:12px;background:var(--sb);'
     'outline:.5px solid var(--bd);color:var(--tx);font:13px/18px Geist,system-ui,-apple-system,sans-serif;max-width:100%}'
     '.c3 .n{font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}.c3 .d{color:var(--ts)}'
-    '.rg{width:18px;height:18px;border-radius:50%;flex:none;-webkit-mask:radial-gradient(farthest-side,transparent 52%,#000 56%);'
-    'mask:radial-gradient(farthest-side,transparent 52%,#000 56%)}'
     '.sk{display:inline-flex;align-items:flex-end;gap:2px;height:16px;flex:none}.sk i{width:4px;border-radius:1px;background:var(--c1)}'
     '.sk i.n{background:var(--c6)}'
 )

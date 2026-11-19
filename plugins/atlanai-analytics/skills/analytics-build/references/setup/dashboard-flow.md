@@ -37,14 +37,14 @@ estimate once the count going into it is known ("about 4 min").
   When item 2 ends without a question, that same message also starts item 3.
 - **Keep the list on screen in every turn.** The Claude desktop app shows the list under the
   turn that sent it, so a turn with no list update shows none. Every turn in this branch,
-  including one woken by a helper finishing or by the build's watch, sends the whole list from
+  including one woken by a helper finishing or by the build's wait, sends the whole list from
   `PROJECT checklist` in its first message: the plan tool's whole list in the desktop app,
   TodoWrite (or TaskUpdate) with every item in Claude Code's terminal.
-- **Never tick an item from memory.** Item 4 ticks only when the helper says so: the checks
+- **Never tick an item from memory.** Item 6 ticks only when the helper says so: the checks
   recorded their results, or the person chose to skip them.
 - A finished item shows its result after a colon, as the helper returns it: "Check what can be
   built: 2 of 5 tiles, targets not set". Never write a result yourself.
-- Item 7 ticks when a page is built or the person declines one:
+- Item 9 ticks when a page is built or the person declines one:
   `PROJECT journey dashboard --answer built` or `--answer declined`.
 
 ## 1. Pick report and pages
@@ -121,24 +121,19 @@ in the build: they are news, never a question.
 run as they are, every step in a background helper (below). The side page is the same as in
 every flow: what the run made, metrics first and then queries, each in its state (Found,
 Defined, Tested, Needs a look) and opening its profile, then the tiles that could not be built.
-It opens once the first possible metric is found, when the watch names `connect`.
+It opens once the first possible metric is found, when `visual next` names `connect`.
 
-**The chat is the same as in every flow**, as [progress](progress.md) sets out: each step's start
-on its Doing line with roughly how long, from its size; its chip when it ends; and while a step
-runs, the so-far chip `visual progress` gives with its line, unchanged. Never a "still" line. Once the side page is
-open, the task list carries the build instead where you keep one, as
-[drafts as they land](progress.md#drafts-as-they-land) says: no Doing line at a step's start and no chip at its end,
-until the build's card; with no task list, only each step's end shows its chip.
+**The chat is the same as in every flow**, as [drafts as they land](progress.md#drafts-as-they-land)
+sets out: before the side page opens, each step's chip when it ends; once it is open, the task
+list carries the build where you keep one, with the one line `visual next` gives at each step's
+end, and with no task list each step's end shows its chip. Never a "still" line. A step that
+starts with no chip naming it (the review of the translations, the questions for the tiles) gets
+its start line from the table below, once.
 
-As the build starts, before the first helper, the fallback is to arm `PROJECT drafts --follow --every-chip
---engine-dir engine` as a background watch (in Claude Code, the Monitor tool), and re-arm it
-whenever it stops before the build ends, only where no foreground command can run ten minutes.
-Everywhere else, start the helper and run `PROJECT drafts --wait --engine-dir engine` in the
-foreground in the same turn, as the readiness step's result says. It names each chip as it becomes due, since helpers
-advance every step here, and replaces the watch that
-[drafts as they land](progress.md#drafts-as-they-land) arms at the describe step. The tile
-translation review saves nothing until it ends, so no so-far chip comes during it: its start
-line gives its rough time.
+As the build starts, start the helper and run `PROJECT drafts --wait --engine-dir engine` in the
+foreground in the same turn, as the readiness step's result says. Helpers advance every step
+here, so the wait names each chip as it becomes due. The review of the translations saves
+nothing until it ends: its start line gives its rough time.
 
 Rough times, from a 37-tile report; scale by the number of tiles:
 
@@ -173,9 +168,9 @@ a skip they did not choose, and never say "as you asked" about anything they did
   used, then run the same command again with `"result"`, the rows it returned or why it failed,
   so the side page shows each one tested. A failed statement is a result too, never a reason to
   stop checking.
-- **Skip**: item 4 reads "skipped, your choice"; go straight on.
+- **Skip**: item 6 reads "skipped, your choice"; go straight on.
 
-Either way, item 4 ends with the build's card: `PROJECT visual build --widget`, drawn before
+Either way, item 6 ends with the build's card: `PROJECT visual build --widget`, drawn before
 the save question every time, so the build always closes on a result the person can see.
 
 ## 5. Save or keep local
@@ -188,7 +183,7 @@ every detail.
 ## Background helpers do the work; this session talks
 
 This session's own tool calls are only: the questions, the sign-in, the task list, starting and
-following helpers and the watch, drawing chips and cards, and the `PROJECT journey` records.
+following helpers and the build's wait, drawing chips and cards, and the `PROJECT journey` records.
 Everything else runs in background helpers (in Claude Code, a background subagent per piece of
 work), several at once where the work splits:
 
@@ -233,8 +228,10 @@ see, at every moment:
   candidate, Registry, statement, staged copy, packing, draft, merge, rule, chip, so-far, or a file
   or command name. Say what it means: "the build", "a step", "kept back for a look", "your
   report's tiles", "a possible metric", "combine duplicates", "its definition".
-- **Whenever something is happening, say what it is and why, and roughly how long**: "Checking
-  your 9 tables on Snowflake, so the build only uses data you can read. About a minute." A
-  rough range from the work's size; never a percentage.
+- **Before the build, whenever something is happening, say what it is and why, and roughly how
+  long**, once: "Checking your 9 tables on Snowflake, so the build only uses data you can read.
+  About a minute." A rough range from the work's size; never a percentage, and never that
+  something is still going. From the build's start, the chips, the task list and the line
+  `visual next` gives say it: add none of your own.
 - **Only what the person needs**: results, waits, decisions, and problems that change something
   for them. A step that went as expected gets its start line and its chip, nothing more.

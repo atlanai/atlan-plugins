@@ -3,9 +3,8 @@
 Read before the opening or the welcome, and again when a moment below is reached. The flow,
 its questions and its words do not change. At each moment the helper reads the run's own files
 and prints what the chat shows: a chip saying what that step produced, each step with its own
-mark, or a mini card at a big moment. Chips never show progress, apart from the so-far chip the
-build's watch names while a step runs: the side page, a page on this machine beside the chat,
-follows the whole build by itself and shows every metric with how it
+mark, or a mini card at a big moment. Chips never show progress: the side page, a page on this
+machine beside the chat, follows the whole build by itself and shows every metric with how it
 was reached. Never draw, design or retype a visual, and never put a number in
 one by hand.
 
@@ -51,6 +50,7 @@ before going on. While the engine builds, its result after each gate says so too
 | The engine grouped the past queries | `group` | Chip: how many different questions | |
 | The engine wrote up the dashboard's tiles | `tiles` | Chip: the tiles, each now a question | |
 | The engine described each query | `described` | Chip: one question in plain words | |
+| The engine found the metrics in the queries | `drafted` | Chip: how many possible metrics, and in how many queries | |
 | The engine merged the metrics | `metrics` | Chip: the metrics by name | |
 | The engine wrote each metric's rule | `rules` | Chip: one metric's rule | |
 | The engine linked the metrics | `links` | Chip: how one metric builds on others | |
@@ -58,10 +58,11 @@ before going on. While the engine builds, its result after each gate says so too
 | Every check has run | `context` | Chip: what ran, and what needs a look; in a terminal, with the build card, in the save question | |
 | Saved to Atlan Trident | `saved` | Mini card before the ready question; nothing when kept on this machine, which the person has just chosen | `saved.json` |
 | A question answered | `answer` | Mini card the first time, then a chip | `answer.json` |
-| Dashboard layout proposed | `layout` | Nothing: the layout question proposes it | `layout.json` |
 | A rule changed | `edit` | Mini card | `edit.json` |
 
-The helper names the first eleven when they are due. A chip or card is the moment's result line:
+The helper names the first twelve when they are due. Once the side page is open, where you keep a
+task list, `drafted`, `metrics`, `rules` and `links` hand back the task list and one line, `say`,
+instead of a chip. A chip or card is the moment's result line:
 add no other line that repeats its numbers. After an answer's card, the reply leads with what
 answers (the name) and what explains it.
 
@@ -118,8 +119,6 @@ from the result that produced them; leave out a field you do not have, never fil
   the label of the row that answers; `rule`, the metric's rule in one line; `proof`, `[{name}]`
   of the metrics and queries the answer used. For a question that asks why, add `breakdown`
   with `steps` as `[label, signed value]` from the query that splits the answering row.
-- `layout.json`: `tiles` and `more` as lists of metric names, exactly as the context names
-  them.
 - `edit.json`: from the edit result: `metric`, `before` and `after` rules in plain words,
   `values` as `[name, before, after, unit]`, and `added` and `removed` as lists of short labels
   for the re-asked question. Add `note` when a dashboard was built before the change: it still

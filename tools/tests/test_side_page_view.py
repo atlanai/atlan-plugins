@@ -42,9 +42,6 @@ def metric(name, stage, status=None, **kw):
 
 SNAPSHOT = {
     'flow': 'demo', 'firm': 'Fixit', 'title': 'Job profit agent', 'updated': '2026-11-18T10:00:00Z',
-    'now': {'id': 'metrics', 'title': "Writing each metric's rule", 'busy': True, 'bar': 0.4,
-            'count': {'n': 2, 'of': 5, 'unit': 'rules written'}},
-    'steps': [{'id': 'metrics', 'status': 'now', 'name': 'Metrics'}],
     'build': [{'id': 'describe', 'name': 'Describe each query', 'state': 'done', 'result': '30 queries'},
               {'id': 'rules', 'name': "Write each metric's rule", 'state': 'now'}],
     'metrics': [metric('Gross margin', 'final', 'checked', value='£118,681', population='Jobs not cancelled', type='Sum',
@@ -400,5 +397,3 @@ class SidePageView(unittest.TestCase):
         for tab in ('All 3', 'Found 1', 'Tested 1', 'Needs a look 1'):
             label, n = tab.rsplit(' ', 1)
             self.assertIn('>%s <span class="n num">%s</span></button>' % (label, n), html)
-        checking = self.text(self.render(dict(SNAPSHOT, queries=scrambled, build=[{'id': 'check', 'state': 'now'}]), list='queries'))
-        self.assertRegex(checking, r'How many snags\?.{0,30}being tested')

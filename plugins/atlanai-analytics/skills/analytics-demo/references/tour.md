@@ -104,9 +104,9 @@ whether you keep a task list, as progress says.
 Never use file names, helper names or query-shape counts in these lines. What the sources
 revealed goes in the Sources question (step 2). Never leave a minute with nothing new on screen (where you keep a task list,
 its count is that something new, so write nothing then); follow [progress](../../analytics-build/references/setup/progress.md):
-while subagents write the build, each step's chip and the side page are what is new, and each turn ends on one
-line with something new: the line the chip's `visual` result gives, unchanged, never a Doing line that repeats
-what a chip just said; never that a step is still running, or what will show and when. The Doing and Why pairs
+while subagents write the build, each step's chip (or, once the side page is open, the one line `visual next`
+gives) and the side page are what is new: add no line of your own, never a Doing line that repeats what a chip
+just said; never that a step is still running, or what will show and when. The Doing and Why pairs
 are for the moments above; the metric steps between Build and Check have their chips. The app shows each
 command's description: describe each as what it does for the person, never a chip, the engine or a gate. Once the
 side page is open, the task list carries the build instead of chips where you keep one, as progress says.

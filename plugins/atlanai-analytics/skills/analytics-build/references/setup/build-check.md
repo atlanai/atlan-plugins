@@ -41,7 +41,7 @@ collection. At X3, continue without an extra user decision: a demo selected its 
 and own data chose its use cases in step 3. Author all scoped
 cards using the returned instructions and continue through the remaining gates. Gate answers
 are the assistant's work, not customer choices. After each gate, show what that step
-produced with `PROJECT visual next`; the side page shows the progress. Do not stop for a single-card preview or request permission to
+produced with `PROJECT visual next`; the side page shows what it has made. Do not stop for a single-card preview or request permission to
 generate the remaining already-selected context.
 
 After completion, export into a fresh `engine-export/` and install the unchanged metric,

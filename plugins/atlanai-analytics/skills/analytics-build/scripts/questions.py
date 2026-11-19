@@ -90,7 +90,8 @@ def save(run, widget=False, data=None, engine_dir=None):
             if c['passed'] else 'none ran cleanly yet', _where(f, demo)))
     lines += _one_metric(run, f, demo, widget)
     lines += ['', 'Where should this context live?']
-    return {'header': 'Step 4 of 5' if demo or f.interaction.get('flow') == 'demo' else 'Step 5 of 7',
+    # The task list numbers the steps, so the header names this one: a second numbering disagreed with the list.
+    return {'header': 'Save',
             'question': '\n'.join(lines), 'options': [{'label': a, 'description': b} for a, b in SAVE_OPTIONS],
             'shown': [k for k, v in (('build', card), ('context', shown)) if v], 'results': by_tool}
 
@@ -243,7 +244,6 @@ def ready(run, widget=False, data=None, engine_dir=None):
     if kept:
         lines += _label('Kept back', kept + '. Each, with why, is on the side page.')
     lines += ['', 'What would you like to ask?']
-    flow_demo = f.interaction.get('flow') == 'demo'
     # Two questions the checked context answers, then the person's own, in words: the host's free-text entry reads as
     # "Other", which a tester did not take for a way to ask (2026-11-19).
     options = _supported(made, limit=2) + [{'label': 'Ask my own question', 'description': 'Type any question; it is '
@@ -251,5 +251,5 @@ def ready(run, widget=False, data=None, engine_dir=None):
     if len(options) < 3:
         options.append({'label': 'Show what was built', 'description': 'Each metric and query with its checked value, and how each was reached'})
     options.append({'label': "I'm done for now", 'description': 'Stop here; the context stays where it was kept'})
-    return {'header': 'Step 5 of 5' if flow_demo else 'Step 6 of 7', 'question': '\n'.join(lines),
+    return {'header': 'Ask', 'question': '\n'.join(lines),
             'options': options, 'shown': ['saved'] if shown else []}

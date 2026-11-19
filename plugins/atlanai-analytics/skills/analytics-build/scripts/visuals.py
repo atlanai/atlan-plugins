@@ -6,20 +6,18 @@ for a host's inline visual tool, or as plain reply text a terminal prints as wri
 chip on one line, a card as a bold headline over indented lines. The agent passes the output through; it never
 designs or retypes a number.
 """
-import argparse
 import json
 import math
 from pathlib import Path
 import re
-import sys
 
 import visual_kit as k
 from run_facts import RunFacts, count, first_question, from_dashboard, number, read_json, sentence, table_name, their, whole  # noqa: F401 (re-exported)
 
-KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'progress', 'build', 'context',
-         'saved', 'answer', 'layout', 'edit')
-# The moments big enough for a mini card. A later answer gets a chip. A context kept on this machine and a dashboard layout
-# show nothing: the person has just chosen the one, and the layout's own question proposes the other.
+KINDS = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted', 'metrics', 'rules', 'links', 'build', 'context',
+         'saved', 'answer', 'edit')
+# The moments big enough for a mini card. A later answer gets a chip. A context kept on this machine shows nothing: the
+# person has just chosen it.
 CARDS = ('build', 'saved', 'answer', 'edit')
 # In a terminal, the moments that come right before a native question, and where in it their lines go. A question's own
 # text is always shown; text written just before it folds into a one-line summary or is left out (live runs, 2026-11-12).
@@ -41,15 +39,13 @@ DATA = {
     'saved': {'workspace': str},
     'answer': {'question': str, 'headline': str, 'summary': str, 'unit': str, 'highlight': str, 'rule': str,
                'rows': 'rows', 'proof': 'names', 'breakdown': dict},
-    'layout': {'tiles': 'labels', 'more': 'labels'},
     'edit': {'metric': str, 'before': str, 'after': str, 'note': str, 'values': 'values', 'added': 'labels', 'removed': 'labels'},
 }
-REQUIRED = {'saved': ('workspace',), 'answer': ('question', 'headline'), 'layout': ('tiles',), 'edit': ('metric', 'values')}
+REQUIRED = {'saved': ('workspace',), 'answer': ('question', 'headline'), 'edit': ('metric', 'values')}
 SHAPES = {'rows': '[label, number] pairs', 'names': 'a list of {"name": ...}', 'labels': 'a list of names',
           'values': 'a list of [name, before, after]', str: 'text', dict: 'an object'}
 # A text card's inside width: it fits an 80-column window with room to spare, and a split pane.
 WIDTH = 56
-RINGS = '○◔◑◕●'
 SPARKS = '▁▂▃▄▅▆▇█'
 # As many rows as an answer's data file may hold, so a card never hides a row the answer is about.
 BARS = 12
@@ -218,13 +214,6 @@ def collect(kind, facts):
                  if isinstance(x, dict) and x.get('from') and x.get('to')]
         pairs = list(dict.fromkeys('%s uses %s' % (sentence(str(x['from'])), sentence(str(x['to']))) for x in edges))
         return {'links': len(edges), 'example': _link(edges), 'rows': [[pair, ''] for pair in pairs]} if edges else {}
-    if kind == 'progress':
-        # The step under way, from the batches it has saved: the side page counts the same files.
-        import drafts
-        try:
-            return drafts.so_far(facts.dir, facts.engine)
-        except (OSError, ValueError):
-            return {}
     return {}
 
 
@@ -337,19 +326,6 @@ def _first_sentence(text):
     return first if not first or first[-1] in '.!?' else first + '.'
 
 
-def _rule(facts, name):
-    """A metric's rule in plain words: its card's first sentence, the part after a colon. The engine writes its cards file
-    with the links; right after the rules it holds them in the next gate's prompt."""
-    cards = facts.engine_file('metric_cards.json')
-    cards = cards.get('cards') or cards.get('metrics') or [] if isinstance(cards, dict) else []
-    texts = [(c.get('name'), c.get('description')) for c in cards if isinstance(c, dict)]
-    texts += [(c.get('metric'), c.get('description')) for c in facts.engine_file('x4_prompt.json').get('all_metrics') or [] if isinstance(c, dict)]
-    text = next((str(d) for n, d in texts if str(n or '').lower() == name.lower() and d), '')
-    # A sentence ends where the next begins with a capital: "excl. cancelled jobs" is one sentence.
-    first = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text.strip(), maxsplit=1)[0].rstrip('.')
-    return first.split(': ', 1)[1] if ': ' in first else first
-
-
 def _link(edges):
     """One link, read as what it is: a ratio of two metrics, a metric that is part of another, or one that uses others."""
     named = lambda x: sentence(str(x))
@@ -386,7 +362,7 @@ def page_link(run, kind, spec):
     name = ((spec.get('proof') or [{}])[0] or {}).get('name') if kind == 'answer' else spec.get('metric') if kind == 'edit' else None
     if name:
         return url + '#m=' + quote(sentence(name))
-    return url + '#step=metrics' if kind in ('build', 'context') else url
+    return url
 
 
 def build_spec(kind, run=None, data=None, engine_dir=None):
@@ -456,13 +432,6 @@ def build_spec(kind, run=None, data=None, engine_dir=None):
 
 
 # Chips -----------------------------------------------------------------------------------------
-
-def ring(done, total):
-    """A progress ring in one character: empty, a quarter, a half, three quarters or full."""
-    if not total:
-        return RINGS[0]
-    share = done / total
-    return RINGS[4] if share >= 1 else RINGS[3] if share >= .75 else RINGS[2] if share >= .5 else RINGS[1] if share > 0 else RINGS[0]
 
 
 def spark(values):
@@ -536,12 +505,6 @@ def _ticker(kind, s):
 MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'described': '❝', 'metrics': '◆', 'rules': '=', 'links': '⋈',
          'ok': '✓', 'look': '△'}
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
-# A step under way: its mark, and why it matters, the line shown under the chip without opening it. The chip lands
-# mid-step, after minutes of quiet, so it says how far, what the step is doing and why, in the side page's words.
-UNDER_WAY = {'describe': ('described', 'Finding metrics: first, each query gets the question it answers.'),
-             'propose': ('metrics', 'Finding metrics: every number a query works out could be one.'),
-             'merge': ('metrics', 'Combining duplicates: the same number in many queries becomes one metric.'),
-             'define': ('rules', 'Defining: so each number is worked out the same way every time.')}
 # Where each metric step's own chip sits, in the task list's own step names (Find metrics, Combine duplicates, Define
 # and test each metric), and what comes next: one set of names in the chat, with no progress bar and no second
 # numbering. The person's words, 2026-11-18: draft, merge, rule and check were the build's.
@@ -551,12 +514,18 @@ FLOW = {'described': 'Finding metrics, under way: next, the numbers each query w
         'rules': 'Definitions written. Next: test each one on the data.'}
 
 
-# The metric steps the side page shows once it is open beside the chat in a widget host, so no chip repeats them.
-ON_PAGE = ('drafted', 'metrics', 'rules', 'links', 'progress')
-ON_PAGE_NEXT = ("The side page shows this step, so nothing goes in the chat, not even the next step's start. "
-                "Set your task list to `task_list`, "
-                "each step's text and status as given, in the same message as your next `PROJECT drafts --wait` (in the "
-                "foreground), so the turn goes on.")
+# The metric steps the side page shows once it is open beside the chat where a task list is kept, so no chip repeats them.
+ON_PAGE = ('drafted', 'metrics', 'rules', 'links')
+ON_PAGE_NEXT = ("The side page shows this step. Write `say` in the chat, word for word, as your only words (nothing when "
+                "it is empty), and nothing about the next step: the task list names it. Set your task list to "
+                "`task_list`, each step's text and status as given, in the same message as your next `PROJECT drafts "
+                "--wait` (in the foreground), so the turn goes on.")
+
+
+def plain_line(shown):
+    """A chip's first line in plain words, with no mark and no bold: what a step on the side page says in the chat."""
+    lines = (shown or '').strip().splitlines()
+    return re.sub(r'^[^\w£$€]+', '', lines[0]).replace('**', '').strip() if lines else ''
 
 
 def desktop():
@@ -578,53 +547,6 @@ def title_of(kind, spec):
     head = re.sub(r'[*_`]', '', (shown.strip().split('\n') or [''])[0]).split(' · ')[0]
     words = re.sub(r'[^a-z0-9]+', '_', head.lower()).strip('_')
     return words[:60].rstrip('_') or kind
-
-def _named(names, verb):
-    """What a so-far chip leads with: up to three names when they fit a card's width, else the newest and how many
-    more."""
-    if 1 < len(names) <= 3:
-        joined = ', '.join(names[:-1]) + ' and ' + names[-1]
-        if len(joined) + len(verb) <= WIDTH:
-            return joined, verb
-    rest = (' and {:,} more'.format(len(names) - 1) if len(names) > 1 else '') + verb
-    # A long name gives way, never what follows it.
-    return _fit_words(names[0], max(8, LINE - 2 - len(rest))), rest
-
-
-def _so_far(s):
-    """What a step has made since the last so-far chip, by name; opened, those items, newest first, and the step's
-    count, with no time of day. The headline carries no count: drawn in the chat it goes stale while the side page
-    moves on, and the next chip jumped ("1 of 8", then "4 of 8"). The step's own chip gives the total. None before its
-    first count."""
-    step, items = s.get('step'), [[sentence(n), d] for n, d in s.get('items') or []][::-1]
-    of = lambda n, total, word, many: '{:,} of {}'.format(n, count(total, word, many)) if total else count(n, word, many)
-    if not items:
-        return None
-    # Only what landed since the last so-far chip, newest first: across a step every item is named once. Drawn again
-    # with nothing new, it shows them all.
-    fresh = len(items) - (s.get('shown') or 0)
-    items = items[:fresh] if fresh > 0 else items
-    if step == 'describe' and s.get('described'):
-        verb, what = ' in plain words', of(s['described'], s.get('total'), 'query', 'queries') + ' in plain words.'
-    elif step == 'propose' and s.get('queries_read'):
-        # A number found in several queries is one row: the count says how many are different.
-        distinct = len(s.get('items') or [])
-        verb, what = ' found', (count(s['drafts'], 'possible metric') + (', %d different,' % distinct if 0 < distinct < s['drafts'] else '')
-                                + ' found in %d of the %s read.' % (s.get('queries_with', s['queries_read']), count(s['queries_read'], 'query', 'queries'))) if s.get('drafts') else ''
-    elif step == 'merge' and s.get('metrics'):
-        verb, what = ' combined', count(s['metrics'], 'metric') + (' from %s' % count(s['drafts'], 'possible metric') if s.get('drafts') else '') + '.'
-    elif step == 'define' and s.get('defined'):
-        verb, what = ' defined', of(s['defined'], s.get('total'), 'metric', 'metrics') + ' defined.'
-    else:
-        return None
-    mark, why = UNDER_WAY[step]
-    bold, rest = _named([n for n, _ in items], verb)
-    if step == 'propose':
-        # Opened, each number found in several queries is one row, marked how often.
-        rows = [[n, 'found %d times' % d if d > 1 else ''] for n, d in items]
-    else:
-        rows = [[n, '', _first_sentence(d)] if d else [n] for n, d in items]
-    return {'mark': mark, 'bold': bold, 'rest': rest, 'tail': '', 'sub': why, 'what': what, 'rows': rows}
 
 
 def _beside_dashboard(metrics, where):
@@ -651,8 +573,7 @@ def _beside_dashboard(metrics, where):
 
 
 def _outcome(kind, s):
-    """What a step produced, as its mark, the outcome in bold, the rest of it, and a short tail. Never progress, but for
-    the so-far chip the build's watch asks for while a step runs: the side page shows how far the run has got. None
+    """What a step produced, as its mark, the outcome in bold, the rest of it, and a short tail. Never progress. None
     when the step has produced nothing yet."""
     o = None
     if kind == 'found' and s.get('found'):
@@ -719,8 +640,6 @@ def _outcome(kind, s):
              'rows': s.get('rows'),
              'what': 'Some metrics are built from others. Linking them keeps the numbers in step: change one definition and the '
                      'ones built on it follow.'}
-    elif kind == 'progress':
-        o = _so_far(s)
     elif kind == 'context' and s.get('total'):
         where = 'on %s data' % their(s.get('firm')) if s.get('firm') or not s.get('warehouse') else 'on your %s data' % s['warehouse']
         if s.get('need_look') and s.get('ran'):
@@ -1080,18 +999,3 @@ def render(kind, spec, widget=False, first=True, plain=False):
     return shown.replace('**', '') if plain else shown
 
 
-def main(argv=None):
-    p = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    p.add_argument('kind', choices=KINDS)
-    p.add_argument('--widget', action='store_true', help='A mini card as HTML for an inline visual tool')
-    p.add_argument('--data', action='append', default=[], help='A JSON data spec, or - for stdin; later files override earlier ones')
-    p.add_argument('--run-dir')
-    p.add_argument('--engine-dir')
-    args = p.parse_args(argv)
-    data = [json.loads(sys.stdin.read() if d == '-' else Path(d).read_text(encoding='utf-8')) for d in args.data]
-    print(render(args.kind, build_spec(args.kind, args.run_dir, data, args.engine_dir), args.widget))
-    return 0
-
-
-if __name__ == '__main__':
-    raise SystemExit(main())

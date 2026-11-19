@@ -52,6 +52,15 @@ class Page(unittest.TestCase):
         self.assertIn('`PROJECT drafts --wait`', said)
         self.assertNotIn('drafts --wait', side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'opened': True}), 'a terminal is unchanged')
 
+    def test_a_metric_says_where_its_data_lives_and_where_it_was_kept(self):
+        # A metric's profile read "On this machine" for both rows on a warehouse run that was saved to Atlan.
+        page = side_page.snapshot(make_run(self.root, warehouse='snowflake'))
+        self.assertEqual(page['warehouse'], 'Snowflake')
+        self.assertEqual(page['saved'], {'workspace': 'Test workspace'})
+        local = side_page.snapshot(make_run(Path(tempfile.mkdtemp(dir=self.root)), local=True))
+        self.assertIsNone(local['warehouse'])
+        self.assertIsNone(local['saved'])
+
     def test_a_page_that_cannot_start_is_named_once_so_nobody_waits_for_it(self):
         # A tester, 2026-11-19: the page never opened, and nothing in the chat said so.
         said = side_page.instruction({'error': 'no free port'})
@@ -210,11 +219,8 @@ class Page(unittest.TestCase):
         (run / 'context' / 'plan.json').write_text(json.dumps({'counts': {'metrics': {'create': 2}, 'queries': {'create': 2}}}),
                                                   encoding='utf-8')
         state = side_page.snapshot(run)
-        self.assertEqual(state['now']['title'], 'Metrics and queries built')
-        self.assertEqual(state['now']['count'], {'n': 2, 'unit': 'metrics built'})
-        self.assertFalse(state['now']['busy'])
+        self.assertEqual(len(state['metrics']), 2)
         self.assertNotIn('Saving', json.dumps(state))
-        self.assertEqual([s['id'] for s in state['steps']], ['metrics'])
 
     def test_a_metric_from_a_dashboard_tile_carries_the_tile_s_own_figure(self):
         # Proof a first-time reader can check: the number the tile's own query returned, beside the metric's.
@@ -263,34 +269,7 @@ class Page(unittest.TestCase):
             self.assertIsNone(side_page.running(run))
             self.assertTrue(side_page.open_page(run).get('url'), 'asking for the page again starts it')
 
-    def test_the_next_line_names_the_describing_after_the_dashboard(self):
-        run = make_run(self.root, saved=False, stage=('build', 'running'))
-        for name in ('candidate-checks.json', 'metrics.json', 'queries.json'):
-            (run / 'context' / name).unlink()
-        manifest = run / 'engine' / 'manifest.json'
-        stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
-        cut = next(i for i, x in enumerate(stages) if x['stage'].startswith('a3'))
-        manifest.write_text(json.dumps({'stages': stages[:cut + 1]}), encoding='utf-8')
-        now = side_page.snapshot(run)['now']
-        self.assertEqual(now['next'], 'Describe each query')
-
-    def test_the_translation_review_says_so_instead_of_still_translating(self):
-        # A live run sat on "Translating 37 of 50" with a spinner while the chat said the translations were being reviewed.
-        run = make_run(self.root, saved=False, stage=('build', 'running'))
-        for name in ('candidate-checks.json', 'metrics.json', 'queries.json'):
-            (run / 'context' / name).unlink()
-        manifest = run / 'engine' / 'manifest.json'
-        manifest.write_text(json.dumps({'stages': [
-            {'stage': 'a2_question_units', 'counts': {'units': 50}},
-            {'stage': 'a3_translate', 'counts': {'units': 50, 'candidates': 37, 'refused': 13}},
-            {'stage': 'a3b_emit', 'counts': {'prompted': 37, 'refused': 13}}]}), encoding='utf-8')
-        now = side_page.snapshot(run)['now']
-        self.assertEqual((now['title'], now['count'], now['note']),
-                         ('Reviewing each translated tile', {'n': 37, 'unit': 'translations to review'}, '13 tiles could not be translated'))
-        self.assertNotIn('bar', now, 'its answers land at the end, so no bar claims a share')
-        self.assertTrue(now['busy'])
-
-    def test_a_new_piece_of_work_says_what_is_done_instead_of_counting_from_zero(self):
+    def test_the_checklist_says_what_is_done_and_what_is_under_way(self):
         # A live run read as restarted: "Putting each query in plain words, 0 queries" right after 37 tiles translated.
         run = make_run(self.root, saved=False, stage=('build', 'running'))
         for name in ('candidate-checks.json', 'metrics.json', 'queries.json'):
@@ -298,27 +277,10 @@ class Page(unittest.TestCase):
         (run / 'engine' / 'manifest.json').write_text(json.dumps({'stages': [
             {'stage': 'a3_translate', 'counts': {'units': 50, 'candidates': 37, 'refused': 13}},
             {'stage': 'a3b_ingest', 'counts': {}}, {'stage': 'c1_normalise', 'counts': {}}]}), encoding='utf-8')
-        now = side_page.snapshot(run)['now']
-        self.assertEqual(now['title'], 'Describing each query')
-        self.assertNotIn('count', now, 'no "0 queries" before there is anything to count')
         # What is done shows in the page's checklist, each finished step with its result.
         steps = {s['id']: s for s in side_page.snapshot(run)['build']}
         self.assertEqual((steps['translate']['state'], steps['translate']['result']), ('done', '37 of 50 tiles'))
         self.assertEqual(steps['describe']['state'], 'now')
-
-    def test_a_survey_under_way_leaves_the_page_waiting_for_the_build(self):
-        run = make_run(self.root, saved=False)
-        meta = json.loads((run / 'run.json').read_text(encoding='utf-8'))
-        (run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'engine_run'}), encoding='utf-8')
-        (run / 'engine' / 'manifest.json').unlink()
-        at(run, 'inspect', 'running')
-        interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
-        (run / 'interaction.json').write_text(json.dumps({k: v for k, v in interaction.items() if k != 'intent'}), encoding='utf-8')
-        state = side_page.snapshot(run)
-        running = [x['id'] for x in state['steps'] if x['status'] == 'now']
-        self.assertEqual((state['now']['id'], state['now']['title']), ('metrics', 'The build starts once your choices are in'),
-                         'the survey is the chat\'s; the page follows the build alone')
-        self.assertEqual([s['status'] for s in state['steps']], ['next'])
 
     def test_an_edit_rebuilding_in_its_own_engine_keeps_the_metrics(self):
         run = make_run(self.root)
@@ -334,15 +296,6 @@ class Page(unittest.TestCase):
         answer = json.loads((run / 'answer.json').read_text(encoding='utf-8'))
         (run / 'answer.json').write_text(json.dumps(dict(answer, proof=['Gross margin'])), encoding='utf-8')
         self.assertNotIn('answer', side_page.snapshot(run), 'the answer is the chat\'s; the page still renders')
-
-    def test_grouping_under_way_claims_no_count(self):
-        run = make_run(self.root, saved=False, stage=('build', 'running'))
-        for name in ('candidate-checks.json', 'metrics.json', 'queries.json'):
-            (run / 'context' / name).unlink()
-        manifest = run / 'engine' / 'manifest.json'
-        stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
-        manifest.write_text(json.dumps({'stages': [x for x in stages if x['stage'] == 'h0_corpus']}), encoding='utf-8')
-        self.assertNotIn('count', side_page.snapshot(run)['now'])
 
     def test_stopping_works_without_a_process_list(self):
         # Hosts without `ps` (Windows) could not tell the page's process, so a stop stopped nothing.
@@ -399,7 +352,6 @@ class Page(unittest.TestCase):
         margin = next(m for m in state['metrics'] if m['name'] == 'Gross margin')
         self.assertEqual((margin['status'], margin['value']), ('checked', '£118,681'))
         self.assertTrue(margin['sources'], 'each metric says where it came from')
-        self.assertIsNone(state['checks'], 'the checks are the chat\'s')
         for word in DEMO_WORDS:
             self.assertNotIn(word, json.dumps(state), 'own data never reads as a demo')
 
@@ -419,10 +371,10 @@ class Page(unittest.TestCase):
         entries = json.loads(checks.read_text(encoding='utf-8'))
         checks.write_text(json.dumps({k: (v if k.startswith('metric:') else {'status': 'schema_checked'}) for k, v in entries.items()}),
                           encoding='utf-8')
-        now = side_page.snapshot(run)['now']
+        state = side_page.snapshot(run)
         # The page follows generation only: once the checks start, generation is over.
-        self.assertEqual((now['title'], now['count'], now['bar']), ('Metrics and queries built', {'n': 2, 'unit': 'metrics built'}, 1))
-        self.assertFalse(now['busy'])
+        self.assertEqual(len(state['metrics']), 2)
+        self.assertEqual({s['state'] for s in state['build']}, {'done'})
 
     def test_a_build_under_way_shows_even_when_the_flow_never_named_its_engine(self):
         # A live own-data run left progress at the survey and named no engine run while the engine worked in the run.
@@ -433,25 +385,13 @@ class Page(unittest.TestCase):
         for name in ('candidate-checks.json', 'metrics.json', 'queries.json'):
             (run / 'context' / name).unlink()
         state = side_page.snapshot(run)
-        self.assertEqual([s['status'] for s in state['steps']], ['now'],
-                         'the engine at work in the run means the metrics are under way')
-        self.assertTrue(state['now']['busy'])
+        self.assertIn('now', [s['state'] for s in state['build']], 'the engine at work in the run means the metrics are under way')
 
-    def test_a_paused_run_never_looks_busy(self):
+    def test_a_paused_run_says_so(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))
         interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
         (run / 'interaction.json').write_text(json.dumps(dict(interaction, mode='paused')), encoding='utf-8')
-        state = side_page.snapshot(run)
-        self.assertEqual(state['state'], 'paused')
-        self.assertFalse(state['now']['busy'], 'nothing moves on a run that is not moving')
-
-    def test_a_step_that_waits_for_the_person_is_the_chats(self):
-        run = make_run(self.root, saved=False)
-        at(run, 'check')
-        now = side_page.snapshot(run)['now']
-        self.assertEqual(now['title'], 'Metrics and queries built')
-        self.assertNotIn('wait', now, 'the save question is asked in the chat')
-        self.assertFalse(now['busy'], 'nothing moves while the person decides')
+        self.assertEqual(side_page.snapshot(run)['state'], 'paused')
 
 
 class Questions(unittest.TestCase):
@@ -469,7 +409,8 @@ class Questions(unittest.TestCase):
             self.assertNotIn(word, asked['question'], 'a demo facts file passed on own data is ignored')
         self.assertIn('✓ Every metric and query ran · on your data', asked['question'])
         self.assertTrue(asked['question'].endswith('Where should this context live?'), 'the question comes last')
-        self.assertEqual(asked['header'], 'Step 5 of 7')
+        # The task list numbers the steps (nine on own data, seven in a demo): a second numbering in the header disagreed.
+        self.assertEqual(asked['header'], 'Save')
         self.assertEqual([o['label'] for o in asked['options']], ['Save to Atlan Trident (recommended)', 'Keep it on this machine'])
 
     def test_the_save_question_carries_the_review(self):
@@ -573,12 +514,9 @@ class Questions(unittest.TestCase):
         made = side_page.snapshot(run)
         self.assertEqual(sorted(q['status'] for q in made['queries']), ['look', 'tool'], 'held, or checked with the warehouse tool')
         self.assertEqual({m['status'] for m in made['metrics']}, {'tool'})
-        import side_view
         for stage in ('check', 'preview', 'publish', 'ready'):
             at(run, stage)
-            made = side_page.snapshot(run)
-            text = json.dumps(made) + json.dumps(side_view.model(run))
-            self.assertIsNone(made['checks'], stage)
+            text = json.dumps(side_page.snapshot(run))
             for count in ('metrics and queries run', 'of 4 checked', '4 need a look', '3 need a look'):
                 self.assertNotIn(count, text, 'no count this helper cannot see, at %s' % stage)
 
@@ -696,7 +634,7 @@ class Questions(unittest.TestCase):
         run = make_run(self.root, saved=False, demo=True)
         asked = questions.save(run, data=[facts()])
         self.assertIn("on Fixit's data", asked['question'])
-        self.assertEqual(asked['header'], 'Step 4 of 5')
+        self.assertEqual(asked['header'], 'Save')
 
     def test_the_save_question_says_only_what_the_person_cant_already_see(self):
         # The copy budget (the team, 2026-11-19): no banner and no "hard part" line. On desktop the cards above say
@@ -758,9 +696,9 @@ class Questions(unittest.TestCase):
                           encoding='utf-8')
         self.assertGreaterEqual(len(questions.ready(run)['options']), 2, 'the question tool needs two options')
 
-    def test_a_demo_ready_question_counts_the_demo_steps_without_its_facts(self):
+    def test_a_demo_ready_question_is_headed_by_its_step_without_its_facts(self):
         run = make_run(self.root, local=True, demo=True)
-        self.assertEqual(questions.ready(run)['header'], 'Step 5 of 5')
+        self.assertEqual(questions.ready(run)['header'], 'Ask')
 
     def test_a_partial_save_says_what_is_where(self):
         run = make_run(self.root)

@@ -132,7 +132,6 @@ def make_run(root, dashboard=True, history=True, saved=True, local=False, demo=F
                                  'rows': [['Turbine base', -6360], ['Cat flap', -646.5], ['Barn', 16137]], 'highlight': 'Turbine base',
                                  'rule': 'Contract value less labour and materials', 'proof': [{'name': 'Gross Margin'}],
                                  'breakdown': {'steps': [['Contract', 150000], ['Labour', -156360]]}})
-    _write(run / 'layout.json', {'tiles': ['Gross Margin', 'Rework Cost'], 'more': ['On-time rate']})
     _write(run / 'edit.json', {'metric': 'Late Jobs', 'before': 'Late after a week', 'after': 'Late after a day',
                                'values': [['Late jobs', 2, 3]], 'added': ['Bus shelter']})
     return run

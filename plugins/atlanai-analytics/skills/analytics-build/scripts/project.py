@@ -659,8 +659,8 @@ def _due(run, engine_dir=None):
 
 # The moments that end a metric step or the checks: each carries the host's task list as it now stands.
 TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
-# The chips that end a metric step and start the next: each turn they end, ends on the newest thing made.
-STEP_CHIPS = {'described': 'm2', 'drafted': 'x1', 'metrics': 'x2', 'rules': 'x3'}
+# The chips that end a metric step and start the next.
+STEP_CHIPS = ('described', 'drafted', 'metrics', 'rules')
 
 
 def main():
@@ -709,16 +709,14 @@ def main():
     steps.add_argument('--flow', choices=('build', 'demo', 'dashboard'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
-    drafts = sub.add_parser('drafts', help='The progress line for the batch of metrics the build just saved')
+    drafts = sub.add_parser('drafts', help='Follow the build in one turn: what the session acts on next, one line at a time')
     drafts.add_argument('--engine-dir', type=Path)
-    drafts.add_argument('--every-chip', action='store_true',
-                        help='With --follow: also name each chip the run can show, once, for a flow whose helpers advance every step')
-    drafts.add_argument('--follow', action='store_true',
-                        help='Print a line each time a step the chat shows ends, until the metric definitions are accepted')
-    drafts.add_argument('--wait', action='store_true',
-                        help='Wait in the foreground for the next batch, step end or quiet spell, and print it with the '
-                             'task list, for a host whose task list carries the build once the side page is open')
-    drafts.add_argument('--timeout', type=int, default=540, help='With --wait: return after this many seconds at most')
+    drafts.add_argument('--wait', action='store_true', required=True,
+                        help="Wait in the foreground for a step's end, the task list's counts, every share of the "
+                             'definitions back, a quiet spell or the build done, and print it as one JSON line')
+    drafts.add_argument('--timeout', type=int, default=540,
+                        help="Return after this many seconds at most (570 at most): keep it under the host's limit for a "
+                             'foreground command')
     tiles = sub.add_parser('tiles', help="The report's tiles by page, once the build has translated them: which became "
                            "queries and which could not, with why")
     tiles.add_argument('--engine-dir', type=Path)
@@ -824,11 +822,15 @@ def main():
                 # The team, 2026-11-19: once the side page beside the chat is open, it carries each metric step, and the
                 # task list carries the build's progress; the build's card closes it in the chat.
                 import drafts
-                if args.kind != 'progress' and side_view._shows(args.kind, run, args.engine_dir):
+                try:
+                    say = visuals.plain_line(visuals.render(args.kind, visuals.build_spec(args.kind, run, data, args.engine_dir), False))
+                except (ValueError, KeyError, TypeError, AttributeError, OSError):
+                    say = ''
+                if side_view._shows(args.kind, run, args.engine_dir):
                     side_view.note(run, args.kind)
                 more = ' Then run `visual next` again, with the same flags: more is due.' if following and side_view.due(run, args.engine_dir) else ''
-                print('side view: ' + json.dumps({'next': visuals.ON_PAGE_NEXT + more, 'task_list': drafts.task_list(run, args.engine_dir)},
-                                                 ensure_ascii=False))
+                print('side view: ' + json.dumps({'next': visuals.ON_PAGE_NEXT + more, 'say': say,
+                                                  'task_list': drafts.task_list(run, args.engine_dir)}, ensure_ascii=False))
                 return 0
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
@@ -882,13 +884,6 @@ def main():
                 steps.append("In a terminal these lines are part of the next question: run `PROJECT question %s` now and "
                              "ask exactly what it prints. Print nothing before it. If you have a `show_widget` tool, run "
                              "this again with `--widget` and draw it instead." % deferred)
-            if shown and args.kind == 'progress':
-                # The session waits for the build in one turn (the team, 2026-11-19), so the chip is the whole update: no
-                # status line of its own after it, and no metric named as news.
-                import drafts
-                drafts.mark_shown(run, args.engine_dir)
-                steps.append("This chip is the whole update while the step runs: go back to waiting for the build "
-                             "(`PROJECT drafts --wait`) in this same turn, with no words of your own.")
             if shown and args.kind in STEP_CHIPS:
                 # The person, 2026-11-18: under a chip that said "Next: Combine duplicates" the agent wrote "Doing: Combining
                 # duplicates". The chip names the step that starts, and the session goes back to waiting in the same turn.
@@ -907,9 +902,8 @@ def main():
                              "in the desktop app's task list with its own plan tool; a host with no task list skips this.")
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
             # A moment deferred to its question is recorded when that question is composed, so a skipped question
-            # is named again by the next helper result. A step's so-far chip is drawn as often as the watch asks, and
-            # settles nothing.
-            if (shown or held) and args.kind != 'progress':
+            # is named again by the next helper result.
+            if shown or held:
                 try:
                     side_view.note(run, args.kind, spec)
                 except Exception:  # noqa: BLE001 - the moment's own result still shows
@@ -989,16 +983,8 @@ def main():
                 print('Next: ' + result['next'], file=sys.stderr)
         elif args.command == 'drafts':
             import drafts
-            # Plain text, never a result file: the person reads these lines as they are.
-            if args.wait:
-                drafts.wait(project.root, args.engine_dir, timeout=max(1, min(args.timeout, 570)))
-                return 0
-            result = (drafts.follow(project.root, args.engine_dir, every_chip=args.every_chip) if args.follow
-                      else drafts.latest(project.root, args.engine_dir)['line'])
-            if result and not args.follow:
-                # Command output is folded away in most hosts; the person sees only messages.
-                print('The person cannot see this output. Send the block above as your next chat message, '
-                      'exactly as printed, before any other tool call.', file=sys.stderr)
+            drafts.wait(project.root, args.engine_dir, timeout=max(1, min(args.timeout, 570)))
+            return 0
         elif args.command == 'tiles':
             import side_page
             from run_facts import RunFacts

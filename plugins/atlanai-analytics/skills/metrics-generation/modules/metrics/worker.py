@@ -230,7 +230,7 @@ def answer_contract(run, gate):
 
 
 BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
-# Each step as the side page names it: the app shows a subagent's name to the person, so it is never a gate's.
+# Each step for what it does: the app shows a subagent's name to the person, so it is never a gate's.
 STEP_NAMES = {'m2': 'Describe each query', 'x1': 'Find metrics',
               'x2': 'Combine duplicates, one per number', 'x3': 'Define each metric'}
 
@@ -247,8 +247,9 @@ def authored_step(gate):
         return None
     name = OTHER_STEP_NAMES[gate]
     return {'name': name,
-            'say': (f'Write this gate in this session, as `{name}`; a subagent for it is started in the background and '
-                    f'named `{name}`, never one this session waits on: a waiting session shows the person nothing.')}
+            'say': (f'Write this gate in this session, or, where the flow runs every step in a background helper, in a '
+                    f'helper named `{name}` that this session never waits on. Say nothing in the chat about who writes '
+                    f'it or how big it is.')}
 
 
 def batch_progress(run, gate):
@@ -257,31 +258,30 @@ def batch_progress(run, gate):
     project = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts' / 'project.py'
     if gate not in BATCHED_GATES or not project.is_file() or not (run.parent / 'run.json').is_file():
         return None
-    command = f'python3 "{project}" --run-dir "{run.parent}" drafts --engine-dir "{run.name}"'
+    wait = f'python3 "{project}" --run-dir "{run.parent}" drafts --engine-dir "{run.name}" --wait'
     shares = ({'split': f'python3 "{project}" --run-dir "{run.parent}" split --engine-dir "{run.name}"'}
               if gate == 'x3' else {})
     # Every host waits for the build in one turn (the team, 2026-11-19): a turn that ends without words is sent back for
     # them, in the desktop app and in Claude Code's terminal alike, while a turn that keeps going is not.
-    return {'command': command, 'wait': command + ' --wait', 'follow': command + ' --follow', 'name': STEP_NAMES[gate], **shares,
+    return {'wait': wait, 'name': STEP_NAMES[gate], **shares,
             'say': (f'A fresh subagent named `{STEP_NAMES[gate]}`, started in the background (never one this session '
                     'waits on), writes this gate in numbered batch files and runs no drafts command'
                     + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
                        'brief. ' if shares else '. ') +
                     'The session that talks to the person stays in one turn while the build runs: it runs `wait` in '
-                    'the foreground (a ten-minute timeout), does what each line it prints says, and runs it again in '
-                    'the same message. On a batch, set the task list to `task_list`. When a step ends, start the next '
-                    'step\'s subagent first, then draw the chip: run `visual next` and do what it says. On a quiet '
-                    'spell, check the subagents. It never ends the turn between waits (a turn that ends without words '
+                    'the foreground (a ten-minute timeout, or `--timeout` under a shorter limit), does what each line it '
+                    'prints says, and runs it again in the same message. On a batch, set the task list to `task_list`. '
+                    'When a step ends, start the next step\'s subagent first, then run `visual next` and do what it '
+                    'says. When every share is back, advance once. On a quiet spell, check the subagents. It never '
+                    'ends the turn between waits (a turn that ends without words '
                     'is sent back for them) and writes nothing of its own between chips: a step\'s own chip names the '
                     'step that starts, so no line of yours names it again; never that the step is still running; never '
                     'the engine\'s results or counts (accepted, cards, pairs, a check\'s own name), nor your own '
                     'tooling (scripts, retries, setup). The app shows each command\'s description to the person: '
                     'describe each as what it does for them ("Showing what\'s new", "Continuing the build"), never a '
                     'chip, the engine, a gate, a folder or a record. The side page shows each batch as it lands, so no '
-                    'batch goes in the chat. With no foreground command that can run ten minutes, run `follow` instead '
-                    'as a background watch named `Following the build` (in Claude Code, the Monitor tool). With no '
-                    'background subagent, write the gate in that session and run `visual next` once the gate is '
-                    'accepted.')}
+                    'batch goes in the chat. With no background subagent, write the gate in that session and run '
+                    '`visual next` once the gate is accepted.')}
 
 
 def last_stage_output(text):

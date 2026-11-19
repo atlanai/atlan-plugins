@@ -28,7 +28,7 @@ except ImportError:
 from urllib.parse import urlsplit
 import http.client
 
-from run_facts import BI_TOOLS, RunFacts, count, first_question, number, read_json, read_lines, sentence
+from run_facts import RunFacts, count, first_question, number, read_json, sentence
 
 PAGE = Path(__file__).with_name('side_page.html')
 NEVER_RAN = 'Its check never ran.'
@@ -50,14 +50,6 @@ WORK = (
     ('link', ('d4b_consistency', 'x4_emit', 'x4_ingest')),
 )
 GROUP_OF = {stage: group for group, stages in WORK for stage in stages}
-# What each piece of the build is, for the line under the step and the Next line.
-WORK_NAME = {
-    'tables': 'Load the tables on this machine', 'group': 'Group past queries into questions',
-    'translate': "Turn the report's tiles into queries", 'describe': 'Describe each query',
-    'read': 'Find metrics', 'merge': 'Combine duplicates, one per number',
-    'rules': 'Define each metric', 'link': 'Link related metrics',
-    'check': 'Test each metric and query on the data',
-}
 
 
 def _now():
@@ -424,7 +416,7 @@ CHECKPOINTS = (('group', 'Group past queries into questions', 'Grouped past quer
 def checkpoints(f, d):
     """The build's steps for the page's checklist: each done with its result, the one under way with its count, and the
     rest still to come. A step the build skips (past queries on a dashboard-only build) is left out."""
-    st, chosen = f.stage, f.inputs or {'bi': bool(d['tiles'] or f.dashboard), 'history': bool(f.history)}
+    st, chosen = f.stage, f.inputs or {'bi': bool(_objects(f, 'verified_queries.bi.json') or f.dashboard), 'history': bool(f.history)}
     will = {'group': chosen.get('history'), 'translate': chosen.get('bi')}
     work = _work(f)
     order = [g for g, _ in WORK]
@@ -451,8 +443,8 @@ def checkpoints(f, d):
 
 
 def details(f):
-    """The metrics as the engine made them, each with where it came from and why, its rule, and its check; the
-    queries; and what the run read."""
+    """The metrics as the engine made them, each with where it came from and why, its rule, and its check; and the
+    queries."""
     known, said = _sources(f)
     cards = f.engine_file('metric_cards.json')
     cards = cards.get('cards') or cards.get('metrics') or [] if isinstance(cards, dict) else []
@@ -570,59 +562,8 @@ def details(f):
                 ('status', 'kept'), ('kept_reason', KEPT.get(str(h.get('reason')), KEPT_ANY)),
                 *_query_profile(vid, known, said, built_on)) if x})
             shown.add(vid)
-    def bi_of(o):
-        prov = o.get('provenance') if isinstance(o.get('provenance'), dict) else {}
-        return prov.get('bi') if isinstance(prov.get('bi'), dict) else {}
-    tiles = [{k: x for k, x in (('question', _cut(first_question((said.get(o.get('vq_id')) or {}).get('question') or o.get('question')), 200)),
-                                ('visual', bi_of(o).get('visual')), ('page', bi_of(o).get('page'))) if x}
-             for o in _objects(f, 'verified_queries.bi.json')]
-    return {'metrics': metrics, 'queries': queries, 'tiles': tiles}
+    return {'metrics': metrics, 'queries': queries}
 
-
-def _names(items):
-    """The names an answer's proof gives, written as {name: ...} or as plain names."""
-    return [str(p.get('name') if isinstance(p, dict) else p) for p in items or [] if (p.get('name') if isinstance(p, dict) else p)] \
-        if isinstance(items, list) else []
-
-
-def _answer(f):
-    a = f.file('answer.json')
-    if not a.get('headline'):
-        return None
-    proof = _names(a.get('proof'))
-    unit = a.get('unit') or (f.unit_for(proof[0]) if proof else None)
-    if str(unit or '').lower() == 'currency':
-        # A rule recorded as a bare currency: the answer's own headline says which, as on the chat's card.
-        sign = re.search(r'[£$€]', str(a.get('headline')).rpartition(': ')[2])
-        unit = {'£': 'GBP', '$': 'USD', '€': 'EUR'}[sign.group(0)] if sign else unit
-    rows = [r for r in a.get('rows') or [] if isinstance(r, list) and len(r) >= 2][:12]
-    return {k: v for k, v in (
-        ('question', a.get('question')), ('headline', a.get('headline')), ('summary', a.get('summary')), ('rule', a.get('rule')),
-        ('rows', [[str(r[0]), number(r[1], unit) if isinstance(r[1], (int, float)) else str(r[1]), r[1] if isinstance(r[1], (int, float)) else None]
-                  for r in rows]),
-        ('highlight', a.get('highlight')),
-        ('proof', [sentence(n) for n in proof])) if v}
-
-
-def _edit(f):
-    e = f.file('edit.json')
-    values = [v for v in e.get('values') or [] if isinstance(v, list) and len(v) >= 3]
-    if not e.get('metric') or not values:
-        return None
-    name, before, after = values[0][0], values[0][1], values[0][2]
-    unit = values[0][3] if len(values[0]) > 3 else f.unit_for(e['metric'])
-    return {k: v for k, v in (('metric', sentence(e['metric'])), ('name', name), ('before_value', number(before, unit)),
-                              ('after_value', number(after, unit)), ('before', e.get('before')), ('after', e.get('after')),
-                              ('added', e.get('added')), ('removed', e.get('removed')), ('note', e.get('note'))) if v}
-
-
-def _layout(f):
-    layout = f.file('layout.json')
-    tiles = [sentence(t) for t in layout.get('tiles') or [] if t]
-    return {'tiles': tiles, 'more': [sentence(t) for t in layout.get('more') or [] if t]} if tiles else None
-
-
-# The header: where the run is, as one count and a bar ----------------------------------------------
 
 def _work(f):
     """The piece of the build under way, from the engine's own record of the stages it has passed."""
@@ -632,185 +573,6 @@ def _work(f):
     return GROUP_OF[passed[-1]] if passed else None
 
 
-def _batch_counts(f, gate):
-    """A step's counts over the batches it has saved, as its chat lines count them: before the step is accepted, the
-    batches are the build's progress."""
-    import drafts
-    try:
-        return drafts.counts(f.dir, gate, f.engine)
-    except (OSError, ValueError):
-        return {}
-
-
-def _offer(f, d, demo):
-    parts = [] if demo else [count(len(f.tables), 'table')] if f.tables else []
-    if d['tiles']:
-        parts.append(count(len(d['tiles']), 'dashboard tile'))
-    elif f.dashboard.get('formulas'):
-        parts.append(count(f.dashboard['formulas'], 'dashboard formula'))
-    if f.history:
-        parts.append(count(f.history['statements'], 'past query', 'past queries'))
-    return ' · '.join(parts)
-
-
-def header(f, steps, d, demo):
-    """Layout B's top: the step, one big running count, a bar that fills with real progress, and the Next line. A step
-    that waits for the person says so instead of counting."""
-    at = next((i for i, s in enumerate(steps) if s['status'] == 'now'), len(steps))
-    step = steps[at] if at < len(steps) else None
-    sid = step['id'] if step else 'done'
-    h = {'at': at, 'steps': len(steps), 'step': step['purpose'] if step else 'All %d steps done' % len(steps),
-         'id': sid, 'waiting': bool(step and step.get('needs_you'))}
-    nxt = next((s['purpose'] for s in steps[at + 1:] if s['status'] != 'done'), None)
-    st = f.stage
-    metrics, queries = d['metrics'], d['queries']
-    if sid == 'intent':
-        h.update(title='What do you want to do?', wait='Waiting for your use case')
-    elif sid == 'sources':
-        found, kinds = f.found
-        if demo and f.tables:
-            rows = f.table_rows
-            h.update(title='Loading the tables on this machine', n=len(f.tables), of=len(f.tables), unit='tables loaded',
-                     bar=1, note=('%s rows in all' % '{:,}'.format(rows)) if rows else None)
-        else:
-            h.update(title="Finding the demo's sources" if demo else 'Surveying your sources', n=found,
-                     unit='source found' if found == 1 else 'sources found', bar=1 if found else 0, note=', '.join(kinds) or None)
-    elif sid == 'scope':
-        h.update(title='What should I build it from?' if demo else 'Build it?',
-                 wait='Waiting for your choice of sources' if demo else 'Waiting for your selection', note=_offer(f, d, demo) or None)
-    elif sid == 'metrics':
-        work = _work(f)
-        nxt = None
-        if work is None:
-            h.update(title='Starting the build', bar=0, note=WORK_NAME['tables'] if not demo and f.tables else None)
-            nxt = WORK_NAME['group'] if (f.inputs or {}).get('history') else WORK_NAME['translate']
-        elif work == 'group':
-            # The questions are counted once the grouping has finished; while it runs, the bar moves with no count.
-            kept, shapes = st('h0_corpus', 'kept'), st('h1_shapes', 'canonical_shapes')
-            h.update(title='Grouping past queries into questions', note='From %s' % count(kept, 'past query', 'past queries') if kept else None)
-            if shapes is not None:
-                h.update(n=shapes, unit='distinct question' if shapes == 1 else 'distinct questions', bar=1)
-        elif work == 'translate':
-            tiles = st('a2_question_units', 'units') or len(d['tiles']) or None
-            done = st('a3_translate', 'candidates') or 0
-            ran = st('a4_witness_bi', 'witnessed')
-            refused = st('a3_translate', 'refused')
-            if 'a3b_emit' in f.stages and 'a3b_ingest' not in f.stages:
-                # Every tile that could be translated has been; a second read of each translation is under way. Its
-                # answers land in one file at the end, so the bar moves with no count.
-                h.update(title='Reviewing each translated tile', n=st('a3b_emit', 'prompted') or done, unit='translations to review',
-                         note=('%s could not be translated' % count(refused, 'tile')) if refused else None)
-            else:
-                h.update(title="Translating the dashboard's tiles into queries", n=done, of=tiles, unit='tiles translated',
-                         bar=done / tiles if tiles else 0, note=('%d of %d ran on the data' % (st('a4_witness_bi', 'verdict_pass') or 0, ran))
-                         if ran else None)
-        elif work == 'describe':
-            batch = _batch_counts(f, 'm2')
-            total = st('m2_emit', 'queries') or batch.get('total') or st('m1_merge_pre', 'merged')
-            # The tiles' questions are written in one go before the describing starts: they are not the describing's count.
-            done = st('m2_ingest', 'described') or batch.get('described') or 0
-            # Before the total is known (the dashboard's tiles are described first), the bar moves with no end to fill to.
-            h.update(title='Describing each query', n=done, of=total, unit='queries',
-                     bar=done / total if total else None)
-        elif work == 'read':
-            batch = _batch_counts(f, 'x1')
-            total = st('x1_emit', 'queries') or batch.get('queries_total')
-            done = st('x1_ingest', 'answered') or batch.get('queries_read') or 0
-            found = st('x1_ingest', 'proposals') or batch.get('drafts')
-            h.update(title='Finding draft metrics', n=done, of=total, unit='queries read',
-                     bar=done / total if total else 0, note=('%s so far' % count(found, 'draft')) if found else None)
-        elif work == 'merge':
-            batch = _batch_counts(f, 'x2')
-            made, proposed = st('x2_ingest', 'metrics_out'), st('x2_emit', 'proposals') or st('x1_ingest', 'proposals') or batch.get('drafts')
-            # Until the step is accepted, each saved merge counts, and the bar fills with the drafts merged so far.
-            bar = 1 if made is not None else batch['drafts_merged'] / batch['drafts'] if batch.get('drafts') else 0
-            made = made if made is not None else batch.get('metrics', 0)
-            h.update(title='Merging drafts, one per number', n=made, unit='metric so far' if made == 1 else 'metrics so far',
-                     bar=bar, note='From %s' % count(proposed, 'draft') if proposed else None)
-        elif work == 'rules':
-            n = len(metrics)
-            written = n if 'x3_ingest' in f.stages else min(_batch_counts(f, 'x3').get('defined', 0), n)
-            h.update(title="Writing each metric's rule", n=written, of=n, unit='rules written', bar=written / n if n else 0)
-        elif work == 'link':
-            # The links are counted once the step has finished; while it runs, the bar moves with no count.
-            edges = st('x4_ingest', 'edges')
-            if edges is None:
-                pairs = st('x4_emit', 'candidate_pairs')
-                h.update(title='Linking metrics that build on each other',
-                         note=('Comparing %s' % count(pairs, 'pair of metrics', 'pairs of metrics')) if pairs else None)
-            else:
-                h.update(title='Linking metrics that build on each other', n=edges, unit='link found' if edges == 1 else 'links found', bar=1)
-        elif not f.checks_here:
-            # The warehouse's own tool runs these checks: the bar moves with no count, since a verdict arrives only as it is recorded.
-            h.update(title='Checking each metric and query on the data', note="With your warehouse's own read-only tool")
-        else:
-            # The count and the bar are the same fact: how many items have their check's verdict. A check that failed has
-            # run, not passed: "checked" on the page means passed.
-            c = f.context
-            ran = c['metrics_checked'] + c['queries_checked']
-            look = c['failed'] if ran < c['total'] else c['need_look']
-            h.update(title='Checking each metric and query on the data', n=ran, of=c['total'],
-                     unit='metrics and queries run', bar=ran / c['total'] if c['total'] else 0, ok=ran == c['total'] and not look,
-                     note='%d need a look' % look if look else None)
-        if work is not None and work != 'check':
-            chosen = f.inputs or {'bi': bool(d['tiles'] or f.dashboard), 'history': bool(f.history)}
-            will = {'group': chosen['history'], 'translate': chosen['bi']}
-            order = [g for g, _ in WORK] + ['check']
-            later = [g for g in order[order.index(work) + 1:] if will.get(g, True)]
-            nxt = WORK_NAME[later[0]] if later else nxt
-        elif work == 'check':
-            nxt = next((s['purpose'] for s in steps[at + 1:] if s['status'] != 'done'), None)
-    elif sid == 'save':
-        planned = f.file('context', 'plan.json').get('counts') or {}
-        c = f.context
-        if planned:
-            # The save records its items only once they are all read back, so it moves with no count until then.
-            total = sum(int(v.get('create') or 0) + int(v.get('revise') or 0) for v in planned.values() if isinstance(v, dict))
-            h.update(title='Saving to Atlan Trident', note=('%s planned' % count(total, 'item')) if total else None, waiting=False)
-        else:
-            ready = '%s and %s ready' % (count(len(metrics), 'metric'), count(len(queries), 'query', 'queries'))
-            h.update(title='Where should this context live?', wait='Waiting for where to save',
-                     note=(ready + (' · %d of %d checked' % (c['passed'], c['total']) + (' · %d need a look' % c['need_look'] if c['need_look'] else '')
-                                    if f.counts_known else " · checks run with the warehouse's own tool"))
-                     if c else None)
-    elif sid in ('ask', 'dashboard', 'done'):
-        a, layout = d.get('answer'), d.get('layout')
-        if sid == 'done' and layout:
-            h.update(title='Dashboard laid out', n=len(layout['tiles']), unit='tiles on the dashboard', bar=1, ok=True,
-                     note='%d more on offer' % len(layout['more']) if layout['more'] else None)
-        elif a and sid != 'ask':
-            label, _, value = str(a['headline']).rpartition(': ')
-            h.update(title=a.get('question') or 'Answer', value=value or a['headline'], value_label=label or None, note=a.get('summary'),
-                     wait='Waiting for your dashboard choice' if sid == 'dashboard' else None)
-        else:
-            saved = f.publication
-            h.update(title='Saved to Atlan Trident' if saved and not f.local else 'Kept on this machine', n=len(metrics),
-                     unit='metric ready' if len(metrics) == 1 else 'metrics ready', bar=1, ok=True,
-                     note=('In the %s workspace' % saved['workspace']) if saved and saved.get('workspace') and not f.local
-                     else 'And %s. Not saved to Atlan.' % count(len(queries), 'query', 'queries') if f.local else None,
-                     wait='Waiting for your question' if sid == 'ask' else None)
-    e = d.get('edit')
-    # A changed rule leads once the context is in use, until a newer answer or layout takes over.
-    if e and sid in ('ask', 'dashboard', 'done') and _newest(f.dir, 'edit.json', ('answer.json', 'layout.json')):
-        h.update(title='Rule changed: ' + e['metric'], value=e['after_value'], value_label='%s, was %s' % (e['name'], e['before_value']),
-                 n=None, of=None, unit=None, bar=None, note=e.get('note'))
-    h['next'] = nxt
-    # Something is under way exactly when the step is not waiting for the person and the run is not stopped.
-    h['busy'] = bool(step) and not h.get('wait') and not h['waiting']
-    n, of, unit = h.pop('n', None), h.pop('of', None), h.pop('unit', None)
-    if n is not None:
-        h['count'] = {k: v for k, v in (('n', n), ('of', of), ('unit', unit)) if v is not None}
-    return {k: v for k, v in h.items() if v is not None}
-
-
-def _newest(root, name, others):
-    try:
-        mine = (root / name).stat().st_mtime
-    except OSError:
-        return False
-    return all(not (root / o).is_file() or (root / o).stat().st_mtime <= mine for o in others)
-
-
 def _demo_facts(run):
     """The demo's own facts file, read as `visual connect --data` would have recorded it."""
     import run_facts
@@ -818,75 +580,29 @@ def _demo_facts(run):
     return {**{k: facts[k] for k in ('firm',) if facts.get(k)}, **(facts.get('connect') or {})}
 
 
-def _steps(run, f, demo, engine_dir=None):
-    """The flow's own steps, as the host's task list shows them, each with what came out of it and how."""
-    import side_view
-    # The moments the chat has shown say what the person has seen; every check with its verdict ends the checks too.
-    kinds = side_view.seen(run) + (['context'] if f.checks_over else [])
-    state = {'moments': [{'kind': k} for k in kinds], 'demo': demo}
-    return side_view.model(run, state, engine_dir, private=False, build_only=True)
-
-
-BUILD_STEP = 'Build metrics and queries'
-
-
-def build_header(f, step, d, demo):
-    """The page's top while it follows generation, the one step it shows: the build's own progress while it runs, a
-    plain wait before it starts, and what was built once it is over. The checks, the save and the answers that come after
-    are the chat's."""
-    status = (step or {}).get('status')
-    work = _work(f)
-    metrics, queries = d['metrics'], d['queries']
-    if status == 'now' and work != 'check':
-        h = header(f, [step], d, demo)
-        h.update(step=BUILD_STEP, waiting=False)
-        h.pop('wait', None)
-        c = h.get('count') or {}
-        if c.get('n') == 0 and not c.get('of'):
-            # Nothing counted yet and no total to count to: "0 queries" reads as a restart.
-            h.pop('count', None)
-        if h.get('next') == WORK_NAME['check'] or h.get('next') not in WORK_NAME.values():
-            # The page ends with the build: the checks that follow are the chat's.
-            h.pop('next', None)
-        return h
-    if status == 'done' or status == 'now':
-        h = {'at': 1, 'steps': 1, 'step': BUILD_STEP, 'id': 'done', 'title': 'Metrics and queries built',
-             'count': {'n': len(metrics), 'unit': 'metric built' if len(metrics) == 1 else 'metrics built'}, 'bar': 1, 'ok': True,
-             'note': ('And %s' % count(len(queries), 'query', 'queries')) if queries else None}
-    else:
-        h = {'at': 0, 'steps': 1, 'step': BUILD_STEP, 'id': 'metrics', 'title': 'The build starts once your choices are in',
-             'note': 'This page follows the build: each metric as it is made, and how it was reached.'}
-    return {k: v for k, v in dict(h, busy=False, waiting=False).items() if v is not None}
-
-
 def snapshot(run, engine_dir=None):
     """The whole page as one document, from the run's current files. In every flow the page follows metric generation
     only: each draft as it lands and where the build has got to. The steps before it, the checks, the save, the answers
     and the dashboard are the chat's."""
+    import side_view
     run = Path(run)
     f = RunFacts(run, engine_dir)
     flow = f.interaction.get('flow') if f.interaction.get('flow') in ('demo', 'dashboard') else 'build'
     demo = flow == 'demo'
     # Only the run's journey record makes a demo, so a demo's facts never reach own data.
     facts = (read_json(run / 'view' / 'facts.json', dict, {}) or _demo_facts(run)) if demo else {}
-    view = _steps(run, f, demo, engine_dir)
-    building = [s for s in view['steps'] if s['id'] == 'metrics']
+    state = side_view.stopped(run, engine_dir)
     d = details(f)
-    found, kinds = f.found
     return {
         'v': 1, 'flow': flow, 'updated': _now(),
         'title': facts.get('title') or (f.use_case and f.use_case[:1].upper() + f.use_case[1:]) or 'Analytics setup',
         'subtitle': facts.get('tagline') or f.purpose or None,
         'firm': facts.get('firm'),
-        **({'state': view['state']} if view.get('state') else {}),
-        # A run that stopped (paused, blocked, waiting for access) never looks busy.
-        'now': dict(build_header(f, building[0] if building else None, d, demo), **({'busy': False} if view.get('state') else {})),
-        'steps': [dict({k: s[k] for k in ('id', 'name', 'status', 'doing', 'how', 'fact', 'result') if k in s}, purpose=BUILD_STEP)
-                  for s in building],
-        'read': {k: v for k, v in (('found', found), ('kinds', kinds), ('tables', [[t[0], t[1]] for t in f.tables]),
-                                   ('dashboard', f.dashboard.get('tool')), ('history', f.history), ('warehouse', f.warehouse),
-                                   ('chosen', f.inputs)) if v},
-        'checks': None, 'saved': None, 'local': False,
+        **({'state': state} if state else {}),
+        # A metric's profile says where its data lives and where it was kept.
+        'warehouse': f.warehouse,
+        'saved': ({'workspace': f.publication.get('workspace')}
+                  if f.publication and f.interaction.get('mode') != 'local' else None),
         **d,
         # The page's checklist, the drafts as they land, and the tiles the build could not turn into queries.
         'build': checkpoints(f, d), 'drafts': drafts_list(f, d['metrics']), 'cant': cant_build(f),
@@ -1227,8 +943,8 @@ def running(run):
 
 
 def open_page(run, host=None, explicit=True):
-    """Start the run's page, or find the one already serving it. Returns its address, whether this call opened it in the
-    system browser, and whether anyone has looked at it yet."""
+    """Start the run's page, or find the one already serving it. Returns its address, and whether this call opened it in
+    the system browser."""
     run = Path(run)
     (run / 'view').mkdir(parents=True, exist_ok=True)
     if explicit:
@@ -1277,8 +993,7 @@ def open_page(run, host=None, explicit=True):
             opened = False
         if opened:
             _write(run / 'view' / 'address.json', json.dumps({**record, 'opened': _now()}))
-    return {'url': url, 'started': started, 'opened': opened, 'moved': moved, 'seen': (run / 'view' / 'seen.json').is_file(),
-            'host': host}
+    return {'url': url, 'started': started, 'opened': opened, 'moved': moved, 'host': host}
 
 
 def instruction(opened, widget=False):
@@ -1295,8 +1010,8 @@ def instruction(opened, widget=False):
                 'a page does not show a hidden pane. Then check with the app\'s layout call that `preview` is among the '
                 'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
                 'layout can tell. %s Say nothing about it in the chat; the cards point to it. From here the page carries each '
-                'metric step and the task list carries the build: stop the background watch and follow the build with '
-                '`PROJECT drafts --wait` in the foreground, as progress says.' % (url, follows))
+                'metric step and the task list carries the build: follow the build with `PROJECT drafts --wait` in the '
+                'foreground, as progress says.' % (url, follows))
     if opened.get('opened'):
         return ('The side page opened in the person\'s browser at %s. Say nothing about it now: the next chip in a '
                 'question names it. %s' % (url, follows))
@@ -1354,7 +1069,5 @@ def stop(run):
 if __name__ == '__main__':
     if len(sys.argv) == 4 and sys.argv[1] == 'serve':
         serve(sys.argv[2], int(sys.argv[3]), sys.stdin.readline().strip())
-    elif len(sys.argv) == 3 and sys.argv[1] == 'state':
-        print(json.dumps(snapshot(sys.argv[2]), ensure_ascii=False, indent=1))
     else:
-        sys.exit('usage: side_page.py serve|state <run-dir>')
+        sys.exit('usage: side_page.py serve <run-dir> <port>')

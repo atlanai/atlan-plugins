@@ -52,30 +52,20 @@ class InputStagingTests(unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
 
-    def test_in_the_desktop_app_a_batched_gate_keeps_the_session_in_one_turn(self):
+    def test_a_batched_gate_keeps_the_session_in_one_turn_on_every_host(self):
         # d4 and h12, 2026-11-19: told by guides and the page's result to wait in the foreground, neither did; the gate
-        # result the session reads before it starts each step's subagent now says it.
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': 'claude-desktop'}):
+        # result the session reads before it starts each step's subagent now says it, in the desktop app and a terminal.
+        with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp) / 'run'
             (run / 'engine').mkdir(parents=True)
             (run / 'run.json').write_text('{}')
             describe = self.worker().batch_progress(run / 'engine', 'm2')
         self.assertTrue(describe['wait'].endswith('drafts --engine-dir "engine" --wait'), describe['wait'])
         self.assertIn('runs `wait` in the foreground', describe['say'])
+        self.assertIn('`--timeout` under a shorter limit', describe['say'], 'one way to follow the build, on any host')
+        self.assertNotIn('follow', describe)
         self.assertIn('never ends the turn between waits', describe['say'])
         self.assertIn("start the next step's subagent first", describe['say'])
-
-    def test_in_a_terminal_a_batched_gate_keeps_the_session_in_one_turn_too(self):
-        # The person, 2026-11-19: the terminal follows the build as the desktop app does, the task list carrying the
-        # metric steps where the terminal keeps one, and one chip per finished step where it does not.
-        with tempfile.TemporaryDirectory() as tmp:
-            run = Path(tmp) / 'run'
-            (run / 'engine').mkdir(parents=True)
-            (run / 'run.json').write_text('{}')
-            describe = self.worker().batch_progress(run / 'engine', 'm2')
-        self.assertIn('wait', describe)
-        self.assertIn('runs `wait` in the foreground', describe['say'])
-        self.assertIn('never ends the turn between waits', describe['say'])
 
     def worker(self):
         spec = importlib.util.spec_from_file_location('metrics_worker_test', driver.HERE / 'worker.py')
@@ -115,11 +105,9 @@ class InputStagingTests(unittest.TestCase):
         # Under a chip that said "Next: Combine duplicates" the agent wrote a Doing line saying it again (2026-11-18).
         self.assertNotIn('Doing line', describe['say'])
         self.assertIn('never a chip, the engine, a gate', describe['say'], 'command descriptions are the person\'s')
-        # Live (h4), the watch ran as a background shell command, which never wakes the chat: no so-far chip came.
-        self.assertIn('Monitor tool', describe['say'])
         # The desktop run drew each step's chip before starting the next step's subagent: 40 to 48 s per step against
         # 8 to 12 s in h9 (2026-11-19).
-        self.assertIn("start the next step's subagent first, then draw the chip", describe['say'])
+        self.assertIn("start the next step's subagent first, then run `visual next`", describe['say'])
         self.assertIn('never that the step is still running', describe['say'])
         # A first-time reader of h3 stopped at "Cards accepted on first check. Now linking related metrics (9 pairs)",
         # "the structural check" and "a tiny wrapper script": the engine's results and counts, and the agent's tooling.
@@ -131,11 +119,9 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('started in the background', describe['say'])
         self.assertIn('never one this session waits on', describe['say'])
         # The app shows a subagent's name to the person: live ones were "Describe past queries gate", "noop placeholder".
-        import side_page
-        self.assertEqual(describe['name'], side_page.WORK_NAME['describe'])
-        self.assertEqual(cards['name'], side_page.WORK_NAME['rules'])
+        self.assertEqual(describe['name'], 'Describe each query')
+        self.assertEqual(cards['name'], 'Define each metric')
         self.assertIn('`%s`' % cards['name'], cards['say'])
-        self.assertIn('`Following the build`', cards['say'])
 
     def test_every_other_authored_step_is_named_in_words_and_never_waited_on(self):
         # h1 and h6 handed the gates before "Describe each query" to foreground subagents named "Answer engine gate
@@ -145,7 +131,9 @@ class InputStagingTests(unittest.TestCase):
             self.assertNotIn(gate, step['name'])
             self.assertIn('`%s`' % step['name'], step['say'])
             self.assertIn('in this session', step['say'])
-            self.assertIn('never one this session waits on', step['say'])
+            self.assertIn('this session never waits on', step['say'])
+            # h15t told the person "The links step is small (10 pairs), so I'll write it here".
+            self.assertIn('Say nothing in the chat about who writes it', step['say'])
         self.assertIsNone(self.worker().authored_step('m2'), 'a batched step has its own instructions')
 
     def test_a_ready_runtime_names_its_own_python(self):

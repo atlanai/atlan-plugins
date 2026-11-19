@@ -225,7 +225,6 @@ class Chips(unittest.TestCase):
         local = make_run(self.root / 'l', saved=False, local=True)
         for widget in (False, True):
             self.assertEqual(self.show('saved', local, widget=widget), '', 'the person just chose it')
-            self.assertEqual(self.show('layout', widget=widget), '', 'the layout question says it')
         self.assertNotIn('built', visuals.KINDS, "the reply names the dashboard's file")
 
     def test_no_chip_shows_progress(self):
@@ -233,7 +232,7 @@ class Chips(unittest.TestCase):
         for kind in kinds:
             text = self.show(kind)
             self.assertFalse(re.search(r'\d+/\d+', text), (kind, text))
-            self.assertFalse(set(visuals.RINGS) & set(text), (kind, text))
+            self.assertFalse(set('○◔◑◕●') & set(text), (kind, text))
             self.assertNotIn('class="rg"', self.show(kind, widget=True), kind)
 
     def test_a_narrow_chip_cuts_its_tail_before_its_outcome(self):
@@ -461,9 +460,8 @@ class Due(unittest.TestCase):
 QUERIES = {'tasks': [{'queries': [{'vq_id': 'h-1'}, {'vq_id': 'h-2'}, {'vq_id': 'bi-q1'}, {'vq_id': 'bi-q2'}]}]}
 
 
-class SoFar(unittest.TestCase):
-    """While a step runs, the chip the watch asks for every few minutes: how far the step's batches have got, counted as
-    the side page counts them, and the first of what they hold."""
+class StepChips(unittest.TestCase):
+    """The chip that ends a metric step: what it hands the session next, and its title in the person's words."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -483,100 +481,6 @@ class SoFar(unittest.TestCase):
             {'vq_id': 'h-1', 'name': 'Margin by Job', 'question': 'What did each job keep?'},
             {'vq_id': 'h-2', 'name': 'Rework Cost by Month', 'question': 'How much did rework cost each month?'}]}, run)
 
-    def show(self, run=None, widget=False, data=()):
-        return visuals.render('progress', visuals.build_spec('progress', run or self.run, list(data)), widget)
-
-    def test_nothing_shows_before_a_batch_lands(self):
-        self.assertEqual(self.show(), '')
-        self.assertEqual(self.show(widget=True), '')
-
-    def test_each_step_names_what_it_made_and_keeps_its_count_inside(self):
-        # It lands mid-step. Led by a count, it read as a counter ("8 of 30 queries", "1 metric so far"); and a count in
-        # the chat goes stale while the side page moves on, so the next chip jumped (h8 desktop: "1 of 8", then "4 of 8").
-        # The person's decisions (2026-11-18): the headline names what is new, the count sits inside the opened chip
-        # with no time of day (it confused), and the step's own chip gives the total.
-        import drafts
-        self.describe()
-        self.assertEqual(self.show(), '❝ **Rework cost by month and Margin by job** in plain words\n'
-                                      '  Finding metrics: first, each query gets the question it answers.')
-        self.assertEqual(drafts.counts(self.run, 'm2'), {'described': 2, 'total': 4}, 'the side page counts the same batches')
-        self.assertIn('>2 of 4 queries in plain words.<', self.show(widget=True))
-        self.batch('m2', '02.json', {'queries': [{'vq_id': 'bi-q1', 'name': 'Gross Margin'}]})
-        # Three names only when they fit a card's width; else the newest and how many more.
-        self.assertTrue(self.show().startswith('❝ **Gross margin** and 2 more in plain words\n'), self.show())
-        write(self.run / 'engine' / 'x1_prompt.json', QUERIES)
-        self.batch('x1', '01.json', {'statements': [
-            {'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}]},
-            {'vq_id': 'h-2', 'verdict': 'metrics', 'metrics': [{'name': 'Rework Cost'}, {'name': 'Rework Hours'}]}]})
-        self.assertEqual(self.show(), '◆ **Rework hours, Rework cost and Gross margin** found\n'
-                                      '  Finding metrics: every number a query works out could be one.')
-        # A fresh reader of h9 met "found in 30 of 30 queries", then "found in 25 of those 30": both count the queries
-        # that held a number now, out of those read.
-        self.assertIn('>3 possible metrics found in 2 of the 2 queries read.<', self.show(widget=True))
-        self.batch('x2', '01.json', {'metrics': [{'name': 'Gross Margin', 'sources': ['h-1#0']},
-                                                 {'name': 'Rework Cost', 'sources': ['h-2#0', 'h-2#1']}]})
-        self.assertEqual(self.show(), '◆ **Rework cost and Gross margin** combined\n'
-                                      '  Combining duplicates: the same number in many queries becomes one metric.')
-        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 2, 'tasks': []})
-        self.batch('x3', '001.json', {'metrics': [{'name': 'Gross Margin', 'description': 'What the jobs kept. The headline.'}]})
-        self.assertEqual(self.show(), '= **Gross margin** defined\n'
-                                      '  Defining: so each number is worked out the same way every time.')
-        self.assertIn('>1 of 2 metrics defined.<', self.show(widget=True))
-        self.assertNotRegex(self.show(widget=True), r'\d\d:\d\d', 'no time of day anywhere in the chip')
-        self.assertNotRegex(self.show(), r'\d+ of \d+', 'no count in the chat line')
-
-    def test_more_than_three_new_names_the_newest_and_how_many_more(self):
-        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 12, 'tasks': []})
-        for i, name in enumerate(('Gross Margin', 'Rework Cost', 'Labour Cost', 'Late Jobs')):
-            self.batch('x3', '%03d.json' % (i + 1), {'metrics': [{'name': name, 'description': name + ' per job.'}]})
-        self.assertTrue(self.show().startswith('= **Late jobs** and 3 more defined\n'), self.show())
-
-    def test_a_long_name_still_fits_a_terminal_line(self):
-        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 12, 'tasks': []})
-        self.batch('x3', '001.json', {'metrics': [{'name': 'Average contract value of completed residential extension '
-                                                           'jobs per quarter', 'description': 'Per job.'}]})
-        self.batch('x3', '002.json', {'metrics': [{'name': 'Material waste rate across every delivered order this '
-                                                           'quarter', 'description': 'Per order.'}]})
-        line = self.show().split('\n')[0]
-        self.assertLessEqual(len(line.replace('**', '')), 76, line)
-        self.assertTrue(line.endswith(' defined'), line)
-
-    def test_its_reason_shows_without_opening_and_opens_to_the_newest_first(self):
-        names = ['Gross Margin', 'Rework Cost', 'Labour Cost', 'Material Cost', 'Contract Value', 'Late Jobs', 'On-Time Rate',
-                 'Waste Rate', 'Jobs Completed', 'Crew Hours']
-        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 12, 'tasks': []})
-        for i, name in enumerate(names):
-            self.batch('x3', '%03d.json' % i, {'metrics': [{'name': name, 'description': name + ' counted per job. Not the rest.'}]})
-        html = self.show(widget=True)
-        self.assertIn('<details', html)
-        self.assertNotIn('<script', html)
-        summary, detail = html.split('</summary>', 1)
-        self.assertIn('<span class="ws">Defining: so each number is worked out the same way every time.</span>', summary)
-        self.assertIn('class="oc two"', summary, 'the chip lays its reason out on a second row')
-        self.assertNotIn('Defining: so each number', detail, 'opened, it does not say the reason again')
-        self.assertIn('Crew hours', detail, 'the newest first')
-        self.assertIn('Crew Hours counted per job.', detail, "the definition's first sentence")
-        self.assertNotIn('Gross Margin counted per job.', detail, 'the oldest are the ones left to the side page')
-        self.assertNotIn('Not the rest', detail)
-        self.assertEqual(detail.count('counted per job.'), 8)
-        self.assertIn('2 more on the side page', detail)
-
-    def test_each_step_opens_in_its_own_words_with_no_engine_names(self):
-        self.describe()
-        steps = [self.show(widget=True)]
-        write(self.run / 'engine' / 'x1_prompt.json', QUERIES)
-        self.batch('x1', '01.json', {'statements': [{'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}]}]})
-        steps.append(self.show(widget=True))
-        self.batch('x2', '01.json', {'metrics': [{'name': 'Gross Margin', 'sources': ['h-1#0']}]})
-        steps.append(self.show(widget=True))
-        for reason, name, html in zip(('Finding metrics: first, each query', 'Finding metrics: every number', 'Combining duplicates: the same number'),
-                                      ('Margin by job', 'Gross margin', 'Gross margin'), steps):
-            self.assertIn('<span class="ws">' + reason, html)
-            self.assertIn(name, html)
-            # "Draft" is the task list's own step and a metric's first state (team decision, 2026-11-18), not engine talk.
-            for internal in ('vq_id', 'h-1', 'bi-q1', 'x1', 'm2', 'proposal'):
-                self.assertNotIn(internal, html, (reason, internal))
-
     def test_in_the_desktop_app_a_step_chip_keeps_the_turn_going(self):
         self.describe()
         manifest = self.run / 'engine' / 'manifest.json'
@@ -589,33 +493,6 @@ class SoFar(unittest.TestCase):
         side = json.loads(done.stdout.split('side view: ', 1)[1])
         self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', side['next'])
         self.assertNotIn('end your turn', side['next'])
-
-    def test_a_so_far_chip_is_the_whole_turn(self):
-        # Live, every so-far chip was followed by "The merge is still running in the background.": the woken turn closed
-        # on a status line of its own. The chip is the update, and the watch wakes the chat again.
-        self.describe()
-        for flags in (['--widget'], []):
-            done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress']
-                                  + flags, capture_output=True, text=True, encoding='utf-8', timeout=60,
-                                  env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-            # The team, 2026-11-19: the session waits for the build in one turn, so a chip never ends it, and no metric
-            # is named as news.
-            self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', done.stdout, flags)
-            self.assertNotIn('end your turn', done.stdout, flags)
-            self.assertNotIn('Newest', done.stdout.split('side view: ', 1)[1], flags)
-
-    def test_the_line_to_end_on_comes_with_the_chip_and_names_what_it_names(self):
-        # h8 at 13.6 drew "Delivered materials cost written" over the watch's older line "Newest rule: Project labour
-        # cost": the watch wrote its line, another rule landed, then the chip was drawn. Both now come from one call.
-        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 3, 'tasks': []})
-        self.batch('x3', '001.json', {'metrics': [{'name': 'Gross Margin', 'description': 'What the jobs kept. More.'}]})
-        self.batch('x3', '002.json', {'metrics': [{'name': 'Rework Cost', 'description': 'Labour on snags. More.'}]})
-        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress'],
-                              capture_output=True, text=True, encoding='utf-8', timeout=60,
-                              env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-        self.assertTrue(done.stdout.startswith('= **Rework cost and Gross margin** defined'), done.stdout)
-        side = json.loads(done.stdout.split('side view: ', 1)[1])
-        self.assertNotIn('Newest definition', side['next'], 'the chip is the news; no metric named after it')
 
     def test_a_step_s_own_chip_gives_the_line_to_end_on_and_its_title(self):
         # The person, 2026-11-18: our own wording leaked into the window. After a step's chip the agent wrote "Doing:
@@ -638,94 +515,6 @@ class SoFar(unittest.TestCase):
         self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', side['next'])
         self.assertNotIn('Newest possible metric', side['next'])
         self.assertNotIn('Doing', side['next'])
-        progress = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual',
-                                   'progress', '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
-                                  env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-        self.assertNotIn('chip`', progress.stdout.split('side view: ', 1)[-1].split('title `', 1)[-1][:60])
-
-    def test_each_so_far_chip_names_only_what_landed_since_the_last_one(self):
-        # The person, 2026-11-18: "we say 10 out of 20, then 18 out of 20: we lost the 11th to the 17th". And a fresh
-        # reader of h8 met the same definitions in every chip. Each chip names what is new since the one before, so
-        # across a step every metric is named once.
-        def progress():
-            done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual',
-                                   'progress', '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
-                                  env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-            html, side = done.stdout.split('side view: ', 1)
-            return html.split('</summary>', 1), json.loads(side)
-        write(self.run / 'engine' / 'x3_prompt.json', {'n_metrics': 5, 'tasks': []})
-        for i, name in enumerate(('Gross Margin', 'Rework Cost')):
-            self.batch('x3', '%03d.json' % (i + 1), {'metrics': [{'name': name, 'description': name + ' per job. More.'}]})
-        (head, body), side = progress()
-        self.assertIn('<b>Rework cost and Gross margin</b> defined', head)
-        self.assertIn('Gross Margin per job.', body)
-        for i, name in enumerate(('Labour Cost', 'Late Jobs', 'Waste Rate')):
-            self.batch('x3', '%03d.json' % (i + 3), {'metrics': [{'name': name, 'description': name + ' per job. More.'}]})
-        (head, body), side = progress()
-        self.assertIn('<b>Waste rate, Late jobs and Labour cost</b> defined', head)
-        self.assertRegex(body, r'>5 of 5 metrics defined\.<')
-        for new in ('Waste rate', 'Late jobs', 'Labour cost'):
-            self.assertIn(new, body)
-        for old in ('Gross margin', 'Rework cost'):
-            self.assertNotIn(old, body, 'named by the chip before')
-        self.assertNotIn('Newest definition', side['next'], 'the chip is the news; no metric named after it')
-        # Drawn again with nothing new, it shows the newest rather than nothing.
-        (head, body), side = progress()
-        self.assertIn('<b>Waste rate</b> and 4 more defined', head)
-
-    def test_a_step_already_accepted_draws_no_so_far_chip(self):
-        # Drawn after its step ended, a so-far chip said a finished step was still "finding the numbers".
-        self.describe()
-        write(self.run / 'engine' / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
-        self.assertEqual(self.show(), '')
-        self.assertEqual(self.show(widget=True), '')
-
-    def test_its_list_adds_up_to_its_count(self):
-        # Rendered from a real run, "41 possible metrics found" opened to 30 names: a metric found in several queries
-        # was listed once with nothing to say so.
-        write(self.run / 'engine' / 'x1_prompt.json', QUERIES)
-        self.batch('x1', '01.json', {'statements': [
-            {'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}]},
-            {'vq_id': 'h-2', 'verdict': 'metrics', 'metrics': [{'name': 'Gross Margin'}, {'name': 'Rework Cost'}]},
-            {'vq_id': 'bi-q1', 'verdict': 'metrics', 'metrics': [{'name': 'gross margin'}]}]})
-        html = self.show(widget=True)
-        # A fresh reader met "10 draft metrics found" opening to 7 names: the count says how many are different.
-        self.assertIn('4 possible metrics, 2 different, found in', html)
-        self.assertIn('<b style="font-weight:400">Gross margin</b><span>found 3 times</span>', html)
-        self.assertIn('<b style="font-weight:400">Rework cost</b><span></span>', html)
-        described = make_run(self.root / 'd')
-        write(described / 'engine' / 'm2_prompt.json', QUERIES)
-        self.batch('m2', '01.json', {'queries': [{'vq_id': 'h-1', 'name': 'Gross Margin'}, {'vq_id': 'bi-q1', 'name': 'Gross Margin'}]},
-                   described)
-        self.assertEqual(self.show(described, widget=True).count('<b style="font-weight:400">Gross margin</b>'), 2,
-                         'two queries, though they share a name')
-
-    def test_every_terminal_line_fits(self):
-        write(self.run / 'engine' / 'x2_prompt.json', {})
-        self.batch('x2', '01.json', {'metrics': [{'name': 'Metric %d' % i, 'sources': ['h-%d#0' % i]} for i in range(1234)]})
-        lines = self.show().split('\n')
-        self.assertEqual(len(lines), 2)
-        for line in lines:
-            self.assertLessEqual(len(line.replace('**', '')), 76, line)
-        self.assertTrue(lines[0].startswith('◆ **Metric 1233** and 1,233 more combined'), lines[0])
-
-    def test_a_demo_a_local_run_and_a_warehouse_draw_it_the_same(self):
-        for run, data in ((make_run(self.root / 'demo', demo=True), [facts()]), (make_run(self.root / 'l', saved=False, local=True), []),
-                          (make_run(self.root / 'w', warehouse='snowflake', chosen={'bi': False, 'history': True}), [])):
-            self.describe(run)
-            self.assertTrue(self.show(run, data=data).startswith('❝ **Rework cost by month and Margin by job** in plain words'))
-            self.assertIn('<details', self.show(run, widget=True, data=data))
-
-    def test_the_helper_draws_it_without_recording_it_or_naming_it_due(self):
-        # It is drawn as often as the watch asks: recorded, each one would pile up; named due, it would stop the build's flow.
-        self.describe()
-        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress'],
-                              capture_output=True, text=True, encoding='utf-8', timeout=60, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-        self.assertEqual(done.stderr, '')
-        self.assertTrue(done.stdout.startswith('❝ **Rework cost by month and Margin by job** in plain words'), done.stdout)
-        self.assertIn('start your very next message with it', done.stdout)
-        self.assertNotIn('progress', side_view.seen(self.run))
-        self.assertNotIn('progress', side_view.due(self.run))
 
 
 class Engine(unittest.TestCase):

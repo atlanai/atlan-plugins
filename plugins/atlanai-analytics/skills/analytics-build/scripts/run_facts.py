@@ -315,11 +315,6 @@ class RunFacts:
         rows = kept if chosen and kept else rows
         return sorted(rows, key=lambda t: -(t[1] or 0))
 
-    @property
-    def table_rows(self):
-        """All the tables' rows, when every one was counted."""
-        return sum(t[1] for t in self.tables) if self.tables and all(t[1] is not None for t in self.tables) else None
-
     @cached_property
     def history(self):
         """The query history the survey found: distinct statements and how often they ran, read the way the survey reads
@@ -492,12 +487,6 @@ class RunFacts:
         c = self.context
         return (self.interaction.get('checks') == 'skip'
                 and not (c and c['metrics_checked'] + c['queries_checked'] == c['total']))
-
-    @property
-    def counts_known(self):
-        """Whether the run's files hold the true check counts: on local data, as the checks go and once they are over;
-        on a warehouse, only once every item has its verdict."""
-        return self.checks_here or self.checks_over
 
     @property
     def checks_here(self):
