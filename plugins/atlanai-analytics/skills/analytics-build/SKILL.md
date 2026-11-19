@@ -69,7 +69,7 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    branch's own ask. Skip what the request already said.
 2. **Survey your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named. The side page opens once the build finds its first possible metric,
+   tables the person named. The side page opens once the queries are in plain words,
    when `PROJECT visual next` names `connect`.
 3. **Select tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md) and any clarification. In every branch, the

@@ -125,12 +125,16 @@ class SideView(unittest.TestCase):
         card = visuals.render('build', visuals.build_spec('build', run), plain=True)
         self.assertNotIn('Past queries', card, 'the person left the past queries out')
 
-    def test_the_page_opens_once_the_build_has_a_possible_metric_to_show(self):
-        # A tester, 2026-11-19: the panel opened as the build started and stayed empty for a while. "Let's only open
-        # it once the metric draft starts to show up."
+    def test_the_page_opens_once_the_queries_are_in_plain_words(self):
+        # A tester, 2026-11-19: the panel opened as the build started and stayed empty for a while. Opened at the first
+        # possible metric instead, it stayed shut for minutes in a watched dashboard run while 46 queries in plain words
+        # sat ready to show.
         run = make_run(self.root, saved=False)
         for name in ('context/metrics.json', 'context/queries.json', 'engine/merged_metrics.json', 'engine/metric_cards.json'):
             (run / name).unlink()
+        manifest = run / 'engine' / 'manifest.json'
+        stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
+        manifest.write_text(json.dumps({'stages': [s for s in stages if not s['stage'].startswith(('m2', 'x'))]}), encoding='utf-8')
         self.assertNotIn('connect', side_view.due(run))
         out = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(run), 'visual', 'connect'],
                              capture_output=True, text=True, timeout=60)
@@ -138,10 +142,8 @@ class SideView(unittest.TestCase):
         self.assertNotIn('url', out.stdout)
         self.assertFalse((run / 'view' / 'server.json').exists(), 'no page started with nothing on it')
         self.assertNotIn('connect', side_view.seen(run))
-        batch = run / 'engine' / 'answers' / 'x1' / '0001.json'
-        batch.parent.mkdir(parents=True)
-        batch.write_text(json.dumps({'statements': [{'vq_id': 'h-1', 'metrics': [{'name': 'Rework cost'}]}]}), encoding='utf-8')
-        self.assertEqual(side_view.due(run)[0], 'connect')
+        manifest.write_text(json.dumps({'stages': [s for s in stages if not s['stage'].startswith('x')]}), encoding='utf-8')
+        self.assertEqual(side_view.due(run)[0], 'connect', 'the queries are in plain words, before any metric')
 
     def test_the_structural_pass_is_not_a_check_run(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))

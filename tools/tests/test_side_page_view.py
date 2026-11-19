@@ -73,6 +73,18 @@ class SidePageView(unittest.TestCase):
     def text(self, html):
         return ' '.join(re.sub(r'<[^>]+>', ' ', html).split())
 
+    def test_before_any_metric_it_opens_on_the_queries_in_plain_words(self):
+        # The page opens once the queries are described, minutes before the first metric: it shows those, not an empty
+        # metrics list, until a metric lands or the person picks a list.
+        snap = dict(SNAPSHOT, metrics=[], drafts=[])
+        words = self.text(self.render(snap))
+        self.assertIn('How many jobs did we run?', words)
+        self.assertNotIn('Metrics show here as they are found', words)
+        self.assertIn('Metrics show here as they are found', self.text(self.render(snap, list='metrics')))
+        self.assertNotIn('How many jobs did we run?', self.text(self.render(SNAPSHOT)), 'with a metric, the metrics list leads')
+        self.assertIn('Pick a query', self.text(self.render(snap, wide=True)), 'the empty pane names what the list shows')
+        self.assertIn('Pick a metric', self.text(self.render(SNAPSHOT, wide=True)))
+
     def test_the_page_shows_what_was_made_never_the_process(self):
         # Team review, 2026-11-18: progress stays in the chat; the page beside it holds only the output.
         for wide in (False, True):

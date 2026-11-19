@@ -821,7 +821,7 @@ def main():
                 args.kind = ahead[0]
             if args.kind == 'connect' and not side_page.has_output(visuals.RunFacts(run, args.engine_dir)):
                 print('side view: ' + json.dumps({'next': 'Nothing to show on the side page yet: carry on. It opens once '
-                                                          'the build finds its first possible metric, when `visual next` names it.'}))
+                                                          'the queries are in plain words, when `visual next` names it.'}))
                 return 0
             if args.kind == 'connect':
                 # A demo's title and firm name the page; only a run the journey records as a demo takes them.

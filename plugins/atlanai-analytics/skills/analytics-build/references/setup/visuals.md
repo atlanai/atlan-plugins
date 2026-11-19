@@ -44,7 +44,7 @@ before going on. While the engine builds, its result after each gate says so too
 
 | Moment | Kind | The chat shows | Data |
 | --- | --- | --- | --- |
-| The run folder exists, right after the first survey | `connect` | Nothing: it opens the side page | |
+| The queries are in plain words, before any metric | `connect` | Nothing: it opens the side page | |
 | Own data, right before choosing what to build from | `found` | Chip: the sources and the warehouse found | |
 | Data read: a demo's or local tables loaded, or a warehouse's past queries read | `sources` | Chip: the rows and what was read (a demo's opens the next question in a terminal) | |
 | The engine grouped the past queries | `group` | Chip: how many different questions | |

@@ -197,10 +197,11 @@ def _drafts(f):
 
 
 def has_output(f):
-    """Whether the page has a metric to show: a possible metric the build found, a merged one, or a defined one. Before
-    that it would open empty (a tester, 2026-11-19)."""
-    return bool(f.file('context', 'metrics.json', kind=list) or f.engine_file('merged_metrics.json').get('metrics')
-                or _batches(f, 'x2', 'metrics') or _drafts(f))
+    """Whether the page has something to show: the queries in plain words once the describe step is done, or a metric the
+    build found, merged or defined. Before that it would open empty (a tester, 2026-11-19); opened at the first metric,
+    it stayed shut for minutes while the described queries sat ready to show."""
+    return bool('m2_ingest' in f.stages or f.file('context', 'metrics.json', kind=list)
+                or f.engine_file('merged_metrics.json').get('metrics') or _batches(f, 'x2', 'metrics') or _drafts(f))
 
 
 def _source_of(s, drafts):

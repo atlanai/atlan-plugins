@@ -121,7 +121,7 @@ in the build: they are news, never a question.
 run as they are, every step in a background helper (below). The side page is the same as in
 every flow: what the run made, metrics first and then queries, each in its state (Found,
 Defined, Tested, Needs a look) and opening its profile, then the tiles that could not be built.
-It opens once the first possible metric is found, when `visual next` names `connect`.
+It opens once the queries are in plain words, when `visual next` names `connect`.
 
 **The chat is the same as in every flow**, as [drafts as they land](progress.md#drafts-as-they-land)
 sets out: before the side page opens, each step's chip when it ends; once it is open, the task

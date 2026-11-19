@@ -454,10 +454,15 @@ function queriesList(S, UI) {
   });
   return [qs.length, tabs + `<div class="lst">${rows.join('')}</div>`];
 }
+/* Before any metric the page opens on the queries in plain words, until a metric lands or the person picks a list. */
+function listOf(S, UI) {
+  const qn = queriesList(S, UI)[0], mn = metricsList(S, UI)[0];
+  return qn && (UI.list === 'queries' || !UI.list && !mn) ? 'queries' : 'metrics';
+}
 /* One switch between the lists, metrics first (the person's pick, 2026-11-18), as Studio keeps metrics and saved
    queries on separate pages: a long query list never pushes the metrics down, and one list moves at a time. */
 function lists(S, UI) {
-  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), cur = UI.list === 'queries' && qn ? 'queries' : 'metrics';
+  const [mn, mb] = metricsList(S, UI), [qn, qb] = queriesList(S, UI), cur = listOf(S, UI);
   return `<div class="sec">${pills('list', 'Show list', [['metrics', 'Metrics', mn], ['queries', 'Queries', qn]], cur).replace('class="flt"', 'class="flt top"')}${cur === 'queries' ? qb : mb}</div>` + cantBlock(S, UI);
 }
 
@@ -634,7 +639,9 @@ function view(S, UI) {
     + (STOPPED[S.state] ? `<div class="card stop">${ic('alert', 's')}<span>${esc(STOPPED[S.state])}</span></div>` : '');
   const detail = detailOf(S, UI);
   if (!UI.wide) return `<div class="sp2">${top}${detail || lists(S, UI)}</div>`;
-  return `<div class="wd2"><div>${top}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${ic('metric', 's')}<span>Pick a metric to see its definition, its formula and where it was found.</span></div>`}</div></div>`;
+  const pick = listOf(S, UI) === 'queries' ? [ic('query', 's'), 'Pick a query to see its question, its SQL and where it came from.']
+    : [ic('metric', 's'), 'Pick a metric to see its definition, its formula and where it was found.'];
+  return `<div class="wd2"><div>${top}${lists(S, UI)}</div><div class="wr">${detail || `<div class="card empty">${pick[0]}<span>${pick[1]}</span></div>`}</div></div>`;
 }
 
 
