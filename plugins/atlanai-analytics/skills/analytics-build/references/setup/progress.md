@@ -48,8 +48,9 @@ page shows each batch as it lands; the chat shows each step's end:
    of its own, saving each batch with its own write as soon as it is ready, never several in one
    script. The engine's refusal names each field to fix, so the subagent never reads the
    engine's code to check its answers first. It returns when its gate is accepted or the gate
-   needs the person; then start the next gate's subagent, before running the `visual next` of
-   the step that ended: the build waits on its subagent, never on a chip. The app shows each
+   needs the person; then run the `visual next` of the step that ended (it is quick) and show what
+   it gives in the same message that starts the next gate's subagent: nothing comes between a
+   step's end and its chip, and the build never waits on a chip. The app shows each
    subagent's name to the person: name each for what it does ("Describe each query"), never a
    gate's name. For the card gate, run the gate result's `after_each_batch.split` (`PROJECT
    split`) first: up to 20 metrics it gives one brief, above that one per share, at most five.
@@ -62,8 +63,8 @@ page shows each batch as it lands; the chat shows each step's end:
    passes `--timeout` under it. It prints one line: do what it says, then run it again in the
    same message. Never end the turn between waits: a turn that ends without words is sent back
    for them, while a turn that keeps going is not.
-   - **A step ended**: start the next gate's subagent, then run `visual next`. Before the side
-     page opens, it draws the step's chip. Once the page is open, where you keep a task list
+   - **A step ended**: run `visual next`, then show what it gives in the same message that starts
+     the next gate's subagent. Before the side page opens, it draws the step's chip. Once the page is open, where you keep a task list
      (the desktop app always does; in a terminal, as you recorded with `PROJECT journey
      tasks`), it hands back the task list and `say`, one line to write word for word as your
      only words; with no task list, each step's end shows its chip.

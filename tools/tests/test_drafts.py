@@ -101,7 +101,10 @@ class Drafts(unittest.TestCase):
         # that already said it.
         self.run.write(self.run.root / 'progress.json', {'stage': 'build', 'status': 'running'})
         self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': 'm2_ingest', 'verdict': 'ok'}]})
-        self.assertIn("not even the next step's start", self.wait()['next'])
+        said = self.wait()['next']
+        self.assertIn("not even the next step's start", said)
+        # h18t set the next subagent up first, wrote its own line meanwhile, and dropped the step's chip.
+        self.assertLess(said.index('`visual next`'), said.index('subagent'), 'the chip first')
 
     def test_time_left_comes_from_the_step_s_own_pace_and_reaches_nothing_left(self):
         import os, time

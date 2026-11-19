@@ -663,12 +663,18 @@ TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
 STEP_CHIPS = ('described', 'drafted', 'metrics', 'rules')
 
 
-def _ask_for_tasks(root):
+def _ask_for_tasks(root, start=False):
     """In a terminal, until the session records whether it keeps a task list, the checklist and every journey record ask
     for it, on stderr, which a filter on the result leaves: the helper cannot see the agent's tools, and h17t never ran
-    the checklist, nor loaded its deferred task tools."""
+    the checklist, nor loaded its deferred task tools. The desktop app always keeps one: at the flow's start it is
+    asked to fill it (d7 never loaded the app's plan tool)."""
     import visuals
-    if visuals.desktop() or 'tasks' in visuals.read_json(Path(root) / 'interaction.json', dict, {}):
+    if visuals.desktop():
+        if start:
+            print("Next: put the tracker from `PROJECT checklist` in the app's task list now, with its plan tool, loading "
+                  'it first if it is deferred, and send the whole list again whenever a step changes.', file=sys.stderr)
+        return
+    if 'tasks' in visuals.read_json(Path(root) / 'interaction.json', dict, {}):
         return
     print('Next: put the tracker from `PROJECT checklist` in your task list now, with TaskCreate and TaskUpdate (or '
           'TodoWrite), loading them first if they are deferred; then record once whether you keep a task list: '
@@ -841,8 +847,9 @@ def main():
                 if side_view._shows(args.kind, run, args.engine_dir):
                     side_view.note(run, args.kind)
                 more = ' Then run `visual next` again, with the same flags: more is due.' if following and side_view.due(run, args.engine_dir) else ''
-                print('side view: ' + json.dumps({'next': visuals.ON_PAGE_NEXT + more, 'say': say,
-                                                  'task_list': drafts.task_list(run, args.engine_dir)}, ensure_ascii=False))
+                # What to do comes last: a session that reads the result through a filter keeps its tail (d7).
+                print('side view: ' + json.dumps({'task_list': drafts.task_list(run, args.engine_dir), 'say': say,
+                                                  'next': visuals.ON_PAGE_NEXT + more}, ensure_ascii=False))
                 return 0
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
@@ -900,8 +907,9 @@ def main():
             if shown and args.kind in STEP_CHIPS:
                 # The person, 2026-11-18: under a chip that said "Next: Combine duplicates" the agent wrote "Doing: Combining
                 # duplicates". The chip names the step that starts, and the session goes back to waiting in the same turn.
-                steps.append("Once the next step is started, go back to waiting for the build (`PROJECT drafts --wait`) "
-                             "in this same turn: the chip names the step that starts, so add no line of your own.")
+                steps.append("Start the next step's subagent in the same message as this chip, then go back to waiting for "
+                             "the build (`PROJECT drafts --wait`) in this same turn: the chip names the step that starts, so "
+                             "add no line of your own.")
             task_list = None
             if shown and args.kind in TASK_MOMENTS:
                 # A live run set the host's list once, at the start: no step ever showed under way or its estimate. Each
@@ -929,8 +937,8 @@ def main():
                 steps.append(reminder)
             if steps:
                 print(('\n' if shown else '') + 'side view: ' + json.dumps(
-                    {'next': ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]]),
-                     **({'task_list': task_list} if task_list else {})}, ensure_ascii=False))
+                    {**({'task_list': task_list} if task_list else {}),
+                     'next': ' '.join([steps[0]] + ['Then ' + s[0].lower() + s[1:] for s in steps[1:]])}, ensure_ascii=False))
             return 0
         if args.command == 'question':
             import questions
@@ -983,11 +991,11 @@ def main():
             import checklist, experience
             model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
             result = {**checklist.build(model, args.flow), 'remote_writes': False}
-            _ask_for_tasks(project.root)
+            _ask_for_tasks(project.root, start=True)
         elif args.command == 'journey':
             result = project.journey(args.action, args.focus, args.host, args.server, args.answer, args.waits)
             if args.action != 'tasks':
-                _ask_for_tasks(project.root)
+                _ask_for_tasks(project.root, start=args.action in ('demo', 'agentic'))
             if args.action == 'readiness' and isinstance(result, dict) and 'drafts --wait' in str(result.get('next')):
                 # d5, 2026-11-19: a session piped this result through a filter that kept only the checklist, so the step
                 # that keeps the build in view never reached it. A filter on the output leaves this line.

@@ -65,7 +65,7 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('`--timeout` under a shorter limit', describe['say'], 'one way to follow the build, on any host')
         self.assertNotIn('follow', describe)
         self.assertIn('never ends the turn between waits', describe['say'])
-        self.assertIn("start the next step's subagent first", describe['say'])
+        self.assertIn("run `visual next` first", describe['say'])
 
     def worker(self):
         spec = importlib.util.spec_from_file_location('metrics_worker_test', driver.HERE / 'worker.py')
@@ -106,8 +106,10 @@ class InputStagingTests(unittest.TestCase):
         self.assertNotIn('Doing line', describe['say'])
         self.assertIn('never a chip, the engine, a gate', describe['say'], 'command descriptions are the person\'s')
         # The desktop run drew each step's chip before starting the next step's subagent: 40 to 48 s per step against
-        # 8 to 12 s in h9 (2026-11-19).
-        self.assertIn("start the next step's subagent first, then run `visual next`", describe['say'])
+        # 8 to 12 s in h9. Started first, h18t wrote its own line while it set the subagent up and dropped the chip. The
+        # chip, fetched in a moment, goes in the same message that starts the subagent: neither waits on the other.
+        self.assertIn("run `visual next` first", describe['say'])
+        self.assertIn("in the same message that starts the next step's subagent", describe['say'])
         self.assertIn('never that the step is still running', describe['say'])
         # A first-time reader of h3 stopped at "Cards accepted on first check. Now linking related metrics (9 pairs)",
         # "the structural check" and "a tiny wrapper script": the engine's results and counts, and the agent's tooling.

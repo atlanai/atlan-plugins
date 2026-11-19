@@ -201,9 +201,9 @@ WAITED = {
     'batch': "Add no words of your own: the side page shows each batch. Set your task list to `task_list`, each step's "
              "text and status as given (load the task-list tool first if it is deferred), in the same message as your "
              "next `PROJECT drafts --wait`, so the turn goes on.",
-    'step': "Add no words of your own, not even the next step's start: start the next step's subagent if its gate result "
-            "asks for one, then run `visual next` with the flags of every `visual` call and do what it says, in this "
-            "same turn.",
+    'step': "Add no words of your own, not even the next step's start: run `visual next` with the flags of every `visual` "
+            "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
+            "if its gate result asks for one, in this same turn.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
     'quiet': "Add no words of your own: nothing new for a while. Check that each subagent is working, then run "

@@ -214,6 +214,8 @@ class Checklist(unittest.TestCase):
                                   text=True, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': entry})
         self.assertIn('journey tasks --answer', checklist_cli('').stderr)
         self.assertNotIn('journey tasks', checklist_cli('claude-desktop').stderr, 'the desktop app keeps one')
+        # d7 ran the checklist at the start and never set the app's task list: its plan tool was deferred.
+        self.assertIn('plan tool, loading it first if it is deferred', checklist_cli('claude-desktop').stderr)
         self.run.journey('tasks', answer='no')
         self.assertNotIn('journey tasks', checklist_cli('').stderr, 'asked once')
 

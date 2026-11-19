@@ -384,6 +384,7 @@ class Helper(unittest.TestCase):
             self.assertEqual(side.get('task_list'), listed, kind)
             self.assertIn("set your task list to `task_list`", side['next'], kind)
             self.assertIn('if it is deferred', side['next'], kind)
+            self.assertEqual(list(side)[-1], 'next', 'what to do comes last, so a filter on the tail keeps it')
             # Named for both hosts: left implicit, a live run set its list once and never again.
             self.assertIn('TodoWrite', side['next'], kind)
             self.assertIn("the desktop app's task list", side['next'], kind)
@@ -406,6 +407,9 @@ class Helper(unittest.TestCase):
         side = self.side(out)
         # Runs wrote their own line at each step's end ("the build continues"): it gets the step's line, in plain words.
         self.assertIn('word for word', side['next'])
+        # d7 read each result through a filter that kept its last 700 to 1,500 characters: the task list, never the
+        # instruction before it. What to do comes last.
+        self.assertEqual(list(side)[-2:], ['say', 'next'])
         self.assertIn('possible metric', side['say'])
         self.assertFalse(set('*◆❝▦»·') & set(side['say'][:2]), side['say'])
         self.assertIn('drafts --wait', side['next'])
