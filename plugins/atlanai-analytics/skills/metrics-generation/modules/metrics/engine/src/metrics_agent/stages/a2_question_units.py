@@ -313,8 +313,7 @@ def body(ctx: stage.Ctx) -> None:
 
         # A table whose statement IS its source (`statement_is_source`) names no physical
         # object, so it is a warehouse target exactly when that statement was recovered.
-        logical_of = {t["name"]: (t.get("logical_name") or "").lower() for t in facts["tables"]
-                      if (t.get("source_lineage") or {}).get("statement_is_source")}
+        logical_of = _logical_of(facts["tables"], native_by_logical)
         all_tables = [t["name"] for t in facts["tables"]
                       if (t.get("source_lineage") or {}).get("object")
                       or t["name"].count(".") >= 2
@@ -777,6 +776,27 @@ def _distinct_home(col_tables: list[str], relationships: list[dict],
         if set(col_tables) <= reach(cand):
             return cand
     return None
+
+
+def _logical_of(tables: list[dict], native_by_logical: dict) -> dict[str, str]:
+    """Physical table name -> the logical table whose native query a unit with no measure
+    reads, for `_native_for`.
+
+    A table whose statement IS its source (`statement_is_source`) names no physical object.
+    A table read through a native query that NAMES one (a `Value.NativeQuery` over a mart) is
+    the same single source: its columns are the query's outputs, which the physical object
+    may not have (a column the query computes). Only where exactly one native-query logical
+    table reads that physical name: two queries over one object cannot be told apart by it,
+    so those keep the physical binding."""
+    out = {t["name"]: (t.get("logical_name") or "").lower() for t in tables
+           if (t.get("source_lineage") or {}).get("statement_is_source")}
+    readers: dict[str, set[str]] = {}
+    for t in tables:
+        ln = (t.get("logical_name") or "").lower()
+        if ln in native_by_logical and t["name"] not in out:
+            readers.setdefault(t["name"], set()).add(ln)
+    out.update({name: next(iter(lns)) for name, lns in readers.items() if len(lns) == 1})
+    return out
 
 
 def _native_for(measures: list[str], logical_home_of: dict, native_by_logical: dict,

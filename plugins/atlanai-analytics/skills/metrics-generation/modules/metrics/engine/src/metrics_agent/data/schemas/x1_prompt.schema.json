@@ -104,6 +104,13 @@
           "queries"
         ]
       }
+    },
+    "shared_sources": {
+      "type": "object",
+      "description": "Each BI native query the bundle's statements read more than once, held once; a statement shows <shared_sources.Sn> where it stood (lib/shared_sources).",
+      "additionalProperties": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false,

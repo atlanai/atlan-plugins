@@ -64,6 +64,15 @@ the SQL, because they settle what the statement actually answers:
 Also `tables`, `aliases_seen` (what this estate's analysts called the output columns) and
 `adoption` (how often it was run).
 
+## When a statement carries `authored`
+
+An earlier gate already wrote a `question` and `description` over this same statement, with the
+dashboard widget in front of it (`widget_title`), which you do not have. Start from them: keep
+what the statement bears out, correct what it contradicts, add what it shows and they leave
+out, and write the `name`. Do not rewrite a right sentence into a different one; a re-run
+should give the same layer. A statement with `expected_hold` is not published: a question and
+one sentence are enough.
+
 ## Output
 
 ```json

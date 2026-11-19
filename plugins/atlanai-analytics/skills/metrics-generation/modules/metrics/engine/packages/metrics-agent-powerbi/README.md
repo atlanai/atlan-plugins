@@ -62,9 +62,11 @@ that applies:
 Certificate-only service principals are supported through Azure Identity; see the certificate
 and managed-identity section below for the environment variables and explicit route selection.
 
-A run that is not at a terminal (CI, a scheduler) and has neither a service principal nor a
-token is refused by name before anything is fetched; it never waits for a device code nobody
-will see.
+A run that is not at a terminal (an agent host, CI, a scheduler) reuses a person's cached
+sign-in while it has not expired (`--auth cached`): the cache is read, never renewed by
+asking, and an expired one fails by name. With no cached sign-in, no service principal and no
+token, it is refused by name before anything is fetched; it never waits for a device code
+nobody will see.
 
 ## What it fetches: the richest route your rights allow
 

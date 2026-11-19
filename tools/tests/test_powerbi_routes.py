@@ -227,7 +227,9 @@ class PlugSignInChoice(unittest.TestCase):
         self.assertIn('--sign-in-timeout', cmd)
 
     def test_not_at_a_terminal_nothing_waits(self):
-        with mock.patch.dict(x.os.environ, {'PATH': '/usr/bin'}, clear=True), \
+        # No cached sign-in either: the machine's own cache is never read by a test.
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.dict(x.os.environ, {'PATH': '/usr/bin', 'XDG_CACHE_HOME': cache}, clear=True), \
                 mock.patch.object(self.plug, 'at_terminal', return_value=False):
             self.assertIsNone(self.plug.sign_in({}))
 

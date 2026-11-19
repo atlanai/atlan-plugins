@@ -29,6 +29,7 @@ import sys
 
 
 from metrics_agent.lib import artifacts  # noqa: E402
+from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import dialect as _dialect
 from metrics_agent.lib import dimensions as dims  # noqa: E402
@@ -38,6 +39,8 @@ from metrics_agent.lib import sqlshape  # noqa: E402
 from metrics_agent.lib import measures, slugs, stage  # noqa: E402
 from metrics_agent.lib import quality as _quality  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
+from metrics_agent.lib import whgate  # noqa: E402
+from metrics_agent.lib import witness as _witness  # noqa: E402
 
 STAGE = "x3_emit"
 IN_MERGED = "merged_metrics.json"
@@ -53,6 +56,18 @@ OUT = "metric_cards.json"
 # artifact and records a `draft_vocabulary` warning against it, which never clears.
 AGGREGATIONS = ("sum", "count", "count_distinct", "min", "max", "ratio", "custom")
 DATATYPES = ("integer", "decimal", "string", "boolean", "date", "timestamp")
+# Aggregate functions the earlier gates may name that the card contract records as `custom`.
+_FUNCTION_AGGREGATIONS = {"avg", "average", "mean", "median", "mode", "percentile",
+                          "percentile_cont", "percentile_disc", "stddev", "stddev_pop",
+                          "stddev_samp", "variance", "var_pop", "var_samp", "approx_count_distinct",
+                          "listagg", "any_value"}
+
+
+def card_aggregation(value):
+    """The card contract's word for an aggregation the earlier gates named by its function;
+    anything else unchanged (an unknown word is still refused by the contract)."""
+    word = str(value or "").strip().lower()
+    return "custom" if word in _FUNCTION_AGGREGATIONS else value
 
 REQUIRED = ("name", "description", "domain", "formula", "population",
             "aggregation", "output", "source")
@@ -185,6 +200,11 @@ def _emit(ctx: stage.Ctx) -> None:
     max_values = ctx.policy.get("metrics.dimensions.max_values_per_dimension")
 
     dialect, bi_rel = _dialect_and_relationships(merged, stmts)
+    # The BI units the statements were compiled from: a unit over a native query hands the
+    # card its FROM clause ready-made (`derived_source`).
+    qu = ctx.run / "question_units.json"
+    units = ({u["unit_id"]: u for u in json.loads(qu.read_text()).get("units") or []}
+             if qu.is_file() else {})
     want = (ctx.args.name or "").strip().lower()
     metrics = [m for m in merged["metrics"]
                if not want or m["name"].strip().lower() == want]
@@ -234,14 +254,20 @@ def _emit(ctx: stage.Ctx) -> None:
         # synonyms), grain and examples. Shown whole, so nothing the model says is lost on the
         # way to the card; X3 also completes the card from it, so none of it is retyped.
         declared = _declared_sources(m, stmts)
+        derived = None if declared else _derived_source(
+            [((stmts[s["vq_id"]].get("provenance") or {}).get("bi") or {}).get("unit_id")
+             for s in sources], units, dialect)
         tasks.append({
             "metric_id": m.get("metric_id"),
             "name": m["name"],
             **({"declared": declared[0]} if declared else {}),
-            "merged": {k: m.get(k) for k in
-                       ("definition", "expression", "entity", "aggregation", "grain", "unit",
-                        "mandatory_filters", "optional_filters", "dimensions",
-                        "merge_reasoning")},
+            **({"derived_source": derived} if derived else {}),
+            "merged": {**{k: m.get(k) for k in
+                          ("definition", "expression", "entity", "aggregation", "grain", "unit",
+                           "mandatory_filters", "optional_filters", "dimensions",
+                           "merge_reasoning")},
+                       # In the card's own vocabulary, so it can be copied as it stands.
+                       "aggregation": card_aggregation(m.get("aggregation"))},
             "n_sources": len(sources),
             "sources": sources,
             # WHAT THE SQL ITSELF EVIDENCES, PARSED. Not a draft of the answer — the author
@@ -273,6 +299,8 @@ def _emit(ctx: stage.Ctx) -> None:
     # The bundle is a question, not an artifact of the layer — same as X1 and X2.
     artifacts.dump(ctx.run / PROMPT, doc, "x3_prompt.schema.json", indent=1, newline=False)
     ctx.entry.outputs.append(str(ctx.run / PROMPT))
+    # One copy of each native query the statements repeat (lib/shared_sources).
+    _shared.rewrite(ctx.run / PROMPT, "x3_prompt.schema.json", ctx.run, indent=1, newline=False)
     ctx.count(metrics=len(tasks), sources=sum(t["n_sources"] for t in tasks))
     ctx.say(f"x3: wrote {PROMPT} — {len(tasks)} metric(s) carrying "
             f"{sum(t['n_sources'] for t in tasks)} statement(s) in full. Answer it with the "
@@ -399,7 +427,7 @@ def _statement_tables(metric: dict, stmts: dict) -> set[str]:
 
 
 _MARKER = re.compile(r"\{\{\s*([A-Za-z_]\w*)\s*\}\}")
-_DATE_LITERAL = re.compile(r"(?i)(?:\bDATE\s*)?'\d{4}-\d{2}-\d{2}(?:[ T][0-9:.]+)?'")
+_DATE_LITERAL = _card_sql.DATE_LITERAL
 _IDENT_PART = r'(?:[A-Za-z_][\w$]*|"[^"]+"|`[^`]+`|\[[^\]]+\])'
 _BARE_COLUMN = re.compile(rf"^{_IDENT_PART}(?:\.{_IDENT_PART})*$")
 
@@ -518,6 +546,15 @@ def _ingest(ctx: stage.Ctx) -> None:
         ctx.authored(path, kind="authored_metric_cards")
         ctx.note_input_path(path)
         payload = json.loads(path.read_text())
+        # ONE VOCABULARY. X1 and X2 name an aggregate by its function (`avg`, `median`); the
+        # card contract names it `custom`, the formula carrying the function. The word the
+        # earlier gates used is translated, never refused: nothing the card says is lost.
+        for a in (payload.get("metrics") or []) if isinstance(payload, dict) else []:
+            agg = a.get("aggregation") if isinstance(a, dict) else None
+            if isinstance(agg, dict) and card_aggregation(agg.get("type")) != agg.get("type"):
+                ctx.say(f"x3: {a.get('name')!r}: aggregation {agg.get('type')!r} is recorded "
+                        f"as 'custom'; its formula carries the function.")
+                agg["type"] = card_aggregation(agg.get("type"))
         # THE SHAPE FIRST, THEN THE READING. `authored_metric_cards.schema.json` mirrors the
         # registry's own metric contract, which is `deny_unknown_fields` all the way down: an
         # extra key anywhere fails typed deserialisation before a single gateway rule runs and
@@ -979,6 +1016,14 @@ def _ingest(ctx: stage.Ctx) -> None:
                             f"{len(names)} metrics ({', '.join(names)}); it must be on exactly "
                             f"one.")
 
+    # ── A CARD THAT DOES NOT RUN IS REFUSED AT THIS GATE ────────────────────
+    # Only once every other check passed, and only where the run was granted the warehouse.
+    # The statements behind the card ran at A4; a card composed from them that the warehouse
+    # refuses (a column its derived table does not return, an alias written twice) is the
+    # author's to repair here, not a defect found after publication.
+    if not problems and not faults and whgate.allows_warehouse(str(run_inputs.get("witness_mode") or "")):
+        problems.extend(_card_witness(cards, run_inputs, dialect, ctx))
+
     unanswered = [n for n in by_name if n not in seen]
 
     # ── A REFUSAL AN AUTHOR CAN ACT ON, NOT JUST A TRACEBACK ────────────────
@@ -1056,6 +1101,71 @@ def _ingest(ctx: stage.Ctx) -> None:
     ctx.say(f"x3: {len(cards)} card(s) authored — "
             f"{sum(1 for c in cards if c.get('joins'))} declare a join, "
             f"{sum(1 for c in cards if c.get('dimensions'))} declare dimensions.")
+
+
+def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.Ctx) -> list[str]:
+    """One problem per card whose canonical statement the warehouse refuses.
+
+    An access limit or an unreachable warehouse is missing infrastructure, never a refused
+    card (hard rule 4): it is said and the cards pass on what was checked without it."""
+    mode = str(run_inputs.get("witness_mode") or "")
+    try:
+        eng = _runtime.sql_runner(run_inputs, dialect)
+        eng.connect()
+    except Exception as exc:  # noqa: BLE001 - by type only: a message can carry a DSN
+        ctx.say(f"x3: the cards were not run against the warehouse ({type(exc).__name__}); "
+                f"they are checked by parsing only.")
+        return []
+    out = []
+    try:
+        for card in cards:
+            sql = _card_sql.canonical_statement(card)
+            if not sql:
+                continue
+            v = _witness.witness(sql, dialect, mode, eng=eng, limit=1, sample_rows=0)
+            if v.get("result") in ("fail", "missing_object", "parse_failed"):
+                out.append(f"{card['name']}: the warehouse refused the card's statement "
+                           f"(formula, source.sql and mandatory_filters composed): "
+                           f"{str(v.get('error') or v.get('result'))[:300]}. Repair the "
+                           f"field it names; the statements behind the card ran.")
+    finally:
+        try:
+            eng.close()
+        except Exception:  # noqa: BLE001
+            pass
+    return out
+
+
+def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
+    """The FROM clause a card over a BI native query reads, built from that query.
+
+    Every source statement compiled from a unit over ONE native query: the query, comments
+    removed through the AST and rendered, as a derived table under the logical table's name.
+    The author uses it as written instead of retyping it. None otherwise."""
+    natives = set()
+    native = None
+    for uid in unit_ids:
+        ns = (units.get(uid or "") or {}).get("native_source")
+        if not ns or not ns.get("sql"):
+            return None
+        natives.add(ns["sql"])
+        native = ns
+    if not unit_ids or len(natives) != 1 or native is None:
+        return None
+    try:
+        body = sqlshape.render(sqlshape.strip_comments(sqlshape.parse(native["sql"], dialect)),
+                               dialect)
+    except Exception:  # noqa: BLE001 - a query the parser cannot render is not offered
+        return None
+    alias = re.sub(r"[^a-z0-9_]", "_", str(native.get("logical") or "source").lower()).strip("_") \
+        or "source"
+    if alias[0].isdigit():
+        alias = "t_" + alias
+    return {"sql": f"(\n{body}\n) AS {alias}", "alias": alias,
+            "columns": sorted({str(c).lower() for c in (native.get("columns") or {}).values()}),
+            "how_to_use": f"The source statements read this query, not the table it names. "
+                          f"Use it as source.sql exactly as written, and refer to its columns "
+                          f"as {alias}.<column> in formula, mandatory_filters and dimensions."}
 
 
 def _declared_sources(m: dict, stmts: dict) -> list[dict]:

@@ -104,6 +104,19 @@ synonyms), `examples`, `timeframe_column`, `description` (the metric's comment) 
   SQL or question;
 * the card takes the model's name for the metric; yours is kept as a synonym.
 
+## A task with `derived_source`
+
+The source statements read a BI model's native query, not the table it names: their columns
+are that query's outputs, and some exist nowhere else. The task hands you that query as a
+FROM clause, comments removed, under one name (`alias`). So:
+
+* set `source.sql` to `derived_source.sql` exactly as written, and `source.entity` to the
+  table the query reads;
+* refer to its columns as `<alias>.<column>` in `formula`, `mandatory_filters`,
+  `dimensions` and `grain`; `columns` lists them;
+* do not retype, shorten or re-alias the query. Join to it only when a dimension needs
+  another table.
+
 ---
 
 ## What the BI tool says about the number

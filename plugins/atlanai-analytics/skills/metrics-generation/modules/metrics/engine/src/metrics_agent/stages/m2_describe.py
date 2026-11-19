@@ -39,6 +39,7 @@ import sys
 
 
 from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
+from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import sqlshape as S  # noqa: E402
 from metrics_agent.lib import dialect as _dialect
@@ -172,6 +173,19 @@ def _outer_select(sql: str, dialect: str) -> dict:
     return out
 
 
+def _authored(o: dict) -> dict:
+    """The question and description already on a statement, and its widget's title. A
+    question C3 derived structurally (no author) is not offered: it is the SQL restated."""
+    if any("derived structurally" in str(g) for g in (o.get("gotchas") or [])):
+        return {}
+    widget =((((o.get("provenance") or {}).get("bi") or {}).get("bi_context") or {})
+              .get("widget") or {})
+    out = {k: o.get(k) for k in ("question", "description") if str(o.get(k) or "").strip()}
+    if widget.get("title"):
+        out["widget_title"] = widget["title"]
+    return out
+
+
 def _emit(ctx: stage.Ctx) -> None:
     layer = ctx.read(IN, "verified_queries.schema.json")
     objs = layer["objects"]
@@ -192,6 +206,8 @@ def _emit(ctx: stage.Ctx) -> None:
         by_domain.setdefault(o.get("domain") or "unknown", []).append(o)
 
     dialect = _dialect.of(layer, "verified_queries.json")
+    from metrics_agent.lib import early_holds  # noqa: PLC0415
+    held = early_holds.predicted(ctx.run)
     tasks = []
     for dom, group in sorted(by_domain.items()):
         tasks.append({
@@ -211,6 +227,11 @@ def _emit(ctx: stage.Ctx) -> None:
                 "aliases_seen": o.get("aliases") or [],
                 "lane": (o.get("provenance") or {}).get("lane"),
                 "adoption": ((o.get("provenance") or {}).get("history") or {}),
+                # WHAT AN EARLIER GATE ALREADY WROTE over this statement, with the widget in
+                # front of it (C3 for a BI statement). Shown so it is reviewed rather than
+                # rewritten from the SQL alone; the answer is still this gate's.
+                **({"authored": _authored(o)} if _authored(o) else {}),
+                **({"expected_hold": held[o["vq_id"]]} if o["vq_id"] in held else {}),
             } for o in group],
         })
     artifacts.dump(
@@ -225,6 +246,8 @@ def _emit(ctx: stage.Ctx) -> None:
          "fields": {"required": list(REQUIRED), "optional": list(OPTIONAL)},
          "tasks": tasks}, "m2_prompt.schema.json", indent=1)
     ctx.entry.outputs.append(str(ctx.run / PROMPT))
+    # One copy of each native query the statements repeat (lib/shared_sources).
+    _shared.rewrite(ctx.run / PROMPT, "m2_prompt.schema.json", ctx.run, indent=1)
     ctx.count(queries=len(objs), domains=len(tasks),
               only_provisional=bool(ctx.args.only_provisional))
     ctx.say(f"m2: wrote {PROMPT} — {len(objs)} statement(s) across {len(tasks)} domain(s). "

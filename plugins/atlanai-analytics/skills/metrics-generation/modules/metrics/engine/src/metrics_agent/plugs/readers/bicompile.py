@@ -10218,6 +10218,15 @@ def _plan_filters(unit: dict, rules, alias: str, res: Result,
                 deferred.append({**f, "_why": "no-value"})
             elif special is not None and colmap is None:
                 special["members"].append(f)
+            elif (special is not None and op == "top_n" and isinstance(f.get("value"), dict)
+                  and str(f["value"].get("population") or "") == "filtered"
+                  and str(column).lower() in colmap):
+                # Over a native query: a Top N ranked within the view's own filters ranks by
+                # the measure as the statement computes it (`compile_by`, which reads the
+                # query's columns), so only the member column needs the query's spelling.
+                # Other member filters compile their expression without that map: deferred.
+                special["members"].append({**f, "column": _ident(colmap[str(column).lower()]),
+                                           "table": None})
             else:
                 deferred.append({**f, "_why": "member-filter"})
             continue

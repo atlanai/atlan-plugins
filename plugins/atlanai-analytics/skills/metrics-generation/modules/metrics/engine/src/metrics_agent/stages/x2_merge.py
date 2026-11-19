@@ -39,6 +39,7 @@ import sys
 
 
 from metrics_agent.lib import artifacts  # noqa: E402
+from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import consistency as K  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
@@ -138,6 +139,8 @@ def _emit(ctx: stage.Ctx) -> None:
         **({"same_number_hints": hints} if hints else {}),
         "groups": groups}, "x2_prompt.schema.json", indent=1)
     ctx.entry.outputs.append(str(ctx.run / PROMPT))
+    # One copy of each native query the statements repeat (lib/shared_sources).
+    _shared.rewrite(ctx.run / PROMPT, "x2_prompt.schema.json", ctx.run, indent=1)
     ctx.count(proposals=len(props), entity_groups=len(groups))
     ctx.say(f"x2: wrote {PROMPT} — {len(props)} proposal(s) across {len(groups)} entity "
             f"group(s). Answer with the `merge-metrics` skill, then re-run with --from. "

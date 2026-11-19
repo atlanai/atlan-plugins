@@ -41,9 +41,11 @@ import sys
 
 
 from metrics_agent.lib import filter_text as _filter_text  # noqa: E402
+from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
 from metrics_agent.lib import declared as _declared  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
+from metrics_agent.lib import card_sql as _card_sql  # noqa: E402
 from metrics_agent.lib import stage  # noqa: E402
 
 STAGE = "x1_propose"
@@ -159,6 +161,8 @@ def _emit(ctx: stage.Ctx) -> None:
                    "per_metric_optional": list(PROPOSAL_OPTIONAL)},
         "tasks": tasks}, "x1_prompt.schema.json", indent=1)
     ctx.entry.outputs.append(str(ctx.run / PROMPT))
+    # One copy of each native query the statements repeat (lib/shared_sources).
+    _shared.rewrite(ctx.run / PROMPT, "x1_prompt.schema.json", ctx.run, indent=1)
     ctx.count(queries=len(objs), domains=len(tasks),
               aggregates_offered=sum(len(by_vq.get(o["vq_id"], [])) for o in objs))
     ctx.say(f"x1: wrote {PROMPT} — {len(objs)} statement(s) across {len(tasks)} domain(s), "
@@ -182,8 +186,8 @@ def _ingest(ctx: stage.Ctx) -> None:
     for task in (bundle.get("tasks") or []):
         for q in (task.get("queries") or []):
             offered[q.get("vq_id")] = {
-                _squash(a.get("expression")) for a in (q.get("aggregates_found") or [])
-                if a.get("expression")}
+                _squash(_shared.expand(a.get("expression"), bundle.get("shared_sources")))
+                for a in (q.get("aggregates_found") or []) if a.get("expression")}
 
     paths: list[pathlib.Path] = []
     for pat in (ctx.args.answers or []):
@@ -308,6 +312,17 @@ def _ingest(ctx: stage.Ctx) -> None:
                             f"{path.name}: {vq} metric {i} leaves out the source filter "
                             f"{col} {f.get('op')} {f.get('value')}: it defines the rows of the "
                             f"table the statement reads. Put it in `mandatory_filters`.")
+                # A DATE IS A PERIOD, AND PERIODS MOVE. The card refuses a date literal in a
+                # mandatory filter (it is a parameter's default there); a proposal that makes one
+                # mandatory would carry the mistake through the merge to that refusal. Optional
+                # filters are where a date window belongs, as this gate's skill says.
+                for k, f in enumerate(m.get("mandatory_filters") or []):
+                    hit = _card_sql.DATE_LITERAL.search(str(f))
+                    if hit:
+                        problems.append(
+                            f"{path.name}: {vq} metric {i} mandatory_filters[{k}] carries the "
+                            f"date literal {hit.group(0)}. A date window is optional: move it "
+                            f"to optional_filters.")
                 nm = str(m.get("name") or "").strip()
                 # A NAME IS SPOKEN, NEVER AN IDENTIFIER (anything with an underscore in it).
                 # `signoff_count` names a column; the merge and the card inherit whatever is
