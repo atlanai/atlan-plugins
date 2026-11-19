@@ -121,8 +121,16 @@ Result = Compiled          # the socket's result type; this name is the engine's
 
 
 # --------------------------------------------------------------------------- expressions
-def _strip_line_comments(text: str) -> str:
-    """Drop `// …` to end of line outside string literals (Tableau and DAX both use it)."""
+def _strip_line_comments(text: str, dax: bool = True) -> str:
+    """Drop comments outside string literals. `// …` to end of line in every language (Tableau
+    and DAX both use it). DAX also comments with `-- …` to end of line and `/* … */` blocks
+    (`dax`), and both are everywhere in real models: a measure kept with its old version
+    commented out above it, a note after a SWITCH branch. Read as code, `-- DISTINCTCOUNT(x)`
+    became two minus signs and an aggregate, and the refusal that came out
+    (`trailing tokens from 'COUNTROWS'`, `unexpected '/'`, `unreadable character '$'`) named
+    text the author had switched off. In DAX a `[…]` name may hold any of these characters,
+    so a bracketed name is copied as it is. Tableau has neither form (`--x` there is a double
+    negation), so its formulas keep `//` only."""
     out, i, n, q = [], 0, len(text), None
     while i < n:
         ch = text[i]
@@ -133,9 +141,20 @@ def _strip_line_comments(text: str) -> str:
         elif ch in "'\"":
             q = ch
             out.append(ch)
-        elif text[i:i + 2] == "//":
+        elif dax and ch == "[":
+            j = text.find("]", i)
+            j = n - 1 if j < 0 else j
+            out.append(text[i:j + 1])
+            i = j + 1
+            continue
+        elif text[i:i + 2] == "//" or (dax and text[i:i + 2] == "--"):
             while i < n and text[i] != "\n":
                 i += 1
+            continue
+        elif dax and text[i:i + 2] == "/*":
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            out.append(" ")
             continue
         else:
             out.append(ch)
@@ -143,9 +162,11 @@ def _strip_line_comments(text: str) -> str:
     return "".join(out)
 
 
-def tokenize(text: str) -> list[tuple[str, str]]:
+def tokenize(text: str, dax: bool = True) -> list[tuple[str, str]]:
+    """The tokens of a formula, comments dropped (`_strip_line_comments`). `dax` is False only
+    for a Tableau calculation (`_tokens`): every other caller reads DAX."""
     out: list[tuple[str, str]] = []
-    text = _strip_line_comments(text or "")
+    text = _strip_line_comments(text or "", dax)
     i = 0
     while i < len(text):
         m = _TOKEN.match(text, i)
@@ -872,7 +893,9 @@ class _Parser:
           USERELATIONSHIP     the join along the named inactive relationship; the statement's
                               join plan was switched before compiling (compile_unit).
           a date set          DATESYTD, SAMEPERIODLASTYEAR, DATEADD, ...: the aggregates read
-                              the dates of that set (`_compile_time_unit`).
+                              the dates of that set (`_compile_time_unit`); also the
+                              date-table lookup `FILTER(ALL(D), D[c] IN VALUES(D[p]))`
+                              (`_lookup_dates`).
 
         Anything else (a measure predicate, a variable, another table function) returns None
         and the rule table's declared limit names CALCULATE.
@@ -916,6 +939,8 @@ class _Parser:
                     date_sets.append(self._date_set(head, inner))
                 elif (running := self._running_dates(toks)) is not None:
                     date_sets.append(running)
+                elif (looked := self._lookup_dates(toks)) is not None:
+                    date_sets.append(looked)
                 elif head == "FILTER":
                     conds.append(self._filter_table(inner, overrides))
                 elif head == "TREATAS":
@@ -3442,6 +3467,45 @@ class _Parser:
         self.used.append("engine.dax_time_running_total")
         return _DateSet("to_date", col, period=None)
 
+    def _lookup_dates(self, toks) -> "_DateSet | None":
+        """The prior-period date set retail models write with a date table's own mapping
+        column instead of a time-intelligence function:
+
+            FILTER(ALL('Date'), 'Date'[Calendar Date] IN VALUES('Date'[Previous Year Same Date]))
+
+        For the visual's row, the dates whose `Calendar Date` is one of the row's dates'
+        `Previous Year Same Date` values: last year's same days, by whatever rule the date
+        table encodes (a 364-day retail year, a fiscal calendar), which no fixed shift
+        reproduces. ALL / REMOVEFILTERS of the date table takes every other filter on it off,
+        as for any date set. Read through the relationship the measure's table reaches the
+        date table on, whatever its key (a `Date Sk` integer as often as the date itself), so
+        the set is mapped onto that key (`_compile_time_unit`). None for any other filter."""
+        head, inner = _call_head(toks)
+        if head != "FILTER" or self.ctx is None:
+            return None
+        parts = _split_top(inner)
+        if len(parts) != 2:
+            return None
+        th, tin = _call_head(parts[0])
+        if th not in ("ALL", "REMOVEFILTERS"):
+            return None
+        table = self._table_arg(tin)
+        pred = parts[1]
+        at = [i for i, (k, v) in enumerate(pred) if k == "func" and v.upper() == "IN"]
+        if table is None or len(at) != 1:
+            return None
+        left, right = pred[:at[0]], pred[at[0] + 1:]
+        vh, vin = _call_head(right)
+        match, via = self._column_arg(left), self._column_arg(vin) if vh in (
+            "VALUES", "DISTINCT") else None
+        if match is None or via is None or match[1] != table or via[1] != table:
+            return None
+        key = _lookup_key(self.ctx, table)
+        if key is None:
+            return None
+        self.used.append("engine.dax_time_lookup")
+        return _DateSet("lookup", key, match=match[0], via=via[0])
+
     def _today(self, toks) -> "_SqlDate | None":
         """`TODAY()` / `UTCTODAY()` as one argument: the current date in UTC as the dialect
         spells the current moment (the `op.relative_range` row's `now`), else None."""
@@ -3542,7 +3606,10 @@ class _DateSet:
       parallel   the whole periods (`months` long) from the row's first to its last date,
                  `n` periods on; PREVIOUS* is the one period before the first date;
       in_period  `n` days or months back from (or on from) the row's last date;
-      between    two literal dates."""
+      between    two literal dates;
+      lookup     the dates whose `match` column is one of the row's dates' `via` values
+                 (`FILTER(ALL(D), D[match] IN VALUES(D[via]))`); `column` is then the key
+                 the measure's table reaches the date table on, not a date column."""
 
     def __init__(self, kind: str, column: tuple[str, str], **kw: Any) -> None:
         self.kind, self.column = kind, column
@@ -3556,12 +3623,13 @@ class _DateSet:
         self.anchor = kw.get("anchor")
         self.anchor_fact = kw.get("anchor_fact")
         self.open_end = kw.get("open_end", False)
+        self.match, self.via = kw.get("match"), kw.get("via")
 
     @property
     def key(self) -> tuple:
         return (self.kind, self.column, self.period, self.year_end, self.part, self.n,
                 self.months, self.previous, self.lo, self.hi, self.anchor, self.anchor_fact,
-                self.open_end)
+                self.open_end, self.match, self.via)
 
 
 class _SqlDate(str):
@@ -3798,6 +3866,9 @@ class _UnitContext:
         self.row_formulas: set[str] = set()
         # (date table, its date column) -> how the measure's table reaches it.
         self.date_keys: dict[tuple[str, str], dict] = {}
+        # (key column, date table) -> how the statement's table reaches the date table, for a
+        # lookup date set (`_lookup_key`): any key, a date or not.
+        self.lookup_keys: dict[tuple[str, str], dict] = {}
         self.graph: list[dict] = []
         self.text_key = False
         self.source_compared = False
@@ -4088,7 +4159,7 @@ def _tokens(formula: str, language: str) -> list:
     """The tokens of one formula. EVERY formula the compiler reads comes through here — a
     measure, a grouping calc, a measure inlined into another. A level-of-detail expression
     is read by the parser (`_lod`), which refuses it by name where it has no statement."""
-    return tokenize(formula)
+    return tokenize(formula, dax=language not in _LOD_LANGUAGES)
 
 
 def _lod_refusal(kind: str, why: str = "") -> CompileError:
@@ -7253,9 +7324,17 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
                       if columns_used else "no date set compiled")
         return res
     dkey = next(iter(columns_used))
-    info = ctx.date_keys[dkey]
+    info = ctx.date_keys.get(dkey) or ctx.lookup_keys[dkey]
     dtab, dcol, fcol = info["table"], info["column"], info["fact_column"]
     dbare = _bare(dtab)
+    if dkey in ctx.lookup_keys and dkey not in ctx.date_keys:
+        # A lookup date set reads the date table through its key, which the model may show
+        # under another name than the warehouse's (`Date Sk` read as `date_sk`).
+        dcol = ctx.renames.get((dbare, dcol.lower()), dcol)
+        fcol = ctx.renames.get((_bare(source), fcol.lower()), fcol)
+
+    def _date_col(c: str) -> str:
+        return ctx.renames.get((dbare, c.lower()), c)
 
     sp: dict[str, list] = {"datasource": [], "members": [], "measure_tests": [],
                            "display": []}
@@ -7587,7 +7666,17 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
                 return res
             res.rules_used.append("engine.dax_date_set_in_period")
             continue
-        if ds is not None and ds.kind == "shift":
+        if ds is not None and ds.kind == "lookup":
+            # The row's dates' `via` values, then the date table's rows whose `match` is one
+            # of them, by the key the fact reaches the date table on.
+            ctx_sql = ("(\n    SELECT DISTINCT " + ", ".join(dk + [f"d.{_date_col(ds.via)} AS dt"])
+                       + f"\n    FROM   {dtab} d" + where_d + "\n  ) c")
+            ck = [f"c.k{i + 1}" for i in mine_d]
+            setq = ("(\n  SELECT DISTINCT " + ", ".join(ck + [f"s.{dcol} AS dt"])
+                    + f"\n  FROM   {ctx_sql}\n  JOIN {dtab} s ON s.{_date_col(ds.match)} = c.dt"
+                    + "\n) c")
+            body = f"FROM   {setq}\nJOIN {source} {alias} ON {alias}.{fcol} = c.dt"
+        elif ds is not None and ds.kind == "shift":
             part = f"PARTITION BY {', '.join(dg)} " if dg else ""
             ctx_sql = ("(\n    SELECT " + ", ".join(dk + [f"d.{dcol} AS dt",
                                                      f"LAG(d.{dcol}) OVER ({part}ORDER BY "
@@ -7663,7 +7752,8 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
                 res.rules_used.append("engine.dax_date_set_fact_anchor")
             try:
                 for step in chain.steps:
-                    outs = [_date_step(x, rel, kc_all, dtab, dcol, fmt, anchor_of(x))
+                    outs = [_date_step(x, rel, kc_all, dtab, dcol, fmt, anchor_of(x),
+                                       date_col=_date_col)
                             for x in step]
                     if len(outs) > 1:
                         res.rules_used.append("engine.dax_date_sets_intersected")
@@ -7743,7 +7833,7 @@ def _shift_bounds(ds: "_DateSet", fmt) -> tuple[str, str]:
 
 
 def _date_step(ds: "_DateSet", rel: str, kc: list[str], dtab: str, dcol: str, fmt,
-               anchor=None) -> str:
+               anchor=None, date_col=lambda c: c) -> str:
     """One date set read from the dates `rel` holds (columns `kc` and `dt`): the dates it
     gives for each of `rel`'s rows of the visual, as the same columns. A period back from
     the last date of the measure's own table reads that date over the fact rows of `rel`'s
@@ -7751,6 +7841,13 @@ def _date_step(ds: "_DateSet", rel: str, kc: list[str], dtab: str, dcol: str, fm
     inner = _indent(rel, "      ")
     part = f"PARTITION BY {', '.join(kc)} " if kc else ""
     ck = [f"c.{k}" for k in kc]
+    if ds.kind == "lookup":
+        # `rel` holds the key the fact reaches the date table on: each of its rows' `via`
+        # value, then the rows whose `match` is one of them.
+        return ("SELECT DISTINCT " + ", ".join(ck + [f"s.{dcol} AS dt"])
+                + f"\nFROM   (\n{inner}\n) c"
+                + f"\nJOIN {dtab} v ON v.{dcol} = c.dt"
+                + f"\nJOIN {dtab} s ON s.{date_col(ds.match)} = v.{date_col(ds.via)}")
     if ds.anchor_fact and anchor is not None:
         lo, hi = _date_set_range(ds, fmt)
         ctx_sql = "(\n" + _indent(anchor(rel), "    ") + "\n  ) c"
@@ -9561,6 +9658,33 @@ def _date_keys(graph: list[dict], source: str, types: dict[tuple[str, str], str]
             out[(str(fcol).lower(), _bare(far))] = {
                 "table": far, "column": str(fcol), "fact_column": str(ncol)}
     return out
+
+
+def _lookup_key(ctx: "_UnitContext", table: str) -> tuple[str, str] | None:
+    """The key a lookup date set (`_Parser._lookup_dates`) reaches `table` (bare) on: the one
+    active relationship from the statement's table whose ONE end is on `table`, any data type.
+    Registered in `ctx.lookup_keys`, so the date-set statement joins on it. None when there is
+    no such relationship, or more than one (which key the tool filters through is then the
+    model's choice, not one this reads)."""
+    src = ctx.source
+    hits = {}
+    for e in ctx.graph:
+        if e.get("is_active") is False or str(e.get("kind") or "relationship") in _NOT_WALKED:
+            continue
+        fs, ts = _card_ends(e.get("cardinality"))
+        for near, far, ncol, fcol, far_end in (
+                (e.get("from_table"), e.get("to_table"), e.get("from_column"),
+                 e.get("to_column"), ts),
+                (e.get("to_table"), e.get("from_table"), e.get("to_column"),
+                 e.get("from_column"), fs)):
+            if _bare(near) == src and far_end == "one" and _bare(far) == table:
+                hits[(str(fcol).lower(), _bare(far))] = {
+                    "table": far, "column": str(fcol), "fact_column": str(ncol)}
+    if len(hits) != 1:
+        return None
+    key, info = next(iter(hits.items()))
+    ctx.lookup_keys[key] = info
+    return key
 
 
 def _measure_elsewhere(m: dict, unit: dict, source: str,
