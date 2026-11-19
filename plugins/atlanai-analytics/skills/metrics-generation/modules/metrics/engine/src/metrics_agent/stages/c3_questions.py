@@ -156,6 +156,13 @@ def _validate_model_output(rows: list[dict], cands: list[dict],
             )
         if not str(r.get("question", "")).strip():
             raise SystemExit(f"c3 output row {i} ({cid}): empty question")
+        # The rule M2 applies to the same field, applied where the question is written: M2
+        # starts from this wording, so a label here (a held item's "Title (held)") is
+        # refused one gate later, after a whole M2 pass.
+        if not str(r["question"]).strip().rstrip(" \"')»”’").endswith("?"):
+            raise SystemExit(f"c3 output row {i} ({cid}): `question` does not end in a "
+                             f"question mark — write the business question, not a label for "
+                             f"it")
         _ev.validate(r.get("evidence_citations", []))
         # A claim is only checkable if it is STATED as a predicate. Free prose cannot be
         # verified against a statement without guessing, so C4's faithfulness gate reads

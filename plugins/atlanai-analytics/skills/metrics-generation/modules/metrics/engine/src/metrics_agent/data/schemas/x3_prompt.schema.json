@@ -87,6 +87,10 @@
               "alias": {
                 "type": "string"
               },
+              "entity": {
+                "type": "string",
+                "description": "The warehouse table the query reads, for source.entity."
+              },
               "columns": {
                 "type": "array",
                 "items": {

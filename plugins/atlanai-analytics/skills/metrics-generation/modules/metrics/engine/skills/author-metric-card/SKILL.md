@@ -110,7 +110,8 @@ The source statements read a BI model's native query, not the table it names: th
 are that query's outputs, and some exist nowhere else. The task hands you that query as a
 FROM clause, comments removed, under one name (`alias`). So:
 
-* set `source.sql` to `derived_source.sql` exactly as written, and `source.entity` to the
+* set `source.sql` to `derived_source.sql` exactly as written, and `source.entity` to
+  `derived_source.entity` when it is given, else to the
   table the query reads;
 * refer to its columns as `<alias>.<column>` in `formula`, `mandatory_filters`,
   `dimensions` and `grain`; `columns` lists them;

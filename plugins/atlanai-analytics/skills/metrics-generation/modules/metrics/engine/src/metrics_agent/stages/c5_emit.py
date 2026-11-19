@@ -33,6 +33,18 @@ STAGE = "c5_emit"
 OUT = "verified_queries.bi.json"
 
 
+def _filter_record(f: dict) -> dict:
+    """One filter as a verified query records it. Polarity and provenance travel with the
+    predicate: without `negated` a NOT IN list reads as the IN list it excludes, and without
+    `in_source` X1 cannot tell a native query's own WHERE (mandatory on every metric over it)
+    from a choice the question made."""
+    return {"column": f["column"], "op": f["op"],
+            "value": (str(f["value"]) if f.get("value") is not None else None),
+            "stage": f.get("stage"),
+            **{k: f[k] for k in ("negated", "value_kind", "scope_tables", "in_source")
+               if k in f}}
+
+
 def body(ctx: stage.Ctx) -> None:
     ri = ctx.read("run_inputs.json", "run_inputs.schema.json")
     report = ctx.read("verify_report.json", "verify_report.schema.json")
@@ -123,10 +135,7 @@ def body(ctx: stage.Ctx) -> None:
             "domain": c["domain"],
             "tables": c["tables"],
             "joins": c.get("joins", []),
-            "filters": [{"column": f["column"], "op": f["op"],
-                         "value": (str(f["value"]) if f.get("value") is not None else None),
-                         "stage": f.get("stage")}
-                        for f in c.get("filters", [])],
+            "filters": [_filter_record(f) for f in c.get("filters", [])],
             "group_by": c["group_by"],
             "grain": c["grain"],
             "klass": c["klass"],

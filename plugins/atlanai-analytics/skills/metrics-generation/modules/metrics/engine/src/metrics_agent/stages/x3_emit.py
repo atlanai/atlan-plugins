@@ -1144,12 +1144,16 @@ def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
     The author uses it as written instead of retyping it. None otherwise."""
     natives = set()
     native = None
+    reads = set()
     for uid in unit_ids:
-        ns = (units.get(uid or "") or {}).get("native_source")
+        unit = units.get(uid or "") or {}
+        ns = unit.get("native_source")
         if not ns or not ns.get("sql"):
             return None
         natives.add(ns["sql"])
         native = ns
+        # The physical table the unit reads through the query: A2 puts it first.
+        reads.add(str((unit.get("warehouse_tables") or [""])[0]))
     if not unit_ids or len(natives) != 1 or native is None:
         return None
     try:
@@ -1161,10 +1165,14 @@ def _derived_source(unit_ids: list, units: dict, dialect: str) -> dict | None:
         or "source"
     if alias[0].isdigit():
         alias = "t_" + alias
+    entity = next(iter(reads)).upper() if len(reads) == 1 and "" not in reads else None
     return {"sql": f"(\n{body}\n) AS {alias}", "alias": alias,
+            **({"entity": entity} if entity else {}),
             "columns": sorted({str(c).lower() for c in (native.get("columns") or {}).values()}),
             "how_to_use": f"The source statements read this query, not the table it names. "
-                          f"Use it as source.sql exactly as written, and refer to its columns "
+                          f"Use it as source.sql exactly as written"
+                          + (f", set source.entity to {entity}" if entity else "")
+                          + f", and refer to its columns "
                           f"as {alias}.<column> in formula, mandatory_filters and dimensions."}
 
 
