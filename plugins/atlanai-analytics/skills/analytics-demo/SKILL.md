@@ -121,8 +121,7 @@ When the context is saved, or kept on this machine, read
 to ask?" with the ready block as its text, offering two supported questions and the
 person's own. Do not put an Ask AI menu before the question list. Answer the question or
 questions the person selects or supplies, then, in the same turn, ask the native "What would
-you like to do next?", its text the answer and proof links as plain lines
-(as [conventions](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost) says).
+you like to do next?", its text as [the tour](references/tour.md#after-the-first-answer) says.
 This overrides ready's `Next:` line: a demo answer always ends on this question, as does a
 dashboard or an edit:
 

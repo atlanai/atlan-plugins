@@ -103,7 +103,14 @@ class Project(ContextState):
 
     def journey(self, action='status', focus=None, host=None, server=None, answer=None, waits=False):
         import journey
-        return journey.advance(self, action, focus, host=host, server=server, answer=answer, waits=waits)
+        import visuals
+        result = journey.advance(self, action, focus, host=host, server=server, answer=answer, waits=waits)
+        if action == 'readiness' and not waits and isinstance(result, dict):
+            # d4, 2026-11-19: the session started the build's helper, ended its turn and said nothing for 8 minutes.
+            result['next'] = ("Start the build's helper in the background, as the dashboard flow says, then, in this same "
+                              "turn, run `PROJECT drafts --wait --engine-dir engine` in the foreground and do what each line "
+                              "says until it says the build is done, never ending the turn between waits.")
+        return result
 
     def experience(self, engine_dir=None, format='chat', detail=False, focus=None, host=None, server=None):
         """Present existing evidence without advancing the engine or publication."""
@@ -708,6 +715,10 @@ def main():
                         help='With --follow: also name each chip the run can show, once, for a flow whose helpers advance every step')
     drafts.add_argument('--follow', action='store_true',
                         help='Print a line each time a step the chat shows ends, until the metric definitions are accepted')
+    drafts.add_argument('--wait', action='store_true',
+                        help='Wait in the foreground for the next batch, step end or quiet spell, and print it with the '
+                             'task list, for a host whose task list carries the build once the side page is open')
+    drafts.add_argument('--timeout', type=int, default=540, help='With --wait: return after this many seconds at most')
     tiles = sub.add_parser('tiles', help="The report's tiles by page, once the build has translated them: which became "
                            "queries and which could not, with why")
     tiles.add_argument('--engine-dir', type=Path)
@@ -780,6 +791,8 @@ def main():
                 side_view._write(run / (args.kind + '.json'), json.dumps(given, indent=1, ensure_ascii=False))
             data = [json.loads(path.read_text(encoding='utf-8')) for path in args.data]
             demo = visuals.read_json(run / 'interaction.json', dict, {}).get('flow') == 'demo'
+            # The desktop app draws widgets: a dashboard run there never passed --widget, so every chip came back as text.
+            args.widget = args.widget or visuals.desktop()
             following = args.kind == 'next'
             if following:
                 # The next moment the run has reached and not shown: during a build, what its last step produced.
@@ -806,6 +819,16 @@ def main():
                 more = ' Then run `visual next` again: more is due.' if following and side_view.due(run, args.engine_dir) else ''
                 print('side view: ' + json.dumps({**{k: opened[k] for k in ('url', 'error') if k in opened},
                                                   'next': side_page.instruction(opened, args.widget) + more}, ensure_ascii=False))
+                return 0
+            if (args.widget or visuals.keeps_tasks(run)) and args.kind in visuals.ON_PAGE and 'connect' in side_view.seen(run):
+                # The team, 2026-11-19: once the side page beside the chat is open, it carries each metric step, and the
+                # task list carries the build's progress; the build's card closes it in the chat.
+                import drafts
+                if args.kind != 'progress' and side_view._shows(args.kind, run, args.engine_dir):
+                    side_view.note(run, args.kind)
+                more = ' Then run `visual next` again, with the same flags: more is due.' if following and side_view.due(run, args.engine_dir) else ''
+                print('side view: ' + json.dumps({'next': visuals.ON_PAGE_NEXT + more, 'task_list': drafts.task_list(run, args.engine_dir)},
+                                                 ensure_ascii=False))
                 return 0
             try:
                 spec = visuals.build_spec(args.kind, run, data, args.engine_dir)
@@ -860,22 +883,17 @@ def main():
                              "ask exactly what it prints. Print nothing before it. If you have a `show_widget` tool, run "
                              "this again with `--widget` and draw it instead." % deferred)
             if shown and args.kind == 'progress':
-                # A watch wakes the chat only to draw this: closed on a status line of its own, every chip got one. The
-                # desktop sends a turn that ends on a widget alone back for words, so the words come with the chip.
+                # The session waits for the build in one turn (the team, 2026-11-19), so the chip is the whole update: no
+                # status line of its own after it, and no metric named as news.
                 import drafts
-                line = drafts.news(run, args.engine_dir)
                 drafts.mark_shown(run, args.engine_dir)
-                steps.append("This chip is the whole update while the step runs: end your turn on it, then this line, "
-                             "unchanged, and nothing else: %s The watch wakes you when more has landed, and again when the "
-                             "step ends." % (line or 'nothing; the chip is enough.'))
+                steps.append("This chip is the whole update while the step runs: go back to waiting for the build "
+                             "(`PROJECT drafts --wait`) in this same turn, with no words of your own.")
             if shown and args.kind in STEP_CHIPS:
                 # The person, 2026-11-18: under a chip that said "Next: Combine duplicates" the agent wrote "Doing: Combining
-                # duplicates". The desktop sends a turn back for words, so the words come with the chip: the newest thing made.
-                import drafts
-                line = drafts.news(run, args.engine_dir, STEP_CHIPS[args.kind])
-                steps.append("Once the next step is started, end your turn on it, then this line, unchanged, and nothing "
-                             "else: %s The chip names the step that starts, so no line of yours names it again." % (
-                                 line or 'nothing; the chip is enough.'))
+                # duplicates". The chip names the step that starts, and the session goes back to waiting in the same turn.
+                steps.append("Once the next step is started, go back to waiting for the build (`PROJECT drafts --wait`) "
+                             "in this same turn: the chip names the step that starts, so add no line of your own.")
             task_list = None
             if shown and args.kind in TASK_MOMENTS:
                 # A live run set the host's list once, at the start: no step ever showed under way or its estimate. Each
@@ -957,10 +975,24 @@ def main():
             import checklist, experience
             model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
             result = {**checklist.build(model, args.flow), 'remote_writes': False}
-        elif args.command == 'journey': result = project.journey(args.action, args.focus, args.host, args.server, args.answer, args.waits)
+            import visuals
+            if not visuals.desktop() and 'tasks' not in visuals.read_json(project.root / 'interaction.json', dict, {}):
+                # The helper cannot see the agent's tools: the agent records once whether it keeps a task list, which then
+                # carries the metric steps (the person, 2026-11-19). On stderr, which a filter on the result leaves.
+                print('Next: record whether you keep a task list, once: `PROJECT journey tasks --answer yes` when you have a '
+                      "task-list tool (TaskCreate and TaskUpdate, or TodoWrite), else `--answer no`.", file=sys.stderr)
+        elif args.command == 'journey':
+            result = project.journey(args.action, args.focus, args.host, args.server, args.answer, args.waits)
+            if args.action == 'readiness' and isinstance(result, dict) and 'drafts --wait' in str(result.get('next')):
+                # d5, 2026-11-19: a session piped this result through a filter that kept only the checklist, so the step
+                # that keeps the build in view never reached it. A filter on the output leaves this line.
+                print('Next: ' + result['next'], file=sys.stderr)
         elif args.command == 'drafts':
             import drafts
             # Plain text, never a result file: the person reads these lines as they are.
+            if args.wait:
+                drafts.wait(project.root, args.engine_dir, timeout=max(1, min(args.timeout, 570)))
+                return 0
             result = (drafts.follow(project.root, args.engine_dir, every_chip=args.every_chip) if args.follow
                       else drafts.latest(project.root, args.engine_dir)['line'])
             if result and not args.follow:

@@ -28,7 +28,7 @@ When every check has run, before any save, sign-in or workspace step, run
 [Ticketfuddle](../../../analytics-demo/references/box-office.json)), and nothing for own data.
 With `show_widget`, first draw `PROJECT visual context --widget` and add `--widget` here. Ask
 one native question with the `header`, the `question` text and the `options` it prints, exactly
-as given: the text keeps the banner, the build's card and the checks chip in a terminal, and
+as given: the text keeps the build's card and the checks chip in a terminal, and
 the counts and the question come last, so they stay on screen if a short terminal scrolls the
 top away. Every count is true: when some did not pass their check, the text says so, and the
 celebration still stands. If it answers that items still wait for their sample check, do what

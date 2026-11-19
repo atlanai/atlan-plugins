@@ -1,10 +1,12 @@
 """The setup checklist mirrors saved progress and never claims a step the run has not reached."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
@@ -182,6 +184,38 @@ class Checklist(unittest.TestCase):
         self.assertEqual(result['steps'][1]['content'], 'Check what can be built: 18 of 25 tiles, stage list out of date')
         self.assertEqual([r['status'] for r in result['steps']][:3], ['completed', 'completed', 'in_progress'],
                          'the build starts on its own: there is no confirm item')
+        again = self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date')
+        self.assertIn('drafts --wait', again['next'], 'every host waits for the build in one turn')
+        with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': 'claude-desktop'}):
+            started = self.run.journey('readiness', answer='18 of 25 tiles, stage list out of date')
+        # d4, 2026-11-19: the session started the build's helper, ended its turn and said nothing for 8 minutes.
+        self.assertIn('`PROJECT drafts --wait --engine-dir engine` in the foreground', started['next'])
+        # d5: the session piped this result through a filter that printed only the checklist, so the step never reached
+        # it. The step that must not be missed goes to stderr too, which a filter on the output does not drop.
+        out = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run.root), 'journey', 'readiness', '--answer',
+                              '18 of 25 tiles, stage list out of date'], capture_output=True, text=True,
+                             env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': 'claude-desktop'})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('drafts --wait --engine-dir engine', out.stderr)
+
+    def test_the_run_records_whether_the_host_keeps_a_task_list(self):
+        self.run.journey('tasks', answer='yes')
+        self.assertIs(json.loads((self.run.root / 'interaction.json').read_text(encoding='utf-8'))['tasks'], True)
+        self.run.journey('tasks', answer='no')
+        self.assertIs(json.loads((self.run.root / 'interaction.json').read_text(encoding='utf-8'))['tasks'], False)
+        with self.assertRaises(ValueError):
+            self.run.journey('tasks', answer='maybe')
+
+    def test_the_checklist_asks_a_terminal_session_to_record_its_task_list_once(self):
+        # The person, 2026-11-19: the terminal's task list carries the metric steps where it has one; the helper cannot see
+        # the agent's tools, so the agent records it, and the checklist asks until it has (on stderr: results get filtered).
+        def checklist_cli(entry):
+            return subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run.root), 'checklist'], capture_output=True,
+                                  text=True, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': entry})
+        self.assertIn('journey tasks --answer', checklist_cli('').stderr)
+        self.assertNotIn('journey tasks', checklist_cli('claude-desktop').stderr, 'the desktop app keeps one')
+        self.run.journey('tasks', answer='no')
+        self.assertNotIn('journey tasks', checklist_cli('').stderr, 'asked once')
 
     def test_dashboard_page_item_ticks_when_built_or_declined(self):
         fixture.seed_checked(self.run, 'checked')

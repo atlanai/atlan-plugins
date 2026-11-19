@@ -1294,7 +1294,9 @@ def instruction(opened, widget=False):
                 '`%s`, then bring that pane into view beside the chat (the app\'s show-pane call, pane `preview`): loading '
                 'a page does not show a hidden pane. Then check with the app\'s layout call that `preview` is among the '
                 'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
-                'layout can tell. %s Say nothing about it in the chat; the cards point to it.' % (url, follows))
+                'layout can tell. %s Say nothing about it in the chat; the cards point to it. From here the page carries each '
+                'metric step and the task list carries the build: stop the background watch and follow the build with '
+                '`PROJECT drafts --wait` in the foreground, as progress says.' % (url, follows))
     if opened.get('opened'):
         return ('The side page opened in the person\'s browser at %s. Say nothing about it now: the next chip in a '
                 'question names it. %s' % (url, follows))

@@ -45,6 +45,13 @@ class Page(unittest.TestCase):
         self.assertIn('layout', said)
         self.assertIn('`preview`', said)
 
+    def test_in_the_desktop_app_the_task_list_carries_the_build_once_the_page_is_open(self):
+        # The team, 2026-11-19: the page carries each metric step from here, so the session waits in the foreground and
+        # updates the task list, never ending a turn on an update alone.
+        said = side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'host': 'claude-desktop'})
+        self.assertIn('`PROJECT drafts --wait`', said)
+        self.assertNotIn('drafts --wait', side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'opened': True}), 'a terminal is unchanged')
+
     def test_a_page_that_cannot_start_is_named_once_so_nobody_waits_for_it(self):
         # A tester, 2026-11-19: the page never opened, and nothing in the chat said so.
         said = side_page.instruction({'error': 'no free port'})
@@ -460,7 +467,6 @@ class Questions(unittest.TestCase):
         asked = questions.save(run, data=[facts()])
         for word in DEMO_WORDS:
             self.assertNotIn(word, asked['question'], 'a demo facts file passed on own data is ignored')
-        self.assertIn('You turned your dashboard and past queries into context.', asked['question'])
         self.assertIn('✓ Every metric and query ran · on your data', asked['question'])
         self.assertTrue(asked['question'].endswith('Where should this context live?'), 'the question comes last')
         self.assertEqual(asked['header'], 'Step 5 of 7')
@@ -689,9 +695,22 @@ class Questions(unittest.TestCase):
     def test_the_save_question_on_a_demo_names_its_firm(self):
         run = make_run(self.root, saved=False, demo=True)
         asked = questions.save(run, data=[facts()])
-        self.assertIn("You turned Fixit's dashboard and past queries into context.", asked['question'])
         self.assertIn("on Fixit's data", asked['question'])
         self.assertEqual(asked['header'], 'Step 4 of 5')
+
+    def test_the_save_question_says_only_what_the_person_cant_already_see(self):
+        # The copy budget (the team, 2026-11-19): no banner and no "hard part" line. On desktop the cards above say
+        # what was built, so the question opens on the count line; in a terminal the card is the question's own text.
+        for widget in (True, False):
+            text = questions.save(make_run(self.root / str(widget), saved=False, demo=True), widget=widget, data=[facts()])['question']
+            for gone in ('CONTEXT BUILT', 'You turned', 'hard part'):
+                self.assertNotIn(gone, text)
+            self.assertIn('One metric in full', text)
+            self.assertTrue(text.endswith('Where should this context live?'))
+            if widget:
+                self.assertTrue(text.startswith("2 metrics and 2 queries, every one ran on Fixit's data."), text[:80])
+            else:
+                self.assertIn('Built from your sources', text, 'the build card is part of the question in a terminal')
 
     def test_a_widget_host_keeps_the_count_line(self):
         asked = questions.save(make_run(self.root, saved=False), widget=True)
@@ -726,7 +745,7 @@ class Questions(unittest.TestCase):
             (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
             text = questions.save(run)['question'] + json.dumps(side_page.snapshot(run))
             if demo:
-                self.assertIn("You turned Fixit's dashboard", text)
+                self.assertIn("on Fixit's data", text)
                 self.assertEqual(side_page.snapshot(run)['title'], 'Job profit agent for Fixit & Co.')
             else:
                 self.assertNotIn('Fixit', text, 'a folder named like a demo never makes own data a demo')

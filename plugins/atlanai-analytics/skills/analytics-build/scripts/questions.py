@@ -11,9 +11,6 @@ import re
 import visuals
 from run_facts import RunFacts, count, read_json, sentence, their
 
-BANNER = (" *   .  '   *    .   '  *   .    '   *  .",
-          "   '   *   .  CONTEXT BUILT  .   *   '",
-          " .   *    '   .    *   '    .   *    '  .")
 SAVE_OPTIONS = (
     ('Save to Atlan Trident (recommended)', 'Agents find the right metric for each question, from any chat or tool. Everyone gets '
      'the same number, and a change to a rule reaches all of them at once. You sign in once.'),
@@ -37,13 +34,6 @@ def _demo(run, data):
             out.update({k: v for k, v in item.items() if k in ('firm',)})
             out.update(item.get('ready') or {})
     return out
-
-
-def _sources(f):
-    """What the context was built from, as the person chose it."""
-    chosen = f.inputs or {'bi': bool(f.dashboard), 'history': bool(f.history)}
-    return ('dashboard and past queries' if chosen['bi'] and chosen['history'] else 'dashboard' if chosen['bi']
-            else 'past queries' if chosen['history'] else 'tables')
 
 
 def _where(f, demo):
@@ -82,8 +72,9 @@ def save(run, widget=False, data=None, engine_dir=None):
             ': %d of %d still wait for their sample check. Run each; if one cannot run, record `PROJECT progress '
             '--stage preview --status running` and ask again, and it counts as needing a look' % (waiting, c['total'])
             if waiting else ''))
-    lines = list(BANNER) + ['', 'You turned %s %s into context.' % (their(demo.get('firm')), _sources(f)),
-                            'That was the hard part: each number now has one agreed rule.', '']
+    # The copy budget (the team, 2026-11-19): only what the person can't already see. The cards say what was built, drawn
+    # above on desktop and as this text in a terminal, so no banner or recap line before them.
+    lines = []
     shown = '' if widget or by_tool else visuals.render('context', visuals.build_spec('context', run, data, engine_dir), plain=True)
     card = '' if widget else visuals.render('build', visuals.build_spec('build', run, data, engine_dir), plain=True)
     if shown:
@@ -114,6 +105,10 @@ def _dashboard_save(run, f, widget, data, engine_dir):
     if not (skipped or by_tool or f.checks_over):
         raise ValueError('Ask where the context lives once the checks have run, or once the person chose to skip them '
                          '(`PROJECT journey checks --answer skip`, their answer, never yours).')
+    if not c:
+        # d3, 2026-11-19: asked before the structural pass, this said "Built 0 metrics" for a build of 4.
+        raise ValueError('Run `PROJECT check` first: the save question counts what the structural pass found, and before it '
+                         'there is nothing to count.')
     report = str(f.interaction.get('report') or '').split(':')[0].strip() or 'your dashboard'
     n_metrics, n_queries = (len(c['metrics']), c['queries']) if c else (0, 0)
     where = f.warehouse or 'your data'

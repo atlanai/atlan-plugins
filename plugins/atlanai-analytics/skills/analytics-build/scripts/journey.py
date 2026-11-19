@@ -1,8 +1,8 @@
 """Durable conversation choices. Never performs engine, auth, publication or SQL work."""
 ACTIONS = ('status', 'select', 'domain', 'purpose', 'pause', 'keep-local', 'resume', 'details', 'demo', 'asked', 'dashboard',
-           'agentic', 'report', 'readiness', 'checks')
+           'agentic', 'report', 'readiness', 'checks', 'tasks')
 # Actions that record the person's own words, or a helper's one-line result.
-ANSWERED = ('domain', 'purpose', 'report', 'readiness', 'dashboard', 'checks')
+ANSWERED = ('domain', 'purpose', 'report', 'readiness', 'dashboard', 'checks', 'tasks')
 FLOWS = ('build', 'demo', 'dashboard')
 MODES = ('active', 'paused', 'local')
 
@@ -36,7 +36,7 @@ def validate(value):
         raise JourneyError('The saved choice about the warehouse checks needs repair before continuing.')
     if value.get('dashboard_result', 'built') not in ('built', 'declined'):
         raise JourneyError('The saved dashboard choice needs repair before continuing.')
-    if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard')):
+    if any(k in value and type(value[k]) is not bool for k in ('asked', 'dashboard', 'tasks')):
         raise JourneyError('The saved question and dashboard steps need repair before continuing.')
     return value
 
@@ -190,6 +190,13 @@ def advance(run, action='status', focus=None, host=None, server=None, answer=Non
         if answer not in ('run', 'skip'):
             raise JourneyError('Record the person\'s choice with --answer run or --answer skip.')
         saved['checks'] = answer
+    elif action == 'tasks':
+        # Whether the host keeps a task list the agent can update (the team, 2026-11-19): where it does, the list carries
+        # the metric steps; where it does not, each finished step shows its chip. Recorded once, by the agent.
+        if answer not in ('yes', 'no'):
+            raise JourneyError('Record --answer yes when you have a task-list tool (TaskCreate and TaskUpdate, TodoWrite, or '
+                               "the app's plan tool), else --answer no.")
+        saved['tasks'] = answer == 'yes'
     elif action == 'demo':
         # The person chose a demo: the run shows the demo's seven steps from now on.
         saved['flow'] = 'demo'

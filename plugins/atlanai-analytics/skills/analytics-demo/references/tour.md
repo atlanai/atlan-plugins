@@ -27,6 +27,25 @@ A native question holds four options. When the demo's "What would you like to do
 five, leave Continue building on real data out of the options and end the question's text with one
 line: You can also type "Continue building on real data".
 
+## After the first answer
+
+The demo's "What would you like to do next?" question keeps to what the person can't already
+see (the team's copy budget, 2026-11-19):
+
+- With `show_widget`, the `answer` card is drawn above it, so the text is one line naming what
+  the answer used, such as "Behind this answer: Rework cost (metric), Rework cost by job
+  (query).", then the question. Do not restate the answer.
+- In a terminal, the text is the `answer` visual's lines as it prints them, one sentence on
+  what explains the number, then the question.
+- On every host, leave out the line that answers come from the context (the card's sources
+  say it) and, while the context is only on this machine, the Atlan Trident proof lines and
+  any nudge to save. Once it is saved, keep one proof line per metric and query, as
+  [definition links](../../analytics-ask/references/definition-links.md) says.
+- When Continue building on real data is left out of the options, end with its line, as above.
+
+Check how accurate it is reads: "See how often it gets right the questions `<firm>`'s analysts
+already ask, and fix the rule behind a miss. The checks only ran each number."
+
 ## The welcome: right after the demo is chosen
 
 **The welcome is the question's own text**, as
@@ -61,17 +80,17 @@ two short lines as an ordinary reply, at most 35 words together, in this shape:
 
 Fill in actual counts and names from the chosen demo. Use these, in order; the first of a
 step goes under its tracker. Skip a moment that does not happen in this run. A moment that
-opens with a native question (Sources question, Workspace question) puts its two lines at
-the top of that question's text instead of printing them before it, as plain `Doing:` and
-`Why:` with no `**`: question text is shown as written, so Markdown markers show as stars. The Ready moment has
-no pair: its ready block says it.
+opens with a native question (Workspace question) puts its two lines at the top of that
+question's text instead of printing them before it, as plain `Doing:` and `Why:` with no `**`:
+question text is shown as written, so Markdown markers show as stars. The Ready moment and
+the Sources question have no pair: the ready block says it, and the Sources question keeps to
+what the person can't already see (step 2).
 
 | Moment | Doing | Why |
 | --- | --- | --- |
 | Open the demo | Setting up `<firm>`'s demo in this folder. | The dashboard, past queries and data are in those files, and I read them on your machine. |
 | Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures itself, so the context matches the firm instead of my guess. |
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets run on real rows, so you see numbers and not only words. |
-| Sources question | Asking what to build from. | More sources give fuller context; the dashboard alone is faster. |
 | Metrics found | Listing the metrics your sources hold. | You see what the context will contain before I write each rule. |
 | Build | Writing what each metric and query counts, from the sources you chose. | `<why build them>` |
 | Check | Running every metric and query on `<firm>`'s data. | One that returns nothing or nonsense would give wrong answers later; this catches it now. |
@@ -80,15 +99,17 @@ no pair: its ready block says it.
 | Save | Saving the context to the workspace you chose and releasing it. | Agents only find released metrics and queries, so releasing is what lets the agent and your colleagues use them. |
 
 After a moment ends, give its result in one line with counts, in the past tense. Print the
-first tracker right after "Start building", before reading setup's references or opening the demo.
-Never use file names, helper names or query-shape counts in these lines. After reading
-sources, add one sentence on what they revealed, such as which questions the analysts
-asked most. Never leave a minute with nothing new on screen; follow [progress](../../analytics-build/references/setup/progress.md):
+first tracker right after "Start building", before reading setup's references or opening the demo, and record
+whether you keep a task list, as progress says.
+Never use file names, helper names or query-shape counts in these lines. What the sources
+revealed goes in the Sources question (step 2). Never leave a minute with nothing new on screen (where you keep a task list,
+its count is that something new, so write nothing then); follow [progress](../../analytics-build/references/setup/progress.md):
 while subagents write the build, each step's chip and the side page are what is new, and each turn ends on one
 line with something new: the line the chip's `visual` result gives, unchanged, never a Doing line that repeats
 what a chip just said; never that a step is still running, or what will show and when. The Doing and Why pairs
 are for the moments above; the metric steps between Build and Check have their chips. The app shows each
-command's description: describe each as what it does for the person, never a chip, the engine or a gate.
+command's description: describe each as what it does for the person, never a chip, the engine or a gate. Once the
+side page is open, the task list carries the build instead of chips where you keep one, as progress says.
 
 **No named people.** Never name a person at the firm in the demo's own words: the brief,
 the steps, a question or an example. Use the firm's name. A name
@@ -109,15 +130,18 @@ The demo's focus is already chosen, so skip both [intent](../../analytics-build/
 questions and its source summary; step 1 recorded the preset. This replaces intent's rule
 against recording an unselected answer, for the demo only.
 
-After loading the data, ask one native question. Its visible prompt, with actual counts and
-the demo's facts:
+After loading the data, ask one native question. Its text says only what the person can't
+already see (the team's copy budget, 2026-11-19): no Doing or Why lines, and no recap of what
+was read, since the `sources` chip says it. In order:
 
-"I read `<firm>`'s sources: `<dashboard>`, `<N>` past queries and `<N>` data tables. Next I
-turn them into metrics. A metric is `<what a metric is, by example>`. Metrics are how the
-context is stored, so the agent uses the same rule every time. I build and check the
-context from your selected sources. What should I build it from?"
-
-This is the first time the person hears the word metric, so the prompt keeps all of it.
+1. In a terminal only, the `sources` chip's lines, as its `visual` result directs.
+2. One sentence on what the sources revealed that bears on this choice, with a count: what
+   the past queries cover that the dashboard does not, such as "Most of Fixit's 110 past
+   queries are about crew hours and labour cost on each job, and the dashboard shows none of
+   that."
+3. "Each source becomes metrics: numbers `<firm>` cares about, each with the rule for working
+   it out." This is where the person first meets the word metric, so it stays on every host.
+4. "What should I build from?"
 
 | Option | Description |
 | --- | --- |

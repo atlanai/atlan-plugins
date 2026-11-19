@@ -577,6 +577,19 @@ class SoFar(unittest.TestCase):
             for internal in ('vq_id', 'h-1', 'bi-q1', 'x1', 'm2', 'proposal'):
                 self.assertNotIn(internal, html, (reason, internal))
 
+    def test_in_the_desktop_app_a_step_chip_keeps_the_turn_going(self):
+        self.describe()
+        manifest = self.run / 'engine' / 'manifest.json'
+        stages = json.loads(manifest.read_text(encoding='utf-8'))['stages']
+        write(manifest, {'stages': stages + [{'stage': 'x1_ingest', 'counts': {'proposals': 1}, 'verdict': 'ok'}]})
+        self.batch('x1', '01.json', {'statements': [{'vq_id': 'h-1', 'verdict': 'metrics', 'metrics': [{'name': 'Gross margin'}]}]})
+        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'drafted'],
+                              capture_output=True, text=True, encoding='utf-8', timeout=60,
+                              env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': 'claude-desktop'})
+        side = json.loads(done.stdout.split('side view: ', 1)[1])
+        self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', side['next'])
+        self.assertNotIn('end your turn', side['next'])
+
     def test_a_so_far_chip_is_the_whole_turn(self):
         # Live, every so-far chip was followed by "The merge is still running in the background.": the woken turn closed
         # on a status line of its own. The chip is the update, and the watch wakes the chat again.
@@ -585,11 +598,11 @@ class SoFar(unittest.TestCase):
             done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual', 'progress']
                                   + flags, capture_output=True, text=True, encoding='utf-8', timeout=60,
                                   env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
-            self.assertIn('end your turn on it', done.stdout, flags)
-            self.assertIn('watch wakes you', done.stdout, flags)
-            # The desktop sends a turn that ends on a widget alone back for words: the watch's news line closes it.
-            self.assertIn('then this line, unchanged, and nothing else: ', done.stdout, flags)
-            self.assertNotIn('no line after it', done.stdout, flags)
+            # The team, 2026-11-19: the session waits for the build in one turn, so a chip never ends it, and no metric
+            # is named as news.
+            self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', done.stdout, flags)
+            self.assertNotIn('end your turn', done.stdout, flags)
+            self.assertNotIn('Newest', done.stdout.split('side view: ', 1)[1], flags)
 
     def test_the_line_to_end_on_comes_with_the_chip_and_names_what_it_names(self):
         # h8 at 13.6 drew "Delivered materials cost written" over the watch's older line "Newest rule: Project labour
@@ -602,7 +615,7 @@ class SoFar(unittest.TestCase):
                               env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
         self.assertTrue(done.stdout.startswith('= **Rework cost and Gross margin** defined'), done.stdout)
         side = json.loads(done.stdout.split('side view: ', 1)[1])
-        self.assertIn('then this line, unchanged, and nothing else: Newest definition: Rework cost. Labour on snags.', side['next'])
+        self.assertNotIn('Newest definition', side['next'], 'the chip is the news; no metric named after it')
 
     def test_a_step_s_own_chip_gives_the_line_to_end_on_and_its_title(self):
         # The person, 2026-11-18: our own wording leaked into the window. After a step's chip the agent wrote "Doing:
@@ -622,8 +635,8 @@ class SoFar(unittest.TestCase):
                               env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
         side = json.loads(done.stdout.split('side view: ', 1)[1])
         self.assertIn('with the title `1_possible_metric`', side['next'])
-        self.assertIn('end your turn on it, then this line, unchanged, and nothing else: Newest possible metric: Gross margin. '
-                      'What the jobs kept.', side['next'])
+        self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', side['next'])
+        self.assertNotIn('Newest possible metric', side['next'])
         self.assertNotIn('Doing', side['next'])
         progress = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(self.run), 'visual',
                                    'progress', '--widget'], capture_output=True, text=True, encoding='utf-8', timeout=60,
@@ -655,7 +668,7 @@ class SoFar(unittest.TestCase):
             self.assertIn(new, body)
         for old in ('Gross margin', 'Rework cost'):
             self.assertNotIn(old, body, 'named by the chip before')
-        self.assertIn('Newest definition: Waste rate. Waste Rate per job.', side['next'])
+        self.assertNotIn('Newest definition', side['next'], 'the chip is the news; no metric named after it')
         # Drawn again with nothing new, it shows the newest rather than nothing.
         (head, body), side = progress()
         self.assertIn('<b>Waste rate</b> and 4 more defined', head)

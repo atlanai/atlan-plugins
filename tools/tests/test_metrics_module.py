@@ -46,6 +46,37 @@ def card():
 
 
 class InputStagingTests(unittest.TestCase):
+    def setUp(self):
+        # The terminal's gate results unless a test names the desktop app: the session running the tests may be one.
+        patch = mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''})
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_in_the_desktop_app_a_batched_gate_keeps_the_session_in_one_turn(self):
+        # d4 and h12, 2026-11-19: told by guides and the page's result to wait in the foreground, neither did; the gate
+        # result the session reads before it starts each step's subagent now says it.
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': 'claude-desktop'}):
+            run = Path(tmp) / 'run'
+            (run / 'engine').mkdir(parents=True)
+            (run / 'run.json').write_text('{}')
+            describe = self.worker().batch_progress(run / 'engine', 'm2')
+        self.assertTrue(describe['wait'].endswith('drafts --engine-dir "engine" --wait'), describe['wait'])
+        self.assertIn('runs `wait` in the foreground', describe['say'])
+        self.assertIn('never ends the turn between waits', describe['say'])
+        self.assertIn("start the next step's subagent first", describe['say'])
+
+    def test_in_a_terminal_a_batched_gate_keeps_the_session_in_one_turn_too(self):
+        # The person, 2026-11-19: the terminal follows the build as the desktop app does, the task list carrying the
+        # metric steps where the terminal keeps one, and one chip per finished step where it does not.
+        with tempfile.TemporaryDirectory() as tmp:
+            run = Path(tmp) / 'run'
+            (run / 'engine').mkdir(parents=True)
+            (run / 'run.json').write_text('{}')
+            describe = self.worker().batch_progress(run / 'engine', 'm2')
+        self.assertIn('wait', describe)
+        self.assertIn('runs `wait` in the foreground', describe['say'])
+        self.assertIn('never ends the turn between waits', describe['say'])
+
     def worker(self):
         spec = importlib.util.spec_from_file_location('metrics_worker_test', driver.HERE / 'worker.py')
         worker = importlib.util.module_from_spec(spec)
@@ -61,7 +92,7 @@ class InputStagingTests(unittest.TestCase):
             (run / 'engine').mkdir(parents=True)
             (run / 'run.json').write_text('{}')
             say = self.worker().batch_progress(run / 'engine', 'x1')['say']
-        self.assertIn('`visual`', say)
+        self.assertIn('`visual next`', say)
         self.assertIn('side page', say)
         self.assertNotIn('exactly as printed', say)
 
@@ -80,7 +111,7 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('`split`', cards['say'])
         # A live run said "still being written in the background" at every wake-up: 11 of its 22 lines. The desktop app
         # sends a turn that ends without words back for words, so each turn ends on a line with something new.
-        self.assertIn('the line the `visual` result gives with its chip, unchanged', describe['say'])
+        self.assertIn('writes nothing of its own between chips', describe['say'])
         # Under a chip that said "Next: Combine duplicates" the agent wrote a Doing line saying it again (2026-11-18).
         self.assertNotIn('Doing line', describe['say'])
         self.assertIn('never a chip, the engine, a gate', describe['say'], 'command descriptions are the person\'s')

@@ -367,7 +367,8 @@ class Helper(unittest.TestCase):
     def project(self, *args, stdin=None, run=None):
         done = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(run or self.run), *args], input=stdin,
                               capture_output=True, text=True, encoding='utf-8', timeout=60, env=self.env())
-        self.assertEqual(done.stderr, '')
+        # A step the session must not miss also goes to stderr, which a filter on the result leaves ("Next: ...").
+        self.assertEqual([l for l in done.stderr.splitlines() if not l.startswith('Next: ')], [])
         return done.stdout
 
     def start_engine(self, run):
@@ -396,6 +397,43 @@ class Helper(unittest.TestCase):
             self.assertIn('TodoWrite', side['next'], kind)
             self.assertIn("the desktop app's task list", side['next'], kind)
         self.assertNotIn('task_list', self.side(self.project('visual', 'sources')) or {}, 'before the build')
+
+    def test_the_desktop_app_draws_widgets_without_the_flag(self):
+        # d2, a dashboard run in desktop mode, 2026-11-19: every chip came back as plain text; the agent never passed
+        # --widget, though each result told it to. The helper knows the desktop app from the session it runs in.
+        self.host = 'claude-desktop'
+        self.assertTrue(self.project('visual', 'sources').startswith('<style>'))
+        self.host = ''
+        self.assertFalse(self.project('visual', 'sources').startswith('<style>'), 'a terminal keeps its text chips')
+
+    def test_once_the_side_page_is_open_a_widget_host_ticks_the_task_list_instead_of_a_metric_chip(self):
+        # The team, 2026-11-19: what the side page shows stays out of the chat, and the task list carries the build.
+        import side_view
+        self.project('visual', 'connect', '--widget')
+        out = self.project('visual', 'drafted', '--widget')
+        self.assertTrue(out.startswith('side view: '), 'no chip in the chat')
+        side = self.side(out)
+        self.assertIn('nothing goes in the chat', side['next'])
+        self.assertIn('drafts --wait', side['next'])
+        self.assertTrue(any(r['status'] == 'completed' and r['content'].startswith('Find metrics: ') for r in side['task_list']),
+                        side['task_list'])
+        self.assertIn('drafted', side_view.seen(self.run), 'settled, so it is not named as due again')
+        self.assertTrue(self.project('visual', 'build', '--widget').startswith('<style>'), "the build's card still closes the build")
+
+    def test_a_terminal_without_a_task_list_keeps_its_step_chips(self):
+        self.project('visual', 'connect')
+        self.assertFalse(self.project('visual', 'drafted').startswith('side view: '), 'one chip per finished step')
+
+    def test_a_terminal_with_a_task_list_ticks_it_instead_of_a_metric_chip(self):
+        # The person, 2026-11-19: in a terminal that keeps a task list, the list carries the metric steps.
+        # As `PROJECT journey tasks --answer yes` records it (tested on a setup run in test_checklist).
+        path = self.run / 'interaction.json'
+        saved = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {'version': 1, 'mode': 'active', 'focus': None}
+        path.write_text(json.dumps({**saved, 'tasks': True}), encoding='utf-8')
+        self.project('visual', 'connect')
+        out = self.project('visual', 'drafted')
+        self.assertTrue(out.startswith('side view: '), 'no chip')
+        self.assertTrue(any(r['content'].startswith('Find metrics: ') for r in self.side(out)['task_list']))
 
     def test_a_rule_changed_leads_its_block_wherever_the_block_goes(self):
         self.project('visual', 'connect')
@@ -439,7 +477,7 @@ class Helper(unittest.TestCase):
         keys = list(json.loads(self.project('checklist')))
         self.assertEqual(keys[0], 'side_page', 'it leads: live runs cut long results short (head -c 200)')
         line = self.side(self.project('visual', 'sources'))['next']
-        self.assertTrue(line.startswith('Show the text above'), 'the moment first')
+        self.assertTrue(line.startswith('Draw it now'), 'the moment first, as a widget: the desktop app draws them')
         self.assertIn("Then open the side page now in the app's browser pane", line, 'then the page nobody has opened')
         url = json.loads((self.run / 'view' / 'server.json').read_text(encoding='utf-8'))['url']
         from urllib.request import urlopen
@@ -529,7 +567,7 @@ class Helper(unittest.TestCase):
         self.assertNotIn('**', shown, "a question's text shows no Markdown")
         self.assertIn('never reword or shorten it', asked['next'],
                       'a live run added "7 need a look" from another step to a chip that said every check passed')
-        self.assertTrue(shown.startswith(' *   .'), 'the celebration keeps its banner')
+        self.assertTrue(shown.startswith('2 metrics · Built from your sources'), 'the card leads, with no banner before it (the copy budget, 2026-11-19)')
         widget = self.project('visual', 'build', '--widget')
         self.assertTrue(widget.startswith('<style>'), 'a widget host draws the card as it happens')
 
@@ -748,7 +786,7 @@ class Helper(unittest.TestCase):
 
     def test_output_is_utf8_in_any_console(self):
         done = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run), 'visual', 'sources'], capture_output=True,
-                              timeout=60, env=dict(os.environ, PYTHONIOENCODING='cp1252'))
+                              timeout=60, env=dict(os.environ, PYTHONIOENCODING='cp1252', CLAUDE_CODE_ENTRYPOINT=''))
         self.assertTrue(done.stdout.decode('utf-8').startswith('▤ **129 rows** of your data'))
 
     def test_a_folder_that_is_not_a_run_is_refused(self):

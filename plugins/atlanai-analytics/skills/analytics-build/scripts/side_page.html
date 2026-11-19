@@ -40,6 +40,7 @@ button { font: inherit; color: inherit; }
 .badge.ok { background: var(--bg-success-subtle); color: var(--text-success); }
 .badge.warn { background: var(--bg-warning-subtle); color: var(--text-warning); }
 .badge.brand { background: var(--bg-brand-subtle); color: var(--text-brand); }
+.badge.idle { background: transparent; box-shadow: inset 0 0 0 1px var(--border-hover); color: var(--text-subtle); }
 .badge .ic { width: 12px; height: 12px; }
 .badge.brand .sd { background: var(--bg-brand-fill); }
 .kind { width: 24px; height: 24px; border-radius: 7px; display: inline-grid; place-items: center; flex: none; }
@@ -481,6 +482,7 @@ button.sech { cursor: pointer; }
 .rel.ok .dt { background: var(--bg-success-fill); }
 .rel.warn .dt { background: var(--bg-warning-fill); }
 .rel.ring .dt { background: none; box-shadow: inset 0 0 0 1.5px var(--text-subtle); }
+.rel.idle .dt { background: none; box-shadow: inset 0 0 0 1.5px var(--icon-default); }
 .prof { display: grid; gap: 0; min-width: 0; }
 .prof > *, .ppanel > *, .prow-b > *, .psql > div > span { min-width: 0; }
 .pcrumb { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 12px; color: var(--text-subtle); border-bottom: 0.5px solid var(--border-subtle); }
@@ -618,18 +620,19 @@ function outputLabel(S) {
 const STOPPED = {paused: 'The build is paused', blocked: 'The build needs a decision: see the chat', access_needed: 'The build is waiting for access: see the chat'};
 
 /* A metric's state, in the person's words (2026-11-18): found, defined, tested on the data, or needs a look. Combining
-   duplicates happens to found metrics, so a merged one is still found until it is defined. */
-const STATE = {draft: ['Found', ''], written: ['Defined', ''], checked: ['Tested', 'ok'], failed: ['Needs a look', 'warn']};
+   duplicates happens to found metrics, so a merged one is still found until it is defined. When the person skips the
+   checks nothing ran, so nothing failed: not tested is a state of its own (the team, 2026-11-19). */
+const STATE = {draft: ['Found', ''], written: ['Defined', ''], untested: ['Not tested', 'idle'], checked: ['Tested', 'ok'], failed: ['Needs a look', 'warn']};
 const stageOf = m => m.stage === 'draft' || m.stage === 'merged' || m.stage === 'kept' ? m.stage : m.status === 'draft' ? 'draft' : 'final';
 function stateOf(m) {
   const s = stageOf(m);
   if (s === 'draft' || s === 'merged') return 'draft';
   if (s === 'kept' || m.status === 'look') return 'failed';
-  return m.status === 'checked' ? 'checked' : 'written';
+  return m.status === 'checked' ? 'checked' : m.status === 'untested' ? 'untested' : 'written';
 }
 /* A state as Metric Studio marks a release: a hollow ring until it is defined, a quiet dot once
    defined, a green one once tested, a warning one when it needs a look. */
-const MARK = {draft: 'ring', written: '', checked: 'ok', failed: 'warn'};
+const MARK = {draft: 'ring', written: '', untested: 'idle', checked: 'ok', failed: 'warn'};
 const marker = (label, tone) => `<span class="rel${tone ? ' ' + tone : ''}"><i class="dt"></i>${esc(label)}</span>`;
 const stateMark = m => marker(STATE[stateOf(m)][0], MARK[stateOf(m)]);
 /* In the lists, the design system's StatusBadge: a status leads with its tone's glyph (a tick, a triangle); a state that
@@ -701,7 +704,7 @@ function metricsList(S, UI) {
   if (ds.length) counts.draft = (counts.draft || 0) + ds.length;
   const f = UI.filter && counts[UI.filter] ? UI.filter : 'all';
   // Every state keeps its tab, with its count, so no tab moves as the build fills them; an empty one cannot be picked.
-  const chips = pills('flt', 'Show', [['all', 'All', n], ...Object.keys(STATE).map(s => [s, STATE[s][0], counts[s] || 0])], f);
+  const chips = pills('flt', 'Show', [['all', 'All', n], ...Object.keys(STATE).filter(s => s !== 'untested' || counts[s]).map(s => [s, STATE[s][0], counts[s] || 0])], f);
   const rows = ms.filter(m => f === 'all' || stateOf(m) === f).map(m => metricRow(S, UI, m))
     .concat(f === 'all' || f === 'draft' ? ds.map(d => draftRow(S, UI, d)) : []);
   const order = `<div class="lgd">Each metric is found in your sources, then defined: exactly how it’s worked out, then tested on ${esc(dataOf(S))}.</div>`;
@@ -716,9 +719,9 @@ function cantBlock(S, UI) {
 }
 /* Queries in one order every time, whichever list they come from (the engine's before the checks, the checked
    context's after): dashboard tiles first, then past queries most run first. Each shows its state, like a metric. */
-const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'look' || q.status === 'kept' ? 'failed' : 'written';
-const QTABS = ['written', 'checked', 'failed'];
-const QLABEL = {written: 'Found', checked: 'Tested', failed: 'Needs a look'};
+const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'look' || q.status === 'kept' ? 'failed' : q.status === 'untested' ? 'untested' : 'written';
+const QTABS = ['written', 'untested', 'checked', 'failed'];
+const QLABEL = {written: 'Found', untested: 'Not tested', checked: 'Tested', failed: 'Needs a look'};
 const qsaid = q => txt(q.question) || txt(q.name);
 function queriesList(S, UI) {
   const qs = queriesOf(S).slice().sort((a, b) => (a.kind === 'tile' ? 0 : 1) - (b.kind === 'tile' ? 0 : 1)
@@ -727,7 +730,7 @@ function queriesList(S, UI) {
   const counts = {};
   qs.forEach(q => { const s = qstateOf(q); counts[s] = (counts[s] || 0) + 1; });
   const f = UI.qfilter && counts[UI.qfilter] ? UI.qfilter : 'all';
-  const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.map(s => [s, QLABEL[s], counts[s] || 0])], f);
+  const tabs = pills('qflt', 'Show', [['all', 'All', qs.length], ...QTABS.filter(s => s !== 'untested' || counts[s]).map(s => [s, QLABEL[s], counts[s] || 0])], f);
   const rows = qs.filter(q => f === 'all' || qstateOf(q) === f).map(q => {
     const s = qstateOf(q), pend = pendingOf(S, s);
     return `<button type="button" class="row qr${pend ? ' pend' : ''}" data-act="q" data-q="${esc(q.id)}" data-k="q:${esc(q.id)}" data-f="q:${esc(q.id)}" data-s="${s}">${named(qsaid(q), pend, sourceSaid(q) + (q.review === 'read' ? ' · worth a read' : ''), 'cl2')}${s === 'checked' && txt(q.value) ? `<span class="v num">${esc(fixMinus(q.value))}</span>` : ''}${badgeOf(QLABEL[s], STATE[s][1])}</button>`;
@@ -830,9 +833,9 @@ function metricView(S, UI, name) {
   if (!m) return `<div class="card empty">${ic('metric', 's')}<span>This metric is not in the build any more.</span></div>`;
   const s = stateOf(m), srcs = arr(m.sources).filter(obj), from = arr(m.from).map(txt).filter(Boolean), saved = obj(S.saved);
   // A kept-back metric whose check passed still shows what it returned: it ran, and was kept back for another reason.
-  const value = (s === 'checked' || m.status === 'checked') && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : 'Not run yet'}</span>`;
+  const value = (s === 'checked' || m.status === 'checked') && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : s === 'untested' ? 'Not run' : 'Not run yet'}</span>`;
   const strip = pstrip([
-    pcell('State', stateMark(m), esc(STATE_SAYS[stageOf(m) === 'kept' ? 'kept' : m.status === 'untested' && s === 'written' ? 'untested' : s].replace('{data}', dataOf(S)) + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))),
+    pcell('State', stateMark(m), esc(STATE_SAYS[stageOf(m) === 'kept' ? 'kept' : s].replace('{data}', dataOf(S)) + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))),
     pcell('Tested value', value, esc(besideTile(m))),
     pcell('Made from', madeFrom(m) ? `<button type="button" class="lnk" data-act="reveal" data-v="p:from" data-k="reveal:from">${esc(madeFrom(m))}</button>` : 'Shows once found',
       from.length > 1 ? esc('Combined from ' + pl(from.length, 'possible metric')) : '')]);
@@ -878,7 +881,7 @@ function draftView(S, UI, id) {
 }
 /* A saved query's profile, as Studio draws one: no tabs; the SQL, the metrics made from it, its use and its columns. */
 const QSTATE = {checked: ['Tested', 'ok', 'Ran on the data as written'], look: ['Needs a look', 'warn', 'Ran on the data and needs a look'],
-  untested: ['Defined', '', 'Not run on the data: you chose to skip the checks'], kept: ['Needs a look', 'warn', 'Kept back, not saved']};
+  untested: ['Not tested', 'idle', 'Not run on the data: you chose to skip the checks'], kept: ['Needs a look', 'warn', 'Kept back, not saved']};
 function queryView(S, UI, id) {
   const q = findQuery(S, id);
   if (!q) return `<div class="card empty">${ic('query', 's')}<span>This query is not in the build any more.</span></div>`;

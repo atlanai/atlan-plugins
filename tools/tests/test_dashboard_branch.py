@@ -114,12 +114,18 @@ class DashboardBranch(unittest.TestCase):
 
     def test_the_dashboard_save_question_waits_for_checks_or_the_persons_skip(self):
         self.interaction(flow='dashboard', report='Sales: Overview')
+        structural = json.loads((self.run / 'context' / 'candidate-checks.json').read_text(encoding='utf-8'))
         (self.run / 'context' / 'candidate-checks.json').write_text('{}', encoding='utf-8')
         with self.assertRaises(ValueError):
             questions.save(self.run, widget=True)
         self.interaction(checks='skip')
+        # d3, 2026-11-19: asked before the structural pass, the question said "Built 0 metrics" for a build of 4.
+        with self.assertRaises(ValueError) as said:
+            questions.save(self.run, widget=True)
+        self.assertIn('`PROJECT check`', str(said.exception))
+        write(self.run / 'context' / 'candidate-checks.json', {k: {'status': 'schema_checked', 'errors': []} for k in structural})
         text = questions.save(self.run, widget=True)['question']
-        self.assertTrue(text.startswith('Built '), text)
+        self.assertRegex(text, r'^Built [1-9]', text)
         self.assertIn('you chose to skip the checks', text)
         self.assertIn("1 tile couldn't be built", text)
         self.assertNotIn('CONTEXT BUILT', text)

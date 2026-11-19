@@ -138,11 +138,12 @@ class Batches(unittest.TestCase):
 
     def test_each_state_a_metric_passes_has_its_own_plain_name(self):
         # Team decision, 2026-11-18: one badge in plain states, from found to run on the data, so a person can tell
-        # at a glance which metrics ran and which need a look.
+        # at a glance which metrics ran and which need a look. Not tested joined them on 2026-11-19: skipped checks
+        # ran nothing, so nothing failed.
         import re
         page = side_page.PAGE.read_text(encoding='utf-8')
         labels = dict(re.findall(r"(\w+): \['([^']+)'", re.search(r'const STATE = \{(.*?)\};', page).group(1)))
-        self.assertEqual(list(labels.values()), ['Found', 'Defined', 'Tested', 'Needs a look'])
+        self.assertEqual(list(labels.values()), ['Found', 'Defined', 'Not tested', 'Tested', 'Needs a look'])
         self.assertIn('title="Ran on the data"', page)
 
 

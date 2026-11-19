@@ -551,6 +551,25 @@ FLOW = {'described': 'Finding metrics, under way: next, the numbers each query w
         'rules': 'Definitions written. Next: test each one on the data.'}
 
 
+# The metric steps the side page shows once it is open beside the chat in a widget host, so no chip repeats them.
+ON_PAGE = ('drafted', 'metrics', 'rules', 'links', 'progress')
+ON_PAGE_NEXT = ("The side page shows this step, so nothing goes in the chat, not even the next step's start. "
+                "Set your task list to `task_list`, "
+                "each step's text and status as given, in the same message as your next `PROJECT drafts --wait` (in the "
+                "foreground), so the turn goes on.")
+
+
+def desktop():
+    """Whether the helper runs in the Claude desktop app, which draws widgets."""
+    import os
+    return os.environ.get('CLAUDE_CODE_ENTRYPOINT') == 'claude-desktop'
+
+
+def keeps_tasks(run):
+    """Whether the host keeps a task list for the build: the desktop app does; elsewhere, as the agent recorded."""
+    return desktop() or read_json(Path(run) / 'interaction.json', dict, {}).get('tasks') is True
+
+
 def title_of(kind, spec):
     """A widget's title in the person's words, from what its chip says ("27_possible_metrics"): the app shows it, and
     the agent's own read "fixit_define_progress_chip_3"."""

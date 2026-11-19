@@ -27,7 +27,8 @@ to `PROJECT experience` and `PROJECT journey`. Only a matching successful Regist
 can establish that host's readiness. It cannot clear another host's sign-in request.
 Do not pass a cwd-relative engine path unchanged. For long work,
 provide a factual heartbeat every 30 to 60 seconds, except while a subagent writes the gates: then the
-side page and the step chips are the heartbeat. Surface useful evidence such as a first
+side page and the step chips are the heartbeat, and the task list's count where you keep one, so nothing of
+yours goes in the chat then. Surface useful evidence such as a first
 metric or a resolved hold, not gate names, private paths or raw logs. Do not repeat unchanged
 counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage;
 the dashboard branch gives a rough spoken range instead, as [its file](dashboard-flow.md) says.
@@ -69,6 +70,19 @@ page shows each batch as it lands; the chat shows each step's chip when the step
    line of yours names it again (a Doing line under a chip that says "Next: Combine duplicates"
    repeats it). Never the engine's results or counts (accepted, cards, pairs, a check's own name)
    nor your own tooling (scripts, retries, setup); never that a step is still running.
+   **On every host** (the team, 2026-11-19), the session waits for the build in one turn from its start, and the
+   gate result's `wait` names the command. Before the side page opens, a step's end draws its chip. Once it is open,
+   it carries each metric step: where you keep a task list (the desktop app always does; in a terminal, as you
+   recorded with `PROJECT journey tasks`), the task list carries the build and nothing goes in the chat until the
+   build's card, not even a Doing line at a step's start; with no task list, each step's end shows its chip and
+   nothing comes between. Run no background watch: run `PROJECT drafts --wait --engine-dir <engine>` in
+   the foreground, with a ten-minute timeout, and do what its line says. On a batch, set your task list to its
+   `task_list` in the same message as the next wait. On a step's end, start the next gate's subagent, then run
+   `visual next`, which hands back the task list instead of a chip. On a quiet spell, check the subagents, then wait
+   again. With no foreground command that can run ten minutes, run `follow` as the background watch instead. When the
+   wait says the build is done, export it and run `PROJECT check` before any question. A turn that ends
+   on a task-list update alone is sent back for words; a turn that keeps going is not, so never end the turn between
+   waits. A helper's share coming back while others are still out needs no words: wait again.
 3. **What the app shows is the person's.** It shows each command's description, each helper's and
    watch's name, and each widget's title. Describe each command as what it does for them
    ("Showing what's new", "Continuing the build", "Testing on the data"), never a chip, the engine,
@@ -81,7 +95,9 @@ side page, never in the chat. When a gate refuses a batch, the subagent that wro
 value before its check.
 
 Use native chat, its choice controls and [the setup checklist](checklist.md) in chat and
-the host's task list when available. Show the full tracker when a step starts; refresh
+the host's task list when available. The first time you print the tracker, record once whether you keep a task list:
+`PROJECT journey tasks --answer yes` when you have a task-list tool (TaskCreate and TaskUpdate, or TodoWrite), else
+`--answer no`; the desktop app needs none. Show the full tracker when a step starts; refresh
 `PROJECT checklist` with real counts during long work and report useful changes. Save phase changes and intent answers to the run, so the checklist stays
 true. Open no panel or view unless the person asks for [a visual view](render.md), apart from
 the run's own [side page](visuals.md). Do not

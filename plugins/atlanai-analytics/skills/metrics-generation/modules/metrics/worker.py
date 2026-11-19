@@ -260,30 +260,28 @@ def batch_progress(run, gate):
     command = f'python3 "{project}" --run-dir "{run.parent}" drafts --engine-dir "{run.name}"'
     shares = ({'split': f'python3 "{project}" --run-dir "{run.parent}" split --engine-dir "{run.name}"'}
               if gate == 'x3' else {})
-    return {'command': command,
-            'follow': command + ' --follow',
-            'name': STEP_NAMES[gate],
-            **shares,
+    # Every host waits for the build in one turn (the team, 2026-11-19): a turn that ends without words is sent back for
+    # them, in the desktop app and in Claude Code's terminal alike, while a turn that keeps going is not.
+    return {'command': command, 'wait': command + ' --wait', 'follow': command + ' --follow', 'name': STEP_NAMES[gate], **shares,
             'say': (f'A fresh subagent named `{STEP_NAMES[gate]}`, started in the background (never one this session '
-                    'waits on: a waiting session runs no watch and shows the person nothing), writes this gate in '
-                    'numbered batch files and runs no drafts command'
+                    'waits on), writes this gate in numbered batch files and runs no drafts command'
                     + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
                        'brief. ' if shares else '. ') +
-                    'The session that talks to the person runs `follow` with the Monitor tool, named `Following the '
-                    'build` (a background shell command never wakes you, so its lines would never reach the person; the '
-                    'app shows both names to the person): each line '
-                    'it prints names the `visual` call that is due: the step\'s chip when a step ends, and '
-                    'how far it has got every few minutes while batches land; run it and show what it gives, '
-                    'with no words of your own. When a step ends, start the next step\'s subagent first, then draw the '
-                    'chip: the build waits on its subagent, never on a chip. Every turn ends on one line with something new: the line the `visual` '
-                    'result gives with its chip, unchanged (a step\'s own chip names the step that starts, so no line of '
-                    'yours names it again), never the engine\'s results or counts (accepted, cards, pairs, a check\'s own '
-                    'name) nor your own tooling (scripts, retries, setup), never that the step is still running. The app '
-                    'shows each command\'s description to the person: describe each as what it does for them ("Showing '
-                    'what\'s new", "Continuing the build"), never a chip, the engine, a gate, a folder or a record. The '
-                    'side page shows each batch as it lands, so '
-                    'no batch goes in the chat. With no background subagent or watch, write the gate in '
-                    'that session and run `visual next` once the gate is accepted.')}
+                    'The session that talks to the person stays in one turn while the build runs: it runs `wait` in '
+                    'the foreground (a ten-minute timeout), does what each line it prints says, and runs it again in '
+                    'the same message. On a batch, set the task list to `task_list`. When a step ends, start the next '
+                    'step\'s subagent first, then draw the chip: run `visual next` and do what it says. On a quiet '
+                    'spell, check the subagents. It never ends the turn between waits (a turn that ends without words '
+                    'is sent back for them) and writes nothing of its own between chips: a step\'s own chip names the '
+                    'step that starts, so no line of yours names it again; never that the step is still running; never '
+                    'the engine\'s results or counts (accepted, cards, pairs, a check\'s own name), nor your own '
+                    'tooling (scripts, retries, setup). The app shows each command\'s description to the person: '
+                    'describe each as what it does for them ("Showing what\'s new", "Continuing the build"), never a '
+                    'chip, the engine, a gate, a folder or a record. The side page shows each batch as it lands, so no '
+                    'batch goes in the chat. With no foreground command that can run ten minutes, run `follow` instead '
+                    'as a background watch named `Following the build` (in Claude Code, the Monitor tool). With no '
+                    'background subagent, write the gate in that session and run `visual next` once the gate is '
+                    'accepted.')}
 
 
 def last_stage_output(text):

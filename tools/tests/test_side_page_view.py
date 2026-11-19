@@ -95,17 +95,26 @@ class SidePageView(unittest.TestCase):
         for old in ('Final', 'Kept back', 'Writing rule', 'Draft', 'Merged', 'Written', 'Checked', 'Failed'):
             self.assertNotRegex(words, r'\b%s\b' % old)
 
-    def test_an_item_whose_check_the_person_skipped_is_defined_and_says_so(self):
-        # A tester, 2026-11-19: after choosing to skip the checks, every metric and query read "Needs a look".
+    def test_an_item_whose_check_the_person_skipped_reads_not_tested(self):
+        # A tester, 2026-11-19: after choosing to skip the checks, every metric and query read "Needs a look". The
+        # team, the same day: nothing failed, so a state of its own, in the words the person chose when skipping.
         snap = dict(SNAPSHOT, metrics=[metric('Labour cost', 'final', 'untested')],
                     queries=[dict(SNAPSHOT['queries'][0], status='untested')])
         words = self.text(self.render(snap))
-        self.assertRegex(words, r'Labour cost.{0,80}?\bDefined\b')
+        self.assertRegex(words, r'Labour cost.{0,80}?\bNot tested\b')
+        self.assertIn('Not tested 1', words, 'its own filter')
         self.assertNotIn('Needs a look 1', words)
+        self.assertIn('Not tested 1', self.text(self.render(snap, list='queries')))
         for ui in ({'metric': 'Labour cost'}, {'list': 'queries', 'query': 'h-1'}):
             profile = self.text(self.render(snap, **ui))
-            self.assertIn('Not run on the data: you chose to skip the checks', profile)
+            self.assertIn('Not tested Not run on the data: you chose to skip the checks', profile)
             self.assertNotIn('Tested on', profile)
+        self.assertRegex(self.text(self.render(snap, metric='Labour cost')), r'Tested value Not run (?!yet)',
+                         'a skipped check will not run later, so its value is not "not run yet"')
+
+    def test_a_run_with_nothing_skipped_has_no_not_tested_filter(self):
+        for ui in ({}, {'list': 'queries'}):
+            self.assertNotIn('Not tested', self.text(self.render(**ui)))
 
     def test_a_kept_back_item_says_it_was_not_saved_and_why(self):
         # A tester, 2026-11-19: "It said it held back X metrics and queries, but I couldn't tell why."

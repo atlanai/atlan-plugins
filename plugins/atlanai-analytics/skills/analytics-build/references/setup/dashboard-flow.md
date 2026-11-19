@@ -125,11 +125,16 @@ It opens once the first possible metric is found, when the watch names `connect`
 
 **The chat is the same as in every flow**, as [progress](progress.md) sets out: each step's start
 on its Doing line with roughly how long, from its size; its chip when it ends; and while a step
-runs, the so-far chip `visual progress` gives with its line, unchanged. Never a "still" line.
+runs, the so-far chip `visual progress` gives with its line, unchanged. Never a "still" line. Once the side page is
+open, the task list carries the build instead where you keep one, as
+[drafts as they land](progress.md#drafts-as-they-land) says: no Doing line at a step's start and no chip at its end,
+until the build's card; with no task list, only each step's end shows its chip.
 
-As the build starts, before the first helper, arm `PROJECT drafts --follow --every-chip
+As the build starts, before the first helper, the fallback is to arm `PROJECT drafts --follow --every-chip
 --engine-dir engine` as a background watch (in Claude Code, the Monitor tool), and re-arm it
-whenever it stops before the build ends. It names each chip as it becomes due, since helpers
+whenever it stops before the build ends, only where no foreground command can run ten minutes.
+Everywhere else, start the helper and run `PROJECT drafts --wait --engine-dir engine` in the
+foreground in the same turn, as the readiness step's result says. It names each chip as it becomes due, since helpers
 advance every step here, and replaces the watch that
 [drafts as they land](progress.md#drafts-as-they-land) arms at the describe step. The tile
 translation review saves nothing until it ends, so no so-far chip comes during it: its start

@@ -367,6 +367,125 @@ def news(root, engine_dir=None, gate=None):
     return _news(_Engine(root, engine_dir), gate)
 
 
+# The desktop app's task list carries the build once the side page is open (the team, 2026-11-19): the step under way counts
+# its batches, from the same files the side page counts, with time left from the step's own pace.
+ROW_OF = {'m2': 'draft', 'x1': 'draft', 'x2': 'merge', 'x3': 'write'}
+SHORT = {'draft': 'Find metrics', 'merge': 'Combine duplicates'}
+
+
+def _left(files, done, total):
+    """Time left from the step's own pace: how long its batches have taken per item so far, for the items still to come.
+    None until two batches have landed, when the pace means something."""
+    if not total or len(files) < 2:
+        return None
+    if done >= total:
+        return 'nearly done'
+    stamps = [f.stat().st_mtime for f in files]
+    per_batch, per_items = (stamps[-1] - stamps[0]) / (len(files) - 1), done / len(files)
+    seconds = per_batch * (total - done) / per_items if per_items else 0
+    return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
+
+
+def _live(engine, under):
+    """The step under way as its task-list row says it: what has landed so far, and time left when the pace is known."""
+    gate, _, describe, files = under
+    c = describe(engine, files, files[-1:])[1]
+    if gate == 'm2':
+        done, total = c.get('described') or 0, c.get('total')
+        said = '%d of %d queries in plain words' % (done, total) if total else '%d queries in plain words' % done
+    elif gate == 'x1':
+        done, total = c.get('queries_read') or 0, c.get('queries_total')
+        said = '%s so far, %s' % (_plural(c.get('drafts') or 0, 'possible metric'),
+                                  '%d of %d queries read' % (done, total) if total else '%d queries read' % done)
+    elif gate == 'x2':
+        # How many metrics the drafts make is only known once they are all combined.
+        done, total, said = 0, None, '%s so far' % _plural(c.get('metrics') or 0, 'metric')
+    else:
+        done, total = c.get('defined') or 0, c.get('total')
+        said = '%d of %d defined' % (done, total) if total else '%d defined' % done
+    left = _left(files, done, total)
+    return said + (' (%s)' % left if left else '')
+
+
+def task_list(root, engine_dir=None):
+    """The host's task list as the checklist gives it, with the step under way saying how far it has got."""
+    import checklist
+    import experience
+    rows = checklist.build(experience.snapshot(root, engine_dir))['steps']
+    engine = _Engine(root, engine_dir)
+    under = _under_way(engine)
+    out = []
+    for r in rows:
+        content = r['content']
+        if under and r['status'] == 'in_progress' and r.get('id') == ROW_OF[under[0]]:
+            content = '%s · %s' % (SHORT.get(r['id'], content.split(' (about')[0]), _live(engine, under))
+        out.append({'content': content, 'status': r['status']})
+    return out
+
+
+WAITED = {
+    'batch': "Set your task list to `task_list`, each step's text and status as given, in the same message as your next "
+             "`PROJECT drafts --wait`, so the turn goes on. Write nothing in the chat: the side page shows each batch.",
+    'step': "A step ended. Start the next step's subagent if its gate result asks for one, then run `visual next` with the "
+            "flags of every `visual` call and do what it says, in this same turn. Write nothing in the chat, not even the "
+            "next step's start: the task list names it.",
+    'quiet': "Nothing new for a while. If every helper's share of the definitions is back, run `ENGINE advance` once. Then "
+             "run `PROJECT drafts --wait` again. Write nothing in the chat.",
+    'done': "The build is written. Export it into the run and run `PROJECT check` for the structural pass, as build and "
+            "check says, then draw the build's card, the chat's first word since the side page opened, before any question.",
+}
+
+
+def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None):
+    """For a host whose task list carries the build once the side page is open: wait in the foreground until the build has
+    something to report, print it as one JSON line and return, so the session acts on it and waits again in the same
+    turn. A turn that ends on a task-list update alone is sent back for words; a turn that goes on is not. It reports a
+    batch once (with the task list), a step's end once (shared with `follow`), and a quiet spell after `quiet` seconds
+    with nothing new or at `timeout`, which stays under a foreground command's ten-minute limit."""
+    import sys
+    import time
+    out = out or sys.stdout
+    engine = _Engine(root, engine_dir)
+    start = last = time.monotonic()
+    seen_now = None
+
+    def say(event, **extra):
+        print(json.dumps({'event': event, **extra, 'next': WAITED[event]}, ensure_ascii=False), file=out, flush=True)
+
+    while True:
+        record = engine.json(engine.root / REPORTED)
+        done = set(record.get('steps') if isinstance(record.get('steps'), list) else [])
+        stages = engine.json(engine.dir / 'manifest.json').get('stages') or []
+        accepted = {s.get('stage') for s in stages if isinstance(s, dict) and s.get('verdict') == 'ok'}
+        for stage in WAKES:
+            if stage in accepted and stage not in done:
+                _save_record(engine, dict(record, steps=sorted(done | {stage})))
+                return say('step')
+        # The links step comes after the definitions: the build is done once it has a verdict, kept or skipped.
+        if 'x3_ingest' in accepted and any(isinstance(s, dict) and s.get('stage') == 'x4_ingest' and s.get('verdict') for s in stages):
+            return say('done')
+        # A chip that comes due without a step end this session sees (the dashboard flow's helpers advance every step),
+        # and the side page once there is something on it: each named once.
+        import side_view
+        try:
+            due = [k for k in side_view.due(root, engine_dir) if k not in (record.get('told') or [])]
+        except (OSError, ValueError, KeyError, TypeError):
+            due = []
+        if due:
+            _save_record(engine, dict(record, told=sorted(set(record.get('told') or []) | set(due))))
+            return say('step')
+        now = sum(len(_saved(engine, gate)) for gate, _, _ in GATES)
+        if now != seen_now:
+            seen_now, last = now, time.monotonic()
+        import visuals
+        if now != record.get('waited') and _under_way(engine) and visuals.keeps_tasks(root):
+            _save_record(engine, dict(record, waited=now))
+            return say('batch', task_list=task_list(root, engine_dir))
+        if time.monotonic() - start >= timeout or time.monotonic() - last >= quiet:
+            return say('quiet')
+        time.sleep(interval)
+
+
 def follow(root, engine_dir=None, seconds=1800, idle=1200, interval=2.0, so_far_every=SO_FAR_SECONDS, out=None, every_chip=False):
     """Print one line each time a step the chat shows ends, for the session that talks to the person while a subagent
     writes the gates: the line names the chip to draw, and nothing else reaches the chat. While a step runs, a line
