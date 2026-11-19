@@ -56,6 +56,8 @@ class Drafts(unittest.TestCase):
         self.assertIn('Find metrics · 1 possible metric so far, 2 of 4 queries read', under[0]['content'])
         self.assertIn('drafts --wait', first['next'], 'the next wait goes in the same message, so the turn goes on')
         self.assertIn('no words of your own', first['next'].lower())
+        # d7 got 13 of these and never set its list: the task-list tool was deferred and never loaded.
+        self.assertIn('if it is deferred', first['next'])
         self.assertEqual(self.wait()['event'], 'quiet', 'nothing new: it says so after a quiet spell, and never repeats a batch')
         self.answer('x1', '02.json', {'statements': [
             {'vq_id': 'q3', 'verdict': 'metrics', 'metrics': [{'name': 'Win %'}, {'name': 'Pipeline'}]}]})

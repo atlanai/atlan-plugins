@@ -512,6 +512,8 @@ class StepChips(unittest.TestCase):
                               env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
         side = json.loads(done.stdout.split('side view: ', 1)[1])
         self.assertIn('with the title `1_possible_metric`', side['next'])
+        # d7, 2026-11-19: the widget tool was deferred; the session never loaded it and stripped each chip's HTML instead.
+        self.assertIn('if it is deferred', side['next'])
         self.assertIn('go back to waiting for the build (`PROJECT drafts --wait`) in this same turn', side['next'])
         self.assertNotIn('Newest possible metric', side['next'])
         self.assertNotIn('Doing', side['next'])

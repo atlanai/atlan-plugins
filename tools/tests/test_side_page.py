@@ -50,6 +50,7 @@ class Page(unittest.TestCase):
         # updates the task list, never ending a turn on an update alone.
         said = side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'host': 'claude-desktop'})
         self.assertIn('`PROJECT drafts --wait`', said)
+        self.assertIn('if they are deferred', said, 'd7 never loaded its browser tools and printed the address instead')
         self.assertNotIn('drafts --wait', side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'opened': True}), 'a terminal is unchanged')
 
     def test_a_metric_says_where_its_data_lives_and_where_it_was_kept(self):

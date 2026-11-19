@@ -383,6 +383,7 @@ class Helper(unittest.TestCase):
             side = self.side(self.project('visual', kind, *flags))
             self.assertEqual(side.get('task_list'), listed, kind)
             self.assertIn("set your task list to `task_list`", side['next'], kind)
+            self.assertIn('if it is deferred', side['next'], kind)
             # Named for both hosts: left implicit, a live run set its list once and never again.
             self.assertIn('TodoWrite', side['next'], kind)
             self.assertIn("the desktop app's task list", side['next'], kind)

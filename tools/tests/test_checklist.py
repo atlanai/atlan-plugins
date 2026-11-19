@@ -217,6 +217,20 @@ class Checklist(unittest.TestCase):
         self.run.journey('tasks', answer='no')
         self.assertNotIn('journey tasks', checklist_cli('').stderr, 'asked once')
 
+    def test_every_journey_record_asks_a_terminal_session_for_its_task_list_until_it_is_recorded(self):
+        # h17t never ran the checklist, so its ask never came: the task tools were deferred and never loaded, and the
+        # build ran with no task list. Every run records its flow early (`journey demo`, `journey agentic`).
+        def journey_cli(entry, *args):
+            return subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(self.run.root), 'journey', *args],
+                                  capture_output=True, text=True, env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': entry})
+        said = journey_cli('', 'demo').stderr
+        self.assertIn('`PROJECT checklist`', said)
+        self.assertIn('deferred', said, 'tools a session has to load first')
+        self.assertIn('journey tasks --answer', said)
+        self.assertNotIn('journey tasks', journey_cli('claude-desktop', 'demo').stderr, 'the desktop app keeps one')
+        self.run.journey('tasks', answer='yes')
+        self.assertNotIn('journey tasks', journey_cli('', 'status').stderr, 'once recorded, never again')
+
     def test_dashboard_page_item_ticks_when_built_or_declined(self):
         fixture.seed_checked(self.run, 'checked')
         self.bind(self.run)

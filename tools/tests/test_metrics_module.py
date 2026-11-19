@@ -131,7 +131,9 @@ class InputStagingTests(unittest.TestCase):
             self.assertNotIn(gate, step['name'])
             self.assertIn('`%s`' % step['name'], step['say'])
             self.assertIn('in this session', step['say'])
-            self.assertIn('this session never waits on', step['say'])
+            # h17t read "or, where the flow runs every step in a background helper, in a helper" as leave to hand the
+            # whole build to one helper and end its turn: no wait, no task list, no chips.
+            self.assertNotIn('helper', step['say'])
             # h15t told the person "The links step is small (10 pairs), so I'll write it here".
             self.assertIn('Say nothing in the chat about who writes it', step['say'])
         self.assertIsNone(self.worker().authored_step('m2'), 'a batched step has its own instructions')

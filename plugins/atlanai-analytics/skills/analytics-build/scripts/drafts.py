@@ -199,7 +199,8 @@ def task_list(root, engine_dir=None):
 
 WAITED = {
     'batch': "Add no words of your own: the side page shows each batch. Set your task list to `task_list`, each step's "
-             "text and status as given, in the same message as your next `PROJECT drafts --wait`, so the turn goes on.",
+             "text and status as given (load the task-list tool first if it is deferred), in the same message as your "
+             "next `PROJECT drafts --wait`, so the turn goes on.",
     'step': "Add no words of your own, not even the next step's start: start the next step's subagent if its gate result "
             "asks for one, then run `visual next` with the flags of every `visual` call and do what it says, in this "
             "same turn.",

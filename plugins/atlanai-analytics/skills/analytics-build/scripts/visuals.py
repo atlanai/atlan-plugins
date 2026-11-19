@@ -518,7 +518,8 @@ FLOW = {'described': 'Finding metrics, under way: next, the numbers each query w
 ON_PAGE = ('drafted', 'metrics', 'rules', 'links')
 ON_PAGE_NEXT = ("The side page shows this step. Write `say` in the chat, word for word, as your only words (nothing when "
                 "it is empty), and nothing about the next step: the task list names it. Set your task list to "
-                "`task_list`, each step's text and status as given, in the same message as your next `PROJECT drafts "
+                "`task_list`, each step's text and status as given (load the task-list tool first if it is deferred), "
+                "in the same message as your next `PROJECT drafts "
                 "--wait` (in the foreground), so the turn goes on.")
 
 

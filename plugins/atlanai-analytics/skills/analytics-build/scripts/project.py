@@ -663,6 +663,18 @@ TASK_MOMENTS = ('described', 'drafted', 'metrics', 'rules', 'links', 'context')
 STEP_CHIPS = ('described', 'drafted', 'metrics', 'rules')
 
 
+def _ask_for_tasks(root):
+    """In a terminal, until the session records whether it keeps a task list, the checklist and every journey record ask
+    for it, on stderr, which a filter on the result leaves: the helper cannot see the agent's tools, and h17t never ran
+    the checklist, nor loaded its deferred task tools."""
+    import visuals
+    if visuals.desktop() or 'tasks' in visuals.read_json(Path(root) / 'interaction.json', dict, {}):
+        return
+    print('Next: put the tracker from `PROJECT checklist` in your task list now, with TaskCreate and TaskUpdate (or '
+          'TodoWrite), loading them first if they are deferred; then record once whether you keep a task list: '
+          '`PROJECT journey tasks --answer yes`, else `--answer no`.', file=sys.stderr)
+
+
 def main():
     # Chips, cards and data files carry text such as '●', '£' and '−'; a console or pipe in another code page must not break them.
     for stream in (sys.stdout, sys.stdin):
@@ -861,8 +873,9 @@ def main():
                 print(shown)
             steps = []
             if shown and args.widget:
-                steps.append(("Draw it now: pass the HTML above to `show_widget` with the title `%s` (after its `read_me`, the "
-                              "first time), before your next question or reply. Never put it in a question's text. It says what "
+                steps.append(("Draw it now: pass the HTML above to `show_widget` with the title `%s` (load it with your tool "
+                              "search first if it is deferred, and run its `read_me` the first time), before your next "
+                              "question or reply. Never put it in a question's text. It says what "
                               "the step produced: add no line of your own about it.") % visuals.title_of(args.kind, spec))
             elif shown and asked:
                 steps.append("Put the lines above, as they are, in %s: a question's own text is always shown, while text "
@@ -899,7 +912,8 @@ def main():
                              for s in checklist.build(experience.snapshot(run, args.engine_dir))['steps']]
                 steps.append("Set your task list to `task_list`, each step's text and status as given, in the same "
                              "message as the chip: in Claude Code's terminal with TodoWrite (or TaskCreate and TaskUpdate), "
-                             "in the desktop app's task list with its own plan tool; a host with no task list skips this.")
+                             "in the desktop app's task list with its own plan tool, loading the tool first if it is "
+                             "deferred; a host with no task list skips this.")
             # A moment with nothing true to show yet records nothing, so an early call cannot settle a step half done.
             # A moment deferred to its question is recorded when that question is composed, so a skipped question
             # is named again by the next helper result.
@@ -969,14 +983,11 @@ def main():
             import checklist, experience
             model = experience.snapshot(project, args.engine_dir, host=args.host, server=args.server)
             result = {**checklist.build(model, args.flow), 'remote_writes': False}
-            import visuals
-            if not visuals.desktop() and 'tasks' not in visuals.read_json(project.root / 'interaction.json', dict, {}):
-                # The helper cannot see the agent's tools: the agent records once whether it keeps a task list, which then
-                # carries the metric steps (the person, 2026-11-19). On stderr, which a filter on the result leaves.
-                print('Next: record whether you keep a task list, once: `PROJECT journey tasks --answer yes` when you have a '
-                      "task-list tool (TaskCreate and TaskUpdate, or TodoWrite), else `--answer no`.", file=sys.stderr)
+            _ask_for_tasks(project.root)
         elif args.command == 'journey':
             result = project.journey(args.action, args.focus, args.host, args.server, args.answer, args.waits)
+            if args.action != 'tasks':
+                _ask_for_tasks(project.root)
             if args.action == 'readiness' and isinstance(result, dict) and 'drafts --wait' in str(result.get('next')):
                 # d5, 2026-11-19: a session piped this result through a filter that kept only the checklist, so the step
                 # that keeps the build in view never reached it. A filter on the output leaves this line.

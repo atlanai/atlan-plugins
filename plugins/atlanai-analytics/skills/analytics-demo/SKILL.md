@@ -36,7 +36,7 @@ these steps.
 
 ## 1. Choose and load demo data
 
-Ask one native question before surveying anything. Its visible prompt says what the person
+Ask one native question first, with no words before it. Its visible prompt says what the person
 will end with:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:

@@ -247,9 +247,8 @@ def authored_step(gate):
         return None
     name = OTHER_STEP_NAMES[gate]
     return {'name': name,
-            'say': (f'Write this gate in this session, or, where the flow runs every step in a background helper, in a '
-                    f'helper named `{name}` that this session never waits on. Say nothing in the chat about who writes '
-                    f'it or how big it is.')}
+            'say': (f'Write this gate in this session, as `{name}`. Say nothing in the chat about who writes it or how '
+                    f'big it is.')}
 
 
 def batch_progress(run, gate):

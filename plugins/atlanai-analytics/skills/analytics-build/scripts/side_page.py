@@ -1006,7 +1006,8 @@ def instruction(opened, widget=False):
     follows = 'It follows the run by itself from the run\'s own files: never reload, rebuild or push to it.'
     if opened.get('host') == 'claude-desktop' or widget:
         return ('Open the side page now in the app\'s browser pane: your browser tool\'s preview or navigate call with url '
-                '`%s`, then bring that pane into view beside the chat (the app\'s show-pane call, pane `preview`): loading '
+                '`%s` (load the browser, show-pane and layout tools with your tool search first if they are deferred), '
+                'then bring that pane into view beside the chat (the app\'s show-pane call, pane `preview`): loading '
                 'a page does not show a hidden pane. Then check with the app\'s layout call that `preview` is among the '
                 'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
                 'layout can tell. %s Say nothing about it in the chat; the cards point to it. From here the page carries each '
