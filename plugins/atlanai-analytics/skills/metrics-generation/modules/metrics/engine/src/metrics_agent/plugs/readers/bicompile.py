@@ -4142,6 +4142,14 @@ def _ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def _legal(name: str) -> str:
+    """A column name as written when it is a legal bare identifier, else double-quoted.
+    Unlike `_ident` it never quotes a bare name for its case (`ACCOUNT_ID` stays as written,
+    folding as the warehouse folds it); it only quotes what cannot parse bare (`Close Date`,
+    `ai maturity level`), which before was emitted as is and refused as unparseable SQL."""
+    return name if _SIMPLE_IDENT.match(name) else '"' + name.replace('"', '""') + '"'
+
+
 def _measure_alias(name: str) -> str:
     """A measure's column alias: `slugs.column_alias` (a symbol kept as a word)."""
     return slugs.column_alias(name)
@@ -4499,7 +4507,7 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             if g.lower() not in colmap:
                 return _calc(g) or f"{alias}.{_ident(g)}"
             return f"{alias}.{_ident(colmap[g.lower()])}"
-        return _calc(g, hint) or f"{plan.at(g, hint)}.{g}"
+        return _calc(g, hint) or f"{plan.at(g, hint)}.{_legal(g)}"
 
     # TEXT GROUPED AS THE MODEL HOLDS IT. A model that compares text without case and
     # without trailing spaces (`text_key`) keeps ONE value for 'Retail', 'retail' and 'Retail '
@@ -4537,12 +4545,12 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             return res
         if i in folded:
             select.append(f"MIN({expr}) AS "
-                          f"{_measure_alias(g) if g.lower() in calc_names else g}")
+                          f"{_measure_alias(g) if g.lower() in calc_names else _legal(g)}")
             res.rules_used.append("engine.text_key_group")
             continue
         if i in cased:
             select.append(f"MIN({expr}) OVER (PARTITION BY UPPER({expr})) AS "
-                          f"{_measure_alias(g) if g.lower() in calc_names else g}")
+                          f"{_measure_alias(g) if g.lower() in calc_names else _legal(g)}")
             res.rules_used.append("engine.text_case_label")
             continue
         labels = (unit.get("member_labels") or {}).get(str(g).lower())
@@ -4550,7 +4558,7 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
             # The view SHOWS a label for some values (aliases): the row is still the stored
             # value's, under its label.
             select.append(_labelled(expr, labels, dialect) + " AS "
-                          + (_measure_alias(g) if g.lower() in calc_names else g))
+                          + (_measure_alias(g) if g.lower() in calc_names else _legal(g)))
             res.rules_used.append("engine.member_labels")
             continue
         select.append(f"{expr} AS {_measure_alias(g)}" if g.lower() in calc_names else expr)

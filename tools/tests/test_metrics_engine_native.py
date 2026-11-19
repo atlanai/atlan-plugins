@@ -287,5 +287,89 @@ class CachedSignInTest(unittest.TestCase):
             self.X.acquire_token(args)
 
 
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema, duckdb)')
+class DetailTableTest(unittest.TestCase):
+    """Detail tables over a native query: bound to it, quoted, scoped and described as they run."""
+
+    def test_a_filter_on_a_table_no_relationship_reaches_does_not_apply(self):
+        rels = [{'from_table': 'Activity', 'to_table': 'Snapshot', 'is_active': True},
+                {'from_table': 'Orders', 'to_table': 'Snapshot', 'is_active': False}]
+        phys = {'activity': 'db.m.activity', 'snapshot': 'db.m.snapshot', 'orders': 'db.m.orders',
+                'funnel': 'db.m.funnel'}
+        self.assertTrue(a2._related('db.m.snapshot', ['db.m.activity'], rels, phys))
+        self.assertTrue(a2._related('db.m.activity', ['db.m.snapshot'], rels, phys))
+        self.assertFalse(a2._related('db.m.snapshot', ['db.m.funnel'], rels, phys))
+        # An inactive relationship carries no filter either.
+        self.assertFalse(a2._related('db.m.snapshot', ['db.m.orders'], rels, phys))
+
+    def test_a_column_name_that_cannot_be_bare_is_quoted_and_a_bare_one_is_left_as_written(self):
+        self.assertEqual(bicompile._legal('ACCOUNT_ID'), 'ACCOUNT_ID')
+        self.assertEqual(bicompile._legal('Pod'), 'Pod')
+        self.assertEqual(bicompile._legal('ai maturity level'), '"ai maturity level"')
+        self.assertEqual(bicompile._legal('Close "Date"'), '"Close ""Date"""')
+
+    def test_a_literal_inside_a_moving_date_is_not_the_operand(self):
+        from metrics_agent.lib import sqlshape
+
+        def first(where):
+            f = sqlshape.extract_feat(sqlshape.parse(f'SELECT pod FROM t WHERE {where}', 'snowflake'), [])
+            return f['filters'][0]['value'], f['filters'][0]['value_kind']
+        self.assertEqual(first("qs >= DATEADD(QUARTER, -5, DATE_TRUNC('QUARTER', CURRENT_DATE))")[1], 'expression')
+        self.assertEqual(first("d >= TO_DATE('2026-01-01')"), ('2026-01-01', 'literal'))
+        self.assertEqual(first("d >= '2026-01-01'::DATE"), ('2026-01-01', 'literal'))
+        self.assertEqual(first('n > -5'), ('-5', 'literal'))
+
+    def test_a_per_member_variant_over_a_native_query_proves_its_member(self):
+        sys.path.insert(0, str(ENGINE.parents[2]))
+        from modules.metrics.required_filters import required_filter_holds
+        native = 'SELECT account_name AS "Account Name", score FROM db.m.snapshot'
+        unit = {'unit_id': 'drill::each', 'variant_of': 'drill', 'warehouse_tables': ['db.m.snapshot'],
+                'group_by': ['Account Name'], 'filters': [],
+                'native_source': {'logical': 'Snapshot', 'sql': native, 'columns': {}},
+                'parameters': [{'kind': 'member', 'name': 'm', 'column': 'Account Name', 'table': 'db.m.snapshot'}]}
+
+        def holds(sql):
+            q = {'dialect': 'snowflake', 'objects': [{'vq_id': 'q', 'sql': sql,
+                                                     'provenance': {'lane': 'bi', 'bi': {'unit_id': unit['unit_id']}}}]}
+            return required_filter_holds(q, {'units': [unit]})
+        self.assertEqual(holds(f'SELECT t."Account Name", SUM(t.score) FROM ({native}) t GROUP BY t."Account Name"'), {})
+        with_pod = 'SELECT account_name AS "Account Name", pod AS "Pod", score FROM db.m.snapshot'
+        self.assertIn('q', holds(f'SELECT t."Pod", SUM(t.score) FROM ({with_pod}) t GROUP BY t."Pod"'))
+        self.assertIn('q', holds(f'SELECT SUM(t.score) FROM ({native}) t'))
+
+    def test_the_derived_source_names_the_table_it_reads(self):
+        from metrics_agent.stages import x3_emit
+        units = {'u1': {'warehouse_tables': ['retail.fct_sales', 'retail.dim_region'],
+                        'native_source': {'logical': 'Sales', 'sql': NATIVE_SQL, 'columns': {'Region': 'region'}}}}
+        got = x3_emit._derived_source(['u1'], units, 'duckdb')
+        self.assertEqual(got['entity'], 'RETAIL.FCT_SALES')
+        self.assertIn('RETAIL.FCT_SALES', got['how_to_use'])
+        units['u2'] = {'warehouse_tables': ['retail.other'], 'native_source': units['u1']['native_source']}
+        self.assertNotIn('entity', x3_emit._derived_source(['u1', 'u2'], units, 'duckdb'))
+
+    def test_a_question_is_asked_at_c3_as_m2_requires(self):
+        from metrics_agent.stages import c3_questions
+        cands = [{'candidate_id': 'c1'}]
+        row = {'candidate_id': 'c1', 'description': 'd', 'evidence_citations': []}
+        with self.assertRaises(SystemExit) as stop:
+            c3_questions._validate_model_output([{**row, 'question': 'Pod Targets (held)'}], cands)
+        self.assertIn('question mark', str(stop.exception))
+        out = c3_questions._validate_model_output([{**row, 'question': 'What is each pod\'s target?'}], cands)
+        self.assertIn('c1', out)
+
+    def test_a_verified_query_keeps_a_filter_polarity_and_provenance(self):
+        from metrics_agent.lib import filter_text
+        from metrics_agent.stages import c5_emit
+        parsed = {'column': 'classification', 'op': 'in', 'value': "('No Transcript')", 'stage': 'where',
+                  'negated': True, 'in_source': True, 'value_kind': 'expression', 'scope_tables': ['db.m.calls'],
+                  'is_identity': False}
+        kept = c5_emit._filter_record(parsed)
+        self.assertNotIn('is_identity', kept)
+        self.assertTrue(kept['negated'] and kept['in_source'])
+        self.assertEqual(filter_text.restriction(kept, mark_stage=False), "classification not in ('No Transcript')")
+        plain = c5_emit._filter_record({'column': 'pod', 'op': 'eq', 'value': 3})
+        self.assertEqual(plain, {'column': 'pod', 'op': 'eq', 'value': '3', 'stage': None})
+
+
 if __name__ == '__main__':
     unittest.main()

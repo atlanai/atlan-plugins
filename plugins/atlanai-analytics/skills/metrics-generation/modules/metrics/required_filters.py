@@ -175,12 +175,28 @@ def _unproved(sql, dialect, unit, required):
         restrictions = [selection(n, scope) for n in conjuncts(where.this)] if where else []
         group = scope.expression.args.get('group')
         grouped = [origin(g, scope) for g in group.expressions] if group else []
+        # A unit over a BI native query names its member by the query's OUTPUT column
+        # ("Account Name"), while lineage traces a SQL reference down to the warehouse column
+        # the query selects it from (account_name). The parameter is traced through the same
+        # statement, from its single source, so both name one warehouse column.
+        sources = list(scope.selected_sources)
+
+        def through_native(name):
+            if not unit.get('native_source') or len(sources) != 1:
+                return None
+            return origin(exp.column(name, table=sources[0], quoted=True), scope)
+
         missing = []
         for parameter in required:
             target = table_key(parameter.get('table')) or (estate[0] if len(estate) == 1 else None)
             column = norm(parameter['column'])
+            native_ref = through_native(parameter['column'])
             def member(ref):
-                return ref is not None and ref[1] == column and matches(ref[0], target)
+                if ref is None:
+                    return False
+                if native_ref is not None and ref == native_ref:
+                    return True
+                return ref[1] == column and matches(ref[0], target)
             # Only the reader's explicitly declared variant changes the question to every
             # member. Grouping the original single-member view does not bind its selection.
             if unit.get('variant_of') and column in {norm(c) for c in unit['group_by']} and any(member(g) for g in grouped):
