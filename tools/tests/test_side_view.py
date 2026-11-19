@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -347,6 +348,24 @@ class SideView(unittest.TestCase):
         run = make_run(self.root, saved=False, chosen={'bi': True, 'history': False})
         card = visuals.render('build', visuals.build_spec('build', run), plain=True)
         self.assertNotIn('Past queries', card, 'the person left the past queries out')
+
+    def test_the_page_opens_once_the_build_has_a_possible_metric_to_show(self):
+        # A tester, 2026-11-19: the panel opened as the build started and stayed empty for a while. "Let's only open
+        # it once the metric draft starts to show up."
+        run = make_run(self.root, saved=False)
+        for name in ('context/metrics.json', 'context/queries.json', 'engine/merged_metrics.json', 'engine/metric_cards.json'):
+            (run / name).unlink()
+        self.assertNotIn('connect', side_view.due(run))
+        out = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(run), 'visual', 'connect'],
+                             capture_output=True, text=True, timeout=60)
+        self.assertIn('Nothing to show on the side page yet', out.stdout)
+        self.assertNotIn('url', out.stdout)
+        self.assertFalse((run / 'view' / 'server.json').exists(), 'no page started with nothing on it')
+        self.assertNotIn('connect', side_view.seen(run))
+        batch = run / 'engine' / 'answers' / 'x1' / '0001.json'
+        batch.parent.mkdir(parents=True)
+        batch.write_text(json.dumps({'statements': [{'vq_id': 'h-1', 'metrics': [{'name': 'Rework cost'}]}]}), encoding='utf-8')
+        self.assertEqual(side_view.due(run)[0], 'connect')
 
     def test_the_structural_pass_is_not_a_check_run(self):
         run = make_run(self.root, saved=False, stage=('check', 'running'))

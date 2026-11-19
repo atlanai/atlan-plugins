@@ -47,7 +47,8 @@ page shows each batch as it lands; the chat shows each step's chip when the step
    and no `PROJECT drafts` and no chat of its own, saving each batch with its own write as soon as
    it is ready, never several in one script. The engine's refusal names each field to fix, so the
    subagent never reads the engine's code to check its answers first. It returns when its gate is accepted or the gate
-   needs the person; then start the next gate's subagent. The app shows each subagent's and
+   needs the person; then start the next gate's subagent, before drawing the chip of the step that
+   ended: the build waits on its subagent, never on a chip. The app shows each subagent's and
    watch's name to the person: name each for what it does, as the side page names its step
    ("Describe each query", "Following the build"), never a gate's name. For the card gate, run the gate
    result's `after_each_batch.split` (`PROJECT split`) first: up to 20 metrics it gives one

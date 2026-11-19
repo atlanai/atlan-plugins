@@ -194,7 +194,7 @@ def _check_nodes(f, s):
                  ratio(c['queries_ran'], n_queries) if checked and n_queries and c['queries_checked'] else None,
                  done=all_queries, warn=all_queries and c['queries_ran'] < n_queries)]
     # While the checks run, what ran and failed; once the step is over, whatever did not pass, as the save question counts.
-    # A warehouse's own checks leave no verdict here: only what the run itself held counts.
+    # A warehouse's own checks count only once every verdict is recorded: only what the run itself held counts.
     held = (c['failed'] if s['open'] or not f.counts_known else c['need_look']) if checked else 0
     if not (all_metrics and all_queries) or held:
         how.append(node('Hold what needs a look', 'Anything that did not pass its check is kept back and listed for a '
@@ -358,7 +358,8 @@ MIDWAY = ('connect', 'found', 'sources', 'group', 'tiles', 'described', 'drafted
 def _shows(kind, run, engine_dir):
     import visuals
     if kind == 'connect':
-        return True
+        import side_page
+        return side_page.has_output(RunFacts(run, engine_dir))
     if kind == 'found':
         # Own data only, right before the person chooses what to build from, so it can name a warehouse just connected.
         if _state(run).get('demo') or RunFacts(run).interaction.get('flow') == 'demo':

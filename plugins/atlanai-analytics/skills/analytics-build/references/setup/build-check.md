@@ -72,8 +72,10 @@ Run `check-query` on every saved query and `check-metric` on every metric: a que
 `schema_checked` has not run. Their request files are `{"name": "<query>", "parameters": {}}`
 and `{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 Both types of checks
-are bound to definition hashes. For warehouses use the existing read-only tool and retain
-actual revision-bound check evidence. Test representative parameters, excluded populations
+are bound to definition hashes. On a warehouse the same commands answer `run_on_warehouse` with
+the statement to run: run it with the recorded read-only tool, then send the same request again
+with `"result": {"rows": [...]}` or `"result": {"error": "<why>"}`, which records it bound to the
+definition it checked. Test representative parameters, excluded populations
 and empty denominators. Never treat one parameter sample as exhaustive coverage.
 When showing an early local answer or explaining excluded rows, apply
 [explanation checks](../../../analytics-ask/references/answer-checks.md). Account for every formula component, including

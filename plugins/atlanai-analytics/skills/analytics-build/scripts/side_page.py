@@ -204,6 +204,13 @@ def _drafts(f):
     return out
 
 
+def has_output(f):
+    """Whether the page has a metric to show: a possible metric the build found, a merged one, or a defined one. Before
+    that it would open empty (a tester, 2026-11-19)."""
+    return bool(f.file('context', 'metrics.json', kind=list) or f.engine_file('merged_metrics.json').get('metrics')
+                or _batches(f, 'x2', 'metrics') or _drafts(f))
+
+
 def _source_of(s, drafts):
     """A merge's source as the object the engine records: a bare proposal id names its query through the draft."""
     if isinstance(s, dict):
@@ -233,11 +240,36 @@ def _merged_from(sources, drafts, merged_name=''):
 TYPES = {'count': 'Count', 'count_distinct': 'Count', 'sum': 'Sum', 'avg': 'Average', 'average': 'Average', 'mean': 'Average',
          'ratio': 'Rate', 'rate': 'Rate', 'min': 'Lowest', 'max': 'Highest', 'median': 'Median'}
 # Why an item was kept back, in the person's words, by the engine's reason code.
+# Why the save kept an item back, for each reason the export writes: in full on the page, and after a count in the chat.
 KEPT = {'compiler_review_wrong': 'The review found the translation of its tile wrong.',
+        'required_filter_missing': 'It leaves out a filter its dashboard tile always applies, so its number could differ.',
         'source_query_held': 'A tile it comes from was kept back, so its number could differ from the dashboard.',
+        'dashboard_parity_failed': "Its number didn't match the dashboard's own when both ran on the same data.",
+        'required_metric_held': 'It is built on another metric that was kept back.',
+        'source_of_held_metric': 'A metric made from it was kept back, so it was kept back too.',
+        'privacy_review': 'It may show personal details, so it waits for a review before it is saved.',
         'required_member_scope': 'It only works once something is picked first, such as one account.',
         'card_aggregation': "Its calculation doesn't match the tile's."}
+KEPT_SHORT = {'compiler_review_wrong': "failed the review of its tile's translation",
+              'required_filter_missing': 'left out a filter its tile always applies',
+              'source_query_held': 'came from a tile that was kept back',
+              'dashboard_parity_failed': "didn't match the dashboard's number",
+              'required_metric_held': 'used a metric that was kept back',
+              'source_of_held_metric': 'fed a metric that was kept back',
+              'privacy_review': 'may show personal details, so wait for a review',
+              'required_member_scope': 'only worked with something picked first',
+              'card_aggregation': "didn't calculate as its tile does"}
 KEPT_ANY = 'It needs a look before it can be saved.'
+
+
+def held(f):
+    """What the save kept back: how many metrics and queries, and each reason with its count, most common first."""
+    holds = f.file('context', 'publication-holds.json')
+    rows = {k: [h for h in holds.get(k) or [] if isinstance(h, dict)] if isinstance(holds, dict) else [] for k in ('metrics', 'queries')}
+    reasons = [str(h.get('reason')) for h in rows['metrics'] + rows['queries']]
+    ranked = sorted(set(reasons), key=lambda r: (-reasons.count(r), r))
+    return {'metrics': len(rows['metrics']), 'queries': len(rows['queries']),
+            'why': ', '.join('%d %s' % (reasons.count(r), KEPT_SHORT.get(r, 'need a look first')) for r in ranked)}
 
 
 def _type_of(d, card, name):
@@ -432,8 +464,9 @@ def details(f):
     verdicts, checking = _verdicts(f)
     # Once the flow has moved past the checks, an item that never got its verdict needs a look, as the chips count it.
     over = f.checks_over
-    # A warehouse's checks run with its own read-only tool: their verdicts never reach the run's files.
-    waiting = 'checking' if f.checks_here else 'tool'
+    # A warehouse's checks run with its own read-only tool: a verdict arrives only as each result is recorded. Skipped
+    # by the person, an item without a verdict is untested.
+    waiting = 'untested' if f.checks_skipped else 'checking' if f.checks_here else 'tool'
     ruled = 'x3_ingest' in f.stages
     metrics = []
     merged = f.engine_file('merged_metrics.json').get('metrics') or []
@@ -524,6 +557,19 @@ def details(f):
             if question:
                 queries.append({k: x for k, x in (('id', vid), ('name', sentence(question)), ('question', question),
                                                   ('status', 'drafted'), *_query_profile(vid, known, said, built_on)) if x})
+    # A query the save kept back is left out of the saved context: it shows here with why, as a kept-back metric does.
+    holds = f.file('context', 'publication-holds.json')
+    shown = {q['id'] for q in queries}
+    for h in holds.get('queries') or [] if isinstance(holds, dict) else []:
+        vid = h.get('query_id') if isinstance(h, dict) else None
+        if isinstance(vid, str) and vid not in shown:
+            o, words = known.get(vid) or ({}, said.get(vid) or {})
+            question = _cut(first_question(words.get('question') or o.get('question')), 200)
+            queries.append({k: x for k, x in (
+                ('id', vid), ('name', sentence(question or h.get('name') or vid)), ('question', question),
+                ('status', 'kept'), ('kept_reason', KEPT.get(str(h.get('reason')), KEPT_ANY)),
+                *_query_profile(vid, known, said, built_on)) if x})
+            shown.add(vid)
     def bi_of(o):
         prov = o.get('provenance') if isinstance(o.get('provenance'), dict) else {}
         return prov.get('bi') if isinstance(prov.get('bi'), dict) else {}
@@ -695,7 +741,7 @@ def header(f, steps, d, demo):
             else:
                 h.update(title='Linking metrics that build on each other', n=edges, unit='link found' if edges == 1 else 'links found', bar=1)
         elif not f.checks_here:
-            # The warehouse's own tool runs these checks: the bar moves with no count, since no verdict reaches the run.
+            # The warehouse's own tool runs these checks: the bar moves with no count, since a verdict arrives only as it is recorded.
             h.update(title='Checking each metric and query on the data', note="With your warehouse's own read-only tool")
         else:
             # The count and the bar are the same fact: how many items have their check's verdict. A check that failed has
@@ -1239,13 +1285,16 @@ def instruction(opened, widget=False):
     """What the agent does with the page it was handed: open it where the host has a pane, or name it once."""
     url = opened.get('url')
     if not url:
-        return ('The side page could not start on this machine: carry on. The chips and cards still show each moment; '
-                'say nothing about the page.')
+        return ('The side page could not start on this machine: carry on. Tell the person once, in your next message, in '
+                "one short line: \"The page beside the chat couldn't start on this machine, so this run shows its "
+                'results in the chat only." The chips and cards still show each moment.')
     follows = 'It follows the run by itself from the run\'s own files: never reload, rebuild or push to it.'
     if opened.get('host') == 'claude-desktop' or widget:
         return ('Open the side page now in the app\'s browser pane: your browser tool\'s preview or navigate call with url '
                 '`%s`, then bring that pane into view beside the chat (the app\'s show-pane call, pane `preview`): loading '
-                'a page does not show a hidden pane. %s Say nothing about it in the chat; the cards point to it.' % (url, follows))
+                'a page does not show a hidden pane. Then check with the app\'s layout call that `preview` is among the '
+                'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
+                'layout can tell. %s Say nothing about it in the chat; the cards point to it.' % (url, follows))
     if opened.get('opened'):
         return ('The side page opened in the person\'s browser at %s. Say nothing about it now: the next chip in a '
                 'question names it. %s' % (url, follows))

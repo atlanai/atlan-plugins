@@ -72,7 +72,8 @@ def save(run, widget=False, data=None, engine_dir=None):
         return _dashboard_save(run, f, widget, data, engine_dir)
     demo = _demo(run, data)
     c = f.context
-    # A warehouse's checks run with its own tool and leave no verdict here: the agent adds the line of results it holds.
+    # A warehouse's checks run with its own tool, each verdict recorded as it returns: until every one is, the agent adds
+    # the line of results it holds.
     by_tool = bool(c) and not f.checks_here and not f.checks_over
     if not f.checks_over and not by_tool:
         # Before every item has its verdict, the counts would be false ("0/4 checked, 4 need a look").
@@ -124,16 +125,9 @@ def _dashboard_save(run, f, widget, data, engine_dir):
     else:
         lines.append('Run on %s: %s.' % (where, 'every one ran' if not c['need_look'] else
                                           '%d ran cleanly, %d need a look' % (c['passed'], c['need_look'])))
-    holds = f.file('context', 'publication-holds.json')
-    held_m = [h for h in holds.get('metrics') or [] if isinstance(h, dict)] if isinstance(holds, dict) else []
-    held_q = [h for h in holds.get('queries') or [] if isinstance(h, dict)] if isinstance(holds, dict) else []
-    if held_m or held_q:
-        reasons = [str(h.get('reason')) for h in held_m + held_q]
-        top = max(set(reasons), key=reasons.count)
-        lines.append('Kept back, not saved: %s. Most often: %s' % (
-            ' and '.join(x for x in (count(len(held_m), 'metric') if held_m else '',
-                                     count(len(held_q), 'query', 'queries') if held_q else '') if x),
-            side_page.KEPT.get(top, side_page.KEPT_ANY)[:1].lower() + side_page.KEPT.get(top, side_page.KEPT_ANY)[1:]))
+    kept = _kept(f)
+    if kept:
+        lines.append('Kept back, not saved: %s.' % kept)
     cant = side_page.cant_build(f)
     if cant:
         lines.append("%s couldn't be built. The side page lists each with why." % count(len(cant), 'tile'))
@@ -142,6 +136,17 @@ def _dashboard_save(run, f, widget, data, engine_dir):
     return {'header': 'Save', 'question': '\n'.join(lines),
             'options': [{'label': a, 'description': b} for a, b in SAVE_OPTIONS],
             'shown': ['build'] if card else [], 'results': by_tool}
+
+
+def _kept(f):
+    """What the save kept back, each reason with its count: "1 metric and 1 query: 1 didn't match the dashboard's
+    number, 1 left out a filter its tile always applies". Empty when nothing was kept back."""
+    import side_page
+    h = side_page.held(f)
+    if not (h['metrics'] or h['queries']):
+        return ''
+    return '%s: %s' % (' and '.join(x for x in (count(h['metrics'], 'metric') if h['metrics'] else '',
+                                                count(h['queries'], 'query', 'queries') if h['queries'] else '') if x), h['why'])
 
 
 def _one_metric(run, f, demo, widget=False):
@@ -216,7 +221,8 @@ def ready(run, widget=False, data=None, engine_dir=None):
     shown = '' if widget else visuals.render('saved', visuals.build_spec('saved', run, data, engine_dir), plain=True)
     lines = ([shown, ''] if shown else []) + ['Your %s is ready.' % (demo.get('agent') or 'agent'), '']
     lines += _label('What you built', '%s and %s,' % (count(len(c['metrics']), 'metric'), count(c['queries'], 'query', 'queries')))
-    lines += ['  ' + ' ' * LABEL + 'from %s,' % _built_from(f), '  ' + ' ' * LABEL + 'checked on %s' % _where(f, demo)]
+    lines += ['  ' + ' ' * LABEL + 'from %s,' % _built_from(f), '  ' + ' ' * LABEL + (
+        'not run on the data: you chose to skip the checks' if f.checks_skipped else 'checked on %s' % _where(f, demo))]
     where = '%s in Atlan Trident' % saved['workspace'] if saved.get('workspace') else 'Atlan Trident'
     whole = len(c['metrics']) + c['queries']
     if saved and saved.get('items', whole) < whole:
@@ -238,13 +244,17 @@ def ready(run, widget=False, data=None, engine_dir=None):
         lines += _label('Needs a look', '%s: %s did not run on the data. Each, with its reason, is on the side page.'
                         % (what, 'its SQL' if len(held) == 1 else 'their SQL') if failed else
                         '%s did not pass %s check. Each, with its reason, is on the side page.' % (what, 'its' if len(held) == 1 else 'their'))
+    kept = '' if f.interaction.get('flow') == 'demo' else _kept(f)
+    if kept:
+        lines += _label('Kept back', kept + '. Each, with why, is on the side page.')
     lines += ['', 'What would you like to ask?']
     flow_demo = f.interaction.get('flow') == 'demo'
-    options = _supported(made)
-    # The question tool needs two options; the person can always type their own question too.
-    for label, description in (('Show what was built', 'Each metric and query with its checked value, and how each was reached'),
-                               ("I'm done for now", 'Stop here; the context stays where it was kept')):
-        if len(options) < 2:
-            options.append({'label': label, 'description': description})
+    # Two questions the checked context answers, then the person's own, in words: the host's free-text entry reads as
+    # "Other", which a tester did not take for a way to ask (2026-11-19).
+    options = _supported(made, limit=2) + [{'label': 'Ask my own question', 'description': 'Type any question; it is '
+                                            'answered from the metrics and queries just built'}]
+    if len(options) < 3:
+        options.append({'label': 'Show what was built', 'description': 'Each metric and query with its checked value, and how each was reached'})
+    options.append({'label': "I'm done for now", 'description': 'Stop here; the context stays where it was kept'})
     return {'header': 'Step 5 of 5' if flow_demo else 'Step 6 of 7', 'question': '\n'.join(lines),
             'options': options, 'shown': ['saved'] if shown else []}

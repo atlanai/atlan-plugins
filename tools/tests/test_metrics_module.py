@@ -86,6 +86,9 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('never a chip, the engine, a gate', describe['say'], 'command descriptions are the person\'s')
         # Live (h4), the watch ran as a background shell command, which never wakes the chat: no so-far chip came.
         self.assertIn('Monitor tool', describe['say'])
+        # The desktop run drew each step's chip before starting the next step's subagent: 40 to 48 s per step against
+        # 8 to 12 s in h9 (2026-11-19).
+        self.assertIn("start the next step's subagent first, then draw the chip", describe['say'])
         self.assertIn('never that the step is still running', describe['say'])
         # A first-time reader of h3 stopped at "Cards accepted on first check. Now linking related metrics (9 pairs)",
         # "the structural check" and "a tiny wrapper script": the engine's results and counts, and the agent's tooling.

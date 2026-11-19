@@ -230,7 +230,7 @@ def collect(kind, facts):
 
 def _checked(facts):
     """Whether the checks are behind the build: every verdict in, or the flow moved on past them, as it does on a
-    warehouse, whose verdicts never reach the run's files."""
+    warehouse, whose verdicts arrive only as each tool result is recorded."""
     return facts.checks_over or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready')
 
 

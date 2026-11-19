@@ -38,6 +38,20 @@ class Page(unittest.TestCase):
         conn.close()
         return response, body
 
+    def test_in_the_desktop_app_the_agent_confirms_the_pane_is_open(self):
+        # 2026-11-19: a page loaded in a closed pane still reports itself visible, so only the app's layout can say
+        # whether the person sees it.
+        said = side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'host': 'claude-desktop'})
+        self.assertIn('layout', said)
+        self.assertIn('`preview`', said)
+
+    def test_a_page_that_cannot_start_is_named_once_so_nobody_waits_for_it(self):
+        # A tester, 2026-11-19: the page never opened, and nothing in the chat said so.
+        said = side_page.instruction({'error': 'no free port'})
+        self.assertIn("couldn't start on this machine", said)
+        self.assertIn('once', said)
+        self.assertNotIn('say nothing', said.lower())
+
     def test_the_page_answers_only_this_machine_behind_its_key(self):
         run = make_run(self.root)
         with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}):
@@ -692,8 +706,10 @@ class Questions(unittest.TestCase):
         self.assertIn('Where it lives        on this machine', text)
         self.assertNotIn('See the environment', text, 'own data has no tour')
         self.assertTrue(text.endswith('What would you like to ask?'))
-        self.assertEqual([o['label'] for o in asked['options']], ['What is the gross margin in pounds?', 'How much did rework cost?'],
-                         "each a question the build wrote for a metric that passed its check, the dashboard's wording first")
+        self.assertEqual([o['label'] for o in asked['options']], ['What is the gross margin in pounds?', 'How much did rework cost?',
+                                                                  'Ask my own question', "I'm done for now"],
+                         "each a question the build wrote for a metric that passed its check, the dashboard's wording first, "
+                         "then the person's own")
 
     def test_a_demo_ready_question_names_its_agent_and_tour(self):
         demo = dict(facts(), ready={'agent': 'job profit agent', 'answers': 'Questions about job margin', 'tour': 'https://example.com/tour/'})

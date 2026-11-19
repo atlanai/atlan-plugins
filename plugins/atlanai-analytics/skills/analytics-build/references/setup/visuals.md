@@ -77,24 +77,26 @@ and the step's chip closes it.
 ## The side page
 
 `PROJECT visual connect` starts the run's side page on this machine, at an address only this
-machine can open (`http://127.0.0.1:<port>/<key>/`), and its `next` says what to do with it:
+machine can open (`http://127.0.0.1:<port>/<key>/`). It starts only once the build has a
+possible metric to show, so `visual next` names it then; called earlier, it says to carry on.
+If the page cannot start, its `next` gives the one line to tell the person. Otherwise its
+`next` says what to do with it:
 
 - **The Claude desktop app:** open the address in the app's browser pane with your browser tool
   (its preview or navigate call, with the `url`), then show that pane beside the chat (the
   app's show-pane call with pane `preview`): loading a page leaves a hidden pane hidden, and the
-  person expects the page open by default. Do it right away; helper results name it again
+  person expects the page open by default. Then check with the app's layout call that `preview`
+  is among the open panes, and show it again if not: a page in a closed pane still reports itself
+  visible, so only the layout can tell. Do it right away; helper results name it again
   (`side_page`) until the page has been opened.
 - **A terminal:** the helper opens the address in the person's browser, and the next chip that
   goes in a question names it, so the person can open it again.
 - **Anywhere else:** the next chip that goes in a question names the address the same way.
 
-The page shows metric generation only, in every flow: a checklist of the build's steps on top,
-each done with its result and the current one with its count, then the metrics, each with its
-status (draft, merged, final, kept back), the drafts as they land, the tiles that could not be
-built and the queries. A click opens a metric's definition, formula and where it was found,
-under the checklist. The survey, the choices, the checks, the save,
-the answers and the dashboard are the chat's and never appear on it. Before the build starts it
-says it is waiting for the build, with nothing else. The page reads the run's files itself: never reload,
+The page shows what the build made, in every flow: the metrics, each in its state (Found,
+Defined, Tested, Needs a look), then the queries, then the tiles that could not be built. A click
+opens a metric's definition, formula and where it was found. The build's steps, the survey, the
+choices, the save, the answers and the dashboard are the chat's and never appear on it. The page reads the run's files itself: never reload,
 rebuild or push to it, and never describe what it shows. Nothing on it leaves this machine, so
 it shows the metrics, their sources and values on own data as on a demo. A card's last line points to it for the detail. If
 the page stops while nobody looks at it, the next `visual` call, `visual next` included,

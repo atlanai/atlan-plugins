@@ -475,14 +475,23 @@ class RunFacts:
     def checks_over(self):
         """Whether the checks are over: every item has its verdict, or, on local data, the flow has moved on to the
         preview or later (an item left without one then needs a look). Never while they still run: the structural check
-        records the check stage complete before any sample has run. A warehouse run's verdicts never reach its files, so
-        they are not counted here."""
+        records the check stage complete before any sample has run. A warehouse run's verdicts reach its files only as
+        each tool result is recorded, so one left without a verdict is not counted as needing a look."""
         c = self.context
         if not c:
             return False
         if c['metrics_checked'] + c['queries_checked'] == c['total']:
             return True
-        return self.checks_here and self.file('progress.json').get('stage') in ('preview', 'publish', 'ready')
+        return (self.checks_here and not self.checks_skipped
+                and self.file('progress.json').get('stage') in ('preview', 'publish', 'ready'))
+
+    @property
+    def checks_skipped(self):
+        """Whether the person chose to skip the checks (`journey checks --answer skip`) and some item has no verdict:
+        an item left without one is untested, never needing a look."""
+        c = self.context
+        return (self.interaction.get('checks') == 'skip'
+                and not (c and c['metrics_checked'] + c['queries_checked'] == c['total']))
 
     @property
     def counts_known(self):

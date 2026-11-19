@@ -574,7 +574,9 @@ class Helper(unittest.TestCase):
         fresh = Path(self.tmp.name).resolve() / 'fresh'
         done = subprocess.run([sys.executable, str(PROJECT), '--run-dir', str(fresh), 'survey', str(self.run.parent / 'source')],
                               capture_output=True, text=True, encoding='utf-8', timeout=60)
-        self.assertIn('`visual connect`', json.loads(done.stdout)['visual'], 'the survey that makes the run names its first moment')
+        self.assertEqual(done.returncode, 0, done.stderr)
+        # A tester, 2026-11-19: the page opened as the build started and stayed empty. It waits for a possible metric.
+        self.assertNotIn('visual connect', done.stdout, 'nothing to show yet: the page opens with the first possible metric')
 
     def test_the_found_chip_waits_for_the_select_decision(self):
         import side_view

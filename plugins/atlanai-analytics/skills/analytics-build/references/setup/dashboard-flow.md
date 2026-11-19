@@ -119,8 +119,9 @@ in the build: they are news, never a question.
 
 [Build and check](build-check.md) and [the metrics module](../../../metrics-generation/references/metrics-engine.md)
 run as they are, every step in a background helper (below). The side page is the same as in
-every flow: what the run made, metrics first and then queries, each in its state (Draft, Merged,
-Written, Checked, Failed) and opening its profile, then the tiles that could not be built.
+every flow: what the run made, metrics first and then queries, each in its state (Found,
+Defined, Tested, Needs a look) and opening its profile, then the tiles that could not be built.
+It opens once the first possible metric is found, when the watch names `connect`.
 
 **The chat is the same as in every flow**, as [progress](progress.md) sets out: each step's start
 on its Doing line with roughly how long, from its size; its chip when it ends; and while a step
@@ -161,11 +162,12 @@ that returns nothing, and takes about `<N>` minutes."
 Record their answer with `PROJECT journey checks --answer run` or `--answer skip`. Never record
 a skip they did not choose, and never say "as you asked" about anything they did not ask.
 
-- **Run**: run every check as [build and check](build-check.md) says. When `PROJECT check-query`
-  or `check-metric` refuses a warehouse route ("use the recorded read-only warehouse tool"),
-  that is the route: send the same statements through the chat's read-only SQL tool for that
-  warehouse, the one item 2 already used, and record each result. A refusal is never a reason
-  to stop checking.
+- **Run**: run every check as [build and check](build-check.md) says. On a warehouse,
+  `PROJECT check-query` and `check-metric` answer `run_on_warehouse` with the one statement to
+  run: send it through the chat's read-only SQL tool for that warehouse, the one item 2 already
+  used, then run the same command again with `"result"`, the rows it returned or why it failed,
+  so the side page shows each one tested. A failed statement is a result too, never a reason to
+  stop checking.
 - **Skip**: item 4 reads "skipped, your choice"; go straight on.
 
 Either way, item 4 ends with the build's card: `PROJECT visual build --widget`, drawn before

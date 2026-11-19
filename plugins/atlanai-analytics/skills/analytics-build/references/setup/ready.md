@@ -39,11 +39,12 @@ the handoff goes before the question.
 Where the host has no question tool, print the same lines as the last thing in the message,
 then the supported questions as plain numbered lines, and call no tool after it.
 
-**First show questions, for both demo and own-data setup.** The helper's options are two or
-three questions the checked context answers, each the question the build wrote for a metric
-or saved query that passed its check. When it has fewer than two, it adds "Show what was
-built" (run `PROJECT preview --all --format markdown`, show its text as the reply and end the
-turn with the `Next:` line below) and "I'm done for now" (one line, then end the turn). No
+**First show questions, for both demo and own-data setup.** The helper's options are up to
+two questions the checked context answers, each the question the build wrote for a metric
+or saved query that passed its check, then "Ask my own question" (reply with one line asking
+what they want to know, then end the turn) and "I'm done for now" (one line, then end the
+turn). With fewer than two questions it adds "Show what was built" (run `PROJECT preview --all
+--format markdown`, show its text as the reply and end the turn with the `Next:` line below). No
 demo ships a question list. Do not show an Ask AI menu, dashboard choice or real-data
 transition before this first question list.
 
@@ -116,6 +117,8 @@ the dashboard's place in the `Next:` line. Follow the demo's
 [edit a metric](../../../analytics-demo/references/edit-metric.md).
 
 **Wrap up.** On "I'm done", record `PROJECT journey dashboard` if no dashboard was built,
-then finish with the saved context or dashboard location. Do not ask another question or
-require a restart. Building a demo dashboard ends with the `Next:` line above, including
+then finish in at most three short lines, with no headings or lists: what was built (the
+counts), where it lives (the Atlan Trident workspace, or the run folder when it stayed on this
+machine) with the dashboard's location if one was built, and how to pick it up again. The side
+page and the chat above hold the rest. Do not ask another question or require a restart. Building a demo dashboard ends with the `Next:` line above, including
 the option to continue on real data.

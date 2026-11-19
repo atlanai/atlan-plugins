@@ -95,6 +95,31 @@ class SidePageView(unittest.TestCase):
         for old in ('Final', 'Kept back', 'Writing rule', 'Draft', 'Merged', 'Written', 'Checked', 'Failed'):
             self.assertNotRegex(words, r'\b%s\b' % old)
 
+    def test_an_item_whose_check_the_person_skipped_is_defined_and_says_so(self):
+        # A tester, 2026-11-19: after choosing to skip the checks, every metric and query read "Needs a look".
+        snap = dict(SNAPSHOT, metrics=[metric('Labour cost', 'final', 'untested')],
+                    queries=[dict(SNAPSHOT['queries'][0], status='untested')])
+        words = self.text(self.render(snap))
+        self.assertRegex(words, r'Labour cost.{0,80}?\bDefined\b')
+        self.assertNotIn('Needs a look 1', words)
+        for ui in ({'metric': 'Labour cost'}, {'list': 'queries', 'query': 'h-1'}):
+            profile = self.text(self.render(snap, **ui))
+            self.assertIn('Not run on the data: you chose to skip the checks', profile)
+            self.assertNotIn('Tested on', profile)
+
+    def test_a_kept_back_item_says_it_was_not_saved_and_why(self):
+        # A tester, 2026-11-19: "It said it held back X metrics and queries, but I couldn't tell why."
+        why = "Its number didn't match the dashboard's own when both ran on the same data."
+        snap = dict(SNAPSHOT, metrics=[metric('Win rate', 'kept', 'checked', value='41%', kept_reason=why)],
+                    queries=[{'id': 'bi-2', 'name': 'Margin by job', 'status': 'kept', 'kind': 'tile',
+                              'kept_reason': 'It leaves out a filter its dashboard tile always applies.'}])
+        self.assertIn('Needs a look 1', self.text(self.render(snap, list='queries')))
+        profile = self.text(self.render(snap, metric='Win rate'))
+        self.assertIn('Kept back, not saved: ' + why.replace("'", '&#39;'), profile)
+        self.assertNotIn('Tested on the data and needs a look', profile)
+        self.assertIn('Tested value 41%', profile, 'it ran; it did not match the dashboard')
+        self.assertIn('Kept back, not saved: It leaves out a filter', self.text(self.render(snap, list='queries', query='bi-2')))
+
     def test_found_and_defined_rows_show_what_each_state_has(self):
         # The person, 2026-11-18: "if you found something, why can't it be defined?" A found row says where it was
         # found; a defined one says how it is worked out; the line over the list says the three in order.

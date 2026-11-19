@@ -332,6 +332,17 @@ class Project(ContextState):
         if errors:
             raise ProjectError('Correct the candidate schema errors before executing SQL.')
         definition = item['body']['definition']
+        binding = self.execution_binding()
+        on_warehouse = bool(binding) and binding['kind'] == 'warehouse' and \
+            definition['dialect'].lower() == str(binding.get('dialect') or '').lower()
+        if 'result' in request:
+            if not on_warehouse:
+                raise ProjectError('On local data this helper runs it itself: send the request without "result".'
+                                   if binding and binding['kind'] in LOCAL else
+                                   'Record a result only for the warehouse recorded in state, in its dialect.')
+            return self.record_warehouse_check(item, kind, request, warnings)
+        if on_warehouse:
+            return self.warehouse_statement(item, kind, request, binding)
         if kind == 'metric':
             index = request.get('example_index', 0)
             examples = definition.get('examples', [])
@@ -340,7 +351,6 @@ class Project(ContextState):
             source_sql = examples[index]['sql']
         else:
             source_sql = definition['sql']
-        binding = self.execution_binding()
         if not binding or binding['kind'] not in LOCAL or definition['dialect'].lower() != binding['kind']:
             raise ProjectError('Use the recorded read-only warehouse tool for this dialect and retain its check evidence.')
         marker = '$' if binding['kind'] == 'duckdb' else ':'
@@ -402,6 +412,51 @@ class Project(ContextState):
         self.write(path, checks)
         progress.update_checks(self)
         return result
+
+    def warehouse_statement(self, item, kind, request, binding):
+        """The one statement a warehouse check runs: a saved query's SQL, or a metric's calculation composed from its
+        card's formula, source and mandatory filters. The recorded read-only tool runs it; nothing is recorded yet."""
+        definition = item['body']['definition']
+        sql = _card_sql.canonical_statement(definition) if kind == 'metric' else definition['sql']
+        code = ''.join(text for token_kind, text in mine.scan(sql) if token_kind == 'code')
+        needed = set(re.findall(r'\{\{\s*([A-Za-z_][A-Za-z_0-9]*)\s*\}\}', code))
+        available = {p['name']: p['default'] for p in definition.get('source', {}).get('parameters', []) if 'default' in p}
+        available.update(request.get('parameters', {}))
+        return {'status': 'run_on_warehouse', 'name': item['key'], 'sql': sql,
+                'parameters': {k: available[k] for k in sorted(needed) if k in available},
+                'next': 'Run this statement once with the recorded read-only tool (%s), binding each {{parameter}} '
+                        'natively, then run this command again with the same name and parameters and "result": '
+                        '{"rows": [[...], ...]} as it returned them, or "result": {"error": "<why it failed, in a '
+                        'few words>"}.' % binding.get('tool', 'the warehouse query tool')}
+
+    def record_warehouse_check(self, item, kind, request, warnings):
+        """A warehouse check's verdict as the recorded read-only tool returned it, bound to the definition it checked."""
+        result = request['result']
+        rows, error = (result.get('rows'), result.get('error')) if isinstance(result, dict) else (None, None)
+        plain = (str, int, float, bool, type(None))
+        if ((rows is None) == (error is None)
+                or error is not None and not (isinstance(error, str) and error.strip())
+                or rows is not None and not (isinstance(rows, list) and len(rows) <= 1000 and all(
+                    isinstance(r, list) and len(r) <= 100 and all(isinstance(v, plain) for v in r) for r in rows))):
+            raise ProjectError('Give "result" as {"rows": [[...], ...]} (at most 1,000 rows of plain values) or '
+                               '{"error": "<why it failed>"}.')
+        path = self.context / 'candidate-checks.json'
+        checks = self.read(path) if path.exists() else {}
+        prior = checks.get(item['key'], {})
+        samples = prior.get('samples', {}) if prior.get('definition_hash') == item['definition_hash'] else {}
+        samples[digest(request.get('parameters', {}))] = {'status': 'failed' if error else 'executed'}
+        failed = any(s['status'] == 'failed' for s in samples.values())
+        checks[item['key']] = {
+            'definition_hash': item['definition_hash'], 'status': 'held' if failed else 'executed',
+            'samples': samples, 'executor': 'warehouse_tool',
+            **({'composition': {'status': 'executed', 'rows': rows[:20], 'coverage': 'formula_source_mandatory_filters'}}
+               if kind == 'metric' and not error else {}),
+            'errors': ['SQL execution failed on the warehouse: ' + ' '.join(error.split())[:200]] if error else
+                      ['A parameter sample still fails SQL execution.'] if failed else [],
+            'coverage': 'warehouse_tool_result', 'warnings': warnings}
+        self.write(path, checks)
+        progress.update_checks(self)
+        return {'status': 'recorded', 'name': item['key'], 'passed': not failed}
 
     def history(self):
         state = self.current()
@@ -735,6 +790,10 @@ def main():
                         ' Then ' + reminder[0].lower() + reminder[1:] if reminder else '')}))
                     return 0
                 args.kind = ahead[0]
+            if args.kind == 'connect' and not side_page.has_output(visuals.RunFacts(run, args.engine_dir)):
+                print('side view: ' + json.dumps({'next': 'Nothing to show on the side page yet: carry on. It opens once '
+                                                          'the build finds its first possible metric, when `visual next` names it.'}))
+                return 0
             if args.kind == 'connect':
                 # A demo's title and firm name the page; only a run the journey records as a demo takes them.
                 if demo:

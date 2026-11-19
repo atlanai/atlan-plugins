@@ -118,8 +118,8 @@ describes. Keeping it local, run `PROJECT journey keep-local` first.
 
 When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
-to ask?" with the ready block as its text, offering two or three questions supported by the
-checked context. Do not put an Ask AI menu before the question list. Answer the question or
+to ask?" with the ready block as its text, offering two supported questions and the
+person's own. Do not put an Ask AI menu before the question list. Answer the question or
 questions the person selects or supplies, then, in the same turn, ask the native "What would
 you like to do next?", its text the answer and proof links as plain lines
 (as [conventions](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost) says).

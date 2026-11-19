@@ -716,7 +716,7 @@ function cantBlock(S, UI) {
 }
 /* Queries in one order every time, whichever list they come from (the engine's before the checks, the checked
    context's after): dashboard tiles first, then past queries most run first. Each shows its state, like a metric. */
-const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'look' ? 'failed' : 'written';
+const qstateOf = q => q.status === 'checked' ? 'checked' : q.status === 'look' || q.status === 'kept' ? 'failed' : 'written';
 const QTABS = ['written', 'checked', 'failed'];
 const QLABEL = {written: 'Found', checked: 'Tested', failed: 'Needs a look'};
 const qsaid = q => txt(q.question) || txt(q.name);
@@ -762,7 +762,7 @@ function checkText(m) {
 function back(label) { return `<button type="button" class="back" data-act="back" data-k="back">${ic('back', 's')}${esc(label)}</button>`; }
 /* A metric's profile, in Metric Studio's own order and words: what it is, then what it measures, how, and from what. */
 const STATE_SAYS = {draft: 'Found in your sources; exactly how it’s worked out is defined next',
-  written: 'How it’s worked out is written down; it is tested on the data next', checked: 'Tested on {data}: it returned a number, and its definition matches its SQL', failed: 'Tested on the data and needs a look'};
+  written: 'How it’s worked out is written down; it is tested on the data next', untested: 'Not run on the data: you chose to skip the checks', kept: 'Kept back, not saved', checked: 'Tested on {data}: it returned a number, and its definition matches its SQL', failed: 'Tested on the data and needs a look'};
 /* Metric Studio's profile in one scroll for a narrow pane (the person's pick of two drawn from Studio rendered on its
    mock, 2026-11-18): the way back, a title and its meta line, three facts in a soft well, then panel cards that open
    and close in place. */
@@ -829,9 +829,10 @@ function metricView(S, UI, name) {
   const m = findMetric(S, name);
   if (!m) return `<div class="card empty">${ic('metric', 's')}<span>This metric is not in the build any more.</span></div>`;
   const s = stateOf(m), srcs = arr(m.sources).filter(obj), from = arr(m.from).map(txt).filter(Boolean), saved = obj(S.saved);
-  const value = s === 'checked' && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : 'Not run yet'}</span>`;
+  // A kept-back metric whose check passed still shows what it returned: it ran, and was kept back for another reason.
+  const value = (s === 'checked' || m.status === 'checked') && txt(m.value) ? `<b class="num">${esc(fixMinus(m.value))}</b>` : `<span class="sub">${s === 'failed' ? 'Did not pass' : 'Not run yet'}</span>`;
   const strip = pstrip([
-    pcell('State', stateMark(m), esc(STATE_SAYS[s].replace('{data}', dataOf(S)) + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))),
+    pcell('State', stateMark(m), esc(STATE_SAYS[stageOf(m) === 'kept' ? 'kept' : m.status === 'untested' && s === 'written' ? 'untested' : s].replace('{data}', dataOf(S)) + (s === 'failed' && txt(m.why || m.kept_reason) ? ': ' + txt(m.why || m.kept_reason) : ''))),
     pcell('Tested value', value, esc(besideTile(m))),
     pcell('Made from', madeFrom(m) ? `<button type="button" class="lnk" data-act="reveal" data-v="p:from" data-k="reveal:from">${esc(madeFrom(m))}</button>` : 'Shows once found',
       from.length > 1 ? esc('Combined from ' + pl(from.length, 'possible metric')) : '')]);
@@ -876,7 +877,8 @@ function draftView(S, UI, id) {
     + (txt(d.meaning) ? `<p class="pdsc">${esc(d.meaning)}</p>` : '') + '</div>';
 }
 /* A saved query's profile, as Studio draws one: no tabs; the SQL, the metrics made from it, its use and its columns. */
-const QSTATE = {checked: ['Tested', 'ok', 'Ran on the data as written'], look: ['Needs a look', 'warn', 'Ran on the data and needs a look']};
+const QSTATE = {checked: ['Tested', 'ok', 'Ran on the data as written'], look: ['Needs a look', 'warn', 'Ran on the data and needs a look'],
+  untested: ['Defined', '', 'Not run on the data: you chose to skip the checks'], kept: ['Needs a look', 'warn', 'Kept back, not saved']};
 function queryView(S, UI, id) {
   const q = findQuery(S, id);
   if (!q) return `<div class="card empty">${ic('query', 's')}<span>This query is not in the build any more.</span></div>`;
@@ -884,7 +886,7 @@ function queryView(S, UI, id) {
   const ms = arr(q.metrics).map(txt).filter(Boolean), tile = q.kind === 'tile';
   const comes = tile ? ['Dashboard tile' + (txt(q.visual) ? ' “' + txt(q.visual) + '”' : ''), txt(q.page) ? 'On ' + txt(q.page) : ''] : ['A past query', 'From your team’s query history'];
   const link = n => `<button type="button" class="lnk" data-act="m" data-m="${esc(n)}" data-k="qm:${esc(n)}">${esc(n)}</button>`;
-  const strip = pstrip([pcell('State', marker(st[0], MARK[s]), esc(st[2] + (q.status === 'look' && txt(q.why) ? ': ' + txt(q.why) : ''))),
+  const strip = pstrip([pcell('State', marker(st[0], MARK[s]), esc(st[2] + (q.status === 'look' && txt(q.why) ? ': ' + txt(q.why) : q.status === 'kept' && txt(q.kept_reason) ? ': ' + txt(q.kept_reason) : ''))),
                         pcell('Comes from', esc(comes[0]), esc(comes[1])),
                         pcell('Linked metrics', esc(ms.length ? pl(ms.length, 'metric') + ' made from it' : 'None yet'), ms.map(link).join(', '))]);
   const tree = `<div class="ptree"><div class="pnode"><span class="pbox">${ic('query', 's')}</span><span>This query</span></div>`
