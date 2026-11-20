@@ -76,6 +76,36 @@
           "declared": {
             "type": "object",
             "description": "When a source statement was compiled from a metric its BI model declares: the declaration (question_units `declared`), shown whole. The card's formula and entity are held to it; X3 adds its joins, dimensions, examples, grain and synonyms."
+          },
+          "derived_source": {
+            "type": "object",
+            "description": "When every source statement reads one BI native query: that query as a FROM clause, comments removed, under the logical table's name. The card uses it as source.sql as written.",
+            "properties": {
+              "sql": {
+                "type": "string"
+              },
+              "alias": {
+                "type": "string"
+              },
+              "entity": {
+                "type": "string",
+                "description": "The warehouse table the query reads, for source.entity."
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "how_to_use": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sql",
+              "alias"
+            ],
+            "additionalProperties": false
           }
         },
         "additionalProperties": false,
@@ -87,6 +117,13 @@
           "sources",
           "evidence"
         ]
+      }
+    },
+    "shared_sources": {
+      "type": "object",
+      "description": "Each BI native query the bundle's statements read more than once, held once; a statement shows <shared_sources.Sn> where it stood (lib/shared_sources).",
+      "additionalProperties": {
+        "type": "string"
       }
     }
   },

@@ -9,6 +9,12 @@ two destinations never derive them two ways.
 from __future__ import annotations
 
 import hashlib
+import re
+
+# A date written into a filter. `>= '2026-04-22'` was right the day it was written and narrows
+# every day after: on a card it is a parameter's default, never a definitional restriction.
+# One rule, read by X1 (a proposal's mandatory filters) and X3 (a card's).
+DATE_LITERAL = re.compile(r"(?i)(?:\bDATE\s*)?'\d{4}-\d{2}-\d{2}(?:[ T][0-9:.]+)?'")
 
 
 def statement_sha(sql: str) -> str:

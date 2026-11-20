@@ -73,7 +73,8 @@ SIGN_IN_KINDS = ("device", "browser")
 ALL_SIGN_INS = (*SIGN_IN_KINDS, 'spn', 'token', 'certificate', 'managed-identity')
 NO_SIGN_IN = ("no Fabric sign-in for a run that is not at a terminal: set PBI_TENANT_ID, "
               "PBI_CLIENT_ID and PBI_CLIENT_SECRET (a service principal) or PBI_ACCESS_TOKEN, "
-              "or run it at a terminal to sign in as yourself")
+              "or run it at a terminal to sign in as yourself (the sign-in is then reused "
+              "without a terminal until it expires)")
 
 
 class SignInRefused(RuntimeError):
@@ -101,15 +102,31 @@ def at_terminal() -> bool:
         return False
 
 
+def cached_sign_in() -> bool:
+    """A person's earlier sign-in is cached for this tenant and sign-in app and has not
+    expired. Only its expiry is read here; the token is never kept."""
+    from metrics_agent_powerbi import pbi_definition_extract as X  # noqa: PLC0415
+    try:
+        client_id = X.public_client_id()
+    except X.AuthError:
+        return False
+    tenant = os.environ.get("PBI_TENANT_ID", "").strip() or "organizations"
+    return X._read_cached_token(X._cache_path(tenant, client_id, X.DEFAULT_SCOPE)) is not None
+
+
 def sign_in(settings=None) -> str | None:
     """How a fetch signs in, the first that applies: `spn` (all three service-principal
     variables set), `token` (PBI_ACCESS_TOKEN set), a person at a terminal (`browser` where a
-    browser can open here, else `device`: `X.person_sign_in`), or None when none can. Names only are read here; no value is kept."""
+    browser can open here, else `device`: `X.person_sign_in`), a person's cached sign-in that
+    has not expired where nobody is at a terminal (`cached`: reused, never renewed by asking),
+    or None when none can. Names only are read here; no value is kept."""
     selected = (settings or {}).get('sign_in') or os.environ.get('PBI_SIGN_IN')
     if selected:
         if selected not in ALL_SIGN_INS:
             raise SignInRefused('PBI_SIGN_IN is not a supported authentication route')
-        return selected if selected not in SIGN_IN_KINDS or at_terminal() else None
+        if selected not in SIGN_IN_KINDS or at_terminal():
+            return selected
+        return "cached" if cached_sign_in() else None
     if all(os.environ.get(n, "").strip() for n in SPN_ENV):
         return "spn"
     if os.environ.get(CERT_ENV, "").strip() and not os.environ.get(TOKEN_ENV, "").strip():
@@ -119,7 +136,7 @@ def sign_in(settings=None) -> str | None:
     if at_terminal():
         from metrics_agent_powerbi import pbi_definition_extract as X  # noqa: PLC0415
         return X.person_sign_in()
-    return None
+    return "cached" if cached_sign_in() else None
 
 
 class PowerBIFabric:
@@ -251,6 +268,8 @@ class PowerBIFabric:
         else:
             route = ("signs in as you in your browser (authorization code with PKCE)"
                      if mode == "browser" else
+                     "reuses your cached sign-in (no terminal to sign in again)"
+                     if mode == "cached" else
                      "signs in as you (device code)")
             try:
                 client_id = X.public_client_id()
@@ -336,7 +355,7 @@ class PowerBIFabric:
             mode = "browser"
         cmd = [sys.executable, str(EXTRACTOR), *targets, "--out", str(dest), "--auth", mode,
                "--tenant", self._tenant()]
-        if mode not in SIGN_IN_KINDS:
+        if mode not in (*SIGN_IN_KINDS, "cached"):
             # A service principal or a handed-over token is never cached; a person's sign-in
             # is, owner-only, so the next run does not ask again.
             cmd.append("--no-token-cache")

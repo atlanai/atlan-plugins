@@ -28,6 +28,14 @@ parser saw; reading them costs a great deal and adds nothing the block below doe
 **Any `sql`, `filters`, `tables`, `group_by`, `aggregations` or `variants` key is refused
 outright.** You run AFTER the SQL is frozen and cannot change what executes.
 
+## An item with `expected_hold`
+
+Publication will hold it whatever you write: `reason` and `detail` say why (a view that needs
+one member selected and was captured with none, or a statement the compiler review called
+wrong). Write a plain `question` and a one-sentence `description`; leave `gotchas`, `aliases`
+and `claims` empty. Its per-member variant, when there is one, is a separate item without the
+mark: describe that one fully.
+
 ## Read the SQL and `bi_context` together
 
 The business context is not in either one alone. Given SQL by itself you will produce *"What is

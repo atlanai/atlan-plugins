@@ -174,7 +174,16 @@ def _operand_of(pred: exp.Expression, col: exp.Column) -> tuple[Any, str]:
         return other.this, "literal"
     if isinstance(other, exp.Column):
         return _col_name(other), "column"
-    if len(lits) == 1 and not list(other.find_all(exp.Column)):
+    if isinstance(other, exp.Neg) and isinstance(other.this, exp.Literal):
+        return "-" + str(other.this.this), "literal"
+    # A literal that is one argument of a computation is not the operand:
+    # `DATEADD(QUARTER, -5, DATE_TRUNC('QUARTER', CURRENT_DATE))` is a moving date, and
+    # reading its one literal recorded the restriction as `>= 5`. One function around the
+    # literal alone (`TO_DATE('2026-01-01')`) is still that literal.
+    funcs = [n for n in other.walk()
+             if isinstance(n, exp.Func) and not isinstance(n, (exp.Cast, exp.TryCast))]
+    computed = len(funcs) > 1
+    if len(lits) == 1 and not list(other.find_all(exp.Column)) and not computed:
         # a cast or a simple wrapper around one literal: `'2026-01-01'::DATE`
         return lits[0].this, "literal"
     return _WS.sub(" ", other.sql()).strip().lower() or None, "expression"

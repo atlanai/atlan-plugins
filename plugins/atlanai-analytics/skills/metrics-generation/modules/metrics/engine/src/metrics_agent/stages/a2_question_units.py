@@ -313,8 +313,7 @@ def body(ctx: stage.Ctx) -> None:
 
         # A table whose statement IS its source (`statement_is_source`) names no physical
         # object, so it is a warehouse target exactly when that statement was recovered.
-        logical_of = {t["name"]: (t.get("logical_name") or "").lower() for t in facts["tables"]
-                      if (t.get("source_lineage") or {}).get("statement_is_source")}
+        logical_of = _logical_of(facts["tables"], native_by_logical)
         all_tables = [t["name"] for t in facts["tables"]
                       if (t.get("source_lineage") or {}).get("object")
                       or t["name"].count(".") >= 2
@@ -426,6 +425,24 @@ def body(ctx: stage.Ctx) -> None:
                     return physical
                 return name if name in names_of else None
             col_tables = [_wh_table(x) for x in (u.get("column_tables") or [])]
+            # A Power BI slicer or page filter on a table no relationship connects to the
+            # visual's own tables does not filter that visual: the model has no path to carry
+            # it. Compiling it anyway refuses the visual (the column is not on its source) for
+            # a filter the report never applies. Only an explicit table hint, only Power BI,
+            # and only where no active relationship joins the two in either direction.
+            own = [t for t in measure_home + col_tables if t]
+            if facts.get("vendor") == "powerbi" and own:
+                kept = []
+                for f in u["filters"]:
+                    ft = _wh_table(f.get("table"))
+                    if ft and ft not in own and not _related(
+                            ft, own, facts["relationships"], logical_to_physical):
+                        ctx.say(f"a2: {u['title']!r}: the filter on {f.get('column')!r} "
+                                f"({f.get('table')}) does not reach this visual: no "
+                                f"relationship joins that table to the visual's")
+                        continue
+                    kept.append(f)
+                u = dict(u, filters=kept)
             # A FILTER on a column of another table reads that table too: a page filter on a
             # dimension's column is joined to the dimension. Only where the measure's own
             # table does not hold the column, or the file says it is on another table.
@@ -492,7 +509,12 @@ def body(ctx: stage.Ctx) -> None:
             omitted = {"siblings_omitted": sibs_cut} if sibs_cut else {}
 
             # One native-query home for every measure -> A3 reads that query's result set.
-            native = _native_for(u["measures"], logical_home_of, native_by_logical, wh,
+            # A view of columns only reads the one table its rows are listed from
+            # (`measure_home`, decided above), not every table that happens to share a column
+            # name with it: those are in `other` only as join candidates, and counting them as
+            # homes left a detail table with no native query, read off the physical table.
+            native = _native_for(u["measures"], logical_home_of, native_by_logical,
+                                 measure_home if (not u["measures"] and measure_home) else wh,
                                  logical_of)
 
             def _source_names(names: list[str]) -> list[str]:
@@ -777,6 +799,54 @@ def _distinct_home(col_tables: list[str], relationships: list[dict],
         if set(col_tables) <= reach(cand):
             return cand
     return None
+
+
+def _related(table: str, others: list[str], relationships: list[dict],
+             logical_to_physical: dict[str, str]) -> bool:
+    """Whether active relationships join `table` to any of `others`, in either direction and
+    through any number of tables. Undirected on purpose: it only decides that a filter has NO
+    path at all, so a path a cross-filter direction would block still keeps the filter."""
+    def phys(name: str) -> str:
+        return logical_to_physical.get(str(name).split(".")[-1].lower(), str(name))
+    adj: dict[str, set[str]] = {}
+    for r in relationships or []:
+        if r.get("is_active") is False:
+            continue
+        a, b = phys(r.get("from_table") or ""), phys(r.get("to_table") or "")
+        if a and b:
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+    targets, seen, todo = set(others), {table}, [table]
+    while todo:
+        cur = todo.pop()
+        if cur in targets:
+            return True
+        for nxt in adj.get(cur, ()):
+            if nxt not in seen:
+                seen.add(nxt)
+                todo.append(nxt)
+    return False
+
+
+def _logical_of(tables: list[dict], native_by_logical: dict) -> dict[str, str]:
+    """Physical table name -> the logical table whose native query a unit with no measure
+    reads, for `_native_for`.
+
+    A table whose statement IS its source (`statement_is_source`) names no physical object.
+    A table read through a native query that NAMES one (a `Value.NativeQuery` over a mart) is
+    the same single source: its columns are the query's outputs, which the physical object
+    may not have (a column the query computes). Only where exactly one native-query logical
+    table reads that physical name: two queries over one object cannot be told apart by it,
+    so those keep the physical binding."""
+    out = {t["name"]: (t.get("logical_name") or "").lower() for t in tables
+           if (t.get("source_lineage") or {}).get("statement_is_source")}
+    readers: dict[str, set[str]] = {}
+    for t in tables:
+        ln = (t.get("logical_name") or "").lower()
+        if ln in native_by_logical and t["name"] not in out:
+            readers.setdefault(t["name"], set()).add(ln)
+    out.update({name: next(iter(lns)) for name, lns in readers.items() if len(lns) == 1})
+    return out
 
 
 def _native_for(measures: list[str], logical_home_of: dict, native_by_logical: dict,

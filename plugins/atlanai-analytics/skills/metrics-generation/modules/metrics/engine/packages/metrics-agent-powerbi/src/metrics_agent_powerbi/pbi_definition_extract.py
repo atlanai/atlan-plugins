@@ -596,6 +596,15 @@ def public_client_id(default: str = DEFAULT_PUBLIC_CLIENT_ID) -> str:
 
 
 def acquire_token(args: argparse.Namespace, *, on_token=None) -> str:
+    if args.auth == "cached":
+        # A person's earlier sign-in, reused where nobody can sign in again (no terminal).
+        # Never falls back to a sign-in: an expired cache fails here, by name.
+        cached = _read_cached_token(_cache_path(args.tenant, args.client_id, args.scope))
+        if not cached:
+            raise AuthError("the cached sign-in is missing or has expired; run at a terminal "
+                            "to sign in again")
+        log("Reusing cached sign-in.")
+        return cached
     if args.auth == "token":
         token = os.environ.get("PBI_ACCESS_TOKEN", "").strip()
         if not token:
@@ -1665,7 +1674,7 @@ def main() -> int:
     parser.add_argument("--probe", action="store_true",
                         help="sign in and print, as JSON, what this identity can reach "
                              "(workspaces, the admin API); fetch no content")
-    parser.add_argument("--auth", choices=["device", "browser", "spn", "token", "certificate", "managed-identity"],
+    parser.add_argument("--auth", choices=["device", "browser", "cached", "spn", "token", "certificate", "managed-identity"],
                         default=None,
                         help="browser: a person, in their browser (authorization code with "
                              "PKCE), the default where a browser can open here; device: a "

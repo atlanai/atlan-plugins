@@ -120,6 +120,12 @@ def _scrubbed_literal(tree, totals: list[str], dialect: str) -> bool:
     return any(_pii.PLACEHOLDER in v for t in trees for v in S.string_literals(t))
 
 
+def _in_native(u: dict, column: str) -> bool:
+    """`column` is named in the unit's native query, whole word, any case."""
+    sql = str(((u.get("native_source") or {}).get("sql")) or "")
+    return bool(sql) and re.search(rf"(?i)(?<![\w]){re.escape(str(column))}(?![\w])", sql) is not None
+
+
 def body(ctx: stage.Ctx) -> None:
     if ctx.args.recompile:
         # THE REVIEW'S RULES ARE USED, NOT ONLY RECORDED. A3b gates each proposed row and
@@ -392,7 +398,20 @@ def body(ctx: stage.Ctx) -> None:
                              "compiled from the widget's calculated fields (parameters at "
                              "their declared defaults)")
                     for f in (feat.get("filters") or [])
-                    if u.get("expression_language") and f.get("column")],
+                    if u.get("expression_language") and f.get("column")] + [
+                    # Literals the statement carries from the model's own native query (its
+                    # derived table) are evidenced by that query, which the model runs.
+                    _ev.cite(f"{f.get('column')} {f.get('op')}", "m-query",
+                             "the model's native query, carried as the statement's source")
+                    for f in (feat.get("filters") or [])
+                    if f.get("column") and _in_native(u, f["column"])] + [
+                    # The rank a member filter keeps (a Top N the widget applies) is
+                    # evidenced by that filter.
+                    _ev.cite(f"{f.get('column')} {f.get('op')}", "visual-usage",
+                             "the rank a Top N filter on the widget keeps")
+                    for f in (feat.get("filters") or [])
+                    if str(f.get("column") or "").lower() == "member_rank"
+                    and any(str(x.get("op") or "").lower() == "top_n" for x in u["filters"])],
                 "ranking_basis": (f"bi dashboard placement "
                                   f"(n_dashboards={u['container']['n_dashboards']})"),
             },

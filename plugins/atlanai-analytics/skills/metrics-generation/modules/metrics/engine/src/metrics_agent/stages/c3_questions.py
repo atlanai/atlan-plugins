@@ -27,6 +27,7 @@ import sys
 
 
 from metrics_agent.lib import artifacts  # noqa: E402
+from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import evidence as _ev  # noqa: E402
 from metrics_agent.lib import stage  # noqa: E402
 
@@ -68,10 +69,15 @@ def _emit_prompt(ctx: stage.Ctx, cands: list[dict]) -> None:
     identical across both vendors, and testable. A file path the model may or may not have
     opened is none of those things.
     """
+    from metrics_agent.lib import early_holds  # noqa: PLC0415
+    held = early_holds.predicted(ctx.run)
     items = []
     for c in cands:
         bi = (c["provenance"].get("bi") or {})
         items.append({
+            # Already certain to be held at publication (`lib/early_holds`): its prose is
+            # never published, so one plain sentence is enough.
+            **({"expected_hold": held[c["candidate_id"]]} if c["candidate_id"] in held else {}),
             "candidate_id": c["candidate_id"],
             "lane": c["lane"],
             "sql": c["sql"],
@@ -95,11 +101,15 @@ def _emit_prompt(ctx: stage.Ctx, cands: list[dict]) -> None:
         "instruction": "See skills/author-questions/SKILL.md. Everything you need "
                        "is INLINE below — do not open any BI file. Emit PROSE ONLY: question, "
                        "description, gotchas, aliases, evidence_citations. Any SQL or filter "
-                       "key in your output is refused outright.",
+                       "key in your output is refused outright. An item with `expected_hold` "
+                       "is not published: a question and a one-sentence description are "
+                       "enough.",
         "evidence_sources": list(_ev.SOURCES),
         "items": items,
     })
     ctx.entry.outputs.append(str(ctx.run / PROMPT))
+    # One copy of each native query the statements repeat (lib/shared_sources).
+    _shared.rewrite(ctx.run / PROMPT, "c3_prompt.schema.json", ctx.run)
     ctx.entry.verdict = "ok"
     size = len(json.dumps(items))
     ctx.count(prompted=len(items), prompt_bytes=size)
@@ -146,6 +156,13 @@ def _validate_model_output(rows: list[dict], cands: list[dict],
             )
         if not str(r.get("question", "")).strip():
             raise SystemExit(f"c3 output row {i} ({cid}): empty question")
+        # The rule M2 applies to the same field, applied where the question is written: M2
+        # starts from this wording, so a label here (a held item's "Title (held)") is
+        # refused one gate later, after a whole M2 pass.
+        if not str(r["question"]).strip().rstrip(" \"')»”’").endswith("?"):
+            raise SystemExit(f"c3 output row {i} ({cid}): `question` does not end in a "
+                             f"question mark — write the business question, not a label for "
+                             f"it")
         _ev.validate(r.get("evidence_citations", []))
         # A claim is only checkable if it is STATED as a predicate. Free prose cannot be
         # verified against a statement without guessing, so C4's faithfulness gate reads

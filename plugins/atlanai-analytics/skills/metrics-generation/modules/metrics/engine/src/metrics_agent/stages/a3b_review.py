@@ -38,6 +38,7 @@ import sys
 from metrics_agent import readers as _readers  # noqa: E402
 from metrics_agent._paths import CORPUS_NAME  # noqa: E402
 from metrics_agent.lib import artifacts  # noqa: E402
+from metrics_agent.lib import shared_sources as _shared  # noqa: E402
 from metrics_agent.lib import rules as _rules  # noqa: E402
 from metrics_agent.lib.card_sql import statement_sha  # noqa: E402
 from metrics_agent.lib import stage  # noqa: E402
@@ -106,6 +107,8 @@ def _emit_prompt(ctx: stage.Ctx, report: dict, cands: list[dict]) -> None:
         "gaps": report["gaps"],
     })
     ctx.entry.outputs.append(str(ctx.run / PROMPT))
+    # One copy of each native query the statements repeat (lib/shared_sources).
+    _shared.rewrite(ctx.run / PROMPT, "a3b_prompt.schema.json", ctx.run)
     ctx.count(prompted=len(compiled), refused=len(report["refused"]))
     ctx.say(f"a3b: wrote {PROMPT} — {len(compiled)} statement(s) to review, "
             f"{len(report['refused'])} refusal(s) to explain.")
