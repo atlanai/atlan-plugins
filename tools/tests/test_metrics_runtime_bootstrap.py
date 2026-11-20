@@ -46,6 +46,8 @@ class RuntimeBootstrap(unittest.TestCase):
             self.assertEqual(Path(identity['base']).resolve(), Path(sys.base_prefix).resolve())
 
     def test_failed_bootstrap_returns_safe_recovery_without_installing_or_erasing(self):
+        # With no other supported Python on the machine: with one, setup builds the runtime with it instead
+        # (test_metrics_module, 2026-11-18), keeping this attempt beside it.
         for exit_code in (1, -6):
             with self.subTest(exit_code=exit_code), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp).resolve() / 'runtime'
@@ -61,6 +63,7 @@ class RuntimeBootstrap(unittest.TestCase):
                 with mock.patch.object(driver, 'snapshot', return_value=({'commit': 'a' * 64}, 'a' * 64)), \
                         mock.patch.object(driver, 'unpack', side_effect=lambda path: path.mkdir(parents=True)), \
                         mock.patch.object(driver.venv, 'EnvBuilder') as builder, \
+                        mock.patch.object(driver, 'supported_pythons', return_value=[]), \
                         mock.patch.object(driver.subprocess, 'run') as package_commands, \
                         redirect_stdout(stdout), redirect_stderr(stderr):
                     builder.return_value.create.side_effect = fail_bootstrap

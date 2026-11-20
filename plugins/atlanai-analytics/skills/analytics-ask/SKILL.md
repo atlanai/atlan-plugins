@@ -126,6 +126,8 @@ good ÷ answered ratings, Q2 2026: 94.1%"). Then, briefly:
 - **Caveats**: an unreviewed query, a partial window, an assumption about the question;
 - the SQL, only when the person asks to see it.
 
+In a setup or demo run, record its `answer` moment and show what it prints ([visuals](../analytics-build/references/setup/visuals.md)).
+
 When a conflict between sources shaped the answer, say which one answered and why, as the
 conventions' **Source of truth** says.
 

@@ -13,14 +13,15 @@ also print the welcome as a reply before the question.
 
 ```
 Build a job profit agent for Fixit & Co. It answers questions about
-Fixit's jobs in plain English and shows the rule behind every number.
+Fixit's jobs in plain English and shows how every number is worked out.
 
 It reads the dashboard and the questions analysts already ran, then
 suggests the questions this context can answer once it is built.
 
 What you're working with:
-  Dashboard      Power BI, 4 tiles: gross margin, rework cost,
-                 material waste, late jobs
+  Dashboard      Power BI, 6 tiles: 4 numbers (gross margin, rework
+                 cost, material waste, late jobs) and 2 charts
+                 (margin by job, rework by crew member)
   Data           10 jobs (July to October 2026), 8 crew and machines,
                  746 work logs, 51 material orders, 11 snags
   Past queries   110 questions Fixit's analysts already ran
@@ -28,7 +29,7 @@ What you're working with:
   ○─────────○─────────○─────────○─────────○
   Pick      Build     Save to   Ask       Build a
   sources   context   Atlan     questions dashboard
-            ~5 min                        (optional)
+            ~13 min                       (optional)
 
 About 15 minutes. Made-up data; nothing of yours is touched.
 See the firm first:
@@ -45,8 +46,8 @@ Ready to build?
 | Agent | job profit agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/yard-tour/ |
 | Working folder | `atlan-analytics-demo/yard/` |
-| Dashboard | a Power BI dashboard with 4 tiles |
-| Tiles | gross margin, rework cost, material waste, late jobs |
+| Dashboard | a Power BI dashboard with 6 tiles: 4 numbers and 2 charts |
+| Tiles | gross margin, rework cost, material waste, late jobs; charts of gross margin by job and rework cost by crew member |
 | Past queries | 110 |
 | Data tables | 5 |
 | Focus to record | Job margin |

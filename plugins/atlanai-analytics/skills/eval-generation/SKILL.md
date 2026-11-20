@@ -56,7 +56,7 @@ Paths. Pass each command as separate argv entries; zsh does not split a string h
    a data test and a freshness check: no person asks them as a question. It picks 4 spares beyond the 20, for a draft
    that finds a question unanswerable, and keeps only those prompts. Say so when it picked
    fewer than 20.
-4. **Draft, in a subagent.** Give one subagent the paths of `work/prompts/` and
+4. **Draft, in a subagent.** Give one subagent, in the foreground, the paths of `work/prompts/` and
    `work/answers.json` and this instruction: follow each prompt and fill its key in
    `answers.json` with the JSON it asks for, and ask for what the SQL measures, in its direction:
    SQL that returns a share approved gets a question about the share approved, never one about

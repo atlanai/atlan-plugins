@@ -229,6 +229,60 @@ def answer_contract(run, gate):
     return contract
 
 
+BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
+# Each step for what it does: the app shows a subagent's name to the person, so it is never a gate's.
+STEP_NAMES = {'m2': 'Describe each query', 'x1': 'Find metrics',
+              'x2': 'Combine duplicates, one per number', 'x3': 'Define each metric'}
+
+
+# The other authored gates, as the person would name them: short enough to write in the session that talks to them.
+OTHER_STEP_NAMES = {'a3b': "Check each tile's query", 'c3': "Write each tile's question", 'x4': 'Link related metrics'}
+
+
+def authored_step(gate):
+    """How an authored gate outside the batched steps is written, and its name in the person's words. Runs that
+    handed these to subagents the session waited on, named for the gate's id, kept waiting through the batched
+    steps too, so no chip came while they ran."""
+    if gate not in OTHER_STEP_NAMES:
+        return None
+    name = OTHER_STEP_NAMES[gate]
+    return {'name': name,
+            'say': (f'Write this gate in this session, as `{name}`. Say nothing in the chat about who writes it or how '
+                    f'big it is.')}
+
+
+def batch_progress(run, gate):
+    """What the person sees while a batched gate is answered: each saved file on the side page as it lands, and
+    in the chat, the step's chip when the step ends."""
+    project = Path(__file__).resolve().parents[3] / 'analytics-build' / 'scripts' / 'project.py'
+    if gate not in BATCHED_GATES or not project.is_file() or not (run.parent / 'run.json').is_file():
+        return None
+    wait = f'python3 "{project}" --run-dir "{run.parent}" drafts --engine-dir "{run.name}" --wait'
+    shares = ({'split': f'python3 "{project}" --run-dir "{run.parent}" split --engine-dir "{run.name}"'}
+              if gate == 'x3' else {})
+    # Every host waits for the build in one turn (the team, 2026-11-19): a turn that ends without words is sent back for
+    # them, in the desktop app and in Claude Code's terminal alike, while a turn that keeps going is not.
+    return {'wait': wait, 'name': STEP_NAMES[gate], **shares,
+            'say': (f'A fresh subagent named `{STEP_NAMES[gate]}`, started in the background (never one this session '
+                    'waits on), writes this gate in numbered batch files and runs no drafts command'
+                    + ('; first run `split`, which shares the metrics among up to five subagents and gives each its '
+                       'brief. ' if shares else '. ') +
+                    'The session that talks to the person stays in one turn while the build runs: it runs `wait` in '
+                    'the foreground (a ten-minute timeout, or `--timeout` under a shorter limit), does what each line it '
+                    'prints says, and runs it again in the same message. On a batch, set the task list to `task_list`. '
+                    'When a step ends, run `visual next` first (it is quick) and show what it gives in the same '
+                    'message that starts the next step\'s subagent. When every share is back, advance once. On a quiet spell, check the subagents. It never '
+                    'ends the turn between waits (a turn that ends without words '
+                    'is sent back for them) and writes nothing of its own between chips: a step\'s own chip names the '
+                    'step that starts, so no line of yours names it again; never that the step is still running; never '
+                    'the engine\'s results or counts (accepted, cards, pairs, a check\'s own name), nor your own '
+                    'tooling (scripts, retries, setup). The app shows each command\'s description to the person: '
+                    'describe each as what it does for them ("Showing what\'s new", "Continuing the build"), never a '
+                    'chip, the engine, a gate, a folder or a record. The side page shows each batch as it lands, so no '
+                    'batch goes in the chat. With no background subagent, write the gate in that session and run '
+                    '`visual next` once the gate is accepted.')}
+
+
 def last_stage_output(text):
     """The engine's output from the last stage it ran: the one that paused or failed.
     The whole run's output stays in engine.log."""
@@ -284,6 +338,11 @@ def advance(run, runtime, model):
             result['gate'].update(answer_contract(run, gate))
             if gate == 'x3' and (run / 'x3_repair.json').is_file():
                 result['gate']['repair'] = str(run / 'x3_repair.json')
+            progress = batch_progress(run, gate)
+            if progress:
+                result['gate']['after_each_batch'] = progress
+            elif authored_step(gate):
+                result['gate'].update(authored_step(gate))
         result['feedback'] = last_stage_output(proc.stderr)
     else:
         result['reason'] = (blocked_reason(run)

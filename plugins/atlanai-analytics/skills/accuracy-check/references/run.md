@@ -31,7 +31,7 @@ its SQL has no score.
 `CHECK load` returns `status: pending_gold` and `pending`, one `sql_file` per question. The
 trusted results come from the warehouse, and no model copies a value:
 
-1. Start one subagent, the runner, with this prompt, filled in:
+1. Start one subagent, the runner, in the foreground, with this prompt, filled in:
    ```
    Run each SQL file below on <warehouse> with <the warehouse query tool>, one call per file.
    Send the statement exactly as the file holds it: no edit, no added LIMIT, no comment.
@@ -69,8 +69,9 @@ trusted results come from the warehouse, and no model copies a value:
 
 1. `EVAL todo --variant baseline --reps 1` lists the questions not yet run. A stopped run
    resumes here.
-2. Start one subagent per question, 10 at a time (a generated set has 20): start the next 10
-   when a batch has replied. For each:
+2. Start one subagent per question, 10 at a time, each 10 in one message and in the foreground (a
+   generated set has 20), so a batch comes back together: start the next 10 when a batch has replied.
+   For each:
    1. Spawn a subagent on the Haiku model (the Agent tool's `model: haiku`), which keeps a run's
       cost down, with this prompt, filled in:
       ```
@@ -187,11 +188,13 @@ line, and a result buried under process is a result they miss.
 With a before pass, the comparison comes first, in this order: the card (`report`), then
 `changes` under it: `headline` in bold, then `bars` (the card below its headline) in a fenced
 block with no language, so the bars line up. They go in a chat message that ends the turn, never
-in a native question's text, which is rewritten into one line. Then show the run report as
+in a native question's text, which is rewritten into one line. Where you have `show_widget` (the desktop
+app), show the comparison's `widget` with it instead: it draws the headline, the bars and the
+changes, so the message leaves those three out and says each number once. A terminal shows the
+text as written here. Then show the run report as
 printed: `EVAL report --why <why file>` gives the same sections for every run of a check, the
 first or the tenth, so a later run never reads thinner than the first. It holds the
-`score_line`, word for word ("67% accuracy: 2 of 3 answered correctly (likely between 21% and
-94%; a small sample)"), every run on this set, which run it is compared with and where that
+`score_line`, word for word ("67% accuracy: 2 of 3 answered correctly"), every run on this set, which run it is compared with and where that
 run lives, the questions that changed since, and the misses grouped by cause. Never count the
 passes yourself, never drop a section and never rebuild its numbers.
 

@@ -10,6 +10,15 @@ In Claude Code, one command installs Analytics and `atlanai` automatically:
 claude plugin install atlanai-analytics --marketplace atlanai/atlan-plugins
 ```
 
+In Claude Code's terminal, a build's progress shows in Claude Code's own task list. Some models have the task list on
+by default; for the others, such as Opus 5.5, add this to the `env` in your Claude Code settings
+(`~/.claude/settings.json`) once, then start a new session:
+
+```json
+{"env": {"CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"}}
+```
+
+Without it, each finished build step shows as one line in the chat.
 
 
 Other hosts install plugins one at a time, so add `atlanai` first. In Codex:
