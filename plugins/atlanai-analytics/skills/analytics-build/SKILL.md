@@ -34,10 +34,10 @@ concrete plan. Respect explicit draft or review requests.
    | They chose | Then |
    | --- | --- |
    | Let discovery decide | `source-survey` `discover`, then "Which should I build?" over up to three use cases with their tables plus "I have a dashboard", then at most two clarifying questions if something is unsettled. After the build, one offer to add a dashboard |
-   | Make my dashboard agentic | One card for the dashboard: files in the folder as options, a link or path as free text. A link is opened with that tool's sign-in started when needed, then `source-survey` `access` on it and its tables |
+   | Make my dashboard agentic | One card for the dashboard: files in the folder as options, a link or path as free text. Then [the dashboard branch](references/setup/dashboard-flow.md), which replaces the steps below and the confirmation |
    | I have a use case and know my tables | One card asking for the use case and tables as free text, with a skip to discovery, then `source-survey` `access` on them |
 
-3. **Confirm and trigger**, the same in every branch: one line of what will be built and
+3. **Confirm and trigger**, in the other two branches: one line of what will be built and
    from what, then "Build it?". Nothing is built before the yes.
 
 A question the request already answers is not asked. Before card 1, look silently at what is
@@ -62,22 +62,29 @@ Detail-only requests get only the requested evidence.
 Show [the checklist](references/setup/checklist.md) in the host's task list from the first
 action, and in chat with each step's result line, never inside a question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
-reached and never replace a moment with a status line.
+reached and never replace a moment with a status line. Show each moment's chip or card, from
+the first survey on, as [visuals](references/setup/visuals.md) says.
 
 1. **Clarify your use case.** [The interview](references/setup/intent.md)'s card 1, and the
    branch's own ask. Skip what the request already said.
 2. **Survey your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named.
+   tables the person named. The side page opens once the queries are in plain words,
+   when `PROJECT visual next` names `connect`.
 3. **Select tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md) and any clarification. In every branch, the
-   interview's confirmation, "Build it?". A report is built whole.
+   interview's confirmation, "Build it?", whose text opens with the `found` visual's line in a
+   terminal. A report is built whole.
 4. **Generate and check metrics.** `metrics-generation` `generate` and `check` with the selection
-   and the whole survey, through [build and check](references/setup/build-check.md). Then
-   review the completed collection with actual counts and one representative metric.
+   and the whole survey, through [build and check](references/setup/build-check.md). A fresh
+   subagent writes each metric gate while the side page shows each saved batch and this session
+   draws each step's chip ([drafts as they land](references/setup/progress.md#drafts-as-they-land)). The
+   review of the completed collection is the save question's own text (step 5).
 5. **Keep local or save to Atlan Trident.** Read
    [context built and where to keep it](references/setup/save.md) and
    [preview and publish](references/setup/preview-publish.md); `metrics-generation` `save`.
+   After a save to Atlan Trident with `show_widget`, draw the `saved` visual; in a terminal the
+   ready question holds it.
 6. **Ask a question.** First offer the accuracy check through
    [check accuracy](references/setup/accuracy.md): `eval-generation` and `accuracy-check`, run
    only on a yes. Then read [ready for questions](references/setup/ready.md). Answer only the

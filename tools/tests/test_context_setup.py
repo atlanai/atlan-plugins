@@ -12,7 +12,7 @@ import zipfile
 
 import test_local_project as fixtures
 SCRIPTS, model, readbacks = fixtures.SCRIPTS, fixtures.model, fixtures.readbacks
-from project import Project
+from project import Project, ProjectError
 from context_state import resolve_run, digest
 import acquisition
 import metric_preview
@@ -409,9 +409,9 @@ class SQLiteCheckProgress(unittest.TestCase):
         for check, name in ((self.run.check_metric, 'total-1'), (self.run.check_query, 'work-total')):
             check({'name': name})
             self.assert_progress('complete', 2)
-            rows = experience.snapshot(Project(self.run.root))['checklist']['steps']
-            self.assertEqual(rows[2]['status'], 'completed')
-            self.assertEqual((rows[3]['id'], rows[3]['status']), ('save', 'in_progress'))
+            rows = {r['id']: r for r in experience.snapshot(Project(self.run.root))['checklist']['steps']}
+            self.assertEqual(rows['write']['status'], 'completed')
+            self.assertEqual(rows['save']['status'], 'in_progress')
 
     def test_individual_checks_finish_only_after_every_current_candidate_is_checked(self):
         self.seed_checks()
@@ -444,6 +444,81 @@ class SQLiteCheckProgress(unittest.TestCase):
         self.run.write(self.run.context / 'metrics.json', [card])
         self.run.check_query({'name': 'work-total'})
         self.assert_progress('running', 1)
+
+
+class WarehouseCheckResults(unittest.TestCase):
+    """On a warehouse the checks run with the recorded read-only tool. The check commands hand over the exact statement,
+    then record what the tool returned, bound to the definition it checked, so the side page can show it tested."""
+    setUp = fixtures.LocalProject.setUp
+
+    def seed(self):
+        fixtures.LocalProject.seed(self)
+        self.run.survey(self.estate)
+        self.run.write(self.run.root / 'state.json', {'warehouse': {
+            'kind': 'snowflake', 'dialect': 'snowflake', 'via': 'atlan', 'tool': 'snowflake__run_query'}})
+        card = metric()
+        card['definition'].update(spec_version=fixtures.mine.METRIC_SPEC, dialect='snowflake', examples=[
+            {'source': 'declared:Cost', 'sql': 'SELECT SUM(cost) FROM site.work'}])
+        statement = query()
+        statement['definition']['dialect'] = 'snowflake'
+        self.run.write(self.run.context / 'metrics.json', [card])
+        self.run.write(self.run.context / 'queries.json', [statement])
+        return card
+
+    def checks(self):
+        path = self.run.context / 'candidate-checks.json'
+        return self.run.read(path) if path.exists() else {}
+
+    def test_a_warehouse_check_hands_over_the_exact_statement_and_records_nothing(self):
+        self.seed()
+        for check, name, sql in ((self.run.check_metric, 'total-1', 'SUM(site.work.cost)'),
+                                 (self.run.check_query, 'work-total', 'SELECT SUM(cost) FROM site.work')):
+            handed = check({'name': name})
+            self.assertEqual(handed['status'], 'run_on_warehouse')
+            self.assertIn(sql, handed['sql'])
+            self.assertIn('"result"', handed['next'])
+        self.assertEqual(self.checks(), {})
+
+    def test_a_warehouse_result_is_recorded_against_the_definition_it_checked(self):
+        import side_page
+        from run_facts import RunFacts
+        card = self.seed()
+        self.run.check_metric({'name': 'total-1', 'result': {'rows': [[34.75]]}})
+        self.run.check_query({'name': 'work-total', 'result': {'rows': [[34.75]]}})
+        facts = RunFacts(self.run.root)
+        self.assertTrue(facts.checks_over)
+        self.assertEqual((facts.context['passed'], facts.context['need_look']), (2, 0))
+        snap = side_page.snapshot(self.run.root)
+        self.assertEqual([q['status'] for q in snap['queries']], ['checked'])
+        self.assertEqual(self.checks()['metric:total-1']['executor'], 'warehouse_tool')
+        card['definition']['formula'] = 'SUM(site.work.cost) * 2'
+        self.run.write(self.run.context / 'metrics.json', [card])
+        self.assertEqual(next(c for c in metric_preview.candidates(self.run) if c['kind'] == 'metric')['status'], 'draft')
+
+    def test_a_warehouse_error_holds_the_item_with_its_reason(self):
+        from run_facts import RunFacts
+        self.seed()
+        self.run.check_query({'name': 'work-total', 'result': {'error': "Object 'SITE.WORK' does not exist or not authorized."}})
+        entry = self.checks()['sql_query:work-total']
+        self.assertEqual(entry['status'], 'held')
+        self.assertIn('does not exist', entry['errors'][0])
+        self.assertEqual(RunFacts(self.run.root).context['failed'], 1)
+
+    def test_a_result_in_the_wrong_shape_is_refused_and_records_nothing(self):
+        self.seed()
+        for result in ({'rows': 'one'}, {'rows': [[{'nested': 1}]]}, {'rows': [[1]], 'error': 'x'}, {},
+                       {'rows': [[1]] * 1001}, {'error': ''}):
+            with self.subTest(result=result), self.assertRaises(ProjectError):
+                self.run.check_query({'name': 'work-total', 'result': result})
+        self.assertEqual(self.checks(), {})
+
+    def test_on_local_data_the_helper_runs_the_check_itself(self):
+        fixtures.SQLiteFlow.setUp(self)
+        statement = query()
+        statement['definition']['dialect'] = 'sqlite'
+        self.run.write(self.run.context / 'queries.json', [statement])
+        with self.assertRaisesRegex(ProjectError, 'runs it itself'):
+            self.run.check_query({'name': 'work-total', 'result': {'rows': [[1]]}})
 
 
 @unittest.skipUnless(fixtures.HAS_DUCKDB, 'Use an existing approved DuckDB runtime.')

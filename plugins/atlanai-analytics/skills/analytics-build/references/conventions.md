@@ -103,6 +103,12 @@ metric or query in Atlan is **managed**, never governed; an answer with none is 
 managed**. The place they are saved is **Atlan Trident**: write "saved in Atlan Trident",
 "Save to Atlan Trident".
 
+Every line in the chat is in the person's words, in every flow, as the demo's are. Never a file name, folder, path
+or command name; never how the work is split among helpers ("three at a time", "the third set"), that a step is still
+running, or the engine, a gate or a record. A count in your own words matches the chip's. The app shows each
+command's description and each helper's name: say what it does for the person ("Reading your dashboard", "Testing
+on the data"), never packing, installing or comparing files.
+
 ## Orientation, progress and endings
 
 Before setup or metric-generation tools run, explain the outcome, immediate next action
@@ -133,8 +139,9 @@ preview nor permission to execute. During sign-in keep the task active until rec
 
 Show setup progress as [the checklist](setup/checklist.md) in chat and the host's task list
 when available, read from the saved run.
-Open no panel, browser view or snapshot unless the person asks for one. Never imply a
-snapshot is live or show controls that cannot act. Publish decisions stay in chat.
+Open no panel, browser view or snapshot unless the person asks for one, apart from the run's
+own [side page](setup/visuals.md), which `visual connect` opens. Never imply a snapshot is
+live or show controls that cannot act. Publish decisions stay in chat.
 
 ### Text before a native question is lost
 

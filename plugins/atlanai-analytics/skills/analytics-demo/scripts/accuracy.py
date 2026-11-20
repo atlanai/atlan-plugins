@@ -34,7 +34,7 @@ RELATIVE = re.compile(r"\b(?:last|this|previous|prior|current|past|recent|latest
 FIXED = re.compile(r"\b(?:19|20)\d{2}-\d{2}(?:-\d{2})?\b|\bQ[1-4]\s*(?:FY)?\s*'?(?:19|20)?\d{2}\b|\bFY\s*'?\d{2,4}\b"
                    r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:\d{1,2},?\s+)?(?:19|20)\d{2}\b", re.I)
 
-FIX_KINDS = ("metric", "redraft", "new_metric")
+FIX_KINDS = ("metric", "shared", "redraft", "new_metric")
 
 
 class Blocked(Exception):
@@ -70,7 +70,7 @@ def cmd_fixes(a) -> dict:
             raise Blocked(f"Fix {n} needs why the miss failed.")
         # Read from the rule in plain words, never from the changes: a parameter's default date is not a pin.
         said = str(f.get("rule_proposed") or "")
-        pins = kind == "metric" and RELATIVE.search(said) and FIXED.search(said)
+        pins = kind in ("metric", "shared") and RELATIVE.search(said) and FIXED.search(said)
         if pins:
             raise Blocked(f"Fix {n} ties a period that moves ({RELATIVE.search(said).group(0)}) to a fixed one "
                           f"({FIXED.search(said).group(0)}): it would answer every later question with that "
@@ -80,16 +80,46 @@ def cmd_fixes(a) -> dict:
             raise Blocked(f"Fix {n}: the set is the source of truth; a question is redrafted only when it asks "
                           "the opposite of its SQL, or names a relative period its SQL fixes. Fix the context instead.")
         if kind == "metric":
-            changes = f.get("changes") or []
-            if not (f.get("metric") and f.get("rule_now") and f.get("rule_proposed") and changes):
+            if not (f.get("metric") and f.get("rule_now") and f.get("rule_proposed") and f.get("changes")):
                 raise Blocked(f"Fix {n} needs metric, rule_now, rule_proposed and changes.")
-            for c in changes:
-                head = str(c.get("path") or "").split(".")[0]
-                if not head or head in ("version", "spec_version") or "value" not in c:
-                    raise Blocked(f"Fix {n}: each change is a definition field, description or display_name, with a value.")
+            _check_changes(n, f["changes"])
+        if kind == "shared":
+            # One rule in plain words, applied to each metric that answers that kind of question: a miss that
+            # repeats on another metric is a habit, and fixing one metric at a time moves it to the next.
+            each = f.get("metrics") or []
+            if not (f.get("rule_now") and f.get("rule_proposed") and len(each) > 1
+                    and all(isinstance(m, dict) and m.get("metric") and m.get("changes") for m in each)):
+                raise Blocked(f"Fix {n} is shared: it needs rule_now, rule_proposed and metrics, two or more, each "
+                              "with its own changes.")
+            for m in each:
+                _check_changes(n, m["changes"])
+    if (ev / "fixes.json").exists():
+        # Each round's fixes, kept: a new miss is compared with what earlier fixes already changed.
+        with (ev / "fixes-history.jsonl").open("a") as fh:
+            fh.write(json.dumps({"fixes": load(ev / "fixes.json", [])}) + "\n")
     dump(ev / "fixes.json", fixes)
-    return {"status": "ok", "fixes": len(fixes), "recommended": fixes[0].get("metric") or fixes[0]["kind"],
-            "file": str(ev / "fixes.json")}
+    first = fixes[0]
+    named = first.get("metric") or (f"{first['metrics'][0]['metric']} and {len(first['metrics']) - 1} more"
+                                    if first.get("kind") == "shared" else first["kind"])
+    return {"status": "ok", "fixes": len(fixes), "recommended": named, "file": str(ev / "fixes.json")}
+
+
+def _check_changes(n: int, changes: list) -> None:
+    for c in changes:
+        head = str(c.get("path") or "").split(".")[0]
+        if not head or head in ("version", "spec_version") or "value" not in c:
+            raise Blocked(f"Fix {n}: each change is a definition field, description or display_name, with a value.")
+
+
+def _changes_for(fixes: list, metric: str) -> list:
+    """A metric's changes: its own fix, or its part of a shared one."""
+    for f in fixes or []:
+        if f.get("metric") == metric and f.get("changes"):
+            return f["changes"]
+        for m in f.get("metrics") or [] if f.get("kind") == "shared" else []:
+            if isinstance(m, dict) and m.get("metric") == metric and m.get("changes"):
+                return m["changes"]
+    return []
 
 
 CARD_KEPT = ("metric_ref", "measure_id", "source_id", "gotchas", "tier", "tier_basis")
@@ -100,8 +130,8 @@ def cmd_version(a) -> dict:
     registry__append_artifact_version, built from this run's definition, never retyped. The demo makes
     the same edit on this machine right after, so this run stays at the version Atlan holds."""
     ev, run = pathlib.Path(a.evals), pathlib.Path(a.run)
-    fix = next((f for f in load(ev / "fixes.json", []) or [] if f.get("metric") == a.metric and f.get("changes")), None)
-    if not fix:
+    changes = _changes_for(load(ev / "fixes.json", []), a.metric)
+    if not changes:
         raise Blocked(f"No fix with changes for {a.metric} in {ev / 'fixes.json'}.")
     body = next((b for b in load(run / "context" / "metrics.json", []) or []
                  if a.metric in (b.get("name"), b.get("display_name"))), None)
@@ -112,7 +142,7 @@ def cmd_version(a) -> dict:
         raise Blocked(f"Atlan holds version {a.head_version} of {a.metric}, but the saved definition here is version "
                       f"{d.get('version') or 1}: someone changed it since. Propose the fix for its owner instead.")
     meta = {"display_name": body.get("display_name") or a.metric, "description": body.get("description")}
-    for c in fix["changes"]:
+    for c in changes:
         keys = c["path"].split(".")
         if keys[0] in ("description", "display_name") and len(keys) == 1:
             meta[keys[0]] = c["value"]
@@ -150,18 +180,19 @@ def _score(ev: pathlib.Path, variant: str) -> dict:
             "pct": round(100 * float(v.get("pass_rate") or 0))}
 
 
-def _compare(ev: pathlib.Path, after: str) -> str:
-    """The before-and-after report: schema only against the context, on the same questions."""
+def _compare(ev: pathlib.Path, after: str) -> dict:
+    """The before-and-after comparison: schema only against the context, on the same questions, as the text card
+    (`report`) and as a widget (`widget`)."""
     out = subprocess.run([sys.executable, str(HARNESS), "before-after", "--dir", str(ev),
                           "--before", "raw", "--after", after], capture_output=True, text=True)
     try:
-        report = json.loads(out.stdout).get("report")
+        got = json.loads(out.stdout)
     except json.JSONDecodeError:
-        report = None
-    if not report:
+        got = {}
+    if not got.get("report"):
         raise Blocked("This check has no raw-source pass to compare with. Run the before-and-after pass, "
                       "then ask for the result again.")
-    return report
+    return got
 
 
 def cmd_result(a) -> dict:
@@ -184,13 +215,15 @@ def cmd_result(a) -> dict:
             raise Blocked("With misses left, say what they share (--misses), in plain words.")
         lines.append(f"Your {a.agent} misses {a.misses}.")
     lines.append(last["line"])
-    # Every check runs the raw-source pass, so every result carries the comparison.
-    lines += ["", _compare(ev, runs[-1])]
+    # Every check runs the raw-source pass, so every result carries the comparison: drawn as a widget where the host
+    # draws one, else as the text card. Never both: the person reads it once.
+    compared = _compare(ev, runs[-1])
+    if not a.widget:
+        lines += ["", compared["report"]]
     if a.generated:
         lines.append(SOURCE)
     return {"status": "ok", "text": "\n".join(lines), "all_right": right, "from": first["pct"], "to": last["pct"],
-            "compared": True,
-            "fixed": len(runs) > 1}
+            "compared": True, "fixed": len(runs) > 1, **({"widget": compared.get("widget") or ""} if a.widget else {})}
 
 
 def cmd_saved(a) -> dict:
@@ -240,6 +273,7 @@ def main(argv=None) -> int:
     c.add_argument("--changed", help="after a fix: what changed, plain words")
     c.add_argument("--misses", help="with misses left: what they share, plain words")
     c.add_argument("--generated", action="store_true", help="CHECK load returned generated: true")
+    c.add_argument("--widget", action="store_true", help="the host draws widgets: the card comes as `widget`, not in the text")
     c.set_defaults(func=cmd_result)
     c = s.add_parser("saved", help="what saving the check put in Atlan Trident, word for word")
     c.add_argument("--evals", required=True)

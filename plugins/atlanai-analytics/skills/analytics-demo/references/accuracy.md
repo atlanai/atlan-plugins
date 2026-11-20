@@ -129,6 +129,10 @@ with nothing before it and nothing after it:
 <M> still wrong. Want me to work out what would fix them? Reply "fix" and I'll find the change behind each miss, or "keep" to keep this score as the bar to beat.
 ````
 
+Where you have `show_widget` (the desktop app), show the comparison's `widget` with it first, and
+leave the bold headline, the fenced bars and `changes` out of the message: the widget draws all
+three. The run report and the last line stay as written.
+
 Then stop and wait for the reply. "fix", or any reply that asks to improve the score, is step 4.
 "keep", or any reply that accepts the score, is step 5. Name no fix in this message: the fixes
 come from the diagnosis.
@@ -152,12 +156,20 @@ in `<evals-run>/work/spec.json`, name the fix:
   agent that reads the old rule in any metric still answers with it. A miss on wording is fixed by adding that
   question to `examples`, with the SQL that answers it. A question that asks the opposite is a
   redraft; a miss with no definition is a new metric.
+- **A miss that repeats is one fix.** Read `<evals-run>/fixes-history.jsonl`, each earlier round's
+  fixes. When a miss fails the way an earlier fix on another metric already fixed (an answer that
+  added a total row, then another that adds one on a different metric), the cause is how answers
+  are shaped, not one metric: propose one shared fix that states the rule once and changes every
+  metric that answers that kind of question, the one fixed before included, instead of a fix for
+  this metric alone.
 - **Write the fixes** with `ACC fixes --evals <evals-run> --file <a JSON list>`, which checks them
   and writes `<evals-run>/fixes.json`, the recommended one first (the one that turns the most
   misses): `[{"misses": ["<id>"], "why": "<reason>", "metric": "<name>", "rule_now": "<plain
   words>", "rule_proposed": "<plain words>", "changes": [{"path": "<definition field>", "value":
-  <new value>}]}]`. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has
-  no `changes`.
+  <new value>}]}]`. A shared fix is `{"kind": "shared", "misses": [...], "why": "<reason, naming the
+  earlier fix it repeats>", "rule_now": "...", "rule_proposed": "<the rule once, in plain words>",
+  "metrics": [{"metric": "<name>", "changes": [...]}, ...]}`, two or more metrics, each with its own
+  changes. A redraft (`"kind": "redraft"`) or a new metric (`"kind": "new_metric"`) has no `changes`.
 - **A period that moves is never tied to a date.** When a miss comes from "last quarter", "this
   month" or any other period that moves with the calendar, and the trusted SQL fixes its dates,
   the context is not wrong: the question is. Never propose a rule that says what that phrase
@@ -175,6 +187,7 @@ in `<evals-run>/work/spec.json`, name the fix:
   | Option | Description |
   | --- | --- |
   | Fix `<n>`: `<metric>` (one option per fix; Recommended on the one that turns the most misses, unless it carries a caution) | I change `<metric>` so `<rule proposed, plain words>`, and each other metric the fix names. With the context in Atlan Trident add: "This releases the new version in `<workspace>`." |
+  | Fix `<n>`: every `<kind of answer>` (one option per shared fix) | I change `<k>` metrics, `<their names>`, so `<rule proposed, plain words>`. It is the second time an answer missed this way. |
   | Reword question `<n>` (one option per redraft) | The question names a period that moves, or asks the opposite of its SQL. I leave the context alone and mark the question to reword in the set. |
   | Keep the score | Apply nothing. Keep this score as the bar to beat. |
 
@@ -188,7 +201,8 @@ nothing ticked, or Keep the score, go to step 5.
   `<evals-run>/fix-request.json`, never in the run (an answering agent that reads the proposed
   rule there no longer tests the context), and run `EDIT <that file>`. It keeps the old version beside the run (never where answering agents read), raises the
   version, re-checks the metric and keeps the engine's own copies of it in step; a failing check
-  keeps the old rule, so say so and ask "Which fixes should I apply?" again with the fixes left. Change only that metric,
+  keeps the old rule, so say so and ask "Which fixes should I apply?" again with the fixes left. A
+  shared fix is one `EDIT` per metric it names, each with that metric's changes. Change only that metric,
   never a file by hand, and do not raise saved queries with the person.
 - **Context in Atlan Trident:** a ticked fix is the approval, so apply and release the fix here, with
   no second approval in Metric Studio and no proposal record: the new version is the record. For
@@ -225,7 +239,8 @@ the score again as step 3 describes, with the new score; "fix" finds the next fi
 The result block is the `text` that `ACC result --evals <evals-run> --agent <agent> --firm <firm>`
 prints, put as it is: add `--changed "<what changed, plain words>"` after a fix, `--misses "<what
 the misses share>"` with misses left, and `--generated` when `CHECK load` returned
-`generated: true`. It holds these lines and nothing else:
+`generated: true`, and `--widget` where you have `show_widget`: then the card comes back as
+`widget`, not in the text. It holds these lines and nothing else:
 
 1. Every question right: this banner. Otherwise no banner.
 
@@ -239,7 +254,7 @@ the misses share>"` with misses left, and `--generated` when `CHECK load` return
    from <p>%, now that <what changed, plain words>." First time: "Your <agent> is at 100%
    accuracy on the <N> questions <firm>'s analysts ask most." Some missed: "Your <agent> misses
    <what the misses share>."
-3. The score line, word for word, which carries the range.
+3. The score line, word for word.
 4. The before-and-after card, word for word: schema only against your context on the same
    questions, a bar each. `ACC result` adds it from the check's `raw` run; it is never left out.
 5. Only when `CHECK load` returned `generated: true`: the source line.
@@ -250,15 +265,16 @@ or the set.
 
 **The turn ends on the result, in the chat, with the save offer as its last line.** The result
 is the moment to save, whether the context is in Atlan Trident or on this machine, and like the
-score it is the turn's last message, never a native question's text. Send one message, filled
-in, with nothing before it and nothing after it:
+score it is the turn's last message, never a native question's text. Where `ACC result` returned a
+`widget`, show it with `show_widget` first. Then send one message, filled in, with nothing else before
+it and nothing after it:
 
 ````
 ```
 <the result block, `ACC result`'s text, word for word: banner, result line, score line, card>
 ```
 
-<`changes` from the comparison, the table as printed>
+<`changes` from the comparison, the table as printed; left out where the widget drew it>
 
 <one line per version a fix released: "<metric> version <v> is released in <workspace>.">
 

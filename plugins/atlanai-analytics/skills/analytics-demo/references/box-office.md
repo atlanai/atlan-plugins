@@ -14,14 +14,15 @@ also print the welcome as a reply before the question.
 
 ```
 Build a ticket fees agent for Ticketfuddle. It answers questions about
-its sales and fees in plain English, with the rule behind every number.
+its sales and fees in plain English, showing how every number is worked out.
 
 It reads the dashboard and the questions analysts already ran, then
 suggests the questions this context can answer once it is built.
 
 What you're working with:
-  Dashboard      Tableau, 4 tiles and 3 charts: gross sales, fees as a
-                 share of what fans paid, net fee revenue, sell-through
+  Dashboard      Tableau, 7 tiles: 4 numbers (gross sales, fees as a
+                 share of what fans paid, net fee revenue,
+                 sell-through) and 3 charts
   Data           6 venues, 45 shows (July 2025 to December 2026),
                  6,911 orders, 15,327 tickets, 509 refunds,
                  10,760 gate scans
@@ -47,8 +48,8 @@ Ready to build?
 | Agent | ticket fees agent |
 | Tour | https://atlanai.github.io/analytics-agent-accelerator/box-office-tour/ |
 | Working folder | `atlan-analytics-demo/box-office/` |
-| Dashboard | a Tableau workbook with 4 tiles and 3 charts |
-| Tiles | gross sales, fees as a share of what fans paid, net fee revenue, sell-through |
+| Dashboard | a Tableau workbook with 7 tiles: 4 numbers and 3 charts |
+| Tiles | gross sales, fees as a share of what fans paid, net fee revenue, sell-through; charts of gross sales by month, fee income by type and sell-through by event |
 | Past queries | 68 distinct, over 756 runs |
 | Data tables | 10 |
 | Focus to record | Ticket fees |

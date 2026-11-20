@@ -3,7 +3,7 @@ name: analytics-demo
 description: Guided Atlan Analytics demo on made-up data: pick a demo, build its metrics, save them, ask a question and design a dashboard. Use when someone wants to try, see or learn Atlan Analytics. Not for their own data (analytics-build).
 ---
 
-# Atlan Analytics demo: six guided steps
+# Atlan Analytics demo: five guided steps
 
 A demo exists so the person understands Atlan Analytics by watching it work on a small,
 made-up firm. The blocks printed at each moment (the welcome, the
@@ -15,7 +15,8 @@ Read plugin files with the Read tool, one file per call. In a shell, never print
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
 the two words for what gets built, and the rule against naming people. They apply to every
-step below. The technical stages are the shared setup procedure in
+step below. Chips and cards follow [visuals](../analytics-build/references/setup/visuals.md).
+The technical stages are the shared setup procedure in
 [setup](../analytics-build/references/setup.md), run on the demo's working folder. `PROJECT`
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
 `python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
@@ -35,7 +36,7 @@ these steps.
 
 ## 1. Choose and load demo data
 
-Ask one native question before surveying anything. Its visible prompt says what the person
+Ask one native question first, with no words before it. Its visible prompt says what the person
 will end with:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:
@@ -72,7 +73,7 @@ After "Start building", show the tracker, then do all of step 1's work:
    `DEMO requests <demo> --run-dir "<run-dir>"`. It writes the demo's fixed choices as request
    files, `prepare` and, for a Power BI dashboard, `scope`, and prints the dashboard file (`bi`),
    `database` and `schema`. Use these as given; do not work them out again.
-3. **Load the data.** With the runtime's Python, run `PROJECT prepare "<prepare>"`, as
+3. **Load the data.** With setup's `python`, run `PROJECT prepare "<prepare>"`, as
    [build and check](../analytics-build/references/setup/build-check.md) describes; `prepare`
    is null when the database is already loaded. Then bind it once with
    `PROJECT bind "<database>" --schema <schema>`. Every later check runs on these rows.
@@ -101,7 +102,7 @@ written by hand. Run the metrics engine as
 [the metrics module](../metrics-generation/references/metrics-engine.md) describes, up to its
 X3 card gate. The source choice authorizes the complete local build. Author every
 card without a metric-list checkpoint or another build confirmation. Keep proposal and
-deduplication details internal; show brief progress about building and checking context.
+deduplication details internal.
 Advance the same run through all its gates, export and run every check on the loaded
 data, through [build and check](../analytics-build/references/setup/build-check.md).
 
@@ -117,11 +118,10 @@ describes. Keeping it local, run `PROJECT journey keep-local` first.
 
 When the context is saved, or kept on this machine, read
 [ready for questions](../analytics-build/references/setup/ready.md): ask "What would you like
-to ask?" with the ready block as its text, offering two or three questions supported by the
-checked context. Do not put an Ask AI menu before the question list. Answer the question or
+to ask?" with the ready block as its text, offering two supported questions and the
+person's own. Do not put an Ask AI menu before the question list. Answer the question or
 questions the person selects or supplies, then, in the same turn, ask the native "What would
-you like to do next?", its text the answer and proof links as plain lines
-([text before a native question is lost](../analytics-build/references/conventions.md#text-before-a-native-question-is-lost)).
+you like to do next?", its text as [the tour](references/tour.md#after-the-first-answer) says.
 This overrides ready's `Next:` line: a demo answer always ends on this question, as does a
 dashboard or an edit:
 

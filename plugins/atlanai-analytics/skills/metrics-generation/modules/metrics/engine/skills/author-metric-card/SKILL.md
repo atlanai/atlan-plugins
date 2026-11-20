@@ -57,6 +57,22 @@ also hands you `answer_schema`, the full schema this card validates against.
 }]}
 ```
 
+Save each card in its own file in the gate's answers folder, as soon as it is written, numbered
+in the prompt's task order (`001.json`, `002.json`, …), each with the same `{"metrics": [...]}`
+shape holding that one card. Review each card against the whole-card review before saving it.
+Each card appears in exactly one file; a repair rewrites the file that holds it. One write per
+file, never several in one script: a person watches each metric land. The gate still reads
+every file together. Given a share of the work list instead, its `task_numbers` give each card's
+file number: write only those, and follow the roster the share names for table names and output
+names, so the shares read as one build.
+
+Work one metric at a time. Read the list once, each task's name and merged definition, so you know
+what sits beside each metric; then take the tasks in order: read one task's statements and
+evidence, check what you need on the data, write its card and save it, and only then open the next.
+The first card lands in minutes instead of after the whole list, and each card is written while its
+evidence is fresh. Do not read the engine's code to check a card: the gate checks every card and
+names what it refuses, field by field, and a repair rewrites the file that holds it.
+
 Two things are refused most often: a key the schema does not list (the task's `metric_id`,
 for one), and a `grain` written as a sentence. `grain` is columns and nothing else, with no
 words in brackets after them.
@@ -182,6 +198,9 @@ So:
   beside it in the SELECT, no outer `GROUP BY`.
 - **Every way of cutting it goes in `dimensions[]`**, where a consumer can pick one.
 - **The name is the measure's name.** No `by X`, no `per X`, and no leading dimension.
+- **The card's name is the merged metric's name, as the task gives it.** The gate refuses any
+  other. When it says the name names one of the card's own dimensions, change the dimension,
+  never the name. A name that says `per X` already names X, so X is never one of its dimensions.
 
 A `GROUP BY` **inside** a subquery or CTE is different and fine : reducing a history table to
 one row per account before counting is part of how the measure is computed, not a cut of it.
@@ -325,7 +344,10 @@ YES   ["Internal staff are excluded by email domain",
        "Test accounts are excluded"]
 ```
 
-If the query excludes nothing, leave it empty. Do not invent exclusions to fill the field.
+If the query excludes nothing, leave it empty. Do not invent exclusions to fill the field. Each
+exclusion is backed by a filter or a join on the card that drops those rows: the consistency check
+refuses one that is not. That a sibling metric counts something else ("refunded fees are Fees
+Refunded") is a note, not an exclusion.
 
 ### `filters` and `mandatory_filters`
 
@@ -486,7 +508,8 @@ You supply:
 |---|---|
 | `source` | `verified_query:<vq_id>` : one of this metric's own sources; or `declared:<name>`, one of the model's own examples when the task carries `declared` |
 | `group_by` | the dimensions this statement slices by, naming dimensions you declared |
-| `filters`, `parameters` | the bindings this statement used, if worth showing |
+| `filters` | if worth showing, an object of each column to the condition this statement put on it: `{"SALES.MARTS.ORDERS.STATUS": "<> 'cancelled'"}`, never a list |
+| `parameters` | if the statement fixed one, an object of each parameter to the value it used: `{"period_start": "2026-07-01"}` |
 
 The SQL comes through **exactly as it ran** : untrimmed, including the other metrics it
 computes. An example is evidence that a person ran this against real data; a tidied example is

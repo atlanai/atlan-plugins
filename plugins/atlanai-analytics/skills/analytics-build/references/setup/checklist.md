@@ -1,25 +1,38 @@
 # The guided-flow checklist
 
 Read on starting or resuming setup. Show the flow's steps in chat and in the host's task list
-when available, kept true to the saved run. Open no side panel, browser view or preview page
-unless the person asks for a visual view.
+when available, kept true to the saved run. The dashboard branch ("Make my dashboard agentic")
+has nine items of its own, set out in [the dashboard branch](dashboard-flow.md); the rest of
+this file applies to it too. Open no side panel, browser view or preview page
+unless the person asks for a visual view, apart from the run's own [side page](visuals.md).
 
 ## Start with the list
 
 Right after the opening message and before the first helper call, put the flow's steps in the
-host's task list when available and show them in chat, the first one in progress.
+host's task list when available and show them in chat, the first one in progress. The task list
+is the host's own: in Claude Code's terminal, TodoWrite (or TaskCreate and TaskUpdate); in the
+desktop app, its own plan tool. Use it whenever the host has one, not only when asked.
 
 | Step | Own data (`analytics-build`) | Demo (`analytics-demo`) |
 | --- | --- | --- |
 | 1 | Clarify your use case | Choose and load demo data |
 | 2 | Survey your sources | Choose what to build from |
-| 3 | Select tables and dashboards | Build and check metrics |
-| 4 | Generate and check metrics | Keep local or save to Atlan Trident |
-| 5 | Keep local or save to Atlan Trident | Ask a question |
-| 6 | Ask a question | |
-| 7 | Build a dashboard | |
+| 3 | Select tables and dashboards | Find metrics in your sources |
+| 4 | Find metrics in your sources | Combine duplicates, one metric per number |
+| 5 | Combine duplicates, one metric per number | Define and test each metric |
+| 6 | Define and test each metric | Keep local or save to Atlan Trident |
+| 7 | Keep local or save to Atlan Trident | Ask a question |
+| 8 | Ask a question | |
+| 9 | Build a dashboard | |
 
-Before a run exists, `PROJECT checklist --flow demo` returns the demo's list. A demo records
+Drafting, merging and writing are the build, one step each, so the person sees how it moves.
+Each ticks as the engine finishes its part and shows a time estimate once the count going into
+it is known ("about 4 min"); use the helper's text as it is. Each of these steps' chips comes
+with `task_list`, the list as it now stands: set the host's list to it in the same message.
+
+Before a run exists, `PROJECT checklist --flow demo` returns the demo's list, and
+`--flow dashboard` the dashboard branch's. That branch records its flow with
+`PROJECT journey agentic` once the run exists. A demo records
 its flow with `PROJECT journey demo` once the run exists. Record `PROJECT journey asked` after
 the first chosen question is answered, and, for own data, `PROJECT journey dashboard` once a
 dashboard is built or declined; nothing else ticks those two steps. A demo's list ends at the
@@ -32,8 +45,8 @@ in the same turn as every stage change, so the list on screen is never behind th
 When each step starts, show the full tracker in chat. Finished steps carry their actual
 results; the current step says `now`, with `your choice` when it needs an answer; the next
 step says `next`. In a demo, step 2 is `Choose what to build from`, because focus and purpose
-are already set, and step 3 builds and checks without an extra decision. Own data's step 4 runs
-through the selected collection without an extra build decision. Do not substitute a task
+are already set, and steps 3 to 5 build and check without an extra decision. Own data's steps 4 to 6
+run through the selected collection without an extra build decision. Do not substitute a task
 update for the collection review or celebration.
 
 ## Keep it true to the saved run

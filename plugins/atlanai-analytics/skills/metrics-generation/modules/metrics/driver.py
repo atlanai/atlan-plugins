@@ -157,19 +157,48 @@ SUPPORTED_PYTHON = ((3, 12), (3, 11))
 DISPATCHER = Path(__file__).resolve().parents[2] / 'scripts' / 'analytics_agent.py'
 
 
-def supported_python():
-    """A Python on PATH the pinned runtime is built with (its wheels are pinned per version),
-    or None. A machine's default `python3` may be newer than any of them."""
+def supported_pythons():
+    """Each Python on PATH the pinned runtime is built with (its wheels are pinned per version), in
+    order of preference. A machine's default `python3` may be older or newer than any of them."""
     import shutil  # noqa: PLC0415
+    found = []
     for major, minor in SUPPORTED_PYTHON:
-        found = shutil.which(f'python{major}.{minor}')
-        if not found:
+        path = shutil.which(f'python{major}.{minor}')
+        if not path:
             continue
-        probe = subprocess.run([found, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
+        probe = subprocess.run([path, '-I', '-c', 'import sys; print(sys.version_info[:2])'],
                                capture_output=True, text=True, timeout=30)
         if probe.returncode == 0 and probe.stdout.strip() == str((major, minor)):
-            return found
-    return None
+            found.append(path)
+    return found
+
+
+def supported_python():
+    """The first Python on PATH the pinned runtime is built with, or None."""
+    return next(iter(supported_pythons()), None)
+
+
+def _venv_with_another(root):
+    """A standalone Python build (as some installers ship) can fail to build the runtime's own
+    environment. Build it with the next supported Python on this machine instead, so the agent
+    never has to: True once one has. Each failed attempt is kept beside it, never erased, and
+    no child's output is kept."""
+    current = os.path.realpath(sys.executable)
+    for other in supported_pythons():
+        if os.path.realpath(other) == current:
+            continue
+        if (root / 'venv').exists():
+            kept = next(root / f'venv.failed-{n}' for n in range(1, 100) if not (root / f'venv.failed-{n}').exists())
+            (root / 'venv').rename(kept)
+        if subprocess.run([other, '-I', '-m', 'venv', str(root / 'venv')], stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL).returncode == 0:
+            return True
+    return False
+
+
+def _python(root):
+    """The runtime's own interpreter: every later engine command runs with it."""
+    return root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
 
 
 def _setup(root, features):
@@ -186,7 +215,7 @@ def _setup(root, features):
         if receipt.get('source_sha256') != sha or receipt.get('features') != selected:
             raise RuntimeMismatch('Runtime selection changed; use a new runtime directory.',
                                   root, data['commit'])
-        return {'status': 'ready', 'runtime': str(root), 'commit': data['commit'], 'reused': True}
+        return {'status': 'ready', 'runtime': str(root), 'python': str(_python(root)), 'commit': data['commit'], 'reused': True}
     source = root / 'source'
     unpack(source)
     # Standalone Python builds can resolve libpython relative to their executable.
@@ -196,13 +225,14 @@ def _setup(root, features):
     except subprocess.CalledProcessError as exc:
         # Child diagnostics can contain private environment or package-registry data.
         # Preserve the failed directory, but expose neither the command nor its output.
-        return {'status': 'BLOCKED', 'reason': 'Python could not create the isolated runtime.',
-                'bootstrap_error': {'type': 'CalledProcessError',
-                                    'exit_code': exc.returncode if type(exc.returncode) is int else None},
-                'runtime': str(root),
-                'fix': 'Use another approved Python 3.11 or 3.12 interpreter and a new durable runtime directory. '
-                       'The failed directory is preserved.'}
-    python = root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+        if not _venv_with_another(root):
+            return {'status': 'BLOCKED', 'reason': 'Python could not create the isolated runtime.',
+                    'bootstrap_error': {'type': 'CalledProcessError',
+                                        'exit_code': exc.returncode if type(exc.returncode) is int else None},
+                    'runtime': str(root),
+                    'fix': 'Use another approved Python 3.11 or 3.12 interpreter and a new durable runtime directory. '
+                           'The failed directory is preserved.'}
+    python = _python(root)
     constraints = str(source / 'constraints.txt')
     commands = [[str(python), '-m', 'pip', '--quiet', '--disable-pip-version-check', 'install', '-c', constraints, '--only-binary=:all:',
                  'setuptools', 'wheel'],
@@ -225,7 +255,7 @@ def _setup(root, features):
                         'log': str(log)}
     write(root / 'runtime.json', {'module': 'metrics', 'commit': data['commit'],
                                 'source_sha256': sha, 'features': selected})
-    return {'status': 'ready', 'runtime': str(root), 'commit': data['commit'], 'reused': False}
+    return {'status': 'ready', 'runtime': str(root), 'python': str(python), 'commit': data['commit'], 'reused': False}
 
 
 def invoke(root, command, args):
@@ -243,7 +273,7 @@ def _invoke(root, command, args):
     # Gate instructions are part of the pinned implementation too, not mutable runtime
     # prompts that can drift independently from the validators.
     unpack(root / 'source')
-    python = root / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+    python = _python(root)
     if not python.is_file() or not (root / 'venv/pyvenv.cfg').is_file():
         raise ValueError('Set up this module runtime first.')
     # Do not inherit Python import overrides from the host or another project.
@@ -311,5 +341,18 @@ def main(argv=None):
         result, code = {'status': 'BLOCKED', 'reason': str(exc),
                         'fix': getattr(exc, 'fix', None)
                         or 'Resolve this requirement before advancing the metrics module.'}, 2
+    if args.command in ('prepare', 'advance', 'export') and code in (0, 3) and _in_setup_run(args.run):
+        # A setup run shows what each step produced as it finishes; the gate the agent answers next is the moment to.
+        result['visual'] = ("Show what the engine's last step produced: run the setup helper's `PROJECT visual next` (with "
+                            "`--widget` where you have `show_widget`), and again while it says more is due. The chip is the "
+                            "update: add no words of your own about the step, the engine or its files.")
     print(json.dumps(result, ensure_ascii=False))
     return code
+
+
+def _in_setup_run(run):
+    """Whether an engine run sits inside a setup run, whose helper draws each step's result."""
+    try:
+        return (Path(run).resolve().parent / 'run.json').is_file()
+    except (OSError, RuntimeError):
+        return False

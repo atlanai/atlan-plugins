@@ -32,9 +32,9 @@ ENGINE_PHASES = {'s0': 'Reading the selected inputs', 'a1': 'Reading dashboard d
                  'c1': 'Combining source evidence', 'c2': 'Combining matching queries',
                  'c3': 'Writing useful questions', 'c4': 'Checking source coverage',
                  'c5': 'Saving the checked query layer', 'm1': 'Combining source evidence',
-                 'm2': 'Describing useful queries', 'd1': 'Finding potential measures',
-                 'x1': 'Finding useful metrics', 'x2': 'Combining matching metrics',
-                 'x3': 'Checking metric cards', 'x4': 'Connecting related metrics'}
+                 'm2': 'Putting each query in plain words', 'd1': 'Finding potential measures',
+                 'x1': 'Finding the numbers each query measures', 'x2': 'Combining possible metrics, one per number',
+                 'x3': 'Writing what each metric counts and leaves out', 'x4': 'Connecting related metrics'}
 
 
 class _Reader:
@@ -202,9 +202,10 @@ def _context_items(reader, state):
                     sql = examples[0].get('sql')
             calculation, calculation_note = _sql(definition.get('formula') or definition.get('sql'), 'Calculation')
             sql, sql_note = _sql(sql)
-            review_label = {'verified': 'Source review recorded', 'reviewed': 'Source review recorded', 'needs_review': 'Source review required',
-                            'unreviewed': 'Source review pending', 'rejected': 'Source review rejected',
-                            'not_recorded': 'Source review not recorded'}[review]
+            # In the person's words, as the side page says it: a fresh reader of h9 could not tell what "source review" was.
+            review_label = {'verified': 'Marked as reviewed', 'reviewed': 'Marked as reviewed',
+                            'needs_review': 'Worth a read before you rely on it', 'unreviewed': 'Worth a read before you rely on it',
+                            'rejected': 'Rejected on review', 'not_recorded': 'Worth a read before you rely on it'}[review]
             evidence_notes = ['Execution: ' + (LABELS[execution] if execution != 'not_recorded' else 'not recorded for this revision'),
                               'Review: ' + review_label, 'Dashboard value parity: unmeasured',
                               'Publication: ' + ('saved in Atlan Trident' if status == 'released' else 'held' if status == 'held' else 'local')]
@@ -257,7 +258,12 @@ def _engine(reader, directory):
     result = {'checkpoint': stage, 'label': ENGINE_PHASES.get(stage.split('_')[0], 'Building metrics and queries'),
               'status': module.get('status') if module.get('status') in ('prepared', 'paused', 'blocked', 'complete') else 'recorded',
               'completed_checkpoints': sum(s.get('verdict') == 'ok' and s.get('notes') != 'awaiting_decision' for s in stages),
-              'recorded_at': _text(last.get('started_at'), 50), 'sample': None, 'provisional_count': 0}
+              'recorded_at': _text(last.get('started_at'), 50), 'sample': None, 'provisional_count': 0,
+              # The steps the task list ticks one by one, and the counts their time estimates come from.
+              'done': sorted({_text(s.get('stage'), 100) for s in stages if s.get('verdict') == 'ok' and s.get('notes') != 'awaiting_decision'}),
+              'counts': {name: {k: v for k, v in (s.get('counts') or {}).items() if type(v) is int}
+                         for s in stages for name in [_text(s.get('stage'), 100)]
+                         if name in ('m2_emit', 'x1_ingest', 'x2_ingest') and isinstance(s.get('counts'), dict)}}
     if not stages:
         return result
     # Only known output filenames are read. Manifest paths are compared, never followed.
@@ -376,6 +382,10 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
     engine_missing = False
     if engine_dir is None and isinstance(state.get('engine_run'), str):
         engine_dir = state['engine_run']
+    elif engine_dir is None:
+        # A flow that never named its engine run still has one once the engine has written its manifest in the run.
+        from run_facts import engine_folder
+        engine_dir = engine_folder(reader.root)
     if engine_dir is not None:
         requested = Path(engine_dir)
         absolute = ordinary(requested if requested.is_absolute() else reader.root / requested, reader.root)
@@ -477,8 +487,10 @@ def snapshot(run, engine_dir=None, focus=None, host=None, server=None):
         phase['label'] = 'Your work is saved'
         next_text = 'This run is paused at a saved checkpoint. Resume here when ready.'
         prompt = 'Resume this saved analytics run from its current checkpoint.'
+    bound = _dict(state.get('execution')).get('tables')
     model = {'format': 1, 'snapshot_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'live': False,
             'phase': phase, 'scope': scope, 'source_count': len(sources), 'scope_truncated': len(sources) > 100,
+            'bound_tables': len(bound) if isinstance(bound, list) else 0,
             'selected_pages': selection, 'selection_kind': selection_kind, 'counts': counts,
             'progress': {'completed': saved.get('completed_items'), 'total': saved.get('total_items')},
             'sample': sample, 'items': items, 'items_truncated': len(items) > 100,
@@ -519,7 +531,7 @@ def handoff(model):
     if counts['held']:
         attention.append(f"{counts['held']} items need repair before publication.")
     if counts['review_required']:
-        attention.append(f"{counts['review_required']} queries need source review.")
+        attention.append(read_line(counts['review_required']))
     if total and not counts['executed']:
         attention.append('No execution check is recorded for the current definitions.')
     if total:
@@ -545,6 +557,12 @@ def _code(value):
     return fence + 'sql\n' + value + '\n' + fence
 
 
+def read_line(n):
+    """The queries the engine marked for a person's read, in plain words: "5 queries need source review" beside a page
+    that said nothing of them read as a contradiction to a fresh reader of h9."""
+    return (f'{n} query is marked worth a read before you rely on it; the side page shows which and why.' if n == 1 else
+            f'{n} queries are marked worth a read before you rely on them; the side page shows which and why.')
+
 def render_chat(model, detail=False):
     counts, sample = model['counts'], model['sample']
     metrics = 'metric' if counts['metrics'] == 1 else 'metrics'
@@ -559,7 +577,7 @@ def render_chat(model, detail=False):
     if counts['held']:
         lines.append(f"{counts['held']} items need repair before publication.")
     if counts.get('review_required'):
-        lines.append(f"{counts['review_required']} queries need source review, separate from execution checks and publication holds.")
+        lines.append(read_line(counts['review_required']) + ' This is separate from the checks on the data.')
     if model.get('handoff', {}).get('coverage_notes'):
         lines.append(f"{model['handoff']['coverage_notes']} reused definitions have coverage limits retained in details.")
     intent = model.get('interaction', {}).get('intent', {})

@@ -3,7 +3,8 @@
 Read on starting or resuming setup. Claude and Codex own the interface: use their normal
 messages, task list, code disclosures and question controls. Progress is
 [the setup checklist](checklist.md) in chat and that task list when available. Open no side panel, browser view or
-other surface unless the person asks for [a visual view](render.md).
+other surface unless the person asks for [a visual view](render.md), apart from the run's own
+[side page](visuals.md).
 
 ## One useful result, one next action
 
@@ -21,7 +22,7 @@ procedure for the real engine action; the presentation helper never executes it.
 | Saved stage | Host behavior |
 | --- | --- |
 | Inspect and Scope | Show what was found, establish business focus then purpose, and resolve remaining source scope. |
-| Build | Resume the existing engine checkpoint for the whole selected collection; show factual progress. |
+| Build | Resume the existing engine checkpoint for the whole selected collection; after each gate, show what that step produced with `PROJECT visual next`. |
 | Check | Check the exact definition and parameters. Preserve failed and untested status. |
 | Preview | Show the sample before an existing destination or Keep local choice. |
 | Publish | Carry the authorized plan through reconciliation, release and full readback. |

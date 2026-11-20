@@ -1342,8 +1342,7 @@ def summarize(pr: Proj, variant: str, final: bool = False) -> dict:
     if v["n"]:
         # The count a person reads, worded here so no one recounts it from the rows.
         k = sum(1 for i in validation if means.get(i) == 1)
-        out["score_line"] = (f"{k / v['n']:.0%} accuracy: {k} of {v['n']} answered correctly "
-                             f"(likely between {v['ci95_low']:.0%} and {v['ci95_high']:.0%}; a small sample)")
+        out["score_line"] = f"{k / v['n']:.0%} accuracy: {k} of {v['n']} answered correctly"
     if final:
         out["holdout"] = rate(means, holdout)
     elif holdout and any(r.get("prompt_id") in holdout for r in all_rows):
@@ -1496,7 +1495,45 @@ def cmd_before_after(a) -> dict:
             "per_question": [{"id": i, "question": text.get(i, ""), "before": mark(ma, i), "after": mark(mb, i)}
                              for i in ids],
             "report": "\n".join(lines), "headline": lines[0], "bars": "\n".join(lines[2:]),
-            "changes": "\n".join(changes).rstrip()}
+            "changes": "\n".join(changes).rstrip(),
+            "widget": _before_after_widget(ids, number, text, ma, mb, (ka, kb), (secs(ca), secs(cb)), only_after, only_before)}
+
+
+TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9"/></svg>'
+CROSS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>'
+WIDGET_CSS = ('<style>.st{display:grid;grid-template-columns:112px repeat(var(--n),minmax(0,1fr));gap:3px;align-items:center;'
+              'font-size:11px;color:var(--ts);margin:4px 0}.st .hd{text-align:center;font-variant-numeric:tabular-nums}'
+              '.st i{display:flex;align-items:center;justify-content:center;height:18px;border-radius:4px}'
+              '.st i.y{background:var(--sm)}.st i.n{background:var(--mu)}.mc .st i svg{width:12px;height:12px;stroke-width:2.2}'
+              '.mc .st i.y svg{stroke:var(--sx)}.mc .st i.n svg{stroke:var(--cx)}'
+              '.ls{display:grid;font-size:13px;line-height:18px}.ls div{display:grid;grid-template-columns:minmax(0,1fr) auto;'
+              'gap:12px;border-top:.5px solid var(--bd);padding:5px 0}.ls b{font-weight:500;font-size:12px}'
+              '.ls b.vy{color:var(--ts)}.ls b.vn{color:var(--cx)}</style>')
+
+
+def _before_after_widget(ids, number, text, ma, mb, right, times, only_after, only_before) -> str:
+    """The before-and-after card for a host that draws widgets: both scores, every question as a mark in each pass, and
+    the questions that changed, from the same numbers as the text card. No script: it draws in any widget host."""
+    import visual_kit as k
+    e, n = k.e, len(ids)
+    rows = [("Schema only", right[0], times[0]), ("With your context", right[1], times[1])]
+    ba = ''.join('<span>%s</span><b%s>%d%%</b><span>%d of %d right%s</span>'
+                 % (e(label), ' class="now"' if label != "Schema only" else '', round(100 * kk / n), kk, n,
+                    ', ' + e(t) if t else '') for label, kk, t in rows)
+    strip = ''
+    if n <= 30:
+        marks = lambda m: ''.join('<i class="%s">%s</i>' % ('y' if m[i] == 1 else 'n', TICK if m[i] == 1 else CROSS)
+                                  for i in ids)  # noqa: E731
+        strip = ('<div class="st" style="--n:%d"><span></span>%s<span>Schema only</span>%s<span>With your context</span>%s</div>'
+                 % (n, ''.join('<span class="hd">%d</span>' % number[i] for i in ids), marks(ma), marks(mb)))
+    changed = [(i, 'Now right with your context', 'vy') for i in only_after] + \
+              [(i, 'Right only with schema only', 'vn') for i in only_before]
+    listed = ('<div class="mt">What changed</div><div class="ls">%s</div>' % ''.join(
+        '<div><span>%d. %s</span><b class="%s">%s</b></div>' % (number[i], e(text.get(i, '')), c, e(v)) for i, v, c in changed)
+              if changed else '<div class="mt">No question changed between the two.</div>')
+    body = (WIDGET_CSS + '<div class="mh">%s<b>Accuracy: schema only and your context</b></div><div class="ba">%s</div>%s%s'
+            % (k.icon('check-circle'), ba, strip, listed))
+    return k.card(body, 'With your context, %d of %d right. With schema only, %d of %d.' % (right[1], n, right[0], n))
 
 
 # ====================================================================== publishing (registry MCP)
@@ -2527,6 +2564,7 @@ def _selftest_integrity(ok) -> None:
         k = sum(1 for c in split["test_ids"] if case_means(read_results(Proj(d).vdir("base") / "results.jsonl")).get(c) == 1)
         ok("the score line states the scripted count", f": {k} of {len(split['test_ids'])} answered" in summ["score_line"]
            and summ["score_line"].startswith(f"{k / len(split['test_ids']):.0%} accuracy"))
+        ok("the score line is the count alone, with no interval", summ["score_line"].endswith("answered correctly"))
         ok("context engagement is measured from cited definitions", summ["context_engagement"] == 1.0)
         try:
             cmd_split(argparse.Namespace(dir=d, test_frac=0.5, seed=8, holdout_frac=0.2, redraw=True))
@@ -2701,6 +2739,10 @@ def _selftest_inputs(ok) -> None:
         ok("the change table names the question the context turned around, under its number",
            ba["changes"].startswith("**1 question wrong with schema only, right with your context**")
            and any(row.startswith("| ") and row.split("|")[1].strip().isdigit() for row in ba["changes"].splitlines()))
+        w = ba.get("widget") or ""
+        ok("the desktop widget draws the same card: both scores, a mark per question, what changed",
+           'class="a mc"' in w and "0 of 2" in w and "1 of 2" in w and w.count('class="y"') + w.count('class="n"') == 4
+           and "Now right with your context" in w and "<script" not in w)
         summ = summarize(Proj(d), "ctx")
         ok("the summary says how many answers the judge decided",
            summ["graded_by"] == {"script": 1, "judge": 2} and summ["judge_passed"] == 1)

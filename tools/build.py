@@ -284,6 +284,7 @@ def addon_readme(source: dict, addon: dict) -> str:
     slug = github_slug(plugin["repository"])
     installs = f", `{plugin['name']}` and the native Analytics view" if addon.get("claude_companions") else f" and `{plugin['name']}`"
     view_note = "No separate view installation is needed in Claude Code Desktop or CLI.\n" if addon.get("claude_companions") else ""
+    view_note += addon.get("install_note", "").strip() + "\n" if addon.get("install_note") else ""
     view_privacy = "The included Claude view uses native presentation hooks to display saved progress and prepare chat requests.\n" if addon.get("claude_companions") else ""
     return f"""# {addon['display_name']}
 

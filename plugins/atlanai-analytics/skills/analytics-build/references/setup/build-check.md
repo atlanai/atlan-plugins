@@ -40,8 +40,8 @@ run under this setup run. Advance through its maintained gates for the complete 
 collection. At X3, continue without an extra user decision: a demo selected its sources,
 and own data chose its use cases in step 3. Author all scoped
 cards using the returned instructions and continue through the remaining gates. Gate answers
-are the assistant's work, not customer choices. Keep factual progress visible while
-generation and checks run. Do not stop for a single-card preview or request permission to
+are the assistant's work, not customer choices. After each gate, show what that step
+produced with `PROJECT visual next`; the side page shows what it has made. Do not stop for a single-card preview or request permission to
 generate the remaining already-selected context.
 
 After completion, export into a fresh `engine-export/` and install the unchanged metric,
@@ -51,8 +51,9 @@ held. No by-hand, legacy-shape or demo-only fallback is available.
 After export, select a relevant completed candidate with `PROJECT journey select
 --focus <exact-identity>` so review and ready moments reflect the business focus.
 
-After a gate or phase transition, run `PROJECT experience --format chat --engine-dir
-<within-run-engine>` and show factual progress. Review the collection after its checks, using
+After each gate, run `PROJECT visual next` (the engine's result names it) and show what it
+prints, again while it says more is due: each chip is what that step produced. The side page
+shows the progress. Review the collection after its checks, using
 [the presentation flow](presentation.md). Keep Build as the stage while work remains.
 
 ## 4. Check the actual revisions
@@ -71,8 +72,10 @@ Run `check-query` on every saved query and `check-metric` on every metric: a que
 `schema_checked` has not run. Their request files are `{"name": "<query>", "parameters": {}}`
 and `{"name": "<metric>", "example_index": 0, "parameters": {}}`.
 Both types of checks
-are bound to definition hashes. For warehouses use the existing read-only tool and retain
-actual revision-bound check evidence. Test representative parameters, excluded populations
+are bound to definition hashes. On a warehouse the same commands answer `run_on_warehouse` with
+the statement to run: run it with the recorded read-only tool, then send the same request again
+with `"result": {"rows": [...]}` or `"result": {"error": "<why>"}`, which records it bound to the
+definition it checked. Test representative parameters, excluded populations
 and empty denominators. Never treat one parameter sample as exhaustive coverage.
 When showing an early local answer or explaining excluded rows, apply
 [explanation checks](../../../analytics-ask/references/answer-checks.md). Account for every formula component, including
@@ -94,7 +97,9 @@ tiers cover 80." A gap first seen in a dashboard footer was found too late.
 
 **The whole report is the selection.** Every page the engine reads is in scope, so every
 statement it compiles is part of the collection and is answered at each gate in full. Never
-edit, trim or copy the report file to shrink a run.
+edit, trim or copy the report file to shrink a run. In [the dashboard branch](dashboard-flow.md)
+the person picks one report and its pages: the build reads that report whole, and the pages set
+what the readiness check inspects and which metrics the review leads with.
 
 The engine's X3 whole-card review and later consistency checks own semantic review for the
 full collection. Repair source bindings, descriptions, grain or dimensions in that same run;

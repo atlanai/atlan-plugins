@@ -107,6 +107,42 @@ class ScopeTest(unittest.TestCase):
             (self.tmp / "f.json").write_text(json.dumps(bad))
             self.assertEqual(self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "BLOCKED")
 
+    def test_a_miss_that_repeats_gets_one_fix_for_every_metric_it_touches(self):
+        # A desktop run fixed waste rate's total row, and billable time missed the same way in the retest.
+        ev = self.tmp / "ev"
+        (ev / "eval").mkdir(parents=True)
+        (ev / "eval" / "cases.jsonl").write_text(json.dumps({"case_id": "q1"}) + "\n" + json.dumps({"case_id": "q2"}) + "\n")
+        first = [{"misses": ["q1"], "why": "Added a total row", "metric": "Waste rate", "rule_now": "no rule on totals",
+                  "rule_proposed": "no total row", "changes": [{"path": "description", "value": "Waste. No total row."}]}]
+        (self.tmp / "f.json").write_text(json.dumps(first))
+        self.assertEqual(self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "ok")
+        shared = [{"kind": "shared", "misses": ["q2"], "why": "Added a total row, as waste rate did before its fix",
+                   "rule_now": "each metric says nothing about totals",
+                   "rule_proposed": "a breakdown returns one row per group, with no total row unless the question asks for one",
+                   "metrics": [{"metric": "Billable time", "changes": [{"path": "description", "value": "Billable. No total row."}]},
+                               {"metric": "Rework cost", "changes": [{"path": "description", "value": "Rework. No total row."}]}]}]
+        (self.tmp / "f.json").write_text(json.dumps(shared))
+        out = self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))
+        self.assertEqual((out["status"], out["recommended"]), ("ok", "Billable time and 1 more"))
+        history = [json.loads(l) for l in (ev / "fixes-history.jsonl").read_text().splitlines()]
+        self.assertEqual(history[-1]["fixes"], [dict(f, kind="metric") for f in first], "the earlier round's fixes are kept to compare a new miss with")
+        for bad in ([{**shared[0], "metrics": shared[0]["metrics"][:1]}], [{**shared[0], "rule_proposed": ""}],
+                    [{**shared[0], "metrics": [{"metric": "Billable time", "changes": []}, shared[0]["metrics"][1]]}]):
+            (self.tmp / "f.json").write_text(json.dumps(bad))
+            self.assertEqual(self.acc("fixes", "--evals", str(ev), "--file", str(self.tmp / "f.json"))["status"], "BLOCKED")
+
+    def test_version_reads_a_shared_fix_for_its_metric(self) -> None:
+        ev, run = self.tmp / "ev", self.tmp / "run"
+        (run / "context").mkdir(parents=True)
+        (run / "context" / "metrics.json").write_text(json.dumps([{"name": "Rework cost", "description": "Old.",
+                                                                    "definition": {"version": 1}}]))
+        ev.mkdir()
+        (ev / "fixes.json").write_text(json.dumps([{"kind": "shared", "misses": ["q2"], "metrics": [
+            {"metric": "Billable time", "changes": [{"path": "description", "value": "Billable. No total row."}]},
+            {"metric": "Rework cost", "changes": [{"path": "description", "value": "Rework. No total row."}]}]}]))
+        out = self.acc("version", "--evals", str(ev), "--run", str(run), "--metric", "Rework cost", "--head-version", "1")
+        self.assertEqual((out["version"], out["metadata"]["description"]), (2, "Rework. No total row."))
+
     def test_inputs_reads_the_use_case_and_links_every_query_to_its_metrics(self) -> None:
         res = self.scope("inputs", "--project", str(self.tmp))
         self.ev = Path(res["gen"])
@@ -276,15 +312,20 @@ class ScopeTest(unittest.TestCase):
                   "v1": {"line": "100% accuracy: 7 of 7", "n": 7, "pct": 100}}
         compared = []
         with mock.patch.object(acc, "_score", lambda e, v: scores[v]), \
-                mock.patch.object(acc, "_compare", lambda e, after: compared.append(after) or "Before and after, on the same 7 questions"):
+                mock.patch.object(acc, "_compare", lambda e, after: compared.append(after) or
+                                  {"report": "Before and after, on the same 7 questions", "widget": "<div>card</div>"}):
             ns = lambda **kw: __import__("argparse").Namespace(**{**dict(evals=str(ev), agent="job agent", firm="Acme",
-                                                                         changed=None, misses=None, generated=False), **kw})
+                                                                         changed=None, misses=None, generated=False,
+                                                                         widget=False), **kw})
             text = acc.cmd_result(ns(changed="the rule changed"))["text"]
             self.assertIn("7 OUT OF 7 RIGHT", text)
             self.assertIn("Your job agent has reached 100% accuracy, up from 71%, now that the rule changed.", text)
             # The comparison is always in the result, against the latest run.
             self.assertTrue(text.endswith("100% accuracy: 7 of 7\n\nBefore and after, on the same 7 questions"))
             self.assertEqual(compared, ["v1"])
+            # Where the host draws widgets, the card is the widget and the text leaves it out: it is said once.
+            drawn = acc.cmd_result(ns(changed="the rule changed", widget=True))
+            self.assertEqual((drawn["widget"], drawn["text"].endswith("100% accuracy: 7 of 7")), ("<div>card</div>", True))
             with self.assertRaises(acc.Blocked):
                 acc.cmd_result(ns())
             (ev / "state.json").write_text(json.dumps({"ids": {"agent_id": "agent_01a", "experiments": {
