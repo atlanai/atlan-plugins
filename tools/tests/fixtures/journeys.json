@@ -751,7 +751,7 @@
    "plugin": "atlanai-analytics",
    "skill": "analytics-ask",
    "title": "Answer a number from a released metric",
-   "route": "One metric search across workspaces with one definition (opens the session), warehouse check, query",
+   "route": "One semantic metric search across workspaces with one definition (opens the session), warehouse check, query; later turns send the keyword search beside it",
    "calls": {
     "cold": [
      {
@@ -789,7 +789,19 @@
        "query": "<terms>",
        "definition_limit": 1,
        "semantic": true
-      }
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "definition_limit": 1,
+       "semantic": false
+      },
+      "group": "g1"
      },
      {
       "tool": "warehouse.query",
@@ -802,7 +814,7 @@
    },
    "budget": {
     "cold": 3,
-    "warm": 2
+    "warm": 3
    },
    "targets": {
     "max_kb": 20,
@@ -819,7 +831,7 @@
    "plugin": "atlanai-analytics",
    "skill": "analytics-ask",
    "title": "Answer with no published definition",
-   "route": "One metric search across workspaces, saved queries without SQL, then ad hoc SQL labelled not governed",
+   "route": "Semantic metric search across workspaces finds nothing; then, together, the same search with semantic false and saved queries without SQL; then ad hoc SQL labelled not governed",
    "calls": {
     "cold": [
      {
@@ -834,6 +846,18 @@
       }
      },
      {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "query": "<terms>",
+       "definition_limit": 1,
+       "include_definition": true,
+       "semantic": false,
+       "definition_view": "compact"
+      },
+      "group": "g1"
+     },
+     {
       "tool": "extension__metric__search_queries",
       "runner": "call_read_tool",
       "args": {
@@ -841,7 +865,8 @@
        "query": "<terms>",
        "limit": 5,
        "include_sql": false
-      }
+      },
+      "group": "g1"
      },
      {
       "tool": "warehouse.query",
@@ -867,7 +892,19 @@
        "query": "<terms>",
        "definition_limit": 1,
        "semantic": true
-      }
+      },
+      "group": "g1"
+     },
+     {
+      "tool": "extension__metric__search_metrics",
+      "runner": "call_read_tool",
+      "args": {
+       "workspace_id": "<ws>",
+       "query": "<terms>",
+       "definition_limit": 1,
+       "semantic": false
+      },
+      "group": "g1"
      },
      {
       "tool": "extension__metric__search_queries",
@@ -889,8 +926,8 @@
     ]
    },
    "budget": {
-    "cold": 4,
-    "warm": 3
+    "cold": 5,
+    "warm": 4
    },
    "targets": null,
    "measured": null
