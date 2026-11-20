@@ -712,7 +712,8 @@ class Helper(unittest.TestCase):
         meta = json.loads((self.run / 'run.json').read_text(encoding='utf-8'))
         (self.run / 'run.json').write_text(json.dumps({k: v for k, v in meta.items() if k != 'execution'}), encoding='utf-8')
         (self.run / 'context' / 'data-preparation.json').rename(self.run / 'context' / 'later.json')
-        self.assertEqual(self.project('visual', 'sources'), '', 'no tables loaded or bound yet: nothing to show, nothing recorded')
+        early = self.project('visual', 'sources')
+        self.assertTrue(early.startswith('side view: ') and 'Nothing to show' in early, 'no tables loaded or bound yet: nothing to show, nothing recorded')
         (self.run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         (self.run / 'context' / 'later.json').rename(self.run / 'context' / 'data-preparation.json')
         self.assertTrue(self.project('visual', 'sources').startswith('▤ **129 rows** of your data'))
@@ -761,7 +762,7 @@ class Helper(unittest.TestCase):
         for kind in ('connect', 'sources', 'build', 'context', 'saved'):
             self.project('visual', kind)
         (self.run / 'answer.json').unlink()
-        self.assertEqual(self.project('visual', 'answer'), '')
+        self.assertTrue(self.project('visual', 'answer').startswith('side view: '), 'no chip, only what to do')
         self.assertNotIn('answer', [m['kind'] for m in json.loads((self.run / 'view' / 'state.json').read_text(encoding='utf-8'))['moments']])
 
     def test_a_widget_rerun_keeps_the_first_answer_card(self):

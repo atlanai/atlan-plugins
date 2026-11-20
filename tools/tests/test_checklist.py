@@ -336,6 +336,19 @@ class ThreeSteps(unittest.TestCase):
         self.assertEqual(rows['merge']['content'], 'Combine duplicates: 9 metrics')
         self.assertEqual(rows['write']['content'], 'Define and test each metric (about 7 min)')
 
+    def test_linking_shows_on_the_define_step_until_it_ends(self):
+        # A watched dashboard run defined 40 metrics, then linked them (279 pairs) for 6 minutes with nothing moving in its
+        # task list: the define step read as done and the build looked stuck.
+        counts = {'m2_emit': {'queries': 46}, 'x1_ingest': {'proposals': 53}, 'x2_ingest': {'metrics_out': 40},
+                  'x3_ingest': {'cards': 40}, 'x4_emit': {'candidate_pairs': 279}}
+        done = ('m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
+        row = {r['id']: r for r in checklist.build(self.model(done, counts, flow='dashboard'))['steps']}['write']
+        self.assertEqual((row['status'], row['content']),
+                         ('in_progress', 'Define each metric · 40 defined, linking related ones (about 6 min)'))
+        small = dict(counts, **{'x3_ingest': {'cards': 4}, 'x4_emit': {'candidate_pairs': 10}})
+        row = {r['id']: r for r in checklist.build(self.model(done, small))['steps']}['write']
+        self.assertEqual(row['content'], 'Define and test each metric · 4 defined, linking related ones (about 1 min)')
+
     def test_the_side_view_keeps_one_metrics_item(self):
         rows = checklist.build(self.model(), compact=True)['steps']
         self.assertIn('metrics', [r['id'] for r in rows])

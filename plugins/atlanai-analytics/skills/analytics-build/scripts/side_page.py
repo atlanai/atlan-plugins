@@ -1011,7 +1011,9 @@ def instruction(opened, widget=False):
                 'then bring that pane into view beside the chat (the app\'s show-pane call, pane `preview`): loading '
                 'a page does not show a hidden pane. Then check with the app\'s layout call that `preview` is among the '
                 'open panes, and show it again if not: the page reports itself visible even in a closed pane, so only the '
-                'layout can tell. %s Say nothing about it in the chat; the cards point to it. From here the page carries each '
+                'layout can tell. If the app cannot show it because its window is not on screen, say nothing, and never '
+                'its address: it is there when the person opens the window. %s Say nothing about it in the chat; the '
+                'cards point to it. From here the page carries each '
                 'metric step and the task list carries the build: follow the build with `PROJECT drafts --wait` in the '
                 'foreground, as progress says.' % (url, follows))
     if opened.get('opened'):

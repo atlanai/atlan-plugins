@@ -68,7 +68,8 @@ answers (the name) and what explains it.
 
 **Keep the drawing out of your words.** The person sees the chip or card, never how it got
 there: never write that you are drawing, recording or checking for a visual, and never name a
-moment, chip, card or the helper. A moment that shows nothing gets no words either. While the
+moment, chip, card or the helper, before or after it ("Preparing the answer card"). A moment that shows nothing
+gets no words either. While the
 engine builds, the chip after each gate is the update: add no line of your own about the
 engine's steps, its files or its terms (cards, gates, the export and its install, assembled
 rules) unless one is blocked or needs the person. Within a step, its batches show on the side

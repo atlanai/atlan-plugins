@@ -147,7 +147,13 @@ class Project(ContextState):
             raise ProjectError('Select an existing analytics folder or supported file.')
         if self.path.exists() and (self.current()['source_root'] != str(root)
                                   or self.current().get('selected_file') != (str(selected) if selected else None)):
-            raise ProjectError('This run belongs to another source. Choose its run or a new run directory.')
+            # A run started on one file widens to a folder that holds it, until the build starts: a dashboard run read its
+            # workbook alone, then needed the past queries and the database beside it.
+            was = self.current().get('selected_file')
+            widens = bool(was) and not selected and Path(was).is_relative_to(root) and \
+                not (self.root / 'engine-config.json').exists()
+            if not widens:
+                raise ProjectError('This run belongs to another source. Choose its run or a new run directory.')
         previous = self.current() if self.path.exists() else {}
         cache_path = self.root / 'survey-cache.json'
         checkpoint = self.read(cache_path) if cache_path.exists() else {}
@@ -935,6 +941,9 @@ def main():
             reminder = side_page.reminder(run)
             if reminder:
                 steps.append(reminder)
+            if not steps:
+                # A moment with nothing to show still says what to do: given silence, a session filled it with its own line.
+                steps.append('Nothing to show for this moment yet: carry on, with no words about it.')
             if steps:
                 print(('\n' if shown else '') + 'side view: ' + json.dumps(
                     {**({'task_list': task_list} if task_list else {}),
