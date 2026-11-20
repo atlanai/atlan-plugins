@@ -33,32 +33,35 @@ otherwise take the narrowest reasonable reading and say so in the answer.
    `workspace_id`. Each item names its workspace and carries its release receipt; the first
    carries its definition, which compact cuts to the calculation. If the call refuses
    `definition_view` or `semantic` by name, send it again without that argument for the rest of
-   the session. An empty result is the answer "no published metric": go to **Nothing found**,
-   and never fall back to a search without `include_definition`, which returns unreleased heads.
+   the session. Semantic search can drop a released metric whose name the query lacks, so an
+   empty result proves nothing.
 
-   **A hit is a candidate, not an answer.** Search ranks by wording, so it always returns
-   something, and the right metric can rank low: "on-time departure rate" has put `otp_d15`
-   eighth, under a turnaround metric. Read every hit's name and display name, not only the
-   first, and keep the one whose name or formula measures what the question asks (revenue is a
-   sum of money; a count of crew is not revenue), allowing the synonyms its description lists.
-   Sharing a dimension word such as "region" is not a match. When no hit measures it, the answer
-   is "no published metric"; name the near misses you set aside in one line of the answer.
+   **A hit is a candidate, not an answer.** The right metric can rank low: "on-time
+   departure rate" put `otp_d15` eighth. Read every hit's name and display name, and keep the
+   one whose name or formula measures what the question asks (revenue is a sum of money; a
+   count of crew is not revenue), allowing the synonyms its description lists. Sharing a
+   dimension word such as "region" is not a match. Only when no hit of either search below
+   measures it is there "no published metric": go to **Nothing found**, naming the near
+   misses in one line.
 3. Send these together after the search, as one `mcp__call_read_tools` call when listed:
+   - **The keyword search, when no semantic hit measures it**: the same search with
+     `semantic: false`. Keep `include_definition`: without it, unreleased heads return.
+     Once the session is open, send both searches together.
    - **The kept hit's definition, when it is not the first**: `extension__metric__search_metrics`
-     with its exact `name`, the `workspace_id` that hit carries (an exact name is refused
-     without one), `include_definition: true` and `definition_view: "compact"`. Never answer
-     from the definition attached to another hit.
+     with its exact `name`, the `workspace_id` that hit carries (required with a name),
+     `include_definition: true` and `definition_view: "compact"`. Never answer from the
+     definition attached to another hit.
    - **The warehouse**, unless this conversation already holds it: step 3 below.
-   - **Saved queries**, only when no released metric answers or the person asks for one:
+   - **Saved queries**, only when no semantic hit measures it or the person asks for one:
      `extension__metric__search_queries` with `query`, `limit: 5`, `include_sql: false` and the
      metric's `workspace_id` when you have one. Then fetch the SQL of the one query you will use
      by `name` and its `workspace_id`. Without the metric tools, use `registry__search_artifacts`
      with kind `metric` or `sql_query` and read the hit at a release, as step 4 says.
 
-   An older metric app refuses a search with no `workspace_id`: take the workspace of the best
-   `registry__search_artifacts` hit (kind `metric`, the measure as `query`), or the first of
-   `registry__get_artifact_counts` (kind `metric`, `group_by` `workspace_id`), and repeat the
-   search there. Never search workspaces one by one.
+   An older metric app refuses a search with no `workspace_id`: repeat it in the workspace of
+   the best `registry__search_artifacts` hit (kind `metric`, the measure as `query`) or the
+   first of `registry__get_artifact_counts` (kind `metric`, `group_by` `workspace_id`), never
+   workspace by workspace.
 4. Use only released revisions: a rejected query is skipped, an unreviewed one is a caveat, and
    a usage note or rule is followed. Read a metric or query that came without its release with
    `registry__get_artifact` and `channel: "latest"`; a missing or withdrawn release never falls
