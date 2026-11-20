@@ -2077,6 +2077,10 @@ class _Parser:
             return self._switch()
         if self._dax and up == "COUNTROWS":
             return self._countrows()
+        if self._dax and up == "SELECTEDVALUE":
+            out = self._selected_dimension()
+            if out is not None:
+                return out
         if self._dax and up in _PERIOD_TOTALS:
             return self._period_total(up)
         if self._tableau and up in _LOD_OUTER and self.peek()[0] == "lparen":
@@ -3171,7 +3175,19 @@ class _Parser:
             return (f"(COUNT(DISTINCT {x}) + MAX({blank} THEN 1 ELSE 0 END) = 1)")
         # A filter on another column of the column's own table narrows its values (a
         # membership test, read on the table's rows; text as the model compares it).
-        where = []
+        where = self._dimension_filters(up, table)
+        if where:
+            self.used.append("engine.dax_onevalue_table_filters")
+        phys = next((v for k, v in (self.home[0] if self.home else {}).items()
+                     if _bare(v) == _bare(table)), table)
+        cond = ("\n WHERE " + " AND ".join(where)) if where else ""
+        return (f"((SELECT COUNT(DISTINCT h.{col}) + MAX(CASE WHEN h.{col} IS NULL THEN 1 "
+                f"ELSE 0 END) FROM {phys} h{cond}) = 1)")
+
+    def _dimension_filters(self, up: str, table: str) -> list[str]:
+        """The visual's filters on `table`'s columns as predicates over its rows (alias `h`):
+        what narrows a dimension's values in the row's context."""
+        where: list[str] = []
         for c, t, op, value in self.ctx.filter_values:
             if _bare(t or "") != _bare(table):
                 continue
@@ -3191,13 +3207,62 @@ class _Parser:
                 member = f"{x} IN ({lits})" if rest else "FALSE"
                 pred = f"(h.{c} IS NULL OR {member})" if None in vals else member
             where.append(pred)
-        if where:
-            self.used.append("engine.dax_onevalue_table_filters")
+        return where
+
+    def _selected_dimension(self) -> str | None:
+        """`SELECTEDVALUE(D[c][, alternate])` of a column of ANOTHER table than the statement's:
+        the dimension's own values in the row's context, as for HASONEVALUE (a filter on the
+        fact does not narrow a dimension's values). The group's value where the visual groups
+        by the column; the value a filter keeps where it keeps one; otherwise the one value of
+        the column over the dimension's rows the visual's filters on it leave, or the
+        alternate. Budgets at a coarser grain than the article are commonly blanked this way
+        (`SWITCH(TRUE(), SELECTEDVALUE(Product[Is House Brand]) = "Y", BLANK(), ...)`) and
+        the measure was refused as reading another table. None for a column of the
+        statement's own table (the rule row reads it)."""
+        start = self.i
+        end, args = _call_args(self.t, start)
+        if end is None or len(args) not in (1, 2) or self.ctx is None:
+            return None
+        colarg = self._column_arg(args[0])
+        if colarg is None or colarg[1] is None or _bare(colarg[1]) == self.ctx.source:
+            return None
+        if self.home is None or not any(_bare(v) == _bare(colarg[1])
+                                        for v in self.home[0].values()):
+            # The model does not say which warehouse table the name reads: the rule row.
+            return None
+        if self.window is not None or self.slots is not None or self.row_level:
+            raise CompileError("SELECTEDVALUE of another table's column inside a CALCULATE "
+                               "that changes the visual's context, beside time intelligence "
+                               "or in a row iterator is not compiled")
+        col, table = colarg
+        alt = "NULL"
+        if len(args) == 2:
+            sub = self._child(args[1], row_filter=None, inlining=self.inlining, share_vars=True)
+            try:
+                alt = sub.parse()
+            finally:
+                self._absorb(sub)
+        self.i = end + 1
+        self.used.append("engine.dax_selectedvalue_dimension")
+        for c, t, sql in self.ctx.groups:
+            if c == col and (t is None or _bare(t) == _bare(table)):
+                return sql
+        for c, t, op, value in self.ctx.filter_values:
+            if c == col and _bare(t or "") == _bare(table) and op in ("in", "eq", "=") and (
+                    not isinstance(value, list) or len(value) == 1):
+                v = value[0] if isinstance(value, list) else value
+                if v is None:
+                    return "NULL"
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    return str(v)
+                return _quote(str(v), self.dialect)
+        where = self._dimension_filters("SELECTEDVALUE", table)
         phys = next((v for k, v in (self.home[0] if self.home else {}).items()
                      if _bare(v) == _bare(table)), table)
+        wc = self.ctx.renames.get((_bare(table), col), col)
         cond = ("\n WHERE " + " AND ".join(where)) if where else ""
-        return (f"((SELECT COUNT(DISTINCT h.{col}) + MAX(CASE WHEN h.{col} IS NULL THEN 1 "
-                f"ELSE 0 END) FROM {phys} h{cond}) = 1)")
+        return (f"(SELECT CASE WHEN COUNT(DISTINCT h.{wc}) + MAX(CASE WHEN h.{wc} IS NULL "
+                f"THEN 1 ELSE 0 END) = 1 THEN MIN(h.{wc}) ELSE {alt} END FROM {phys} h{cond})")
 
     def _countrows(self) -> str:
         """`COUNTROWS(T)`: the rows of the measure's own table (BLANK when there are none);
@@ -3310,6 +3375,8 @@ class _Parser:
                                f"Table[Column]")
         ctx = self.ctx
         info = ctx.date_keys.get(col) if ctx is not None else None
+        if info is None and ctx is not None:
+            info = _keyed_date(ctx, col, self.home[0] if self.home else None)
         if info is None:
             raise CompileError(
                 f"{head} over {col[1]}[{col[0]}]: time intelligence is compiled over the date "
@@ -4281,6 +4348,14 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
     language reads either.
     """
     columns = {k: {c.lower() for c in v} for k, v in (columns or {}).items()}
+    if renames:
+        # A relationship names its columns as the model shows them; the statement joins on
+        # the columns the tables read. A table whose model column differs from what it reads
+        # (a calculated table's `Online Flag`, read from its statement as `Online_Flag`)
+        # joined as `j1.Online Flag = t.Online_Flag`, which does not parse.
+        unit = {**unit, "join_graph": _renamed_edges(unit.get("join_graph") or [], renames)}
+        if model_graph is not None:
+            model_graph = _renamed_edges(model_graph, renames)
     # `text_key="source"`: the unit's rows are read from the source on every query
     # (DirectQuery), which compares and groups text itself; nothing is folded, not even a
     # DAX filter's literal.
@@ -5843,16 +5918,47 @@ def _treatas_statement(unit: dict, m: dict, tr: dict, again) -> Result:
     return r
 
 
-def _tables_read(formula: str, measures: dict[str, str], table_of: dict[str, str]
-                 ) -> set[str]:
+# Tests of the visual's context: they read which values a column has in the row's context, not
+# the rows of its table, so a measure whose only reference to a table is one of these does not
+# aggregate that table (`_row_tokens`).
+_CONTEXT_TESTS = {"SELECTEDVALUE", "HASONEVALUE", "ISFILTERED", "ISINSCOPE", "ISCROSSFILTERED"}
+
+
+def _row_tokens(toks: list) -> list:
+    """`toks` as far as they name the tables whose rows they aggregate: without the arguments
+    of the context tests (`_CONTEXT_TESTS`), and of a CALCULATE without its filter arguments
+    (a filter on a dimension's column is read through the relationship from the table the
+    expression aggregates, not as rows of the dimension)."""
+    out, i = [], 0
+    while i < len(toks):
+        k, v = toks[i]
+        if k == "func" and i + 1 < len(toks) and toks[i + 1][0] == "lparen":
+            up = v.upper()
+            if up in _CONTEXT_TESTS or up in ("CALCULATE", "CALCULATETABLE"):
+                end, args = _call_args(toks, i + 1)
+                if end is not None:
+                    if up not in _CONTEXT_TESTS and args:
+                        out += [toks[i], toks[i + 1]] + _row_tokens(args[0]) + [toks[end]]
+                    i = end + 1
+                    continue
+        out.append(toks[i])
+        i += 1
+    return out
+
+
+def _tables_read(formula: str, measures: dict[str, str], table_of: dict[str, str],
+                 rows_only: bool = False) -> set[str]:
     """The warehouse tables (bare) a DAX formula's columns and table names read, through
-    the measures it names."""
+    the measures it names; with `rows_only`, those whose ROWS it reads (a context test such
+    as SELECTEDVALUE reads none)."""
     tmap = {k.lower(): v for k, v in table_of.items()}
     out: set[str] = set()
     try:
         toks = _expanded_tokens(formula, measures)
     except CompileError:
         return out
+    if rows_only:
+        toks = _row_tokens(toks)
     for k, v in toks:
         t = None
         if k in ("qualified", "quoted_qualified"):
@@ -5874,6 +5980,141 @@ _FOREIGN_AGGREGATES = {"MIN", "MAX", "SUM", "AVERAGE", "COUNT", "COUNTA", "COUNT
                        "LASTDATE"}
 
 
+def _inline_vars(toks: list) -> list | None:
+    """`VAR a = e1 VAR b = e2 RETURN body` as `body` with each variable replaced by its
+    parenthesised expression, where that is the same measure: every use of a variable is
+    outside any function that changes the context it is evaluated in (only scalar wrappers,
+    `_SCALAR_WRAPPERS`, lie between it and the top). A variable is evaluated where it is
+    defined, so inside a CALCULATE or an iterator its value would change, and that formula
+    is None. A formula without variables is returned as it is."""
+    if not toks or toks[0] != ("func", "VAR"):
+        return toks
+    vars_: dict[str, list] = {}
+
+    def subst(t: list) -> list | None:
+        out, stack = [], []
+        for i, (k, v) in enumerate(t):
+            nxt = t[i + 1] if i + 1 < len(t) else None
+            if k == "func" and nxt is not None and nxt[0] == "lparen":
+                stack.append(v.upper())
+                out.append((k, v))
+                continue
+            if k == "lparen" and (not out or out[-1][0] != "func"):
+                stack.append("(")
+            elif k == "rparen" and stack:
+                stack.pop()
+            if k == "func" and v.upper() in vars_:
+                if any(f not in _SCALAR_WRAPPERS and f != "(" for f in stack):
+                    return None
+                out += [("lparen", "(")] + vars_[v.upper()] + [("rparen", ")")]
+                continue
+            out.append((k, v))
+        return out
+    i, n = 0, len(toks)
+    while i < n and toks[i] == ("func", "VAR"):
+        if i + 2 >= n or toks[i + 1][0] != "func" or toks[i + 2] != ("op", "="):
+            return None
+        name, j, depth = toks[i + 1][1].upper(), i + 3, 0
+        while j < n:
+            k, _v = toks[j]
+            if k == "lparen":
+                depth += 1
+            elif k == "rparen":
+                depth -= 1
+            elif depth == 0 and toks[j] in (("func", "VAR"), ("func", "RETURN")):
+                break
+            j += 1
+        expr = subst(toks[i + 3:j])
+        if expr is None or not expr:
+            return None
+        vars_[name] = expr
+        i = j
+    if i >= n or toks[i] != ("func", "RETURN"):
+        return None
+    return subst(toks[i + 1:])
+
+
+def _filter_reaches(filter_tables: set[str], target: str, graph: list[dict]) -> bool:
+    """Whether a filter on any of `filter_tables` (bare) filters `target`'s rows: along active
+    relationships from the one side to the many side, both ways where one filters both."""
+    seen, todo = {_bare(target)}, [_bare(target)]
+    while todo:
+        cur = todo.pop()
+        for e in graph:
+            if e.get("is_active") is False or str(e.get("kind") or "") in _NOT_WALKED:
+                continue
+            fs, ts = _card_ends(e.get("cardinality"))
+            a, b = _bare(e.get("from_table")), _bare(e.get("to_table"))
+            both = str(e.get("cross_filter") or "").lower() in ("both", "bothdirections")
+            for near, far, far_end in ((a, b, ts), (b, a, fs)):
+                if near == cur and (far_end == "one" or both) and far not in seen:
+                    seen.add(far)
+                    todo.append(far)
+    return bool(seen & {_bare(t) for t in filter_tables})
+
+
+def _distributed(toks: list, measures: dict[str, str], table_of: dict[str, str],
+                 graph: list[dict]) -> list:
+    """`CALCULATE(expr, filters)` whose `expr` is scalar wrappers and operators over leaves (a
+    measure, an aggregate, a literal) as `expr` with each leaf in its own `CALCULATE(leaf,
+    filters)`: a scalar function does not read the context, so the two are the same measure,
+    and the leaves can then be read over different tables (`_composite_form`). A filter that
+    does not reach a leaf's table (no relationship carries it there) is not given to that
+    leaf: in DAX it filters nothing there either. Anything else is returned as it is."""
+    head, inner = _call_head(toks)
+    if head != "CALCULATE":
+        return toks
+    args = _split_top(inner)
+    if len(args) < 2:
+        return toks
+    expr, filters = args[0], args[1:]
+    if any(k in ("qualified", "quoted_qualified") or (k == "func" and v.upper() == "VAR")
+           for k, v in expr):
+        return toks
+    ftabs = [_tables_read(_text_of(f), measures, table_of) for f in filters]
+
+    def wrap(leaf: list) -> list:
+        own = _tables_read(_text_of(leaf), measures, table_of, rows_only=True)
+        keep = [f for f, ft in zip(filters, ftabs)
+                if not (len(own) == 1 and ft and graph
+                        and not _filter_reaches(ft, next(iter(own)), graph))]
+        if not keep:
+            return leaf
+        out = [("func", "CALCULATE"), ("lparen", "(")] + leaf
+        for f in keep:
+            out += [("comma", ",")] + f
+        return out + [("rparen", ")")]
+
+    def walk(t: list) -> list | None:
+        out, i = [], 0
+        while i < len(t):
+            k, v = t[i]
+            if k == "func" and i + 1 < len(t) and t[i + 1][0] == "lparen":
+                end, fargs = _call_args(t, i + 1)
+                if end is None:
+                    return None
+                if v.upper() in _SCALAR_WRAPPERS:
+                    out += [t[i], t[i + 1]]
+                    for j, a in enumerate(fargs):
+                        w = walk(a)
+                        if w is None:
+                            return None
+                        out += ([("comma", ",")] if j else []) + w
+                    out.append(("rparen", ")"))
+                else:
+                    out += wrap(t[i:end + 1])
+                i = end + 1
+                continue
+            if k == "col":
+                out += wrap([t[i]])
+            else:
+                out.append(t[i])
+            i += 1
+        return out
+    done = walk(expr)
+    return done if done is not None else toks
+
+
 def _composite_form(formula: str, measures: dict[str, str], table_of: dict[str, str],
                     graph: list[dict], row_formulas: set[str], home: str | None = None
                     ) -> tuple[list, list[str]] | None:
@@ -5892,24 +6133,92 @@ def _composite_form(formula: str, measures: dict[str, str], table_of: dict[str, 
         return None
     if _statement_form(formula, measures, table_of, graph, row_formulas):
         return None
-    if home is not None and len(_tables_read(formula, measures, table_of)) < 2:
+    if home is not None and len(_tables_read(formula, measures, table_of, rows_only=True)) < 2:
         home = None
+    if home is not None:
+        # A measure over two fact tables is as often written with variables or inside one
+        # CALCULATE (`VAR v = [Sales] - [Budget] RETURN ...`, `CALCULATE(DIVIDE([Orders],
+        # [Sessions]), filter)`) as plainly; both are rewritten to the plain form where that
+        # is the same measure (`_inline_vars`, `_distributed`).
+        toks = _inline_vars(toks)
+        if toks is None:
+            return None
+        toks = _distributed(toks, measures, table_of, graph)
     parts: list[str] = []
+    expanding: list[str] = []
+
+    def several(f: str) -> bool:
+        return len(_tables_read(f, measures, table_of, rows_only=True)) >= 2
+
+    def expanded(t: list) -> list | None:
+        """A measure or CALCULATE that itself reads several tables, as its own composite
+        expression (variables inlined, CALCULATE distributed over its leaves), to be split
+        further; None where that does not apply."""
+        if home is None:
+            return None
+        if len(t) == 1 and t[0][0] == "col":
+            key = _column_ref(t[0][1]).lower()
+            if key not in measures or key in row_formulas or key in expanding \
+                    or not several(measures[key]) or len(expanding) > 8:
+                return None
+            try:
+                inner = _strip_parens(tokenize(measures[key]))
+            except CompileError:
+                return None
+            inner = _inline_vars(inner)
+            if inner is None:
+                return None
+            expanding.append(key)
+            try:
+                w = walk(_distributed(inner, measures, table_of, graph))
+            finally:
+                expanding.pop()
+            return None if w is None else [("lparen", "(")] + w + [("rparen", ")")]
+        head, inner = _call_head(t)
+        if head != "CALCULATE" or not several(_text_of(t)):
+            return None
+        args = _split_top(inner)
+        if len(args) < 2:
+            return None
+        body = []
+        for k, v in args[0]:
+            if k == "col":
+                key = _column_ref(v).lower()
+                if key in measures and key not in row_formulas and several(measures[key]):
+                    try:
+                        sub = _inline_vars(_strip_parens(tokenize(measures[key])))
+                    except CompileError:
+                        return None
+                    if sub is None:
+                        return None
+                    body += [("lparen", "(")] + sub + [("rparen", ")")]
+                    continue
+            body.append((k, v))
+        new = [("func", "CALCULATE"), ("lparen", "(")] + body
+        for f in args[1:]:
+            new += [("comma", ",")] + f
+        new.append(("rparen", ")"))
+        dist = _distributed(new, measures, table_of, graph)
+        if _call_head(dist)[0] == "CALCULATE":
+            return None
+        w = walk(dist)
+        return None if w is None else [("lparen", "(")] + w + [("rparen", ")")]
 
     def own_statement(f: str) -> bool:
         if _statement_form(f, measures, table_of, graph, row_formulas):
             return True
         if home is None:
             return False
-        # An aggregate (or a measure) of one other table; a context test such as
+        # An aggregate (or a measure) of one other table's rows; a context test such as
         # HASONEVALUE reads no rows and stays in the statement.
         try:
             ft = _strip_parens(tokenize(f))
         except CompileError:
             return False
         fh = _call_head(ft)[0]
-        agg = (fh in _FOREIGN_AGGREGATES or (len(ft) == 1 and ft[0][0] == "col"))
-        read = _tables_read(f, measures, table_of)
+        agg = (fh in _FOREIGN_AGGREGATES or (len(ft) == 1 and ft[0][0] == "col")
+               or (ft and ft[0] == ("func", "VAR")) or fh in _SCALAR_WRAPPERS)
+        read = _tables_read(f, measures, table_of, rows_only=True)
         return agg and len(read) == 1 and _bare(home) not in read
 
     def walk(t: list) -> list | None:
@@ -5933,8 +6242,12 @@ def _composite_form(formula: str, measures: dict[str, str], table_of: dict[str, 
                         out += w
                     out.append(("rparen", ")"))
                 else:
-                    parts.append(_text_of(t[i:end + 1]))
-                    out.append(("col", f"[__part{len(parts) - 1}]"))
+                    ex = expanded(t[i:end + 1])
+                    if ex is not None:
+                        out += ex
+                    else:
+                        parts.append(_text_of(t[i:end + 1]))
+                        out.append(("col", f"[__part{len(parts) - 1}]"))
                 i = end + 1
                 continue
             if k == "func" and v.upper() in ("VAR", "RETURN"):
@@ -5945,6 +6258,11 @@ def _composite_form(formula: str, measures: dict[str, str], table_of: dict[str, 
                 key = _column_ref(v).lower()
                 if key not in measures or key in row_formulas:
                     return None
+                ex = expanded([t[i]])
+                if ex is not None:
+                    out += ex
+                    i += 1
+                    continue
                 parts.append(measures[key])
                 out.append(("col", f"[__part{len(parts) - 1}]"))
                 i += 1
@@ -7336,6 +7654,18 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
     def _date_col(c: str) -> str:
         return ctx.renames.get((dbare, c.lower()), c)
 
+    key_col = info.get("key_column")
+
+    def fact_on(dt: str) -> str:
+        """The fact's rows on the date `dt`: through the date table's key row where the fact
+        reaches the date table on a key, not the date (`_keyed_date`)."""
+        if key_col:
+            return (f"JOIN {dtab} kd ON kd.{dcol} = {dt}\n"
+                    f"JOIN {source} {alias} ON {alias}.{fcol} = kd.{key_col}")
+        return f"JOIN {source} {alias} ON {alias}.{fcol} = {dt}"
+    if key_col:
+        res.rules_used.append("engine.dax_date_set_through_key")
+
     sp: dict[str, list] = {"datasource": [], "members": [], "measure_tests": [],
                            "display": []}
     try:
@@ -7647,7 +7977,7 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
                     for i in mine_all if i not in date_cols]
             body = (f"FROM   (\n{_indent(anchor_sql)}\n) c\n"
                     f"JOIN {dtab} s ON s.{dcol} BETWEEN {lo} AND {hi}\n"
-                    f"JOIN {source} {alias} ON {alias}.{fcol} = s.{dcol}")
+                    + fact_on(f"s.{dcol}"))
             set_preds = list(set_preds) + same
             res.rules_used.append("engine.dax_date_set_fact_anchor")
             mine = mine_all
@@ -7687,7 +8017,7 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
             setq = ("(\n  SELECT DISTINCT " + ", ".join(ck + [f"s.{dcol} AS dt"])
                     + f"\n  FROM   {ctx_sql}\n  JOIN {dtab} s ON s.{dcol} BETWEEN {lo} AND {hi}"
                     + "\n) c")
-            body = f"FROM   {setq}\nJOIN {source} {alias} ON {alias}.{fcol} = c.dt"
+            body = f"FROM   {setq}\n" + fact_on("c.dt")
         elif ds is not None:
             ctx_sql = ("(\n  SELECT " + ", ".join(dk + [f"MIN(d.{dcol}) AS lo",
                                                    f"MAX(d.{dcol}) AS hi"])
@@ -7702,7 +8032,7 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
             ctx_sql += "\n) c"
             lo, hi = _date_set_range(ds, fmt)
             body = (f"FROM   {ctx_sql}\nJOIN {dtab} s ON s.{dcol} BETWEEN {lo} AND {hi}"
-                    f"\nJOIN {source} {alias} ON {alias}.{fcol} = s.{dcol}")
+                    "\n" + fact_on(f"s.{dcol}"))
         else:
             # Several steps, or several date sets in one CALCULATE: each step reads the dates
             # (one row per visual row and date) the step before it left, the first the
@@ -7769,7 +8099,7 @@ def _compile_time_unit(unit: dict, rules, dialect: str, *, alias: str, columns, 
             if len(chain.steps) > 1:
                 res.rules_used.append("engine.dax_date_set_chain")
             body = (f"FROM   (\n{_indent(rel)}\n) c\n"
-                    f"JOIN {source} {alias} ON {alias}.{fcol} = c.dt")
+                    + fact_on("c.dt"))
             if kn:
                 body += "".join(
                     "\n  AND " + nse.replace("{0}", f"c.k{i + 1}").replace("{1}", keys[i])
@@ -8745,6 +9075,24 @@ def _card_ends(card: Any) -> tuple[str | None, str | None]:
     return _CARD_ENDS.get(key, (None, None))
 
 
+def _renamed_edges(graph: list[dict], renames: dict[tuple[str, str], str]) -> list[dict]:
+    """Each relationship with its columns as the tables read them (`renames`: (table, bare,
+    lower; model column, lower) -> the column read), where they differ."""
+    def col(table: Any, c: Any) -> Any:
+        return renames.get((_bare(table), str(c or "").lower()), c) if c else c
+    out = []
+    for e in graph:
+        f, t = e.get("from_table"), e.get("to_table")
+        new = {**e, "from_column": col(f, e.get("from_column")),
+               "to_column": col(t, e.get("to_column"))}
+        if e.get("columns"):
+            new["columns"] = [{**p, "from_column": col(f, p.get("from_column")),
+                               "to_column": col(t, p.get("to_column"))}
+                              for p in e["columns"]]
+        out.append(new)
+    return out
+
+
 def _edge_pairs(e: dict) -> list[tuple[str, str]]:
     pairs = [(str(p["from_column"]), str(p["to_column"])) for p in e.get("columns") or []]
     return pairs or [(str(e["from_column"]), str(e["to_column"]))]
@@ -9540,7 +9888,9 @@ def _measure_homes(unit: dict, source: str, measures: dict[str, str] | None,
         if m.get("formula_language") != "dax" or not m.get("formula"):
             continue
         reads = []
-        for k, v in _expanded_tokens(m["formula"], measures):
+        # A context test of another table (SELECTEDVALUE(Article[Brand])) reads none of its
+        # rows: the measure's own table is the one it aggregates.
+        for k, v in _row_tokens(_expanded_tokens(m["formula"], measures)):
             t = None
             if k in ("qualified", "quoted_qualified"):
                 t = _table_ref(v)
@@ -9658,6 +10008,30 @@ def _date_keys(graph: list[dict], source: str, types: dict[tuple[str, str], str]
             out[(str(fcol).lower(), _bare(far))] = {
                 "table": far, "column": str(fcol), "fact_column": str(ncol)}
     return out
+
+
+def _keyed_date(ctx: "_UnitContext", col: tuple[str, str],
+                table_of: dict[str, str] | None = None) -> dict | None:
+    """A date column of a date table the statement's table reaches on ANOTHER key (an integer
+    `Date Sk` beside the table's `Calendar Date`), registered as a date column of its own
+    (`ctx.date_keys`): a date set is then computed over the date column's values and read
+    through the key (`key_column`), each date to its key row. None where the column is not
+    a date, or no single relationship reaches its table."""
+    column, table = col
+    # The model names its tables one way, the warehouse another: a type is looked up by both.
+    names = {table} | {k.lower() for k, v in (table_of or {}).items() if _bare(v) == table}
+    dtype = next((ty for (t, c), ty in ctx.types.items()
+                  if (t in names or _bare(t) in names) and c == column), None)
+    if not dtype or not _DATE_TYPES.match(dtype):
+        return None
+    key = _lookup_key(ctx, table)
+    if key is None:
+        return None
+    via = ctx.lookup_keys[key]
+    info = {"table": via["table"], "column": ctx.renames.get((table, column), column),
+            "fact_column": via["fact_column"], "key_column": via["column"]}
+    ctx.date_keys[col] = info
+    return info
 
 
 def _lookup_key(ctx: "_UnitContext", table: str) -> tuple[str, str] | None:
@@ -10787,6 +11161,11 @@ class FormulaCompiler:
         # it.
         measure_formulas = {m["name"].lower(): m["formula"] for m in facts["measures"]
                             if m.get("formula") and m.get("formula_language") == "dax"}
+        # A measure named with a trailing or leading space (`[Margin (%) LFL ]`) is referenced
+        # with it, but a reference is read without it (`_column_ref`): it is found under the
+        # trimmed name too, where no other measure has that name.
+        for k, f in list(measure_formulas.items()):
+            measure_formulas.setdefault(k.strip(), f)
         # TABLEAU: a calc references other calcs (and dimension calcs) by name too, so they
         # are inlined the same way. And a TABLEAU PARAMETER (`[Parameters].[X]`) is fixed to
         # its DECLARED DEFAULT — trap 4: the branch the dashboard shows when nobody touches

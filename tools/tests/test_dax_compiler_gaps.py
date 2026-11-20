@@ -121,3 +121,98 @@ class DaxCompilerGapsTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# -- second pass: cross-fact measures, dimension context tests, calculated tables, keys -----
+DUCKDB = importlib.util.find_spec('duckdb') is not None
+FACT, BUDGET, SESSIONS, PRODUCT = 'retail.fct_sales', 'retail.fct_budget', 'retail.fct_sessions', 'retail.dim_product'
+COLUMNS2 = {FACT: {'date_sk', 'amount', 'product_key', 'online', 'order_id'},
+            BUDGET: {'date_sk', 'budget'}, SESSIONS: {'date_sk', 'sessions'},
+            DATES: {'date_sk', 'calendar_date'}, PRODUCT: {'product_key', 'brand_flag'}}
+TABLE_OF2 = {'sales': FACT, 'budget': BUDGET, 'sessions': SESSIONS, 'date': DATES, 'product': PRODUCT}
+
+
+def edge(f, t, fc, tc):
+    return {'from_table': f, 'from_column': fc, 'to_table': t, 'to_column': tc,
+            'cardinality': 'M:1', 'kind': 'relationship', 'is_active': True}
+
+
+GRAPH2 = [edge(FACT, DATES, 'date_sk', 'date_sk'), edge(BUDGET, DATES, 'date_sk', 'date_sk'),
+          edge(SESSIONS, DATES, 'date_sk', 'date_sk'), edge(FACT, PRODUCT, 'product_key', 'product_key')]
+MEASURES2 = {'sales': 'SUM(Sales[amount])', 'budget': 'SUM(Budget[budget])',
+             'orders': 'DISTINCTCOUNT(Sales[order_id])', 'sessions': 'SUM(Sessions[sessions])'}
+
+
+def duck():
+    import duckdb
+    con = duckdb.connect()
+    con.execute('create schema retail')
+    con.execute('create table retail.fct_sales(date_sk int, amount double, product_key int, online varchar, order_id int)')
+    con.execute('create table retail.fct_budget(date_sk int, budget double)')
+    con.execute('create table retail.fct_sessions(date_sk int, sessions int)')
+    con.execute('create table retail.dim_date(date_sk int, calendar_date date)')
+    con.execute('create table retail.dim_product(product_key int, brand_flag varchar)')
+    con.execute("insert into retail.fct_sales values (1,10,1,'Y',1),(1,20,2,'N',2),(2,30,1,'Y',3)")
+    con.execute('insert into retail.fct_budget values (1,25),(2,40)')
+    con.execute('insert into retail.fct_sessions values (1,100),(2,300)')
+    con.execute("insert into retail.dim_date values (1,'2025-01-01'),(2,'2025-01-02')")
+    con.execute("insert into retail.dim_product values (1,'Y'),(2,'N')")
+    return con
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class CrossFactAndKeysTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        DaxCompilerGapsTest.setUpClass()
+
+    def compile(self, formula, tables, measures=MEASURES2, renames=None):
+        unit = {'unit_id': 'u', 'warehouse_tables': tables, 'group_by': [], 'filters': [],
+                'top_n': None, 'join_graph': GRAPH2,
+                'measures': [measure(formula, 'M')]}
+        return bicompile.compile_unit(unit, RULES, 'duckdb', columns=COLUMNS2, table_of=TABLE_OF2,
+                                      measures=measures, model_graph=GRAPH2, renames=renames)
+
+    def value(self, res):
+        self.assertEqual(res.coverage, 'translated', res.reason)
+        if not DUCKDB:
+            self.skipTest('duckdb is not installed')
+        return duck().execute(res.sql).fetchall()[0][-1]
+
+    def test_a_variable_holding_a_difference_of_two_facts_is_two_statements(self):
+        res = self.compile('VAR v = [Sales] - [Budget] RETURN v', [FACT, BUDGET])
+        self.assertEqual(self.value(res), (10 + 20 + 30) - (25 + 40))
+
+    def test_a_variable_used_inside_calculate_is_not_inlined(self):
+        self.assertIsNone(bicompile._inline_vars(bicompile.tokenize(
+            'VAR v = [Sales] RETURN CALCULATE(v, Sales[online] = "Y")')))
+
+    def test_calculate_over_two_facts_filters_only_the_fact_it_reaches(self):
+        # The online filter is on the sales fact; no relationship carries it to sessions.
+        res = self.compile('CALCULATE(DIVIDE([Orders], [Sessions], 0), Sales[online] = "Y")',
+                           [FACT, SESSIONS])
+        self.assertAlmostEqual(self.value(res), 2 / 400)
+
+    def test_selectedvalue_of_an_unfiltered_dimension_reads_the_dimension(self):
+        res = self.compile('VAR p = SELECTEDVALUE(Product[brand_flag]) RETURN '
+                           'SWITCH(TRUE(), p = "Y", BLANK(), [Budget])', [BUDGET])
+        self.assertIn('FROM retail.dim_product h', res.sql)
+        self.assertEqual(self.value(res), 65)
+
+    def test_relationship_columns_are_joined_under_the_names_the_tables_read(self):
+        graph = [edge(FACT, PRODUCT, 'Product Key', 'Product Key')]
+        renames = {('fct_sales', 'product key'): 'product_key', ('dim_product', 'product key'): 'product_key'}
+        self.assertEqual(bicompile._renamed_edges(graph, renames)[0]['from_column'], 'product_key')
+        self.assertEqual(bicompile._renamed_edges(graph, renames)[0]['to_column'], 'product_key')
+
+    def test_calculated_table_columns_take_the_statements_names(self):
+        from metrics_agent.plugs.readers import daxtables
+        tables = [{'name': 'Channel', 'columns': [
+            {'name': 'Online Flag', 'is_calculated': True, 'source_column': '[online flag]'},
+            {'name': 'Label', 'is_calculated': True, 'formula': '"x"'}],
+            '_dax_table': 'DATATABLE("Online Flag", STRING, {{"Y"}, {"N"}})'}]
+        daxtables.read_calculated_tables(tables, 'snowflake')
+        cols = {c['name']: c for c in tables[0]['columns']}
+        self.assertEqual(cols['Online Flag']['source_column'], 'Online_Flag')
+        self.assertFalse(cols['Online Flag']['is_calculated'])
+        self.assertTrue(cols['Label']['is_calculated'])     # a calculated COLUMN stays one
