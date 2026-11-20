@@ -4,7 +4,7 @@ tags: [write,skill,upload]
 execution:
   prompt: |
     Create a new Atlan skill named incident-notes in workspace_01evalplatform.
-    I authorize creation now. Do not publish it or run a scan.
+    I authorize creation now. Do not wait for its scan or its release.
     Use exactly this one text file, SKILL.md:
     ---
     name: incident-notes
@@ -45,10 +45,11 @@ graders:
   - name: no-credential-request
     type: llm
     criteria: |
-      PASS if the reply reports creation without claiming publication or completed scanning,
-      and never asks the user for a bearer, API key or another upload host to allowlist.
-      FAIL if it claims release approval, asks for credentials, or refuses inline creation
-      because the shell cannot upload.
+      PASS if the reply reports the skill created from the inline file, and never asks the user
+      for a bearer, API key or another upload host to allowlist. Passing on the release state the
+      create call answered with is fine.
+      FAIL if it asks for credentials, refuses inline creation because the shell cannot upload,
+      or says it waited for or approved a release.
   - name: plain-reply
     type: regex
     target: last_message

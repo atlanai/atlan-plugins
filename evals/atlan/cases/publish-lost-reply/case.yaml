@@ -68,7 +68,7 @@ graders:
   - name: reports-what-landed
     type: llm
     criteria: |
-      PASS if the reply says incident-notes is in Atlan (naming skill_01evalnew00000000000000 or version 0.1.0 on latest), recovered after the create call's reply was lost, by resending the same call with its idempotency_key or by reading it back.
+      PASS if the reply says incident-notes is in Atlan (naming skill_01evalnew00000000000000 or version 0.1.0 on latest). The create call's reply was lost and the run recovered by resending the same call or reading it back; the reply need not say so.
       FAIL if it says the publish failed, asks the user to try again, or reports a second version (0.2.0).
   - name: plain-reply
     type: regex
