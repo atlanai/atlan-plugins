@@ -437,7 +437,15 @@ on a real model:
 - `IF`, `IF.EAGER`, `SWITCH` (a `BLANK()` case matches only a blank), `COALESCE`, `DIVIDE` (with
   or without an alternate result: `DIVIDE(n, d, 0)` is 0 where `d` is zero or BLANK) and
   BLANK arithmetic follow DAX. DAX comments (`//` and `--` to the end of the line, `/* … */`
-  blocks) are dropped before a formula is read; Tableau keeps `//` only.
+  blocks) are dropped before a formula is read; Tableau keeps `//` only. `SELECTEDVALUE` of a
+  column of another table than the measure's (a budget blanked by `SELECTEDVALUE(Article[Private
+  Brand Flag])`) reads that table's values in the row's context: the group's value, the value a
+  filter keeps, or the one value of the column over the dimension's rows, else the alternate.
+  A measure over two fact tables written with a variable (`VAR v = [Sales] - [Budget] RETURN
+  v`) or inside one `CALCULATE` (`CALCULATE(DIVIDE([Orders], [Sessions]), Sales[Online] =
+  "Y")`) is split into one statement per fact like the plain form; a CALCULATE filter is given
+  to each part it reaches, and none where no relationship carries it (in DAX it filters
+  nothing there either).
   `NOT` is read as a function and as an operator (`NOT ISBLANK(x)`,
   looser than a comparison; NOT of a blank is TRUE), and `DATEDIFF(start, end, DAY)` counts the
   interval's boundaries crossed (`WEEK` is refused: the model states no start of week). The `/` operator divides as DAX does: `5 / 0` is Infinity and
@@ -476,7 +484,9 @@ on a real model:
   `CALCULATE([Sales], FILTER(ALL('Date'), 'Date'[Calendar Date] IN VALUES('Date'[Previous
   Year Same Date])))` (the retail 364-day year, a fiscal calendar), is the dates whose
   `Calendar Date` is one of the row's dates' mapped values, read through whatever key the
-  measure's table reaches the date table on (an integer `Date Sk` as well as the date).
+  measure's table reaches the date table on (an integer `Date Sk` as well as the date). The
+  same holds for `DATEADD` and the other date sets over a date column that is not the key:
+  the dates are moved on the date column and read through the key row of each.
   Each row of the visual stands for the date table's dates under the visual's
   date filters, and the date set is derived from them; `DATEADD` moves each date and keeps a
   month's end at the month's end. A date set inside another date set's `CALCULATE` (last
