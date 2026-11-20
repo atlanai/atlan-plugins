@@ -61,6 +61,26 @@ class LocalProject(unittest.TestCase):
                 'SELECT SUM(cost) FROM site.work',
                 "SELECT kind, SUM(cost) FROM site.work GROUP BY kind")))
 
+    def test_a_run_started_on_one_file_widens_to_its_folder_until_the_build_starts(self):
+        # A watched dashboard run read its workbook alone into a run, then surveyed the folder for the past queries and the
+        # database: refused as "another source", it started a fresh run and told the person so.
+        from project import ProjectError
+        self.seed()
+        with patch('trident.powerbi_file.RUNTIME', self.root / 'missing-runtime'):
+            self.run.survey(self.estate / 'report.pbit')
+            wider = self.run.survey(self.estate)
+        self.assertEqual(len(wider['sources']), 3)
+        self.assertEqual(self.run.current()['source_root'], str(self.estate))
+        other = self.root / 'other'; other.mkdir()
+        with self.assertRaises(ProjectError):
+            self.run.survey(other)
+        late = Project(self.estate / '.atlan-metrics' / 'late')
+        with patch('trident.powerbi_file.RUNTIME', self.root / 'missing-runtime'):
+            late.survey(self.estate / 'report.pbit')
+        (late.root / 'engine-config.json').write_text('{}')
+        with self.assertRaises(ProjectError, msg='once the build has started, its source stays'):
+            late.survey(self.estate)
+
     def test_combined_survey_pairs_sidecar_and_preserves_unresolved_measures(self):
         self.seed()
         (self.estate / '.env').write_text('must not read')

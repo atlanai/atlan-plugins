@@ -51,6 +51,8 @@ class Page(unittest.TestCase):
         said = side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'host': 'claude-desktop'})
         self.assertIn('`PROJECT drafts --wait`', said)
         self.assertIn('if they are deferred', said, 'd7 never loaded its browser tools and printed the address instead')
+        # A watched run whose window was not on screen gave the page's address in the chat instead.
+        self.assertIn('window is not on screen, say nothing', said)
         self.assertNotIn('drafts --wait', side_page.instruction({'url': 'http://127.0.0.1:1/k/', 'opened': True}), 'a terminal is unchanged')
 
     def test_a_metric_says_where_its_data_lives_and_where_it_was_kept(self):

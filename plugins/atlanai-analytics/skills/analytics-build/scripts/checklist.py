@@ -97,6 +97,12 @@ def _three(row, model, flow):
         if key == 'write' and status == 'in_progress' and row['active'] not in dict((s[0], s[2]) for s in STEPS[flow]).values():
             active = row['active']  # the run's own line, such as "Checking 5 of 9"
         minutes = _minutes(key, counts, done)
+        if key == 'write' and status == 'in_progress' and 'x3_ingest' in done and 'x4_ingest' not in done:
+            # Linking the metrics comes after the definitions and has no step of its own: 279 pairs took 6 minutes in a
+            # watched run, with the list standing still.
+            cards, pairs = _count(counts, 'x3_ingest', 'cards'), _count(counts, 'x4_emit', 'candidate_pairs')
+            content += ' · %s, linking related ones' % ('%d defined' % cards if cards else 'all defined')
+            minutes = 0.5 + 0.02 * pairs if pairs is not None else None
         if minutes is not None:
             content += ' (about %d min)' % max(1, int(minutes + 0.5))
         rows.append({'id': key, 'content': content, 'active': active, 'needs_you': False, 'status': status})

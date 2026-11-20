@@ -58,6 +58,8 @@ class Drafts(unittest.TestCase):
         self.assertIn('no words of your own', first['next'].lower())
         # d7 got 13 of these and never set its list: the task-list tool was deferred and never loaded.
         self.assertIn('if it is deferred', first['next'])
+        # A watched run copied the list's row into the chat at three of its batches.
+        self.assertIn("nor the list's rows", first['next'])
         self.assertEqual(self.wait()['event'], 'quiet', 'nothing new: it says so after a quiet spell, and never repeats a batch')
         self.answer('x1', '02.json', {'statements': [
             {'vq_id': 'q3', 'verdict': 'metrics', 'metrics': [{'name': 'Win %'}, {'name': 'Pipeline'}]}]})
@@ -87,14 +89,24 @@ class Drafts(unittest.TestCase):
         self.assertEqual(self.wait(tasks=False)['event'], 'quiet')
         self.assertEqual(self.wait(tasks=True)['event'], 'batch')
 
+    def test_a_short_step_a_helper_writes_wakes_the_session_when_it_is_accepted(self):
+        # A test run: the dashboard flow's helpers wrote the tile review and the tile questions, and when each was accepted
+        # nothing woke the wait: the session sat 3 and 4 minutes until its quiet spell before starting the next step.
+        for stage in ('a3b_ingest', 'c3_ingest'):
+            self.run.write(self.engine / 'manifest.json', {'stages': [{'stage': stage, 'verdict': 'ok'}]})
+            self.assertEqual(self.wait(quiet=30)['event'], 'step', stage)
+
     def test_a_chip_that_comes_due_is_reported_once(self):
         # The dashboard flow's helpers advance every step, so its tiles, its questions and the side page's opening come
         # due without a step end the session sees.
         first = self.wait(due=['tiles'])
-        self.assertEqual(first['event'], 'step')
+        # A watched run, told "a step ended" when the side page came due, wrote "Possible metrics are in; combining
+        # duplicates next" minutes before that step ended. Something to show is not a step's end.
+        self.assertEqual(first['event'], 'due')
         self.assertIn('`visual next`', first['next'])
+        self.assertIn('no step has ended', first['next'])
         self.assertEqual(self.wait(due=['tiles'])['event'], 'quiet', 'named once')
-        self.assertEqual(self.wait(due=['tiles', 'connect'])['event'], 'step', 'the side page is ready to open')
+        self.assertEqual(self.wait(due=['tiles', 'connect'])['event'], 'due', 'the side page is ready to open')
 
     def test_a_step_end_asks_for_no_words_of_its_own(self):
         # d3: on each step's end the session wrote the next step's Doing line ("Now I'm merging...") under a task list

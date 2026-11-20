@@ -135,8 +135,9 @@ def _save_record(engine, record):
         pass  # without the record the next wait repeats an event; it never skips one
 
 
-# The steps whose end the chat shows: queries described, drafts found, drafts merged, metrics defined.
-WAKES = ('m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
+# The steps whose end wakes the session: the tile review and the tile questions (a helper may write them), queries
+# described, drafts found, drafts merged, metrics defined.
+WAKES = ('a3b_ingest', 'c3_ingest', 'm2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
 # The task list moves at most this often: an update for every batch woke the session 24 times in eight minutes.
 BATCH_SECONDS = 60
 
@@ -198,12 +199,15 @@ def task_list(root, engine_dir=None):
 
 
 WAITED = {
-    'batch': "Add no words of your own: the side page shows each batch. Set your task list to `task_list`, each step's "
+    'batch': "Add no words of your own, nor the list's rows: the person sees the list, and the side page shows each "
+             "batch. Set your task list to `task_list`, each step's "
              "text and status as given (load the task-list tool first if it is deferred), in the same message as your "
              "next `PROJECT drafts --wait`, so the turn goes on.",
     'step': "Add no words of your own, not even the next step's start: run `visual next` with the flags of every `visual` "
             "call now (it is quick) and show what it gives in the same message that starts the next step's subagent, "
             "if its gate result asks for one, in this same turn.",
+    'due': "Add no words of your own: something is ready to show, and no step has ended. Run `visual next` with the "
+           "flags of every `visual` call now and do what it says, then run `PROJECT drafts --wait` again.",
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
     'quiet': "Add no words of your own: nothing new for a while. Check that each subagent is working, then run "
@@ -262,7 +266,7 @@ def wait(root, engine_dir=None, timeout=540, quiet=240, interval=2.0, out=None, 
             due = []
         if due:
             _save_record(engine, dict(record, told=sorted(set(record.get('told') or []) | set(due))))
-            return say('step')
+            return say('due')
         back = _all_back(engine)
         if back and back != record.get('ready'):
             _save_record(engine, dict(record, ready=back))

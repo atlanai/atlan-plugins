@@ -227,6 +227,18 @@ class Chips(unittest.TestCase):
             self.assertEqual(self.show('saved', local, widget=widget), '', 'the person just chose it')
         self.assertNotIn('built', visuals.KINDS, "the reply names the dashboard's file")
 
+    def test_a_moment_with_nothing_to_show_still_says_what_to_do(self):
+        # A watched run asked for the build's card before its checks: the helper printed nothing at all, and the session
+        # filled the silence with a line of its own giving the side page's address.
+        local = make_run(self.root / 'quiet', saved=False, local=True)
+        done = subprocess.run([sys.executable, str(SCRIPTS / 'project.py'), '--run-dir', str(local), 'visual', 'saved'],
+                              capture_output=True, text=True, encoding='utf-8', timeout=60,
+                              env={**os.environ, 'CLAUDE_CODE_ENTRYPOINT': ''})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        side = json.loads(done.stdout.split('side view: ', 1)[1])
+        self.assertIn('Nothing to show for this moment', side['next'])
+        self.assertIn('no words about it', side['next'])
+
     def test_no_chip_shows_progress(self):
         kinds = BUILD_STEPS + ('found', 'sources', 'context')
         for kind in kinds:

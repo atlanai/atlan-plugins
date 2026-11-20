@@ -263,7 +263,7 @@ def _engine(reader, directory):
               'done': sorted({_text(s.get('stage'), 100) for s in stages if s.get('verdict') == 'ok' and s.get('notes') != 'awaiting_decision'}),
               'counts': {name: {k: v for k, v in (s.get('counts') or {}).items() if type(v) is int}
                          for s in stages for name in [_text(s.get('stage'), 100)]
-                         if name in ('m2_emit', 'x1_ingest', 'x2_ingest') and isinstance(s.get('counts'), dict)}}
+                         if name in ('m2_emit', 'x1_ingest', 'x2_ingest', 'x3_ingest', 'x4_emit') and isinstance(s.get('counts'), dict)}}
     if not stages:
         return result
     # Only known output filenames are read. Manifest paths are compared, never followed.

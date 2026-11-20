@@ -68,8 +68,10 @@ page shows each batch as it lands; the chat shows each step's end:
      (the desktop app always does; in a terminal, as you recorded with `PROJECT journey
      tasks`), it hands back the task list and `say`, one line to write word for word as your
      only words; with no task list, each step's end shows its chip.
+   - **Something ready to show**, with no step ended (the side page ready to open, or a chip a
+     helper's step made due): run `visual next` and do what it says.
    - **A batch**, where you keep a task list, at most once a minute: set your task list to its
-     `task_list` in the same message as the next wait.
+     `task_list` in the same message as the next wait, and write nothing: the person sees the list.
    - **Every share of the definitions back**: run `ENGINE advance` once.
    - **A quiet spell**: check that each subagent is working, then wait again.
    - **Done**: export the build into the run and run `PROJECT check` before any question, then
