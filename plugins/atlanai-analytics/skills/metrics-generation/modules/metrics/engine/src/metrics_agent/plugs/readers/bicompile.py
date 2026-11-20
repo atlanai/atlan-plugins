@@ -4355,6 +4355,14 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
     language reads either.
     """
     columns = {k: {c.lower() for c in v} for k, v in (columns or {}).items()}
+    if table_of:
+        # An edge end the unit does not read keeps the model's table name (A2 rewrites only
+        # what the unit reads), while a formula's table resolves through `table_of`: matched
+        # on the bare name, `Date` never met `d_date_vw` and a prior-year lookup through the
+        # date table found no key. Both ends are named as the warehouse reads them.
+        unit = {**unit, "join_graph": _physical_edges(unit.get("join_graph") or [], table_of)}
+        if model_graph is not None:
+            model_graph = _physical_edges(model_graph, table_of)
     if renames:
         # A relationship names its columns as the model shows them; the statement joins on
         # the columns the tables read. A table whose model column differs from what it reads
@@ -9080,6 +9088,15 @@ _NOT_WALKED = {"range": "a range relationship (a condition, not equal columns)",
 def _card_ends(card: Any) -> tuple[str | None, str | None]:
     key = re.sub(r"[\s-]+", "_", str(card or "").strip().lower())
     return _CARD_ENDS.get(key, (None, None))
+
+
+def _physical_edges(graph: list[dict], table_of: dict[str, str]) -> list[dict]:
+    """Each relationship with an end named as a model table (`table_of`'s key, lower) named as
+    the warehouse table that model table reads; ends already physical are kept."""
+    def phys(t: Any) -> Any:
+        return table_of.get(str(t or "").lower(), t) if t else t
+    return [{**e, "from_table": phys(e.get("from_table")), "to_table": phys(e.get("to_table"))}
+            for e in graph]
 
 
 def _renamed_edges(graph: list[dict], renames: dict[tuple[str, str], str]) -> list[dict]:

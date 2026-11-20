@@ -27,12 +27,23 @@ def _model():
         'expressions': [{'name': 'DatabaseQuery', 'kind': 'm', 'expression': lake}],
         'tables': [
             {'name': 'Sales',
-             'columns': [{'name': 'Sale Amount', 'dataType': 'double',
+             'columns': [{'name': 'Date Sk', 'dataType': 'int64', 'sourceColumn': 'Date_Sk'},
+                         {'name': 'Sale Amount', 'dataType': 'double',
                           'sourceColumn': 'Sale_Amount'},
                          {'name': 'Void Line Flag', 'dataType': 'string',
                           'sourceColumn': 'Void_Line_Flag'}],
              'partitions': [{'name': 'p', 'mode': 'directLake',
                              'source': {'type': 'entity', 'entityName': 'sales',
+                                        'schemaName': 'dbo',
+                                        'expressionSource': 'DatabaseQuery'}}]},
+            {'name': 'Date',
+             'columns': [{'name': 'Date Sk', 'dataType': 'int64', 'sourceColumn': 'Date_Sk'},
+                         {'name': 'Calendar Date', 'dataType': 'dateTime',
+                          'sourceColumn': 'Calendar_Date'},
+                         {'name': 'Prior Year Date', 'dataType': 'dateTime',
+                          'sourceColumn': 'Prior_Year_Date'}],
+             'partitions': [{'name': 'p', 'mode': 'directLake',
+                             'source': {'type': 'entity', 'entityName': 'date',
                                         'schemaName': 'dbo',
                                         'expressionSource': 'DatabaseQuery'}}]},
             {'name': 'Sales Metrics',
@@ -43,9 +54,13 @@ def _model():
              'measures': [
                  {'name': 'Total Sales', 'expression': "SUM(Sales[Sale Amount])"},
                  {'name': 'Valid Sales', 'expression':
-                     "CALCULATE([Total Sales], KEEPFILTERS(Sales[Void Line Flag] = \"N\"))"}]},
+                     "CALCULATE([Total Sales], KEEPFILTERS(Sales[Void Line Flag] = \"N\"))"},
+                 {'name': 'Total Sales LY', 'expression':
+                     "CALCULATE([Total Sales], FILTER(ALL('Date'), 'Date'[Calendar Date] IN "
+                     "VALUES('Date'[Prior Year Date])))"}]},
         ],
-        'relationships': []}}
+        'relationships': [{'name': 'r1', 'fromTable': 'Sales', 'fromColumn': 'Date Sk',
+                           'toTable': 'Date', 'toColumn': 'Date Sk'}]}}
 
 
 @unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
@@ -98,6 +113,27 @@ class FabricModelInputsTest(unittest.TestCase):
         self.assertIn('void_line_flag', res.sql.lower())
         self.assertIn('sale_amount', res.sql.lower())
         self.assertNotIn('void line flag', res.sql.lower())
+
+    def test_a_prior_year_lookup_whose_date_edge_keeps_the_model_name(self):
+        # A2 rewrites only the edge ends a unit reads; this unit reads only the fact, so the
+        # edge still names `Date`, while the formula's `Date` reads ANALYTICS.RETAIL.DIM_DATE.
+        facts = self.facts()
+        map_tables(facts, {'Sales': 'ANALYTICS.RETAIL.FCT_SALES',
+                           'Date': 'ANALYTICS.RETAIL.DIM_DATE'})
+        fc = bicompile.FormulaCompiler()
+        model = fc.prepare(facts)
+        formulas = {m['name']: m['formula'] for m in facts['measures']}
+        edge = {'from_table': 'ANALYTICS.RETAIL.FCT_SALES', 'from_column': 'Date Sk',
+                'to_table': 'Date', 'to_column': 'Date Sk', 'cardinality': 'M:1',
+                'kind': 'relationship', 'is_active': True}
+        unit = {'unit_id': 'u', 'warehouse_tables': ['ANALYTICS.RETAIL.FCT_SALES'],
+                'group_by': [], 'filters': [], 'top_n': None, 'join_graph': [edge],
+                'measures': [{'name': 'Total Sales LY', 'aggregation': None,
+                              'formula_language': 'dax', 'formula': formulas['Total Sales LY']}]}
+        res = fc.compile_unit(unit, self.rules, 'snowflake', model=model)
+        self.assertEqual(res.coverage, 'translated', res.reason)
+        self.assertIn('engine.dax_date_set_lookup', res.rules_used)
+        self.assertIn('analytics.retail.dim_date', res.sql.lower())
 
 
 if __name__ == '__main__':
