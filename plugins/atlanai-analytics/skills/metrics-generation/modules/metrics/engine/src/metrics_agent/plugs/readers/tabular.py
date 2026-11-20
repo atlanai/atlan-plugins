@@ -49,6 +49,7 @@ from metrics_agent.plugs.readers.powerbi import (  # noqa: E402
 from metrics_agent.plugs.readers.powerbi import calculation_groups as _calculation_groups  # noqa: E402
 from metrics_agent.plugs.readers.powerbi import TOOL_ANNOTATIONS as _TOOL_ANNOTATIONS  # noqa: E402
 from metrics_agent.plugs.readers.powerbi import model_tags as _model_tags  # noqa: E402
+from metrics_agent.plugs.readers.powerbi import measure_tables as _measure_tables  # noqa: E402
 from metrics_agent.plugs.readers.powerbi import field_choices as _powerbi_field_choices  # noqa: E402
 from metrics_agent.plugs.readers.powerbi import storage_mode as _powerbi_storage_mode  # noqa: E402
 
@@ -196,6 +197,9 @@ def parse_model(model: dict, source_file: str, model_name: str, *,
                 col["formula_language"] = "dax"
             if c.get("description"):
                 col["description"] = c["description"]
+            if c.get("isHidden"):
+                # Read only to tell a measure table (`measure_tables`), then dropped.
+                col["_hidden"] = True
             cols.append(col)
 
         entry: dict[str, Any] = {"name": tname, "columns": cols}
@@ -297,6 +301,10 @@ def parse_model(model: dict, source_file: str, model_name: str, *,
 
     # A KPI's target and status as measures, and the measures each formula names.
     _model_tags([], tables, measures)
+    # A measure table (a placeholder holding measures) homes each measure on the table its
+    # formula reads, as the TMDL reader does: a `.bim` and a TMDL folder of one model compile
+    # to the same units.
+    _measure_tables(tables, measures, relationships)
     _calculation_groups(tables)
     storage_semantics(tables, relationships)
     classify_choices(tables)

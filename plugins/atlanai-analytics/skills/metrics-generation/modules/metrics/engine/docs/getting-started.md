@@ -139,6 +139,17 @@ A Power BI scan result, paginated report (`.rdl`) or scorecard is read the same 
 own `bi_vendor`; a file holding several models takes `bi_model` to name the one to read. See
 [Power BI service inputs](guides/power-bi-service-inputs.md).
 
+A model whose tables the warehouse cannot be told from its own sources (a Fabric Direct Lake
+model names OneLake storage, often a copy of warehouse tables) takes `bi_tables`: a JSON file
+`{"<model table>": "DB.SCHEMA.TABLE"}`, or that object inline. Each mapped table is read from
+the warehouse table it names; its columns keep the source names the model declares (a column
+`Sale Amount` read as `Sale_Amount`). Unmapped tables keep the lineage the reader found.
+
+A dedicated measure table (every column hidden, or a calculated `ROW("Column", BLANK())`, the
+way Power BI Desktop makes one) holds measures but no data: each of its measures is homed on
+the table its formula reads, from a `.bim` as from a TMDL folder, and keeps the table it is
+shown on as `shown_on`.
+
 #### Tableau files to supply
 
 Set `bi_vendor: tableau` and point `bi` at one workbook file, or at a folder holding one
