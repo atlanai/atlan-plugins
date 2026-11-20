@@ -471,8 +471,10 @@ def read_calculated_tables(tables: list[dict], dialect: str | None) -> list[str]
     for t in tables:
         dax = t.pop("_dax_table", None)
         lin = t.get("source_lineage") or {}
-        if not dax or t.get("field_choices") or lin.get("object") or lin.get("statement"):
-            # A field switch, or a table another partition (Power QUERY) already reads.
+        if not dax or t.get("field_choices") or lin.get("object") or lin.get("statement") \
+                or t.get("measure_table"):
+            # A field switch, a table another partition (Power QUERY) already reads, or a
+            # measure table, whose placeholder row is never read as data.
             continue
         logical = t.get("logical_name") or t["name"]
         try:

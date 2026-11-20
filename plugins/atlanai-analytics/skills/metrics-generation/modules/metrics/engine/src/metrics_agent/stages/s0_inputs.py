@@ -47,6 +47,7 @@ definitional inputs. Everything else is evidence about objects that already exis
 from __future__ import annotations
 
 import datetime as _dt
+import json
 import os
 import pathlib
 
@@ -299,12 +300,45 @@ def _deliver_bi(ctx, doc: dict, entries: list[dict], dialect: str, scrubber) -> 
         if model is not None and (not isinstance(model, (str, int)) or not str(model).strip()):
             _refuse(f"settings.{name}.bi_model must name one model (an id or a name); "
                     f"it is {model!r}")
+        tables = _bi_tables(name, settings.get("bi_tables"))
         out.append({"plug": name, "path": str(root), "vendor": vendor,
                     **({"model": str(model).strip()} if model is not None else {}),
+                    **({"tables": tables} if tables else {}),
                     **({"capture": capture} if capture else {}),
                     "assets": _bi_assets(ctx, name, plug, refs, scrubber)})
         ctx.say(f"s0: BI definitions from {name} ({vendor}): {root}"
-                + (f", model {str(model).strip()!r}" if model is not None else ""))
+                + (f", model {str(model).strip()!r}" if model is not None else "")
+                + (f", {len(tables)} model table(s) mapped to warehouse tables (bi_tables)"
+                   if tables else ""))
+    return out
+
+
+def _bi_tables(name: str, value: object) -> dict[str, str]:
+    """`settings.<plug>.bi_tables`: the warehouse table each model table reads, where the
+    model cannot say (a Direct Lake model names OneLake storage; a copy of the model's data
+    lives in another warehouse). A path to a JSON object `{"<model table>": "DB.SCHEMA.TABLE"}`,
+    or that object inline. Keys are the model's table names, matched without case; every value
+    must be fully qualified. Recorded whole in run_inputs.json, so the run is reproducible
+    from its own record."""
+    if not value:
+        return {}
+    doc = value
+    if isinstance(value, str):
+        path = pathlib.Path(value).expanduser()
+        try:
+            doc = json.loads(path.read_text())
+        except (OSError, ValueError) as exc:
+            _refuse(f"settings.{name}.bi_tables: cannot read {path} as JSON ({exc})")
+    if not isinstance(doc, dict) or not doc:
+        _refuse(f"settings.{name}.bi_tables must be a JSON object of model table -> "
+                f"DB.SCHEMA.TABLE")
+    out: dict[str, str] = {}
+    for k, v in doc.items():
+        parts = str(v or "").strip().split(".")
+        if not str(k).strip() or len(parts) != 3 or not all(parts):
+            _refuse(f"settings.{name}.bi_tables: {k!r} -> {v!r} is not model table -> "
+                    f"DB.SCHEMA.TABLE")
+        out[str(k).strip()] = ".".join(parts)
     return out
 
 

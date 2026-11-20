@@ -777,7 +777,9 @@ class _Parser:
                     # reads (a Power Query rename, a computed column's output name).
                     phys = (self._bind(value)[1] if kind != "col"
                             else (_bare(self.home[1]) if self.home else self.ctx.source))
-                    col = self.ctx.renames.get((str(phys or "").lower(), col.lower()), col)
+                    # Keyed by the bare table name (`prepare`), whatever qualification the
+                    # binding carries: a three-part warehouse name missed every rename.
+                    col = self.ctx.renames.get((_bare(phys), col.lower()), col)
                 if self._tableau and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", col):
                     # Not a known calc and not an identifier a warehouse column can have:
                     # `t.Sales-MTD/YTD` would PARSE (as arithmetic) and answer nonsense.
@@ -1320,6 +1322,11 @@ class _Parser:
                 if col.lower() not in self.colmap:
                     raise _NotSimple
                 return f"{self.alias}.{_ident(self.colmap[col.lower()])}"
+            if self.ctx is not None and self.ctx.renames:
+                # The column as its table reads it (a model column shown under another name,
+                # `Void Line Flag` read as `Void_Line_Flag`), as in a measure's own body.
+                phys = table or (_bare(self.home[1]) if self.home else self.ctx.source)
+                col = self.ctx.renames.get((_bare(phys), col.lower()), col)
             return f"{on}.{col}"
 
         # Text compared as the model holds it, unless the source compares it (a table read by
@@ -10028,7 +10035,7 @@ def _keyed_date(ctx: "_UnitContext", col: tuple[str, str],
     if key is None:
         return None
     via = ctx.lookup_keys[key]
-    info = {"table": via["table"], "column": ctx.renames.get((table, column), column),
+    info = {"table": via["table"], "column": ctx.renames.get((_bare(table), column), column),
             "fact_column": via["fact_column"], "key_column": via["column"]}
     ctx.date_keys[col] = info
     return info

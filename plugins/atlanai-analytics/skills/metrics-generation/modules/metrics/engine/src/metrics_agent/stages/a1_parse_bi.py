@@ -90,8 +90,32 @@ def _one_model_each(sources: list[dict]) -> list[dict]:
         raise SystemExit(f"a1: {exc}") from None
 
 
+def map_tables(facts: dict, mapping: dict[str, str]) -> list[str]:
+    """Read each mapped model table from the warehouse table `mapping` names (`bi_tables`):
+    its `name` becomes that table, its model name stays `logical_name`, and its lineage
+    names the table and where it was mapped from. Matched on the model's table name, then
+    on the physical name the reader gave it, without case. Returns what it could not match."""
+    want = {k.lower(): v for k, v in mapping.items()}
+    used: set[str] = set()
+    for t in facts.get("tables") or []:
+        logical = str(t.get("logical_name") or t["name"])
+        key = next((k for k in (logical.lower(), str(t["name"]).lower()) if k in want), None)
+        if key is None:
+            continue
+        used.add(key)
+        db, schema, obj = want[key].split(".")
+        before = t["name"]
+        t["logical_name"] = logical
+        t["name"] = want[key]
+        t["source_lineage"] = {"database": db, "schema": schema, "object": obj,
+                               "object_kind": "table", "connection": None,
+                               "mapped_from": before}
+    return sorted(k for k in mapping if k.lower() not in used)
+
+
 def _parse_one(ctx: stage.Ctx, path: pathlib.Path, vendor: str, dialect: str = "",
-               model: str | None = None, numbering: "_withheld.Numbering | None" = None):
+               model: str | None = None, numbering: "_withheld.Numbering | None" = None,
+               tables: dict[str, str] | None = None):
     """(facts, per-unit side data, resolved and unresolved published datasources, (reader,
     form)) for ONE model, read by its vendor's registered reader and scrubbed.
 
@@ -109,6 +133,12 @@ def _parse_one(ctx: stage.Ctx, path: pathlib.Path, vendor: str, dialect: str = "
     # What a reader read but the contract cannot carry is SAID, never silently dropped.
     for note in raw.pop("_reader_notes", []):
         ctx.say(f"a1: {note}")
+    if tables:
+        missing = map_tables(raw, tables)
+        ctx.say(f"a1: {len(tables) - len(missing)} model table(s) read from the warehouse "
+                f"tables bi_tables names"
+                + (f"; {len(missing)} name no table in the model: {', '.join(missing[:6])}"
+                   if missing else "."))
     # Each withheld literal NUMBERED (lib/withheld): a statement comparing with one reads it
     # as a bind placeholder, which verification binds in memory from these same files.
     facts = scrub_prose(raw, _pii.Scrubber(ctx.policy), "", numbering)
@@ -170,7 +200,7 @@ def body(ctx: stage.Ctx) -> None:
         try:
             f, s, rp, un, reader, off = _parse_one(ctx, pathlib.Path(src["path"]), src["vendor"],
                                               ri.get("dialect") or "", src.get("model"),
-                                              numbering)
+                                              numbering, src.get("tables"))
         except NoMeasures:
             if len(sources) == 1:
                 raise
