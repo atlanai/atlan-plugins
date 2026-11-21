@@ -413,6 +413,40 @@ class GatewayLabelsAndChecksTest(unittest.TestCase):
             body = body.get("result", body)
             self.assertEqual((body["scan_status"], body["findings"], body["artifact_status"]), ("not_scanned", [], "pending_review"))
 
+    def test_a_head_read_and_a_kinded_row_carry_availability_and_a_kindless_row_carries_none(self) -> None:
+        # The gateway's one answer to "can a person use this now" (agent-gateway's
+        # release-2026-11-21-reads-carry-a-derived-availability): the head read, and a list or
+        # search that names a kind, for a kind that has releases.
+        head = self.read("registry__get_artifact", {"artifact_id": "skill_01evalsecrev01"})
+        self.assertEqual((head["availability"]["state"], head["availability"]["channel"]), ("available", "latest"))
+        self.assertNotIn("head", head["availability"])
+        release = self.read("registry__get_artifact", {"artifact_id": "skill_01evalsecrev01", "channel": "latest"})
+        self.assertNotIn("availability", release, "a release read is the release: it carries no second answer")
+        listed = self.read("registry__list_artifacts", {"kind": "skill", "status": "blocked"})["items"]
+        self.assertEqual([row["availability"]["state"] for row in listed], ["blocked"])
+        kindless = self.read("registry__list_artifacts", {"status": "blocked"})["items"]
+        self.assertTrue(kindless and all("availability" not in row for row in kindless))
+        hits = self.read("registry__search_artifacts", {"query": "security review", "kind": "skill", "include_unreviewed": True})
+        self.assertTrue(all("availability" in hit for hit in hits["items"]))
+        hits = self.read("registry__search_artifacts", {"query": "security review", "include_unreviewed": True})
+        self.assertTrue(hits["items"] and all("availability" not in hit for hit in hits["items"]))
+        agent = self.read("registry__list_artifacts", {"kind": "agent"})["items"]
+        self.assertTrue(agent and all("availability" not in row for row in agent), "a kind without releases")
+
+    def test_availability_tells_a_running_scan_from_a_stalled_one_and_keeps_an_earlier_release_available(self) -> None:
+        # A scan that finished and left the head under review has no run queued or running.
+        pending = {"artifact_id": "skill_01evalpending"}
+        self.assertEqual(self.read("registry__get_artifact", pending)["availability"], {"state": "scan_stalled", "channel": "latest"})
+        staged = self.read("registry__get_artifact", {"artifact_id": "skill_01evalstaged"})["availability"]
+        self.assertEqual((staged["state"], staged["head"]), ("available", "awaiting_scan"))
+        self.assertTrue(staged["serves"]["version_label"], "the version people still get is named")
+        self.m = load(ATLAN_EMULATOR_NOT_SCANNED="skill_01evalpending", ATLAN_EMULATOR_UNRELEASED="knowledge_01evalchurn")
+        self.assertEqual(self.read("registry__get_artifact", pending)["availability"]["state"], "scan_stalled")
+        churn = self.read("registry__get_artifact", {"artifact_id": "knowledge_01evalchurn"})
+        self.assertEqual(churn["availability"]["state"], "awaiting_release")
+        self.run_tool("mcp__call_write_tool", "registry__retrigger_artifact_action", pending | {"action_name": "scan"})
+        self.assertEqual(self.read("registry__get_artifact", pending)["availability"]["state"], "awaiting_scan")
+
     def test_usage_statistics_count_runs_in_the_window_asked_for(self) -> None:
         now = int(self.m.time.time())
         week = {"start_time_unix_seconds": now - 7 * 86400, "end_time_unix_seconds": now}

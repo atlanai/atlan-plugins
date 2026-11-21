@@ -58,7 +58,8 @@ another state through its environment (`emulator.json` beside the case, read by 
   not serve it, so by default it is absent and `mcp__describe_tools` says so by name;
 - `ATLAN_EMULATOR_NOT_SCANNED=skill_01evalpending,…`: the scan of those artifacts never ran to
   its end, so `registry__get_security_findings` answers `not_scanned` however often it is read,
-  until `registry__retrigger_artifact_action` starts a new run.
+  until `registry__retrigger_artifact_action` starts a new run, and their `availability` reads
+  `scan_stalled` until then.
 - `ATLAN_EMULATOR_NO_MEMBERS_READ=1`: the sign-in lacks `members:read`, so `registry__list_users`
   is refused with `insufficient_scope`, as a connector consented without that scope is.
 - `ATLAN_EMULATOR_UNFENCED_PATCH=1`: the gateway predates owner transfer over MCP, so
@@ -509,6 +510,52 @@ def head(item: dict) -> dict:
                     "metadata": item["metadata"] | {"size_bytes": len(current["content"].encode())}}
 
 
+RELEASABLE = ("skill", "knowledge")
+WAITS_ON = {"blocked": "blocked", "active": "awaiting_release"}
+
+
+def availability(item: dict) -> dict | None:
+    """`availability`, the gateway's one answer to "can a person use this now" on `latest`, for a
+    kind that has releases (gateway's `registry_model::ops::availability::of`). First match wins:
+    archived, then `available` when the channel serves a release, then `withdrawn` when its last
+    release was, then what the head waits on. `head` is there only when the head is not what
+    `state` describes. `scan_stalled` is a `pending_review` head with no scan queued or running:
+    one named in `ATLAN_EMULATOR_NOT_SCANNED`, or one whose recorded scan finished and left it
+    under review, until a rerun queues one."""
+    if item["kind"] not in RELEASABLE:
+        return None
+    status = state["approved"].get(item["id"], item.get("artifact_status") or "active")
+    if status == "archived":
+        return {"state": "archived", "channel": "latest"}
+    if status == "pending_review":
+        # No run is queued or running when the scan never ran to its end, or ran to its end and
+        # left the head under review; a rerun queues one.
+        settled = item["id"] in NOT_SCANNED or item["id"] in WORLD["findings"]
+        waits = "scan_stalled" if settled and not state["reruns"].get(item["id"]) else "awaiting_scan"
+    else:
+        waits = WAITS_ON.get(status, "awaiting_release")
+    ordinal = state["versions"].get(item["id"], item).get("version_ordinal", item.get("version_ordinal"))
+    shipped = [r for r in item.get("releases") or [] if r.get("channel") == "latest"]
+    current = next((r for r in shipped if r.get("is_current", True) and not r.get("withdrawn")), None)
+    if current is None and not shipped and item.get("is_released") and status == "active":
+        current = {"release_id": item.get("release_id") or "rel_" + item["id"].split("_", 1)[-1],
+                   "version_label": item.get("version_label"), "version_ordinal": ordinal}
+    if current is not None:
+        serves = {k: current[k] for k in ("release_id", "version_label") if current.get(k)}
+        behind = current.get("version_ordinal") != ordinal
+        return {"state": "available", "channel": "latest", "serves": serves} | ({"head": waits} if behind else {})
+    if shipped and max(shipped, key=lambda r: r["version_ordinal"]).get("withdrawn"):
+        return {"state": "withdrawn", "channel": "latest", "head": waits}
+    return {"state": waits, "channel": "latest"}
+
+
+def available(row: dict, item: dict, named: bool = True) -> dict:
+    """`row` with the line's `availability`, where the gateway sends it: the head read, and a list
+    or search that names a `kind`. A read that names none, a release read and a write carry none."""
+    answer = availability(item) if named else None
+    return row | {"availability": answer} if answer else row
+
+
 def released(item: dict, a: dict) -> dict:
     """`get_artifact` at a `release_id` or `channel`: a fixture with `releases` answers with that
     release's version and manifest; any other answers with its head, as before. Either way the
@@ -592,7 +639,7 @@ def search_artifacts(a: dict) -> dict:
     offset = a.get("offset", 0)
     shown = hits[offset:offset + limit]
     has_more = len(hits) > offset + limit
-    return {"items": [labelled((bare(h) if a.get("full") else summary(h))
+    return {"items": [labelled(available(bare(h) if a.get("full") else summary(h), h, bool(a.get("kind")))
                                | {"score": s / 100, "match": match_of(s, len(query)),
                                   "is_released": bool(h.get("is_released"))})
                       for s, h in shown],
@@ -1080,13 +1127,16 @@ def answer(name: str, a: dict) -> dict:
         return search_artifacts(a)
     if name == "registry__list_artifacts":
         items = [head(i) for i in browsed(a)]
-        rows = [labelled(bare(i) if a.get("full") else summary(i)) for i in items]
+        rows = [labelled(available(bare(i) if a.get("full") else summary(i), i, bool(a.get("kind")))) for i in items]
         limit, offset = a.get("limit", 50), a.get("offset", 0)
         return {"items": rows[offset:offset + limit], "page": {"limit": limit, "offset": offset, "total": len(items)}}
     if name == "registry__get_artifact_counts":
         return counts(a)
     if name == "registry__get_artifact":
-        found = released(artifact(a["artifact_id"]), a)
+        line = artifact(a["artifact_id"])
+        found = released(line, a)
+        if not any(a.get(k) is not None for k in ("channel", "release_id", "version_ordinal")):
+            found = available(found, line)
         if a.get("include_linked_file"):
             if "include_file" in a or "include_files" in a:
                 raise Refusal(400, "invalid_arguments", "give include_linked_file without include_file or include_files")

@@ -8,10 +8,12 @@ execution:
   max_turns: 20
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
-  - name: reads-the-scan
+  # The registry says a scan is stuck in `availability` (`scan_stalled`), which the head read,
+  # a kinded list or a kinded search carries; the findings read answers `not_scanned` beside it.
+  - name: reads-the-state
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
-    input_match: '"registry__get_security_findings"'
+    input_match: '"registry__(?:get_artifact|list_artifacts|search_artifacts|get_security_findings)"'
     min: 1
   - name: no-rerun-before-a-yes-on-read-runner
     type: tool_used
@@ -34,7 +36,7 @@ graders:
   - name: offers-one-rerun
     type: llm
     criteria: |
-      secure-pr-review in Platform Engineering is pending_review at version 2, and its security scan answers not_scanned: the scan has not run to its end. Nothing has been approved or rerun yet, and the user has not said yes to anything.
+      secure-pr-review in Platform Engineering is at version 2, its availability reads scan_stalled (no scan is queued or running), and its security scan answers not_scanned: the scan has not run to its end. Nothing has been approved or rerun yet, and the user has not said yes to anything.
       PASS if the reply says the scan has not finished or is stuck, and offers to run the scan again once, asking the user to confirm first. Saying a rerun approves nothing is fine.
       FAIL if it says the skill is waiting for a human reviewer and stops there, approves the version or offers approval as the fix for a stuck scan, claims it already reran the scan, or says nothing can be done.
   - name: rails-beside-arguments-on-read-runner

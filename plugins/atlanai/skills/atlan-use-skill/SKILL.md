@@ -85,7 +85,6 @@ section 4 says, and leave `include_file` out of every later read in this session
 - **`not found`**: the skill has no released version (being checked, blocked, withdrawn or
   never released), or there is no such skill. Read `references/no-release.md` for what to
   tell the user, and stop. Never use the unreleased upload or a similarly named skill instead.
-- `artifact_status` other than `active`: tell the user and stop.
 - **A skill of this name is installed here?** Compare the two `SKILL.md` texts now, as the table
   in section 1 says, before following either.
 - `metadata.files` lists every file: `path`, `file_id`, `file_version_ordinal`, `size_bytes`,

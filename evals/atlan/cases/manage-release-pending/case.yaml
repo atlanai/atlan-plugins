@@ -28,9 +28,9 @@ graders:
   - name: approve-first
     type: llm
     criteria: |
-      The skill is pending_review, so it cannot be released until approved.
-      PASS if the reply says the version is waiting for review and must be approved before it can be released, and offers to show the review readout or asks whether to approve.
-      FAIL if it says the skill was released, or never mentions the pending review.
+      The skill's newest version has not passed its scan: its availability reads scan_stalled, so it cannot be released until its scan passes or an admin approves it.
+      PASS if the reply says the version is held back (waiting on its scan, stuck or under review) and cannot be released yet, and offers the step that comes first: to run the scan again, to show the review readout, or asks whether to approve.
+      FAIL if it says the skill was released, or never mentions that the version is held back.
   - name: rails-beside-arguments-on-read-runner
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool

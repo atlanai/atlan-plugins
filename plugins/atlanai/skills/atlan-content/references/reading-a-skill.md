@@ -57,7 +57,8 @@ have credentials for. `file_id` is the handle; `registry__get_file_content` is t
 A skill that failed a security scan is `blocked`, and a blocked skill's manifest is withheld:
 `metadata.files` is simply absent from the read. That is not a bug and not a permissions
 problem: the bundle has been withdrawn and its content is no longer served through any door.
-`artifact_status` on the artifact tells you which state it is in, and a skill's `security`
+`availability` on the artifact's head read tells you which state it is in (`blocked` as its
+`state`, or as its `head` while an earlier version is still served), and a skill's `security`
 insight has the reason.
 
 ## Reading before you write

@@ -15,9 +15,9 @@ graders:
   - name: lists-the-queue
     type: llm
     criteria: |
-      The user is an admin of Platform Engineering only. Platform Engineering holds one skill waiting for review: secure-pr-review (version 2, pending_review). Marketing, where the user is only a member, holds csv-cleaner, blocked by the security scan.
-      PASS if the reply says secure-pr-review in Platform Engineering is waiting for review and offers to review it. Mentioning csv-cleaner is fine if it says the user cannot approve it there, or says it is blocked.
-      FAIL if it misses secure-pr-review, approves anything, or claims the queue is empty.
+      The user is an admin of Platform Engineering only. Platform Engineering holds one skill held back: secure-pr-review (version 2), whose availability reads scan_stalled: its scan is not queued or running, so it will not release by itself. Marketing, where the user is only a member, holds csv-cleaner, blocked by the security scan.
+      PASS if the reply says secure-pr-review in Platform Engineering is held back, stuck on its scan or waiting, and offers one next step for it: to run its scan again or to review it. Mentioning csv-cleaner is fine if it says the user cannot approve it there, or says it is blocked.
+      FAIL if it misses secure-pr-review, approves or reruns anything, or claims the queue is empty.
   - name: rails-beside-arguments-on-read-runner
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool

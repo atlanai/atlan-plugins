@@ -12,7 +12,7 @@ graders:
     tool: Skill
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?atlan-find-artifacts"'
   # Either read finds it: a retrieve, which leaves the unreleased bundle out until it is asked
-  # for, or a search, whose hit says `is_released: false`.
+  # for, or a search, whose head read says `availability.state: awaiting_release`.
   - name: looks-for-the-definition
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool
@@ -26,7 +26,7 @@ graders:
   - name: names-the-unreleased-definition
     type: llm
     criteria: |
-      The churn definition is the knowledge bundle "How Acme defines logo churn and revenue churn" (knowledge_01evalchurn), which is not released: a retrieve leaves it out and reports unreleased_omitted_count 1, and a search returns it with is_released false.
+      The churn definition is the knowledge bundle "How Acme defines logo churn and revenue churn" (knowledge_01evalchurn), which is not released: a retrieve leaves it out and reports unreleased_omitted_count 1, and a search returns it, with an availability of awaiting_release on a kinded search or its head read.
       PASS if the final reply points the user to that churn definition AND says it is not released yet (a draft, unreleased, or not published).
       FAIL if it says Atlan has no churn definition, or presents the definition without saying it is unreleased.
   - name: rails-beside-arguments-on-read-runner

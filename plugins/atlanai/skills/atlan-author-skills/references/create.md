@@ -20,12 +20,14 @@ mcp__call_read_tool {
 
 The first call of the conversation sends `objective` instead of `session_id`.
 
-- **An `active` skill that does the job:** name it, its workspace and what it does in one line,
+- **A skill that does the job:** every hit of this search is released, so its
+  `availability.state` is `available`. Name it, its workspace and what it does in one line,
   and offer to use it here (`atlan-use-skill`) or improve it as a new version
   ([update a skill](update-a-skill.md)). Draft a new one only when the user says it does not
   fit, and say how theirs will differ.
-- **A `pending_review` one:** someone already submitted it. Say who owns it before drafting a
-  second.
+- **One whose `availability` carries a `head`:** someone already submitted a newer version of
+  it, which is being checked, was blocked or waits for release. Say who owns it before
+  drafting a second.
 - **Nothing close:** say so in one line and go on. Judge by name and description. A hit whose
   `match.quality` is `weak` is noise: unrelated skills scored 0.19 to 0.32 and shared a word or
   two with the query in live searches, so treat it as nothing close.
