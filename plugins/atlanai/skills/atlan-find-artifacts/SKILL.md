@@ -60,11 +60,11 @@ mcp__call_read_tool {
 - **Narrow with `kind`** when you know the type. Omit it to search every discoverable kind.
   `workspace_id` narrows to one workspace; `project_id` to the artifacts homed in or linked
   into one project.
-- **Search returns approved artifacts.** Hits are `active` unless you pass
-  `include_unreviewed: true`, which adds `pending_review` (held for its scan or a reviewer;
-  its files cannot be read yet) and `blocked` (failed the security scan). Pass it only when
-  the user looks for their own upload under review, and say each hit's `artifact_status`.
-  A hit with `is_released: false` is a draft: say it is not released.
+- **`availability` says whether a hit can be used now**, and a search that names a `kind`
+  carries it. Only `state: available` is usable. `include_unreviewed: true` adds versions not
+  yet released: pass it, with `kind`, only when the user looks for their own upload, and say
+  each hit's state as `references/availability.md` reads it. Open it too for a hit that
+  carries a `head` or no `availability`.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
   and workspace, and let the user pick before anything loads, even when the request says "and
   use it". Never load a skill because it ranked first. The one exception is the user's own standing instruction to check Atlan before
@@ -123,9 +123,9 @@ and knowledge together.
 
 `registry__get_artifact { "artifact_id": "skill_01j…" }` returns the envelope (`name`,
 `description`, `workspace_id`, owner, version) and the kind's own properties. For a skill,
-`metadata.files` lists its bundle; a `blocked` skill failed its security scan and its files
-are withheld. Pass `channel` (such as `latest`) or a `release_id` only when the user asks for
-a published release rather than the newest version.
+`metadata.files` lists its bundle, and `availability` says whether it can be used; a
+`blocked` one's files are withheld. Pass `channel` (such as `latest`) or a `release_id` only
+when the user asks for a published release rather than the newest version.
 
 ## Present results
 

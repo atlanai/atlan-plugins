@@ -71,7 +71,7 @@ What else to read depends on the kind:
 | Kind | Read next |
 |---|---|
 | `output` | `registry__get_related_artifacts` for the run that produced it and the skills it `used_skill` |
-| `skill` | `artifact_status` first, since a `blocked` skill is withheld; then its `SKILL.md`, as `atlan-content` shows |
+| `skill` | `availability` first, since a `blocked` skill is withheld; then its `SKILL.md`, as `atlan-content` shows |
 | `agent`, `harness` | Its properties and `registry__get_related_artifacts` for the skills it `uses_skill` |
 | `knowledge` | Its bundle, as the registry's `atlan-author-knowledge` prompt describes |
 | Anything else | `registry__get_kind_schema` for what the kind means, then its properties |

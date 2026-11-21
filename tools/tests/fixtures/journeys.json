@@ -1631,7 +1631,7 @@
    "plugin": "atlanai",
    "skill": "atlan-manage-artifacts",
    "title": "See what waits for review in the workspaces I administer",
-   "route": "Workspaces, counts by status per admin workspace, then the pending and the blocked rows together",
+   "route": "Workspaces, counts by status per admin workspace, then the pending and the blocked skill rows together, each with its availability",
    "calls": {
     "cold": [
      {
@@ -1654,6 +1654,7 @@
       "runner": "call_read_tool",
       "args": {
        "workspace_id": "<admin workspace>",
+       "kind": "skill",
        "full": true,
        "status": "pending_review"
       },
@@ -1664,6 +1665,7 @@
       "runner": "call_read_tool",
       "args": {
        "workspace_id": "<admin workspace>",
+       "kind": "skill",
        "full": true,
        "status": "blocked"
       },
@@ -1684,6 +1686,7 @@
       "runner": "call_read_tool",
       "args": {
        "workspace_id": "<admin workspace>",
+       "kind": "skill",
        "full": true,
        "status": "pending_review"
       },
@@ -1694,6 +1697,7 @@
       "runner": "call_read_tool",
       "args": {
        "workspace_id": "<admin workspace>",
+       "kind": "skill",
        "full": true,
        "status": "blocked"
       },

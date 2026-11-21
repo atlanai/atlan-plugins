@@ -109,8 +109,11 @@ resending the batch re-runs the ones that landed. A created slot carries the ski
 | `artifact_status` | Means |
 |---|---|
 | `active`, with `current_releases` | Scanned and released. Under the default `auto` policy a new skill ships to `latest` as `0.1.0`, and each new version as the next minor. |
-| `pending_review` | The scan has not settled. Check again with `registry__get_artifact` and no `channel` (the head), and trust the answer only when its `version_ordinal` is the slot's: [following a pending version](#following-a-pending-version). |
+| `pending_review` | The scan has not settled. Check again with `registry__get_artifact` and no `channel` (the head), whose `availability` says what the version waits on: [following a pending version](#following-a-pending-version). |
 | `blocked` | The scan refused it. The slot's `security` lists the findings, or read them: [when the scan blocks it](#when-the-scan-blocks-it). |
+
+The slot is a write's receipt, and a write carries no `availability`: the table reads the slot
+alone. Every later read decides from `availability`.
 
 A `409` slot with `existing_artifact_id` means the bundle is byte-identical to that skill's head:
 nothing changed. An older skill app answers only the full record with no `next`; read
@@ -120,10 +123,22 @@ nothing changed. An older skill app answers only the full record with no `next`;
 
 Track the version this create made, never a channel. `channel: "latest"` names the newest
 *released* version, so while the new one is still scanning it answers with the older release,
-and that release's `active` says nothing about the new version. Read the head
-(`registry__get_artifact`, no `channel`) and check its `version_ordinal` is the slot's before you
-read its `artifact_status`. Call it released only when `current_releases` names that version. A
+which says nothing about the new version. Read the head (`registry__get_artifact`, no
+`channel`) and check its `version_ordinal` is the slot's before you read its `availability`. A
 higher `version_ordinal` means someone published after you: report it and stop polling.
+
+`availability.head` describes the newest version when it is there, and `state` otherwise:
+
+| `head`, or `state` without one | The version | Do |
+|---|---|---|
+| `available` | Is released; `serves.version_label` is its label. | Report it. |
+| `awaiting_scan` | Is being scanned. | Read again in a few seconds. |
+| `scan_stalled` | Has no scan queued or running. A failed scan is submitted again after ten minutes. | Say so. After ten minutes, offer one rerun, as [when the scan blocks it](#when-the-scan-blocks-it) ends. |
+| `blocked` | Was refused by the scan. | [When the scan blocks it](#when-the-scan-blocks-it). |
+| `awaiting_release` | Passed its scan and is not released: the workspace releases by hand. | Report it, and that its owner or an admin releases it with `atlan-manage-artifacts`. |
+
+A `state` of `available` beside a `head` means the earlier release is still what people get
+while this version waits.
 
 ## When the reply is lost
 
@@ -147,7 +162,8 @@ second version, or a `409`. Read back first:
 3. Nothing landed yet: wait 5 seconds and read once more. Only when that read finds nothing,
    send the create again, once.
 
-Then report the version and its `artifact_status`, and go on from step 4.
+Then report the version and what its `availability` says, and go on from
+[following a pending version](#following-a-pending-version).
 
 ## Sending files_from
 
@@ -198,9 +214,10 @@ so read that first. `registry__get_artifact` carries no findings.
    version with `registry__approve_artifact`. Say so, rather than rewriting the files around it.
 
 `scanned_version_ordinal` says which version the findings are from. A `scan_status` of
-`not_scanned` on a `pending_review` skill means the scan has not finished: read again shortly.
-Still `not_scanned` after several reads a minute apart, the scan did not run to its end. Say so
-and offer to start it once more: `registry__retrigger_artifact_action` with the skill's
+`not_scanned` means no scan of the skill has finished, and the head's `availability` says
+which case that is. `awaiting_scan`: a scan is queued or running, so read again shortly.
+`scan_stalled`: none is, and a version more than ten minutes old will not settle by itself. Say
+so and offer to start it once more: `registry__retrigger_artifact_action` with the skill's
 `artifact_id` and `"action_name": "scan"`, through `mcp__call_write_tool`, after the user's yes.
 Each call is a new run and approves nothing: send it once, never again after a timeout, and
 follow the version as before.
