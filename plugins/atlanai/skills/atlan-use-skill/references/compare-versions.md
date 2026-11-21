@@ -66,7 +66,8 @@ installed skill, keyed by the skill's folder name:
 }
 ```
 
-`files` copies each manifest entry's `file_id`, `file_version_ordinal` and `source_digest`
+`release_id`, `version_label` and `version_ordinal` are the `release` object's, from the read
+that installed it. `files` copies each manifest entry's `file_id`, `file_version_ordinal` and `source_digest`
 (when the manifest has one) at install time. A record written by an earlier version of this
 skill names the digest `sha256`: read it as `source_digest`, and write `source_digest` when you
 next replace that entry. Read the record first and
@@ -87,7 +88,9 @@ aireg install writes none.
    - Every path matches: up to date.
    - Anything differs: behind. Give the installed and latest `version_label` and the counts of
      files changed, added and removed, with no file read.
-   - `artifact_status` other than `active`, or a `not found`: say so, and leave the copy alone.
+   - A `not found`: Atlan has no released version of it now (withdrawn or archived). Say the
+     installed copy is no longer a released version, and leave its files alone unless the user
+     asks to remove them.
 3. **A skill with no record** (installed by hand, by aireg, or before records existed): read the
    registry skill as SKILL.md section 1 says and compare the two `SKILL.md` texts, saying that
    only `SKILL.md` was compared. A skill with no match in Atlan is a local skill; say so in one

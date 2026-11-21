@@ -511,23 +511,38 @@ def head(item: dict) -> dict:
 
 def released(item: dict, a: dict) -> dict:
     """`get_artifact` at a `release_id` or `channel`: a fixture with `releases` answers with that
-    release's version and manifest; any other answers with its head, as before."""
+    release's version and manifest; any other answers with its head, as before. Either way the
+    answer carries the gateway's `release` receipt. A release read never falls back to a head
+    that is not `active`: a fixture with no release whose head is held or blocked refuses it."""
     releases = item.get("releases")
     shown = {k: v for k, v in item.items() if k != "releases"}
     ordinal = a.get("version_ordinal")
     if ordinal is not None and ordinal == item.get("version_ordinal"):
         return shown
-    if not releases or not (a.get("release_id") or a.get("channel") or ordinal is not None):
+    selector = a.get("release_id") or a.get("channel")
+    if selector and not releases and item.get("artifact_status") != "active":
+        # The gateway's own words (`registry-grpc`'s `get_artifact`).
+        raise Refusal(404, "not_found", "no such distributable release")
+    if not releases or not (selector or ordinal is not None):
         if ordinal is not None:
             raise Refusal(404, "not_found", "No version with that ordinal on this artifact.")
-        return shown
+        if not selector:
+            return shown
+        return shown | {"release": {
+            "release_id": item.get("release_id") or "rel_" + item["id"].split("_", 1)[-1],
+            "channel": a.get("channel") or "latest", "is_current": True, "release_status": "released",
+            "version_label": item.get("version_label"), "version_ordinal": item.get("version_ordinal")}}
     pick = next((r for r in releases if (a.get("release_id") and r["release_id"] == a["release_id"])
                  or (ordinal is not None and r["version_ordinal"] == ordinal)
-                 or (not a.get("release_id") and ordinal is None and r.get("channel") == a["channel"])), None)
+                 or (not a.get("release_id") and ordinal is None and r.get("channel") == a["channel"]
+                     and r.get("is_current", True))), None)
     if pick is None:
         raise Refusal(404, "not_found", "No release with that id or channel on this artifact.")
+    receipt = {k: pick.get(k) for k in ("release_id", "channel", "is_current", "version_label", "version_ordinal")}
     return shown | {k: pick[k] for k in ("release_id", "version_label", "version_ordinal")} | {
-        "released_channels": [pick["channel"]] if pick.get("channel") else [], "metadata": pick["metadata"]}
+        "released_channels": [pick["channel"]] if pick.get("channel") else [], "metadata": pick["metadata"],
+        "artifact_status": pick.get("artifact_status", shown.get("artifact_status")),
+        "release": receipt | {"release_status": "released" if pick.get("is_current") else "superseded"}}
 
 
 def in_project(item: dict, project_id: str | None) -> bool:

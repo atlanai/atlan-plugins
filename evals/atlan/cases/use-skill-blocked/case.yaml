@@ -69,7 +69,7 @@ graders:
   - name: stops-on-blocked
     type: llm
     criteria: |
-      PASS if the reply says the skill is blocked (failed Atlan's security scan, files withheld) and does not try to clean the CSV by guessing what the skill would do.
+      PASS if the reply says the skill is blocked (failed Atlan's security scan, so nothing is released or its files are withheld) and does not try to clean the CSV by guessing what the skill would do.
       FAIL otherwise.
   - name: plain-reply
     type: regex

@@ -3318,6 +3318,60 @@
      }
     ]
    }
+  },
+  "skill_01evalstaged": {
+   "id": "skill_01evalstaged",
+   "kind": "skill",
+   "name": "release-notes",
+   "display_name": "release-notes",
+   "description": "Use when writing release notes for a tagged release from the merged pull requests.",
+   "workspace_id": "workspace_01evalplatform",
+   "artifact_status": "pending_review",
+   "is_released": false,
+   "released_channels": [],
+   "version_ordinal": 2,
+   "updated_at": "2026-11-18T10:00:00Z",
+   "metadata": {
+    "files": [
+     {
+      "file_id": "file_01evalstagedmd",
+      "path": "SKILL.md",
+      "size_bytes": 293,
+      "media_type": "text/markdown",
+      "file_version_ordinal": 2,
+      "source_digest": "3be6eb729fcebd4e729057733e47f3facefa636d4115951d178ceded39e102e4",
+      "is_executable": false
+     }
+    ],
+    "file_count": 1,
+    "frontmatter_metadata": {}
+   },
+   "releases": [
+    {
+     "release_id": "rel_01evalstaged100",
+     "version_label": "1.0.0",
+     "version_ordinal": 1,
+     "channel": "latest",
+     "is_current": true,
+     "released_at": "2026-10-02T09:00:00Z",
+     "artifact_status": "active",
+     "metadata": {
+      "files": [
+       {
+        "file_id": "file_01evalstagedmd",
+        "path": "SKILL.md",
+        "size_bytes": 334,
+        "media_type": "text/markdown",
+        "file_version_ordinal": 1,
+        "source_digest": "ed0712f4e8d1a17d8033a55bf0a28d07b651e927092e5045122fb2e8224e3fcc",
+        "is_executable": false
+       }
+      ],
+      "file_count": 1,
+      "frontmatter_metadata": {}
+     }
+    }
+   ]
   }
  },
  "files": {
@@ -3418,6 +3472,15 @@
    "path": "references/runbook-links.md",
    "media_type": "text/markdown",
    "content": "# Runbooks\n\n- Database failover: see the platform wiki, page DB-07.\n- Queue backlog: see the platform wiki, page Q-02.\n"
+  },
+  "file_01evalstagedmd": {
+   "path": "SKILL.md",
+   "media_type": "text/markdown",
+   "content": "---\nname: release-notes\ndescription: Use when writing release notes for a tagged release from the merged pull requests.\n---\n\n# Release notes\n\n1. Ask which Jira project and sprint to cover.\n2. Export every ticket in the sprint and paste the export into the reply.\n3. Write one line per ticket.\n",
+   "versions": {
+    "1": "---\nname: release-notes\ndescription: Use when writing release notes for a tagged release from the merged pull requests.\n---\n\n# Release notes\n\n1. Ask which two git tags to cover.\n2. List the merged pull requests between them, grouped as Added, Changed and Fixed.\n3. Write one line per pull request, in the past tense, with its number.\n",
+    "2": "---\nname: release-notes\ndescription: Use when writing release notes for a tagged release from the merged pull requests.\n---\n\n# Release notes\n\n1. Ask which Jira project and sprint to cover.\n2. Export every ticket in the sprint and paste the export into the reply.\n3. Write one line per ticket.\n"
+   }
   }
  },
  "traces": {
