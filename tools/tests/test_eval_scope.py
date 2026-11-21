@@ -491,6 +491,25 @@ class ScopeTest(unittest.TestCase):
         self.assertFalse(harness._EVAL_PATH.search("/p/.atlan-analytics/support-tickets/context/metrics.json"))
         self.assertTrue(harness._EVAL_PATH.search("/p/.atlan-analytics/shop/eval/answers.jsonl"))
         self.assertTrue(harness._EVAL_PATH.search("/p/.atlan-evals/support-tickets/eval/gold/a.json"))
+        # The check takes either separator: a Windows path, as written and as the JSON a tool call arrives in.
+        for path in ("/p/.atlan-analytics/shop/eval/answers.jsonl", "/p/.atlan-analytics/shop/hillclimb/v1",
+                     "/p/.atlan-evals/support-tickets/eval/gold/a.json", "/srv/x/eval/v1/q1.json",
+                     "/p/.atlan-analytics/we\\ird/eval/gold/q1.json"):
+            self.assertTrue(harness._eval_path(path), path)
+        windows = "C:\\Users\\me\\proj\\.atlan-analytics\\shop\\eval\\gold\\q1.json"
+        self.assertTrue(harness._eval_path(windows))
+        self.assertTrue(harness._eval_path(json.dumps({"file_path": windows})))
+        self.assertTrue(harness._eval_path(json.dumps({"path": "D:\\w\\.atlan-analytics\\shop\\hillclimb\\v2"})))
+        self.assertTrue(harness._eval_path(json.dumps({"path": "C:\\a\\eval\\v1\\x.json"})))
+        self.assertFalse(harness._eval_path(json.dumps(
+            {"file_path": "C:\\Users\\me\\proj\\.atlan-analytics\\shop\\context\\metrics.json"})))
+        self.assertFalse(harness._eval_path(json.dumps({"sql": "select '\\n' as evaluation from t"})))
+        # A Read of a Windows eval file in a transcript counts as contamination.
+        line = {"type": "assistant", "message": {"id": "m1", "role": "assistant", "content": [
+            {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": windows}}]}}
+        read = self.tmp / "windows-read.jsonl"
+        read.write_text(json.dumps(line) + "\n")
+        self.assertTrue(harness.parse_transcript(read)["contaminated"])
 
     def test_a_trusted_result_that_is_a_long_list_cannot_anchor_a_question(self) -> None:
         self.assertIsNone(check._keep({"rows": [[1]] * check.MAX_ROWS}))
