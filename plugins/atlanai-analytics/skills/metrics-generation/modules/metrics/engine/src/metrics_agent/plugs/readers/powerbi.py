@@ -720,6 +720,10 @@ def model_tags(files: list[pathlib.Path], tables: list[dict], measures: list[dic
     measure_uses(measures)
 
 
+_BLANK_ROW = re.compile(
+    r'^\s*ROW\s*\((?:\s*"[^"]*"\s*,\s*BLANK\s*\(\s*\)\s*,?)+\s*\)\s*$', re.I)
+
+
 def measure_tables(tables: list[dict], measures: list[dict],
                    relationships: list[dict] | None = None) -> None:
     """A MEASURE TABLE holds measures and nothing a person reads: every column hidden (the
@@ -732,6 +736,12 @@ def measure_tables(tables: list[dict], measures: list[dict],
     """
     by_name = {str(t.get("logical_name") or t["name"]).lower(): t for t in tables}
     hidden = {id(t): [c.pop("_hidden", False) for c in t["columns"]] for t in tables}
+    # A calculated table that is one row of BLANKs (`ROW("Column", BLANK())`, the usual way a
+    # measure table is made in Power BI Desktop) has no data whether or not its column is
+    # hidden: it is a placeholder too.
+    for t in tables:
+        if _BLANK_ROW.match(str(t.get("_dax_table") or "")):
+            hidden[id(t)] = [True] * len(t["columns"])
     # A table whose columns are all hidden but that reads a warehouse table is a fact table
     # shown by its measures only (a common modelling style): its rows are data, it stays home.
     mtabs = {key for key, t in by_name.items() if all(hidden[id(t)])
