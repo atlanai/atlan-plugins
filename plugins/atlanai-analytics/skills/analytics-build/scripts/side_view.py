@@ -5,6 +5,7 @@ state is the host's task list's (`checklist`): `stopped` names it when the run i
 """
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import errno
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,10 @@ import time
 if os.name == 'nt':
     import msvcrt
 
+    # A byte another handle holds fails LK_NBLCK with EACCES (EDEADLOCK from the CRT's own retries);
+    # any other error (a closed handle, a bad descriptor) will not clear by waiting.
+    _CONTENDED = frozenset({errno.EACCES, getattr(errno, 'EDEADLOCK', errno.EDEADLK)})
+
     def _lock(handle):
         # msvcrt locks bytes from the current position; wait on the first byte, even past EOF.
         while True:
@@ -21,7 +26,9 @@ if os.name == 'nt':
             try:
                 msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
                 return
-            except OSError:
+            except OSError as error:
+                if error.errno not in _CONTENDED:
+                    raise
                 time.sleep(0.05)
 
     def _unlock(handle):
@@ -47,6 +54,24 @@ def _now():
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 
+# Windows refuses to replace a file another process has open (the side page reading it, an indexer,
+# antivirus); those holds are brief, so wait about two seconds in all before giving up.
+REPLACE_WAITS = (0.05, 0.1, 0.2, 0.4, 0.6, 0.65)
+
+
+def _replace(tmp, path):
+    if os.name != 'nt':
+        os.replace(tmp, path)
+        return
+    for wait in REPLACE_WAITS:
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            time.sleep(wait)
+    os.replace(tmp, path)
+
+
 def _write(path, text):
     """Replace a file whole, so a reader never sees half of it."""
     path = Path(path)
@@ -55,7 +80,7 @@ def _write(path, text):
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as handle:
             handle.write(text)
-        os.replace(tmp, path)
+        _replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise
