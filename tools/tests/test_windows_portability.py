@@ -112,6 +112,37 @@ class WindowsPortabilityTests(unittest.TestCase):
                 pass
             self.assertEqual(fake.held, {})
 
+    def load_side_view_as_windows(self, fake):
+        scripts = ANALYTICS / 'skills/analytics-build/scripts'
+        sys.path.insert(0, str(scripts))
+        self.addCleanup(sys.path.remove, str(scripts))
+        spec = importlib.util.spec_from_file_location('side_view_on_windows', scripts / 'side_view.py')
+        module = importlib.util.module_from_spec(spec)
+        windows_os = types.ModuleType('os')
+        windows_os.__getattr__ = lambda attr: getattr(os, attr)
+        windows_os.name = 'nt'
+        with mock.patch.dict(sys.modules, {'msvcrt': fake, 'os': windows_os}):
+            spec.loader.exec_module(module)
+        return module
+
+    def test_windows_side_view_lock_holds_one_update_at_a_time_and_releases(self):
+        fake = FakeMsvcrt()
+        side_view = self.load_side_view_as_windows(fake)
+        self.assertFalse(hasattr(side_view, 'fcntl'))
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp).resolve()
+            with side_view._locked(run):
+                self.assertEqual(len(fake.held), 1)
+                # A second update waits on the held byte instead of writing alongside the first.
+                with open(run / 'view' / '.lock', 'a') as other:
+                    with mock.patch.object(side_view.time, 'sleep', side_effect=TimeoutError('waited')):
+                        with self.assertRaisesRegex(TimeoutError, 'waited'):
+                            side_view._lock(other)
+            self.assertEqual(fake.held, {})
+            with side_view._locked(run):
+                pass
+            self.assertEqual(fake.held, {})
+
     def piped(self, code, timeout=10):
         sys.path.insert(0, str(MODULE))
         self.addCleanup(sys.path.remove, str(MODULE))

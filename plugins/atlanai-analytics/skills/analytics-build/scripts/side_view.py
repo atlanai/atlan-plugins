@@ -9,11 +9,32 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 
-try:
+if os.name == 'nt':
+    import msvcrt
+
+    def _lock(handle):
+        # msvcrt locks bytes from the current position; wait on the first byte, even past EOF.
+        while True:
+            handle.seek(0)
+            try:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                time.sleep(0.05)
+
+    def _unlock(handle):
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+else:
     import fcntl
-except ImportError:
-    fcntl = None
+
+    def _lock(handle):
+        fcntl.flock(handle, fcntl.LOCK_EX)
+
+    def _unlock(handle):
+        fcntl.flock(handle, fcntl.LOCK_UN)
 
 from run_facts import RunFacts, read_json
 
@@ -49,17 +70,15 @@ def _state(run):
 
 @contextmanager
 def _locked(run):
-    """One update at a time per run, where the system offers a file lock."""
+    """One update at a time per run: fcntl on macOS and Linux, msvcrt on Windows."""
     lock = Path(run) / 'view' / '.lock'
     lock.parent.mkdir(parents=True, exist_ok=True)
     with open(lock, 'a') as handle:
-        if fcntl:
-            fcntl.flock(handle, fcntl.LOCK_EX)
+        _lock(handle)
         try:
             yield
         finally:
-            if fcntl:
-                fcntl.flock(handle, fcntl.LOCK_UN)
+            _unlock(handle)
 
 
 def seen(run):
