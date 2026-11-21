@@ -1,8 +1,8 @@
 # Installing a registry skill
 
 Open this only when the user asked to install, add, download or keep a skill. You have already
-read the artifact (step 2): its `artifact_status` is `active` and `metadata.files` is the
-pinned file list. First check the surface can hold the files (below). Prefer aireg on the
+read the released version (step 2): `release.release_id` names it and `metadata.files` is its
+pinned file list. A skill with no release is never installed. First check the surface can hold the files (below). Prefer aireg on the
 user's own computer; use the MCP route when aireg is missing or the user declines it.
 
 ## Where installing works
@@ -55,8 +55,8 @@ replacing it.
 Then read **every** other entry in `metadata.files` (`SKILL.md` already came back as
 `included_file` in the skill's step 2):
 
-1. Call `registry__get_artifact` on the same version with `include_files`, a list of up to 8
-   `path`s. Group the paths by the manifest's `size_bytes` so each call carries at most about
+1. Call `registry__get_artifact` with that `release_id` and `include_files`, a list of up to 8
+   `path`s, so every file comes from the release step 2 read. Group the paths by the manifest's `size_bytes` so each call carries at most about
    64 KiB: many hosts cut a long tool result short, and the gateway stops at 512 KiB. A bundle
    that needs more calls sends them as parallel calls in one turn. Each file comes back in
    `included_files`, in the order asked, at the version the manifest pins.
@@ -73,7 +73,8 @@ Then read **every** other entry in `metadata.files` (`SKILL.md` already came bac
    any path that is absolute or contains `..`.
 5. Record the install in `.atlan-installed.json` in the skills folder that holds `<folder>`
    (beside it, never inside it), merging this skill's entry into any record already there, as
-   `compare-versions.md` shows. This is what a later "are my skills up to date?" reads.
+   `compare-versions.md` shows, with `release_id`, `version_label` and `version_ordinal` from
+   step 2's `release`. This is what a later "are my skills up to date?" reads.
 
 Before writing, show the user the file list. Point out any script (`*.sh`, `*.py`, `*.js`,
 anything under `scripts/`) and say you have not run it. Never run a downloaded script as
@@ -86,7 +87,7 @@ you a token for that route, so do not try to obtain one. Tell the user which fil
 missing, and install without them only if they agree: a skill that references a missing file
 will misbehave when it reaches that step. aireg, where it is installed, fetches every file.
 
-Then say which skill and version you installed (`name`, handle, `version_ordinal` of
-`SKILL.md`), where, and how many files. Tell the user their tool may need a new session to
+Then say which skill and version you installed (`name`, handle, the release's
+`version_label`), where, and how many files. Tell the user their tool may need a new session to
 load it. To update later, follow `compare-versions.md`: it checks the record against `latest`
 and reinstalls only on a newer version.

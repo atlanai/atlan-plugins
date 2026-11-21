@@ -70,28 +70,26 @@ Without it, never search on your own and never load a skill the user did not pic
 ```
 mcp__call_read_tool {
   "name": "registry__get_artifact",
-  "arguments": { "artifact_id": "skill_01j…", "include_file": "SKILL.md" },
+  "arguments": { "artifact_id": "skill_01j…", "channel": "latest", "include_file": "SKILL.md" },
   "session_id": "mcp_session_…",
   "rationale": "Reading the skill and its SKILL.md before using it in this task."
 }
 ```
 
-`include_file` returns `SKILL.md` as `included_file.content`, at the version the manifest pins,
-so no second read is needed. If the call is refused because `get_artifact` does not take
+`"channel": "latest"` reads the release, the version that passed its checks and shipped, not
+a newer upload. `include_file` returns `SKILL.md` as `included_file.content`, at the version
+the manifest pins, so no second read is needed. If the call is refused because `get_artifact` does not take
 `include_file`, the gateway predates it: repeat the call without it, read `SKILL.md` as
 section 4 says, and leave `include_file` out of every later read in this session.
 
-- Check `artifact_status` before anything else:
-  - `active`: go on.
-  - `pending_review`: its checks have not settled, and its files cannot be read until the
-    scan passes or an admin approves it (a read answers `not found`). Tell the user it is
-    being checked and who owns it, and stop. Never use a similarly named skill in its place.
-  - `blocked`: the bundle failed Atlan's security scan and its files are withheld. Stop and
-    tell the user; do not look for the content elsewhere.
+- **`not found`**: the skill has no released version (being checked, blocked, withdrawn or
+  never released), or there is no such skill. Read `references/no-release.md` for what to
+  tell the user, and stop. Never use the unreleased upload or a similarly named skill instead.
+- `artifact_status` other than `active`: tell the user and stop.
 - **A skill of this name is installed here?** Compare the two `SKILL.md` texts now, as the table
   in section 1 says, before following either.
 - `metadata.files` lists every file: `path`, `file_id`, `file_version_ordinal`, `size_bytes`,
-  `media_type`. This is the pinned snapshot of the version you are reading.
+  `media_type`. This is the release's pinned snapshot; `release.release_id` names it.
 
 ## 3. Where installing works
 
@@ -105,7 +103,7 @@ carries an `error`, read it with `registry__get_file_content`, passing the `file
 `file_version_ordinal` from the manifest as `version_ordinal`. Follow it for this task, and
 open a file under `references/` only when `SKILL.md` sends you there (`atlan-content` has the
 loop). When it sends you to several at once, read them in one `registry__get_artifact` call
-with `include_files`. If the request did not say what to run the skill on, ask. Open the
+with `include_files` and that `release_id`. If the request did not say what to run the skill on, ask. Open the
 reply with the skill's first step or question, not a sentence saying the skill was loaded.
 
 **Check what the skill needs that the bundle does not carry.** A registry skill is often cut

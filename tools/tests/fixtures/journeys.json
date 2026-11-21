@@ -178,7 +178,7 @@
    "plugin": "atlanai",
    "skill": "atlan-use-skill",
    "title": "Use a registry skill now, found by description",
-   "route": "Search, then manifest and pinned SKILL.md in one read",
+   "route": "Search, then the release's manifest and pinned SKILL.md in one read",
    "calls": {
     "cold": [
      {
@@ -194,6 +194,7 @@
       "runner": "call_read_tool",
       "args": {
        "artifact_id": "<picked>",
+       "channel": "latest",
        "include_file": "SKILL.md"
       }
      }
@@ -204,6 +205,7 @@
       "runner": "call_read_tool",
       "args": {
        "artifact_id": "<handle>",
+       "channel": "latest",
        "include_file": "SKILL.md"
       }
      }
@@ -222,7 +224,7 @@
    "plugin": "atlanai",
    "skill": "atlan-use-skill",
    "title": "Install a skill with two reference files through MCP",
-   "route": "Manifest and SKILL.md together, then the other pinned files in one include_files read",
+   "route": "The release's manifest and SKILL.md together, then its other pinned files in one include_files read",
    "calls": {
     "cold": [
      {
@@ -230,6 +232,7 @@
       "runner": "call_read_tool",
       "args": {
        "artifact_id": "<handle>",
+       "channel": "latest",
        "include_file": "SKILL.md"
       }
      },
@@ -238,6 +241,7 @@
       "runner": "call_read_tool",
       "args": {
        "artifact_id": "<handle>",
+       "release_id": "<release.release_id>",
        "include_files": [
         "<ref 1>",
         "<ref 2>"

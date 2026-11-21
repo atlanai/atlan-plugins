@@ -87,7 +87,7 @@ graders:
   - name: explains-review-hold
     type: llm
     criteria: |
-      PASS if the reply says the skill is pending review (held, not yet approved or published) so its SKILL.md cannot be read yet, and stops or offers to wait/ask the owner, without inventing what the skill does.
+      PASS if the reply says the skill's newest version is still being checked (pending review, held, not yet approved or released) so there is no released version to use yet, and stops or offers to wait/ask the owner, without inventing what the skill does.
       FAIL if it describes the skill's instructions as if it read them, substitutes another skill, or only says "not found" without connecting it to the pending_review status.
   - name: plain-reply
     type: regex
