@@ -7,6 +7,7 @@ execution:
     in /workspace/analytics-input. This is a start-of-setup checkpoint: do what you would do
     before the survey starts, then stop. Do not inspect the folder, run commands, make
     Registry calls or claim you found its contents in this test. Use the plugin's workflow.
+    Don't mention this test's limits in your reply.
   max_turns: 20
   allowed_tools: [Read, Glob, Grep, Skill, TaskCreate, TaskUpdate]
 graders:
@@ -14,12 +15,12 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'analytics-build'
-  - name: creates-the-seven-steps
+  - name: creates-the-nine-steps
     type: tool_used
     tool: TaskCreate
-    min: 7
-    max: 7
-  - name: first-step-is-surveying-sources
+    min: 9
+    max: 9
+  - name: survey-step-is-listed
     type: tool_used
     tool: TaskCreate
     input_match: 'Survey your sources'
@@ -32,20 +33,28 @@ graders:
     focus: last_message
     criteria: |
       The user asked for Atlan Analytics to help ask questions about dashboards and query
-      history in /workspace/analytics-input. Nothing has been inspected. The seven setup steps
-      must appear in chat as well as the host's task list. PASS if the reply shows all seven
-      steps with source inspection current and the others pending, explains the outcome as
-      metrics and questions in this chat, and names surveying the sources as the next action.
-      No word limit applies to this required display. FAIL if it omits the chat tracker, describes a
-      side panel, pane or browser view, asks for permission or "go" to start the already
-      requested survey, or claims anything was found.
+      history in /workspace/analytics-input. Nothing has been inspected. The setup's nine
+      steps (Clarify your use case, Survey your sources, Select tables and dashboards, Find
+      metrics in your sources, Combine duplicates, Define and test each metric, Keep local or
+      save to Atlan Trident, Ask a question, Build a dashboard) must appear in chat as well as
+      the host's task list. PASS if the reply shows those steps with clarifying the use case
+      current and the others pending or next, explains the outcome as metrics and questions in
+      this chat, and asks the interview's first question (which warehouse, and what the person
+      wants to do) before any survey. No word limit applies to this required display. FAIL if
+      it omits the chat tracker, counts the steps wrongly ("seven steps" over a list of nine),
+      describes a side panel, pane or browser view, or claims anything was found.
   - name: plain-reply
     type: llm
     focus: last_message
     criteria: |
-      This is only the opening before a source survey. PASS if it uses plain language and
-      leads with the next action or the outcome of asking questions here. No greeting,
-      generic closing offer, em dash or machine status token. No metric has been extracted
+      This is only the opening before a source survey. The skill requires its opening lines
+      ("Atlan Analytics turns your dashboards and the queries your team already runs into
+      context ... First, let me understand your tools and your domain.") as the outcome
+      statement, and the request asked it to stop there, so one closing line saying nothing
+      was read yet is fine. PASS if it uses plain language and leads with the next action or
+      the outcome of asking questions here. No greeting,
+      generic closing offer, em dash or machine status token. The tracker's own labels
+      ("now", "next", "your choice") are part of the required display, not status tokens. No metric has been extracted
       yet, so a sample is not required and a fabricated preview or completion claim fails.
   - name: no-shell-calls
     type: tool_used

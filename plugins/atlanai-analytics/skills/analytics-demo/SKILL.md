@@ -1,16 +1,14 @@
 ---
 name: analytics-demo
-description: Guided Atlan Analytics demo on made-up data: pick a demo, build its metrics, save them, ask a question and design a dashboard. Use when someone wants to try, see or learn Atlan Analytics. Not for their own data (analytics-build).
+description: Guided Atlan Analytics demo on made-up data (Fixit, Ticketfuddle). Use when someone wants to try or learn Atlan Analytics, or comes back to a demo: what to ask it, what next, its accuracy or its dashboard. Not for their own data (analytics-build).
 ---
 
-# Atlan Analytics demo: five guided steps
+# Atlan Analytics demo: guided steps
 
 A demo exists so the person understands Atlan Analytics by watching it work on a small,
-made-up firm. The blocks printed at each moment (the welcome, the
-context built, the ready screen, the dashboard offer) are the product; the commands between
-them are plumbing. A run that builds everything but skips a block has failed.
+made-up firm. The blocks printed at each moment are the product.
 
-Read plugin files with the Read tool, one file per call. In a shell, never print a separator such as
+Read plugin files with the Read tool, one per call. In a shell, never print a separator such as
 `echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
 
 Read [the tour rules](references/tour.md) before the welcome: what to say at every moment,
@@ -21,12 +19,13 @@ The technical stages are the shared setup procedure in
 means the helper named there, from the `analytics-build` skill's `scripts/`. `DEMO` means
 `python3 "<skill-dir>/scripts/demo_data.py"`, where `<skill-dir>` is this skill's directory.
 
-## The five steps
+## The steps
 
 Show this tracker in chat and in the host's task list when available, following
 [the checklist](../analytics-build/references/setup/checklist.md) with `--flow demo`. Once
 the run exists (its survey creates it), record the flow once with `PROJECT journey demo`, so a resumed run shows
-these steps.
+these steps. The task list shows step 3 as three items; never count the steps aloud.
+A folder holding a demo's run [picks up where it stopped](references/tour.md#coming-back-to-a-demo).
 
 1. Choose and load demo data
 2. Choose what to build from
@@ -130,11 +129,13 @@ dashboard or an edit:
 | Ask more questions | Step 5: a question the context supports, answered through `analytics-ask`, then `PROJECT journey asked` |
 | Check how accurate it is | Test the context on questions the firm's analysts already ask, and fix the rule behind a miss, as [accuracy](references/accuracy.md) describes |
 | Design a dashboard, until one is built; then Change a rule and see what happens | [The dashboard](../analytics-ask/references/dashboard.md), then `PROJECT journey dashboard`. After it, [edit a metric](references/edit-metric.md) takes this slot |
-| Continue building on real data | Load `analytics-build` in this chat. A separate run; the demo's intent, sources and approvals do not carry over |
+| Continue building on real data | Load `analytics-build` in this chat; it asks for the person's own source. A separate run: nothing of the demo carries over |
 | I'm done | Finish with where the context and any dashboard live |
 
-A typed or supplied action takes precedence over asking again. Never start a flow the person
-did not pick, and never answer a question they did not choose.
+With no question tool, end as [the tour](references/tour.md#without-a-question-tool) says.
+
+A typed or supplied action comes before asking again. Never start a flow the person did not
+pick, or answer a question they did not choose.
 
 A failure at any step follows the save file's **When something does not go to plan**: say
 what happened, that nothing is lost, and the one way forward. Every demo can still end on

@@ -15,6 +15,14 @@ An own-data build runs steps 1 to 4 through `analytics-build`'s
 [check accuracy](../../analytics-build/references/setup/accuracy.md), which offers the check before
 the first question, asks before a release and replaces step 5's ending.
 
+**When the person asks what will happen** before anything runs, answer in a few plain
+sentences, in this order, naming only the decisions that are theirs: I pick 8 questions from
+`<firm>`'s dashboard and the queries its analysts already run, and show each with where it
+came from and its expected answer; you decide once whether to run them, change some or skip;
+each question goes to a fresh agent with your context and again with schema only, so the score
+shows beside that comparison; with a miss, you decide whether I find the fix; and only after
+the score, whether to save the check to Atlan Trident or keep it on this machine. Nothing else.
+
 When the host keeps a task list, its items are these, in the person's words, whichever questions
 are picked: **Choose the questions**, **Ask each one to a fresh agent**, **Score the answers**.
 When the person replies "fix", add **Find what to fix**, **Apply the fix** and **Test again**

@@ -7,15 +7,18 @@ execution:
     instructions only; do not execute commands or contact services in this test. The saved
     run's `project.py checklist` output is:
     {"flow": "build", "steps": [
-     {"id": "sources", "content": "Survey 4 sources", "active": "Surveying your sources", "needs_you": false, "status": "completed"},
      {"id": "intent", "content": "Use case: Shipping cost", "active": "Waiting for your use case", "needs_you": false, "status": "completed"},
+     {"id": "sources", "content": "Survey 4 sources", "active": "Surveying your sources", "needs_you": false, "status": "completed"},
      {"id": "scope", "content": "Select tables and dashboards", "active": "Waiting for your selection", "needs_you": false, "status": "completed"},
-     {"id": "metrics", "content": "Generate and check metrics", "active": "Checking 6 of 15", "needs_you": false, "status": "in_progress"},
+     {"id": "draft", "content": "Find metrics: 24 possible metrics", "active": "Finding metrics: each query in plain words, then the numbers it works out", "needs_you": false, "status": "completed"},
+     {"id": "merge", "content": "Combine duplicates: 11 metrics", "active": "Combining duplicates, one metric per number", "needs_you": false, "status": "completed"},
+     {"id": "write", "content": "Define and test each metric (about 9 min)", "active": "Checking 6 of 15", "needs_you": false, "status": "in_progress"},
      {"id": "save", "content": "Keep local or save to Atlan Trident", "active": "Waiting for where to save", "needs_you": true, "status": "pending"},
      {"id": "ask", "content": "Ask a question", "active": "Waiting for your question", "needs_you": true, "status": "pending"},
      {"id": "dashboard", "content": "Build a dashboard", "active": "Waiting for your dashboard choice", "needs_you": true, "status": "pending"}],
-     "state": "running", "step": 4, "of": 7, "remote_writes": false}
-    Rebuild the progress display from it and tell me where the run stands.
+     "state": "running", "step": 6, "of": 9, "remote_writes": false}
+    Rebuild the progress display from it and tell me where the run stands. Don't mention this
+    test's limits in your reply.
   max_turns: 24
   allowed_tools: [Read, Glob, Grep, Skill, TaskCreate, TaskUpdate]
 graders:
@@ -23,21 +26,21 @@ graders:
     type: tool_used
     tool: Skill
     input_match: 'analytics-build'
-  - name: rebuilds-seven-steps
+  - name: rebuilds-nine-steps
     type: tool_used
     tool: TaskCreate
-    min: 7
-    max: 7
+    min: 9
+    max: 9
   - name: keeps-sharpened-names
     type: tool_used
     tool: TaskCreate
-    input_match: '(Generate and check metrics|Checking 6 of 15)'
+    input_match: '(24 possible metrics|Combine duplicates: 11 metrics|Checking 6 of 15)'
   - name: ticks-only-finished-steps
     type: tool_used
     tool: TaskUpdate
     input_match: 'completed'
-    min: 3
-    max: 3
+    min: 5
+    max: 5
   - name: one-step-in-progress
     type: tool_used
     tool: TaskUpdate
@@ -48,14 +51,17 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      A saved setup run is resumed. Its helper reported seven steps: three completed (4 sources
-      surveyed, use case Shipping cost, tables and dashboards selected), metric generation in
-      progress and checking 6 of 15, and saving, asking and the dashboard still pending. PASS
-      if the reply shows all seven steps in chat with their saved status and counts, in addition to the task list,
-      and identifies checking as the current step. No word limit applies to this display.
-      FAIL if it omits the chat tracker, claims checks finished or anything was saved to Atlan,
-      repeats the fresh-setup introduction, re-asks for the use case, mentions a panel, pane
-      or browser view, or uses an em dash or a closing offer.
+      A saved setup run is resumed. Its helper reported nine steps: five completed (use case
+      Shipping cost, 4 sources surveyed, tables and dashboards selected, 24 possible metrics
+      found, combined into 11 metrics), defining and testing each metric in progress and
+      checking 6 of 15, and saving, asking and the dashboard still pending. PASS if the reply
+      shows all nine steps in chat with their saved status and counts, in addition to the task
+      list, and identifies checking as the current step. No word limit applies to this display.
+      The step names and statuses are the helper's own, so "Keep local or save to Atlan
+      Trident" is the saving step, and a time estimate it gave may be repeated. FAIL if it
+      omits the chat tracker, claims checks finished or anything was saved to Atlan, repeats
+      the fresh-setup introduction, re-asks for the use case, mentions a panel, pane or
+      browser view, says the host's task list was not updated, or uses an em dash.
   - name: no-shell
     type: tool_used
     tool: Bash

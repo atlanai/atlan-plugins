@@ -78,6 +78,34 @@ plugin:
 A typed answer picks its branch by what it holds: a link or a file is B, a use case with
 tables is C, a subject alone ("sales pipeline") is A with that subject as the domain.
 
+## Arriving from the demo
+
+The person picked "Continue building on real data" at the end of a demo, which answers card
+1's second question: they want to build from a source of their own. Ask one question in place
+of card 1, with no opening before it:
+
+"Which dashboard, folder or export should I build from?"
+
+Its own text is one line: "Paste a dashboard link or a path to a file or folder, or pick one."
+
+| Option | Description | When to offer it |
+| --- | --- | --- |
+| Each BI file in the working folder, by name | "The `<Power BI>` file in this folder." | One per file `PROJECT discover` found, at most two, largest first. Demo files are never listed |
+| Let discovery decide | "I'll look at what your warehouse is used for and suggest use cases." | Always, last |
+
+The host's free-text entry takes the link or path. Where the host has no question tool, ask in
+ordinary chat, list the same choices as plain lines, and end on the question.
+
+| They answer | Do |
+| --- | --- |
+| A dashboard link or file | Branch B, step 2, on it |
+| A folder | `PROJECT discover --workspace "<folder>"`: one BI file is branch B, step 2, on it; several are branch B's card with them as the options; none is branch C's card |
+| Let discovery decide | Branch A |
+
+Then ask card 1's warehouse question on its own, unless the answer named one, and
+[the warehouse must answer](#after-card-1-the-warehouse-must-answer) applies. The demo's
+database, files, intent and approvals never carry over.
+
 ## After card 1: the warehouse must answer
 
 A chosen warehouse that needs sign-in, or is not connected yet, is connected now, in every

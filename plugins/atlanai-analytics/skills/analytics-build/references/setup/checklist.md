@@ -64,7 +64,16 @@ engine work. `PROJECT journey` results carry the same `checklist`.
   on the person: use that moment's visible payload and delivery method for its native question.
 - `state` is `paused`, `blocked` or `access_needed` when nothing is in progress. Leave the
   list as returned and say the one thing needed to continue.
-- On resume, read it first and rebuild the list, so finished steps start ticked.
+
+## On resume
+
+The first thing on screen is the host's task list as the run left it. Read `PROJECT checklist`
+(or take the checklist the person gave), create one task per step with its `content` and
+`active` as given, then set each to its `status`, before the reply and in the same turn, so
+finished steps start ticked. A checklist the person pasted is the helper's output: rebuilding
+the task list from it runs nothing, so do it even when told to run no commands. Then show the
+same steps in chat and say where the run stands. Never say the task list was not updated, or
+name a helper you ran or did not run.
 
 ## When a step ends
 

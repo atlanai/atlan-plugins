@@ -742,7 +742,7 @@ def main():
                               help='With readiness: the result changes the plan, so the build waits for the go-ahead')
     conversation.add_argument('--host', choices=('claude_code', 'codex'))
     conversation.add_argument('--server', help='Observed Atlan server identifier in that host')
-    steps = sub.add_parser('checklist', help='The guided-flow steps (seven, five for a demo) with their saved state, for the host task list')
+    steps = sub.add_parser('checklist', help='The guided-flow steps (nine, seven for a demo, the build as three) with their saved state, for the host task list')
     steps.add_argument('--engine-dir', type=Path)
     steps.add_argument('--flow', choices=('build', 'demo', 'dashboard'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))

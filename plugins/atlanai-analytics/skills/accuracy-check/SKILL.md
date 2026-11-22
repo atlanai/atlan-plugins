@@ -1,6 +1,6 @@
 ---
 name: accuracy-check
-description: "Atlan Analytics: run an eval set against a project's context and score it: each question to a fresh agent, results compared by script, why each miss failed. Use when asked to test or score accuracy. Not for generating evals."
+description: "Atlan Analytics: run an eval set against a project's context and score it: each question to a fresh agent, results compared by script, why each miss failed. Use when asked to test or score accuracy. Not for a demo (analytics-demo) or making evals."
 ---
 
 # Run and score an eval set
