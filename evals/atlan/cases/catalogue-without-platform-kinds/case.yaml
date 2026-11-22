@@ -19,9 +19,9 @@ graders:
   - name: leaves-out-platform-kinds
     type: llm
     criteria: |
-      The organization holds 98 artifacts: 80 are the platform's own records (16 each of app, app_action, harness_vendor, model and agent_framework) and 18 are things people made (9 skills, 3 agents, 2 outputs, 2 MCP servers, 2 knowledge bundles; files are not counted).
+      The organization holds 99 artifacts: 80 are the platform's own records (16 each of app, app_action, harness_vendor, model and agent_framework) and 19 are things people made (10 skills, 3 agents, 2 outputs, 2 MCP servers, 2 knowledge bundles; files are not counted).
       PASS if the final reply gives the counts of what people made (skills, agents, outputs, servers, knowledge) as the answer AND either leaves the platform records out or says in a few words that platform records were left out.
-      FAIL if it presents 98 (or the platform kinds) as the size of the organization's catalogue, or leads with apps, app actions, models, vendors or frameworks.
+      FAIL if it presents 99 (or the platform kinds) as the size of the organization's catalogue, or leads with apps, app actions, models, vendors or frameworks.
   - name: rails-beside-arguments-on-read-runner
     type: tool_used
     tool: mcp__plugin_atlanai_atlan__mcp__call_read_tool

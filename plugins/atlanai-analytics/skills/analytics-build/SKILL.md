@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Atlan Analytics setup on your own data: pick a warehouse, then discover use cases, share a dashboard or name tables, and build. Use when setting up, resuming or handing off a run, its details, or workspace access. Not for a demo (analytics-demo).
+description: Atlan Analytics on your data: pick a warehouse, find use cases or share dashboards, then build. Use when setting up, resuming or handing off a run, its details, workspace access, or asking about a folder's dashboards. Not for a demo (analytics-demo).
 ---
 
 # Atlan Analytics on your own data: seven guided steps
