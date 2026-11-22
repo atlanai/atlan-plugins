@@ -161,5 +161,35 @@ class SavedRunFixtureTest(unittest.TestCase):
         self.assertIn("Needs repair before publication: On-time rate (The denominator is undefined", published["chat"])
 
 
+
+class DemoRunFixtureTest(unittest.TestCase):
+    """The Fixit demo demo-ready-next-actions picks up, read back by the helpers the model runs."""
+
+    def test_the_demo_reads_back_ready_for_its_first_question(self) -> None:
+        case = CASES / "demo-ready-next-actions"
+        self.assertIn('/../fixtures/demo_run.py" "$here/../.."', (case / "scaffold.sh").read_text(encoding="utf-8"))
+        judge = " ".join(graders("demo-ready-next-actions")["expected-handoff"].split())
+        helper = [sys.executable, str(PLUGIN / "skills" / "analytics-build" / "scripts" / "project.py"), "--run-dir"]
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run([sys.executable, str(FIXTURE.parent / "demo_run.py"), str(PLUGIN)], cwd=tmp, check=True)
+            run = str(Path(tmp) / ".atlan-metrics" / "fixit-demo")
+            status = json.loads(subprocess.run(helper + [run, "journey", "status"], cwd=tmp, check=True,
+                                               capture_output=True, text=True).stdout)
+            ready = json.loads(subprocess.run(
+                helper + [run, "question", "ready", "--data",
+                          str(PLUGIN / "skills" / "analytics-demo" / "references" / "yard.json")],
+                cwd=tmp, check=True, capture_output=True, text=True).stdout)
+        steps = status["checklist"]["steps"]
+        self.assertEqual(len(steps), 7)
+        self.assertEqual([s["id"] for s in steps if s["status"] != "completed"], ["ask"])
+        self.assertNotIn("visual", status)
+        self.assertIn("4 metrics and 4 queries", ready["question"])
+        self.assertIn("on this machine", ready["question"])
+        # The judge holds the questions the helper offers, since it never sees the prompt or the run.
+        for option in ready["options"][:2]:
+            self.assertIn(option["label"], judge)
+
+
+
 if __name__ == "__main__":
     unittest.main()

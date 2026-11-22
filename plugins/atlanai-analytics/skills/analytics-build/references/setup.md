@@ -1,8 +1,9 @@
 # Prepare existing context for questions
 
 Use seven stages: **Inspect, Scope, Build, Check, Preview, Publish, Ready to ask**.
-The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): seven
-for own data (`analytics-build`), six for a demo (`analytics-demo`).
+The person sees them as the guided flow's steps in [the checklist](setup/checklist.md): nine
+in the task list for own data (`analytics-build`), seven for a demo (`analytics-demo`), the build
+shown as three steps in each.
 The result is released metrics and saved SQL in Atlan, used by this chat through MCP.
 An input folder is ordinary customer context. Never depend on a particular repository,
 sample schema or database name. Explicit agent and evaluation modes remain separate.
@@ -29,7 +30,7 @@ All setup uses [one presentation flow](setup/presentation.md), with actual sourc
 
 Explain the outcome, next action and controls. For example: "I'll turn
 these dashboards and query history into metrics you can question here. First I'll check the
-sources, ask what matters to you and what you want to accomplish, then build and check the selected collection before reviewing its results. I'll show the seven steps and where your choices matter. You can narrow the scope, inspect details, keep
+sources, ask what matters to you and what you want to accomplish, then build and check the selected collection before reviewing its results. I'll show the steps and where your choices matter. You can narrow the scope, inspect details, keep
 drafts local or pause." Continue authorized work without another go-ahead. On resume, state the saved result
 and next action instead of repeating the introduction.
 

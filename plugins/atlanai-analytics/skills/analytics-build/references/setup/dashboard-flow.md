@@ -1,7 +1,7 @@
 # The dashboard branch: make my dashboard agentic
 
 Read when the person picks "Make my dashboard agentic" in [the interview](intent.md)'s card 1,
-or names a dashboard link or file instead. For this run, this file replaces the seven steps in
+or names a dashboard link or file instead. For this run, this file replaces the steps in
 `SKILL.md`, the shared checklist's step names and the interview's "Build it?" confirmation.
 Where it is silent, the shared files apply. The discovery and known-tables branches and the
 demo never read it, and nothing here changes how metrics are generated.

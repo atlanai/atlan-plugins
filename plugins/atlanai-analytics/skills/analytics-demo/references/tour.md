@@ -46,6 +46,26 @@ see (the team's copy budget, 2026-11-19):
 Check how accurate it is reads: "See how often it gets right the questions `<firm>`'s analysts
 already ask, and fix the rule behind a miss. The checks only ran each number."
 
+### Without a question tool
+
+End the message on the question itself: "What would you like to do next?" on its own line,
+then one plain line per option (its name, a colon, its description), and nothing after them:
+no table, no "pick one" line. List every option that applies, Continue building on real data
+included: the four-option limit, and the line that stands in for a left-out option, are the
+question tool's alone. Offer Check how accurate it is until the check has run. Never
+tell the person about a helper you ran, skipped or could not run.
+
+## Coming back to a demo
+
+When the working folder already holds a demo's run (`.atlan-metrics/<run>/` whose
+`interaction.json` has `"flow": "demo"`) and the person asks to continue it or what they can
+do with it, carry on from where it stopped: never show the demo picker, open the demo again or
+rebuild. Read `PROJECT journey status`, put its `checklist` in the host's task list, and go to
+the step it names: once the context is saved or kept on this machine, that is [step 5](../SKILL.md#5-ask-a-question-then-choose-whats-next)'s ready
+question, from `PROJECT question ready` with the demo's facts file as `--data`. Its counts and
+questions come from the run, never from memory or the person's message. With two demo runs,
+ask which one, naming each by its demo.
+
 ## The welcome: right after the demo is chosen
 
 **The welcome is the question's own text**, as

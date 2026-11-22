@@ -1,40 +1,47 @@
 schema_version: "1.1"
 name: demo-ready-next-actions
 tags: [demo-flow-fix, analytics, setup, demo, regression]
+context:
+  scaffold_script: scaffold.sh
 execution:
+  # The Fixit demo in this folder (fixtures/demo_run.py) is built from its dashboard alone: 4
+  # metrics and 4 queries, every one run on the demo data, kept on this machine. Its celebration
+  # was shown; no question was asked and no dashboard built. The ready block and its two
+  # questions come from `PROJECT question ready --data yard.json`, not from the prompt.
   prompt: |
-    Use Atlan Analytics to finish the Fixit demo from this saved checkpoint.
-    The full dashboard-only collection is built: 4 metrics and 4 queries, all executed
-    successfully earlier on the demo data and kept on this machine. No publication
-    was requested. The collection review and celebration already appeared. No further
-    inspection or execution is needed. Give me the ready handoff. I have not chosen
-    a question or requested a dashboard yet.
-  max_turns: 16
-  allowed_tools: [Read, Glob, Grep, Skill]
+    I'm back to the Fixit demo I left earlier. What can I ask it?
+  max_turns: 30
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
 graders:
+  - name: uses-demo-skill
+    type: tool_used
+    tool: Skill
+    input_match: 'analytics-demo'
+  - name: reads-the-ready-block-from-the-run
+    type: tool_used
+    tool: Bash
+    input_match: 'question\s+ready'
+    min: 1
   - name: expected-handoff
     type: llm
     focus: last_message
     criteria: |
-      PASS if the visible ready handoff, the last thing in the message, reports the existing
-      local counts and offers two or three concrete questions supported by the checked
-      context immediately. It must wait for a chosen question, without an Ask AI menu or
-      dashboard/real-data menu.
-      FAIL if it inserts a next-action menu before the questions, answers a suggested
-      question, claims a dashboard was built, treats
-      local context as published, or starts inspecting real data without a selection.
+      The demo run in this folder is a job profit agent for Fixit: 4 metrics and 4 queries
+      built from 1 dashboard, checked on Fixit's data and kept on this machine. Its supported
+      questions are "What did materials cost on each job?" and "Which materials were wasted
+      most?", with "Ask my own question" and "I'm done for now".
+      PASS if the reply ends on the ready block (what was built with those counts, that it
+      lives on this machine, what it can answer) and offers those questions, then waits for a
+      choice. FAIL if it inserts a next-action, dashboard or real-data menu before the
+      questions, answers a question, claims a dashboard was built, treats the local context as
+      saved to Atlan, rebuilds or reloads the demo, or invents counts or questions.
   - name: plain-reply
     type: llm
     focus: last_message
     criteria: |
       PASS if the reply gives the concrete result or next step in plain language,
-      without a greeting, apology, em dash, machine status footer or generic offer.
-      The demo's full ready block and its question list have no word limit.
-  - name: no-shell-calls
-    type: tool_used
-    tool: Bash
-    min: 0
-    max: 0
+      without a greeting, apology, em dash, machine status footer, narration of commands run
+      or generic offer. The demo's full ready block and its question list have no word limit.
   - name: no-registry-generic-calls
     type: tool_used
     tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool

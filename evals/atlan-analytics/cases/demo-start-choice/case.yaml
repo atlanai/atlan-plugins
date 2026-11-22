@@ -27,4 +27,4 @@ graders:
       reply, or the native question it asks, says what the person will end with and offers
       the Fixit & Co. and Ticketfuddle demos, with own data as a third choice. FAIL if it
       downloads, surveys or claims to have built anything, shows a first-metric preview,
-      lists seven steps instead of the demo's six, or uses an em dash or a closing offer.
+      lists own data's nine steps instead of the demo's seven, or uses an em dash or a closing offer.

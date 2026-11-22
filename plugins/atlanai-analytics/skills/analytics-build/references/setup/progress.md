@@ -5,7 +5,7 @@ Read this file before a long helper run.
 Use `PROJECT progress --stage <stage> --status <status>` at parent-owned stage transitions.
 `PROJECT progress` reads the latest state. Inspect/check operations also checkpoint their
 own counts. Statuses are pending, running, waiting-for-user, complete, complete-with-held-items,
-failed or canceled. Progress contains real counts, seven named steps and steps remaining,
+failed or canceled. Progress contains real counts, the checklist's named steps and steps remaining,
 never a guessed percentage or ETA. Model metrics and saved queries have separate counts.
 
 Run deterministic scanning, decoding, mining, checking and rendering through the local
@@ -30,7 +30,7 @@ provide a factual heartbeat every 30 to 60 seconds, except while a subagent writ
 side page and the step chips are the heartbeat, and the task list's count where you keep one, so nothing of
 yours goes in the chat then. Surface useful evidence such as a first
 metric or a resolved hold, not gate names, private paths or raw logs. Do not repeat unchanged
-counts or imply that engine gates equal the seven setup stages. Never invent an ETA/percentage;
+counts or imply that engine gates equal the setup stages. Never invent an ETA/percentage;
 the dashboard branch gives a rough spoken range instead, as [its file](dashboard-flow.md) says.
 Report schema checks, executed examples and parity separately; diagnostics stay in details.
 

@@ -3,7 +3,7 @@ name: analytics-build
 description: "Atlan Analytics: set up, resume or hand off metrics on your data. Use for metrics in .atlan-metrics/: a metric's details, SQL or checks, what's ready, saving, a new workspace, or questions on a folder's dashboards. Not for a demo (analytics-demo)."
 ---
 
-# Atlan Analytics on your own data: seven guided steps
+# Atlan Analytics on your own data: a guided build
 
 An orchestrator. It owns the conversation, intent, the tracker and approvals, and takes a
 person's own dashboards, folders, BI exports and query history to checked metrics they can
@@ -11,7 +11,7 @@ question here. It calls the capability skills without letting them ask the perso
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files with the Read tool, one file per call. In a shell, never print a separator such as
+Read plugin files with the Read tool, one per call. In a shell, never print a separator such as
 `echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
@@ -53,12 +53,18 @@ questions in plain English and see what each answer is based on.
 First, let me understand your tools and your domain."
 
 The interview is this skill's own: `source-survey` never asks the person anything. Honor
-existing choices. Survey-only requests stop after the survey. On resume, read
-`PROJECT journey status`, name the saved result and the next step, and rebuild the tracker.
-Detail-only requests get only the requested evidence.
+existing choices. Survey-only requests stop after the survey; detail-only ones get only that
+evidence.
 
-## The seven steps
+From the demo's "Continue building on real data", ask
+[its one question](references/setup/intent.md#arriving-from-the-demo), not card 1.
+**On resume**, rebuild the task list first ([the checklist](references/setup/checklist.md#on-resume)),
+then name the saved result and the next step.
 
+## The steps
+
+The task list shows step 4 as three items. Take the list as the checklist gives it; never say
+how many steps there are.
 Show [the checklist](references/setup/checklist.md) in the host's task list from the first
 action, and in chat with each step's result line, never inside a question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
