@@ -228,7 +228,10 @@ def _context_items(reader, state):
                           'population': _population(definition),
                           'calculation': calculation, 'sql': sql, 'sql_label': 'Saved SQL example',
                           'detail_notes': evidence_notes + [n for n in (calculation_note, sql_note) if n],
-                          'status': status, 'status_label': LABELS[status] + ('; ' + review_label.lower()
+                          # A release keeps the check it passed: "Saved in Atlan" alone reads as no check at all.
+                          'status': status, 'status_label': LABELS[status]
+                              + ('; ' + LABELS[execution] if status == 'released' and execution != 'not_recorded' else '')
+                              + ('; ' + review_label.lower()
                               if kind == 'sql_query' and review not in ('verified', 'reviewed') else ''),
                           'checks': {'execution': execution, 'review': review, 'parity': 'unmeasured',
                                      'publication': 'released' if status == 'released' else 'held' if status == 'held' else 'local'},

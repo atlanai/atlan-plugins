@@ -8,6 +8,9 @@ authored YAML subset directly rather than adding a YAML dependency.
 """
 
 from pathlib import Path
+from unittest import mock
+import contextlib
+import io
 import json
 import re
 import subprocess
@@ -159,6 +162,28 @@ class SavedRunFixtureTest(unittest.TestCase):
         published = self.journey("published")
         self.assertIn("8 metrics, 4 queries; 11 saved in Atlan Trident.", published["chat"])
         self.assertIn("Needs repair before publication: On-time rate (The denominator is undefined", published["chat"])
+        # A release keeps the check it passed, so the hand-off's sample can say how it was checked.
+        self.assertIn("Saved in Atlan; SQL example checked.", published["chat"])
+
+    def test_the_ready_question_is_composed_where_the_run_folder_cannot_be_written(self) -> None:
+        # The eval sandbox's shell, like a read-only checkout, refuses writes: the note that spares a repeat is lost, the
+        # question is not.
+        sys.path.insert(0, str(PLUGIN / "skills" / "analytics-build" / "scripts"))
+        import project
+        import side_view
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run([sys.executable, str(FIXTURE), str(PLUGIN), "published"], cwd=tmp, check=True)
+            run = str(Path(tmp) / ".atlan-metrics" / "shipping-run")
+            out = io.StringIO()
+            with mock.patch.object(side_view, "note", side_effect=OSError(30, "Read-only file system")), \
+                    mock.patch("sys.argv", ["project.py", "--run-dir", run, "question", "ready"]), \
+                    contextlib.redirect_stdout(out):
+                self.assertEqual(project.main(), 0)
+        asked = json.loads(out.getvalue())
+        self.assertIn("7 metrics and 4 queries in Shipping in Atlan Trident; 1 metric on this machine",
+                      " ".join(asked["question"].split()))
+        labels = [option["label"] for option in asked["options"]]
+        self.assertEqual(labels[:2], ["How many units shipped by region?", "What was the shipping cost by region?"])
 
 
 

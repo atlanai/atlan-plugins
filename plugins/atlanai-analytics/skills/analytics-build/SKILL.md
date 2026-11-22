@@ -5,21 +5,20 @@ description: "Atlan Analytics: set up, resume or hand off metrics on your data. 
 
 # Atlan Analytics on your own data: a guided build
 
-An orchestrator. It owns the conversation, intent, the tracker and approvals, and takes a
-person's own dashboards, folders, BI exports and query history to checked metrics they can
-question here. It calls the capability skills without letting them ask the person anything:
+An orchestrator: it owns the conversation, intent, the tracker and approvals, and turns a
+person's dashboards, folders, BI exports and query history into checked metrics to question. It calls the capability skills without letting them ask the person anything:
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files with the Read tool, one per call. In a shell, never print a separator such as
+Read plugin files with Read, one per call. In a shell, never print a separator such as
 `echo =====`: zsh reads a word that starts with `=` as a command, fails and skips the rest of the line.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
 and return. This includes explanation-only requests; do not start source inspection or publication.
 
 Then read [shared conventions](references/conventions.md): audit sessions, task
-authorization, privacy and status reporting. Reads of the selected source, packaged-runtime
-initialization and generated-file reads are ordinary task steps. Once a publication
+authorization, privacy and status reporting. Reads of the selected source, runtime
+setup and generated files are ordinary task steps. Once a publication
 destination is chosen, show the checked plan and publish only after the person approves that
 concrete plan. Respect explicit draft or review requests.
 
@@ -59,7 +58,8 @@ evidence.
 From the demo's "Continue building on real data", ask
 [its one question](references/setup/intent.md#arriving-from-the-demo), not card 1.
 **On resume**, rebuild the task list first ([the checklist](references/setup/checklist.md#on-resume)),
-then name the saved result and the next step.
+then name the saved result and the next step. What's ready, or what to ask, is
+[the ready block](references/setup/ready.md#on-resume).
 
 ## The steps
 
@@ -103,8 +103,8 @@ to the earlier run. After publication, answers retrieve definitions before SQL r
 a repository the person asks to set up is an ordinary step; repository names or layouts never
 select a special workflow.
 
-Use this host and its Atlan MCP connection. This chat with Atlan is the talk-to-data agent;
-this add-on does not deploy or evaluate a separate agent, and says so in one line when asked.
+Use this host and its Atlan MCP connection. This chat is the talk-to-data agent; this add-on
+deploys or evaluates no separate agent, and says so in one line when asked.
 If Registry tools are missing or sign-in is required, follow
 [connection recovery](references/auth-recovery.md) inside this task and resume the saved
 stage. Never infer a missing coding-host plugin from a generic app-directory search.
@@ -138,7 +138,7 @@ and do not install this add-on beside that bundle.
 
 Installed paths resolve under `${CLAUDE_PLUGIN_ROOT}/skills/analytics-build/`; the sibling
 skills sit beside it. With MCP only, read `atlan://defaults/skills/analytics-build/SKILL.md`
-and cited relative references at that base. Fetch needed scripts locally with their relative
-layout before execution; MCP does not expand plugin-local includes.
+and cited references at that base, and fetch scripts locally in their layout before running
+them; MCP does not expand plugin-local includes.
 
 Never expose credentials or identifying query literals.

@@ -719,7 +719,8 @@ class Questions(unittest.TestCase):
         meta['publication']['artifacts'] = meta['publication']['artifacts'][:1]
         (run / 'run.json').write_text(json.dumps(meta), encoding='utf-8')
         text = ' '.join(questions.ready(run)['question'].split())
-        self.assertIn('1 of 4 in Test workspace in Atlan Trident, the rest on this machine', text)
+        # By kind, so it adds up against the card's "1 metric, 0 queries" and "2 metrics and 2 queries" built.
+        self.assertIn('1 metric in Test workspace in Atlan Trident; 1 metric and 2 queries on this machine', text)
 
     def test_the_save_question_waits_for_every_check(self):
         run = make_run(self.root, saved=False)

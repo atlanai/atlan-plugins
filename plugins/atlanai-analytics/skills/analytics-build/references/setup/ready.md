@@ -122,3 +122,17 @@ counts), where it lives (the Atlan Trident workspace, or the run folder when it 
 machine) with the dashboard's location if one was built, and how to pick it up again. The side
 page and the chat above hold the rest. Do not ask another question or require a restart. Building a demo dashboard ends with the `Next:` line above, including
 the option to continue on real data.
+
+## On resume
+
+When the person comes back and asks what is ready or what they can ask, or `PROJECT journey
+status` gives `continuation.action` `ask`, the reply is this ready block, not a summary of
+the run in your own words. Run `PROJECT question ready` and give its text and options as
+above. The collection review is not in this conversation, so add the sample from `journey
+status`'s `chat`, as one `Example` row before the text's last line: its name and meaning, its
+calculation, population, source and check line, as given. Add the held items and review
+warnings as `Worth knowing` rows. Offer only the helper's options: no question of your own,
+no period or grouping the helper did not write, and no list of next steps after them.
+The host's task list carries the steps, so this reply does not repeat them in chat. `What you
+built` counts every definition, the held ones too, and the saved line counts what was saved:
+both are right, so give them as printed, with no note about how they differ.
