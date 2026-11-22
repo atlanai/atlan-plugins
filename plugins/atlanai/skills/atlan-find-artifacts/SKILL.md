@@ -12,8 +12,8 @@ Everything in the registry is an **artifact**: a versioned item of one **kind**,
 
 Calls below are written in search mode, each through the runner its tool needs: reads use
 `mcp__call_read_tool`. The first call opens the session
-by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
-and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
+by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`
+on every later call, and a `rationale` on every call. Both go beside `name` and `arguments`, never inside.
 Once the session is open, a `registry__` read this host also lists by name runs directly, with no runner and `session_id` and `rationale` as its own arguments.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
@@ -67,16 +67,17 @@ mcp__call_read_tool {
   A hit with `is_released: false` is a draft: say it is not released.
 - **A hit is a suggestion, not a choice.** Show the ones that fit, each with its name, version
   and workspace, and let the user pick before anything loads, even when the request says "and
-  use it". Never load a skill because it ranked first. The one exception is the user's own standing instruction to check Atlan before
+  use it". Never load one because it ranked first. The exception is the user's own standing instruction to check Atlan before
   each task (an **Atlan registry skills** section in `AGENTS.md`): then `atlan-use-skill` loads
   a single clear match and names it in one line, and still asks when more than one fits.
 - **Same name, different skill.** Copies of one artifact across workspaces are one hit, the
   rest under `also_in`; two different artifacts can still share a `name`. Name each one's
   workspace (`workspace_display_name`) so the user can tell them apart.
-- **Weak hits are noise, unless named.** Leave out a `match.quality` `weak` hit, even ranked
-  first, unless its name or title holds the user's words: offer that one as possible.
+- **Weak hits are noise, unless named.** Drop a `weak` hit, even ranked first, unless name
+  or title holds the ask's distinctive words, not just `sql` or `report`, and no other
+  product: offer it as possible.
 - **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
-  `semantic: true`) before concluding nothing exists. An artifact the user cannot read looks
+  `semantic: true`) before concluding nothing exists. One the user cannot read looks
   the same as one that does not exist. When `page.has_more`, the next page is `offset:
   page.next_offset`.
 

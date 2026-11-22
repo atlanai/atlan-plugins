@@ -38,7 +38,8 @@ mcp__call_read_tool {                       ← the runner for what the tool doe
    For another, `mcp__search_tools` with `servers` naming its server, or
    `mcp__describe_tools { "names": [ … ] }` for a schema. An empty search does not prove a tool
    is missing: describe it by name first. A server you have not connected comes back under
-   `connect`: ask, then run `mcp__connect_server` through `mcp__call_write_tool`.
+   `connect`: ask, then run `mcp__connect_server` by name, or through `mcp__call_write_tool`
+   when the host does not list it.
    Some hosts also list the most used `registry__` reads by name beside the helpers
    (`registry__search_artifacts`, `registry__get_artifact`, `registry__get_artifact_counts`,
    `registry__get_file_content`, `registry__get_related_artifacts`,

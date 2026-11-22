@@ -94,7 +94,7 @@ name ends (`…mcp__call_tool`).
   for a create, update, append, relate or move, `mcp__call_tool` for anything destructive. A
   `registry__` read the host also lists by name skips the runner once the session is open
   (`references/calling-tools.md`).
-- **Every call carries a `rationale`**, one first-person sentence for the person who audits it.
+- **Every call carries a `rationale`**, the first too, one first-person sentence for the person who audits it.
   `session_id`, `objective` and `rationale` go beside `name` and `arguments`, never inside.
 - **A failed call is not a broken plugin.** Read `references/calling-tools.md` for a failed
   call, a limit, a source key or a recipe in full mode (`references/full-mode.md`).

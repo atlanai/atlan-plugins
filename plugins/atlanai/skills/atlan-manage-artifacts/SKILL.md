@@ -14,8 +14,8 @@ Calls below are written in search mode, each through the runner its tool needs: 
 `registry__relate_artifact` and `registry__retrigger_artifact_action` use `mcp__call_write_tool`, and `registry__archive_artifact`,
 `registry__approve_artifact`, `registry__release_artifact` and `registry__withdraw_release` use
 `mcp__call_tool`. The first call opens the session by sending
-`objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`, and a
-`rationale`, on every later call, beside `name` and `arguments`, never inside. Once the session is
+`objective` beside `name` and returns `mcp_session_id`; pass that as `session_id` on every later
+call, and a `rationale` on every call, beside `name` and `arguments`, never inside. Once the session is
 open, a `registry__` read this host also lists by name can be called directly, with `session_id`
 and `rationale` as its own arguments and no runner. When the host lists `mcp__call_read_tools`, send up to 8
 independent reads as one call, `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`;
@@ -58,7 +58,7 @@ number of agents that load it, across every workspace the user can read. A gatew
 
 ## 3. Show one readout, then ask once
 
-One short block, in this order: the artifact's name, version and workspace; what the action does;
+One short paragraph under 80 words, no headings or bullets, in this order: the artifact's name, version and workspace; what the action does;
 what depends on it, by kind and name (the first three, then a count); and the safer path when
 there is one. For example:
 
@@ -76,7 +76,7 @@ report the new state in one line.
 |---|---|---|
 | "Archive it", "delete it", "retire it" | `registry__archive_artifact` | Needs a workspace admin. When an agent depends on it, offer the safer path first: deprecate, or release a replacement and update those agents. There is no hard delete here: say archive is what this does. |
 | "Roll back", "latest is broken" | `registry__list_releases`, then `registry__withdraw_release` with the `release_id` of the channel's current release (`is_current: true`) and a `reason` | This is the safe undo for a bad release: offer it before archive. When `mcp__describe_tools` answers that `registry__withdraw_release` is not a tool you can call (older gateways do not serve it), say that roll-back is not available on this connection, offer to release a fixed version through `atlan-author-skills` instead, and never archive in its place. The readout names the version the channel falls back to, the newest earlier release on it whose version is still active, or says the channel will serve nothing. Never release the older version again: a label must increase, and it is refused. A withdrawal is final; the version stays in the registry and a new release undoes it. |
-| "Release 1.2 to stable", "ship it" | `registry__release_artifact` with `version_label` or `channel` | Only a version that is `active`. A `pending_review` one waits for its scan, or is approved first. A refusal carries a `code`: open [refusals](references/refusals.md) for its one step. |
+| "Release 1.2 to stable", "ship it" | `registry__release_artifact` with `version_label` or `channel` | Only a version that is `active`. For a `pending_review` one, say it must be approved before it can be released, and ask whether to show its [review](references/review-queue.md) readout so they can approve it. A refusal carries a `code`: open [refusals](references/refusals.md) for its one step. |
 | "Move it to Platform" | `registry__move_artifact` | Open [refusals](references/refusals.md) before the readout: some kinds, statuses and targets cannot move, and the readout says so instead of asking. Readers of the old workspace may lose it, and an end that turns `is_readable: false` for the new readers is named. |
 | "Deprecate it, use X instead" | `registry__patch_artifact` with a `description` that starts `Deprecated: use <name> (<handle>) instead.` followed by the old description; then, when there is a replacement and `registry__get_kind_schema` lists a `replaced_by` relationship for the kind, `registry__relate_artifact` from the old artifact to it with `rel_type` `replaced_by` | Never set `artifact_status` to `deprecated`: the registry refuses it. The description is what every search hit and `atlan-use-skill` read carries, so keep the rest of it. The `replaced_by` edge lets tools point at the successor. A skill's own `lifecycle: deprecated` comes from its bundle, so it changes only with a new version published through `atlan-author-skills`; offer that only when the owner wants it. |
 | "Make Stefan the owner", "hand it over to Priya" | [Changing the owner](references/owner.md) | Open it before the readout: it finds the person's id, says who may change it, and fences the write with the `etag` read. |

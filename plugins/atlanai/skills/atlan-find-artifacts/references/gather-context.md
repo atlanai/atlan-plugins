@@ -38,7 +38,9 @@ Read the result before answering from it:
   does not say which item answers which need. Match items to outcomes by reading them.
 - **Platform records and servers are not answers.** Drop `app` and other platform kinds
   (`references/kinds.md`) and MCP servers unless the user asked for a tool, and drop hits whose
-  `match.quality` is `weak` unless the name or title holds the user's words (a possible match).
+  `match.quality` is `weak` unless the name or title holds the ask's distinctive words, not only a
+  generic one such as `sql` or `report`, and names no other product (a possible match: a
+  PostgreSQL skill is not one for a Snowflake ask).
 - **The excerpt is the description.** For a saved query or a metric, read the artifact for its
   question, SQL or definition before quoting it.
 
