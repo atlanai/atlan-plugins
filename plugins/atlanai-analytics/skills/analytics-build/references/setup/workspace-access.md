@@ -8,7 +8,8 @@ survey, sample metric, Registry call, permission question or publication plan.
 
 The Analytics workflow can list and select accessible workspaces. It does not create them
 through a CLI or API. Keep local drafts intact. Give one paragraph under 70 words containing
-the capability limit, the supported UI/admin action, and the later refresh and selection.
+the capability limit, that the local drafts stay saved, the supported UI/admin action, and the
+later refresh and selection.
 Do not offer a different destination unless asked, invent UI menu labels, or narrate a
 future publication step the person has not requested.
 

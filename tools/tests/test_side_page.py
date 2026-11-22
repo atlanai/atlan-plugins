@@ -216,6 +216,16 @@ class Page(unittest.TestCase):
         self.assertNotIn(key, ' '.join(map(str, spawn.call_args[0][0])), 'any account on the machine can read argv')
         self.assertEqual(spawn.call_args[0][1], key, 'it travels on standard input instead')
 
+    def test_the_page_starts_on_a_python_whose_posix_spawn_has_no_setsid(self):
+        # The Pythons uv, mise and rye install refuse setsid, and `visual next` exited 1 on them.
+        run = make_run(self.root)
+        refuse = mock.Mock(side_effect=NotImplementedError('posix_spawn: setsid unavailable on this platform'))
+        with mock.patch.dict(os.environ, {'CLAUDE_CODE_ENTRYPOINT': ''}), mock.patch.object(side_page.os, 'posix_spawn', refuse):
+            url = side_page.open_page(run)['url']
+        refuse.assert_called_once()
+        with urlopen(url, timeout=10) as page:
+            self.assertEqual(page.status, 200)
+
     def test_a_save_under_way_is_the_chats_and_the_page_shows_what_was_built(self):
         # The page follows metric generation only, in every flow.
         run = make_run(self.root, saved=False, stage=('publish', 'running'))

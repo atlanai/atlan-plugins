@@ -1,6 +1,6 @@
 ---
 name: source-survey
-description: "Atlan Analytics: survey a warehouse, folder or dashboard: key tables, what a source covers, metric names. Use when asked what data exists, which tables to use, or if a source is usable. Not for building on it (analytics-build, metrics-generation)."
+description: "Atlan Analytics: survey a warehouse, folder, dashboard or SQL files: what each covers, key tables, metric names. Use when asked only what reports or data cover, which tables to use, or if a source is usable. Not for questions on it (analytics-build)."
 ---
 
 # Survey a source and check it is ready

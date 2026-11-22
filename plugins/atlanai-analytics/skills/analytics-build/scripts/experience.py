@@ -190,9 +190,13 @@ def _context_items(reader, state):
             if (publication.get('workspace_id') and not state.get('context_changed')
                     and (kind, name, revision) in receipts):
                 status = 'released'
+            held_reason = None
             if ((kind, name) in held_names or (kind, _text(body.get('source_id'))) in held_ids
                     or (check.get('definition_hash') == revision and check.get('status') == 'held')):
                 status = 'held'
+                held_reason = next((r['reason'] for r in holds if r['reason'] and (
+                    (r['kind'], r['name']) == (kind, name) or (r['kind'], r['source_id']) == (kind, _text(body.get('source_id'))))), None) \
+                    or _text('; '.join(e for e in check.get('errors', []) if isinstance(e, str)), 300)
             elif not hold_evidence_valid:
                 status = 'needs_review'
             sql = definition.get('sql') if kind == 'sql_query' else None
@@ -229,8 +233,21 @@ def _context_items(reader, state):
                           'checks': {'execution': execution, 'review': review, 'parity': 'unmeasured',
                                      'publication': 'released' if status == 'released' else 'held' if status == 'held' else 'local'},
                           'provenance': _provenance(definition, query_names), 'definition_hash': revision,
-                          'reuse': reuse, 'evidence_file': 'context/' + file})
+                          'reuse': reuse, 'evidence_file': 'context/' + file, 'held_reason': held_reason})
     return items, holds
+
+
+def held_line(model):
+    """Which items wait for repair, and why: 2026-11-22 evals, a hand-off read "1 items need repair" and could not say which."""
+    held = [(i['name'], i.get('held_reason')) for i in model['items'] if i['status'] == 'held']
+    named = {name for name, _ in held}
+    held += [(h['name'], h.get('reason')) for h in model.get('holds', []) if h.get('name') and h['name'] not in named]
+    count = model['counts']['held']
+    shown = '; '.join(_markdown(name) + (' (' + _markdown(reason.rstrip('.')) + ')' if reason else '') for name, reason in held[:3])
+    if not shown:
+        return f"{count} {'item needs' if count == 1 else 'items need'} repair before publication."
+    more = f'; and {len(held) - 3} more' if len(held) > 3 else ''
+    return f"{'Needs' if count == 1 else str(count) + ' items need'} repair before publication: {shown}{more}."
 
 
 def _blank_times(value):
@@ -529,7 +546,7 @@ def handoff(model):
         usable += f" {counts['executed']} have recorded execution checks."
     attention = []
     if counts['held']:
-        attention.append(f"{counts['held']} items need repair before publication.")
+        attention.append(held_line(model))
     if counts['review_required']:
         attention.append(read_line(counts['review_required']))
     if total and not counts['executed']:
@@ -575,7 +592,7 @@ def render_chat(model, detail=False):
         source_label = 'source' if model['source_count'] == 1 else 'sources'
         lines.append(f"Scope: {model['source_count']} {source_label}" + (', ' + model.get('selection_kind', 'pages') + ': ' + _markdown(', '.join(model['selected_pages'][:3])) if model['selected_pages'] else '') + '.')
     if counts['held']:
-        lines.append(f"{counts['held']} items need repair before publication.")
+        lines.append(held_line(model))
     if counts.get('review_required'):
         lines.append(read_line(counts['review_required']) + ' This is separate from the checks on the data.')
     if model.get('handoff', {}).get('coverage_notes'):

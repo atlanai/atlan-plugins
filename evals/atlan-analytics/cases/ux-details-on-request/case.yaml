@@ -1,22 +1,16 @@
 schema_version: "1.1"
 name: ux-details-on-request
 tags: [analytics, setup, ux, preview, details]
+context:
+  scaffold_script: scaffold.sh
 execution:
+  # A real task: the run is saved in this folder (fixtures/shipping_run.py, local), and the
+  # model finds it and reads it with the skill's helpers. Nothing in the prompt says what it holds.
   prompt: |
-    Use Atlan Analytics. Show the details for the Shipped units sample, including its SQL,
-    source, population and checks. Use only this supplied saved checkpoint, without running
-    SQL or contacting Registry this turn.
-
-    Shipped units means total units on shipped orders. Formula: SUM(s.units). Mandatory filter:
-    s.status = 'shipped'. Grain: region. Source: shipments model and history shape shipping-01.
-    The checked saved query is:
-    SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' AND shipped_at >= $start_date GROUP BY region LIMIT 100
-    Parameter start_date is a date, bound separately, with sample value 2026-10-01.
-    Schema checks and that sample execution passed earlier. Other parameter values and
-    independent dashboard parity have not been checked. The metric and query are still local,
-    with zero published items. Show only this requested sample, not other candidates.
-  max_turns: 14
-  allowed_tools: [Read, Glob, Grep, Skill]
+    Show me the details for the Shipped units metric from our shipping setup: what it counts,
+    the SQL of the saved query behind it, where it came from and how it was checked.
+  max_turns: 30
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
 graders:
   - name: uses-analytics-skill
     type: tool_used
@@ -26,14 +20,17 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      This is a details-only reply for Shipped units, not a request to execute or publish.
-      Expected SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' AND shipped_at >= $start_date GROUP BY region LIMIT 100
-      PASS only if the reply shows that complete SQL in a code block and explains total units
-      on shipped orders, formula SUM(s.units), mandatory filter s.status = 'shipped', region
-      grain, shipments model and history shape shipping-01. Parameter start_date must be a date
-      bound separately, with 2026-10-01 identified as the sample binding, not substituted into
-      the SQL. Whitespace-only formatting is allowed; tokens, literals, operators and filters
-      must be unchanged. FAIL on an omitted filter, altered query or unrelated metric card.
+      The saved run holds Shipped units: total units on shipped orders, formula SUM(s.units),
+      mandatory filter s.status = 'shipped', region grain, from the shipments dbt model and one
+      query-history pattern. Its saved query is
+      SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' AND shipped_at >= $start_date GROUP BY region LIMIT 100
+      with a date parameter start_date.
+      PASS only if the reply shows that complete SQL in a code block and gives the meaning,
+      the formula, the shipped-only filter, the region grain and the model plus query-history
+      source. start_date must stay a parameter in the SQL; naming 2026-10-01 as the sample it
+      was checked with is right, substituting it into the SQL is not. Whitespace-only
+      formatting is allowed; tokens, literals, operators and filters must be unchanged.
+      FAIL on an omitted filter, altered query or a card for an unrelated metric.
   - name: saved-sql-preserved
     type: regex
     target: last_message
@@ -42,33 +39,22 @@ graders:
     type: llm
     focus: last_message
     criteria: |
-      Known checkpoint: schema checks and the example using start_date = 2026-10-01 passed
-      earlier. Other parameter values and independent dashboard parity remain unchecked.
-      The metric and query remain local with zero published items. PASS if the reply preserves
-      these distinctions. Reporting earlier successful checks is correct, not evidence of a
-      new execution. FAIL if it claims SQL ran or Registry publication happened during this
-      turn, or generalizes the earlier sample to all parameter values or business correctness.
+      The saved checks: the metric's authored SQL example ran earlier, and the saved query ran
+      earlier with start_date = 2026-10-01. Other parameter values and dashboard parity were
+      never checked. The metric and query are local, with nothing saved in Atlan.
+      PASS if the reply keeps these distinctions: reporting the earlier runs is correct.
+      FAIL if it claims SQL ran or anything was saved to Atlan during this turn, or treats the
+      one sample as proof for every date or of business correctness.
   - name: plain-reply
     type: llm
     focus: last_message
     criteria: |
-      The user explicitly requested Shipped units details: formula, SQL, source, population
-      and checks. PASS if the reply leads with this metric and presents that evidence readably.
-      Headings, bullets, a SQL block and an explanation of prior versus unperformed checks are
-      appropriate. No short-response word limit applies to this explicit details request.
-      FAIL on unrelated pipeline narration, extra questions or cards, invented UI interaction,
-      or a machine status footer such as DONE, DONE_WITH_CONCERNS, BLOCKED or NEEDS_CONTEXT.
-  # Checkpoint prompts authorize instruction reads, not new execution or Registry calls.
-  - name: no-shell-calls
-    type: tool_used
-    tool: Bash
-    min: 0
-    max: 0
-  - name: no-registry-read-calls
-    type: tool_used
-    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_read_tool
-    min: 0
-    max: 0
+      The user asked for the details of one metric. PASS if the reply leads with Shipped units
+      and presents its evidence readably. Headings, bullets, a SQL block and a note on what was
+      and was not checked are appropriate, at whatever length that takes.
+      FAIL on narration of the setup pipeline or of the helper commands run, extra questions or
+      cards, a pitch to publish, or a machine status footer such as DONE or BLOCKED.
+  # Details are read from the saved run: nothing is written to Atlan.
   - name: no-registry-write-calls
     type: tool_used
     tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool

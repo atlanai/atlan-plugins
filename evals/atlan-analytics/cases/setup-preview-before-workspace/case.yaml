@@ -1,26 +1,17 @@
 schema_version: "1.1"
 name: setup-preview-before-workspace
 tags: [analytics, setup, preview]
+context:
+  scaffold_script: scaffold.sh
 execution:
+  # The run in this folder built 3 metrics and 1 query, schema checked with SQL untested, chose
+  # no destination, and its last session only linked preview.html (fixtures/shipping_run.py,
+  # preview). A resume shows one real sample before any destination question.
   prompt: |
-    Continue Atlan Analytics setup from this checkpoint. No destination workspace is selected.
-    The previous assistant ran the preview helper but only linked preview.html in chat.
-    We have not called any Registry write tools. The candidates below are the complete
-    local preview output; no source access or new SQL execution is needed in this turn.
-
-    Five metric candidates, all schema checked with SQL still untested:
-    - Shipped units: units on shipped orders, SUM(s.units), shipments model.
-    - Returned units: units returned, SUM(r.units), returns model.
-    - Return rate: returned units divided by shipped units, SUM(r.units) / NULLIF(SUM(s.units), 0), query history.
-    - Shipping cost: cost of dispatched orders, SUM(s.shipping_cost), shipments model and query history.
-    - Late shipments: shipments arriving after the promised date, SUM(CASE WHEN s.arrived_at > s.promised_at THEN 1 ELSE 0 END), query history.
-    One history-derived saved query, schema checked and execution untested:
-    Question: How many units shipped by region?
-    SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' GROUP BY region LIMIT 100
-
-    Continue the setup from here.
-  max_turns: 14
-  allowed_tools: [Read, Glob, Grep, Skill]
+    Let's carry on with the shipping metrics setup from where we left off.
+    The host exposes no native question tool in this test, so use ordinary chat.
+  max_turns: 30
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
 graders:
   - name: uses-analytics-skill
     type: tool_used
@@ -28,24 +19,40 @@ graders:
     input_match: 'analytics-build'
   - name: visible-before-destination
     type: llm
+    focus: last_message
     criteria: |
-      PASS only if the assistant shows one actual supplied metric with its meaning,
-      calculation, model/history source and untested status before a destination/publish
-      question. It offers access to details or more candidates without dumping all five or
-      the full saved SQL by default. Supplied populations and formulas must not change.
-      A helper output or HTML link alone fails, as do invented results/publication or a
-      workspace question before the sample. The preview must use the completed-collection review with a representative metric's
-      business-definition structure: meaning, calculation, population, source and check
-      status. An untested candidate must not acquire an invented result or worked-example
-      value. Explicit Show five/all and detail requests retain their content checks.
+      The saved run has 3 metric candidates (Shipped units, Shipping cost, Shipped weight) and
+      1 saved query, all schema checked with SQL untested, and no destination chosen.
+      Shipped units is total units on shipped orders, SUM(s.units), filter s.status = 'shipped',
+      from the shipments dbt model and query history.
+      PASS only if the reply shows at least one actual saved metric with its meaning,
+      calculation, population, source and untested check status before any destination or
+      save question, and offers the rest or more detail without dumping everything.
+      A link to preview.html or a helper's output alone fails, as do invented results, values
+      or publication, or a workspace question before the sample.
   - name: no-extra-approval-to-preview
     type: llm
+    focus: last_message
     criteria: |
-      PASS if it shows a supplied candidate directly without first asking whether to
-      display them or requesting approval to run a read-only preview. A subsequent
-      destination/continuation choice is fine; no Registry writes should be claimed.
+      PASS if it shows a saved candidate directly, without first asking whether to show them
+      or for approval to run a read-only preview. A destination or continuation choice after
+      the sample is fine. FAIL if it claims anything was saved to Atlan.
   - name: plain-reply
     type: llm
+    focus: last_message
     criteria: |
-      PASS if the reply leads with the preview or current stage, uses plain language and
-      has no greeting, apology, em dash or generic closing offer. The collection review has no word limit. A concrete next choice after the visible preview is appropriate.
+      PASS if the reply leads with the preview or the current stage, uses plain language and
+      has no greeting, apology or generic closing offer. The collection review has no word
+      limit. A concrete next choice after the visible sample is appropriate. FAIL on narration
+      of the helper commands run.
+  # Nothing is saved before the person picks a destination.
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
+    min: 0
+    max: 0
+  - name: no-registry-generic-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_tool
+    min: 0
+    max: 0

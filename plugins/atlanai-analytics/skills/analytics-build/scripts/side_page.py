@@ -834,10 +834,14 @@ def _spawn(args, key):
                 (os.POSIX_SPAWN_DUP2, read, 0), (os.POSIX_SPAWN_DUP2, quiet, 1), (os.POSIX_SPAWN_DUP2, quiet, 2),
                 (os.POSIX_SPAWN_CLOSE, write)])
             os.write(write, (key + '\n').encode('ascii'))
+            return pid
+        except NotImplementedError:
+            # The Pythons uv, mise and rye install (python-build-standalone) are built without setsid for
+            # posix_spawn, and refuse it before starting anything; the page starts the other way below.
+            pass
         finally:
             for fd in (read, write, quiet):
                 os.close(fd)
-        return pid
     spawn = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
     spawn.stdin.write((key + '\n').encode('ascii'))
