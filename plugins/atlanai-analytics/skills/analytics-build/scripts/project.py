@@ -320,7 +320,12 @@ class Project(ContextState):
             return {'status': 'text_fallback', 'markdown': text}
 
 
+    def apply_reviewed_values(self):
+        """The values a person reviewed as business values, for a check that does not read the run through current()."""
+        set_reviewed_values(self.manifest().get('reviewed_values') if self.path.is_file() else None)
+
     def check(self):
+        self.apply_reviewed_values()
         items = metric_preview.candidates(self)
         # Preserve not-yet-visited execution evidence if this pass is canceled.
         checks = {item['key']: item['check'] for item in items if item['check']}
@@ -347,6 +352,8 @@ class Project(ContextState):
         return self.check_execution(request, 'metric')
 
     def check_execution(self, request, kind):
+        # A value the person reviewed passes here as it does in history and export (2026-11-22: four items stayed held).
+        self.apply_reviewed_values()
         items = metric_preview.candidates(self)
         keys = [i['key'] for i in items]
         key = metric_preview.resolve_id(request.get('name', ''), keys, kind)
