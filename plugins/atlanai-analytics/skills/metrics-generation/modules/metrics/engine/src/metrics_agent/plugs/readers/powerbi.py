@@ -2910,8 +2910,11 @@ def _pbi_asset(role: str, name: str, item_dir: pathlib.Path) -> dict[str, Any]:
 
 
 def parse(path: pathlib.Path, report_index: dict | None = None,
-          _chain: tuple = ()) -> dict[str, Any]:
+          _chain: tuple = (), extra_reports: tuple = ()) -> dict[str, Any]:
     """One semantic model -> the vendor-neutral `bi_facts` contract.
+
+    `extra_reports` are report folders outside the model's own that are known to be over it
+    (a project's `<Name>.Report` beside its `<Name>.SemanticModel`, see `readers/pbip`).
 
     IN A CRAWLER EXTRACT THE REPORTS ARE NOT UNDER THE MODEL. `semanticModels/<ws>/<model>/`
     holds the TMDL and the visuals that use it live under `reports/<ws>/<report>/`, bound by
@@ -2960,7 +2963,9 @@ def parse(path: pathlib.Path, report_index: dict | None = None,
                 u["measures"] = [rename.get(m, m) for m in u.get("measures") or []]
         return got
 
-    report_dirs = _crawler.reports_for(root, report_index)
+    report_dirs = list(_crawler.reports_for(root, report_index))
+    report_dirs += [pathlib.Path(r) for r in extra_reports
+                    if pathlib.Path(r).resolve() not in {d.resolve() for d in report_dirs}]
     scans = scan_endorsements(root)
     usage = _read(root)
     seen = {u.get("unit_id") for u in usage}
@@ -3001,6 +3006,45 @@ def parse(path: pathlib.Path, report_index: dict | None = None,
     return out
 
 
+def attach_reports(facts: dict[str, Any], report_dirs) -> dict[str, Any]:
+    """Read the reports over a model another form's reader parsed (a project whose model is
+    a `model.bim`), and put their visuals in place of the model's curation. The model's own
+    usage stays when no report holds a visual."""
+    tables, measures = facts["tables"], facts["measures"]
+    usage: list[dict] = []
+    seen: set = set()
+    for rd in report_dirs:
+        rd = pathlib.Path(rd)
+        name = _crawler.display_name(rd) or rd.name
+        rename = report_measures(rd, name, measures)
+        report = _pbi_asset("report", name, rd)
+        for u in _parse_report(rd, tables) + _parse_pbir_report(rd, tables):
+            if u.get("unit_id") in seen:
+                continue
+            seen.add(u.get("unit_id"))
+            if rename:
+                u["measures"] = [rename.get(m, m) for m in u.get("measures") or []]
+            u["assets"] = [report]
+            usage.append(u)
+    if usage:
+        notes = finish_usage(usage, tables, measures)
+        measure_uses(measures)
+        facts["usage"] = usage
+        if notes:
+            facts["_reader_notes"] = list(facts.get("_reader_notes") or []) + notes
+    return facts
+
+
+def _project_of(path: pathlib.Path):
+    """`readers/pbip.resolve`, with a folder of several projects refused by name."""
+    from metrics_agent.plugs.readers import pbip as _pbip  # noqa: PLC0415
+    from metrics_agent.sockets import ReaderRefused  # noqa: PLC0415
+    try:
+        return _pbip.resolve(pathlib.Path(path))
+    except _pbip.Ambiguous as exc:
+        raise ReaderRefused(str(exc)) from None
+
+
 # --------------------------------------------------------------------------- the reader
 # WITHIN Power BI, the CONTAINER decides the form. All three write the same `bi_facts` format
 # and share `readers/mquery`, so a warehouse target one can name and another cannot would be a
@@ -3021,25 +3065,37 @@ class PowerBIReader(FormulaCompiler):
     # The formula languages it writes; its formulas compile through `FormulaCompiler`.
     languages = ("dax", "m-query")
     # `.tmdl` and `.json` are the files a model directory and its reports are made of.
-    suffixes = (".pbix", ".pbit", ".bim", ".tmsl", ".tmdl", ".json")
+    suffixes = (".pbix", ".pbit", ".pbip", ".bim", ".tmsl", ".tmdl", ".json")
 
     def detect(self, path: pathlib.Path) -> bool:
+        if path.suffix.lower() == ".pbip" and path.is_file():
+            return True
         if path.is_dir():
-            return any(path.rglob("*.tmdl"))
+            return any(path.rglob("*.tmdl")) or any(path.rglob("model.bim"))
         return path.suffix.lower() in _FORM_BY_SUFFIX
 
     def form(self, path: pathlib.Path) -> str:
         """Which form reads `path`, or a refusal naming what is supported."""
+        from metrics_agent.sockets import ReaderRefused  # noqa: PLC0415
+
+        project = _project_of(path)
+        if project is not None:
+            return "powerbi" if project.kind == "tmdl" else "tabular"
         if path.is_dir():
             return "powerbi"
         found = _FORM_BY_SUFFIX.get(path.suffix.lower())
         if found is not None:
             return found
-        from metrics_agent.sockets import ReaderRefused  # noqa: PLC0415
+        if path.suffix.lower() == ".pbip":
+            raise ReaderRefused(
+                f"{path.name} names no semantic model on disk: its report reads a published "
+                f"model. Supply that model (its TMDL folder, a .bim, or a fetch with the "
+                f"model) beside the report.")
 
         raise ReaderRefused(
             f"the powerbi reader does not know how to read {path.name}.\n"
-            "  Supported: a semantic-model DIRECTORY (definition/model.tmdl), a .pbix, .pbit, or a "
+            "  Supported: a Power BI project (.pbip, or its report or model folder), a "
+            "semantic-model DIRECTORY (definition/model.tmdl), a .pbix, .pbit, or a "
             ".bim/.tmsl.\n"
             "  A crawler extract ROOT is not one of them — inventory it and pass one model:\n"
             "    python3 scripts/s_extract_inventory.py --extract <root> --out inventory.json")
@@ -3052,7 +3108,13 @@ class PowerBIReader(FormulaCompiler):
         dialect = opts.get("dialect")
         opts = {k: v for k, v in opts.items() if k == "report_index"}
         kind = self.form(path)
+        project = _project_of(path)
         with _mquery.run_dialect(dialect):
+            if project is not None and project.kind == "tmdl":
+                return parse(project.model, extra_reports=project.reports, **opts)
+            if project is not None:
+                from metrics_agent.plugs.readers import tabular  # noqa: PLC0415
+                return attach_reports(tabular.parse(project.model_file, **opts), project.reports)
             if kind == "pbit":
                 from metrics_agent.plugs.readers import pbit  # noqa: PLC0415
                 return pbit.parse(path, **opts)
@@ -3075,6 +3137,12 @@ class PowerBIReader(FormulaCompiler):
         import zipfile  # noqa: PLC0415
 
         path = pathlib.Path(path)
+        from metrics_agent.plugs.readers import pbip as _pbip  # noqa: PLC0415
+        try:
+            if _pbip.resolve(path) is not None:
+                return None           # a project: the report names its model, and it is here
+        except _pbip.Ambiguous:
+            return None               # several projects: `form` refuses it by name
         what = ("its formulas are in the semantic model. Supply the model: a fetch with the "
                 "model (`with_model`), its TMDL folder or .bim, or the full .pbix download "
                 "(report and data)")
@@ -3088,6 +3156,9 @@ class PowerBIReader(FormulaCompiler):
                 return (f"{path.name} is a live-connection report: it holds the report and no "
                         f"semantic model, and {what}.")
             return None
+        if _pbip.thin_report(path):
+            return (f"{path.name} is a report over a published semantic model (it names the "
+                    f"model by connection), and {what}.")
         if path.is_dir() and not any(path.rglob("*.tmdl")) and not any(path.rglob("*.bim")):
             if any(path.rglob("definition.pbir")) or any(path.rglob("report.json")):
                 return (f"{path.name} holds a report without its semantic model, and {what}.")

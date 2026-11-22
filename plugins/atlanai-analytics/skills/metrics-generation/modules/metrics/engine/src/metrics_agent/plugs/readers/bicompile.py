@@ -47,6 +47,7 @@ from typing import Any
 
 import yaml
 
+from metrics_agent.lib import bi_models as _bi_models
 from metrics_agent.lib import declared as _declared
 from metrics_agent.lib import slugs
 from metrics_agent.lib.card_sql import statement_sha  # noqa: F401 - the review's, re-exported
@@ -1295,6 +1296,11 @@ class _Parser:
                 if col.lower() not in self.colmap:
                     raise _NotSimple
                 return f"{self.alias}.{_ident(self.colmap[col.lower()])}"
+            if self.ctx is not None and self.ctx.renames:
+                # The column as its table reads it (a Power Query rename): the same map a
+                # column reference in an expression goes through (`_atom`).
+                phys = table or (_bare(self.home[1]) if self.home else self.ctx.source)
+                col = self.ctx.renames.get((str(phys or "").lower(), col.lower()), col)
             return f"{on}.{col}"
 
         # Text compared as the model holds it, unless the source compares it (a table read by
@@ -10721,7 +10727,8 @@ class FormulaCompiler:
                                                   r.get("from_table")),
                   "to_table": table_of.get(str(r.get("to_table") or "").lower(),
                                            r.get("to_table"))}
-                 for r in facts.get("relationships") or []
+                 for r in _bi_models.edges_on_source_columns(facts.get("relationships") or [],
+                                                             facts["tables"])
                  if r.get("from_table") and r.get("to_table")]
         # A model whose formulas are DAX compares text as DAX does: without case, and a
         # column's value without its trailing spaces (seen live). Decided from the model's
