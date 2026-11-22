@@ -4,6 +4,7 @@ CI runs on Linux, so these tests load the Windows branches with a stand-in `msvc
 check the sources for Unix-only modules imported where every platform loads them.
 """
 import ast
+import errno
 import importlib.util
 import io
 import os
@@ -47,7 +48,7 @@ class FakeMsvcrt:
             if self.held.pop(key, None) != fd:
                 raise OSError('unlocking a range this handle does not hold')
         elif key in self.held:
-            raise OSError('locked by another handle')
+            raise OSError(errno.EACCES, 'locked by another handle')
         else:
             self.held[key] = fd
 
@@ -111,6 +112,89 @@ class WindowsPortabilityTests(unittest.TestCase):
             with driver.operation_lock(root):
                 pass
             self.assertEqual(fake.held, {})
+
+    def load_side_view_as_windows(self, fake):
+        scripts = ANALYTICS / 'skills/analytics-build/scripts'
+        sys.path.insert(0, str(scripts))
+        self.addCleanup(sys.path.remove, str(scripts))
+        spec = importlib.util.spec_from_file_location('side_view_on_windows', scripts / 'side_view.py')
+        module = importlib.util.module_from_spec(spec)
+        windows_os = types.ModuleType('os')
+        windows_os.__getattr__ = lambda attr: getattr(os, attr)
+        windows_os.name = 'nt'
+        with mock.patch.dict(sys.modules, {'msvcrt': fake, 'os': windows_os}):
+            spec.loader.exec_module(module)
+        return module
+
+    def test_windows_side_view_lock_holds_one_update_at_a_time_and_releases(self):
+        fake = FakeMsvcrt()
+        side_view = self.load_side_view_as_windows(fake)
+        self.assertFalse(hasattr(side_view, 'fcntl'))
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp).resolve()
+            with side_view._locked(run):
+                self.assertEqual(len(fake.held), 1)
+                # A second update waits on the held byte instead of writing alongside the first.
+                with open(run / 'view' / '.lock', 'a') as other:
+                    with mock.patch.object(side_view.time, 'sleep', side_effect=TimeoutError('waited')):
+                        with self.assertRaisesRegex(TimeoutError, 'waited'):
+                            side_view._lock(other)
+            self.assertEqual(fake.held, {})
+            with side_view._locked(run):
+                pass
+            self.assertEqual(fake.held, {})
+
+    def test_windows_side_view_lock_waits_only_on_contention(self):
+        fake = FakeMsvcrt()
+        side_view = self.load_side_view_as_windows(fake)
+        with tempfile.TemporaryDirectory() as temp, open(Path(temp) / '.lock', 'a') as handle:
+            for code in (errno.EACCES, getattr(errno, 'EDEADLOCK', errno.EDEADLK)):
+                failures = [OSError(code, 'contended')]
+
+                def locking(fd, mode, nbytes):
+                    if failures:
+                        raise failures.pop()
+
+                with mock.patch.object(fake, 'locking', side_effect=locking), \
+                        mock.patch.object(side_view.time, 'sleep') as sleep:
+                    side_view._lock(handle)
+                self.assertEqual(sleep.call_count, 1, code)
+            # Any other error cannot clear by waiting: it surfaces at once instead of spinning.
+            with mock.patch.object(fake, 'locking', side_effect=OSError(errno.EBADF, 'bad handle')), \
+                    mock.patch.object(side_view.time, 'sleep') as sleep:
+                with self.assertRaises(OSError) as raised:
+                    side_view._lock(handle)
+            self.assertEqual(raised.exception.errno, errno.EBADF)
+            sleep.assert_not_called()
+
+    def test_windows_side_view_write_waits_briefly_for_a_held_file(self):
+        side_view = self.load_side_view_as_windows(FakeMsvcrt())
+        real_replace = os.replace
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'view' / 'state.json'
+            refusals = [PermissionError(errno.EACCES, 'in use')] * 2
+
+            def replace(src, dst):
+                if refusals:
+                    raise refusals.pop()
+                real_replace(src, dst)
+
+            with mock.patch.object(side_view.os, 'replace', side_effect=replace), \
+                    mock.patch.object(side_view.time, 'sleep') as sleep:
+                side_view._write(path, '{"moments": []}')
+            self.assertEqual(path.read_text(encoding='utf-8'), '{"moments": []}')
+            self.assertEqual(sleep.call_count, 2)
+
+            # A file that stays held fails after a bounded wait, and leaves no temporary file behind.
+            with mock.patch.object(side_view.os, 'replace', side_effect=PermissionError(errno.EACCES, 'in use')), \
+                    mock.patch.object(side_view.time, 'sleep') as sleep:
+                with self.assertRaises(PermissionError):
+                    side_view._write(path, '{"moments": [1]}')
+            waited = sum(call.args[0] for call in sleep.call_args_list)
+            self.assertLessEqual(waited, 2.5)
+            self.assertEqual(sleep.call_count, len(side_view.REPLACE_WAITS))
+            self.assertEqual(sorted(p.name for p in path.parent.iterdir()), ['state.json'])
+            self.assertEqual(path.read_text(encoding='utf-8'), '{"moments": []}')
 
     def piped(self, code, timeout=10):
         sys.path.insert(0, str(MODULE))

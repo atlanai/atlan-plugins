@@ -735,6 +735,14 @@ _EVAL_ID = re.compile(r"\b(?:dataset|dataset_record|experiment|experiment_result
 # .atlan-analytics/<slug>/context, which an answering agent must read.
 _EVAL_PATH = re.compile(r"answers\.jsonl|\.atlan-analytics/[^/\s\"']+/(?:eval|hillclimb)\b|\.atlan-evals|/eval/v1/"
                         r"|gold_results", re.I)
+
+
+def _eval_path(text):
+    """Whether text names an eval folder, with either separator: a Windows path reads with backslashes,
+    doubled once it is JSON. The text is checked as written too, so no POSIX match is lost."""
+    return bool(_EVAL_PATH.search(text) or _EVAL_PATH.search(re.sub(r"\\+", "/", text)))
+
+
 _NARRATION = ("rationale", "objective", "description")
 
 
@@ -810,7 +818,7 @@ def parse_transcript(path) -> dict:
                 scan = json.dumps({k: v for k, v in inp.items() if k not in _NARRATION}, default=str) \
                     if isinstance(inp, dict) else blob
                 if (str(inp.get("kind", "")).lower() in EVAL_KINDS if isinstance(inp, dict) else False) \
-                        or _EVAL_ID.search(scan) or _EVAL_PATH.search(scan):
+                        or _EVAL_ID.search(scan) or _eval_path(scan):
                     hits.append(f"{name}: {blob[:160]}")
                 elif (_WRITE_TOOL.search(name) and not _SESSION_UI.match(name)) or name in ("unsupported_codex_execution", "exec_command", "shell", "shell_command", "apply_patch", "read_file", "view_image"):
                     hits.append(f"{name}: a write tool")

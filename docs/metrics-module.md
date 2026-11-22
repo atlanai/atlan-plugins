@@ -100,9 +100,9 @@ The ported engine test suite and its generated fixtures are omitted from this re
 Plugin-level regression tests and runtime acceptance remain in tools/tests. Maintain those
 checks with behavior changes; the source plugs and their common socket contracts remain intact.
 
-Python 3.11 and 3.12 on macOS/Linux are supported by the current runtime. Live model behavior
-evals and external warehouse checks are separate from the offline suite. Never use eval gold
-as metric-generation context.
+Python 3.11 and 3.12 on macOS, Linux and Windows (`py -3.12` or `py -3.11`) are supported by
+the current runtime. Live model behavior evals and external warehouse checks are separate from
+the offline suite. Never use eval gold as metric-generation context.
 
 ## Structured publication holds
 
