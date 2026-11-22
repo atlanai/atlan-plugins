@@ -438,6 +438,14 @@ class Project(ContextState):
                                'warnings': warnings}
         self.write(path, checks)
         progress.update_checks(self)
+        if kind == 'metric':
+            # The metric's value is its card's calculation. An authored example can filter or group (one supplier's rate
+            # read as the whole rate, 2026-11-22), so it is returned apart and named by its index.
+            return {**calculated, 'value_of': 'the metric: its formula over its source and mandatory filters',
+                    'example': {'example_index': index, **result},
+                    'empty_population': {'rows': empty['rows']},
+                    'next': 'Report `rows` as the metric. `example` is authored example %d, which may filter or group: '
+                            'never give its rows as the metric\'s value.' % index}
         return result
 
     def warehouse_statement(self, item, kind, request, binding):

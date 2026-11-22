@@ -71,6 +71,20 @@ class BatchExecution(unittest.TestCase):
         self.assertEqual(results[0]['rows'], results[1]['rows'])
         self.assertNotEqual(results[0]['query_id'], results[1]['query_id'])
 
+    def test_a_metric_check_reports_the_card_calculation_not_a_narrower_example(self):
+        # A live check reported one supplier's waste rate (an authored example) as the metric's whole rate (2026-11-22).
+        card = cards.CardExecution.card(self)
+        card['definition']['examples'] = [{'source': 'declared:example', 'sql': 'SELECT SUM(cost) FROM site.work'}]
+        self.run.write(self.run.context / 'metrics.json', [card])
+        self.run.write(self.run.context / 'queries.json', [])
+        result = self.run.check_metric({'name': 'cost'})
+        check = self.run.read(self.run.context / 'candidate-checks.json')['metric:cost']
+        self.assertEqual(result['rows'], check['composition']['rows'])
+        self.assertEqual(result['example']['example_index'], 0)
+        self.assertNotEqual(result['example']['rows'], result['rows'])
+        self.assertEqual(result['empty_population']['rows'], check['composition']['empty_population']['rows'])
+        self.assertIn('never give its rows', result['next'])
+
     def test_metric_check_batches_all_three_checks_and_holds_failed_calculation(self):
         card = cards.CardExecution.card(self)
         self.run.write(self.run.context / 'metrics.json', [card])

@@ -48,7 +48,7 @@ name ends (`…mcp__call_tool`).
     "calls": [
       { "name": "registry__list_workspaces", "arguments": { "kind": "user_default" } },
       { "name": "registry__list_workspaces", "arguments": { "kind": "org_default" } },
-      { "name": "registry__get_artifact_counts", "arguments": { "group_by": "kind" } },
+      { "name": "registry__get_artifact_counts", "arguments": { "group_by": "kind", "limit": 100 } },
       { "name": "registry__get_artifact_counts", "arguments": { "group_by": "workspace_id", "limit": 5 } }
     ],
     "objective": "<one sentence on what this whole session is for, for a human auditor>",
@@ -62,7 +62,8 @@ name ends (`…mcp__call_tool`).
   their own. Keep the `kind` filter: never list or page through every workspace.
 
   They name the organization's workspace, count each kind (fold the `ontology_…` sub-kinds into
-  one ontology count) and name the busiest workspaces: each group of the last read carries
+  one ontology count, and leave out the platform's own `app`, `app_action`, `harness_vendor`,
+  `model` and `agent_framework` rows) and name the busiest workspaces: each group of the last read carries
   its `workspace_display_name`.
   Report what the user can use, not raw lists: their workspace and the organization's first,
   then the few busiest. Ask which workspace to use only when a write is coming.
