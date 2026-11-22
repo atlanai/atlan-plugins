@@ -92,7 +92,10 @@ class LabelOrNameTest(unittest.TestCase):
               # A Tableau calculated field, compiled: labels written from a category test.
               "WHERE ((CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Variable Spend' ELSE 'Fixed Spend' END)) "
               "IN ('Variable Spend')",
-              "CASE WHEN UPPER(t.LOB) IN ('VS', 'VAR') THEN 'Variable Spend' END AS lob_group")
+              "CASE WHEN UPPER(t.LOB) IN ('VS', 'VAR') THEN 'Variable Spend' END AS lob_group",
+              # A persona, role or cohort is who a row is for, not who it is (2026-11-22, a Snowflake run).
+              "u.PERSONA = 'Enterprise Architect'", "USER_PERSONA in ('Enterprise Architect', 'Data Engineer')",
+              "t.ROLE_NAME = 'Data Steward'", "signup_cohort = 'Early Adopter'")
     NAMES = ("where rep = 'Jane Smith'", "status = 'Open' and owner_name = 'Jane Smith'",
              "CASE WHEN id = 4 THEN 'Jane Smith' END AS owner_name", "CASE WHEN id = 4 THEN 'Jane Smith' END",
              "tier in ('Gold Plus') and manager like 'Mary Jones%'",
@@ -100,7 +103,8 @@ class LabelOrNameTest(unittest.TestCase):
              "CASE WHEN t.OWNER_ID = 4 THEN 'Jane Smith' ELSE 'Other Rep' END IN ('Jane Smith')",
              "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Jane Smith' END AS owner_name",
              "CASE WHEN t.CHANNEL = 'ONLINE' AND t.REP_ID = 7 THEN 'Jane Smith' END",
-             "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Fixed Spend' END = 'X' and rep = 'Jane Smith'")
+             "CASE WHEN t.CHANNEL = 'ONLINE' THEN 'Fixed Spend' END = 'X' and rep = 'Jane Smith'",
+             "persona = 'Enterprise Architect' and owner = 'Jane Smith'", "profile_name = 'Jane Smith'")
 
     def test_reviewed_values_pass_and_nothing_else(self):
         from analytics_eval import set_reviewed_values
@@ -122,6 +126,39 @@ class LabelOrNameTest(unittest.TestCase):
         for sql in self.NAMES:
             with self.subTest(sql=sql):
                 self.assertIsNotNone(full_name_hit(sql))
+
+
+class ReviewedValuesReachEveryCheckTest(unittest.TestCase):
+    """A value the person reviewed passes in PROJECT check, check-metric, check-query and CONTEXT check, not only in
+    history and export (2026-11-22: four items stayed held after the person cleared the value)."""
+    SQL = "t.SPEND_OWNER = 'Variable Spend'"
+
+    def tearDown(self):
+        from analytics_eval import set_reviewed_values
+        set_reviewed_values([])
+
+    def run_dir(self, tmp, values):
+        run = Path(tmp).resolve() / 'run'
+        run.mkdir()
+        (run / 'run.json').write_text(json.dumps({'entrypoint': 'project', 'reviewed_values': values}))
+        return run
+
+    def test_project_checks_apply_the_run_reviewed_values(self):
+        from project import Project, ProjectError
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Project(self.run_dir(tmp, ['Variable Spend']))
+            self.assertEqual(full_name_hit(self.SQL), "'Variable Spend'")
+            with self.assertRaises(ProjectError):
+                project.check_execution({'name': 'nothing-authored'}, 'metric')
+            self.assertIsNone(full_name_hit(self.SQL))
+
+    def test_context_check_applies_the_run_reviewed_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            context = self.run_dir(tmp, ['Variable Spend']) / 'context'
+            context.mkdir()
+            with self.assertRaises(contracts.Blocked):  # nothing authored: the values are applied first
+                contracts.cmd_check(argparse.Namespace(dir=str(context)))
+            self.assertIsNone(full_name_hit(self.SQL))
 
 
 class PrivacyHoldTest(unittest.TestCase):

@@ -46,7 +46,9 @@ _CATEGORY = (r"(?:status|state|stage|tier|type|category|class|classification|buc
              r"priority|severity|reason|outcome|result|phase|grade|rating|channel|motion|plan|label|flag|"
              # Organisational groupings: LINE_OF_BUSINESS = 'Variable Spend', LOB, BUSINESS_UNIT.
              r"business|lob|division|department|unit|vertical|sector|industry|region|territory|"
-             r"portfolio|program|programme)")
+             r"portfolio|program|programme|"
+             # Who a row is for, not who it is: PERSONA = 'Enterprise Architect', ROLE, COHORT.
+             r"persona|role|cohort)")
 # The category word may be followed by what the column holds of it: CATEGORY_NAME, REGION_CODE.
 _CATEGORY_TAIL = _CATEGORY + r"(?:_?(?:name|desc|description|code|label))?"
 _CATEGORY_COLUMN = re.compile(

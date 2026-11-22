@@ -20,7 +20,7 @@ import sys
 # No __pycache__ is written into the installed plugin's folder.
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from analytics_eval import PII as _SHARED_PII, full_name_hit  # noqa: E402
+from analytics_eval import PII as _SHARED_PII, full_name_hit, set_reviewed_values  # noqa: E402
 import registry_contract  # noqa: E402
 
 VERSION = "0.1.0"
@@ -794,6 +794,9 @@ def check_publication_holds(directory, metrics=None, queries=None, links=None):
 def cmd_check(a) -> dict:
     """Check every authored body, decide create, revise or reuse against the workspace, write plan.json."""
     d = pathlib.Path(a.dir)
+    # The values the person reviewed as business values for this run, in the run's state beside its context.
+    state = load_json(d.parent / "run.json", {}) if (d.parent / "run.json").is_file() else {}
+    set_reviewed_values(state.get("reviewed_values") if isinstance(state, dict) else None)
     metrics = load_json(d / "metrics.json", []) or []
     queries = load_json(d / "queries.json", []) or []
     links = load_json(d / "links.json", []) or []

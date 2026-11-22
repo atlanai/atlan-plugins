@@ -132,14 +132,14 @@ class StructuredHoldTests(unittest.TestCase):
 
 
 class ExportHoldTests(unittest.TestCase):
-    def export(self, root, *, dependent=False):
+    def export(self, root, *, dependent=False, metric_check=None):
         run, context = root / 'run', root / 'context'
         run.mkdir()
         objects = [query(i) for i in range(18)]
         objects[17]['description'] = 'Previously held for a presentation, not a review decision.'
         cards = [{'name': f'Metric {i}', 'source_id': f'metric:{i}', 'derived_from': [f'q-{i}']}
                  for i in range(7, 11)]
-        if dependent:
+        if dependent and dependent != 'link':  # 'link': Metric 8 depends on Metric 7, whose source still ships
             cards[0]['derived_from'] = ['q-0']
         metrics = [{'name': c['name'], 'source_id': c['source_id'],
                     'definition': {'extensions': {}}} for c in cards]
@@ -171,7 +171,7 @@ class ExportHoldTests(unittest.TestCase):
         checked = types.SimpleNamespace(validation=lambda *args: {})
         with mock.patch.dict(sys.modules, {'metrics_agent': agent, 'metrics_agent.lib': lib, 'validation': checked}), \
              mock.patch.object(exporter, 'project', return_value=(metrics, saved, links)), \
-             mock.patch.object(context_contracts, 'check_metric', return_value=([], [])), \
+             mock.patch.object(context_contracts, 'check_metric', side_effect=metric_check or (lambda body: ([], []))), \
              mock.patch.object(context_contracts, 'check_query', return_value=([], [])):
             result = exporter.export_context(run, context, receipt)
         return result, context
@@ -197,6 +197,41 @@ class ExportHoldTests(unittest.TestCase):
                 held_names = {'Metric 7', 'Metric 8', *(q['name'] for q in result['held_queries'])}
                 self.assertFalse(any(l[e]['name'] in held_names for l in json.loads((context / 'links.json').read_text())
                                      for e in ('from', 'to')))
+
+    def test_a_metric_with_only_a_privacy_finding_is_held_alone_with_its_dependents(self):
+        # 2026-11-22: three metrics with a name-like label refused the export of 100.
+        def check(body):
+            return (["formula holds a person's name ('Jane Smith')"] if body['name'] == 'Metric 7' else [], [])
+        for dependency in (False, 'link'):
+            with self.subTest(dependency=dependency), tempfile.TemporaryDirectory() as temp:
+                result, context = self.export(Path(temp).resolve(), dependent=dependency, metric_check=check)
+                held = {m['name']: m for m in result['held']}
+                self.assertEqual(held['Metric 7']['reason'], 'privacy_review')
+                self.assertNotIn('Jane', held['Metric 7']['detail'])
+                self.assertEqual(set(held), {'Metric 7', 'Metric 8'} if dependency else {'Metric 7'})
+                self.assertEqual(result['metrics'], 2 if dependency else 3)
+                self.assertEqual(holds.enforce_context(context)['metrics'], result['held'])
+                if dependency:
+                    self.assertEqual(held['Metric 8']['reason'], 'required_metric_held')
+                else:  # its source query keeps its own check and still ships
+                    self.assertIn('query-7', {q['name'] for q in json.loads((context / 'queries.json').read_text())})
+
+    def test_a_metric_with_another_error_still_refuses_the_export(self):
+        def check(body):
+            return (['formula: unknown column'] if body['name'] == 'Metric 7' else [], [])
+        with tempfile.TemporaryDirectory() as temp, self.assertRaisesRegex(ValueError, 'export refused'):
+            self.export(Path(temp).resolve(), metric_check=check)
+
+    def test_reviewed_values_come_from_the_engine_run_and_the_project_run(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / 'run').mkdir()
+            (root / 'run' / 'run.yml').write_text(json.dumps({'privacy': {'reviewed_values': ['Variable Spend']}}))
+            self.assertEqual(exporter.reviewed_values({}, root / 'run', root / 'context'), ['Variable Spend'])
+            (root / 'run.json').write_text(json.dumps({'entrypoint': 'project', 'reviewed_values': ['Fixed Cost']}))
+            self.assertEqual(exporter.reviewed_values({}, root / 'run', root / 'context'), ['Variable Spend', 'Fixed Cost'])
+            (root / 'run.json').write_text(json.dumps({'entrypoint': 'dashboard', 'reviewed_values': ['Other']}))
+            self.assertEqual(exporter.reviewed_values({}, root / 'run', root / 'context'), ['Variable Spend'])
 
 
 if __name__ == '__main__':

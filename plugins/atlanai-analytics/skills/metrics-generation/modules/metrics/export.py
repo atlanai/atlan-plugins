@@ -60,6 +60,21 @@ def metric_body(card, layer, commit):
             'source_version': layer['layer_sha'], 'definition': definition}
 
 
+def reviewed_values(ri, run, context):
+    """The business values a person reviewed: the engine run's (`privacy.reviewed_values` in its
+    run.yml, which the module writes as JSON, so it is read without the engine) and those the
+    person recorded on the project run since (`PROJECT reviewed-values`), whose state sits beside
+    its context. Either clears a value here, so clearing one needs a re-export, not a new run."""
+    described = Path((ri.get('config') or {}).get('path') or run / 'run.yml')
+    config = json.loads(described.read_text()) if described.is_file() else {}
+    values = list((config.get('privacy') or {}).get('reviewed_values') or [])
+    state_path = Path(context).parent / 'run.json'
+    state = json.loads(state_path.read_text()) if state_path.is_file() else {}
+    if isinstance(state, dict) and state.get('entrypoint') == 'project':
+        values += list(state.get('reviewed_values') or [])
+    return values
+
+
 _PRIVATE = ("holds a person's name", 'holds an email address', 'holds an identifier literal')
 
 
@@ -181,6 +196,21 @@ def export_context(run, context, receipt, parity=None):
                 held.append({'source_id': body['source_id'], 'name': body['name'],
                              'status': 'held', 'reason': 'dashboard_parity_failed'})
             held_vq.update(card['derived_from'])
+    # Use the existing publisher's checks; never relax them to accommodate the new engine.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'analytics-build/scripts'))
+    import context_contracts
+    import analytics_eval
+    analytics_eval.set_reviewed_values(reviewed_values(ri, run, context))
+    # A metric that only fails the privacy check is held on its own, as a saved query is below,
+    # before the dependency closure so the metrics built on it are held with it. It used to
+    # refuse the whole export (2026-11-22: three metrics stopped 100). Its source queries keep
+    # their own privacy check and are not held for it.
+    held_ids = {item['source_id'] for item in held}
+    _, private_metrics = privacy_holds([body for body in metrics if body['source_id'] not in held_ids],
+                                       context_contracts.check_metric)
+    for body, detail in private_metrics:
+        held.append({'source_id': body['source_id'], 'name': body['name'], 'status': 'held',
+                     'reason': 'privacy_review', 'detail': detail})
     names = {body['name']: body for body in metrics}
     cards_by_name = {card['name']: card for card in cards['metrics']}
     held_names = {item['name'] for item in held}
@@ -216,16 +246,6 @@ def export_context(run, context, receipt, parity=None):
     saved = [body for body in saved if body['definition']['extensions']['metrics_agent']['vq_id'] not in held_vq]
     endpoints = {('metric', body['name']) for body in metrics} | {('sql_query', body['name']) for body in saved}
     links = [link for link in links if all((link[end]['kind'], link[end]['name']) in endpoints for end in ('from', 'to'))]
-    # Use the existing publisher's checks; never relax them to accommodate the new engine.
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'analytics-build/scripts'))
-    import context_contracts
-    import analytics_eval
-    # The business values a person reviewed in this run's run.yml (`privacy.reviewed_values`)
-    # pass the name check here as they did when the history was admitted.
-    # The module writes run.yml as JSON (worker.prepare), so it is read without the engine.
-    described = Path((ri.get('config') or {}).get('path') or run / 'run.yml')
-    config = json.loads(described.read_text()) if described.is_file() else {}
-    analytics_eval.set_reviewed_values((config.get('privacy') or {}).get('reviewed_values'))
     # A saved query that only fails the privacy check is held and left out, as any other held
     # query is: it never ships, and it no longer stops the metrics and queries that passed.
     saved, private = privacy_holds(saved, context_contracts.check_query)
