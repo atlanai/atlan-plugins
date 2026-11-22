@@ -158,7 +158,7 @@ class SavedRunFixtureTest(unittest.TestCase):
         self.assertEqual(preview["continuation"]["action"], "destination")
         published = self.journey("published")
         self.assertIn("8 metrics, 4 queries; 11 saved in Atlan Trident.", published["chat"])
-        self.assertIn("1 items need repair before publication.", published["chat"])
+        self.assertIn("Needs repair before publication: On-time rate (The denominator is undefined", published["chat"])
 
 
 if __name__ == "__main__":

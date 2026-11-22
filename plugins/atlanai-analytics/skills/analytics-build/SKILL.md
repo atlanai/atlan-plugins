@@ -1,6 +1,6 @@
 ---
 name: analytics-build
-description: Atlan Analytics on your data: pick a warehouse, find use cases or share dashboards, then build. Use when setting up, resuming or handing off a run, its details, workspace access, or asking about a folder's dashboards. Not for a demo (analytics-demo).
+description: "Atlan Analytics: set up, resume or hand off metrics on your data. Use for metrics in .atlan-metrics/: a metric's details, SQL or checks, what's ready, saving, a new workspace, or questions on a folder's dashboards. Not for a demo (analytics-demo)."
 ---
 
 # Atlan Analytics on your own data: seven guided steps

@@ -78,6 +78,15 @@ class GenericSetup(unittest.TestCase):
         self.assertEqual({s['kind'] for s in found}, {'powerbi_project', 'tableau', 'dashboard_html', 'model_candidate', 'query_history'})
         self.assertTrue(all(s['status'] == 'needs_model_review' for s in found if s['kind'] != 'query_history'))
 
+    def test_a_surveyed_run_says_which_skill_reads_it(self):
+        # A session that finds the run by searching for a metric's name reads this before the JSON.
+        (self.estate / 'other.sql').write_text('SELECT 999')
+        self.run.survey(self.estate)
+        note = (self.run.root / 'README.md').read_text()
+        self.assertIn('analytics-build', note)
+        self.assertIn('/atlanai-analytics:analytics-build', note)
+        self.assertEqual([s['path'] for s in self.run.survey(self.estate)['sources']], ['other.sql'], 'the note is not a source')
+
     def test_standalone_file_does_not_survey_siblings_and_reuses_inventory(self):
         file = self.estate / 'model.bim'; file.write_text(json.dumps(model()))
         (self.estate / 'other.sql').write_text('SELECT 999')
