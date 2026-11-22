@@ -12,7 +12,7 @@ import unittest
 
 ENGINE = (Path(__file__).resolve().parents[2]
           / 'plugins/atlanai-analytics/skills/metrics-generation/modules/metrics/engine')
-SKILL = ENGINE / 'skills/author-metric-card/SKILL.md'
+SKILL = ENGINE / 'gates/author-metric-card/GATE.md'
 SCHEMA = ENGINE / 'src/metrics_agent/data/schemas/authored_metric_cards.schema.json'
 RUNTIME = os.environ.get('ANALYTICS_METRICS_RUNTIME')
 COLUMN = re.compile(r'^[A-Za-z_][\w$]*(\.[A-Za-z_][\w$]*)+$')

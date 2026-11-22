@@ -123,7 +123,7 @@ def _emit(ctx: stage.Ctx) -> None:
 
     artifacts.dump(ctx.run / PROMPT, {
         "contract_version": "1.0", "stage": STAGE,
-        "instruction": "See skills/merge-metrics/SKILL.md. Return the merged metric "
+        "instruction": "See gates/merge-metrics/GATE.md. Return the merged metric "
                        "set. EVERY proposal_id must appear in exactly one metric's `sources` "
                        "— nothing dropped, nothing counted twice. Filters split into "
                        "mandatory (the metric is a different metric without them) and "

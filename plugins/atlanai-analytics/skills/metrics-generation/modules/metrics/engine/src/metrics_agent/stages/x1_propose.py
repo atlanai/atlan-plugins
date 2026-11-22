@@ -148,7 +148,7 @@ def _emit(ctx: stage.Ctx) -> None:
 
     artifacts.dump(ctx.run / PROMPT, {
         "contract_version": "1.0", "stage": STAGE,
-        "instruction": "See skills/propose-metrics/SKILL.md. For EVERY statement "
+        "instruction": "See gates/propose-metrics/GATE.md. For EVERY statement "
                        "return one object keyed by its vq_id, with `verdict` of 'metrics' or "
                        "'none'. A statement may yield zero, one or several metrics — judge "
                        "each one, and say why it is a metric. `aggregates_found` is evidence, "

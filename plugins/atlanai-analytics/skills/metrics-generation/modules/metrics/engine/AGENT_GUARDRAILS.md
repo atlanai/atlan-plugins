@@ -346,7 +346,7 @@ packages/          plug packages that depend on the core, never the reverse:
 examples/plugs/    community example plugs (databricks-direct, postgres-direct, jsonl-trace)
 scripts/           one-line shims, so `python scripts/<stage>.py` keeps working; and the
                    standalone Power BI extractor (scripts/pbi-definition-extract/)
-skills/    the LLM stages (describe-verified-sql · author-questions · propose-metrics ·
+gates/     the LLM stages, one GATE.md each (describe-verified-sql · author-questions · propose-metrics ·
                    merge-metrics · author-metric-card · relate-metrics · review-compiler)
                    + the orchestrator (run-pipeline) and setup-run
 tests/fixtures/    SYNTHETIC ONLY : no customer extract, no customer log, ever

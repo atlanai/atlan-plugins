@@ -6,7 +6,7 @@ connections, run it, answer the authored gates with an AI assistant, and choose 
 results go.
 
 You need Python 3.11 to 3.12, a clone of this repository, and (for the gates) an AI coding
-assistant that can use the skills in `skills/`, for example Claude Code.
+assistant that can follow the gate instructions in `gates/`, for example Claude Code.
 
 Running it on a customer's estate? Ask for the access first: [What access to ask the customer
 for](guides/customer-access.md) lists it per source (Snowflake, Power BI, Tableau).

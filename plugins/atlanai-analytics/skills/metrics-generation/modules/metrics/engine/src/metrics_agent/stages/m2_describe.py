@@ -237,7 +237,7 @@ def _emit(ctx: stage.Ctx) -> None:
     artifacts.dump(
         ctx.run / PROMPT,
         {"contract_version": "1.0", "stage": STAGE,
-         "instruction": "See skills/describe-verified-sql/SKILL.md. For EVERY query, "
+         "instruction": "See gates/describe-verified-sql/GATE.md. For EVERY query, "
                         "return one object keyed by its vq_id. Do not add, merge or drop "
                         "queries — the set is fixed. DESCRIBE THE OUTER SELECT, not the CTEs: "
                         "`outer_select` says what the OUTERMOST select returns and groups by, "

@@ -334,7 +334,7 @@ def advance(run, runtime, model):
         if gate in GATES:
             _, relative, _, skill = GATES[gate]
             result['gate'] = {'id': gate, 'prompt': str(run / f'{gate}_prompt.json'),
-                              'instructions': str(runtime / 'source/skills' / skill / 'SKILL.md'),
+                              'instructions': str(runtime / 'source/gates' / skill / 'GATE.md'),
                               'answers': str(run / 'answers' / relative), 'requires_user_approval': False}
             result['gate'].update(answer_contract(run, gate))
             if gate == 'x3' and (run / 'x3_repair.json').is_file():

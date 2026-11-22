@@ -15,8 +15,8 @@ from context_state import ordinary
 ONE_HELPER_UP_TO = 20
 AT_LEAST = 12
 AT_ONCE = 5
-INSTRUCTIONS = (Path(__file__).resolve().parents[2] / 'metrics-generation' / 'modules' / 'metrics' / 'engine' / 'skills'
-                / 'author-metric-card' / 'SKILL.md')
+INSTRUCTIONS = (Path(__file__).resolve().parents[2] / 'metrics-generation' / 'modules' / 'metrics' / 'engine' / 'gates'
+                / 'author-metric-card' / 'GATE.md')
 SCHEMA = INSTRUCTIONS.parents[2] / 'src' / 'metrics_agent' / 'data' / 'schemas' / 'authored_metric_cards.schema.json'
 MAX_BYTES = 40_000_000
 
