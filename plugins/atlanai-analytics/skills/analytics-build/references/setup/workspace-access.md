@@ -7,17 +7,21 @@ survey, sample metric, Registry call, permission question or publication plan.
 ## New workspace requested
 
 The Analytics workflow can list and select accessible workspaces. It does not create them
-through a CLI or API. Keep local drafts intact. Give one paragraph under 70 words containing
-the capability limit, that the local drafts stay saved, the supported UI/admin action, and the
-later refresh and selection.
-Do not offer a different destination unless asked, invent UI menu labels, or narrate a
-future publication step the person has not requested.
+through a CLI or API. Keep local drafts intact. First look for a saved run in this folder: a
+run directory under `.atlan-metrics/`, read with
+`python3 "<skill-dir>/scripts/project.py" --run-dir "<run-dir>" journey status`. That read is
+the saved run, not a source survey. Give one paragraph under 70 words containing the
+capability limit, what stays saved on this machine (the run's own counts, such as "your 3
+metrics and 1 query"), the supported UI/admin action, and that once the new workspace is listed they can be
+saved to it. Say there is nothing local to keep only when no run directory exists.
+Do not offer a different destination unless asked, invent UI menu labels, or lay out a
+publication plan the person has not requested.
 
 For example:
 
 "Analytics can list existing workspaces, but cannot create one through its CLI or API.
-Your drafts remain saved locally. Create the workspace in Atlan's UI or ask an administrator;
-then I can refresh your accessible workspaces and help you select it."
+Your 3 metrics and 1 query stay saved on this machine. Create the workspace in Atlan's UI or ask an administrator;
+once it shows in your workspace list, I can save them there."
 
 This is an explanation of capability, not evidence of a tool call or changed access.
 Do not claim a workspace was created, selected or refreshed during an explanation-only turn.

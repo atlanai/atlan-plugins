@@ -219,11 +219,22 @@ def ready(run, widget=False, data=None, engine_dir=None):
     lines += _label('What you built', '%s and %s,' % (count(len(c['metrics']), 'metric'), count(c['queries'], 'query', 'queries')))
     lines += ['  ' + ' ' * LABEL + 'from %s,' % _built_from(f), '  ' + ' ' * LABEL + (
         'not run on the data: you chose to skip the checks' if f.checks_skipped else 'checked on %s' % _where(f, demo))]
-    where = '%s in Atlan Trident' % saved['workspace'] if saved.get('workspace') else 'Atlan Trident'
+    place = where = '%s in Atlan Trident' % saved['workspace'] if saved.get('workspace') else 'Atlan Trident'
     whole = len(c['metrics']) + c['queries']
     if saved and saved.get('items', whole) < whole:
-        # A save that stopped part-way says what is where.
-        where = '%d of %d in %s, the rest on this machine' % (saved['items'], whole, where)
+        # A save that stopped part-way says what is where, by kind when the saved card counts them: "11 of 12" under "8
+        # metrics" read as a count that disagreed with the card's "7 metrics" (2026-11-22).
+        where = '%d of %d in %s, the rest on this machine' % (saved['items'], whole, place)
+        try:
+            spec = visuals.build_spec('saved', run, data, engine_dir)
+            kept_m, kept_q = len(spec.get('metrics') or []), int(spec.get('queries') or 0)
+        except (ValueError, KeyError, TypeError, AttributeError, OSError):
+            kept_m = kept_q = -1
+        if kept_m >= 0 and kept_m + kept_q == saved['items']:
+            rest_m, rest_q = len(c['metrics']) - kept_m, c['queries'] - kept_q
+            both = lambda m, q: ' and '.join(x for x in (count(m, 'metric') if m else '',
+                                                        count(q, 'query', 'queries') if q else '') if x)
+            where = '%s in %s; %s on this machine' % (both(kept_m, kept_q), place, both(rest_m, rest_q))
     lines += _label('Where it lives', where if saved else 'on this machine')
     lines += _label('What it can answer', demo.get('answers') or ('Questions about ' + f.use_case if f.use_case else
                                                                   'Questions about the metrics above'))

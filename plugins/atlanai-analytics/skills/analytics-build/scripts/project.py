@@ -976,7 +976,10 @@ def main():
                 raise ProjectError('The %s question could not be composed from this run (%s): ask it from the flow\'s own '
                                    'reference instead.' % (args.kind, type(exc).__name__)) from None
             for kind in asked.pop('shown'):
-                side_view.note(run, kind)
+                try:
+                    side_view.note(run, kind)
+                except OSError:
+                    pass  # A folder this session cannot write still gets its question: the note only spares a repeat.
             results = asked.pop('results', False)
             asked['next'] = ('Ask one native question now: this `header`, this `question` as its text exactly as given, with its '
                              'line breaks and leading spaces, and these `options` in order%s. Write nothing before it, and never '
