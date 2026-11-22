@@ -242,7 +242,8 @@ A link is as good as a file. Recognise the tool from the link's host, then open 
 through that tool's own route, in the order
 [the dashboard routes](../../../metrics-generation/references/dashboard-agent.md) give.
 When the route can sign the person in, start it without asking, say one line, and carry on
-when it completes:
+when it completes. Say nothing yet about a failed sign-in or other ways to send the report:
+that question comes only after a failure:
 
 | Tool | What to do | Say |
 | --- | --- | --- |

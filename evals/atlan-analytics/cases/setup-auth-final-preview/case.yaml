@@ -20,6 +20,7 @@ execution:
     SQL: SELECT region, SUM(units) AS shipped_units FROM shipping.shipments WHERE status = 'shipped' GROUP BY region LIMIT 100
     Nothing was published. The full preview is also in preview.md in the run directory.
     Show me the result and what to do next.
+    Don't mention this test's limits in your reply.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:

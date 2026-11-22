@@ -46,7 +46,7 @@ environment values or credential files. Check CLI help before using a version-sp
 | Observation | Recovery |
 | --- | --- |
 | Core `atlanai` plugin absent | Show the core-plugin installation commands below; install only within existing authorization. |
-| Plugin or selected server disabled | State that it is disabled and request enablement through the host. Do not override user/managed controls or reinstall a duplicate server. |
+| Plugin or selected server disabled | State that it is disabled and request enablement through the host. Do not override user/managed controls or reinstall a duplicate server. Enabling it is the one next action: give no install, sign-in or Authenticate step, which are for a missing or signed-out connection, and no menu path you have not seen. |
 | OAuth/sign-in required | Start the browser sign-in and bounded background watch below. |
 | Plugin enabled but tools missing | Refresh/reconnect the host's tool inventory. Absence alone is not proof of expired credentials. |
 | Registry responds with permission denied | Preserve the run and resolve the selected workspace's access; do not repeat OAuth or switch identities. |
@@ -120,7 +120,10 @@ as `timed_out`. Give the relevant fallback below and the exact saved run directo
 restart OAuth indefinitely. A stale event from an older attempt cannot resume this run.
 Tell the user once that candidates and the pending stage are saved, then name the one missing
 action. After three failed attempts at the same step, stop that step; do not describe or start
-another attempt. Avoid a procedural recap when a short saved-state update answers the request.
+another attempt, and say so once in plain words ("I've stopped retrying"), never as a tally.
+Avoid a procedural recap when a short saved-state update answers the request: the saved
+sample, any held item named in plain words (a required filter is missing, not its code), and
+the one missing action, then a one-line resume.
 If a resumed `begin` returns `timed_out`, clean up its returned owned task before beginning
 another attempt. A permission-denied result also ends the owned watch without another login.
 
@@ -140,6 +143,10 @@ Lead with the action, for example "I would open the client's sign-in link and
 resume this saved run once Registry responds." Keep this explanation to roughly 200 words:
 the four steps and three recovery branches are enough. Conditional wording makes clear it
 is a plan; do not open with a disclaimer, repeat security rules or narrate helper internals.
+Say it in the person's words, keeping what makes the watch bounded: the login task you keep
+watching and its limit in minutes ("for up to 10 minutes"), never a stage code (`publish`) or a
+recorded state (`registry_ready`). The timeout branch gives this host's manual sign-in command
+from section 3, and the unloaded-tools branch the reload or new-chat resume.
 
 ## 3. Manual installation and sign-in fallback
 
@@ -165,8 +172,9 @@ codex plugin add atlanai@atlan
 codex mcp login atlan
 ```
 
-Reuse an already configured `atlan` marketplace. If terminal login requires a fresh chat,
-paste the saved-run resume prompt there. CLI/desktop connection limitations are described in
+Reuse an already configured `atlan` marketplace. These commands sign in the terminal; they do
+not make tools appear in a chat that is already open, so say a new chat may be needed and give
+the saved-run resume prompt to paste there. CLI/desktop connection limitations are described in
 the [Atlan connection guide](https://platform.atlan.com/gateway/mcp/how-tos/connect-a-client).
 Installing the separate `aireg` CLI is not a substitute for loading Registry tools in the
 current harness. If the user specifically wants that CLI, use the official
@@ -176,7 +184,9 @@ do not install it automatically as an authentication workaround.
 ## 4. Keep the metrics in the final answer
 
 If access is still unavailable, run `PROJECT experience --format chat` and include one real
-sample with its check status and factual local/published counts in the final answer. Add the
+sample with its check status and factual local/published counts in the final answer. Show
+that one sample only: name the other metrics and queries, and leave their rules and SQL for a
+details ask, even when the checkpoint supplied them. Add the
 one missing action, relevant host-specific installation/sign-in instructions and the saved-run
 resume step. Details expose SQL, source and checks without dumping them by default. Repeat
 the sample even if it appeared in commentary; progress may collapse. A file link supplements

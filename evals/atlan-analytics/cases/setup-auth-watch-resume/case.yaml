@@ -13,14 +13,16 @@ execution:
     Explain how you will open Chrome and watch sign-in, what you do when the login task
     exits successfully, and how you continue without waiting for me to type 'done'. Also
     explain what changes if the selected connection is disabled or the watcher times out.
+    Don't mention this test's limits in your reply.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
   - name: bounded-host-watch
     type: llm
     criteria: |
-      PASS if the plan uses the existing host login command/task, opens its actual issued
-      authorization URL in the browser (Chrome when the host controls it), retains/polls the real task handle with a finite timeout,
+      PASS if the plan uses the existing host login command/task, lets the client open its
+      actual issued authorization URL and opens that same URL itself only when the client did
+      not (in Chrome when the host controls it; the skill never switches the person's browser), retains/polls the real task handle with a finite timeout,
       and requires a successful current-host Registry read after CLI completion before
       resuming the same saved stage automatically. It must not require 'done', claim the
       helper alone runs the watcher, schedule an automation/daemon, read credentials, or

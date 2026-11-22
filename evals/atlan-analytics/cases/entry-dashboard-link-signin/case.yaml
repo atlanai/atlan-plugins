@@ -10,6 +10,7 @@ execution:
     Treat the first attempt to open it as done, with this result: the report needs a Power BI
     sign-in, and a browser can open on this machine. Nothing is built.
     Say what you do next and show the user-facing step.
+    Don't mention this test's limits in your reply.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
