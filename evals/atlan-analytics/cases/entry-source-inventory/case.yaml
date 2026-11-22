@@ -10,10 +10,11 @@ execution:
     schemas are in use. The most used tables in the last 30 days are SALES.MARTS.FCT_OPPORTUNITY
     (1,240 queries by 14 people), SALES.MARTS.DIM_ACCOUNT (980 queries by 12 people) and
     SALES.MARTS.FCT_STAGE_HISTORY (310 queries by 6 people); support tickets are the next most
-    used subject. Opportunities link to accounts on ACCOUNT_ID. DIM_ACCOUNT has IS_TEST and
+    used subject, in SUPPORT.MARTS.FCT_TICKET (420 queries by 8 people). Opportunities link to accounts on ACCOUNT_ID. DIM_ACCOUNT has IS_TEST and
     IS_INTERNAL flags. Query history shows people asking for pipeline by stage and win rate by
     segment. Nothing is built.
     Show the next user-facing step.
+    Don't mention this test's limits in your reply.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -38,7 +39,8 @@ graders:
     criteria: |
       PASS if the reply offers at least two use cases to choose from (sales pipeline and
       support tickets), each with one short line of what it answers and the tables that power
-      it, with the sales tables named for the sales use case, also offers a choice to share a
+      it (the sales tables for the sales use case, SUPPORT.MARTS.FCT_TICKET for support
+      tickets), also offers a choice to share a
       dashboard (such as "I have a dashboard"), asks which to build, and stops.
       FAIL if it offers only one suggestion, leaves out the dashboard choice, starts building
       without asking, invents a table that discovery did not report, lists row counts, query

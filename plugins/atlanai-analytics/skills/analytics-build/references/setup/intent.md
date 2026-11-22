@@ -36,7 +36,8 @@ card, an option or its description.
 ## Card 1: two questions
 
 Ask both in one card where the host's native question tool takes several questions (Claude
-Code's does); otherwise one per turn, in this order. The card's own visible text is the
+Code's does), and both in one message, in this order, where the host has no question tool;
+only a question tool that takes one question at a time asks them one per turn. The card's own visible text is the
 opening, because a block printed before a question is lost:
 
 "Atlan Analytics turns your dashboards and the queries your team already runs into context:
@@ -76,7 +77,10 @@ plugin:
 | I have a use case and know my tables | "Tell me the use case, the tables and any dashboards. I'll build from exactly those." | C |
 
 A typed answer picks its branch by what it holds: a link or a file is B, a use case with
-tables is C, a subject alone ("sales pipeline") is A with that subject as the domain.
+tables is C, a subject alone ("sales pipeline") is A with that subject as the domain. Each
+option is one line; never nest focus areas, domains or other choices under one. In ordinary
+chat, end on one line: "Reply with your pick for each, or answer in your own words." Asking for
+a link, file or table list belongs to the branch, after this answer.
 
 ## Arriving from the demo
 

@@ -9,6 +9,7 @@ execution:
     dashboard agentic". The working folder holds no BI files. No data has been read and
     nothing is built.
     Show the next user-facing step.
+    Don't mention this test's limits in your reply.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -36,4 +37,7 @@ graders:
       their tables instead, and stops. FAIL if it asks which BI tool the dashboard is in,
       offers a menu of BI tools, offers an option that only says to paste or type, asks which
       warehouse or what they want to do again, runs or describes discovery, suggests tables, or
-      starts any build.
+      starts any build. A choice's own one-line description, such as "I'll look at what your
+      warehouse is used for and suggest use cases" beside letting discovery decide, is not
+      describing discovery, and naming the warehouse the person already chose is not asking
+      for it again.

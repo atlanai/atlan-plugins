@@ -10,7 +10,8 @@ execution:
     warehouse capacity as the first listed measure, followed by Late shipment rate. Late shipment
     rate means late shipments divided by delivered shipments. Its source calculation is late_count /
     delivered_count, population delivered shipments, source delivery model. This is a discovered
-    source definition, with SQL not generated and checks not run. Show the next useful step.
+    source definition, with SQL not generated and checks not run. Show me how delivery performance is measured here.
+    Don't mention this test's limits in your reply.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
