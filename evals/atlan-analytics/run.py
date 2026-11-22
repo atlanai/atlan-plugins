@@ -33,7 +33,7 @@ SERVER = "atlan"
 TOOLS = f"mcp__plugin_{PLUGIN}_{SERVER}__*"
 
 sys.path.insert(0, str(ROOT / "evals" / "atlan"))
-from run import case_filters, judge, summarize, without_case_filters  # noqa: E402
+from run import case_filters, judge, scaffold, summarize, without_case_filters  # noqa: E402
 
 
 def main() -> int:
@@ -70,12 +70,11 @@ def main() -> int:
             "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write",
             "--ablation", "none", "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *judge(args.extra), *without_case_filters(args.extra),
+            "--output-dir", str(out), *scaffold(cases), *judge(args.extra), *without_case_filters(args.extra),
         ]
         print("+", " ".join(command), flush=True)
         code = subprocess.run(command, check=False).returncode
-    summarize(out / "result.json")
-    return code
+    return summarize({out / "result.json": [case.name for case in cases]}) or code
 
 
 if __name__ == "__main__":

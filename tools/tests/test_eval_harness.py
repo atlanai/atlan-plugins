@@ -145,6 +145,35 @@ class RunTest(unittest.TestCase):
         self.assertEqual(self.runner.measured(["--keep-temp", "--runs", "1"]).count("--keep-temp"), 1)
 
 
+class AnalyticsRunTest(unittest.TestCase):
+    """evals/atlan-analytics/run.py: stages a case that brings its own workspace, and ends on the suite line."""
+
+    def test_a_staged_case_is_scaffolded_and_the_run_ends_on_the_suite_line(self) -> None:
+        spec = importlib.util.spec_from_file_location("analytics_run_under_test", EVALS.parent / "atlan-analytics" / "run.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        sent = []
+
+        def claude(command, check):
+            sent.append(command)
+            out = Path(command[command.index("--json") + 1])
+            out.write_text(json.dumps(result({"staged": [("saves-it", True)]})), encoding="utf-8")
+            return mock.Mock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            here, plugin = Path(tmp) / "suite", Path(tmp) / "plugin"
+            (here / "cases" / "staged").mkdir(parents=True)
+            (here / "cases" / "staged" / "case.yaml").write_text("context:\n  scaffold_script: setup.sh\n", encoding="utf-8")
+            (plugin / ".claude-plugin").mkdir(parents=True)
+            (plugin / ".claude-plugin" / "plugin.json").write_text('{"name": "atlanai-analytics"}', encoding="utf-8")
+            text = io.StringIO()
+            with mock.patch.object(runner, "HERE", here), mock.patch.object(runner.subprocess, "run", claude), \
+                    mock.patch("sys.argv", ["run.py", "--plugin", str(plugin), "--", "--runs", "1"]), contextlib.redirect_stdout(text):
+                self.assertEqual(runner.main(), 0)
+        self.assertIn("--scaffold", sent[0])
+        self.assertIn("suite: 1/1 cases passed every grader", text.getvalue())
+
+
 class EmulatorIdentityTest(unittest.TestCase):
     def test_the_server_says_who_is_signed_in_so_a_run_does_not_take_the_host_account_for_the_caller(self) -> None:
         emulator = load("atlan_emulator")
