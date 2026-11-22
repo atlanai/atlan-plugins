@@ -86,6 +86,8 @@ than choosing silently.
   and the gates and readbacks that still run. No headings, no "why" sections, no command
   blocks unless asked, no extra session-opening or "confirm the workspace" step, and no new
   approval request.
+- **When asked only how something is measured or defined**, give that evidence (rule,
+  population, source, check status) and end there, with no next-step offer.
 - **Structured holds decide eligibility.** `publication-holds.json` (C4 compiler review,
   `required_filter_missing`, parity mismatches) is the only source of what may publish. A hold
   you believe is wrong stays held in this run; it is repaired by a new engine run, never

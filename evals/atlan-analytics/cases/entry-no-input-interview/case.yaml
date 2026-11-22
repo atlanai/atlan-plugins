@@ -10,6 +10,7 @@ execution:
     warehouse connection, Snowflake through its connector. No data has been read and nothing
     is built.
     Show the next user-facing step.
+    Don't mention this test's limits in your reply.
   max_turns: 16
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -40,4 +41,6 @@ graders:
       tables. FAIL if it narrates that it checked or looked for connections or files, explains
       how the options were chosen, claims to have read tables, schemas or report contents,
       lists table names, asks for a dashboard link, a file or a BI tool at this step, or starts
-      any build.
+      any build. The choices' own one-line descriptions ("Work from a dashboard file alone, or
+      try the demo", "I'll look at what your warehouse is used for and suggest use cases") are
+      the skill's wording, not a request for a file or an explanation of how options were found.

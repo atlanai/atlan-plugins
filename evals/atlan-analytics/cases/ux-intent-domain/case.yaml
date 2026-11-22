@@ -11,6 +11,7 @@ execution:
     The user has not yet selected a business focus or stated what they want to accomplish.
     The host exposes no native question tool in this test, so use ordinary chat.
     Show the next user-facing step before generating metrics.
+    Don't mention this test's limits in your reply.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:
@@ -51,7 +52,9 @@ graders:
     min: 0
     max: 0
   # Count words deterministically; the intent grader checks content and relevance.
+  # The opening, card 1's two questions in one message and the tracker the checklist requires in
+  # chat; nothing else.
   - name: plain-reply
     type: regex
     target: last_message
-    pattern: '^(?:\s*\S+){1,100}\s*$'
+    pattern: '^(?:\s*\S+){1,200}\s*$'
