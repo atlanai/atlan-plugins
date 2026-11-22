@@ -14,12 +14,12 @@ Calls below are written in search mode, each through the runner its tool needs: 
 `mcp__call_read_tool`. The first call opens the session
 by sending `objective` beside `name` and returns `mcp_session_id`; pass that as `session_id`,
 and a `rationale`, on every later call. Both go beside `name` and `arguments`, never inside.
-Once the session is open, a `registry__` read this host also lists by name can be called directly, with `session_id` and `rationale` as its own arguments and no runner.
+Once the session is open, a `registry__` read this host also lists by name runs directly, with no runner and `session_id` and `rationale` as its own arguments.
 When the host lists `mcp__call_read_tools`, send up to 8 independent reads as one call,
 `{ "calls": [{ "name", "arguments" }, …], "session_id", "rationale" }`; otherwise in parallel.
 Replies lead with the result, in four sentences or fewer and under 80 words (a table or a list the user asked for aside). Check each: no greeting, apology or closing offer; counts rather than lists, handles only when asked; one next step, not a menu; nothing about how tools work or calls skipped or retried.
 A read that fails with 502, 503, 504 or `retryable: true` is sent again unchanged, 3 tries
-in all (waiting `retry_after_seconds` first when the error gives it), before you tell the user
+in all (waiting `retry_after_seconds` first when the error gives it), before telling the user
 Atlan is not answering. Never repeat a write: read it back first.
 
 ## Pick the read
@@ -73,8 +73,8 @@ mcp__call_read_tool {
 - **Same name, different skill.** Copies of one artifact across workspaces are one hit, the
   rest under `also_in`; two different artifacts can still share a `name`. Name each one's
   workspace (`workspace_display_name`) so the user can tell them apart.
-- **Weak hits are noise.** A hit whose `match.quality` is `weak` did not match; leave it out,
-  even when it ranks first. Only a `strong` hit is a finding.
+- **Weak hits are noise, unless named.** Leave out a `match.quality` `weak` hit, even ranked
+  first, unless its name or title holds the user's words: offer that one as possible.
 - **No results is an answer.** Say so plainly and offer a broader search (no `kind`,
   `semantic: true`) before concluding nothing exists. An artifact the user cannot read looks
   the same as one that does not exist. When `page.has_more`, the next page is `offset:
@@ -87,9 +87,9 @@ most recently changed rows.
 
 1. **Count.** One call gives the total and the breakdown:
    `registry__get_artifact_counts { "kind": "skill", "group_by": "workspace_id" }` returns
-   `total`, the number the user can see, and the largest groups with their counts. Group by
-   `kind` to answer "what do we have?" across every kind, or by `project_id`, `owner_id` or
-   `artifact_status`.
+   `total` (what the user can see) and the largest groups. Group by `kind`, with `limit: 100`
+   (the default 20 hides kinds), to answer "what do we have?", or by `project_id`, `owner_id`
+   or `artifact_status`.
    **Platform kinds are not the catalogue.** `app`, `app_action`, `harness_vendor`, `model` and
    `agent_framework` rows are the platform's own (often 80 of 100). Subtract them from `total`
    and give the remainder as the answer, adding at most "not counting N platform records".
@@ -98,8 +98,7 @@ most recently changed rows.
 2. **Ask or narrow.** If the user named no task, give the count and the breakdown and ask what
    they want to do. If they named one, search for it (`semantic: true`, `limit: 10`).
 3. **Say what you looked at.** Separate the catalogue's total from the rows you read: "392
-   skills in total; these 10 are the closest to preview deploys", or "the 10 most recently
-   changed", never a sample presented as the whole.
+   skills in total; these 10 are the closest to preview deploys", never a sample as the whole.
 
 ## Browse
 
