@@ -339,7 +339,7 @@ class SnapshotTests(unittest.TestCase):
         self.assertIn('[project.entry-points."metrics_agent.plugs"]', data['files']['pyproject.toml']['text'])
         self.assertTrue(any('compiler_corpus/' in name for name in data['files']))
         for gate in data['gate_skills']:
-            self.assertIn(f'skills/{gate}/SKILL.md', data['files'])
+            self.assertIn(f'gates/{gate}/GATE.md', data['files'])
         self.assertFalse(any('metrics-agent-atlan/' in name or name.startswith(('internal/', 'tests/'))
                              for name in data['files']))
 

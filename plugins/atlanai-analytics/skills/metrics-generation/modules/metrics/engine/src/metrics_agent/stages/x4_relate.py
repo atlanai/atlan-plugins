@@ -256,7 +256,7 @@ def _emit(ctx: stage.Ctx) -> None:
     artifacts.dump(ctx.run / PROMPT, {
         "contract_version": "1.0", "stage": STAGE,
         "instruction": (
-            "See skills/relate-metrics/SKILL.md. For each metric, say what it is "
+            "See gates/relate-metrics/GATE.md. For each metric, say what it is "
             "genuinely derived from — and say nothing where it is derived from none, which is "
             "the common case. `candidates` is a shortlist built from STRUCTURE ALONE: a shared "
             "query body is evidence, never a verdict, and two metrics can share one and be "

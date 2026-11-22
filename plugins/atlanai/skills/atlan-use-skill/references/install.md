@@ -10,6 +10,7 @@ user's own computer; use the MCP route when aireg is missing or the user decline
 | Where you are | Route |
 |---|---|
 | Claude chat on the web, desktop or mobile, or any host with no shell | Use it now. Installing is not possible here, so do not try. |
+| A host that offers its own card or button for saving a skill (Claude's web or desktop app, a Cowork session in the cloud) | Use it now. To keep it, the user saves it through that card; never write it into the session's container, which is discarded. |
 | A cloud session: Claude Code on the web, a CI runner, any container discarded when the session ends | Use it now. A project install lasts only if the user commits it, so offer that instead of a user-folder install. |
 | A terminal, IDE, desktop or Cowork session on the user's own computer | Use it now, or install it (below). |
 

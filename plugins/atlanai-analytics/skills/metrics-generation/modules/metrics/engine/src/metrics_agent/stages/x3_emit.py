@@ -287,7 +287,7 @@ def _emit(ctx: stage.Ctx) -> None:
         "contract_version": "1.0",
         "stage": STAGE,
         "instruction": (
-            "See skills/author-metric-card/SKILL.md. Author one card per metric. "
+            "See gates/author-metric-card/GATE.md. Author one card per metric. "
             "READ THE SQL — every field is a reading of what the query does, not a restatement "
             "of the merge. Outside `examples`, every column reference is fully qualified "
             "against its real table: `DB.SCHEMA.TABLE.COLUMN`, never a query alias. `examples` "
@@ -1322,7 +1322,7 @@ def _repair_bundle(faults: dict, authored: dict, by_name: dict,
             "Each task below is a metric card that was REFUSED, with the exact field and "
             "reason. Fix the named fields and return the corrected cards in the same shape "
             "as the authored answers file: {\"metrics\": [ ...cards... ]}. Change nothing "
-            "the faults do not name. See skills/author-metric-card/SKILL.md — the "
+            "the faults do not name. See gates/author-metric-card/GATE.md — the "
             "section 'Your card is compiled into SQL' says why each field holds SQL "
             "rather than prose."),
         "n_cards": len(faults),

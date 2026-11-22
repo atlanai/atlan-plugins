@@ -36,7 +36,7 @@ class Split(unittest.TestCase):
 
     def work_list(self, n, tasks=None):
         (self.run / 'engine' / 'x3_prompt.json').write_text(json.dumps({
-            'contract_version': '1.0', 'stage': 'x3_emit', 'instruction': 'See skills/author-metric-card/SKILL.md.',
+            'contract_version': '1.0', 'stage': 'x3_emit', 'instruction': 'See gates/author-metric-card/GATE.md.',
             'fields': {'required': ['name'], 'optional': []}, 'n_metrics': n, 'tasks': tasks or [task(i) for i in range(1, n + 1)]}))
 
     def plan(self, n):
@@ -60,7 +60,7 @@ class Split(unittest.TestCase):
         seen = []
         for share in plan['shares']:
             body = json.loads(Path(share['share']).read_text())
-            self.assertEqual(body['instruction'], 'See skills/author-metric-card/SKILL.md.')
+            self.assertEqual(body['instruction'], 'See gates/author-metric-card/GATE.md.')
             self.assertEqual([t['metric_id'] for t in body['tasks']], ['metric-%d' % n for n in body['task_numbers']])
             self.assertEqual(share['tasks'], body['task_numbers'])
             seen += body['task_numbers']
@@ -88,7 +88,7 @@ class Split(unittest.TestCase):
         answers = self.run / 'engine' / 'answers' / 'x3'
         for share in plan['shares']:
             brief = share['brief']
-            for needed in (share['share'], plan['roster'], str(answers), 'author-metric-card/SKILL.md'):
+            for needed in (share['share'], plan['roster'], str(answers), 'author-metric-card/GATE.md'):
                 self.assertIn(needed, brief)
             for rule in ('as the roster names them', "the roster's output name", 'domain', 'Write only your own task numbers',
                          'Do not run the metrics engine'):

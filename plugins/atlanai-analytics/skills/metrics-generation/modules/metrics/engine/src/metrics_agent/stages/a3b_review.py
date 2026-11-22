@@ -93,7 +93,7 @@ def _emit_prompt(ctx: stage.Ctx, report: dict, cands: list[dict]) -> None:
                 for c in cands]
     _dump(ctx, PROMPT, "a3b_prompt.schema.json", {
         "contract_version": "1.0",
-        "instruction": "See skills/review-compiler/SKILL.md. Emit FINDINGS and "
+        "instruction": "See gates/review-compiler/GATE.md. Emit FINDINGS and "
                        "optionally RULE rows. You may NOT write SQL: any sql/query/filters "
                        "key is refused outright. For each refusal, propose the row that "
                        "would translate the named construct, or say plainly that the "

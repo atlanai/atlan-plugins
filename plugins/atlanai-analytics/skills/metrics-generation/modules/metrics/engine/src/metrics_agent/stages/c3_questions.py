@@ -98,7 +98,7 @@ def _emit_prompt(ctx: stage.Ctx, cands: list[dict]) -> None:
         })
     _dump(ctx, PROMPT, "c3_prompt.schema.json", {
         "contract_version": "1.0",
-        "instruction": "See skills/author-questions/SKILL.md. Everything you need "
+        "instruction": "See gates/author-questions/GATE.md. Everything you need "
                        "is INLINE below — do not open any BI file. Emit PROSE ONLY: question, "
                        "description, gotchas, aliases, evidence_citations. Any SQL or filter "
                        "key in your output is refused outright. An item with `expected_hold` "
