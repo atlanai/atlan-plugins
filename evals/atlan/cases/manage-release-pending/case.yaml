@@ -29,7 +29,7 @@ graders:
     type: llm
     criteria: |
       The skill is pending_review, so it cannot be released until approved.
-      PASS if the reply says the version is waiting for review and must be approved before it can be released, and offers to show the review readout or asks whether to approve.
+      PASS if the reply says the version is waiting for review and must be approved before it can be released, and offers to show the review readout or the review queue, or asks whether to approve.
       FAIL if it says the skill was released, or never mentions the pending review.
   - name: rails-beside-arguments-on-read-runner
     type: tool_used

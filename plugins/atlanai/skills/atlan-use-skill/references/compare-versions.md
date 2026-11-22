@@ -38,8 +38,11 @@ change.
 
 Reply with the changelog first: counts of files added, removed, changed and unchanged, then
 what the changes do (a new step, a changed `description` trigger, a new script, a rule
-removed). Leave out whitespace and wording that does not change behaviour. Point out any
-added or changed script and say you have not run it. When nothing changed, say the two
+removed). Name only what the diff adds, removes or rewords: a rule that gained a deadline
+gained the deadline, and wording both versions share is not new, so never write that a kept
+rule "now" applies. Leave out whitespace and wording that does not change behaviour. Point out
+any added or changed script and say you have not run it; say nothing about scripts when there
+are none. When nothing changed, say the two
 versions have identical files.
 
 ## The install record

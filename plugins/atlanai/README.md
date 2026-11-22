@@ -98,6 +98,7 @@ items list refuses the call before writing. Revisions and release checks remain 
 | Codex | Command hooks recognize Atlan aliases and use the shared receipt writer. Codex applies a rewritten input only with `allow`, so a rewritten publish may run without its approval prompt; the publishing skills show the plan and ask first. |
 | Cursor desktop | Command hooks use the server URL when provided and retain the existing MCP guard. A hook's `allow` does not override Cursor's MCP approval. |
 | GitHub Copilot CLI | Plugin hooks normalize native payloads, rewrite inputs without granting permission and record results. |
+| Claude on the web, desktop or mobile, and cloud Cowork sessions | No plugin hook runs, so the server refuses `files_from` and the skills send files inline. No local guard checks a write either: each publishing skill shows its plan and asks first, and `atlan-share` holds back a credential-shaped line before sharing. The mods plugin does not run there. |
 | Other or restricted hosts | Try one guarded batch, then use native MCP arguments if local fields are explicitly refused. |
 
 A host must support input rewriting and expose complete tool results for automatic receipts.

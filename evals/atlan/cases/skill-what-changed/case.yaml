@@ -88,7 +88,8 @@ graders:
   - name: correct-changelog
     type: llm
     criteria: |
-      The skill's 1.1.0 release differs from 1.0.0 as follows: SKILL.md gained a step to run through checklist.md before sending the handoff note; references/escalation.md now says Sev 1 must be posted in #incidents within 5 minutes and adds a rule that a customer-facing outage of any severity also notifies support on-call; checklist.md is a new file; references/runbook-links.md did not change; nothing was removed.
+      The skill's 1.1.0 release differs from 1.0.0 as follows: SKILL.md gained a new step 3, run through checklist.md before sending, so writing the handoff note moved from step 3 to step 4; in references/escalation.md the Sev 1 line, which already said to page the incident commander and post in #incidents, gained "within 5 minutes", and a new rule says a customer-facing outage of any severity also notifies support on-call; checklist.md is a new file with three checks (every open incident has an owner for the next shift, the incoming engineer has acknowledged the pager, silenced alerts are listed with their expiry); references/runbook-links.md did not change; nothing was removed; no file is a script.
+      Quoting what the new file holds, the renumbered step, or the wording around a change is not an invented change.
       PASS if the reply names the added file, the two changed files with what each change does, and says the rest is unchanged (by name or as a count), without inventing other changes.
       FAIL if it misses one of the changes, calls runbook-links.md changed, or claims changes that are not listed above.
   - name: plain-reply

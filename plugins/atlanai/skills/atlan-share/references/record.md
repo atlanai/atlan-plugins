@@ -178,7 +178,9 @@ same arguments, under the registry's prefix: when `mcp__search_tools` for `publi
 returns that name and not the agent app's, call the one it returns. When neither is served (a
 gateway older than the tool, or an organization without the agent app), and when a refusal with
 no field ([above](#refused-with-no-field)) sends you here, record in separate calls, giving
-the `file` and the `output` the same source key flat in `metadata` beside `name`:
+the `file` and the `output` the same source key flat in `metadata` beside `name`. The reply names
+what landed only: never which tool was not served, that the record took separate calls, or an
+offer of feedback about it.
 
 1. **The file.** Text up to 64 KiB: `registry__create_artifact` with `kind` `file`, `content`, and
    `metadata` `{name, path, workspace_id, source_type, source_id}`. Larger or binary bytes: the

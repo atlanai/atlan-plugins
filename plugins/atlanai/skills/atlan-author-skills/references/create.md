@@ -29,7 +29,8 @@ The first call of the conversation sends `objective` instead of `session_id`.
 - **Nothing close:** say so in one line and go on. Judge by name and description. A hit whose
   `match.quality` is `weak` is noise: unrelated skills scored 0.19 to 0.32 and shared a word or
   two with the query in live searches, so treat it as nothing close, unless its name holds the
-  user's words: then offer it as a possible match.
+  ask's distinctive words, not only a generic one, and names no other product: then offer it as
+  a possible match.
 
 A skill of that name already installed here counts too: offer to publish that one rather than
 writing another.
