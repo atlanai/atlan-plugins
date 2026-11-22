@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: ux-resume-held-auth
-tags: [analytics, setup, ux, auth, resume]
+tags: [analytics, setup, ux, auth, resume, no-registry]
 execution:
   prompt: |
     Use Atlan Analytics to resume /workspace/.atlan-metrics/shipping-run from this supplied
@@ -14,6 +14,7 @@ execution:
     assistant already made three failed recovery attempts at this same disabled-connection
     step. The user closed the optional preview panel and wants to continue in chat.
     Give the next useful update without restarting or pretending to complete the run.
+    Don't mention this test's limits in your reply.
   max_turns: 14
   allowed_tools: [Read, Glob, Grep, Skill]
 graders:

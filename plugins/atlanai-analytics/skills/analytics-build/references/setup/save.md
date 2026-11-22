@@ -18,6 +18,9 @@ the options' descriptions, and leaves it in the transcript after the answer.
 Do not put it in an option `preview`: a preview is cut to a few lines on a short terminal,
 hides the descriptions and is gone once the person answers. Write nothing before the
 question: its text already says the checks are done.
+Without an Atlan connection this question is not asked: [preview and
+publish](preview-publish.md#5-show-the-metrics-before-asking-where-to-publish) says what ends the turn instead.
+
 **The discovery branch asks one thing first.** When the build came from discovery and no
 dashboard was part of it, the question before this one is the dashboard offer: read
 [it in the interview](intent.md#after-the-build-in-this-branch-only-offer-a-dashboard) and ask

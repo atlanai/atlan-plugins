@@ -170,6 +170,9 @@ class AnalyticsRunTest(unittest.TestCase):
                 "context:\n  scaffold_script: setup.sh\nexecution:\n  allowed_tools: [Read, Skill, Bash]\n", encoding="utf-8")
             (here / "cases" / "plain").mkdir()
             (here / "cases" / "plain" / "case.yaml").write_text("execution:\n  allowed_tools: [Read, Skill]\n", encoding="utf-8")
+            (here / "cases" / "signed-out").mkdir()
+            (here / "cases" / "signed-out" / "case.yaml").write_text(
+                "tags: [analytics, auth, no-registry]\nexecution:\n  allowed_tools: [Read, Skill]\n", encoding="utf-8")
             # A prompt.md case has no case.yaml to read.
             (here / "cases" / "a-prompt-case").mkdir()
             (here / "cases" / "a-prompt-case" / "prompt.md").write_text("Propose a metric.\n", encoding="utf-8")
@@ -179,12 +182,17 @@ class AnalyticsRunTest(unittest.TestCase):
             with mock.patch.object(runner, "HERE", here), mock.patch.object(runner.subprocess, "run", claude), \
                     mock.patch("sys.argv", ["run.py", "--plugin", str(plugin), "--", "--runs", "1"]), contextlib.redirect_stdout(text):
                 self.assertEqual(runner.main(), 0)
-        shell, plain = sent
+        shell, plain, offline = sent
         self.assertIn("--scaffold", shell)
+        # A case whose Atlan connection is missing runs in a copy with no `atlan` server and no grant for its tools.
+        offline_plugin = Path(offline[3])
+        self.assertNotEqual(offline_plugin, Path(plain[3]))
+        self.assertFalse(any("mcp__plugin_" in part for part in offline))
+        self.assertTrue(any("mcp__plugin_" in part for part in plain))
         self.assertIn("Bash", shell, "a case that lists Bash runs the skills' helper scripts")
         # A grant reaches every case of a run, so a case that does not list Bash never shares one with a case that does.
         self.assertNotIn("Bash", plain)
-        self.assertIn("suite: 3/3 cases passed every grader", text.getvalue())
+        self.assertIn("suite: 4/4 cases passed every grader", text.getvalue())
 
 
 class EmulatorIdentityTest(unittest.TestCase):
