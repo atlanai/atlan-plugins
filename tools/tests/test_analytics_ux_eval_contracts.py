@@ -8,7 +8,11 @@ authored YAML subset directly rather than adding a YAML dependency.
 """
 
 from pathlib import Path
+import json
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 
 
@@ -28,6 +32,14 @@ CASE_NAMES = {
     "ux-project-understanding", "ux-native-local-details", "ux-intent-domain", "ux-intent-known",
     "ux-finish-local-review", "ux-checklist-opening", "ux-checklist-resume",
 }
+# Real tasks: the case's scaffold saves a shipping project (evals/atlan-analytics/fixtures/shipping_run.py)
+# and the model finds and reads it with the skill's helpers, so these may use the shell.
+SAVED_RUN_CASES = {
+    "ux-details-on-request": "local", "ux-native-local-details": "local", "ux-explicit-new-workspace": "local",
+    "ux-one-metric-final": "published", "setup-preview-before-workspace": "preview",
+}
+FIXTURE = ROOT / "evals" / "atlan-analytics" / "fixtures" / "shipping_run.py"
+PLUGIN = ROOT / "plugins" / "atlanai-analytics"
 
 
 def graders(case_name: str) -> dict[str, str]:
@@ -49,35 +61,49 @@ class AnalyticsUxEvalContractsTest(unittest.TestCase):
     def test_detail_judge_has_the_exact_query_and_parameter_reference(self) -> None:
         body = graders("ux-details-on-request")["exact-sql-and-evidence"]
         self.assertIn(SQL, body)
-        for reference in ("SUM(s.units)", "s.status = 'shipped'", "region", "shipping-01",
-                          "start_date", "2026-10-01", "bound separately"):
+        for reference in ("SUM(s.units)", "s.status = 'shipped'", "region", "start_date", "2026-10-01",
+                          "stay a parameter"):
             self.assertIn(reference, body)
 
     def test_final_judge_has_question_references_and_time_distinctions(self) -> None:
         body = graders("ux-one-metric-final")["supported-question-handoff"]
         for question in QUESTIONS:
             self.assertIn(question, body)
-        self.assertIn("published earlier", body)
-        self.assertIn("ran earlier", body)
         self.assertIn("in this turn", body)
-        self.assertIn("future explanation", body)
         self.assertIn("before running SQL", body)
+        self.assertIn("On-time rate", body, "the held metric is not offered as answerable")
+
+    def forbidden(self, name: str) -> set[str]:
+        tools = set()
+        for body in graders(name).values():
+            if "    type: tool_used\n" not in body or "    max: 0\n" not in body:
+                continue
+            self.assertIn("    min: 0\n", body, name)
+            if "input_match:" not in body:
+                tools.add(re.search(r"(?m)^    tool: (.+)$", body).group(1))
+        return tools
 
     def test_checkpoint_cases_prohibit_calls_on_every_available_runner(self) -> None:
         expected = {"Bash"} | {
             "mcp__plugin_atlanai-analytics_atlan__mcp__" + runner
             for runner in ("call_read_tool", "call_write_tool", "call_tool")
         }
-        for name in sorted(CASE_NAMES):
-            forbidden = set()
+        for name in sorted(CASE_NAMES - set(SAVED_RUN_CASES)):
+            # No input_match loophole: any call on these checkpoint tools fails.
             for body in graders(name).values():
-                if "    type: tool_used\n" not in body or "    max: 0\n" not in body:
-                    continue
-                self.assertIn("    min: 0\n", body, name)
-                # No input_match loophole: any call on these checkpoint tools fails.
-                self.assertNotIn("input_match:", body, name)
-                forbidden.add(re.search(r"(?m)^    tool: (.+)$", body).group(1))
-            self.assertEqual(forbidden, expected | ({"Write"} if name == "ux-native-local-details" else set()), name)
+                if "    type: tool_used\n" in body and "    max: 0\n" in body:
+                    self.assertNotIn("input_match:", body, name)
+            self.assertEqual(self.forbidden(name), expected, name)
+
+    def test_saved_run_cases_read_the_project_their_scaffold_saves_and_write_nothing_to_atlan(self) -> None:
+        writes = {"mcp__plugin_atlanai-analytics_atlan__mcp__" + runner for runner in ("call_write_tool", "call_tool")}
+        for name, variant in sorted(SAVED_RUN_CASES.items()):
+            text = (CASES / name / "case.yaml").read_text(encoding="utf-8")
+            self.assertIn("  scaffold_script: scaffold.sh\n", text, name)
+            self.assertRegex(text, r"(?m)^  allowed_tools: \[.*\bBash\b.*\]$", name)
+            scaffold = (CASES / name / "scaffold.sh").read_text(encoding="utf-8")
+            self.assertIn('/../fixtures/shipping_run.py" "$here/../.." ' + variant, scaffold, name)
+            self.assertTrue(writes <= self.forbidden(name), name)
 
     def test_sql_regex_preserves_semantics_but_allows_formatting(self) -> None:
         body = graders("ux-details-on-request")["saved-sql-preserved"]
@@ -109,6 +135,30 @@ class AnalyticsUxEvalContractsTest(unittest.TestCase):
             with self.subTest(query=query):
                 self.assertNotRegex(f"```sql\n{query}\n```", pattern)
         self.assertNotRegex(SQL, pattern, "The saved query must be shown in a code block")
+
+
+class SavedRunFixtureTest(unittest.TestCase):
+    """The shipping project the saved-run cases ask about, read back by the helper the model runs."""
+
+    def journey(self, variant: str) -> dict:
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run([sys.executable, str(FIXTURE), str(PLUGIN), variant], cwd=tmp, check=True)
+            out = subprocess.run([sys.executable, str(PLUGIN / "skills" / "analytics-build" / "scripts" / "project.py"),
+                                  "--run-dir", str(Path(tmp) / ".atlan-metrics" / "shipping-run"), "journey", "status"],
+                                 cwd=tmp, check=True, capture_output=True, text=True).stdout
+        return json.loads(out)
+
+    def test_each_variant_reads_back_as_its_cases_say(self) -> None:
+        local = self.journey("local")
+        self.assertIn("3 metrics, 1 query; 0 saved in Atlan Trident.", local["chat"])
+        self.assertIn("SQL example checked.", local["chat"])
+        self.assertEqual(local["interaction"]["focus"], "metric:shipped-units")
+        preview = self.journey("preview")
+        self.assertIn("Schema checked; SQL untested.", preview["chat"])
+        self.assertEqual(preview["continuation"]["action"], "destination")
+        published = self.journey("published")
+        self.assertIn("8 metrics, 4 queries; 11 saved in Atlan Trident.", published["chat"])
+        self.assertIn("1 items need repair before publication.", published["chat"])
 
 
 if __name__ == "__main__":

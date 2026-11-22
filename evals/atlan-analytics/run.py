@@ -10,7 +10,8 @@ plugin's emulator, which is the connection the dependency would have supplied, w
 and Ontology apps of the 5 November review's airline sandbox loaded (`ATLAN_EMULATOR_ANALYTICS`). Results land in
 evals/atlan-analytics/results/. Each case is a full Claude Code run on your own credential: it
 costs money and is not part of `make check`. The LLM graders are judged as evals/atlan/run.py
-says.
+says. The run is granted Bash, so a case that lists it in `allowed_tools` can run the skills' own
+helper scripts on the project its scaffold left (fixtures/); a case that does not list it has none.
 """
 
 from __future__ import annotations
@@ -65,9 +66,12 @@ def main() -> int:
             return 2
         for case in cases:
             shutil.copytree(case, plugin / "evals" / case.name)
+        # The saved projects a case's scaffold builds (`"$(dirname "$0")/../fixtures/…"`): no case of their own.
+        if (HERE / "fixtures").is_dir():
+            shutil.copytree(HERE / "fixtures", plugin / "evals" / "fixtures")
         command = [
             "claude", "plugin", "eval", str(plugin),
-            "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write",
+            "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write", "Bash",
             "--ablation", "none", "--no-publish",
             "--json", str(out / "result.json"), "--report", str(out / "report.html"),
             "--output-dir", str(out), *scaffold(cases), *judge(args.extra), *without_case_filters(args.extra),

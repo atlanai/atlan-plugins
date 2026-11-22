@@ -1,13 +1,16 @@
 schema_version: "1.1"
 name: five-route-survey
 tags: [analytics, five, routing, survey]
+context:
+  scaffold_script: scaffold.sh
 execution:
+  # A real task: ./reports holds a Tableau workbook and two SQL files (scaffold.sh). A person
+  # calling the survey gets what they cover and whether they are usable, and nothing is built.
   prompt: |
     What do the dashboards and SQL files in ./reports cover, and can I use them? Don't build anything.
-    Read plugin instructions only in this test; do not execute commands or contact services. The host exposes no native question tool in this test, so use ordinary chat.
-    Since nothing can run here, say in one short reply what you will inspect and what I will get back.
-  max_turns: 14
-  allowed_tools: [Read, Glob, Grep, Skill]
+    The host exposes no native question tool in this test, so use ordinary chat.
+  max_turns: 30
+  allowed_tools: [Read, Glob, Grep, Skill, Bash]
 graders:
   - name: loads-survey
     type: tool_used
@@ -20,19 +23,31 @@ graders:
     input_match: 'references/metrics-engine\.md'
     min: 0
     max: 0
-  - name: no-shell
+  - name: no-build
     type: tool_used
     tool: Bash
+    input_match: 'analytics_agent|metrics-engine|engine-config|\bpublication\b'
+    min: 0
+    max: 0
+  - name: no-registry-write-calls
+    type: tool_used
+    tool: mcp__plugin_atlanai-analytics_atlan__mcp__call_write_tool
     min: 0
     max: 0
   - name: survey-only
     type: llm
     focus: last_message
     criteria: |
-      PASS if the reply says it will read the sources in ./reports and report what they cover, what
-      they could help analyse and whether they are ready to use, and promises nothing beyond that.
-      FAIL if it promises to generate metrics or SQL, asks where to publish, pitches saving to Atlan,
-      or offers a demo/build/ask menu.
+      ./reports holds a Tableau workbook, Fleet punctuality, on the Snowflake table OPS.FLIGHTS.LEGS
+      with two measures (On-time departures: legs departing within 15 minutes of schedule over all
+      legs; Average delay in minutes) by station and flight date, and two SQL files on
+      ops.flights.legs: weekly average turnaround by station excluding cancelled legs, and fuel
+      burned per block hour by aircraft type.
+      PASS if the reply says what these cover in those terms, what they could help analyse, and
+      whether they are usable (the files read fine; the numbers need access to the warehouse
+      tables, which was not checked or is a separate step). Offering one next step is fine.
+      FAIL if it invents measures, tables or files, generates metrics or SQL, asks where to
+      publish or pitches saving to Atlan.
   - name: plain-reply
     type: llm
     criteria: |

@@ -171,6 +171,7 @@ class AnalyticsRunTest(unittest.TestCase):
                     mock.patch("sys.argv", ["run.py", "--plugin", str(plugin), "--", "--runs", "1"]), contextlib.redirect_stdout(text):
                 self.assertEqual(runner.main(), 0)
         self.assertIn("--scaffold", sent[0])
+        self.assertIn("Bash", sent[0], "a case that lists Bash runs the skills' helper scripts")
         self.assertIn("suite: 1/1 cases passed every grader", text.getvalue())
 
 
