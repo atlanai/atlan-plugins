@@ -12,7 +12,9 @@ evals/atlan-analytics/results/. Each case is a full Claude Code run on your own 
 costs money and is not part of `make check`. The LLM graders are judged as evals/atlan/run.py
 says. The cases that list Bash in `allowed_tools` run as their own group with Bash granted, so they
 can run the skills' own helper scripts on the project their scaffold left (fixtures/); the rest run
-without a shell, because a grant reaches every case of a run. Each group's results land in its folder.
+without a shell, because a grant reaches every case of a run. A case tagged `no-registry` (the
+Atlan connection is missing, disabled or signed out) runs in a copy with no `atlan` server, so the
+model sees no Atlan tools, as the person would. Each group's results land in its folder.
 """
 
 from __future__ import annotations
@@ -46,6 +48,13 @@ def lists_bash(case: Path) -> bool:
     return bool(found) and "Bash" in {t.strip() for t in found.group(1).split(",")}
 
 
+def no_registry(case: Path) -> bool:
+    """Whether the case is tagged `no-registry`: it runs without the emulator's `atlan` server."""
+    yaml = case / "case.yaml"
+    found = yaml.is_file() and re.search(r"(?m)^tags:\s*\[([^\]]*)\]", yaml.read_text(encoding="utf-8"))
+    return bool(found) and "no-registry" in {t.strip() for t in found.group(1).split(",")}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--plugin", default=str(ROOT / "plugins" / PLUGIN), help="the plugin folder to evaluate")
@@ -57,15 +66,19 @@ def main() -> int:
     out = HERE / "results" / (f"{stamp}-{args.label}" if args.label else stamp)
     out.mkdir(parents=True)
     with tempfile.TemporaryDirectory(prefix="atlan-analytics-eval-") as tmp:
-        plugin = Path(tmp) / PLUGIN
-        shutil.copytree(args.plugin, plugin, ignore=shutil.ignore_patterns("evals"))
-        manifest = plugin / ".claude-plugin" / "plugin.json"
-        data = json.loads(manifest.read_text(encoding="utf-8"))
-        data.pop("dependencies", None)
-        manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        server = {"type": "stdio", "command": sys.executable, "args": [str(EMULATOR)],
-                  "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), "ATLAN_EMULATOR_ANALYTICS": "1"}}
-        (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n", encoding="utf-8")
+        def staged(folder: Path, connected: bool) -> Path:
+            plugin = folder / PLUGIN
+            shutil.copytree(args.plugin, plugin, ignore=shutil.ignore_patterns("evals"))
+            manifest = plugin / ".claude-plugin" / "plugin.json"
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            data.pop("dependencies", None)
+            manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            if connected:
+                server = {"type": "stdio", "command": sys.executable, "args": [str(EMULATOR)],
+                          "env": {"ATLAN_EMULATOR_LOG": str(out / "emulator.jsonl"), "ATLAN_EMULATOR_ANALYTICS": "1"}}
+                (plugin / ".mcp.json").write_text(json.dumps({"mcpServers": {SERVER: server}}, indent=2) + "\n",
+                                                  encoding="utf-8")
+            return plugin
         # `--case <glob>`, repeated, picks the cases to run, as in evals/atlan/run.py.
         wanted = case_filters(args.extra)
         cases = [case for case in sorted((HERE / "cases").iterdir()) if case.is_dir()
@@ -75,11 +88,17 @@ def main() -> int:
             return 2
         # `--allow-tools Bash` reaches every case in a run, whatever its `allowed_tools` say, so the cases that
         # list Bash run on their own and the rest never get a shell.
-        groups = {"shell": [c for c in cases if lists_bash(c)], "no-shell": [c for c in cases if not lists_bash(c)]}
-        results, code = {}, 0
+        groups = {"shell": [c for c in cases if lists_bash(c) and not no_registry(c)],
+                  "no-shell": [c for c in cases if not lists_bash(c) and not no_registry(c)],
+                  "no-registry": [c for c in cases if no_registry(c)]}
+        results, code, plugins = {}, 0, {}
         for name, group in groups.items():
             if not group:
                 continue
+            connected = name != "no-registry"
+            if connected not in plugins:
+                plugins[connected] = staged(Path(tmp) / ("connected" if connected else "offline"), connected)
+            plugin = plugins[connected]
             suite, folder = plugin / f"evals-{name}", out / name
             folder.mkdir()
             for case in group:
@@ -89,7 +108,7 @@ def main() -> int:
                 shutil.copytree(HERE / "fixtures", suite / "fixtures")
             command = [
                 "claude", "plugin", "eval", str(plugin), "--eval-dir", suite.name,
-                "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write", *(["Bash"] if name == "shell" else []),
+                "--trust-plugin", "--mocks", "off", "--allow-tools", *([TOOLS] if connected else []), "Write", *(["Bash"] if name == "shell" else []),
                 "--ablation", "none", "--no-publish",
                 "--json", str(folder / "result.json"), "--report", str(folder / "report.html"),
                 "--output-dir", str(folder), *scaffold(group), *judge(args.extra), *without_case_filters(args.extra),

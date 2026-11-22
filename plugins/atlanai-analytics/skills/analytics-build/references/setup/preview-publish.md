@@ -4,6 +4,13 @@
 
 ## 5. Show the metrics before asking where to publish
 
+**No Atlan connection, no destination question.** Before offering Atlan Trident, check that
+this session has the Atlan tools (`registry__list_workspaces`) and that the connection is
+enabled and signed in. When it is not, or the person says the core `atlanai` plugin is missing,
+do not ask where to save: end as [connection recovery](../auth-recovery.md) sections 3 and 4
+say, with the one sample, the counts, this host's install and sign-in commands and the
+saved-run resume prompt. Keeping the drafts local needs no question then: they already are.
+
 The completed-collection review is the save question's own text: `PROJECT question save`
 composes it from the run (the counts, the checks and one metric in full), as
 [context built](save.md) says. Never write the review as a reply and never end the turn

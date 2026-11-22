@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: ux-resume-held-auth
-tags: [analytics, setup, ux, auth, resume]
+tags: [analytics, setup, ux, auth, resume, no-registry]
 execution:
   prompt: |
     Use Atlan Analytics to resume /workspace/.atlan-metrics/shipping-run from this supplied

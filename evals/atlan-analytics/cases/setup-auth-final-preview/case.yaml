@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: setup-auth-final-preview
-tags: [analytics, setup, auth, preview]
+tags: [analytics, setup, auth, preview, no-registry]
 execution:
   prompt: |
     Use the Atlan Analytics skill to finish this setup update in Codex. The previous

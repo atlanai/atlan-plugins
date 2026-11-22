@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: setup-auth-watch-resume
-tags: [analytics, setup, auth, resume]
+tags: [analytics, setup, auth, resume, no-registry]
 execution:
   prompt: |
     Use the Atlan Analytics skill to explain the next actions for this synthetic recovery
