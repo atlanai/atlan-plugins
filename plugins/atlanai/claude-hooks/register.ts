@@ -375,7 +375,7 @@ export async function expand($: Dollar, args: Record<string, unknown>): Promise<
   const out = [...skills]
   for (const [k, index] of slots.entries()) {
     const { files_from: _, sha256: __, ...rest } = out[index] as Record<string, unknown>
-    const files = checked.byFolder[k]
+    const files = checked.byFolder[k] ?? {}
     out[index] = { ...rest, files, sha256: await digests(files) }
   }
   return { args: { ...args, skills: out } }
@@ -561,8 +561,11 @@ export const register: Register = on => {
       if (receiptDir !== undefined) {
         try {
           const saved = await receiptProcess($, receiptRuntime, 'capture', receiptDir, request, { text: resultText(ran), isError: ran.isError })
+          // A refusal carries no context, so it goes back as it came.
+          if (ran.deny !== undefined) return ran
           return { ...ran, context: [...(ran.context ?? []), `Atlan receipt saved: ${JSON.stringify(saved)}. Assemble receipts with the Analytics receipt helper; do not copy response bodies.`] }
         } catch {
+          if (ran.deny !== undefined) return ran
           return { ...ran, context: [...(ran.context ?? []), 'Receipt recording is pending. The tool already ran. Reconcile its result; never repeat a write to repair a local receipt.'] }
         }
       }

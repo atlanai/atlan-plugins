@@ -39,5 +39,5 @@ jobs:
         with:
           node-version: '24'
       # Pinned: the validator's rules move with Claude Code releases. Bump deliberately.
-      - run: npm install --global @anthropic-ai/claude-code@2.1.314
+      - run: npm install --global @anthropic-ai/claude-code@2.1.330
       - run: make validate

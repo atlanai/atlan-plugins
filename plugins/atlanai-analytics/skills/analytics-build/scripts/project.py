@@ -70,6 +70,16 @@ def model_scope(measures):
             'selected': sorted(set(m.strip() for m in measures)), 'held': []}
 
 
+RUN_README = '''# Atlan Analytics setup run
+
+This folder is a saved Atlan Analytics setup: the metrics and saved SQL built from your sources,
+their checks, and what was saved to Atlan. To show a metric's details, what is ready or the next
+step, load the `analytics-build` skill (in Claude Code, `/atlanai-analytics:analytics-build`)
+before reading these files. Its helper reads them on this machine and sends nothing to Atlan
+unless you ask it to save. A hand edit to these files no longer matches their checks.
+'''
+
+
 class ProjectError(ValueError):
     pass
 
@@ -166,6 +176,10 @@ class Project(ContextState):
         progress.update(self, 'inspect', completed=0, total=len(paths))
         safe_path(self.context)
         self.context.mkdir(exist_ok=True, mode=0o700)
+        if not (self.root / 'README.md').exists():
+            # 2026-11-22 evals: asked about a metric by name, sessions found these files with a search and read the
+            # JSON themselves, so the reply listed raw fields and statuses. The note sends them to the skill.
+            self.write_text(self.root / 'README.md', RUN_README)
         pending = False
         for p, kind in sorted(paths, key=lambda item: (item[0].suffix == '.bim', str(item[0]))):
             relative = p.relative_to(root).as_posix()

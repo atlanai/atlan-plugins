@@ -183,7 +183,9 @@ def judge(extra: list[str]) -> list[str]:
 def scaffold(cases: list[Path]) -> list[str]:
     """`--scaffold` when a case stages its workspace with a `context.scaffold_script` of its own,
     such as a skill installed in the project; `claude plugin eval` runs none without it."""
-    staged = any("scaffold_script:" in (case / "case.yaml").read_text(encoding="utf-8") for case in cases)
+    # A prompt.md case (prompt.md + graders/) has no case.yaml and no scaffold.
+    staged = any((case / "case.yaml").is_file() and "scaffold_script:" in (case / "case.yaml").read_text(encoding="utf-8")
+                 for case in cases)
     return ["--scaffold"] if staged else []
 
 

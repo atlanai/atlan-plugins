@@ -145,6 +145,48 @@ class RunTest(unittest.TestCase):
         self.assertEqual(self.runner.measured(["--keep-temp", "--runs", "1"]).count("--keep-temp"), 1)
 
 
+class AnalyticsRunTest(unittest.TestCase):
+    """evals/atlan-analytics/run.py: stages a case that brings its own workspace, and ends on the suite line."""
+
+    def test_a_staged_case_is_scaffolded_and_only_the_cases_that_list_bash_get_a_shell(self) -> None:
+        spec = importlib.util.spec_from_file_location("analytics_run_under_test", EVALS.parent / "atlan-analytics" / "run.py")
+        runner = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runner)
+        sent = []
+
+        def claude(command, check):
+            sent.append(command)
+            suite = Path(command[command.index("--eval-dir") + 1])
+            names = sorted(p.name for p in (Path(command[3]) / suite).iterdir()
+                           if (p / "case.yaml").is_file() or (p / "prompt.md").is_file())
+            out = Path(command[command.index("--json") + 1])
+            out.write_text(json.dumps(result({name: [("saves-it", True)] for name in names})), encoding="utf-8")
+            return mock.Mock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            here, plugin = Path(tmp) / "suite", Path(tmp) / "plugin"
+            (here / "cases" / "staged").mkdir(parents=True)
+            (here / "cases" / "staged" / "case.yaml").write_text(
+                "context:\n  scaffold_script: setup.sh\nexecution:\n  allowed_tools: [Read, Skill, Bash]\n", encoding="utf-8")
+            (here / "cases" / "plain").mkdir()
+            (here / "cases" / "plain" / "case.yaml").write_text("execution:\n  allowed_tools: [Read, Skill]\n", encoding="utf-8")
+            # A prompt.md case has no case.yaml to read.
+            (here / "cases" / "a-prompt-case").mkdir()
+            (here / "cases" / "a-prompt-case" / "prompt.md").write_text("Propose a metric.\n", encoding="utf-8")
+            (plugin / ".claude-plugin").mkdir(parents=True)
+            (plugin / ".claude-plugin" / "plugin.json").write_text('{"name": "atlanai-analytics"}', encoding="utf-8")
+            text = io.StringIO()
+            with mock.patch.object(runner, "HERE", here), mock.patch.object(runner.subprocess, "run", claude), \
+                    mock.patch("sys.argv", ["run.py", "--plugin", str(plugin), "--", "--runs", "1"]), contextlib.redirect_stdout(text):
+                self.assertEqual(runner.main(), 0)
+        shell, plain = sent
+        self.assertIn("--scaffold", shell)
+        self.assertIn("Bash", shell, "a case that lists Bash runs the skills' helper scripts")
+        # A grant reaches every case of a run, so a case that does not list Bash never shares one with a case that does.
+        self.assertNotIn("Bash", plain)
+        self.assertIn("suite: 3/3 cases passed every grader", text.getvalue())
+
+
 class EmulatorIdentityTest(unittest.TestCase):
     def test_the_server_says_who_is_signed_in_so_a_run_does_not_take_the_host_account_for_the_caller(self) -> None:
         emulator = load("atlan_emulator")
