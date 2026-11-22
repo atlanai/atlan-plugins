@@ -10,8 +10,9 @@ plugin's emulator, which is the connection the dependency would have supplied, w
 and Ontology apps of the 5 November review's airline sandbox loaded (`ATLAN_EMULATOR_ANALYTICS`). Results land in
 evals/atlan-analytics/results/. Each case is a full Claude Code run on your own credential: it
 costs money and is not part of `make check`. The LLM graders are judged as evals/atlan/run.py
-says. The run is granted Bash, so a case that lists it in `allowed_tools` can run the skills' own
-helper scripts on the project its scaffold left (fixtures/); a case that does not list it has none.
+says. The cases that list Bash in `allowed_tools` run as their own group with Bash granted, so they
+can run the skills' own helper scripts on the project their scaffold left (fixtures/); the rest run
+without a shell, because a grant reaches every case of a run. Each group's results land in its folder.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +37,13 @@ TOOLS = f"mcp__plugin_{PLUGIN}_{SERVER}__*"
 
 sys.path.insert(0, str(ROOT / "evals" / "atlan"))
 from run import case_filters, judge, scaffold, summarize, without_case_filters  # noqa: E402
+
+
+def lists_bash(case: Path) -> bool:
+    """Whether the case's `allowed_tools` names Bash."""
+    yaml = case / "case.yaml"  # a prompt.md case has none
+    found = yaml.is_file() and re.search(r"(?m)^\s*allowed_tools:\s*\[([^\]]*)\]", yaml.read_text(encoding="utf-8"))
+    return bool(found) and "Bash" in {t.strip() for t in found.group(1).split(",")}
 
 
 def main() -> int:
@@ -64,21 +73,31 @@ def main() -> int:
         if not cases:
             print("no case matches", file=sys.stderr)
             return 2
-        for case in cases:
-            shutil.copytree(case, plugin / "evals" / case.name)
-        # The saved projects a case's scaffold builds (`"$(dirname "$0")/../fixtures/…"`): no case of their own.
-        if (HERE / "fixtures").is_dir():
-            shutil.copytree(HERE / "fixtures", plugin / "evals" / "fixtures")
-        command = [
-            "claude", "plugin", "eval", str(plugin),
-            "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write", "Bash",
-            "--ablation", "none", "--no-publish",
-            "--json", str(out / "result.json"), "--report", str(out / "report.html"),
-            "--output-dir", str(out), *scaffold(cases), *judge(args.extra), *without_case_filters(args.extra),
-        ]
-        print("+", " ".join(command), flush=True)
-        code = subprocess.run(command, check=False).returncode
-    return summarize({out / "result.json": [case.name for case in cases]}) or code
+        # `--allow-tools Bash` reaches every case in a run, whatever its `allowed_tools` say, so the cases that
+        # list Bash run on their own and the rest never get a shell.
+        groups = {"shell": [c for c in cases if lists_bash(c)], "no-shell": [c for c in cases if not lists_bash(c)]}
+        results, code = {}, 0
+        for name, group in groups.items():
+            if not group:
+                continue
+            suite, folder = plugin / f"evals-{name}", out / name
+            folder.mkdir()
+            for case in group:
+                shutil.copytree(case, suite / case.name)
+            # The saved projects a case's scaffold builds (`"$(dirname "$0")/../fixtures/…"`): no case of their own.
+            if (HERE / "fixtures").is_dir():
+                shutil.copytree(HERE / "fixtures", suite / "fixtures")
+            command = [
+                "claude", "plugin", "eval", str(plugin), "--eval-dir", suite.name,
+                "--trust-plugin", "--mocks", "off", "--allow-tools", TOOLS, "Write", *(["Bash"] if name == "shell" else []),
+                "--ablation", "none", "--no-publish",
+                "--json", str(folder / "result.json"), "--report", str(folder / "report.html"),
+                "--output-dir", str(folder), *scaffold(group), *judge(args.extra), *without_case_filters(args.extra),
+            ]
+            print("+", " ".join(command), flush=True)
+            code = subprocess.run(command, check=False).returncode or code
+            results[folder / "result.json"] = [case.name for case in group]
+    return summarize(results) or code
 
 
 if __name__ == "__main__":
