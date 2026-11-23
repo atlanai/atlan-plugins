@@ -454,7 +454,7 @@ rules:
     dialects: [snowflake, duckdb, redshift, databricks, postgres, bigquery, tsql]
     tier: stable
     evidence: dax
-    note: a date from its parts, month and day rolling over as DAX's do (a year below 100 is not moved by 1900 here)
+    note: a date from its parts, month and day rolling over as DAX's do; the compiler windows a two-digit year first (0-49 to 20xx, 50-99 to 19xx) before placing it
 
   # EDATE(date, n): the date n months on, the day kept or cut to the month's last.
   - id: dax.edate

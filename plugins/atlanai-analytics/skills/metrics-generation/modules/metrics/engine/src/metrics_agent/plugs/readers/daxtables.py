@@ -43,7 +43,7 @@ def _date(toks: list) -> dt.date:
     parts = _bc._split_top(inner) if head == "DATE" else []
     if len(parts) == 3 and all(len(p) == 1 and p[0][0] == "num" for p in parts):
         y, m, d = (int(float(p[0][1])) for p in parts)
-        return dt.date(y, m, d)
+        return dt.date(_bc.dax_year(y), m, d)
     if len(toks) == 1 and toks[0][0] == "str":
         try:
             return dt.date.fromisoformat(toks[0][1].strip("\"'"))

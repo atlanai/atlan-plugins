@@ -422,8 +422,10 @@ class _Parser:
     # only when both sides are; in `&` it is the empty string; in a comparison it is 0
     # against a number and "" against a text (`BLANK < 100` is TRUE, `BLANK = 0` is TRUE).
     # `*`, `/` and `^` with a blank are blank, as NULL is.
+    # The sign sits between `*` and `^`: `^` binds tighter, so `-2^2` is -(2^2) = -4 (Power
+    # BI's own answer), and a sign may open the exponent (`2^-1`).
     _DAX_LEVELS = (("||",), ("&&",), ("=", "==", "<>", "!=", "<", ">", "<=", ">="), ("&",),
-                   ("+", "-"), ("*", "/"), ("^",))
+                   ("+", "-"), ("*", "/"))
 
     def _dax_binary(self, level: int) -> str:
         if level == len(self._DAX_LEVELS):
@@ -451,6 +453,26 @@ class _Parser:
         if kind == "op" and value in ("-", "+"):
             self.take()
             inner = self._dax_unary()
+            return f"-{inner}" if value == "-" else inner
+        return self._dax_power()
+
+    def _dax_power(self) -> str:
+        left = self.term()
+        while self.peek() == ("op", "^"):
+            self.take()
+            left = self._dax_op("^", left, self._dax_unary_operand())
+            if len(left) > self._MAX_EXPRESSION_CHARS:
+                raise CompileError(f"the compiled expression is too large to run ({len(left)} "
+                                   f"characters); split the formula into smaller measures")
+        return left
+
+    def _dax_unary_operand(self) -> str:
+        """An exponent: a signed term (`2^-1`), with no `^` of its own, so `^` stays
+        left-associative as it was."""
+        kind, value = self.peek()
+        if kind == "op" and value in ("-", "+"):
+            self.take()
+            inner = self._dax_unary_operand()
             return f"-{inner}" if value == "-" else inner
         return self.term()
 
@@ -2250,6 +2272,9 @@ class _Parser:
             # its own (lib/withheld), never the value.
             self.used.append("op.viewer_bind")
             emit = {**emit, "template": emit["template"].replace("{viewer}", ph)}
+        if self._dax and up == "DATE" and args:
+            # A two-digit year is windowed as DAX's DATE windows it (`dax_year`).
+            args = [dax_year_sql(args[0]), *args[1:]]
         by_dialect = emit.get("dialect_templates") or {}
         if by_dialect and str(self.dialect or "").lower() in by_dialect:
             # The same function spelled per dialect (date arithmetic is not portable); a
@@ -3622,6 +3647,27 @@ def _year_end(toks) -> tuple[int, int]:
     return month, day
 
 
+def dax_year(year: int) -> int:
+    """The year DAX's DATE reads from its first argument: a two-digit year is windowed (0 to
+    49 is 2000 to 2049, 50 to 99 is 1950 to 1999); 100 and up is the year itself (Power BI's
+    own answers: DATE(99, 1, 1) is 1999-01-01, DATE(100, 1, 1) is 0100-01-01)."""
+    if 0 <= year <= 49:
+        return year + 2000
+    if 50 <= year <= 99:
+        return year + 1900
+    return year
+
+
+def dax_year_sql(year: str) -> str:
+    """`dax_year` over a SQL expression; a number literal is folded."""
+    if re.fullmatch(r"\d+", year.strip()):
+        return str(dax_year(int(year.strip())))
+    if re.fullmatch(r"\(?\s*-\s*\d+\s*\)?", year.strip()):
+        return year
+    return (f"(CASE WHEN {year} BETWEEN 0 AND 49 THEN {year} + 2000 "
+            f"WHEN {year} BETWEEN 50 AND 99 THEN {year} + 1900 ELSE {year} END)")
+
+
 def _date_literal(toks) -> str:
     """`DATE(2025, 1, 31)` -> '2025-01-31'."""
     head, inner = _call_head(toks)
@@ -3630,7 +3676,8 @@ def _date_literal(toks) -> str:
         raise CompileError("a date bound is compiled as DATE(year, month, day) of literals")
     import datetime as _dt  # noqa: PLC0415 - only time intelligence needs it
     try:
-        return _dt.date(*(int(x[0][1]) for x in parts)).isoformat()
+        y, m, d = (int(x[0][1]) for x in parts)
+        return _dt.date(dax_year(y), m, d).isoformat()
     except ValueError as exc:
         raise CompileError(f"DATE literal: {exc}") from None
 
@@ -4293,12 +4340,31 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
         # aggregated again, joined to the rest on the visual's rows.
         grains, ranks, treatas = {}, {}, {}
         if measures and table_of and not unit.get("top_n"):
+            # A member iterator that would be read wrongly is refused by name, for the
+            # measure it is in (`_member_grain` raises it).
+            for m in unit.get("measures") or []:
+                if m.get("formula_language") == "dax" and m.get("formula"):
+                    try:
+                        _statement_form(m["formula"], measures, table_of,
+                                        list(model_graph or [])
+                                        + list(unit.get("join_graph") or []),
+                                        set(row_formulas or ()))
+                    except _NoTransition as exc:
+                        res = Result()
+                        res.coverage = REFUSED
+                        res.reason = f"measure {m['name']!r}: {exc}"
+                        return res
             # A measure that is a scalar expression OVER such forms (IF(ISBLANK([S]),
             # BLANK(), RANKX(..)), DIVIDE(COUNTROWS(FILTER(VALUES(k), ..)), ..)): each part is
             # a measure of its own, and the expression is computed over their values per row.
-            done = _composite_statement(unit, measures, table_of, list(model_graph or [])
-                                        + list(unit.get("join_graph") or []),
-                                        set(row_formulas or ()), again, rules, dialect)
+            try:
+                done = _composite_statement(unit, measures, table_of, list(model_graph or [])
+                                            + list(unit.get("join_graph") or []),
+                                            set(row_formulas or ()), again, rules, dialect)
+            except _NoTransition as exc:
+                done = Result()
+                done.coverage = REFUSED
+                done.reason = f"a part of a measure: {exc}"
             if done is not None:
                 return done
             for m in unit.get("measures") or []:
@@ -6107,6 +6173,49 @@ def _not_row_level(toks: list, measures: dict[str, str], row_formulas: set[str])
     return False
 
 
+class _NoTransition(CompileError):
+    """A member iterator whose expression aggregates with no context transition: refused by
+    name for the measure it is in, never compiled as if CALCULATE were there."""
+
+
+# What reads a row iterator's row as a filter (a context transition): a CALCULATE, and
+# RELATEDTABLE (a CALCULATETABLE). A measure reference is a `col` token, not a call.
+_TRANSITIONS = {"CALCULATE", "CALCULATETABLE", "RELATEDTABLE"}
+_PLAIN_AGGREGATES = {"SUM", "AVERAGE", "COUNT", "COUNTA", "COUNTBLANK", "COUNTROWS",
+                     "DISTINCTCOUNT", "DISTINCTCOUNTNOBLANK", "MIN", "MAX"}
+
+
+def _untransitioned_aggregate(toks: list) -> str | None:
+    """The first aggregate in an iterator's expression that no context transition wraps
+    (`SUMX(Customer, SUM(Sales[Quantity]))`), or None. Such an aggregate is evaluated in the
+    filter context the iterator runs in, not the row's: every row adds the same whole total
+    (Power BI's own answer). Compiling it per member would read it as if CALCULATE were
+    there. An iterator nested in it counts too, unless it iterates a RELATEDTABLE."""
+    i = 0
+    while i < len(toks):
+        k, v = toks[i]
+        call = k == "func" and i + 1 < len(toks) and toks[i + 1][0] == "lparen"
+        if not call:
+            i += 1
+            continue
+        up = v.upper()
+        end, args = _call_args(toks, i + 1)
+        if end is None:
+            return None
+        if up in _TRANSITIONS:
+            i = end + 1
+            continue
+        if up in ("MIN", "MAX") and len(args) != 1:
+            i += 2                                    # MIN(a, b): a scalar, not an aggregate
+            continue
+        if up in _PLAIN_AGGREGATES:
+            return up
+        if up in _ITERATORS and args and _call_head(args[0])[0] != "RELATEDTABLE":
+            return up
+        i += 2
+    return None
+
+
 def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, str],
                   graph: list[dict], row_formulas: set[str], depth: int = 0,
                   columns: dict[str, set[str]] | None = None) -> dict | None:
@@ -6131,6 +6240,8 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
                                  depth + 1, columns)
         return None
     head, inner = _call_head(toks)
+    # A form rewritten from CALCULATE: its expression is under that CALCULATE's transition.
+    transitioned = head == "CALCULATE"
     if head == "CALCULATE":
         # CALCULATE(e, FILTER(VALUES(k) or a table, test of a measure)): e over the members
         # that pass, each read in its own context. For an e that sums its rows that is the
@@ -6251,6 +6362,14 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
         return None
     if not any(_not_row_level(t, measures, row_formulas) for t in body):
         return None
+    # A FILTER's test is read row by row with no transition in either form.
+    for t in ([pred] if transitioned else body):
+        agg = _untransitioned_aggregate(t) if t else None
+        if agg:
+            raise _NoTransition(
+                f"{head} over {_bare(table)} evaluates {agg} with no context transition (no "
+                f"CALCULATE or measure around it): each member adds the total of the visual's "
+                f"whole context, which is not compiled")
 
     def per_member(t: list) -> str:
         # RELATEDTABLE(R) is R's rows of the member: at the member's grain, R itself.
