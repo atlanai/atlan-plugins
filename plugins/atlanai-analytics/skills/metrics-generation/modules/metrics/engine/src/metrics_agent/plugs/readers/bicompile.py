@@ -4663,12 +4663,18 @@ def _compile_unit(unit: dict, rules, dialect: str, *, alias: str = "t",
     # EVERY value the visual shows ignores the same visual filters (each measure is wholly a
     # CALCULATE that replaces or removes them, keeping the visual's grouping): those filters
     # then choose no row of any value, and the statement is the unit without them, every
-    # measure compiled over its rows as it stands.
+    # measure compiled over its rows as it stands. An aggregate left outside the CALCULATE
+    # reads the visual's rows, filters included, even when it names no column (COUNTROWS is
+    # COUNT(*)): DIVIDE([n], CALCULATE([n], ALL(T))) keeps them on its numerator.
     drops = {tuple(sorted(map(str, a["drop"]))) for a in ctx.context_aggs if a.get("drop")}
+
+    def _outside(x: str) -> str:
+        return re.sub(r"__CTXAGG\d+__", "", x.rsplit(" AS ", 1)[0])
+
     if (len(drops) == 1 and not failed and all(a.get("drop") for a in ctx.context_aggs)
             and all(len(a["keep"]) == len(ctx.groups) for a in ctx.context_aggs)
-            and all(not re.search(rf"\b{re.escape(alias)}\.|\bj\d+\.|\bOVER\b",
-                                  re.sub(r"__CTXAGG\d+__", "", x.rsplit(" AS ", 1)[0]))
+            and all(not re.search(rf"\b{re.escape(alias)}\.|\bj\d+\.|\bOVER\b", _outside(x))
+                    and not _agg_call(_outside(x))
                     for x in select[len(unit.get("group_by") or []):])):
         gone = {(str(c).lower(), t) for c, t in ctx.context_aggs[0]["drop"]}
         grouped = {c for c, _t, _s in ctx.groups}
