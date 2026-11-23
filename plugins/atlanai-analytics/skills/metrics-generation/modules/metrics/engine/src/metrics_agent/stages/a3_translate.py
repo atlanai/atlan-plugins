@@ -147,8 +147,9 @@ _MEASURE_REF = re.compile(r"(?<![\w'\]])\[([^\]]+)\]")
 
 
 def split_measures(u: dict, compile_, res, max_chars: int = 0):
-    """A unit whose statement is refused, or longer than `max_chars`, as the statements its
-    measures do compile in: (parts, dropped), or None where nothing changes.
+    """A unit whose statement is refused, longer than `max_chars`, or leaves out a measure
+    that compiles on its own, as the statements its measures do compile in: (parts,
+    dropped), or None where nothing changes.
 
     ONE MEASURE MUST NOT COST ITS NEIGHBOURS. A unit is often a whole display folder, and the
     compiler judges the unit as one statement: a single measure it cannot translate (or two
@@ -163,14 +164,13 @@ def split_measures(u: dict, compile_, res, max_chars: int = 0):
     `parts` is [(the unit with the part's measures, its compiled result)]; the first part
     names every dropped measure in its `untranslatable` (and is then partial), so the gap
     reaches the candidate. `dropped` is [(measure, reason)]. None when the unit has fewer than
-    two measures, compiled within the cap, or no measure compiles even alone (the unit's own
-    refusal then stands as it is)."""
+    two measures, compiled within the cap with no measure left out that compiles on its own,
+    or no measure compiles even alone (the unit's own refusal then stands as it is)."""
     ms = list(u.get("measures") or [])
     if len(ms) < 2:
         return None
     refused = res.coverage == _sockets.REFUSED or not res.sql
-    if not refused and not (max_chars and len(res.sql) > max_chars):
-        return None
+    too_big = bool(max_chars) and not refused and len(res.sql) > max_chars
 
     def sub(keep: list) -> dict:
         return {**u, "measures": list(keep)}
@@ -178,8 +178,23 @@ def split_measures(u: dict, compile_, res, max_chars: int = 0):
     def ok(r) -> bool:
         return r.coverage != _sockets.REFUSED and bool(r.sql)
 
-    def fits(r) -> bool:
-        return ok(r) and (not max_chars or len(r.sql) <= max_chars)
+    def left_out(r) -> set[str]:
+        """The unit's measures a compiled statement names as left out."""
+        return {str(g.get("in_measure")) for g in r.untranslatable or []
+                if g.get("in_measure")} & {str(m.get("name")) for m in ms}
+
+    if not refused and not too_big:
+        # A statement that compiled, leaving measures out: kept as it is unless one of
+        # them compiles on its own (it failed only beside the others, such as a measure
+        # the time-intelligence statement cannot carry), which then gets a statement.
+        lost = left_out(res)
+        if not lost or not any(ok(compile_(sub([m]))) for m in ms
+                               if str(m.get("name")) in lost):
+            return None
+
+    def fits(r, group: list) -> bool:
+        return (ok(r) and (not max_chars or len(r.sql) <= max_chars)
+                and not left_out(r) & {str(m.get("name")) for m in group})
 
     alone: dict[int, object] = {}
     dropped: list[tuple[dict, str]] = []
@@ -206,7 +221,7 @@ def split_measures(u: dict, compile_, res, max_chars: int = 0):
     kept = [ms[i] for i in sorted(alone)]
     groups: list[list] = []          # [measures, result, full]
     whole = compile_(sub(kept)) if (refused and dropped and len(kept) > 1) else None
-    if whole is not None and fits(whole):
+    if whole is not None and fits(whole, kept):
         groups.append([kept, whole, True])
     elif len(kept) == 1:
         groups.append([kept, alone[sorted(alone)[0]], True])
@@ -216,11 +231,11 @@ def split_measures(u: dict, compile_, res, max_chars: int = 0):
                 if g[2]:
                     continue
                 r = compile_(sub(g[0] + [ms[i]]))
-                if fits(r):
+                if fits(r, g[0] + [ms[i]]):
                     g[0].append(ms[i])
                     g[1] = r
                     break
-                if ok(r):
+                if ok(r) and not left_out(r) & {str(m.get("name")) for m in g[0] + [ms[i]]}:
                     g[2] = True      # compiles together, but is full: no more room
             else:
                 groups.append([[ms[i]], alone[i], False])

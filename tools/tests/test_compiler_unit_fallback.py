@@ -120,6 +120,27 @@ class CompilerUnitFallbackTest(unittest.TestCase):
                           'Uses Uses Bad': 'it reads measure [uses bad], which is left out'})
         self.assertEqual([names(p) for p, _r in parts], [['Good', 'Column Not Measure']])
 
+    def test_a_measure_left_out_only_beside_the_others_gets_a_statement(self):
+        def stub(u):
+            # 'Toggle' cannot share a statement with 'Time'; 'Broken' compiles nowhere.
+            gone = [n for n in names(u) if n == 'Broken'
+                    or (n == 'Toggle' and 'Time' in names(u))]
+            kept = [n for n in names(u) if n not in gone]
+            return sockets.Compiled(
+                sql='SELECT ' + ', '.join(kept) if kept else '',
+                coverage=(sockets.REFUSED if not kept else
+                          sockets.PARTIAL if gone else sockets.TRANSLATED),
+                untranslatable=[{'construct': 'x', 'in_measure': n, 'why': 'no'} for n in gone],
+                reason='; '.join(gone))
+        u = unit(measure('Time', 'a'), measure('Toggle', 'b'), measure('Plain', 'c'),
+                 measure('Broken', 'd'))
+        parts, dropped = a3_translate.split_measures(u, stub, stub(u))
+        self.assertEqual([names(p) for p, _r in parts], [['Time', 'Plain'], ['Toggle']])
+        self.assertEqual([m['name'] for m, _w in dropped], ['Broken'])
+        # Nothing that compiles on its own is left out: kept as it is.
+        u2 = unit(measure('Plain', 'c'), measure('Broken', 'd'))
+        self.assertIsNone(a3_translate.split_measures(u2, stub, stub(u2)))
+
     def test_a_unit_that_compiles_is_left_as_it_is(self):
         u = unit(measure('Sales', 'SUM(Sales[amount])'), measure('Orders', 'DISTINCTCOUNT(Sales[order_id])'))
         self.assertIsNone(a3_translate.split_measures(u, compile_, compile_(u)))
@@ -260,3 +281,136 @@ class CompilerUnitFallbackTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# -- third pass: what was still left out of the large model ------------------------------------
+ORDERS, CAL = 'retail.fct_orders', 'retail.dim_calendar'
+COLUMNS3 = {ORDERS: {'date_sk', 'order_id', 'amount', 'flag', 'other', 'lfl', 'channel',
+                     'Customer Sk'},
+            CAL: {'date_sk', 'calendar_date', 'prior_year_date', 'retail_year'}}
+TABLE_OF3 = {'orders': ORDERS, 'calendar': CAL}
+TYPES3 = {('calendar', 'calendar_date'): 'dateTime', ('calendar', 'prior_year_date'): 'dateTime',
+          ('calendar', 'date_sk'): 'int64', ('orders', 'date_sk'): 'int64'}
+GRAPH3 = [edge(ORDERS, CAL, 'date_sk', 'date_sk')]
+PRIOR = "FILTER(ALL('Calendar'), 'Calendar'[calendar_date] IN VALUES('Calendar'[prior_year_date]))"
+BOTH = ('VAR a = CALCULATETABLE(VALUES(Orders[order_id]), Orders[flag] = "Y", Orders[other] = "Y") '
+        'VAR b = CALCULATETABLE(VALUES(Orders[order_id]), Orders[flag] = "N") '
+        'VAR both = INTERSECT(a, b) RETURN COUNTROWS(both)')
+EACH_DATE = """VAR Dates = SUMMARIZE('Calendar', 'Calendar'[calendar_date])
+RETURN SUMX(Dates,
+  VAR CurrentDate = 'Calendar'[calendar_date]
+  VAR LastYearDate = CALCULATE(MAX('Calendar'[prior_year_date]),
+                               FILTER(ALL('Calendar'), 'Calendar'[calendar_date] = CurrentDate))
+  RETURN CALCULATE(SUM(Orders[amount]), Orders[channel] = "a",
+                   FILTER(ALL('Calendar'), 'Calendar'[calendar_date] = LastYearDate)))"""
+
+
+def compile3(*measures, group_by=(), group_by_tables=(), model=None, dialect='duckdb'):
+    u = {'unit_id': 'u', 'warehouse_tables': [ORDERS], 'group_by': list(group_by),
+         'group_by_tables': list(group_by_tables), 'measures': list(measures), 'filters': [],
+         'top_n': None, 'join_graph': GRAPH3}
+    return bicompile.compile_unit(u, RULES, dialect, columns=COLUMNS3, table_of=TABLE_OF3,
+                                  measures=model or {}, model_graph=GRAPH3, types=TYPES3)
+
+
+def orders_db():
+    import duckdb
+    con = duckdb.connect()
+    con.execute('create schema retail')
+    con.execute('create table retail.fct_orders(date_sk int, order_id int, amount double, '
+                'flag varchar, other varchar, lfl varchar, channel varchar, "Customer Sk" int)')
+    con.execute('create table retail.dim_calendar(date_sk int, calendar_date date, '
+                'prior_year_date date, retail_year int)')
+    # 2025's 28 Feb and 1 Mar both map to 1 Mar 2024; 2 Mar 2025 maps to 2 Mar 2024.
+    con.execute("insert into retail.dim_calendar values (1, '2024-03-01', NULL, 2024), "
+                "(2, '2024-03-02', NULL, 2024), (3, '2025-02-28', '2024-03-01', 2025), "
+                "(4, '2025-03-01', '2024-03-01', 2025), (5, '2025-03-02', '2024-03-02', 2025)")
+    # Order 1 has a row passing A (flag Y, other Y) and one passing B (flag N); order 2 only
+    # A; order 3 only B (its flag-Y row fails `other`); order 4 only B; order 5 both, not LFL.
+    con.execute("insert into retail.fct_orders values "
+                "(1, 1, 10, 'Y', 'Y', 'Y', 'a', 1), (1, 1, 1, 'N', 'Y', 'Y', 'a', 1), "
+                "(2, 2, 7, 'Y', 'Y', 'N', 'a', NULL), (1, 3, 1, 'Y', 'N', 'Y', 'b', 2), "
+                "(1, 3, 1, 'N', 'Y', 'Y', 'b', 2), (2, 4, 1, 'N', 'N', 'N', 'b', 3), "
+                "(5, 5, 100, 'Y', 'Y', 'N', 'a', 3), (5, 5, 1, 'N', 'Y', 'N', 'a', 3)")
+    return con
+
+
+@unittest.skipUnless(DEPENDENCIES, 'needs the metrics engine dependencies (sqlglot, PyYAML, jsonschema)')
+class StillLeftOutTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        CompilerUnitFallbackTest.setUpClass()
+
+    def run_sql(self, res):
+        self.assertTrue(res.sql, res.reason)
+        if not DUCKDB:
+            self.skipTest('duckdb is not installed')
+        return sorted(orders_db().execute(res.sql).fetchall(), key=str)
+
+    def test_a_column_name_that_is_not_an_identifier_is_quoted(self):
+        res = compile3(measure('Customers', "COUNTROWS(VALUES(Orders[Customer Sk]))"))
+        self.assertIn('t."Customer Sk"', res.sql)
+        self.assertEqual(self.run_sql(res), [(4,)])       # 1, 2, 3 and a blank
+
+    def test_a_block_comment_holding_a_block_comment_is_one_comment(self):
+        toks = bicompile.tokenize('SUM(T[a]) /* old /* older */ VAR x = 1 */ + 1')
+        self.assertEqual([v for _k, v in toks], ['SUM', '(', 'T[a]', ')', '+', '1'])
+        # A nesting that does not close is read as before: the first `*/` ends it.
+        toks = bicompile.tokenize('SUM(T[a]) /* old /* older */ + 1')
+        self.assertEqual([v for _k, v in toks], ['SUM', '(', 'T[a]', ')', '+', '1'])
+
+    def test_an_or_filter_beside_another_filter_keeps_its_parentheses(self):
+        res = compile3(measure('M', 'CALCULATE(SUM(Orders[amount]), Orders[channel] = "b", '
+                                    'Orders[flag] = "Y" || Orders[other] = "Y")'))
+        self.assertIn(" AND (COALESCE(", res.sql)
+        self.assertEqual(self.run_sql(res), [(2.0,)])     # order 3's two rows only
+
+    def test_selectedvalue_beside_time_intelligence_reads_the_rows_own_value(self):
+        toggle = measure('Toggle', 'VAR f = SELECTEDVALUE(Orders[lfl]) RETURN '
+                                   f'SWITCH(TRUE(), f = "Y", SUM(Orders[amount]), '
+                                   f'CALCULATE(SUM(Orders[amount]), {PRIOR}))')
+        res = compile3(toggle, group_by=['lfl'], group_by_tables=[ORDERS])
+        self.assertIn('engine.dax_time_intelligence_row_slot', res.rules_used)
+        rows = dict(self.run_sql(res))
+        self.assertEqual(rows['Y'], 13.0)                 # its own sum
+        self.assertEqual(rows['N'], 8.0)                  # last year's: orders 2 and 4
+
+    def test_a_prior_year_sum_over_each_date_counts_a_shared_date_once_per_date(self):
+        res = compile3(measure('Sales LY', EACH_DATE))
+        self.assertIn('engine.dax_time_lookup_each_date', res.rules_used)
+        # 28 Feb and 1 Mar 2025 both read 1 Mar 2024 (11 of channel a); 2 Mar 2025 reads 2 Mar
+        # 2024 (7): 11 + 11 + 7.
+        self.assertEqual(self.run_sql(res), [(29.0,)])
+        by_year = compile3(measure('Sales LY', EACH_DATE), group_by=['retail_year'],
+                           group_by_tables=[CAL])
+        self.assertEqual(self.run_sql(by_year), [(2025, 29.0)])
+
+    def test_a_prior_year_sum_of_a_ratio_over_each_date_is_not_rewritten(self):
+        ratio = EACH_DATE.replace('SUM(Orders[amount])', 'DIVIDE(SUM(Orders[amount]), 2)')
+        self.assertIsNone(bicompile._each_date_lookup(bicompile.tokenize(ratio)))
+
+    def test_counting_the_keys_two_calculatetables_share(self):
+        res = compile3(measure('Both', BOTH))
+        self.assertIn('engine.dax_intersect_count', res.rules_used)
+        self.assertEqual(self.run_sql(res), [(2,)])        # orders 1 and 5
+        by_channel = compile3(measure('Both', BOTH), group_by=['channel'],
+                              group_by_tables=[ORDERS])
+        self.assertEqual(self.run_sql(by_channel), [('a', 2), ('b', None)])
+        lfl = compile3(measure('LFL Both', 'CALCULATE([Both], KEEPFILTERS(Orders[lfl] = "Y"))'),
+                       model={'both': BOTH})
+        self.assertEqual(self.run_sql(lfl), [(1,)])        # order 1 only
+
+    def test_counting_shared_keys_over_a_column_the_visual_groups_by_is_refused(self):
+        res = compile3(measure('Both', BOTH), group_by=['flag'], group_by_tables=[ORDERS])
+        self.assertFalse(res.sql)
+        self.assertIn('which the visual groups or filters by', res.reason)
+
+    def test_treatas_of_the_prior_year_dates_is_the_lookup(self):
+        f = ("CALCULATE(SUM(Orders[amount]), TREATAS(SUMMARIZE('Calendar', "
+             "'Calendar'[prior_year_date]), 'Calendar'[calendar_date]))")
+        res = compile3(measure('Sales LY', f))
+        self.assertIn('engine.dax_time_lookup_treatas', res.rules_used)
+        self.assertEqual(self.run_sql(res), [(21.0,)])     # 1 and 2 Mar 2024, once each
+        grouped = compile3(measure('Sales LY', f), group_by=['retail_year'],
+                           group_by_tables=[CAL])
+        self.assertNotIn('engine.dax_time_lookup_treatas', grouped.rules_used)
