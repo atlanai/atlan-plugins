@@ -271,7 +271,7 @@ function closes(value: string, quote: string): number | undefined {
   return undefined
 }
 
-/** Why a top-level value, with any continuation lines joined, is not YAML the registry reads. */
+/** Why a top-level value, with any continuation lines joined, is not YAML Atlan Trident reads. */
 function valueProblem(value: string): string | undefined {
   const v = value.trim()
   if (!v || v[0] === '#') return undefined
@@ -309,7 +309,7 @@ function valueProblem(value: string): string | undefined {
 }
 
 /**
- * What the registry's parser refuses in SKILL.md's frontmatter and body, as [line, column, rule,
+ * What Trident's parser refuses in SKILL.md's frontmatter and body, as [line, column, rule,
  * fix]: check_bundle.py's frontmatter_problems, line for line. The subset of YAML a SKILL.md
  * uses, not the whole language.
  */
@@ -357,7 +357,7 @@ export function frontmatterProblems(text: string): [number, number, string, stri
     if (why) found.push([number, line.indexOf(':') + 2, 'frontmatter-yaml', why])
   }
   if (!lines.slice(end + 1).join('\n').trim())
-    found.push([end + 1, 1, 'no-body', 'nothing follows the frontmatter; the registry needs Markdown instructions after the closing `---`'])
+    found.push([end + 1, 1, 'no-body', 'nothing follows the frontmatter; Atlan Trident needs Markdown instructions after the closing `---`'])
   return found
 }
 

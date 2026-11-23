@@ -21,7 +21,7 @@
 # Atlan plugins
 
 Atlan's plugin marketplace for coding agents. Install it once and your agent can reach your
-organization's Atlan registry: the skills, agents, knowledge and MCP servers your teams have
+organization's Atlan Trident: the skills, agents, knowledge and MCP servers your teams have
 already published. It can find what fits the task, use it in the current project, and publish
 new work back, all under your own sign-in.
 
@@ -57,9 +57,9 @@ Then type: *"Connect me to Atlan."* In Claude Code,
 |---|---|
 | [Claude Code](https://code.claude.com) | `claude plugin install atlanai --marketplace atlanai/atlan-plugins` |
 | [OpenAI Codex](https://openai.com/codex/) | `codex plugin marketplace add atlanai/atlan-plugins`, then `codex plugin add atlanai@atlan` and `codex mcp login atlan` |
-| [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **AI Registry**, then **Connect** on its **Connectors** tab |
-| [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **AI Registry** from the Cursor Marketplace |
-| [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **AI Registry** from Chat Plugins |
+| [Claude](https://claude.ai) chat and Cowork | **Customize**, **Plugins**, **Add marketplace**: `atlanai/atlan-plugins`; add **Atlan Trident**, then **Connect** on its **Connectors** tab |
+| [Cursor](https://cursor.com) | Import `atlanai/atlan-plugins` as a team marketplace, or install **Atlan Trident** from the Cursor Marketplace |
+| [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/overview) | Add `atlanai/atlan-plugins` to `chat.plugins.marketplaces`, then install **Atlan Trident** from Chat Plugins |
 | [Snowflake Cortex Code](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code) Desktop | Type `/github-plugin-installer https://github.com/atlanai/atlan-plugins/tree/main/plugins/atlanai`, then **Customize**, **MCP**, **Connect** on `atlan` |
 | Skills only, any Agent Skills tool | `npx skills add atlanai/atlan-plugins` (no MCP server; add `--skill <name>` to pick one) |
 | MCP server only, any MCP client | `https://api.atlan.com/mcp` (Streamable HTTP with OAuth), for example `claude mcp add --transport http atlan https://api.atlan.com/mcp` |
@@ -81,11 +81,11 @@ covers each agent in detail.
 
 | Plugin | What it adds |
 |---|---|
-| [**AI Registry**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in the registry. Every other plugin here builds on it. |
+| [**Atlan Trident**](plugins/atlanai) (`atlanai`) | Atlan's remote MCP server and the skills to find, use and publish what is in Atlan Trident. Every other plugin here builds on it. |
 | [**Analytics**](plugins/atlanai-analytics) (`atlanai-analytics`) | Answers data questions from your managed metrics, mines your warehouse's query history into metrics and saved SQL queries, and builds, evaluates and improves a talk-to-data agent on them. Works with Snowflake, Databricks or another warehouse. |
-| [**Registry Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Registry reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, shows each Atlan call as one readable line, lists what the session read and changed in a pane, follows a skill publish in a band above the prompt, and picks a skill to load with `/atlan skills`. Reports a broken connection on the status line. |
+| [**Trident Mods**](plugins/atlanai-mods) (`atlanai-mods`) | Claude Code only. Atlan Trident reads run without a prompt, writes ask first, and an archive or move shows what depends on the artifact. Fixes misplaced session ids and rationales, shows each Atlan call as one readable line, lists what the session read and changed in a pane, follows a skill publish in a band above the prompt, and picks a skill to load with `/atlan skills`. Reports a broken connection on the status line. |
 
-### AI Registry
+### Atlan Trident
 
 The core plugin connects one MCP server, `atlan`, and teaches your agent when to use it.
 
@@ -93,12 +93,12 @@ The core plugin connects one MCP server, `atlan`, and teaches your agent when to
 |---|---|
 | `atlan-get-started` | Check the connection, learn how calls work, and find the right skill |
 | `atlan-find-artifacts` | Search skills, agents, knowledge, MCP servers, files and outputs |
-| `atlan-use-skill` | Run a registry skill now, or install it in this project |
+| `atlan-use-skill` | Run an Atlan Trident skill now, or install it in this project |
 | `atlan-use-mcp-servers` | Call Slack, Linear or any other server registered in Atlan, or register a new one |
 | `atlan-manage-artifacts` | Archive, move, deprecate, roll back or approve an artifact, showing what depends on it first, and see what waits for review |
 | `atlan-continue` | Pick up an artifact handed over from the Atlan dashboard |
 | `atlan-troubleshoot` | Diagnose sign-in errors, refusals, conflicts, rate limits and failed uploads |
-| `atlan-content` | Write, upload, read or append files in the registry |
+| `atlan-content` | Write, upload, read or append files in Atlan Trident |
 | `atlan-author-skills` | Create a skill in Atlan or publish a new version |
 | `atlan-author-agents` | Register an agent or harness, link a repository's agent, or update one |
 | `atlan-author-knowledge` | Publish knowledge to Atlan, or update it |
@@ -111,10 +111,10 @@ In Claude Code and Cursor, the commands `/atlanai:get-started`, `/atlanai:use-sk
 listed once. `/atlanai:feedback` drafts feedback for Atlan and leaves sending it to you. In Codex, the plugin
 runs `atlan-get-started` right after install, which offers to check Atlan for a fitting skill
 at the start of each task: on a yes it adds a short, marked note to `~/.codex/AGENTS.md`, and
-"stop checking Atlan for skills" removes it. In Claude Code, Registry Mods does the same. Run
+"stop checking Atlan for skills" removes it. In Claude Code, Trident Mods does the same. Run
 `codex plugin marketplace upgrade atlan` to take a new version in Codex.
 
-### Registry Mods
+### Trident Mods
 
 A [mod](https://code.claude.com/docs/en/plugins/mods/overview) for Claude Code v2.1.287 or later:
 TypeScript that runs inside Claude Code and changes how it treats the `atlan` server's tools.
@@ -133,7 +133,7 @@ list of skills and agents.
 
 New metric runs use the owned metrics module with its original input plugs, readers,
 authoring gates and verification. The plugin drives the interview and keeps its existing
-Registry publication flow. See [the module boundaries and setup](docs/metrics-module.md).
+Atlan Trident publication flow. See [the module boundaries and setup](docs/metrics-module.md).
 
 ## What you can ask
 
@@ -142,7 +142,7 @@ These work in any host once you are signed in.
 | Ask | What happens |
 |---|---|
 | *"Show my organization's skills and agents in Atlan."* | Lists what your workspaces hold |
-| *"Find an Atlan skill for writing release notes and use it here."* | Searches the registry, then loads the best match into the session |
+| *"Find an Atlan skill for writing release notes and use it here."* | Searches Atlan Trident, then loads the best match into the session |
 | *"Post a summary of this PR to our team's Slack channel through Atlan."* | Calls an MCP server your organization registered in Atlan, under your permissions |
 | *"Share this report with the platform team and post it in #platform-eng."* | Records it in the team's workspace, versioned on each share, and posts the hand-off to Slack after you approve the post |
 | *"Publish the skill in this folder to Atlan."* | Bundles the folder, uploads it and creates a new version |
@@ -158,7 +158,7 @@ flowchart LR
   plugin["atlanai plugin<br/>skills and commands"]
   addon["Add-ons<br/>atlanai-analytics"]
   gateway["Atlan MCP gateway<br/>api.atlan.com/mcp<br/>OAuth, permissions, sessions"]
-  registry["Atlan registry<br/>skills, agents, knowledge, files, outputs"]
+  registry["Atlan Trident<br/>skills, agents, knowledge, files, outputs"]
   servers["Your organization's MCP servers<br/>Slack, Linear, warehouses, ..."]
 
   agent --> plugin
@@ -169,7 +169,7 @@ flowchart LR
   gateway --> servers
 ```
 
-The `atlan` server runs Atlan's MCP gateway in search mode. A few helpers reach the registry's
+The `atlan` server runs Atlan's MCP gateway in search mode. A few helpers reach Atlan Trident's
 own tools, every Atlan app's tools and every MCP server your organization registered:
 `mcp__search_tools` and `mcp__describe_tools` find a tool, and a runner for each level of risk
 calls it (`mcp__call_read_tool` and its batch form `mcp__call_read_tools` for reads,
@@ -240,7 +240,7 @@ tools/                            the build and lint, and their tests
 
 Every plugin is a folder under `plugins/`, the layout Anthropic's
 [official marketplace](https://github.com/anthropics/claude-plugins-official) and OpenAI's
-[plugins](https://github.com/openai/plugins) use. A workload built on the registry ships as its
+[plugins](https://github.com/openai/plugins) use. A workload built on Atlan Trident ships as its
 own plugin, named `atlanai-<workload>`. A Claude Code mod ships the same way, as `atlanai-mods`.
 Cortex Code installs from a plugin's folder on GitHub and reads its `.cortex-plugin/` manifest.
 

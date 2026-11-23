@@ -1,7 +1,7 @@
 {
   "name": "atlanai-mods",
-  "version": "0.4.10",
-  "description": "Claude Code mod for the Atlan registry: registry reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, a registry skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection.",
+  "version": "0.4.11",
+  "description": "Claude Code mod for Atlan Trident: Atlan Trident reads run without a prompt, writes ask first, archive and move show what depends on the artifact, temporary gateway errors tell Claude how to retry, Atlan calls read as one line in the transcript, a pane lists what the session touched, a band follows a skill publish, /atlan skills picks a skill to load, an Atlan Trident skill that clearly fits a request is named to Claude, and the status line reports a broken or degraded Atlan connection.",
   "author": {
     "name": "Atlan",
     "url": "https://atlan.com"
@@ -11,24 +11,25 @@
   "license": "Apache-2.0",
   "keywords": [
     "atlan",
+    "trident",
     "registry",
     "mods",
     "permissions"
   ],
-  "displayName": "Registry Mods",
+  "displayName": "Trident Mods",
   "dependencies": [
     "atlanai"
   ],
   "userConfig": {
     "confirm_writes": {
       "type": "boolean",
-      "title": "Ask before registry writes",
+      "title": "Ask before Trident writes",
       "description": "Ask before Claude creates or changes anything in Atlan. Archive, approve, move, release and roll-back always ask.",
       "default": true
     },
     "suggest_skills": {
       "type": "boolean",
-      "title": "Suggest registry skills",
+      "title": "Suggest Trident skills",
       "description": "Search your organization's Atlan skills with each request, and name one to Claude when it clearly fits. The first 300 characters of the request are sent to Atlan's search.",
       "default": true
     }
