@@ -36,6 +36,8 @@ from metrics_agent.lib import dimensions as dims  # noqa: E402
 from metrics_agent.lib import card_sql as _card_sql  # noqa: E402
 from metrics_agent import plug_runtime as _runtime  # noqa: E402
 from metrics_agent.lib import sqlshape  # noqa: E402
+from metrics_agent.lib import metric_validation as _validation
+from metrics_agent.lib.metric_results import result_problem
 from metrics_agent.lib import measures, slugs, stage  # noqa: E402
 from metrics_agent.lib import quality as _quality  # noqa: E402
 from metrics_agent.lib import bi_tags as _bi_tags  # noqa: E402
@@ -50,6 +52,7 @@ IN_CANDS = "metric_candidates.json"
 PROMPT = "x3_prompt.json"
 REPAIR = "x3_repair.json"
 OUT = "metric_cards.json"
+CHECKS = "metric_checks.json"
 
 # The fields the author writes. Everything else on the card is bookkeeping this stage fills in.
 # These are the Registry's metric vocabulary. Outside them the gateway publishes the
@@ -77,20 +80,6 @@ REQUIRED = ("name", "description", "domain", "formula", "population",
 OPTIONAL = ("grain", "exclusions", "filters", "mandatory_filters", "joins", "dimensions",
             "examples", "depends_on", "unit", "notes")
 
-
-def _bracket_depth(sql: str, pos: int) -> int:
-    """How many brackets are open at `pos` in `sql`, not counting any inside a quoted string."""
-    depth, quote = 0, ""
-    for ch in sql[:pos]:
-        if quote:
-            quote = "" if ch == quote else quote
-        elif ch in ("'", '"'):
-            quote = ch
-        elif ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth = max(depth - 1, 0)
-    return depth
 
 def _evidence(m: dict, sources: list[dict], stmts: dict, dialect: str,
               bi_rel: list[dict], cands: dict, columns=None, *, max_values: int) -> dict:
@@ -268,6 +257,7 @@ def _emit(ctx: stage.Ctx) -> None:
                            "merge_reasoning")},
                        # In the card's own vocabulary, so it can be copied as it stands.
                        "aggregation": card_aggregation(m.get("aggregation"))},
+            **({"rollup_source": m["rollup_source"]} if m.get("rollup_source") else {}),
             "n_sources": len(sources),
             "sources": sources,
             # WHAT THE SQL ITSELF EVIDENCES, PARSED. Not a draft of the answer — the author
@@ -372,24 +362,6 @@ def _n_projections(select_list: str) -> int:
         elif ch == "," and depth == 1:
             n += 1
     return n
-
-
-def _without_subqueries(sql: str) -> str:
-    """`sql` with every bracketed SELECT or WITH replaced by `(…)`."""
-    out, i = [], 0
-    while i < len(sql):
-        if sql[i] == "(" and re.match(r"\(\s*(select|with)\b", sql[i:], re.I):
-            depth = 0
-            for j in range(i, len(sql)):
-                depth += {"(": 1, ")": -1}.get(sql[j], 0)
-                if depth == 0:
-                    break
-            out.append("(…)")
-            i = j + 1
-            continue
-        out.append(sql[i])
-        i += 1
-    return "".join(out)
 
 
 def _unqualified(text: str) -> list[str]:
@@ -503,6 +475,16 @@ def _compiler_field_problems(a: dict, atype: str, dialect: str) -> list[str]:
 def _ingest(ctx: stage.Ctx) -> None:
     merged = ctx.read(IN_MERGED, "merged_metrics.schema.json")
     by_name = {m["name"].strip().lower(): m for m in merged["metrics"]}
+    metric_checks = {}
+    if (ctx.run / CHECKS).exists():
+        supplied = ctx.read(CHECKS, "metric_checks.schema.json")["metrics"]
+        for name, check in supplied.items():
+            key = name.strip().lower()
+            if key not in by_name:
+                raise SystemExit(f"x3: {CHECKS} names an unknown metric {name!r}.")
+            if key in metric_checks:
+                raise SystemExit(f"x3: {CHECKS} repeats metric {name!r}.")
+            metric_checks[key] = check
     stmts = {o["vq_id"]: o for o in ctx.read(IN_LAYER, "verified_queries.schema.json")["objects"]}
     # THE IDENTITY IS SCOPED TO THE RUN. A measure_id is only (name, table), so two estates that
     # publish the same name over the same table would otherwise share one artifact, and a push
@@ -580,6 +562,14 @@ def _ingest(ctx: stage.Ctx) -> None:
             seen[key] = where
             authored[nm] = a
             m = by_name[key]
+            if m.get("rollup_source"):
+                rollup = next((r for vq in vq_ids_of(m) if (r := _validation.sum_over_output(
+                    m["expression"], stmts.get(vq, {}).get("sql", ""), dialect)) and r[1] == m["rollup_source"]), None)
+                if rollup is None:
+                    problems.append(f"{where}: the rollup no longer matches its source query.")
+                else:
+                    a = {**a, "formula": rollup[0], "aggregation": {"type": "sum"},
+                         "source": {**_source_of(a), "entity": m["entity"], "sql": rollup[1]}}
 
             # ── A METRIC ITS MODEL DECLARES IS HELD TO THE DECLARATION ───────────
             # A source statement compiled from a declared metric carries what the model
@@ -597,6 +587,11 @@ def _ingest(ctx: stage.Ctx) -> None:
             elif decls:
                 problems.extend(f"{where}: {x}" for x in _declared.held_to(a, decls[0]))
                 a, got = _declared.complete(a, decls[0], dialect=dialect)
+                if decls[0].get("statement_sql"):
+                    a["source"]["sql"] = decls[0]["source"]
+                    if a.get("mandatory_filters") or a.get("joins"):
+                        problems.append(f"{where}: the saved catalogue statement already defines "
+                                        "the metric population and joins.")
                 for k, v in got.items():
                     completed[k] = completed.get(k, 0) + v
                 problems.extend(f"{where}: {x}" for x in _declared.unreachable(a))
@@ -643,17 +638,23 @@ def _ingest(ctx: stage.Ctx) -> None:
                          if k not in ("examples", "name", "synonyms")}
             if isinstance(scan_card.get("source"), dict) and scan_card["source"].get("sql"):
                 scan_card = {**scan_card, "source": {**scan_card["source"],
-                             "sql": _without_subqueries(str(scan_card["source"]["sql"]))}}
+                             "sql": None}}
             scan = json.dumps(scan_card)
             # A NAME THE CARD'S OWN FROM CLAUSE GIVES A DERIVED TABLE is declared on the card,
             # not borrowed from a query: a table that plays two roles is written that way, and
             # its role name is the only thing that tells the two apart.
-            derived = _derived_aliases(str(_source_of(a).get("sql") or ""))
+            q = str(_source_of(a).get("sql") or "").strip()
+            try:
+                derived, aliased_tables, source_loose = _validation.source_relations(
+                    _MARKER.sub("NULL", q), dialect)
+            except sqlshape.ParseError:
+                derived, aliased_tables, source_loose = set(), [], []
+                problems.append(f"{where}: source.sql must be a valid FROM clause.")
             # A TABLE THE CARD'S OWN STATEMENTS READ IS NOT AN ALIAS either, in any dialect: a
             # two-part name they read (`site.projects`) is a table, not an alias and its column.
             known = _statement_tables(m, stmts) | estate_tables
-            loose = [x for x in _unqualified(scan) if x.split(".", 1)[0].lower() not in derived
-                     and x.lower() not in known]
+            loose = [x for x in (*source_loose, *_unqualified(scan))
+                     if x.split(".", 1)[0].lower() not in derived and x.lower() not in known]
             if loose:
                 problems.append(f"{where}: {len(loose)} reference(s) still wear a query alias — "
                                 f"{', '.join(loose[:6])}. Qualify them: DB.SCHEMA.TABLE.COLUMN.")
@@ -709,18 +710,12 @@ def _ingest(ctx: stage.Ctx) -> None:
             # ONLY AT THE TOP LEVEL. Inside a derived table — the two-pass measure the skill
             # sends here — an alias is that subquery's own business: nothing outside the
             # brackets can name it, so it cannot make a reference on the card unresolvable.
-            for m_ in re.finditer(r"(?:^\s*|\bFROM\s+|\bJOIN\s+)"
-                                  r"([A-Za-z0-9_]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+)\s+"
-                                  r"(?:AS\s+)?([A-Za-z_]\w*)", q or "", re.I):
-                if _bracket_depth(q, m_.start(1)):
-                    continue
-                if m_.group(2).lower() not in ("on", "inner", "left", "right", "full",
-                                               "cross", "natural", "join", "where", "group",
-                                               "order", "qualify", "using", "and", "or"):
+            for table in aliased_tables:
+                if table.catalog and table.db:
                     problems.append(
-                        f"{where}: source.sql aliases {m_.group(1)} as {m_.group(2)!r}. "
-                        f"Name tables in full here — the card's own expressions are fully "
-                        f"qualified and an alias makes them unresolvable.")
+                        f"{where}: source.sql aliases {table.catalog}.{table.db}.{table.name} "
+                        f"as {table.alias!r}. Name tables in full here — the card's own "
+                        "expressions are fully qualified and an alias makes them unresolvable.")
                     break
 
             # AND THE NAME CARRIES NO GROUPING EITHER. `Open Opportunities by Stage` is
@@ -834,6 +829,10 @@ def _ingest(ctx: stage.Ctx) -> None:
             composed = _card_sql.canonical_statement(
                 {"formula": a.get("formula"), "source": src, "name": nm,
                  "mandatory_filters": a.get("mandatory_filters")})
+            if composed and (snapshot := _validation.snapshot_problem(
+                    a.get("grain"), _MARKER.sub("0", composed), dialect,
+                    period=metric_checks.get(key, {}).get("snapshot_period_column"))):
+                problems.append(f"{where}: {snapshot}")
             if composed and sqlshape.has_dml(composed, dialect):
                 problems.append(
                     f"{where}: formula, source.sql and mandatory_filters do not compose into "
@@ -1022,7 +1021,8 @@ def _ingest(ctx: stage.Ctx) -> None:
     # refuses (a column its derived table does not return, an alias written twice) is the
     # author's to repair here, not a defect found after publication.
     if not problems and not faults and whgate.allows_warehouse(str(run_inputs.get("witness_mode") or "")):
-        problems.extend(_card_witness(cards, run_inputs, dialect, ctx))
+        problems.extend(_card_witness(cards, run_inputs, dialect, ctx,
+                                      metric_checks=metric_checks, declared=declared_of))
 
     unanswered = [n for n in by_name if n not in seen]
 
@@ -1103,7 +1103,8 @@ def _ingest(ctx: stage.Ctx) -> None:
             f"{sum(1 for c in cards if c.get('dimensions'))} declare dimensions.")
 
 
-def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.Ctx) -> list[str]:
+def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.Ctx, *,
+                  metric_checks: dict | None = None, declared: dict | None = None) -> list[str]:
     """One problem per card whose canonical statement the warehouse refuses.
 
     An access limit or an unreachable warehouse is missing infrastructure, never a refused
@@ -1122,12 +1123,24 @@ def _card_witness(cards: list[dict], run_inputs: dict, dialect: str, ctx: stage.
             sql = _card_sql.canonical_statement(card)
             if not sql:
                 continue
-            v = _witness.witness(sql, dialect, mode, eng=eng, limit=1, sample_rows=0)
+            name = card["name"]
+            declaration = (declared or {}).get(name, {})
+            evidence = ((metric_checks or {}).get(name.strip().lower(), {})
+                        if "expected_value" not in declaration else declaration)
+            expected = evidence.get("expected_value")
+            v = _witness.witness(sql, dialect, mode, eng=eng, limit=2,
+                                 sample_rows=2 if expected is not None else 0)
             if v.get("result") in ("fail", "missing_object", "parse_failed"):
                 out.append(f"{card['name']}: the warehouse refused the card's statement "
                            f"(formula, source.sql and mandatory_filters composed): "
                            f"{str(v.get('error') or v.get('result'))[:300]}. Repair the "
                            f"field it names; the statements behind the card ran.")
+            elif mode == "execute" and v.get("result") in ("pass", "empty"):
+                if problem := result_problem(
+                        v.get("sample") or [], scalar=not card.get("dimensions"),
+                        row_count=v["rows"], expected=expected,
+                        tolerance=evidence.get("expected_tolerance", 0)):
+                    out.append(f"{name}: {problem}")
     finally:
         try:
             eng.close()
@@ -1190,14 +1203,6 @@ def _declared_sources(m: dict, stmts: dict) -> list[dict]:
 def _source_of(a: dict) -> dict:
     """A card's `source`, or an empty one when the author wrote something else there."""
     return a.get("source") if isinstance(a.get("source"), dict) else {}
-
-
-def _derived_aliases(source_sql: str) -> set[str]:
-    """Names a FROM clause gives its derived tables (`(SELECT …) name`), lower-cased."""
-    flat = _without_subqueries(source_sql)
-    return {m.group(1).lower()
-            for m in re.finditer(r"\(…\)\s*(?:AS\s+)?([A-Za-z_]\w*)", flat, re.I)
-            if m.group(1).lower() not in ("on", "where", "join", "left", "inner", "using")}
 
 
 def _authored_words(card: dict, as_written: dict) -> dict:

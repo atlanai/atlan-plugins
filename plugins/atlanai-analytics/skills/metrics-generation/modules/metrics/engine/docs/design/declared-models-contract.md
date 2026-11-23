@@ -146,6 +146,28 @@ A local file keeps working: `local-files` with `settings.local-files.bi` set to 
 folder) and `bi_vendor: snowflake-semantic-view`. A folder of views is read as one model per
 view: the reader's `models` hook names one path per view, and A1 reads each as its own model.
 
+## Metric catalogue tables
+
+Set `settings.snowflake-direct.metric_catalogue` to a fully qualified table and include
+`snowflake-direct` in `inputs.bi`. Start with the catalogue when it already contains the
+metric definitions you want. Query history can be added as a separate source.
+
+Each row needs a metric name and one read-only SQL query that returns a single named value.
+Use fully qualified table names and give expression outputs an alias. The plug recognizes
+`metric_name` or `measure_name` and `sql`, `metric_sql`, `measure_sql` or `exact_sql`.
+Optional columns include `mandatory_filters`, `expected_value` (also `verified_value`),
+`expected_tolerance`, and `description`. Set `metric_catalogue_columns` to map these fields
+to other column names. A required-filter column can hold a SQL predicate or a JSON array of
+predicates. The saved query must apply those predicates in its WHERE clause.
+
+The fetch produces a `.metric-catalogue.json` extract that can also be read from disk.
+The reader also accepts `DIM_MEASURE.csv` or `*.metric-catalogue.csv` with the same column aliases.
+The shared declaration carries `statement_sql`, `mandatory_filters`, and any expected
+value and tolerance as internal evidence. The card reads the saved query as a derived table
+using its existing `source.sql` field. The required predicates execute inside that query.
+In execute witness mode, X3 checks the returned number against the declared value. The default
+tolerance is zero.
+
 ## The reader
 
 The reader ships with the Snowflake package (`metrics_agent_snowflake/semantic_view.py`),
