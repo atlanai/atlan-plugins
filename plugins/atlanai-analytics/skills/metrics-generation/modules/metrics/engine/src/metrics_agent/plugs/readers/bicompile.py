@@ -6248,9 +6248,9 @@ def _member_row_values(toks: list, phys: str, tmap: dict[str, str], own: set[str
 
     The per-member statement groups the rows by the members' keys, where a bare column is
     not grouped and SQL rejects it. Each member has one value of such a column when the
-    column is a key itself (`own`: VALUES' column, or every column of a table iterated row by
-    row), or when the key is unique (`whole`: the one end of every relationship ending on
-    it), so MIN of it is that value. A column read inside an aggregate, an iterator or a
+    column is the key itself (`own`: VALUES' column, a text one grouped by its folded key),
+    or when the key is unique (`whole`: the one end of every relationship ending on it), so
+    MIN of it is that value. A column read inside an aggregate, an iterator or a
     CALCULATE is over other rows and left as it is."""
     out, stack = [], []
     for i, (k, v) in enumerate(toks):
@@ -6453,7 +6453,7 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
             if not cols:
                 return None
             keys, rows = [(c, phys) for c in cols], True
-            own, whole = {c.lower() for c in cols}, True
+            own, whole = None, True             # every column is a key the statement groups
         else:
             return None
         table, blank_member, held = phys, rows, False
@@ -6490,10 +6490,11 @@ def _member_grain(formula: str, measures: dict[str, str], table_of: dict[str, st
             i += 1
         return _text_of(out)
     # A bare column of the iterated row is the member's one value (raises by name when that
-    # is not certain).
-    expr, pred = [None if t is None else _member_row_values(t, table, tmap, own, whole, head)
-                  for t in (expr, pred)]
-    if top:
+    # is not certain). A table iterated row by row groups every column, so it reads as it is.
+    if own is not None:
+        expr, pred = [None if t is None else _member_row_values(t, table, tmap, own, whole,
+                                                                head) for t in (expr, pred)]
+    if top and own is not None:
         top = {**top, "by": _member_row_values(top["by"], table, tmap, own, whole, head)}
     try:
         return {"iterator": head, "table": table, "keys": keys,
