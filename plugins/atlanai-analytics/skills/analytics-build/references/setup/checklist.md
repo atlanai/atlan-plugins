@@ -31,7 +31,8 @@ Each ticks as the engine finishes its part and shows a time estimate once the co
 it is known ("about 4 min"); use the helper's text as it is. Each of these steps' chips comes
 with `task_list`, the list as it now stands: set the host's list to it in the same message.
 
-Before a run exists, `PROJECT checklist --flow demo` returns the demo's list, and
+On own data, set the list once card 1 is answered: its answer picks the branch, and so the
+steps. Before a run exists, `PROJECT checklist --flow demo` returns the demo's list, and
 `--flow dashboard` the dashboard branch's. That branch records its flow with
 `PROJECT journey agentic` once the run exists. Its first item is ticked from card 1, and picking
 the pages ticks the second, as [the dashboard branch](dashboard-flow.md) says. A demo records

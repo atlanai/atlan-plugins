@@ -10,7 +10,8 @@ person's dashboards, folders, BI exports and past queries into checked metrics t
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files one per call. Shell commands print no separators: zsh fails on `echo =====`.
+Read plugin files one per call. Run one helper per command and use what it prints as it is: no separators (zsh
+fails on `echo =====`), no scripts that cut it.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
 and return. Even for an explanation, start no source inspection or publication.
@@ -65,8 +66,9 @@ then name the saved result and the next step. What's ready, or what to ask, is
 ## The steps
 
 Take the task list as the checklist gives it; never say how many steps there are.
-Show [the checklist](references/setup/checklist.md) in the host's task list from the first
-action, and in chat with each step's result line, never inside a question's text. Follow
+Show [the checklist](references/setup/checklist.md) in the host's task list once card 1 is answered,
+since its answer sets the steps (a list set before it changed under the person), never inside a
+question's text. Follow
 [one presentation flow](references/setup/presentation.md): read each moment's file when
 reached and never replace a moment with a status line. Show each moment's chip or card, from
 the first survey on, as [visuals](references/setup/visuals.md) says.
@@ -75,7 +77,7 @@ the first survey on, as [visuals](references/setup/visuals.md) says.
    branch's own ask. Skip what the request already said.
 2. **Find your sources.** By branch: `source-survey` `discover` through
    [discovery](../source-survey/references/discovery.md), or `access` on the dashboard and
-   tables the person named. The side page opens once the queries are in plain words,
+   tables the person named. The side page opens as the first saved queries are drafted,
    when `PROJECT visual next` names `connect`.
 3. **Pick tables and dashboards.** In the discovery branch,
    [the use cases](references/setup/names.md), whose pick starts the build. From tables, a clean

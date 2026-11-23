@@ -21,9 +21,10 @@ the app's own labels for each command and helper.
   - a problem that changes something for the person: what happened, the count, what happens next;
   - the person asks ("what's happening?", "is it stuck?"): the current step and its real counts,
     then keep waiting in the same turn;
-  - nothing new has reached the screen for about 3 minutes: the current step and what is done so
-    far, never a line you already wrote. Then quiet again until the screen moves or 3 more
-    minutes pass.
+  - nothing new has reached the screen for about 3 minutes: the step under way and its count, in
+    the task list's own words ("Adding detailed information: 10 of 22 written."), never what you
+    are about to do and never a line you already wrote. Then quiet again until the screen moves
+    or 3 more minutes pass.
 
   Real counts come from `PROJECT checklist`, or `EVAL todo` during an accuracy check.
 - **When it ends**: its result, once, as its chip or card, or one line in the past tense with

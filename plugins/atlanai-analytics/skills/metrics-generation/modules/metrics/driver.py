@@ -395,6 +395,93 @@ def fetch_powerbi(root, run, link, dialect, model, features=(), approval_mode='a
     return result, code
 
 
+PAGE_SCOPE = ENGINE / 'src' / 'metrics_agent' / 'lib' / 'page_scope.py'
+
+
+def _page_scope():
+    """The engine's own page matching (stdlib only), so this host and the engine's A2 decide
+    the same way what a pick means."""
+    import importlib.util  # noqa: PLC0415
+    spec = importlib.util.spec_from_file_location('metrics_page_scope', PAGE_SCOPE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def record_pages(run, pages=None, every=False):
+    """Write the pages the person chose to `<run>/page_scope.json`. run.yml cannot change once
+    the report is fetched, so the pick is its own record, which the engine's A2 reads."""
+    import datetime  # noqa: PLC0415
+    names = [str(p).strip() for p in pages or [] if str(p or '').strip()]
+    if every and names:
+        raise ValueError('Name some pages or every page, not both.')
+    if not every and not names:
+        raise ValueError('Name the pages the person chose, or every page.')
+    if len(names) > 200 or any(len(n) > 300 or any(ord(c) < 32 for c in n) for n in names):
+        raise ValueError('Those page names can\'t be read. Use the names the report shows.')
+    doc = {'contract_version': '1.0', 'pages': [] if every else list(dict.fromkeys(names)),
+           'all': bool(every),
+           'recorded_at': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')}
+    run = ordinary(run)
+    write(run / 'page_scope.json', doc)
+    return doc
+
+
+def _a2_scope(run):
+    """What the engine's A2 last ran with: (whether it ran, the digest of its pages)."""
+    try:
+        stages = json.loads((run / 'manifest.json').read_text()).get('stages') or []
+    except (OSError, ValueError):
+        return False, None
+    entry = next((s for s in reversed(stages) if s.get('stage') == 'a2_question_units'), None)
+    if not entry:
+        return False, None
+    return True, str((entry.get('counts') or {}).get('page_scope') or 'none')
+
+
+def _scope_summary(run):
+    try:
+        doc = json.loads((run / 'question_units.json').read_text())
+    except (OSError, ValueError):
+        return None
+    scope = doc.get('page_scope')
+    if not isinstance(scope, dict):
+        return None
+    return {**scope, 'tiles': len(doc.get('units') or [])}
+
+
+def scope_pages(root, run, pages=None, every=False, model=None):
+    """Record the person's pages and, when the build already read the report with other pages,
+    advance it once so it rebuilds from these before anyone answers its first step. A build
+    not yet at the report reads them when it gets there."""
+    run = ordinary(run)
+    doc = record_pages(run, pages, every)
+    result = {'status': 'recorded', 'pages': doc['pages'], 'all': doc['all'],
+              'record': str(run / 'page_scope.json')}
+    ran, before = _a2_scope(run)
+    if not ran or not (run / 'module.json').is_file():
+        result['next'] = 'The build reads these pages when it reaches the report\'s tiles.'
+        return result, 0
+    if _page_scope().digest(doc) == before:
+        result['scope'] = _scope_summary(run)
+        result['next'] = 'The build already covers these pages.'
+        return result, 0
+    if not model:
+        result['next'] = 'Advance the build once (with --model) before answering its next step: it rebuilds from these pages.'
+        return result, 0
+    try:
+        advanced, code = invoke(root, 'advance', ['--run', str(run), '--model', model])
+    except (ValueError, OSError) as exc:
+        # The pick is saved either way: the build's next advance rebuilds from it.
+        why = str(exc) if isinstance(exc, ValueError) else 'The metric tools couldn\'t be reached.'
+        result['next'] = (f'{why} Advance the build once it is free, before answering its next step: it then '
+                          'rebuilds from these pages.')
+        return result, 0
+    advanced.update({'pages': doc['pages'], 'all': doc['all'], 'record': result['record'],
+                     'scope': _scope_summary(run)})
+    return advanced, code
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime', type=Path, required=True)
@@ -419,6 +506,11 @@ def main(argv=None):
     report.add_argument('--approval-mode', choices=('ask', 'auto'), default='auto')
     report.add_argument('--sign-in', choices=('browser', 'device'))
     report.add_argument('--config')
+    scope = commands.add_parser('pages', help='Record the report pages the person chose; the build covers only those.')
+    scope.add_argument('--run', required=True)
+    scope.add_argument('--page', action='append', default=[], help='A chosen page, by the name the report shows.')
+    scope.add_argument('--all', action='store_true', help='Every page: nothing is left out.')
+    scope.add_argument('--model', help='The model answering the build, to rebuild from these pages at once.')
     for name in ('advance', 'status', 'parity-plan', 'export'):
         sub = commands.add_parser(name)
         sub.add_argument('--run', required=True)
@@ -437,6 +529,8 @@ def main(argv=None):
         if args.command == 'setup':
             result = setup(args.runtime, args.feature)
             code = 2 if result['status'] == 'BLOCKED' else 0
+        elif args.command == 'pages':
+            result, code = scope_pages(args.runtime, args.run, args.page, args.all, args.model)
         elif args.command == 'powerbi-report':
             result, code = fetch_powerbi(args.runtime, args.run, args.link, args.dialect, args.model,
                                          args.feature, args.approval_mode, args.sign_in, args.config)
@@ -457,7 +551,7 @@ def main(argv=None):
                             "`--widget` where you have `show_widget`), and again while it says more is due. The chip is the "
                             "update: add no words of your own about the step, the engine or its files.")
     print(json.dumps(result, ensure_ascii=False))
-    if args.command == 'powerbi-report' and code == 3:
+    if args.command in ('powerbi-report', 'pages') and code == 3:
         # It runs as a background task the app watches, which shows a non-zero exit as "failed": a pause at the first
         # gate is this command's normal end (0.9.76's live run showed "failed" the moment sign-in worked). The result's
         # `status` and `gate` still say it paused.

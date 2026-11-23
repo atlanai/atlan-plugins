@@ -69,19 +69,27 @@ ENGINE powerbi-report --link "<the link as pasted>" --run <run-dir>/engine \
   --dialect <warehouse dialect> --model <actual-model-id> [--feature <warehouse feature>]
 ```
 
-**Run it as an ordinary background command that wakes you when it exits**: in Claude Code,
-Bash with `run_in_background`; in another host, its equivalent. Never a terminal tab, and never
-read its output with waits. It needs a shell, not a terminal: the browser opens on its own and
-the command listens on localhost for the answer, so nothing is typed.
+**Run it as an ordinary background command**: in Claude Code, Bash with `run_in_background`; in
+another host, its equivalent. Never a terminal tab. It needs a shell, not a terminal: the
+browser opens on its own and the command listens on localhost for the answer, so nothing is
+typed. **Then wait for it in the same turn**, so the turn, and the host's task list with it, does
+not end while the person signs in: run `python3 "<analytics-build>/scripts/project.py" wait-task
+--output <its output file>` in the foreground with a ten-minute timeout. It returns `done` with
+the command's last line, `sign_in` with a device-code line, or `waiting`; after the last two,
+run it again with the `--after` it gives.
 
 It signs in as the person: in their browser (authorization code with PKCE: single sign-on,
 nothing to copy) where one can open on this machine, else by device code (an SSH or cloud
 session, a host with no display, or a sign-in app of the customer's own in
 `PBI_PUBLIC_CLIENT_ID`). `--sign-in device` or `--sign-in browser` overrides it. A token or
 service principal already in the environment is used without either. A device code is the one
-thing the person needs while it runs: watch the command's output until the line with the code
-appears (Claude Code: `Monitor` until that line), give them the address and the code, then
-wait for the exit.
+thing the person needs while it runs: `wait-task` returns it as `sign_in`; give them the
+address and the code once, then wait again.
+
+**The pages the person picked** reach the build with `ENGINE pages --run <run-dir>/engine
+--page "<page>" [--page ...] --model <model-id>`, or `--all`. Before the report is read it only
+saves the pick; after, a changed pick advances once (seconds) so the first step covers only
+those pages' tiles, and its result is that advance result plus `scope`.
 
 Its last line is the advance result (section 3), plus `sign_in`, `source_id`, `engine_run`,
 `runtime` and `config`. Save `source_id` as the source revision, with the runtime and

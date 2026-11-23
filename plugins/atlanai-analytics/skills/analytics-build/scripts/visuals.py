@@ -235,9 +235,11 @@ def collect(kind, facts):
 
 
 def _checked(facts):
-    """Whether the checks are behind the build: every verdict in, or the flow moved on past them, as it does on a
-    warehouse, whose verdicts arrive only as each tool result is recorded."""
-    return facts.checks_over or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready')
+    """Whether the checks are behind the build: every verdict in, the person chose to skip them, or the flow moved on
+    past them, as it does on a warehouse, whose verdicts arrive only as each tool result is recorded. A skip drew no
+    build card at all in a live dashboard run (2026-11-23)."""
+    return (facts.checks_over or facts.interaction.get('checks') == 'skip' or facts.checks_skipped
+            or facts.file('progress.json').get('stage') in ('preview', 'publish', 'ready'))
 
 
 def _runs(facts):
@@ -326,6 +328,10 @@ def _described(facts):
     tiles = [[q, 'dashboard tile'] for vid, q in asked if from_dashboard(vid)]
     past = sorted(([q, _ran(runs(vid)), runs(vid)] for vid, q in asked if not from_dashboard(vid)), key=lambda r: -r[2])
     shown = sum(from_dashboard(vid) for vid, _ in words)
+    if shown and shown == len(words) and facts.engine_file('verified_queries.bi.json').get('objects'):
+        # Every question came from a tile, and the tiles chip just showed each with its question: a second chip with
+        # the same count read as a repeat ("50 tiles read", then "50 questions written", 2026-11-23).
+        return {}
     return {'described': len(words), 'past': len(words) - shown, 'tiles': shown, 'rows': [r[:2] for r in past] + tiles}
 
 

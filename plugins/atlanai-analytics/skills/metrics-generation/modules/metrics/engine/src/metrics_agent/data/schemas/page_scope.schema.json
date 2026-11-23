@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics_agent/page_scope.schema.json",
+  "title": "Pages the person chose",
+  "description": "The report pages a person chose to build from, recorded after the report was fetched (run.yml cannot change once a run has started). A2 reads it and keeps only those pages' units, plus the supporting pages they drill through to or show as tooltips. `all: true` (or no record at all) builds every page.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "maxItems": 200,
+      "description": "The page names as the person gave them. Matched to the report's pages without regard to case, quotes or runs of spaces, underscores or hyphens."
+    },
+    "all": {
+      "type": "boolean",
+      "description": "Every page: nothing is filtered. `pages` is then empty."
+    },
+    "recorded_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "pages",
+    "all"
+  ]
+}

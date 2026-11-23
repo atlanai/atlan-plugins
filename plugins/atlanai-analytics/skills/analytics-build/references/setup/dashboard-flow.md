@@ -4,7 +4,8 @@ Read when the person picks "Start from a dashboard" in [the interview](intent.md
 or names a dashboard link or file instead. For this run, this file replaces the steps in
 `SKILL.md`, the shared checklist's step names and the interview's start of the build.
 Where it is silent, the shared files apply. The discovery and known-tables branches and the
-demo never read it, and nothing here changes how metrics are generated.
+demo never read it. Generation works as everywhere else, except that the build covers only the
+chosen pages.
 
 What the person should feel throughout: the build is moving, they can see each metric as it is
 made, and they can trust what they see. Every rule below serves that.
@@ -62,10 +63,11 @@ about.
    For a Power BI report link it is one command that also installs the reader, fetches the
    report and translates its tiles: `ENGINE powerbi-report` with `--run <run-dir>/engine`, as
    [the metrics module](../../../metrics-generation/references/metrics-engine.md#power-bi-from-a-report-link)
-   says. This session starts it as a background command that wakes it on exit (in Claude
-   Code, Bash with `run_in_background`), never in a terminal tab and never followed with waits.
-   Say the interview's line as it starts, then carry on with anything that does not need the
-   report. Say the person is signed in only once its result's `sign_in` is `signed_in`.
+   says. This session starts it as a background command (in Claude Code, Bash with
+   `run_in_background`), never in a terminal tab, says the interview's line once, then waits for
+   it in the same turn with `PROJECT wait-task`, as that module says: a turn that ends here takes
+   the task list with it. Say the person is signed in only once its result's `sign_in` is
+   `signed_in`.
 3. **Fetch what can be picked.** A background helper fetches the link or reads the file and
    returns names and counts only: for a **workspace link**, its reports with their page and
    measure counts; for a **report link or file**, its pages with their tile counts. For a
@@ -90,10 +92,14 @@ about.
    step 5 says: the tests are refused without it. Then record
    `PROJECT journey report --answer "<report>: <pages, or all pages>"` first and set the list
    it returns. When it does not, set the list yourself and record the report the moment the
-   run exists. Never leave item 2 open while other work runs.
+   run exists. Never leave item 2 open while other work runs. Then record the pick for the build
+   with `ENGINE pages --run <run-dir>/engine --page "<page>" [--page ...] --model <model-id>`
+   (`--all` for all pages), and use its `gate` from then on, never the fetch's. When its
+   `scope.supporting` names a page, say one line: "`<page>` comes too: tiles on `<page>` open it."
+   When `scope.note` says no page matched, ask the pages question again.
 
-The build reads the chosen report whole, because generation is unchanged. The chosen pages set
-what item 3 inspects and which metrics the review leads with.
+The build covers only the chosen pages, plus the pages their tiles name as a tooltip or a
+drillthrough button's target. All pages builds the whole report.
 
 ## 2. Check what your agent can use
 
@@ -146,7 +152,7 @@ in the build: they are news, never a question.
   | Option | Description |
   | --- | --- |
   | Continue with `<N tiles>` (Recommended) | "The rest stay out. The side page will say why." |
-  | Change the pages | "Pick other pages and I'll check again." |
+  | Change the pages | "Pick other pages and I'll check again." Record them with `ENGINE pages` again, then check again. |
   | Stop here | "Nothing is built. Your choices are saved for next time." |
 
   On their answer, record the same result again without `--waits`, then do what they chose.
@@ -161,7 +167,7 @@ is the sum of the rough times in item 4's table, scaled to the report.
 run as they are, every step in a background helper (below). The side page is the same as in
 every flow: what the run made, metrics first and then queries, each in its state (Found,
 Defined, Tested, Not tested, Needs your review) and opening its profile, then the tiles that could not be built.
-It opens once the queries are in plain words, when `visual next` names `connect`. When it opens,
+It opens as the first saved queries are drafted, when `visual next` names `connect`. When it opens,
 say once: "A page has opened beside this chat. It lists each metric and saved query as it's
 found, and why anything is left out."
 

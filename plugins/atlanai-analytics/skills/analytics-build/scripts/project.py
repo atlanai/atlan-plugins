@@ -104,6 +104,35 @@ unless you ask it to save. A hand edit to these files no longer matches their ch
 '''
 
 
+def wait_task(output, after=0, timeout=540, interval=2.0):
+    """Wait for a background command to finish: its last line is its JSON result. Returns early with a sign-in code or
+    address the person must use (a device code), so it can be relayed; returns `waiting` at the timeout. The sign-in
+    turn ended while the command ran, and the host's task list went with it (a live run, 2026-11-23)."""
+    import time
+    start, seen = time.monotonic(), after
+    while True:
+        try:
+            text = Path(output).read_text(encoding='utf-8', errors='replace')
+        except OSError:
+            text = ''
+        new = text[seen:]
+        for line in new.splitlines():
+            if re.search(r'devicelogin|enter the code|use a web browser to open', line, re.I):
+                return {'status': 'sign_in', 'line': line.strip()[:300], 'after': seen + new.index(line) + len(line),
+                        'next': 'Relay this line to the person once, then run this command again with --after.'}
+        lines = [x for x in text.splitlines() if x.strip()]
+        if lines:
+            try:
+                last = json.loads(lines[-1])
+            except ValueError:
+                last = None
+            if isinstance(last, dict) and last.get('status'):
+                return {'status': 'done', 'result': last, 'next': "Go on as the command's result says, in this same turn."}
+        if time.monotonic() - start >= timeout:
+            return {'status': 'waiting', 'after': len(text), 'next': 'Run this command again with --after, in this same turn.'}
+        time.sleep(interval)
+
+
 class ProjectError(ValueError):
     pass
 
@@ -808,6 +837,11 @@ def main():
     steps.add_argument('--flow', choices=('build', 'demo', 'dashboard'), help='The guided flow when the run has not recorded one')
     steps.add_argument('--host', choices=('claude_code', 'codex'))
     steps.add_argument('--server', help='Observed Atlan server identifier in that host')
+    signin = sub.add_parser('wait-task', help="Wait in this turn for a background command (the Power BI sign-in and read) "
+                            "to finish, so the turn, and the host's task list with it, does not end while it runs")
+    signin.add_argument('--output', type=Path, required=True, help="The background command's output file")
+    signin.add_argument('--after', type=int, default=0, help='Characters already seen, from the last result')
+    signin.add_argument('--timeout', type=int, default=540, help='Seconds to wait before returning to run again')
     drafts = sub.add_parser('drafts', help='Follow the build in one turn: what the session acts on next, one line at a time')
     drafts.add_argument('--engine-dir', type=Path)
     drafts.add_argument('--wait', action='store_true', required=True,
@@ -869,6 +903,9 @@ def main():
                  'reviewed-values'):
         sub.add_parser(name).add_argument('request', type=Path)
     args = p.parse_args()
+    if args.command == 'wait-task':
+        print(json.dumps(wait_task(args.output, args.after, max(1, min(args.timeout, 570))), ensure_ascii=False))
+        return 0
     try:
         if args.command == 'location':
             print(json.dumps({'run_dir': str(resolve_run(args.workspace, args.run_dir, args.permitted_cache, args.home_permitted)),
@@ -1084,7 +1121,17 @@ def main():
                 raise ProjectError('The %s question could not be composed from this run (%s): ask it from the flow\'s own '
                                    'reference instead.' % (args.kind, type(exc).__name__)) from None
             if args.kind == 'close':
-                asked['next'] = ('Print this `text` exactly as given, with its line breaks, as the last thing in your reply. '
+                # The flow ends here: a dashboard step still open was declined. Recorded by the run, so the task list
+                # says "skipped" and the host's closing call cannot tick it as done (a live run, 2026-11-23).
+                try:
+                    interaction = json.loads((run / 'interaction.json').read_text(encoding='utf-8'))
+                    if isinstance(interaction, dict) and not interaction.get('dashboard_result'):
+                        import drafts
+                        Project(run).journey('dashboard', answer='declined')
+                        asked['task_list'] = drafts.task_list(run, args.engine_dir)
+                except Exception:  # noqa: BLE001 - the closing message still goes out; the list stays as it was
+                    pass
+                asked['next'] = ('Set your task list to `task_list` first, where it is given. ' if asked.get('task_list') else '') + ('Print this `text` exactly as given, with its line breaks, as the last thing in your reply. '
                                  'Then, only when the build found caveats the person should know (a metric that totals across '
                                  'periods, a filter its tile always applies, a review warning), add a blank line, "Good to '
                                  'know" and one "- " line per caveat, each said once in this conversation. Ask no question, '

@@ -974,6 +974,11 @@
               "null"
             ]
           },
+          "links": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "description": "Other pages of the report this visual opens: the page it shows as its tooltip and the page a drillthrough button on it opens, by their display names. Used to keep supporting pages with a chosen page (lib/page_scope); a plain page navigation is not listed."
+          },
           "reference_lines": {
             "type": "array",
             "items": {

@@ -196,11 +196,24 @@ def _drafts(f):
 
 
 def has_output(f):
-    """Whether the page has something to show: the queries in plain words once the describe step is done, or a metric the
-    build found, merged or defined. Before that it would open empty (a tester, 2026-11-19); opened at the first metric,
-    it stayed shut for minutes while the described queries sat ready to show."""
-    return bool('m2_ingest' in f.stages or f.file('context', 'metrics.json', kind=list)
+    """Whether the page has something to show: the first saved queries as they are drafted (a tile's question, or a past
+    query in plain words), or a metric the build found, merged or defined. Before that it would open empty (a tester,
+    2026-11-19); opened only once every query was described, it stayed shut nine minutes into a dashboard build (the
+    person's words, 2026-11-23: open when the first saved queries are drafted)."""
+    return bool('m2_ingest' in f.stages or _drafted_queries(f) or f.file('context', 'metrics.json', kind=list)
                 or f.engine_file('merged_metrics.json').get('metrics') or _batches(f, 'x2', 'metrics') or _drafts(f))
+
+
+def _drafted_queries(f):
+    """The saved queries as their batches land, before the engine has taken them in: each tile's question (c3), then each
+    query in plain words (m2), by id, the later wording winning."""
+    out = {}
+    for gate, key, id_key in (('c3', 'items', 'candidate_id'), ('m2', 'queries', 'vq_id')):
+        for r in _batches(f, gate, key):
+            vid = r.get(id_key)
+            if isinstance(vid, str) and r.get('question'):
+                out[vid] = dict(out.get(vid) or {}, **{k: r[k] for k in ('name', 'question', 'description') if r.get(k)})
+    return out
 
 
 def _source_of(s, drafts):
@@ -552,6 +565,12 @@ def details(f):
                 ('value', _checked_value(v)),
                 *_query_profile(vid, known, said, built_on, description=q.get('description'), sql=d.get('sql'),
                                 tables=evidence.get('tables'), review=d.get('review_status', 'not_recorded'))) if x})
+    if not queries and not known:
+        # Before the engine has taken the first batches in, the drafts themselves, so the page opens with something on it.
+        for vid, words in _drafted_queries(f).items():
+            question = _cut(first_question(words.get('question')), 200)
+            if question:
+                queries.append({'id': vid, 'name': sentence(question), 'question': question, 'status': 'drafted'})
     if not queries:
         # Before the checks, the engine's own queries as it writes them, named as the checked context names them.
         for vid, (o, words) in known.items():

@@ -154,7 +154,8 @@ def prepare(run, config, runtime, approval_mode='auto'):
         if receipt['config_sha256'] != digest(config) or receipt['approval_mode'] != approval_mode:
             raise ValueError('Your build settings changed after this build started. Review them and I\'ll start a new one.')
         return {'status': 'prepared', 'run': str(run), 'reused': True}
-    if run.exists() and any(run.iterdir()):
+    # The pages a person chose can be recorded before the build is prepared (`pages`).
+    if run.exists() and any(p.name != 'page_scope.json' for p in run.iterdir()):
         raise ValueError('Use a new module run directory; existing engine runs require an explicit migration.')
     missing = optional_readers_missing(doc)
     if missing:

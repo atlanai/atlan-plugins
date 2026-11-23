@@ -61,6 +61,7 @@ from metrics_agent import observe as _observe
 from metrics_agent import plug_runtime as _runtime
 from metrics_agent.lib import access as _access
 from metrics_agent.lib import artifacts as _artifacts
+from metrics_agent.lib import page_scope as _page_scope
 from metrics_agent.lib import publish_target as _pt
 from metrics_agent.lib import stage as _stage
 
@@ -317,6 +318,20 @@ def _answers_newer(step: Step, args, prior: dict) -> bool:
     return any(f.is_file() and f.stat().st_mtime > since for f in files)
 
 
+def _scope_changed(step: Step, run: pathlib.Path, prior: dict) -> bool:
+    """True when the pages the person chose (`page_scope.json`, written after the report was
+    fetched) differ from the ones A2 last ran with. A2 is where the other pages' units are left
+    out, so it runs again, and every step after it reads its new output. A record that cannot
+    be read re-runs it too: A2 then refuses it by name."""
+    if step.label != "a2_question_units":
+        return False
+    try:
+        now = _page_scope.digest(_page_scope.read(run))
+    except Exception:  # noqa: BLE001 - a damaged record is A2's to refuse, by name
+        return True
+    return now != str((prior.get("counts") or {}).get("page_scope") or _page_scope.NONE)
+
+
 def run_step(step: Step, args, env: dict, *, runner=subprocess.run) -> None:
     cmd = [*stage_command(step.script), "--run", str(args.run),
            "--as", step.label, *step.args]
@@ -365,6 +380,8 @@ def execute(steps: list, args, env: dict, *, runner=subprocess.run) -> None:
         # ingested again. Skipping it re-ran the check on the stale artifact, which blocked
         # with the same message however the answer was fixed.
         if step.ingest and prior and _answers_newer(step, args, prior):
+            rerun = True
+        if prior and _scope_changed(step, run, prior):
             rerun = True
         if not rerun and prior and prior.get("verdict") in ("ok", "stub", "skipped") and \
                 prior.get("notes") != "awaiting_decision":

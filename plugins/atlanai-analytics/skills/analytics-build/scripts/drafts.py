@@ -148,38 +148,25 @@ ROW_OF = {'m2': 'draft', 'x1': 'draft', 'x2': 'merge', 'x3': 'write'}
 SHORT = {'draft': 'Build your context: metrics and saved queries', 'merge': 'Merge duplicate metrics'}
 
 
-def _left(files, done, total):
-    """Time left from the step's own pace: how long its batches have taken per item so far, for the items still to come.
-    None until two batches have landed, when the pace means something."""
-    if not total or len(files) < 2:
-        return None
-    if done >= total:
-        return 'nearly done'
-    stamps = [f.stat().st_mtime for f in files]
-    per_batch, per_items = (stamps[-1] - stamps[0]) / (len(files) - 1), done / len(files)
-    seconds = per_batch * (total - done) / per_items if per_items else 0
-    return 'nearly done' if seconds < 45 else 'about %d min left' % max(1, round(seconds / 60))
-
-
 def _live(engine, under):
     """The step under way as its task-list row says it: what has landed so far, and time left when the pace is known."""
     gate, _, describe, files = under
     c = describe(engine, files)
+    # Each part of a step says which part it is, so a new count reads as the next part, never as the count going back
+    # ("32 of 50 questions written (nearly done)", then "6 metrics found so far, 8 of 50 questions read"). Counts only:
+    # a time left from the pace so far went 14, 25, 13, 5, 7 and 2 minutes in one live step (2026-11-23).
     if gate == 'm2':
         done, total = c.get('described') or 0, c.get('total')
-        said = '%d of %d questions written' % (done, total) if total else '%s written' % _plural(done, 'question')
-    elif gate == 'x1':
+        return 'writing questions: %d of %d' % (done, total) if total else 'writing questions: %d' % done
+    if gate == 'x1':
         done, total = c.get('queries_read') or 0, c.get('queries_total')
-        said = '%s found so far, %s' % (_plural(c.get('drafts') or 0, 'metric'),
-                                        '%d of %d questions read' % (done, total) if total else '%s read' % _plural(done, 'question'))
-    elif gate == 'x2':
-        # How many metrics the drafts make is only known once they are all combined.
-        done, total, said = 0, None, '%s so far' % _plural(c.get('metrics') or 0, 'metric')
-    else:
-        done, total = c.get('defined') or 0, c.get('total')
-        said = '%d of %d written' % (done, total) if total else '%d written' % done
-    left = _left(files, done, total)
-    return said + (' (%s)' % left if left else '')
+        return 'finding metrics: %s in %s' % (_plural(c.get('drafts') or 0, 'metric'),
+                                              '%d of %d questions' % (done, total) if total else _plural(done, 'question'))
+    if gate == 'x2':
+        # How many metrics the drafts make is only known once they are all combined: nothing to count until then.
+        return ''
+    done, total = c.get('defined') or 0, c.get('total')
+    return '%d of %d written' % (done, total) if total else '%d written' % done
 
 
 def task_list(root, engine_dir=None):
@@ -193,7 +180,8 @@ def task_list(root, engine_dir=None):
     for r in rows:
         content = r['content']
         if under and r['status'] == 'in_progress' and r.get('id') == ROW_OF[under[0]]:
-            content = '%s · %s' % (SHORT.get(r['id'], content.split(' (about')[0]), _live(engine, under))
+            live = _live(engine, under)
+            content = '%s · %s' % (SHORT.get(r['id'], content.split(' (about')[0]), live) if live else content
         out.append({'content': content, 'status': r['status']})
     return out
 
@@ -212,8 +200,9 @@ WAITED = {
     'ready': "Add no words of your own: every share of the definitions is back. Run `ENGINE advance` once, send each "
              "refused card to the subagent whose share holds its task number, then run `PROJECT drafts --wait` again.",
     'quiet': "Nothing new has reached the screen for a while. Check that each subagent is working. When nothing has "
-             "shown for about 3 minutes, write one line: the current step and what is done so far, never a line "
-             "you already wrote. Then run `PROJECT drafts --wait` again.",
+             "shown for about 3 minutes, write one line for the person, in the task list's own words: the step under "
+             "way and its count (\"Adding detailed information: 10 of 22 written.\"), never words about time passing, never what you are about to do "
+             "and never a line you already wrote. Then run `PROJECT drafts --wait` again.",
     'done': "Add no words of your own: export the build into the run and run `PROJECT check` for the structural pass, "
             "as build and check says. The build's card comes once, right before the save question.",
     'again': "Add no words of your own: the wait timed out while new things were showing. Run `PROJECT drafts --wait` again.",

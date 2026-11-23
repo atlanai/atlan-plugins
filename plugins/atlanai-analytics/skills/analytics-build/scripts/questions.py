@@ -218,9 +218,14 @@ def _kept(f):
     h = side_page.held(f)
     if not (h['metrics'] or h['queries']):
         return '', 0
-    return '%s (%s)' % (' and '.join(x for x in (count(h['metrics'], 'metric') if h['metrics'] else '',
-                                                count(h['queries'], 'saved query', 'saved queries') if h['queries'] else '') if x),
-                        h['why']), h['metrics'] + h['queries']
+    held = ' and '.join(x for x in (count(h['metrics'], 'metric') if h['metrics'] else '',
+                                    count(h['queries'], 'saved query', 'saved queries') if h['queries'] else '') if x)
+    # One reason for all of them reads as a sentence: "6 saved queries that didn't match their tiles' formulas", never
+    # the 6 twice ("6 saved queries (6 didn't match…)").
+    one = re.fullmatch(r'(\d+) (.+)', h['why']) if ', ' not in h['why'] else None
+    if one and int(one.group(1)) == h['metrics'] + h['queries']:
+        return '%s that %s' % (held, one.group(2)), h['metrics'] + h['queries']
+    return '%s (%s)' % (held, h['why']), h['metrics'] + h['queries']
 
 
 def _one_metric(run, f, demo, widget=False):
@@ -308,9 +313,12 @@ def _stored(f, demo, run=None, data=None, engine_dir=None):
     # A demo's topic in its own words ("Questions about job margin"), not its focus label ("Job margin").
     answers = str(demo.get('answers') or '')
     # A dashboard is named as a person would: "ask about the Box Office Pulse dashboard", never without "the".
+    # A dashboard is named as a person would: "ask about the Box Office Pulse dashboard", never without "the". On the
+    # dashboard branch it is the subject: its use case is a page list ("CL Leaderboard report, Coverage page").
     report = f.report and ('the %s' % f.report if re.search(r'\b(dashboard|report)$', f.report, re.I) else 'the %s dashboard' % f.report)
+    dashboard = f.interaction.get('flow') == 'dashboard'
     topic = (answers[len('Questions about '):] if answers.startswith('Questions about ') else '') or \
-        short_name(f.use_case) or report or '%s data' % their(demo.get('firm'))
+        (report if dashboard else '') or short_name(f.use_case) or report or '%s data' % their(demo.get('firm'))
     if saved:
         where = 'Saved to Atlan' + (', in %s' % saved['workspace'] if saved.get('workspace') else '')
         if saved.get('items', whole) < whole:
@@ -406,7 +414,8 @@ def close(run, widget=False, data=None, engine_dir=None, score=None, scored=None
     made = side_page.details(f)
     validated = ('not validated yet: you skipped the tests' if f.checks_skipped else
                  'validated on %s' % _where(f, demo) + (', %s' % _review(c['need_look']) if c.get('need_look') else ''))
-    lines = ['Your %s is built and ready.' % agent_name(f, demo), '', 'What you have',
+    # "Ready" only once it was validated: beside "not validated yet" it contradicted itself (2026-11-23).
+    lines = ['Your %s is built%s.' % (agent_name(f, demo), '' if f.checks_skipped else ' and ready'), '', 'What you have',
              '- %s and %s from %s, %s.' % (count(len(c['metrics']), 'metric'),
                                            count(c['queries'], 'saved query', 'saved queries'), _sources(f, demo), validated)]
     if score is not None and scored:
@@ -421,7 +430,7 @@ def close(run, widget=False, data=None, engine_dir=None, score=None, scored=None
     # A quoted example ends the line on its own question mark, as the person would type it.
     like = ', like "%s"' % example if example else '.'
     if local:
-        lines.append("- It's stored on this machine, in %s. Open a Claude session in that folder and ask anything about "
+        lines.append("- It's stored on this machine, in %s. Open a chat in that folder and ask anything about "
                      '%s%s' % (f.folder or 'this folder', topic, like))
     else:
         lines.append('- %s. To ask it, %s and ask anything about %s%s' % (where, how, topic, like))

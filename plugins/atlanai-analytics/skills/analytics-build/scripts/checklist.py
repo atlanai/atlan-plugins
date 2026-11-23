@@ -99,6 +99,8 @@ def _three(row, model, flow):
                 content = 'Build your context: ' + _plural(made['draft'], 'metric') + ' found'
             elif key == 'merge' and made['merge'] is not None:
                 content = 'Merge duplicate metrics: ' + _plural(made['merge'], 'metric')
+            elif key == 'write' and not totals.get('metrics') and _count(counts, 'x3_ingest', 'cards'):
+                content = content.split(' each')[0] + ' ' + _plural(_count(counts, 'x3_ingest', 'cards'), 'metric')
             elif key == 'write' and totals.get('metrics'):
                 content = content.split(' each')[0] + ' ' + _plural(totals['metrics'], 'metric') + \
                     ((' and ' + _plural(totals['queries'], 'saved query', 'saved queries')) if totals.get('queries') else '')
@@ -204,7 +206,7 @@ def _listed(model, flow=None):
         # A saved or kept context was built and checked, even while a changed rule re-runs its check.
         'metrics': checked or saved,
         'save': saved,
-        'ask': saved and bool(interaction.get('asked')),
+        'ask': saved and (bool(interaction.get('asked')) or interaction.get('dashboard_result') == 'declined'),
     }
     # A demo can build its dashboard before asking anything, so this step stands on its own.
     done['dashboard'] = saved and bool(interaction.get('dashboard'))
@@ -252,6 +254,9 @@ def _listed(model, flow=None):
             if at == 5 and not done[key]:
                 active = 'Saving to Atlan'
                 needs_you = False
+        elif key in ('ask', 'dashboard') and done[key] and interaction.get('dashboard_result') == 'declined' and \
+                (key == 'dashboard' or not interaction.get('asked')):
+            content = content.replace(' (optional)', '') + ': skipped'
         if stopped and key == current:
             active = PAUSED
         rows.append({'id': key, 'content': content, 'active': active, 'needs_you': needs_you and status != 'completed',
@@ -260,6 +265,15 @@ def _listed(model, flow=None):
         'access_needed' if phase['status'] == 'access_needed' else 'done' if current is None else 'running'
     return {'flow': flow, 'steps': rows, 'state': state,
             'step': next((i + 1 for i, r in enumerate(rows) if r['id'] == current), len(rows)), 'of': len(rows)}
+
+
+def _picked(report):
+    """The report and pages as the person picked them, in words: "Coverage on CL Leaderboard", never two colons."""
+    name, _, pages = str(report or '').partition(':')
+    name, pages = name.strip(), pages.strip()
+    if not pages:
+        return name
+    return 'all pages of %s' % name if pages.lower() == 'all pages' else '%s on %s' % (pages, name)
 
 
 def _dashboard(model):
@@ -278,6 +292,7 @@ def _dashboard(model):
     saved = (action in ('ask', 'explore-local') or (at == 6 and finished) or (local and at >= 3)
              or bool(counts.get('released')))
     skipped = interaction.get('checks') == 'skip'
+    declined = interaction.get('dashboard_result') == 'declined'
     # The checks end with their own recorded result, or with the person's choice to skip them: never on a save alone, and
     # never on the structural check, which records the check stage complete before any test has run (0.9.74: "0 of 40
     # tested" ticked the moment the person said to run them).
@@ -296,19 +311,21 @@ def _dashboard(model):
         'metrics': at >= 3 or (at == 2 and finished) or checked or saved,
         'check': checked or (saved and at >= 4),
         'save': saved,
-        'ask': saved and bool(interaction.get('asked')),
+        # "I'm done" without asking or building ends both steps as skipped: the host's closing call ticks every open item,
+        # and a live run showed both as done though neither happened (2026-11-23).
+        'ask': saved and (bool(interaction.get('asked')) or declined),
         'dashboard': saved and bool(interaction.get('dashboard')),
     }
     results = {
         'intent': FROM_DASHBOARD,
-        'scope': report,
+        'scope': _picked(report),
         'readiness': readiness.get('result') or '',
         'metrics': (_plural(counts['metrics'], 'metric') + ' and ' + _plural(counts['queries'], 'saved query', 'saved queries')) if total else '',
         'check': _tested(counts, skipped),
         'save': 'on this machine' if local else
         (_plural(counts['released'], 'metric or saved query', 'metrics and saved queries') + ', now in Atlan') if counts.get('released') else '',
-        'ask': 'answered',
-        'dashboard': interaction.get('dashboard_result') or 'done',
+        'ask': 'answered' if interaction.get('asked') else 'skipped',
+        'dashboard': 'skipped' if declined else interaction.get('dashboard_result') or 'done',
     }
     rows, current = [], None
     for key, content, active, needs_you in STEPS['dashboard']:
@@ -324,6 +341,9 @@ def _dashboard(model):
             active = phase['label']
         elif key == 'save' and at == 5 and not done[key]:
             active, needs_you = 'Saving to Atlan', False
+        elif key == 'check' and status == 'in_progress' and not interaction.get('checks'):
+            # Asked whether to test at all: nothing runs until the person answers, so nothing shows as under way.
+            status, needs_you, active = 'pending', True, 'Waiting for your choice'
         if stopped and key == current:
             active = PAUSED
         if status == 'completed' and results[key]:
