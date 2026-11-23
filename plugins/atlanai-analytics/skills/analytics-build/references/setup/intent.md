@@ -42,8 +42,8 @@ opening, because a block printed before a question is lost:
 "Let's build an agent that answers your data questions in plain English and shows what each
 answer is based on.
 
-I'll extract all the context I can from your dashboards and tables, write detailed notes on
-it and validate it on your data.
+I'll extract all the context I can from your dashboards and tables, add detailed information
+to it and validate it on your data.
 
 First, where does your data live, and what do you want your agent to do?"
 

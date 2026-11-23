@@ -10,7 +10,7 @@ person's dashboards, folders, BI exports and past queries into checked metrics t
 `source-survey`, `metrics-generation` and `analytics-ask`. Before the first helper call, and
 on every resume, read [shared setup](references/setup.md): it defines `PROJECT`, the stage
 files and the review rule. This file sets their order and what the person sees.
-Read plugin files with Read, one per call. In a shell, never print a separator like
+Read plugin files one per call. In a shell, never print a separator like
 `echo =====`: zsh fails on a word that starts with `=` and skips the rest of the line.
 
 For workspace access or creation questions, follow [workspace help](references/setup/workspace-access.md)
@@ -48,8 +48,8 @@ opening:
 "Let's build an agent that answers your data questions in plain English and shows what each
 answer is based on.
 
-I'll extract all the context I can from your dashboards and tables, write detailed notes on
-it and validate it on your data.
+I'll extract all the context I can from your dashboards and tables, add detailed information
+to it and validate it on your data.
 
 First, where does your data live, and what do you want your agent to do?"
 

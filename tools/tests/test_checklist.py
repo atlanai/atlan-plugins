@@ -358,17 +358,17 @@ class ThreeSteps(unittest.TestCase):
     def test_the_lists_show_the_build_as_its_steps(self):
         self.assertEqual([r['content'] for r in checklist.initial('demo')], [
             'Load the demo data', 'Choose what to build your agent from', 'Build your context: metrics and saved queries',
-            'Merge duplicate metrics', 'Write detailed notes on each metric and saved query', 'Validate the context on your data',
+            'Merge duplicate metrics', 'Add detailed information to each metric and saved query', 'Validate the context on your data',
             'Choose where to store your context', 'Ask your agent a question'])
         build = [r['content'] for r in checklist.initial('build')]
         self.assertEqual(build[3:7], ['Build your context: metrics and saved queries', 'Merge duplicate metrics',
-                                      'Write detailed notes on each metric and saved query', 'Validate the context on your data'])
+                                      'Add detailed information to each metric and saved query', 'Validate the context on your data'])
         build_ids = [r['id'] for r in checklist.initial('build')]
         self.assertEqual(build_ids[3:7], ['draft', 'merge', 'write', 'test'])
         # The dashboard branch validates in an item of its own, so its build is three steps.
         dashboard = checklist.initial('dashboard')
         self.assertEqual([r['id'] for r in dashboard][3:7], ['draft', 'merge', 'write', 'check'])
-        self.assertEqual(dashboard[5]['content'], 'Write detailed notes on each metric and saved query')
+        self.assertEqual(dashboard[5]['content'], 'Add detailed information to each metric and saved query')
         self.assertEqual([len(build), len(dashboard), len(checklist.initial('demo'))], [10, 10, 8])
 
     def test_each_step_ticks_as_the_engine_finishes_it_with_its_count_and_estimate(self):
@@ -384,11 +384,11 @@ class ThreeSteps(unittest.TestCase):
         self.assertEqual((rows['draft']['status'], rows['draft']['content']), ('completed', 'Build your context: 26 metrics found'))
         self.assertEqual((rows['merge']['status'], rows['merge']['content']),
                          ('in_progress', 'Merge duplicate metrics (about 3 min)'))
-        self.assertEqual((rows['write']['status'], rows['write']['content']), ('pending', 'Write detailed notes on each metric and saved query'))
+        self.assertEqual((rows['write']['status'], rows['write']['content']), ('pending', 'Add detailed information to each metric and saved query'))
         counts['x2_ingest'] = {'metrics_out': 9}
         rows = {r['id']: r for r in checklist.build(self.model(('m2_ingest', 'x1_ingest', 'x2_ingest'), counts))['steps']}
         self.assertEqual(rows['merge']['content'], 'Merge duplicate metrics: 9 metrics')
-        self.assertEqual(rows['write']['content'], 'Write detailed notes on each metric and saved query (about 7 min)')
+        self.assertEqual(rows['write']['content'], 'Add detailed information to each metric and saved query (about 7 min)')
 
     def test_linking_shows_on_the_write_step_until_it_ends(self):
         # A watched dashboard run defined 40 metrics, then linked them (279 pairs) for 6 minutes with nothing moving in its
@@ -398,11 +398,11 @@ class ThreeSteps(unittest.TestCase):
         done = ('m2_ingest', 'x1_ingest', 'x2_ingest', 'x3_ingest')
         row = {r['id']: r for r in checklist.build(self.model(done, counts, flow='dashboard'))['steps']}['write']
         self.assertEqual((row['status'], row['content']),
-                         ('in_progress', 'Write detailed notes on each metric and saved query · 40 written, linking related ones '
+                         ('in_progress', 'Add detailed information to each metric and saved query · 40 written, linking related ones '
                                          '(about 6 min)'))
         small = dict(counts, **{'x3_ingest': {'cards': 4}, 'x4_emit': {'candidate_pairs': 10}})
         row = {r['id']: r for r in checklist.build(self.model(done, small))['steps']}['write']
-        self.assertEqual(row['content'], 'Write detailed notes on each metric and saved query · 4 written, linking related ones (about 1 min)')
+        self.assertEqual(row['content'], 'Add detailed information to each metric and saved query · 4 written, linking related ones (about 1 min)')
 
     def test_the_validation_completes_after_the_notes_and_carries_the_run_s_progress(self):
         # Own data and demos validate inside the build: the notes are written once the run reaches its checks, and the
@@ -418,7 +418,7 @@ class ThreeSteps(unittest.TestCase):
                              progress={'completed': 4, 'total': 9})
                 rows = {r['id']: r for r in checklist.build(model)['steps']}
                 self.assertEqual((rows['write']['status'], rows['write']['content']),
-                                 ('completed', 'Write detailed notes on 8 metrics and 30 saved queries'))
+                                 ('completed', 'Add detailed information to 8 metrics and 30 saved queries'))
                 self.assertEqual((rows['test']['status'], rows['test']['active']), ('in_progress', 'Testing 5 of 9'),
                                  "the run's own line shows on the step under way")
                 model.update(phase={'code': 'check', 'status': 'complete', 'label': 'Checked', 'source': 'project'},

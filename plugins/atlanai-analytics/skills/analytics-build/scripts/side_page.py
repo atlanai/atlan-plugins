@@ -419,7 +419,7 @@ CHECKPOINTS = (('group', 'Group past queries into questions', 'Grouped past quer
                ('describe', 'Write each question', 'Wrote each question'),
                ('read', 'Find metrics and saved queries', 'Found metrics and saved queries'),
                ('merge', 'Merge duplicate metrics', 'Merged duplicate metrics'),
-               ('rules', 'Write detailed notes on each metric', 'Wrote detailed notes on each metric'),
+               ('rules', 'Add detailed information to each metric', 'Added detailed information to each metric'),
                ('link', 'Link related metrics', 'Linked related metrics'))
 
 

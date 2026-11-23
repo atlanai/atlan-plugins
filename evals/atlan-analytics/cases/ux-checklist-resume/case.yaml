@@ -12,7 +12,7 @@ execution:
      {"id": "scope", "content": "Pick tables and dashboards", "active": "Waiting for your pick", "needs_you": false, "status": "completed"},
      {"id": "draft", "content": "Build your context: 24 metrics and saved queries", "active": "Finding metrics and saved queries", "needs_you": false, "status": "completed"},
      {"id": "merge", "content": "Merge duplicate metrics: 11 metrics", "active": "Merging duplicate metrics", "needs_you": false, "status": "completed"},
-     {"id": "write", "content": "Write detailed notes on 11 metrics and 4 saved queries", "active": "Writing what each one counts, leaves out and is based on", "needs_you": false, "status": "completed"},
+     {"id": "write", "content": "Add detailed information to 11 metrics and 4 saved queries", "active": "Writing what each one counts, leaves out and is based on", "needs_you": false, "status": "completed"},
      {"id": "test", "content": "Validate the context on your data (about 9 min)", "active": "Validating 6 of 15", "needs_you": false, "status": "in_progress"},
      {"id": "save", "content": "Choose where to store your context", "active": "Waiting for your choice", "needs_you": true, "status": "pending"},
      {"id": "ask", "content": "Ask your agent a question", "active": "Waiting for your question", "needs_you": true, "status": "pending"},
@@ -54,7 +54,7 @@ graders:
     criteria: |
       A saved setup run is resumed. Its helper reported ten steps: six completed (Shipping cost
       chosen, 4 sources found, tables and dashboards picked, 24 metrics and saved queries built,
-      merged into 11 metrics, notes written on 11 metrics and 4 saved queries), validating the
+      merged into 11 metrics, detailed information added to 11 metrics and 4 saved queries), validating the
       context in progress at 6 of 15, and storing, asking and the dashboard still pending. PASS
       if the reply shows all ten steps in chat with their saved status and counts, in addition
       to the task list, and identifies validating as the current step. No word limit applies to

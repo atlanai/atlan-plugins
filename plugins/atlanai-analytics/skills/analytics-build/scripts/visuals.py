@@ -534,12 +534,12 @@ MARKS = {'found': '◇', 'sources': '▤', 'group': '»', 'tiles': '▦', 'descr
          'ok': '✓', 'look': '△'}
 FOUND_MARKS = {'dashboard': 'dashboard', 'database': 'database', 'query history': 'history'}
 # Where each metric step's own chip sits, in the task list's own step names (Build your context: metrics and saved
-# queries, Merge duplicate metrics, Write detailed notes on each metric and saved query), and what comes next: one set of names
+# queries, Merge duplicate metrics, Add detailed information to each metric and saved query), and what comes next: one set of names
 # in the chat, with no progress bar and no second numbering. The person's words, 2026-11-18: draft, merge, rule and check were the build's.
 FLOW = {'described': 'Questions written. Next: the metrics behind each one.',
         'drafted': 'Metrics found. Next: merging duplicates.',
-        'metrics': 'Duplicates merged. Next: writing detailed notes on each metric.',
-        'rules': 'Notes written. Next: validating each one on the data.'}
+        'metrics': 'Duplicates merged. Next: adding detailed information to each metric.',
+        'rules': 'Information added. Next: validating each one on the data.'}
 
 
 # The metric steps the side page shows once it is open beside the chat where a task list is kept, so no chip repeats them.
@@ -673,7 +673,7 @@ def _outcome(kind, s):
              'rows': s.get('rows'),
              'what': 'Each metric has one definition, used every time. A later test can still hold one back.'}
     elif kind == 'rules' and s.get('rows'):
-        o = {'mark': 'rules', 'bold': 'Notes written on ' + count(s['defined'], 'metric'), 'tail': 'what each one counts and leaves out',
+        o = {'mark': 'rules', 'bold': 'Detailed information added to ' + count(s['defined'], 'metric'), 'tail': 'what each counts and leaves out',
              'rows': s['rows'],
              'what': 'Each note says what the metric counts, what it leaves out and the SQL behind it.'}
     elif kind == 'links' and s.get('links'):

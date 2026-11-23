@@ -53,7 +53,7 @@ FROM_DASHBOARD = 'from your dashboard'
 # its part and estimates its time from the count going in, fitted to measured runs (headless h2 and desktop v8b, Fixit).
 THREE = (('draft', 'Build your context: metrics and saved queries', 'Finding metrics and saved queries'),
          ('merge', 'Merge duplicate metrics', 'Merging duplicate metrics'),
-         ('write', 'Write detailed notes on each metric and saved query',
+         ('write', 'Add detailed information to each metric and saved query',
           'Writing what each one counts, leaves out and is based on'))
 # On own data and demos the validation runs inside the build, with no item of its own in the flow: it shows as the
 # build's last step, named as the dashboard branch names its separate item, so every route lists the same steps.
@@ -89,7 +89,7 @@ def _three(row, model, flow):
     totals = model.get('counts') or {}
     made = {'draft': _count(counts, 'x1_ingest', 'proposals'), 'merge': _count(counts, 'x2_ingest', 'metrics_out')}
     phase = model.get('phase') or {}
-    # Authoring ends when the run moves on to its checks: the notes are written, the validation is under way.
+    # Authoring ends when the run moves on to its checks: the detailed information is added, the validation is under way.
     written = phase.get('code') in STAGES and STAGES.index(phase['code']) >= STAGES.index('check')
     steps = THREE + ((VALIDATE,) if flow != 'dashboard' else ())
     rows, opened = [], False

@@ -60,7 +60,7 @@ class Chips(unittest.TestCase):
         # Each count says where it came from, so 110, 95, 24, 30, 25 and 8 read as one story.
         self.assertEqual(first('described'), '❝ **4 questions written** · in your team\'s words')
         self.assertEqual(first('metrics'), '◆ **2 metrics** · 1 duplicate merged')
-        self.assertEqual(first('rules'), '= **Notes written on 2 metrics** · what each one counts and leaves out')
+        self.assertEqual(first('rules'), '= **Detailed information added to 2 metrics** · what each counts and leaves out')
         self.assertEqual(self.show('links'), '⋈ **1 link between metrics** · e.g. Gross margin uses Rework cost')
 
     def drafted(self):
@@ -90,7 +90,7 @@ class Chips(unittest.TestCase):
         self.drafted()
         # A first-time reader: "the seven-step list never matched the Step 1 of 3 chips". The chips name the list's steps.
         for kind, start in (('described', 'Questions written. Next:'), ('drafted', 'Metrics found. Next: merging duplicates'),
-                            ('metrics', 'Duplicates merged. Next: writing detailed notes'), ('rules', 'Notes written. Next: validating each')):
+                            ('metrics', 'Duplicates merged. Next: adding detailed information'), ('rules', 'Information added. Next: validating each')):
             lines = self.show(kind).split('\n')
             self.assertTrue(len(lines) > 1 and lines[1].strip().startswith(start), (kind, lines))
             self.assertIn(start, self.show(kind, widget=True))

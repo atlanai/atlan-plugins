@@ -122,7 +122,7 @@ class InputStagingTests(unittest.TestCase):
         self.assertIn('never one this session waits on', describe['say'])
         # The app shows a subagent's name to the person: live ones were "Describe past queries gate", "noop placeholder".
         self.assertEqual(describe['name'], 'Write each question')
-        self.assertEqual(cards['name'], 'Write detailed notes on each metric and saved query')
+        self.assertEqual(cards['name'], 'Add detailed information to each metric and saved query')
         self.assertIn('`%s`' % cards['name'], cards['say'])
 
     def test_every_other_authored_step_is_named_in_words_and_never_waited_on(self):

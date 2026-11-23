@@ -35,7 +35,7 @@ graders:
       The user asked for Atlan Analytics to help ask questions about dashboards and query
       history in /workspace/analytics-input. Nothing has been inspected. The setup's ten
       steps (Choose what your agent answers, Find your sources, Pick tables and dashboards,
-      Build your context, Merge duplicate metrics, Write detailed notes on each metric and
+      Build your context, Merge duplicate metrics, Add detailed information to each metric and
       saved query, Validate the context on your data, Choose where to store your context, Ask
       your agent a question, Build a dashboard from its answers) must appear in chat as well as
       the host's task list. PASS if the reply shows those steps with choosing what the agent

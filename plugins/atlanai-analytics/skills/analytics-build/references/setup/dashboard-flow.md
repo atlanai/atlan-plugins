@@ -24,7 +24,7 @@ record the branch with `PROJECT journey agentic`; from then on `PROJECT checklis
 | 3 | Check what your agent can use | Only when a chosen tile or table would be left out |
 | 4 | Build your context: metrics and saved queries | No |
 | 5 | Merge duplicate metrics | No |
-| 6 | Write detailed notes on each metric and saved query | No |
+| 6 | Add detailed information to each metric and saved query | No |
 | 7 | Validate the context on your data | Yes: whether to run the tests |
 | 8 | Choose where to store your context | Yes |
 | 9 | Ask your agent a question | Yes |
@@ -185,7 +185,7 @@ Rough times, from a 37-tile report; scale by the number of tiles:
 | Questions for the tiles | "Writing the question each tile answers. Each becomes a saved query: the question, kept with the SQL that answers it." | 4 minutes |
 | Finding metrics | "Now finding the metrics behind each question. Each is defined once. Your agent answers from each metric's definition, so the same question gets the same number and you can trace it." | 4 minutes |
 | Merging | "Merging duplicate metrics across tiles into one metric each, so the count drops." | 3 minutes |
-| Writing notes | "Writing detailed notes on each metric: what it counts and what it leaves out. About `<time>`." | 10 minutes |
+| Adding information | "Adding detailed information to each metric: what it counts and what it leaves out. About `<time>`." | 10 minutes |
 | Links | "Linking metrics that build on each other." | 1 minute |
 
 ## 4. Validate the context on your data: the person's choice

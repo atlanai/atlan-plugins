@@ -93,7 +93,7 @@ class DashboardItems(unittest.TestCase):
                      phase={'code': 'check', 'status': 'running', 'label': 'Checking', 'source': 'project'},
                      counts={'metrics': 1, 'queries': 1, 'released': 0})
         write = {r['id']: r for r in checklist.build(model)['steps']}['write']
-        self.assertEqual(write['content'], 'Write detailed notes on 1 metric and 1 saved query')
+        self.assertEqual(write['content'], 'Add detailed information to 1 metric and 1 saved query')
 
 
 class DashboardContinuation(unittest.TestCase):

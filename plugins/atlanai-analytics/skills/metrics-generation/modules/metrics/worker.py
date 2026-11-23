@@ -231,7 +231,7 @@ def answer_contract(run, gate):
 BATCHED_GATES = ('m2', 'x1', 'x2', 'x3')
 # Each step for what it does: the app shows a subagent's name to the person, so it is never a gate's.
 STEP_NAMES = {'m2': 'Write each question', 'x1': 'Find metrics and saved queries',
-              'x2': 'Merge duplicate metrics', 'x3': 'Write detailed notes on each metric and saved query'}
+              'x2': 'Merge duplicate metrics', 'x3': 'Add detailed information to each metric and saved query'}
 
 
 # The other authored gates, as the person would name them: short enough to write in the session that talks to them.

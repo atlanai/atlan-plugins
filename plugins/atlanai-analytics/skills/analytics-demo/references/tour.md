@@ -123,7 +123,7 @@ what the person can't already see (step 2).
 | Read sources | Reading the dashboard's tiles and the past queries. | They show how `<firm>` already measures its work, so your agent measures it the same way. |
 | Load data | Loading `<firm>`'s tables into a small database on this machine. | Each metric gets tested on these rows, so you see what it comes to. |
 | Metrics found | Listing the metrics found in `<firm>`'s sources. | You see what your agent will answer from before I write notes on each one. |
-| Build | Writing detailed notes on each metric: what it counts and what it leaves out. | `<why build them>` |
+| Build | Adding detailed information to each metric: what it counts and what it leaves out. | `<why build them>` |
 | Check | Testing every metric and saved query on `<firm>`'s data. | A test catches one that returns nothing or looks off, before your agent answers with it. |
 | Sign-in | Opening Atlan sign-in in your browser. | Atlan needs to know who you are, and which workspaces you can save to. |
 | Workspace question | Asking where to save your agent's metrics. | A workspace decides who sees them. Your personal one is only yours. |

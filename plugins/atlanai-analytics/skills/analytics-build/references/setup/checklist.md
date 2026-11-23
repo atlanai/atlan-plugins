@@ -19,14 +19,14 @@ desktop app, its own plan tool. Use it whenever the host has one, not only when 
 | 2 | Find your sources | Choose what to build your agent from |
 | 3 | Pick tables and dashboards | Build your context: metrics and saved queries |
 | 4 | Build your context: metrics and saved queries | Merge duplicate metrics |
-| 5 | Merge duplicate metrics | Write detailed notes on each metric and saved query |
-| 6 | Write detailed notes on each metric and saved query | Validate the context on your data |
+| 5 | Merge duplicate metrics | Add detailed information to each metric and saved query |
+| 6 | Add detailed information to each metric and saved query | Validate the context on your data |
 | 7 | Validate the context on your data | Choose where to store your context |
 | 8 | Choose where to store your context | Ask your agent a question |
 | 9 | Ask your agent a question | |
 | 10 | Build a dashboard from its answers (optional) | |
 
-Drafting, merging, writing the notes and validating are the build, one step each, so the person sees how it moves.
+Drafting, merging, adding detailed information and validating are the build, one step each, so the person sees how it moves.
 Each ticks as the engine finishes its part and shows a time estimate once the count going into
 it is known ("about 4 min"); use the helper's text as it is. Each of these steps' chips comes
 with `task_list`, the list as it now stands: set the host's list to it in the same message.
